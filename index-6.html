@@ -215,30 +215,55 @@ function computeValuation(f,buildingVal,liveData){
 }
 
 // ─── API ─────────────────────────────────────────────────────────────────────
-const PF_KEY="7da522d58fmsh161b7610dfa29acp1023adjsn4dda46dfadfc";
-const PF_HOST="propertyfinder-uae-data.p.rapidapi.com";
+const RAPIDAPI_KEY=localStorage.getItem("dv_rapidapi")||"ddc307f847msh24a823bf182609ap19b50cjsn17114bab81f9";
+const UAE_HOST="uae-real-estate2.p.rapidapi.com";
+const GROQ_KEY=localStorage.getItem("dv_groq")||"";
+const GROQ_MODEL="llama-3.3-70b-versatile";
 
-async function fetchLiveData(building,area,beds){
-  const bedsMap={"Studio":"0","1 BR":"1","2 BR":"2","3 BR":"3","4 BR":"4","5+ BR":"5"};
-  const q=(building&&building.length>2)?building+" "+area:area;
-  const bn=bedsMap[beds]||"2";
-  const pfH={"x-rapidapi-key":PF_KEY,"x-rapidapi-host":PF_HOST};
-  const [s,t]=await Promise.allSettled([
-    fetch("https://"+PF_HOST+"/search-buy?page=1&hitsPerPage=10&q="+encodeURIComponent(q)+"&rooms="+bn,{headers:pfH}).then(function(r){return r.ok?r.json():null}),
-    fetch("https://"+PF_HOST+"/get-get-transactions?page=1&size=12&q="+encodeURIComponent(q),{headers:pfH}).then(function(r){return r.ok?r.json():null}),
-  ]);
-  const sales=s.status==="fulfilled"&&s.value&&s.value.data&&s.value.data.properties?s.value.data.properties.filter(function(p){return p.price&&p.area}).map(function(p){return{price:p.price,size:p.area,psf:Math.round(p.price/p.area),beds:p.rooms}}):[]; 
-  const txs=t.status==="fulfilled"&&t.value&&t.value.data&&t.value.data.transactions?t.value.data.transactions.filter(function(tx){return tx.price&&tx.area}).map(function(tx){return{price:tx.price,size:tx.area,psf:Math.round(tx.price/tx.area)}}):[]; 
-  return{sales,txs};
+async function getLocationId(query){
+  try{
+    const r=await fetch("https://"+UAE_HOST+"/auto-complete?query="+encodeURIComponent(query)+"&hitsPerPage=5",{headers:{"x-rapidapi-key":RAPIDAPI_KEY,"x-rapidapi-host":UAE_HOST}});
+    if(!r.ok)return null;
+    const d=await r.json();
+    const hits=d.hits||[];
+    return hits.length>0?(hits[0].objectID||hits[0].id||null):null;
+  }catch(e){return null;}
 }
 
-async function askClaude(messages,system){
-  const body={model:"claude-sonnet-4-20250514",max_tokens:1000,messages:messages};
-  if(system)body.system=system;
-  const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-  if(!r.ok)throw new Error("API "+r.status);
+async function fetchLiveData(building,area,beds){
+  const bedsMap={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5+ BR":5};
+  const bn=bedsMap[beds]||2;
+  const query=(building&&building.length>2)?building+" "+area:area;
+  try{
+    const locId=await getLocationId(query)||await getLocationId(area);
+    if(!locId)return{sales:[],txs:[]};
+    const headers={"x-rapidapi-key":RAPIDAPI_KEY,"x-rapidapi-host":UAE_HOST};
+    const params=new URLSearchParams({locationExternalIDs:locId,purpose:"for-sale",hitsPerPage:"15",page:"0",rooms_min:String(bn),rooms_max:String(bn)});
+    const [sp,tp]=await Promise.allSettled([
+      fetch("https://"+UAE_HOST+"/properties/list?"+params,{headers:headers}).then(function(r){return r.ok?r.json():null}),
+      fetch("https://"+UAE_HOST+"/transactions/list?locationExternalIDs="+locId+"&page=1&hitsPerPage=12",{headers:headers}).then(function(r){return r.ok?r.json():null}),
+    ]);
+    const sales=sp.status==="fulfilled"&&sp.value&&sp.value.hits?sp.value.hits.filter(function(p){return p.price&&p.area}).map(function(p){return{price:p.price,size:p.area,psf:Math.round(p.price/p.area),beds:p.rooms,title:p.title||""}}).filter(function(p){return p.psf>400&&p.psf<15000}):[];
+    const txs=tp.status==="fulfilled"&&tp.value&&tp.value.hits?tp.value.hits.filter(function(t){return t.price&&t.area}).map(function(t){return{price:t.price,size:t.area,psf:Math.round(t.price/t.area)}}).filter(function(t){return t.psf>400&&t.psf<15000}):[];
+    return{sales,txs};
+  }catch(e){return{sales:[],txs:[]};}
+}
+
+async function askGroq(messages,system){
+  let key=localStorage.getItem("dv_groq")||"";
+  if(!key){
+    key=prompt("Enter your Groq API key (get one free at console.groq.com):")||"";
+    if(key)localStorage.setItem("dv_groq",key.trim());
+    else throw new Error("Groq API key required");
+  }
+  const raw=messages.map(function(m){return{role:m.role==="assistant"?"assistant":"user",content:m.text||m.content||""}});
+  const firstUser=raw.findIndex(function(m){return m.role==="user"});
+  const filtered=firstUser>=0?raw.slice(firstUser):raw;
+  const msgs=system?[{role:"system",content:system},...filtered]:filtered;
+  const r=await fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+key.trim()},body:JSON.stringify({model:GROQ_MODEL,messages:msgs,max_tokens:1000,temperature:0.5})});
+  if(!r.ok){if(r.status===401){localStorage.removeItem("dv_groq");}throw new Error("Groq "+r.status);}
   const d=await r.json();
-  return d.content&&d.content.filter(function(b){return b.type==="text"}).map(function(b){return b.text}).join("")||"";
+  return d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||"";
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
@@ -297,6 +322,7 @@ let analyzerState={stage:0,form:{area:"",type:"Apartment",beds:"2 BR",floor:"",v
 let compareState={a1:"",a2:"",budget:"",purpose:"Investment",loading:false,result:"",err:""};
 let personalState={budget:"",role:"Investor",family:"Couple",children:"0",work:"",car:true,purpose:"Investment",timeline:"6 months",loading:false,result:"",err:""};
 let chatState={msgs:[{role:"assistant",text:"DubaiVal Intelligence.\n\nBuilding-level knowledge · June 2026 data · Confidence scoring.\n\nAsk me about any building, deal, or strategy."}],input:"",loading:false};
+let findState={area:"",beds:"2 BR",budgetMin:"",budgetMax:"",purpose:"for-sale",loading:false,results:[],aiInsight:"",err:""};
 
 function render(){
   const cl=C();
@@ -327,7 +353,7 @@ function render(){
   const header=div({background:cl.surface,borderBottom:"1px solid "+cl.border,padding:"0 20px",display:"flex",alignItems:"center",justifyContent:"space-between",height:"54px",position:"sticky",top:"0",zIndex:"100"},[logo,div({display:"flex",alignItems:"center",gap:"8px"},[liveTag,themeBtn])]);
 
   // Nav
-  const tabs=[{id:"Market",icon:"📊",label:"Market"},{id:"Analyzer",icon:"🔍",label:"Analyzer"},{id:"Compare",icon:"⚖️",label:"Compare"},{id:"Personal",icon:"🎯",label:"Personal"},{id:"Chat",icon:"💬",label:"AI Chat"}];
+  const tabs=[{id:"Market",icon:"📊",label:"Market"},{id:"Analyzer",icon:"🔍",label:"Analyzer"},{id:"Find",icon:"🏠",label:"Find"},{id:"Compare",icon:"⚖️",label:"Compare"},{id:"Personal",icon:"🎯",label:"Personal"},{id:"Chat",icon:"💬",label:"AI Chat"}];
   const nav=div({background:cl.surface,borderBottom:"1px solid "+cl.border,display:"flex",overflowX:"auto",padding:"0 20px"},
     tabs.map(function(t){
       const active=currentTab===t.id;
@@ -340,13 +366,14 @@ function render(){
   const content=div({className:"tab-content"});
   if(currentTab==="Market")content.appendChild(renderMarket());
   else if(currentTab==="Analyzer")content.appendChild(renderAnalyzer());
+  else if(currentTab==="Find")content.appendChild(renderFind());
   else if(currentTab==="Compare")content.appendChild(renderCompare());
   else if(currentTab==="Personal")content.appendChild(renderPersonal());
   else if(currentTab==="Chat")content.appendChild(renderChat());
 
   // Footer
   const footer=div({borderTop:"1px solid "+cl.border,padding:"10px 20px",display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:"4px"},[
-    span({color:cl.sub,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},"DubaiVal · DLD · Cascade AVM · June 2026"),
+    span({color:cl.sub,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},"DubaiVal · DLD · Cascade AVM · Groq AI · June 2026"),
     span({color:cl.sub,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},"Professional use only · Not financial advice"),
   ]);
 
@@ -427,7 +454,7 @@ function renderAnalyzer(){
 
   if(analyzerState.stage===1){
     // Loading
-    const steps=["Cascade AVM: DB → Comps → Benchmarks","Hedonic adjustments: view, floor, furnished, geo","PropertyFinder live listings","DLD transaction history","AI expert commentary"];
+    const steps=["Cascade AVM: DB → Comps → Benchmarks","Hedonic adjustments: view, floor, furnished, geo","UAE Real Estate live listings","DLD transaction history","AI expert commentary"];
     wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"28px"},[
       div({display:"flex",flexDirection:"column",alignItems:"center",gap:"14px",padding:"20px 0"},[
         div({width:"36px",height:"36px",borderRadius:"50%",border:"2px solid "+cl.border,borderTopColor:cl.gold,animation:"spin 0.8s linear infinite"}),
@@ -591,7 +618,7 @@ function renderAnalyzer(){
       const sys="You are DubaiVal, Dubai's most precise property valuation AI. June 2026. Market: Post-geo correction. Be specific with AED. Max 3 sentences. No fluff.";
       const compsStr=live.sales.slice(0,4).map(function(s){return"AED "+(s.price||0).toLocaleString()+" (PSF "+(s.psf||0).toLocaleString()+")"}).join(", ");
       const prompt=analyzerState.building+" "+f.area+" "+f.beds+", floor "+(f.floor||"mid")+", "+f.view+", "+parseInt(f.size).toLocaleString()+" sqft @ AED "+parseInt(f.price).toLocaleString()+" (PSF "+v1.askPSF.toLocaleString()+"). Verdict: "+v1.verdict+". Asking PSF "+v1.vsPct+"% vs market ("+v1.adjPSF.toLocaleString()+"). Comps: "+(compsStr||"none")+". 3 sentences: assessment, negotiation advice, risk/opportunity.";
-      const ai=await askClaude([{role:"user",content:prompt}],sys);
+      const ai=await askGroq([{role:"user",content:prompt}],sys);
       analyzerState.aiText=ai;
       analyzerState.stage=2;render();
     }catch(e){analyzerState.err=e.message;analyzerState.stage=0;render();}
@@ -625,7 +652,7 @@ function renderCompare(){
     compareState.loading=true;compareState.result="";render();
     try{
       const d1=AREAS[compareState.a1]||{};const d2=AREAS[compareState.a2]||{};
-      const text=await askClaude([{role:"user",content:"Compare for a client — Dubai June 2026:\nArea A: "+compareState.a1+" — avg PSF AED "+(d1.psf||"N/A")+", yield "+(d1.y||["N/A","N/A"]).join("-")+"%\nArea B: "+compareState.a2+" — avg PSF AED "+(d2.psf||"N/A")+", yield "+(d2.y||["N/A","N/A"]).join("-")+"%\nBudget: "+(compareState.budget?"AED "+parseInt(compareState.budget).toLocaleString():"not specified")+" | Purpose: "+compareState.purpose+"\nMarket: Post-geo correction, -6% geo adj, supply pressure H2 2026\n\nPSF · Yield · 3yr growth · Demand/liquidity · Risk · Decisive verdict for "+compareState.purpose}],"You are DubaiVal AI. June 2026 Dubai market expert. Specific AED numbers only. No fluff. 5 sections, 2 sentences each.");
+      const text=await askGroq([{role:"user",content:"Compare for a client — Dubai June 2026:\nArea A: "+compareState.a1+" — avg PSF AED "+(d1.psf||"N/A")+", yield "+(d1.y||["N/A","N/A"]).join("-")+"%\nArea B: "+compareState.a2+" — avg PSF AED "+(d2.psf||"N/A")+", yield "+(d2.y||["N/A","N/A"]).join("-")+"%\nBudget: "+(compareState.budget?"AED "+parseInt(compareState.budget).toLocaleString():"not specified")+" | Purpose: "+compareState.purpose+"\nMarket: Post-geo correction, -6% geo adj, supply pressure H2 2026\n\nPSF · Yield · 3yr growth · Demand/liquidity · Risk · Decisive verdict for "+compareState.purpose}],"You are DubaiVal AI. June 2026 Dubai market expert. Specific AED numbers only. No fluff. 5 sections, 2 sentences each.");
       compareState.result=text;
     }catch(e){compareState.result="Error: "+e.message;}
     compareState.loading=false;render();
@@ -671,7 +698,7 @@ function renderPersonal(){
     if(!p.budget)return;
     personalState.loading=true;personalState.result="";render();
     try{
-      const text=await askClaude([{role:"user",content:"My profile:\nBudget: AED "+parseInt(p.budget).toLocaleString()+" | I am: "+p.role+" | Family: "+p.family+" | Children: "+p.children+"\nWork: "+(p.work||"flexible")+" | Purpose: "+p.purpose+" | Timeline: "+p.timeline+"\n\nGive me 3 specific area recommendations, 3 communities, and 3 buildings in Dubai.\nFor each: current PSF range, expected yield, lifestyle fit, why it matches my profile.\nBe specific with AED numbers."}],"You are DubaiVal Personal Advisor. June 2026 Dubai expert. Specific AED numbers, direct recommendations, no fluff.");
+      const text=await askGroq([{role:"user",content:"My profile:\nBudget: AED "+parseInt(p.budget).toLocaleString()+" | I am: "+p.role+" | Family: "+p.family+" | Children: "+p.children+"\nWork: "+(p.work||"flexible")+" | Purpose: "+p.purpose+" | Timeline: "+p.timeline+"\n\nGive me 3 specific area recommendations, 3 communities, and 3 buildings in Dubai.\nFor each: current PSF range, expected yield, lifestyle fit, why it matches my profile.\nBe specific with AED numbers."}],"You are DubaiVal Personal Advisor. June 2026 Dubai expert. Specific AED numbers, direct recommendations, no fluff.");
       personalState.result=text;
     }catch(e){personalState.result="Error: "+e.message;}
     personalState.loading=false;render();
@@ -745,10 +772,111 @@ async function sendChat(text){
   try{
     const history=chatState.msgs.slice(-8).map(function(m){return{role:m.role==="assistant"?"assistant":"user",content:m.text}});
     const CHAT_SYS="You are DubaiVal AI — Dubai's most precise property intelligence engine. June 2026.\nMarket: Post-geo correction, -6% adj, moderation phase, buyer leverage window.\nPSF: Downtown 2,400 | Marina 2,000 | Palm 3,300 | Business Bay 1,900 | JVC 1,150 | Dubai Hills 1,850.\nYields: JVC 7.5-9.5% | Al Furjan 7-8.5% | Business Bay 5.8-6.5% | Downtown 4.8-5.5%.\nBe specific with AED. Short and decisive.";
-    const reply=await askClaude(history,CHAT_SYS);
+    const reply=await askGroq(history,CHAT_SYS);
     chatState.msgs.push({role:"assistant",text:reply});
   }catch(e){chatState.msgs.push({role:"assistant",text:"Error: "+e.message});}
   chatState.loading=false;render();
+}
+
+// ─── FIND TAB ────────────────────────────────────────────────────────────────
+async function fetchFind(){
+  const f=findState;
+  if(!f.area||f.area==="Select…")return;
+  findState.loading=true;findState.results=[];findState.aiInsight="";findState.err="";render();
+  try{
+    const headers={"x-rapidapi-key":RAPIDAPI_KEY,"x-rapidapi-host":UAE_HOST};
+    const bedsMap={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5+ BR":5};
+    const bn=bedsMap[f.beds]||2;
+    const locId=await getLocationId(f.area);
+    let listings=[];
+    if(locId){
+      const params=new URLSearchParams({locationExternalIDs:locId,purpose:f.purpose,hitsPerPage:"25",page:"0",rooms_min:String(bn),rooms_max:String(bn)});
+      if(f.budgetMin)params.set("priceMin",f.budgetMin);
+      if(f.budgetMax)params.set("priceMax",f.budgetMax);
+      const r=await fetch("https://"+UAE_HOST+"/properties/list?"+params,{headers:headers});
+      if(r.ok){
+        const d=await r.json();
+        if(d.hits&&d.hits.length>0){
+          listings=d.hits.filter(function(p){return p.price&&p.area}).map(function(p){
+            return{price:p.price,size:p.area,psf:Math.round(p.price/p.area),beds:p.rooms,baths:p.baths,title:p.title||"",furnishing:p.furnishingStatus||""};
+          }).filter(function(p){return p.psf>200&&p.psf<20000});
+        }
+      }
+    }
+    findState.results=listings;
+    if(listings.length===0){
+      const budgetStr=f.budgetMax?"under AED "+parseInt(f.budgetMax).toLocaleString():"";
+      const ai=await askGroq([{role:"user",content:"List 5 realistic property options in "+f.area+", Dubai for "+f.beds+(budgetStr?" "+budgetStr:"")+". Purpose: "+(f.purpose==="for-sale"?"Buy":"Rent")+". June 2026 pricing.\n\nFormat each as:\n• Building Name | AED X,XXX,XXX | XXX sqft | AED X,XXX PSF | Key features"}],"You are DubaiVal AI. June 2026 Dubai real estate expert. Provide realistic market-accurate property options with specific AED pricing. Be concise.");
+      findState.aiInsight=ai;
+    }
+  }catch(e){
+    try{
+      const ai=await askGroq([{role:"user",content:"List 5 available properties "+(findState.purpose==="for-sale"?"for sale":"for rent")+" in "+findState.area+", Dubai for "+findState.beds+". June 2026 market. Format: • Building | Price AED | Size sqft | PSF"}],"You are DubaiVal. June 2026 Dubai property expert. Specific AED numbers only.");
+      findState.aiInsight=ai;
+    }catch(e2){findState.err="Live data unavailable. Check connection or try the AI Chat tab.";}
+  }
+  findState.loading=false;render();
+}
+
+function renderFind(){
+  const cl=C();const f=findState;
+  const wrap=div({padding:"20px",maxWidth:"640px",margin:"0 auto"});
+  wrap.appendChild(div({marginBottom:"16px"},[
+    span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ Find Properties"),
+    span({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Live UAE listings via RapidAPI · AI-powered fallback"),
+  ]));
+  const card=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px"});
+  const aW=div({marginBottom:"14px"});aW.appendChild(label("Area *"));aW.appendChild(select(S(),["Select…",...AREA_NAMES],f.area,function(v){findState.area=v}));card.appendChild(aW);
+  const g=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"14px"});
+  const bW=div({});bW.appendChild(label("Bedrooms"));bW.appendChild(select(S(),["Studio","1 BR","2 BR","3 BR","4 BR","5+ BR"],f.beds,function(v){findState.beds=v}));g.appendChild(bW);
+  const purW=div({});purW.appendChild(label("Purpose"));purW.appendChild(select(S(),["for-sale","for-rent"],f.purpose,function(v){findState.purpose=v}));g.appendChild(purW);
+  const mnW=div({});mnW.appendChild(label("Min Price (AED)"));mnW.appendChild(inp(I(),"500,000","number",f.budgetMin,function(v){findState.budgetMin=v}));g.appendChild(mnW);
+  const mxW=div({});mxW.appendChild(label("Max Price (AED)"));mxW.appendChild(inp(I(),"5,000,000","number",f.budgetMax,function(v){findState.budgetMax=v}));g.appendChild(mxW);
+  card.appendChild(g);
+  card.appendChild(btn({width:"100%",padding:"14px",borderRadius:"10px",border:"none",background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",color:"#070B14",fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em"},f.loading?"SEARCHING…":"FIND PROPERTIES →",fetchFind,f.loading||!f.area||f.area==="Select…"));
+  wrap.appendChild(card);
+  if(f.loading){
+    wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"28px",textAlign:"center"},[
+      div({width:"36px",height:"36px",borderRadius:"50%",border:"2px solid "+cl.border,borderTopColor:cl.gold,animation:"spin 0.8s linear infinite",margin:"0 auto",marginBottom:"12px"}),
+      span({color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},"Fetching live listings…"),
+    ]));
+  }
+  if(f.results.length>0&&!f.loading){
+    const rCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px"});
+    rCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
+      span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ LIVE LISTINGS · "+f.results.length+" FOUND"),
+      pill("LIVE","green"),
+    ]));
+    f.results.slice(0,12).forEach(function(p){
+      const pCard=div({background:cl.raised,borderRadius:"10px",padding:"14px",marginBottom:"10px"});
+      pCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"6px"},[
+        span({color:cl.white,fontSize:"13px",fontWeight:"600",fontFamily:"'Inter',sans-serif",flex:"1",marginRight:"10px",lineHeight:"1.4"},p.title||(f.beds+" in "+f.area)),
+        span({color:cl.gold,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",flexShrink:"0"},"AED "+(p.price||0).toLocaleString()),
+      ]));
+      pCard.appendChild(div({display:"flex",gap:"10px",flexWrap:"wrap"},[
+        span({color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},(p.size||0).toLocaleString()+" sqft"),
+        span({color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},"AED "+(p.psf||0).toLocaleString()+" PSF"),
+        p.beds!=null?span({color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},p.beds+" BR"):null,
+        p.baths?span({color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},p.baths+" Bath"):null,
+        p.furnishing?span({color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},p.furnishing):null,
+      ].filter(Boolean)));
+      rCard.appendChild(pCard);
+    });
+    wrap.appendChild(rCard);
+  }
+  if(f.aiInsight&&!f.loading){
+    const aCard=div({background:cl.surface,border:"1px solid "+cl.goldDim,borderRadius:"14px",padding:"20px"});
+    aCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"},[
+      span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ AI MARKET INTELLIGENCE"),
+      pill("AI Groq","gold"),
+    ]));
+    const t=div({color:cl.subHi,fontSize:"13px",lineHeight:"1.85",fontFamily:"'Inter',sans-serif",whiteSpace:"pre-wrap"});t.textContent=f.aiInsight;aCard.appendChild(t);
+    wrap.appendChild(aCard);
+  }
+  if(f.err&&!f.loading){
+    wrap.appendChild(div({color:cl.red,fontSize:"11.5px",marginTop:"8px",fontFamily:"'Space Grotesk',monospace",textAlign:"center"},f.err));
+  }
+  return wrap;
 }
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
