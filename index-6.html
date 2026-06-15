@@ -413,10 +413,9 @@ function computeValuation(f,buildingVal,liveData){
     }
   }
   // Premiums
-  // For DB buildings: apply only the DIFFERENTIAL view premium vs the baseline
-  // already priced into the building's DB value.
-  // Ultra/A+ buildings in prime areas already price in premium views (Burj/Sea/Canal).
-  // Baseline assumed by grade: Ultra=BurjKhalifa(0.32), A+=Sea(0.28), A=Canal(0.19), A-=Pool(0.09), B+=Garden(0.06), B/C=Road(0)
+  // For DB buildings: apply differential view premium vs the grade baseline,
+  // but never penalize — views below baseline get 0 (no negative adjustment).
+  // Rule: no punishment in pricing for any view type.
   const GRADE_BASE_VIEW={"Ultra":0.28,"A+":0.19,"A":0.12,"A-":0.06,"B+":0.03,"B":0,"C":0};
   const rawVP=VIEW_P[f.view]||0;
   let vP;
@@ -425,7 +424,7 @@ function computeValuation(f,buildingVal,liveData){
       vP=0; // assume average view already in DB price
     } else {
       vP=rawVP-GRADE_BASE_VIEW[bData.g];
-      vP=Math.max(-0.30,Math.min(0.15,vP));
+      vP=Math.max(0,Math.min(0.15,vP));
     }
   } else {
     vP=rawVP;
