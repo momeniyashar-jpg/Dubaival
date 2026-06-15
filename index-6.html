@@ -86,7 +86,7 @@ const CLUSTERS = {
   "Arabian Ranches":["Palmera","Saheel","Savannah","Al Mahra","Mirador","Mirador La Coleccion","Alvorada","Aseel","Al Reem","Polo Homes"],
   "Arabian Ranches 2":["Casa","Lila","Palma","Rasha","Rosa","Yasmin","Samara","Azalea","Reem","Camelia"],
   "Arabian Ranches 3":["Sun","Joy","Spring","Raya","Bliss","Bliss II","Elie Saab","Elie Saab II","June","June II","Caya","Caya II"],
-  "DAMAC Hills":["Brookfield","Silver Springs","Trump Estates","Topanga","Richmond","Queens Meadow","Pelham","Sahara Villas","Trinity","Rochester","The Park Villas"],
+  "DAMAC Hills":["Brookfield","Silver Springs","Trump Estates","Topanga","Richmond","Queens Meadow","Pelham","Sahara Villas","Trinity","Rochester","The Park Villas","Jasmine Lane","Cavalli Estates","The Golf Suites"],
   "DAMAC Hills 2":["Amazonia","Bellavista","Claret","Vardon","Akoya","Amargo","Aquilegia","Basswood","Coursetia","Mimosa"],
   "DAMAC Lagoons":["Venice","Morocco","Costa Brava","Mykonos","Marbella","Santorini","Ibiza","Malta","Portofino","Nice"],
   "Tilal Al Ghaf":["Aura","Elan","Alaya","Serenity","Lanai","Harmony","Elysian Mansions"],
@@ -127,7 +127,7 @@ const MARKET_STATS=[
 ];
 
 // --- VIEW PREMIUMS ------------------------------------------------------------
-const VIEW_P={"Full Sea View":0.28,"Partial Sea View":0.14,"Burj Khalifa View":0.32,"Partial Burj View":0.16,"Full Canal View":0.19,"Partial Canal View":0.09,"Beach Access View":0.22,"Sheikh Zayed Road View":0.12,"Golf View":0.14,"Lagoon View":0.13,"Pool View":0.09,"Garden/Park View":0.06,"Skyline View":0.12,"City Skyline":0.12,"City View":0.10,"Road View":0.00,"Not specified":0.00};
+const VIEW_P={"Full Sea View":0.28,"Partial Sea View":0.14,"Burj Khalifa View":0.32,"Partial Burj View":0.16,"Full Canal View":0.19,"Partial Canal View":0.09,"Beach Access View":0.22,"Sheikh Zayed Road View":0.12,"Golf View":0.14,"Lagoon View":0.13,"Pool View":0.09,"Garden/Park View":0.06,"Lake View":0.08,"Community View":0.03,"Backing Open Land":0.02,"Skyline View":0.12,"City Skyline":0.12,"City View":0.10,"Road View":0.00,"Not specified":0.00,"Beach Access View":0.22};
 
 // --- BUILDING DATABASE --------------------------------------------------------
 // VERSION: 3.0 | DATE: June 2026 | ENTRIES: 5232 buildings
@@ -157,43 +157,43 @@ const AREAS={
   "MBR City":{psf:1900,sc:16,r1:75000,r2:115000,r3:165000,y:[5.8,6.8],g:[12,22,32]},
   "Sobha Hartland":{psf:1850,sc:16,r1:74000,r2:114000,r3:162000,y:[5.8,6.8],g:[12,20,30]},
   "Jumeirah Village Circle":{psf:1150,sc:12,r1:52000,r2:75000,r3:100000,y:[7.5,9.5],g:[8,15,22]},
-  "Dubai Hills Estate":{psf:1850,sc:15,rv3:165000,rv4:220000,y:[5.2,6.0],g:[12,20,30]},
-  "DAMAC Lagoons":{psf:1300,sc:4.5,rv3:150000,rv4:200000,y:[6.0,7.5],g:[10,18,28]},
-  "Arabian Ranches":{psf:1400,sc:2.5,rv3:160000,rv4:210000,y:[5.5,7.0],g:[8,15,22]},
-  "Arabian Ranches 2":{psf:1350,sc:2.8,rv3:155000,rv4:205000,y:[5.5,7.0],g:[8,15,22]},
-  "Arabian Ranches 3":{psf:1250,sc:3.0,rv3:140000,rv4:190000,y:[5.8,7.0],g:[8,15,22]},
-  "Tilal Al Ghaf":{psf:1900,sc:4.5,rv3:220000,rv4:300000,y:[5.5,7.0],g:[10,18,26]},
+  "Dubai Hills Estate":{psf:1850,sc:15,rv3:165000,rv4:220000,rv5:300000,rv6:400000,y:[5.2,6.0],g:[12,20,30]},
+  "DAMAC Lagoons":{psf:1300,sc:4.5,rv3:200000,rv4:260000,rv5:360000,rv6:480000,rv7:620000,y:[6.0,7.5],g:[10,18,28]},
+  "Arabian Ranches":{psf:1400,sc:2.5,rv3:160000,rv4:210000,rv5:290000,y:[5.5,7.0],g:[8,15,22]},
+  "Arabian Ranches 2":{psf:1350,sc:2.8,rv3:155000,rv4:205000,rv5:280000,y:[5.5,7.0],g:[8,15,22]},
+  "Arabian Ranches 3":{psf:1250,sc:3.0,rv3:140000,rv4:190000,rv5:260000,y:[5.8,7.0],g:[8,15,22]},
+  "Tilal Al Ghaf":{psf:1900,sc:4.5,rv3:220000,rv4:300000,rv5:420000,rv6:570000,y:[5.5,7.0],g:[10,18,26]},
   "Al Furjan":{psf:1050,sc:3.0,r1:48000,r2:70000,r3:95000,y:[7.0,8.5],g:[8,14,20]},
   "Dubai South":{psf:900,sc:3.5,r1:38000,r2:58000,r3:82000,y:[7.5,9.0],g:[10,18,28]},
   "Jumeirah Lake Towers":{psf:1200,sc:15,r1:55000,r2:82000,r3:115000,y:[6.5,8.0],g:[8,14,20]},
   "The Springs":{psf:1400,sc:2.5,rv2:130000,rv3:165000,y:[6.0,7.5],g:[8,15,22]},
-  "The Meadows":{psf:1500,sc:2.8,rv3:165000,rv4:220000,y:[6.0,7.5],g:[8,15,22]},
-  "The Lakes":{psf:1600,sc:3.0,rv3:180000,rv4:240000,y:[5.8,7.0],g:[8,15,22]},
+  "The Meadows":{psf:1500,sc:2.8,rv3:165000,rv4:220000,rv5:295000,y:[6.0,7.5],g:[8,15,22]},
+  "The Lakes":{psf:1600,sc:3.0,rv3:180000,rv4:240000,rv5:320000,y:[5.8,7.0],g:[8,15,22]},
   "Meydan":{psf:1600,sc:16,r1:68000,r2:105000,r3:148000,y:[5.8,7.0],g:[12,22,32]},
   "Al Barsha":{psf:1000,sc:12,r1:45000,r2:68000,r3:92000,y:[7.0,8.5],g:[6,12,18]},
-  "Jumeirah Golf Estates":{psf:1450,sc:5.5,rv3:180000,rv4:240000,y:[5.5,7.0],g:[10,18,26]},
+  "Jumeirah Golf Estates":{psf:1450,sc:5.5,rv3:180000,rv4:240000,rv5:320000,y:[5.5,7.0],g:[10,18,26]},
   "Dubai Sports City":{psf:900,sc:10,r1:38000,r2:58000,r3:80000,y:[7.5,9.0],g:[8,14,20]},
-  "DAMAC Hills":{psf:1100,sc:4.5,rv3:140000,rv4:185000,y:[6.0,7.5],g:[8,15,22]},
-  "DAMAC Hills 2":{psf:900,sc:4.0,rv3:120000,rv4:160000,y:[6.5,8.0],g:[8,14,20]},
+  "DAMAC Hills":{psf:1100,sc:4.5,rv3:140000,rv4:185000,rv5:260000,y:[6.0,7.5],g:[8,15,22]},
+  "DAMAC Hills 2":{psf:900,sc:4.0,rv3:120000,rv4:160000,rv5:220000,y:[6.5,8.0],g:[8,14,20]},
   "Town Square":{psf:800,sc:2.8,rv3:120000,rv4:160000,y:[6.5,8.0],g:[8,14,20]},
-  "The Valley":{psf:900,sc:3.0,rv3:130000,rv4:170000,y:[6.5,8.0],g:[8,14,20]},
+  "The Valley":{psf:900,sc:3.0,rv3:130000,rv4:170000,rv5:240000,y:[6.5,8.0],g:[8,14,20]},
   "Dubai Harbour":{psf:2800,sc:24,r1:110000,r2:165000,r3:240000,y:[5.0,6.0],g:[12,22,32]},
   "DIFC":{psf:2600,sc:24,r1:110000,r2:165000,r3:235000,y:[5.0,6.0],g:[12,20,28]},
   "City Walk":{psf:2200,sc:20,r1:90000,r2:140000,r3:200000,y:[5.2,6.0],g:[10,18,26]},
-  "Palm Jebel Ali":{psf:2650,sc:8.0,rv5:450000,rv6:600000,y:[4.0,5.5],g:[20,35,50]},
-  "Emirates Hills":{psf:2200,sc:6.0,rv4:320000,rv5:450000,y:[4.5,6.0],g:[10,18,26]},
-  "Mudon":{psf:1000,sc:3.5,rv3:130000,rv4:175000,y:[6.0,7.5],g:[8,14,20]},
-  "Villanova":{psf:950,sc:3.2,rv3:125000,rv4:165000,y:[6.0,7.5],g:[8,14,20]},
-  "Al Barari":{psf:2000,sc:7.57,rv4:280000,rv5:380000,y:[5.0,6.5],g:[8,15,22]},
+  "Palm Jebel Ali":{psf:2650,sc:8.0,rv5:450000,rv6:600000,rv7:850000,y:[4.0,5.5],g:[20,35,50]},
+  "Emirates Hills":{psf:2200,sc:6.0,rv4:320000,rv5:450000,rv6:620000,y:[4.5,6.0],g:[10,18,26]},
+  "Mudon":{psf:1000,sc:3.5,rv3:130000,rv4:175000,rv5:240000,y:[6.0,7.5],g:[8,14,20]},
+  "Villanova":{psf:950,sc:3.2,rv3:125000,rv4:165000,rv5:230000,y:[6.0,7.5],g:[8,14,20]},
+  "Al Barari":{psf:2000,sc:7.57,rv4:280000,rv5:380000,rv6:520000,y:[5.0,6.5],g:[8,15,22]},
   "Motor City":{psf:900,sc:10,rv2:95000,rv3:130000,y:[7.0,8.5],g:[6,12,18]},
   "Jumeirah Bay Island":{psf:5000,sc:50,rv4:500000,rv5:700000,y:[4.0,5.5],g:[10,18,28]},
   "Jumeirah Village Triangle":{psf:1000,sc:10,r1:45000,r2:65000,r3:90000,y:[7.0,8.5],g:[7,13,20]},
   "Majan":{psf:750,sc:9,r1:35000,r2:52000,r3:74000,y:[7.5,9.0],g:[6,12,18]},
   "Polo Residences":{psf:1100,sc:5.0,r1:48000,r2:72000,r3:100000,y:[6.5,8.0],g:[7,13,19]},
-  "Wadi Al Safa":{psf:800,sc:4.0,rv3:115000,rv4:155000,y:[6.5,8.0],g:[7,13,19]},
-  "Cherrywoods":{psf:950,sc:3.5,rv3:125000,rv4:165000,y:[6.0,7.5],g:[8,14,20]},
-  "The Heights":{psf:1300,sc:4.0,rv3:160000,rv4:210000,y:[5.5,7.0],g:[9,16,23]},
-  "The Oasis":{psf:2000,sc:5.0,rv4:280000,rv5:380000,y:[5.0,6.5],g:[12,22,32]},
+  "Wadi Al Safa":{psf:800,sc:4.0,rv3:115000,rv4:155000,rv5:210000,y:[6.5,8.0],g:[7,13,19]},
+  "Cherrywoods":{psf:950,sc:3.5,rv3:125000,rv4:165000,rv5:225000,y:[6.0,7.5],g:[8,14,20]},
+  "The Heights":{psf:1300,sc:4.0,rv3:160000,rv4:210000,rv5:280000,y:[5.5,7.0],g:[9,16,23]},
+  "The Oasis":{psf:2000,sc:5.0,rv4:280000,rv5:380000,rv6:520000,y:[5.0,6.5],g:[12,22,32]},
 };
 const AREA_NAMES=Object.keys(AREAS);
 
@@ -450,8 +450,9 @@ function computeValuation(f,buildingVal,liveData){
   const penthP=f.aptSubtype==="Penthouse"?0.15:0;
   // Maid's room premium
   const maidP=f.hasMaid?0.03:0;
-  const privatePoolP=isVilla&&f.privatePool?0.05:0;  // 5% - modest premium, often standard
-  const singleRowP=isVilla&&f.singleRow?0.03:0;    // 3% - end unit privacy benefit
+  const privatePoolP=isVilla&&f.privatePool?0.12:0;  // 12% - private pool premium (Dubai market)
+  const singleRowP=isVilla&&f.singleRow?0.08:0;    // 8% - single row / end-unit privacy
+  const cornerVillaP=isVilla&&f.cornerVilla?0.05:0; // 5% - corner plot premium
   // Developer-furnished buildings (df:1): base PSF already includes furniture premium
   // Selecting "Furnished" = no extra premium (already in price); "Unfurnished" = discount
   const isDevFurnished=!!(bData&&bData.df);
@@ -462,7 +463,7 @@ function computeValuation(f,buildingVal,liveData){
     furnP=f.furnished==="Furnished"?0.15:f.furnished==="Semi-Furnished"?0.07:0;
   }
   const geoAdj=-0.06; // Regional discount Jun 2026 — reflected in prime area market data
-  const hedonicMult=(1+vP)*(1+fP)*(1+loftP)*(1+penthP)*(1+maidP)*(1+furnP)*(1+privatePoolP)*(1+singleRowP)*(1+geoAdj);
+  const hedonicMult=(1+vP)*(1+fP)*(1+loftP)*(1+penthP)*(1+maidP)*(1+furnP)*(1+privatePoolP)*(1+singleRowP)*(1+cornerVillaP)*(1+geoAdj);
   const adjPSF=Math.round(basePSF*hedonicMult);
   psfLo=Math.round(psfLo*hedonicMult);psfHi=Math.round(psfHi*hedonicMult);
   const parkBonus=Math.max(0,(parseInt(f.parking)||1)-1)*80000;
@@ -488,13 +489,14 @@ function computeValuation(f,buildingVal,liveData){
   const confTier=confScore>=90?{label:"Very High",range:"±3–5%",spread:0.04,c:"green"}:confScore>=80?{label:"High",range:"±5–8%",spread:0.07,c:"green"}:confScore>=68?{label:"Medium",range:"±8–12%",spread:0.11,c:"yellow"}:confScore>=55?{label:"Low",range:"±12–18%",spread:0.15,c:"yellow"}:{label:"Indicative",range:"±18–25%",spread:0.22,c:"red"};
   const priceLow=Math.round(fairPrice*(1-confTier.spread));
   const priceHigh=Math.round(fairPrice*(1+confTier.spread));
-  const bn={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5}[f.beds]!=null?{"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5}[f.beds]:2;
-  const rent=isVilla?(bn<=3?aData.rv3||180000:bn<=4?aData.rv4||240000:aData.rv5||350000):bn===0?(aData.r1||65000)*0.65:bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
+  const bnMap={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5,"6 BR":6,"7 BR":7,"7+ BR":7};
+  const bn=bnMap[f.beds]!=null?bnMap[f.beds]:2;
+  const rent=isVilla?(bn<=3?aData.rv3||180000:bn<=4?aData.rv4||240000:bn<=5?aData.rv5||350000:bn<=6?aData.rv6||500000:aData.rv7||650000):bn===0?(aData.r1||65000)*0.65:bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
   const sc=(parseFloat(f.serviceCharge)||(bData&&bData.sc)||aData.sc||15)*size;
   const grossYield=(rent/price*100).toFixed(1);
   const netYield=((rent-sc)/price*100).toFixed(1);
   const gr=aData.g||[10,18,28];
-  return{askPSF,adjPSF,psfLo,psfHi,fairPrice,distressPrice,goodPrice,overpricedAt,verdict,vsPct:vsPct.toFixed(1),suggestedOffer,dataSource,dataLayer,confScore,confTier,priceLow,priceHigh,inDB:!!bData,bData,isDevFurnished,vP:Math.round(vP*100),fP:Math.round(fP*100),furnP:Math.round(furnP*100),loftP:Math.round(loftP*100),penthP:Math.round(penthP*100),maidP:Math.round(maidP*100),geo:Math.round(geoAdj*100),rent,sc,grossYield,netYield,g0:gr[0],g1:gr[1],g2:gr[2]};
+  return{askPSF,adjPSF,psfLo,psfHi,fairPrice,distressPrice,goodPrice,overpricedAt,verdict,vsPct:vsPct.toFixed(1),suggestedOffer,dataSource,dataLayer,confScore,confTier,priceLow,priceHigh,inDB:!!bData,bData,isDevFurnished,vP:Math.round(vP*100),fP:Math.round(fP*100),furnP:Math.round(furnP*100),loftP:Math.round(loftP*100),penthP:Math.round(penthP*100),maidP:Math.round(maidP*100),privatePoolP:Math.round(privatePoolP*100),singleRowP:Math.round(singleRowP*100),cornerVillaP:Math.round(cornerVillaP*100),geo:Math.round(geoAdj*100),rent,sc,grossYield,netYield,g0:gr[0],g1:gr[1],g2:gr[2]};
 }
 
 // --- API ---------------------------------------------------------------------
@@ -831,8 +833,9 @@ var analyzerState={
     floors:"",
     plotSize:"",
     buaSize:"",
-    hasPool:false,
-    hasGarden:true,
+    privatePool:false,
+    singleRow:false,
+    cornerVilla:false,
     building:"",
   },
   val:null,aiText:"",liveData:null,err:""
@@ -2137,6 +2140,7 @@ function renderAnalyzer(){
 
     // Beds
     formCard.appendChild(fld("Bedrooms",mkSelect(S(),["3 BR","4 BR","5 BR","6 BR","7+ BR"],f.beds||"4 BR",function(v){analyzerState.f.beds=v;})));
+    formCard.appendChild(fld("Bathrooms",mkSelect(S(),["3","4","5","6","7","8+"],f.bathrooms||"",function(v){analyzerState.f.bathrooms=v;})));
     
     // Floors info
     formCard.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginTop:"12px",marginBottom:"8px"},"Floor Plan"));
@@ -2152,7 +2156,7 @@ function renderAnalyzer(){
     formCard.appendChild(floorRow);
 
     // View
-    if(!f.singleRow){formCard.appendChild(fld("View",mkSelect(S(),["Not specified","Skyline View","Golf View","Park View","Lake View","Community View","Pool View","Corner Unit","Full Sea View","Partial Sea View","Backing Open Land"],f.view||"Not specified",function(v){analyzerState.f.view=v;})));}
+    if(!f.singleRow){formCard.appendChild(fld("View",mkSelect(S(),["Not specified","Golf View","Lagoon View","Lake View","Park View","Community View","Pool View","Garden/Park View","Full Sea View","Partial Sea View","Skyline View","Backing Open Land"],f.view||"Not specified",function(v){analyzerState.f.view=v;})));}
     if(f.singleRow){
       var srNote=el("div",{style:{background:"rgba(201,168,76,0.08)",border:"1px solid "+cl.goldDim,borderRadius:"8px",padding:"8px 12px",marginBottom:"12px"}});
       srNote.appendChild(div({color:cl.gold,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Single Row: No neighboring units on one side. View not applicable."));
@@ -2183,6 +2187,16 @@ function renderAnalyzer(){
     srToggle.appendChild(srLbl);
     srToggle.addEventListener("click",function(){analyzerState.f.singleRow=!analyzerState.f.singleRow;render();});
     ppBox.appendChild(srToggle);
+    // Corner Villa toggle
+    var cvToggle=el("div",{style:{display:"flex",alignItems:"center",gap:"8px",padding:"7px 10px",background:cl.raised,borderRadius:"8px",cursor:"pointer",border:"1px solid "+(f.cornerVilla?cl.gold:cl.border),marginTop:"6px"}});
+    var cvChk=el("div",{style:{width:"16px",height:"16px",borderRadius:"4px",border:"2px solid "+(f.cornerVilla?cl.gold:cl.border),background:f.cornerVilla?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"10px",color:"#08090C"}});
+    if(f.cornerVilla)cvChk.textContent="v";
+    cvToggle.appendChild(cvChk);
+    var cvLbl=el("div",{style:{fontSize:"12px",fontFamily:"'Inter',sans-serif",color:f.cornerVilla?"#F0F2F5":cl.sub}});
+    cvLbl.textContent="Corner Villa (+5%)";
+    cvToggle.appendChild(cvLbl);
+    cvToggle.addEventListener("click",function(){analyzerState.f.cornerVilla=!analyzerState.f.cornerVilla;render();});
+    ppBox.appendChild(cvToggle);
     ppRow.appendChild(ppBox);
     var pkVBox=el("div",{});
     pkVBox.appendChild(lbl("Parking"));
@@ -2190,7 +2204,7 @@ function renderAnalyzer(){
     ppRow.appendChild(pkVBox);
     formCard.appendChild(ppRow);
     // Furnished status for villas
-    formCard.appendChild(fld("Condition / Furnished",mkSelect(S(),["Unfurnished","Furnished","Vacant","Tenanted","Brand New / Handover"],f.furnished||"Unfurnished",function(v){analyzerState.f.furnished=v;})));
+    formCard.appendChild(fld("Furnished",mkSelect(S(),["Unfurnished","Semi-Furnished","Furnished"],f.furnished||"Unfurnished",function(v){analyzerState.f.furnished=v;})));
     // BUA + Plot
     const sizeRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginTop:"12px",marginBottom:"12px"}});
     const buaBox=el("div",{}); buaBox.appendChild(lbl("BUA (sqft)"));
@@ -2265,8 +2279,13 @@ function renderAnalyzer(){
     // Floor + View
     const fvRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"}});
     const flBox=el("div",{}); flBox.appendChild(lbl("Floor Number")); flBox.appendChild(inp(I(),"e.g. 19","number",f.floor,function(v){analyzerState.f.floor=v;})); fvRow.appendChild(flBox);
-    const vwBox=el("div",{}); vwBox.appendChild(lbl("View")); vwBox.appendChild(mkSelect(S(),["Not specified","Full Sea View","Partial Sea View","Burj Khalifa View","Partial Burj View","Full Canal View","Partial Canal View","Sheikh Zayed Road View","Skyline View","City Skyline","Pool View","Park View","Garden View","City View","Road View"],f.view||"Not specified",function(v){analyzerState.f.view=v;})); fvRow.appendChild(vwBox);
+    const vwBox=el("div",{}); vwBox.appendChild(lbl("View")); vwBox.appendChild(mkSelect(S(),["Not specified","Full Sea View","Partial Sea View","Burj Khalifa View","Partial Burj View","Full Canal View","Partial Canal View","Beach Access View","Sheikh Zayed Road View","Golf View","Lagoon View","Skyline View","City Skyline","Pool View","Garden/Park View","City View","Road View"],f.view||"Not specified",function(v){analyzerState.f.view=v;})); fvRow.appendChild(vwBox);
     formCard.appendChild(fvRow);
+    // Bathrooms
+    const bathRow=el("div",{style:{marginBottom:"12px"}});
+    bathRow.appendChild(lbl("Bathrooms"));
+    bathRow.appendChild(mkSelect(S(),["","1","2","3","4","5+"],f.bathrooms||"",function(v){analyzerState.f.bathrooms=v;}));
+    formCard.appendChild(bathRow);
 
     // Size + Price
     const spRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"}});
@@ -2355,7 +2374,7 @@ function renderAnalyzerResult(wrap){
       span({color:cl.subHi,fontSize:"13px",fontFamily:"'Inter',sans-serif"},(f.building?f.building+" · ":"")+(isVilla?f.villaType:f.aptSubtype)+" · "+f.area+(f.cluster?" · "+f.cluster:"")),
     ]),
     el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 14px",borderRadius:"8px",cursor:"pointer",fontSize:"12px"},onclick:function(){
-  analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",hasPool:false,hasGarden:true,building:"",villaNumber:""},val:null,aiText:"",liveData:null,err:""};
+  analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:""},val:null,aiText:"",liveData:null,err:""};
   window.scrollTo({top:0,behavior:"smooth"});
   render();
 }},"← New"),
