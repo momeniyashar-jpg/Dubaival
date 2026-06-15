@@ -81,39 +81,63 @@ const T = {
 function C(){return darkMode?T.dark:T.light}
 
 // --- CLUSTER DATABASE ---------------------------------------------------------
+// SOURCE: Authoritative master list June 2026 — 50 villa communities
 const CLUSTERS = {
-  "Dubai Hills Estate":["Park Heights","Maple","Sidra","Collective","Acacia","Mulberry","Parkway Vistas","Fairway Vistas","Hills Grove","Hills View","Golf Place","Golf Suites","Park Ridge","Lime Gardens","Emerald Hills","Ellington House"],
-  "Arabian Ranches":["Palmera","Saheel","Savannah","Al Mahra","Mirador","Mirador La Coleccion","Alvorada","Aseel","Al Reem","Polo Homes"],
-  "Arabian Ranches 2":["Casa","Lila","Palma","Rasha","Rosa","Yasmin","Samara","Azalea","Reem","Camelia"],
-  "Arabian Ranches 3":["Sun","Joy","Spring","Raya","Bliss","Bliss II","Elie Saab","Elie Saab II","June","June II","Caya","Caya II"],
-  "DAMAC Hills":["Brookfield","Silver Springs","Trump Estates","Topanga","Richmond","Queens Meadow","Pelham","Sahara Villas","Trinity","Rochester","The Park Villas","Jasmine Lane","Cavalli Estates","The Golf Suites"],
-  "DAMAC Hills 2":["Amazonia","Bellavista","Claret","Vardon","Akoya","Amargo","Aquilegia","Basswood","Coursetia","Mimosa"],
-  "DAMAC Lagoons":["Venice","Morocco","Costa Brava","Mykonos","Marbella","Santorini","Ibiza","Malta","Portofino","Nice"],
-  "Tilal Al Ghaf":["Aura","Elan","Alaya","Serenity","Lanai","Harmony","Elysian Mansions"],
-  "Palm Jumeirah":["Frond A","Frond B","Frond C","Frond D","Frond E","Frond F","Frond G","Frond M","Frond N","Frond O","Garden Homes","Signature Villas","Shoreline Apartments"],
-  "Palm Jebel Ali":["Frond P1","Frond P2","Frond P3","Frond P4"],
-  "MBR City":["D1 Mansions","D1 Villas","District One West","District 11","Hartland Estates"],
-  "Sobha Hartland":["Creek Vistas","Creek Vistas Heights","Creek Vistas Grande","Forest Villas","Hartland Estates","Waves","Hartland Greens","One Park Avenue"],
+  // Tier 1 — Premium Master Communities
+  "Dubai Hills Estate":["Park Heights","Maple 1","Maple 2","Maple 3","Sidra 1","Sidra 2","Sidra 3","Collective","Acacia","Mulberry","Parkway Vistas","Fairway Vistas","Hills Grove","Hills View","Golf Place","Golf Suites","Park Ridge","Lime Gardens","Emerald Hills","Ellington House","Executive Residences","Club Villas"],
+  "Arabian Ranches":["Al Mahra","Al Reem","Alma","Hattan","Mirador","Mirador La Coleccion","Alvorada","Palmera","Savannah","Terra Nova","Saheel","Gazelle","Jessamine","Aseel","Polo Homes"],
+  "Arabian Ranches 2":["Casa","Lila","Palma","Rasha","Rosa","Yasmin","Samara","Azalea","Reem","Aseel"],
+  "Arabian Ranches 3":["Joy","Spring","Sun","Ruba","Caya","Caya II","Anya","Elie Saab","Elie Saab II","Bliss","Bliss II","June","June II","Raya"],
+  "DAMAC Hills":["Veneto","Silver Springs","Brookfield","Field","Queens Meadow","Richmond","Trinity","Golf Veduta","Golf Terrace","Whitefield","Pelham","The Turf","Rochester","Rockwood","Trump Estates","Topanga","Jasmine Lane","Cavalli Estates","Sahara Villas","The Park Villas"],
+  "DAMAC Hills 2":["Vardon","Aquilegia","Basswood","Claret","Juniper","Mimosa","Coursetia","Zinnia","Amazonia","Akoya","Avencia","Centaury","Fiora","Loreto","Navitas","Olivia","Sycamore","Victoria"],
+  "DAMAC Lagoons":["Venice","Santorini","Costa Brava","Nice","Malta","Portofino","Marbella","Monte Carlo","Ibiza"],
+  "Tilal Al Ghaf":["Harmony","Aura","Elan","Serenity","Lanai","Alaya","Alaya Gardens","Elysian Mansions","Hive Park","Distrikt"],
+  "Palm Jumeirah":["Frond A","Frond B","Frond C","Frond D","Frond E","Frond F","Frond G","Frond H","Frond I","Frond J","Frond K","Frond L","Frond M","Frond N","Frond O","Garden Homes","Signature Villas","Shoreline Apartments"],
+  "Palm Jebel Ali":["Frond M","Frond N","Frond O","Frond P","Frond Q","Frond R","Frond S","Frond T","Frond U","Frond V","Frond W","Frond X","Frond Y","Frond Z"],
+  "MBR City":["Phase 1","Phase 2","Phase 3","Phase 4","D1 Mansions","D1 Villas","District One West"],
+  "Sobha Hartland":["Forest Villas","Creek Vistas","Creek Vistas Heights","Creek Vistas Grande","Waves","Hartland Estates","Sobha One","330 Riverside","Crest","Hartland Greens","Tranquility","One Park Avenue"],
+  // Tier 2 — Established Villa Communities
+  "Jumeirah Golf Estates":["Flame Tree Ridge","Wildflower","Redwood Park","Redwood Avenue","Whispering Pines","Sanctuary Falls","Golf Views","Al Andalus","Hillside"],
+  "Jumeirah Park":["Legacy","Legacy Nova","Heritage","Regional","Cluster A","Cluster B","Cluster C","Cluster D","Cluster E","Cluster F","Cluster G","Cluster H","Cluster J","Cluster K","Cluster L","Cluster M","Cluster N","Cluster O","Cluster P","Cluster Q","Cluster R","Cluster S","Cluster T","Cluster U","Cluster V"],
+  "Jumeirah Islands":["European Clusters","Mediterranean Clusters","Oasis Clusters","Tropical Clusters","Islamic Clusters","Contemporary Clusters"],
   "The Meadows":["Meadows 1","Meadows 2","Meadows 3","Meadows 4","Meadows 5","Meadows 6","Meadows 7","Meadows 8","Meadows 9"],
-  "The Lakes":["Forat","Ghadeer","Maeen","Zulal","Deema"],
-  "The Springs":["Springs 1","Springs 2","Springs 3","Springs 4","Springs 5","Springs 6","Springs 7","Springs 8","Springs 9","Springs 10","Springs 11","Springs 12","Springs 13","Springs 14","Springs 15"],
+  "The Lakes":["Forat","Maeen","Zulal","Ghadeer","Hattan"],
+  "The Springs":["Springs 1","Springs 2","Springs 3","Springs 4","Springs 5","Springs 6","Springs 7","Springs 8","Springs 9","Springs 10","Springs 11","Springs 12","Springs 14","Springs 15"],
   "Emirates Hills":["Sector E","Sector H","Sector W","Sector L","Sector G","Montgomerie Maisonettes"],
-  "Mudon":["Rahat","Arabella 1","Arabella 2","Arabella 3","Naseem","Al Salam","Views"],
-  "Dubai South":["The Pulse","South Bay","Expo City","Residential District","Urbana","Golf Links","Expo Golf Villas","Saffron"],
-  "Villanova":["Amaranta","La Quinta","La Rosa","Belavista","Amaranta Phase 3"],
-  "Town Square":["Hayat","Zahra","Noor","Jenna","Safi","Warda","Shams","Una"],
-  "Al Barari":["The Reserve","The Nest","Seventh Heaven","Ashjar","The Neighbourhood","Chlorophyll Villas"],
+  "Mudon":["Rahat","Naseem","Arabella 1","Arabella 2","Arabella 3","Al Salam","Mudon Views"],
+  "Victory Heights":["Novelia","Calida","Esmeralda","Estella","Carmen","Morella"],
+  "The Villa":["The Ponderosa","The Hacienda","The Aldea","The Centro"],
+  // Tier 3 — Mid-Range Communities
+  "Town Square":["Hayat","Zahra","Noor","Jenna","Safi","Warda","Rawda","Reem","Shams","Jenna II","Una"],
+  "The Valley":["Nara","Eden","Talia","Orania","Elora","Farm Gardens","Serene Gardens","The Townhouses","Rivana","Lillia","Venus","Kaya"],
+  "Dubai South":["The Pulse","The Pulse Villas","The Pulse Townhouses","South Bay","Urbana","Golf Links","Expo Golf Villas"],
+  "Emaar South":["Urbana","Golf Links","Expo Golf Villas","Golf Dale"],
+  "Villanova":["Amaranta","La Quinta","La Rosa","Belavista"],
+  "Serena":["Casa Dora","Casa Viva","Bella Casa"],
+  "Al Barari":["The Reserve","The Nest","Seventh Heaven","Ashjar","Chorisia"],
+  "Al Furjan":["Quortaj","Dubai Style","East Heights","West Heights","Murooj Al Furjan"],
+  "Motor City":["Green Community West","Green Community East","Uptown Motor City","Shakespeare Circus"],
+  "Mira":["Mira 1","Mira 2","Mira 3","Mira 4","Mira 5"],
+  "Mira Oasis":["Mira Oasis 1","Mira Oasis 2","Mira Oasis 3"],
+  "Meydan":["Grand Views","Millennium Estates","Meydan Heights"],
+  "Sustainable City":["Cluster 1","Cluster 2","Cluster 3","Cluster 4","Cluster 5"],
+  "Remraam":["Al Thamam","Al Ramth"],
+  // Tier 4 — Value / Niche Communities
   "Jumeirah Village Triangle":["District 1","District 2","District 3","District 4","District 5","District 6","District 7","District 8","District 9"],
   "Jumeirah Village Circle":["District 10","District 11","District 12","District 13","District 14","District 15","District 16","District 17","Seasons Community"],
-  "The Valley":["Eden","Elora","Talis","Naru","Orania","Farm Gardens","Serene Gardens"],
-  "Motor City":["Green Community","Uptown Motor City","Oia Residence","Shakespeare Circus"],
-  "Al Furjan":["Quortaj","Al Freij","Masakin","Dubai Style","Tarabay"],
   "The Oasis":["Canal Mansions","Oasis Villas","Mediterranean Mansions"],
   "Cherrywoods":["Phase 1","Phase 2","Phase 3"],
-  "Wadi Al Safa":["Falconcity of Wonders","Living Legends"],
-  "Majan":["Majan Villas","Majan Residential Plots","Skycourts","Manal Residences","Queue Point"],
+  "Majan":["Majan Villas","Queue Point","Manal Residences"],
+  "Wadi Al Safa":["Falconcity of Wonders","Living Legends","Wadi Al Safa 2","Wadi Al Safa 5"],
+  "Living Legends":["Cluster 1","Cluster 2","Cluster 3","Cluster 4","Cluster 5","Cluster 6","Cluster 7","Cluster 8","Cluster 9","Cluster 10","Cluster 11","Cluster 12"],
+  "Falcon City":["Western Residence","Eastern Residence","Iconic Homes"],
   "The Heights":["The Heights Country Club","The Heights Villas"],
   "Polo Residences":["The Polo Residence","The Polo Townhouses"],
+  // Premium Waterfront / New Launches
+  "Dubai Islands":["Cluster 1","Cluster 2","Cluster 3","Cluster 4"],
+  "La Mer":["Le Ciel","La Voile","Sur La Mer"],
+  "Pearl Jumeirah":["Zone 1","Zone 2","Zone 3","Zone 4"],
+  "Nad Al Sheba":["Nad Al Sheba Gardens Phase 1","Nad Al Sheba Gardens Phase 2","Nad Al Sheba Gardens Phase 3","Nad Al Sheba Villas"],
 };
 
 // --- MARKET DATA -------------------------------------------------------------
@@ -194,15 +218,31 @@ const AREAS={
   "Cherrywoods":{psf:950,sc:3.5,rv3:125000,rv4:165000,rv5:225000,y:[6.0,7.5],g:[8,14,20]},
   "The Heights":{psf:1300,sc:4.0,rv3:160000,rv4:210000,rv5:280000,y:[5.5,7.0],g:[9,16,23]},
   "The Oasis":{psf:2000,sc:5.0,rv4:280000,rv5:380000,rv6:520000,y:[5.0,6.5],g:[12,22,32]},
+  "Jumeirah Park":{psf:1400,sc:4.0,rv3:175000,rv4:230000,rv5:310000,y:[5.5,7.0],g:[10,18,26]},
+  "Jumeirah Islands":{psf:2000,sc:6.0,rv4:280000,rv5:380000,y:[5.0,6.5],g:[10,18,26]},
+  "Victory Heights":{psf:950,sc:3.5,rv3:125000,rv4:165000,rv5:225000,y:[6.5,8.0],g:[8,14,20]},
+  "The Villa":{psf:1000,sc:3.0,rv3:130000,rv4:175000,rv5:240000,y:[6.5,8.0],g:[8,14,20]},
+  "Mira":{psf:950,sc:3.0,rv3:120000,rv4:160000,rv5:220000,y:[6.5,8.0],g:[8,14,20]},
+  "Mira Oasis":{psf:950,sc:3.0,rv3:120000,rv4:158000,rv5:215000,y:[6.5,8.0],g:[8,14,20]},
+  "Serena":{psf:950,sc:3.2,rv3:125000,rv4:165000,rv5:225000,y:[6.0,7.5],g:[8,14,20]},
+  "Sustainable City":{psf:900,sc:0,rv3:115000,rv4:155000,y:[6.0,7.5],g:[8,14,20]},
+  "Remraam":{psf:650,sc:8.0,r1:38000,r2:55000,r3:78000,y:[7.5,9.5],g:[6,11,16]},
+  "Dubai Islands":{psf:2500,sc:18,r1:100000,r2:155000,r3:220000,y:[5.0,6.0],g:[15,25,40]},
+  "La Mer":{psf:2500,sc:22,r1:105000,r2:160000,r3:225000,y:[5.0,6.0],g:[12,22,32]},
+  "Pearl Jumeirah":{psf:2200,sc:16,r1:95000,r2:145000,r3:205000,y:[5.2,6.2],g:[10,18,28]},
+  "Nad Al Sheba":{psf:1550,sc:5.0,rv3:185000,rv4:245000,rv5:330000,y:[5.5,7.0],g:[10,18,26]},
+  "Falcon City":{psf:800,sc:3.0,rv3:110000,rv4:148000,y:[6.5,8.5],g:[7,13,19]},
+  "Emaar South":{psf:900,sc:3.5,rv3:120000,rv4:160000,rv5:220000,y:[6.5,8.5],g:[8,14,20]},
+  "Living Legends":{psf:700,sc:8.0,rv3:100000,rv4:135000,y:[7.0,9.0],g:[6,11,16]},
 };
 const AREA_NAMES=Object.keys(AREAS);
 
 // Villa/Townhouse communities (show cluster dropdown)
 const VILLA_COMMUNITIES=Object.keys(CLUSTERS);
 // Areas where ALL properties are villas/townhouses
-const VILLA_AREAS=new Set(["DAMAC Hills","DAMAC Hills 2","DAMAC Lagoons","Arabian Ranches","Arabian Ranches 2","Arabian Ranches 3","Tilal Al Ghaf","Jumeirah Golf Estates","Palm Jumeirah Villas","The Springs","The Meadows","The Lakes","The Greens","Dubai Hills Estate","Mudon","Serena","Villanova","Al Furjan Villas","Town Square","Mira","Reem","Nshama","The Valley","Emaar South","Dubai South Villas","Al Barari","Nad Al Sheba Villas","Meydan Villas","MBR City Villas","The Meadows","The Lakes","Emirates Hills","Al Furjan Villas","Mudon","Reem","Villanova","Serena","Town Square","The Valley","Mira","Mira Oasis","Nshama","Camelia","Akoya","Damac Lagoons","District One","MBR City Villas","Palm Jebel Ali","Nad Al Sheba","Sobha Reserve","Sobha Hartland Villas"]);
+const VILLA_AREAS=new Set(["DAMAC Hills","DAMAC Hills 2","DAMAC Lagoons","Arabian Ranches","Arabian Ranches 2","Arabian Ranches 3","Tilal Al Ghaf","Jumeirah Golf Estates","Jumeirah Park","Jumeirah Islands","Palm Jumeirah","The Springs","The Meadows","The Lakes","Dubai Hills Estate","Mudon","Serena","Villanova","Al Furjan","Town Square","Mira","Mira Oasis","The Valley","Emaar South","Dubai South","Al Barari","Nad Al Sheba","Meydan","MBR City","Emirates Hills","Victory Heights","The Villa","Sustainable City","Remraam","Falcon City","Living Legends","Cherrywoods","The Oasis","The Heights","Polo Residences","Wadi Al Safa","Majan","Motor City","Palm Jebel Ali","Sobha Hartland","Dubai Islands","La Mer","Pearl Jumeirah","Meydan City","The Villa"]);
 // Villa keywords in building names
-const VILLA_KEYWORDS=["villa","villas","townhouse","townhouses","cluster","phase","frond","semi-detached","compound","estate","ranches","lagoons venice","lagoons morocco","lagoons marbella","damac lagoons","lagoons mykonos","lagoons santorini","lagoons ibiza","lagoons malta","lagoons costa","lagoons portofino","lagoons nice","trump estates","golf place","sidra","maple","acacia","palmera","saheel","savannah","mirador"];
+const VILLA_KEYWORDS=["villa","villas","townhouse","townhouses","cluster","phase","frond","semi-detached","compound","estate","ranches","damac lagoons","lagoons venice","lagoons santorini","lagoons costa","lagoons nice","lagoons malta","lagoons portofino","lagoons marbella","lagoons monte carlo","lagoons ibiza","trump estates","golf place","sidra","maple","acacia","palmera","saheel","savannah","mirador","harmony","aura","serenity","elan","alaya","lanai","elysian","flame tree","wildflower","redwood","sanctuary falls","whispering pines","veneto","brookfield","silver springs","nara","rivana","lillia","venus","kaya","talia","novelia","calida","esmeralda","estella"];
 
 // --- ALIAS MAP ----------------------------------------------------------------
 // Maps user-typed variants → exact DB key
