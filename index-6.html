@@ -2240,6 +2240,17 @@ function renderAnalyzer(){
     formCard.appendChild(ppRow);
     // Furnished status for villas
     formCard.appendChild(fld("Furnished",mkSelect(S(),["Unfurnished","Semi-Furnished","Furnished"],f.furnished||"Unfurnished",function(v){analyzerState.f.furnished=v;})));
+    // Maid Room toggle
+    var maidRowV=el("div",{style:{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",padding:"10px 12px",background:cl.raised,borderRadius:"8px",cursor:"pointer",border:"1px solid "+(f.hasMaid?cl.gold:cl.border)}});
+    var maidChkV=el("div",{style:{width:"18px",height:"18px",borderRadius:"4px",border:"2px solid "+(f.hasMaid?cl.gold:cl.border),background:f.hasMaid?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",color:"#08090C",fontWeight:"900"}});
+    if(f.hasMaid)maidChkV.textContent="✓";
+    var maidLblV=el("div",{});
+    maidLblV.appendChild(div({color:"#F0F2F5",fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Maid Room (+3%)"));
+    maidLblV.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},"Dedicated maid quarters — value premium"));
+    maidRowV.appendChild(maidChkV);
+    maidRowV.appendChild(maidLblV);
+    maidRowV.addEventListener("click",function(){analyzerState.f.hasMaid=!analyzerState.f.hasMaid;render();});
+    formCard.appendChild(maidRowV);
     // BUA + Plot
     const sizeRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginTop:"12px",marginBottom:"12px"}});
     const buaBox=el("div",{}); buaBox.appendChild(lbl("BUA (sqft)"));
