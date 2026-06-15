@@ -2196,12 +2196,7 @@ function renderAnalyzer(){
     formCard.appendChild(floorRow);
 
     // View
-    if(!f.singleRow){formCard.appendChild(fld("View",mkSelect(S(),["Not specified","Golf View","Lagoon View","Lake View","Park View","Community View","Pool View","Garden/Park View","Full Sea View","Partial Sea View","Skyline View","Backing Open Land"],f.view||"Not specified",function(v){analyzerState.f.view=v;})));}
-    if(f.singleRow){
-      var srNote=el("div",{style:{background:"rgba(201,168,76,0.08)",border:"1px solid "+cl.goldDim,borderRadius:"8px",padding:"8px 12px",marginBottom:"12px"}});
-      srNote.appendChild(div({color:cl.gold,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Single Row: No neighboring units on one side. View not applicable."));
-      formCard.appendChild(srNote);
-    }
+    formCard.appendChild(fld("View",mkSelect(S(),["Not specified","Golf View","Lagoon View","Lake View","Park View","Community View","Pool View","Garden/Park View","Full Sea View","Partial Sea View","Skyline View","Backing Open Land"],f.view||"Not specified",function(v){analyzerState.f.view=v;})));
 
         // Private Pool + Single Row + Parking
     var ppRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"}});
