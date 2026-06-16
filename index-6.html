@@ -532,9 +532,15 @@ function computeValuation(f,buildingVal,liveData){
     const pool=sales.filter(function(s){return s.psf>400&&s.psf<15000});
     if(pool.length>=3){
       const psfs=pool.map(function(s){return s.psf}).sort(function(a,b){return a-b});
-      basePSF=Math.round(psfs.reduce(function(s,p){return s+p},0)/psfs.length);
-      psfLo=psfs[Math.floor(psfs.length*0.2)]||Math.round(basePSF*0.90);
-      psfHi=psfs[Math.floor(psfs.length*0.8)]||Math.round(basePSF*1.10);
+      const pLo=psfs[Math.floor(psfs.length*0.2)];
+      const pHi=psfs[Math.floor(psfs.length*0.8)];
+      // Trimmed mean: average only comps within the 20th-80th percentile band,
+      // so a single distressed/bulk-deal sale can't skew the base price.
+      const trimmed=psfs.filter(function(p){return p>=pLo&&p<=pHi});
+      const meanPool=trimmed.length?trimmed:psfs;
+      basePSF=Math.round(meanPool.reduce(function(s,p){return s+p},0)/meanPool.length);
+      psfLo=pLo||Math.round(basePSF*0.90);
+      psfHi=pHi||Math.round(basePSF*1.10);
       dataSource=pool.length+" comps · "+f.area;dataLayer=2;
     }else{
       basePSF=aData.psf;psfLo=Math.round(basePSF*0.87);psfHi=Math.round(basePSF*1.13);
