@@ -2753,6 +2753,49 @@ function renderAnalyzerResult(wrap){
     ]):div({}),
   ]));
 
+  // -- PRICE ALERT WATCH --
+  (function(){
+    const targetType=val.inDB?"building":"area";
+    const targetName=val.inDB?(analyzerState.f.building||f.area):f.area;
+    if(!targetName)return;
+    const watchKey="dv_watch_"+targetType+"_"+targetName;
+    if(!window.WATCH_STATE)window.WATCH_STATE={};
+    if(!window.WATCH_STATE[watchKey])window.WATCH_STATE[watchKey]={busy:false,done:false,error:""};
+    const WS=window.WATCH_STATE[watchKey];
+    let already=false;
+    try{already=!!localStorage.getItem(watchKey);}catch(e){}
+    const wWrap=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"14px",marginTop:"8px"}});
+    wWrap.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"🔔 Price Alert"));
+    if(already||WS.done){
+      wWrap.appendChild(div({color:cl.green,fontSize:"12px",fontFamily:"'Inter',sans-serif"},"You're watching "+targetName+" — we'll email you if pricing moves ±5% or more."));
+    }else{
+      wWrap.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"8px"},"Get an email if "+targetName+" pricing moves ±5% or more."));
+      const row=el("div",{style:{display:"flex",gap:"8px"}});
+      const inp=el("input",{type:"email",placeholder:"your@email.com",style:{flex:"1",background:"rgba(240,242,245,0.05)",border:"1px solid "+cl.border,color:"#F0F2F5",padding:"10px 12px",borderRadius:"8px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+      const btn=el("button",{style:{background:"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#08090C",border:"none",padding:"10px 16px",borderRadius:"8px",fontSize:"13px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer",whiteSpace:"nowrap"}});
+      btn.textContent=WS.busy?"...":"Watch";
+      btn.addEventListener("click",function(){
+        const email=inp.value.trim();
+        if(!email||!email.includes("@")){inp.style.borderColor="#EF4444";return;}
+        WS.busy=true;render();
+        fetch("/api/watch-subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:email,targetType:targetType,targetName:targetName,area:f.area})})
+          .then(function(r){return r.json();})
+          .then(function(d){
+            WS.busy=false;
+            if(d&&d.ok){try{localStorage.setItem(watchKey,"1");}catch(e){}WS.done=true;}
+            else{WS.error="Could not set up alert — try again later.";}
+            render();
+          })
+          .catch(function(){WS.busy=false;WS.error="Could not set up alert — try again later.";render();});
+      });
+      row.appendChild(inp);row.appendChild(btn);
+      wWrap.appendChild(row);
+      if(WS.error)wWrap.appendChild(div({color:"#EF4444",fontSize:"10px",fontFamily:"'Inter',sans-serif",marginTop:"6px"},WS.error));
+      wWrap.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",textAlign:"center",marginTop:"6px"},"Free · Unsubscribe anytime"));
+    }
+    wrap.appendChild(wWrap);
+  })();
+
   // Mortgage Calculator
   const mortgagePrice=parseInt(analyzerState.f.price)||0;
   if(mortgagePrice>=500000){

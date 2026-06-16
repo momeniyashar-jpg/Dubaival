@@ -23,11 +23,16 @@ Hosted on Vercel, Hobby plan, team "Dubaival's projects", project name
   Production Deployment is tied to the `main` branch / manual `vercel --prod`
   from the user's machine). If a change needs to go live, the user must merge
   to `main` or run `vercel --prod` locally after pulling this branch.
-- `vercel.json`: single static build, `index-6.html` served for all routes.
-  There is no build step (`package.json` build script is a no-op echo).
-- **The entire app is one file: `index-6.html`** (~3000 lines, ~727KB). Other
+- `vercel.json`: static build of `index-6.html` (served for all non-`/api`
+  routes) **plus** a `@vercel/node` build of `api/*.js` (added 2026-06-16 for
+  the Price Alert feature — see below) and a daily `crons` entry. There is
+  still no build step for the HTML itself (`package.json` build script is a
+  no-op echo) — the `/api` functions are plain Node, no bundler/deps needed
+  (native `fetch` only).
+- **The main app is one file: `index-6.html`** (~3000 lines, ~730KB). Other
   files in the repo (`dubaival.jsx`, `index-3.html`) are old/unused — do not
   edit them, they are not deployed. `src/` and `public/` are empty/unused.
+  `api/` (new) holds small serverless functions — see "Price Alert" below.
 
 ## `index-6.html` map (line numbers as of commit `1b8c59c`)
 
@@ -91,6 +96,98 @@ detection/CMA, investment return forecasting, Bayut/Property Finder platform
 conventions, and Mueller's real-estate market cycle model. **This is live and
 wired into the UI** — confidence bar/label (~line 2560), total return badge
 w/ color threshold (~line 2656), investment signal badge (~line 2666).
+
+## Price Alert feature (item 5 of the "5 strategic proposals", added 2026-06-16)
+
+Code-complete, **not yet active in production** — needs manual activation
+steps from the user (listed at the end of this section) before it actually
+sends an email. Architecture decision made unilaterally (user said "do
+whichever is better, I have no preference / act as the senior expert"):
+
+- **Email service: Resend.** Chosen over SendGrid/Mailgun/SES for free-tier
+  generosity (3,000/mo, 100/day), a dead-simple single-`fetch` REST API (no
+  SDK/deps needed in a Node serverless function), and because it works with
+  zero setup via its shared `onboarding@resend.dev` sender before the user
+  ever verifies a custom domain.
+- **Cron/backend: Vercel Serverless Functions + Vercel Cron**, NOT Supabase
+  Edge Functions — chosen to avoid introducing a second deploy tool/CLI
+  (Supabase CLI) the user doesn't already use; everything stays inside the
+  Vercel project the user already manages. `vercel.json` was changed from a
+  pure static build to also build `api/*.js` via `@vercel/node`, with an
+  explicit `/api/(.*)` route listed **before** the existing catch-all
+  `/(.*)→/index-6.html` route (route order matters — first match wins).
+  Vercel Hobby plan supports Cron Jobs at daily granularity, which matches
+  the `0 8 * * *` schedule used here — no plan upgrade needed.
+- **New files**:
+  - `supabase-price-alerts-schema.sql` — run once in the Supabase SQL Editor.
+    Creates `price_watches` (email, target_type 'building'|'area',
+    target_name, area, threshold_pct default 5, last_psf, active,
+    unsubscribe_token uuid default `gen_random_uuid()`, timestamps, unique
+    on `(email, target_type, target_name)`). RLS is enabled with **zero anon
+    policies** — unlike `market_config` (which allows anon PATCH), this
+    table is reachable only via the service-role key from the `/api`
+    functions, so watcher emails can never be dumped through the public
+    PostgREST endpoint with the publishable key already embedded client-side.
+  - `api/lib/shared.js` — `supabaseRequest()` (service-role REST helper) and
+    `sendEmail()` (Resend REST helper). Lives under `api/lib/`, not directly
+    under `api/`, specifically so the `api/*.js` build glob in `vercel.json`
+    does **not** try to deploy it as its own serverless function (the glob
+    only matches direct children of `api/`, not nested paths) — don't move
+    it to `api/` directly without also fixing the build glob.
+  - `api/watch-subscribe.js` (POST) — validates input, inserts/upserts a
+    watch row (`Prefer: resolution=merge-duplicates` so a repeat signup for
+    the same building doesn't 409), sends a "you're watching X" welcome
+    email with an unsubscribe link.
+  - `api/unsubscribe.js` (GET `?token=`) — flips `active=false` by
+    `unsubscribe_token`, returns a small static HTML confirmation page
+    (it's a link clicked from an email client, not a JSON consumer).
+  - `api/check-price-alerts.js` (GET, cron target, guarded by comparing
+    `Authorization: Bearer $CRON_SECRET` if that env var is set — this is
+    Vercel's documented pattern for securing cron endpoints from public
+    invocation) — for every active watch, re-fetches live RapidAPI
+    (`uae-real-estate2`) listings for that building/area and computes a
+    **trimmed-mean psf** (only the 20th–80th percentile band, deliberately
+    mirroring the client-side Outlier fix from `d96a36a` so the alert can't
+    be triggered by a single distress/bulk listing). If `last_psf` exists
+    and the % change is ≥ `threshold_pct` (default 5%), emails the watcher
+    and updates `last_alerted_at`; otherwise just updates `last_psf`/
+    `last_checked_at` silently (no email on the very first check after
+    signup, only on subsequent moves).
+- **Client-side UI**: a "🔔 Price Alert" card was added to
+  `renderAnalyzerResult()` right after the Investment Signal badge (before
+  the Mortgage Calculator section) — email input + "Watch" button, POSTs to
+  `/api/watch-subscribe`, remembers "already watching" in `localStorage`
+  keyed by `dv_watch_<type>_<name>` to hide the form on repeat views.
+- Verified: `node --check` on all 4 new `api/*.js` files, full-file syntax
+  check on `index-6.html` after the edit, and a full re-run of the
+  `AREAS`/`DB`/`computeValuation` eval harness (152/5612/function — all
+  unchanged) to confirm the new widget code didn't break the existing app.
+  **Not** verified: actual email delivery or the live cron invocation (no
+  credentials available in this environment) — that can only be confirmed
+  after the user completes the activation steps below and the branch is
+  deployed.
+- **Activation steps (must be done by the user, not possible from this
+  session)**:
+  1. Run `supabase-price-alerts-schema.sql` once in the Supabase SQL Editor
+     for project `vrrqajwmygghfmagpgrr`.
+  2. Sign up at resend.com (free), grab an API key. Optional but
+     recommended: verify `dubaival.com` as a sending domain in Resend so
+     alert emails come from `alerts@dubaival.com` instead of the shared
+     `onboarding@resend.dev` (works immediately with no verification,
+     fine for an initial test).
+  3. In Vercel → project `dubaival` → Settings → Environment Variables, add:
+     `RESEND_API_KEY` (from step 2), `SUPABASE_SERVICE_ROLE_KEY` (Supabase
+     dashboard → Project Settings → API → `service_role` secret — **not**
+     the publishable key already in `index-6.html`), `RAPIDAPI_KEY` (can
+     reuse the value already hardcoded client-side at line ~653:
+     `ddc307f847msh24a823bf182609ap19b50cjsn17114bab81f9`), and optionally
+     `CRON_SECRET` (any random string) + `ALERTS_FROM_EMAIL` (e.g.
+     `"DubaiVal Alerts <alerts@dubaival.com>"`, only works once the domain
+     is verified in Resend).
+  4. Merge this branch to `main` (or `vercel --prod`) so the new
+     `api/*.js` functions and the `crons` entry actually deploy — this
+     branch alone does not auto-deploy to Production (see "Repo / deploy
+     mechanics" above).
 
 ## Recent work log (most recent first)
 
@@ -184,13 +281,12 @@ an assessment before prioritizing. Status of each, for future sessions:
    estimate) — ✅ **Done**, Track Record card in Market tab, `1b8c59c`. See
    "Recent work log" above for the honest accuracy numbers and methodology.
 5. **Retention — "Price Alert"** (notify users of price moves to bring them
-   back) — **Not started.** User explicitly deprioritized this behind the
-   Case Study via an approved priority order (Outlier → Case Study → implicitly
-   Price Alert later). Needs, before any code: (a) the user to pick/set up an
-   email-sending service (Resend/SendGrid/etc.), (b) a Supabase schema
-   extension to store per-user watched buildings/areas + last-seen price,
-   (c) a cron job (Vercel Cron or external) to check for moves and send
-   alerts. Do not start this without the user asking.
+   back) — ✅ **Code-complete 2026-06-16**, see "Price Alert feature" section
+   above for full architecture/file list. **Not yet live** — needs the
+   user to run the SQL migration, sign up for Resend, set 3-4 env vars in
+   Vercel, and merge/deploy. User explicitly delegated the email-service
+   choice ("do whichever is better, I have no preference") rather than
+   picking one themselves.
 
 ## Domain/deploy troubleshooting (resolved 2026-06-16)
 
@@ -247,11 +343,14 @@ use a Node `eval` harness:
 
 ## Outstanding / open items
 
-- Outlier fix + Case Study (items 1 & 4 of the "5 strategic proposals" above)
-  are both shipped as of 2026-06-16 (`d96a36a`, `1b8c59c`). Next likely ask:
-  item 5, **Price Alert / retention** — see status notes above; don't start
-  without the user explicitly asking, since it needs a product decision
-  (which email service) before any code.
+- All 5 of the user's original strategic proposals now have code shipped or
+  already existed (1 Outlier `d96a36a`, 2 & 3 pre-existing, 4 Case Study
+  `1b8c59c`, 5 Price Alert — see "Price Alert feature" above, 2026-06-16).
+  **Price Alert is the one item that is code-complete but NOT yet live** —
+  it needs the user's manual activation steps (Resend signup, Supabase SQL
+  migration, Vercel env vars, deploy) before it does anything. Next session:
+  check whether the user has done those steps before assuming the feature
+  is working end-to-end.
 - The honest Track Record accuracy numbers (median ~20% error on the 18
   kept transactions) suggest there's real room to improve AVM accuracy
   beyond the B+ grade-guess fix already made — e.g. the DB's "p" (psf) field
