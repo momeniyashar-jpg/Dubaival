@@ -4621,9 +4621,11 @@ function renderMap(){
 
 // --- DEAL NETWORK TAB --------------------------------------------------------
 var DEAL_STATE={mode:"browse",filter:{type:"all",purpose:"sale",area:"",beds:"",minPrice:"",maxPrice:"",urgency:""},
-  form:{type:"have",agentName:"",agentPhone:"",agentCompany:"",area:"",building:"",propType:"apartment",beds:"",sizeSqft:"",floor:"",view:"",furnished:"Unfurnished",purpose:"sale",price:"",urgency:"normal",notes:"",offMarket:false},
-  deals:[],loading:false,posting:false,myTokens:[],matches:[]};
+  form:{type:"have",agentName:"",agentPhone:"",agentCompany:"",agentEmail:"",reraNumber:"",area:"",building:"",propType:"apartment",beds:"",sizeSqft:"",floor:"",view:"",furnished:"Unfurnished",purpose:"sale",price:"",urgency:"normal",notes:"",offMarket:false},
+  deals:[],loading:false,posting:false,myTokens:[],matches:[],waParser:{text:"",parsing:false,parsed:null}};
 try{var dt=localStorage.getItem("dv_deal_tokens");if(dt)DEAL_STATE.myTokens=JSON.parse(dt);}catch(e){}
+try{var ap=localStorage.getItem("dv_agent_profile");if(ap){var p=JSON.parse(ap);DEAL_STATE.form.agentName=p.name||"";DEAL_STATE.form.agentPhone=p.phone||"";DEAL_STATE.form.agentCompany=p.company||"";DEAL_STATE.form.agentEmail=p.email||"";DEAL_STATE.form.reraNumber=p.rera||"";}}catch(e){}
+function saveAgentProfile(){try{localStorage.setItem("dv_agent_profile",JSON.stringify({name:DEAL_STATE.form.agentName,phone:DEAL_STATE.form.agentPhone,company:DEAL_STATE.form.agentCompany,email:DEAL_STATE.form.agentEmail,rera:DEAL_STATE.form.reraNumber}));}catch(e){}}
 
 async function fetchDeals(){
   DEAL_STATE.loading=true;render();
@@ -4646,8 +4648,10 @@ async function fetchDeals(){
 async function postDeal(){
   var f=DEAL_STATE.form;
   if(!f.agentName||!f.agentPhone||!f.area||!f.price){alert("Please fill required fields");return;}
+  saveAgentProfile();
   DEAL_STATE.posting=true;render();
   var row={type:f.type,agent_name:f.agentName,agent_phone:f.agentPhone,agent_company:f.agentCompany||null,
+    agent_email:f.agentEmail||null,rera_number:f.reraNumber||null,
     area:f.area,building:f.building||null,prop_type:f.propType,beds:f.beds||null,
     size_sqft:parseFloat(f.sizeSqft)||null,floor_num:f.floor||null,view_type:f.view||null,
     furnished:f.furnished,purpose:f.purpose,price:parseFloat(f.price.replace(/,/g,""))||0,
@@ -4673,7 +4677,7 @@ async function postDeal(){
         DEAL_STATE.myTokens.push(created[0].edit_token);
         try{localStorage.setItem("dv_deal_tokens",JSON.stringify(DEAL_STATE.myTokens));}catch(e){}
       }
-      DEAL_STATE.form={type:"have",agentName:f.agentName,agentPhone:f.agentPhone,agentCompany:f.agentCompany,area:"",building:"",propType:"apartment",beds:"",sizeSqft:"",floor:"",view:"",furnished:"Unfurnished",purpose:"sale",price:"",urgency:"normal",notes:"",offMarket:false};
+      DEAL_STATE.form={type:"have",agentName:f.agentName,agentPhone:f.agentPhone,agentCompany:f.agentCompany,agentEmail:f.agentEmail,reraNumber:f.reraNumber,area:"",building:"",propType:"apartment",beds:"",sizeSqft:"",floor:"",view:"",furnished:"Unfurnished",purpose:"sale",price:"",urgency:"normal",notes:"",offMarket:false};
       DEAL_STATE.mode="browse";
       fetchDeals();
     }
@@ -4778,6 +4782,7 @@ function renderDeals(){
     typeBadge.textContent=isHave?"I HAVE":"I NEED";
     leftTop.appendChild(typeBadge);
     if(d.urgency!=="normal"){var urgBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:"rgba(239,68,68,0.12)",color:urgColors[d.urgency]}});urgBadge.textContent=urgLabels[d.urgency];leftTop.appendChild(urgBadge);}
+    if(d.rera_number){var verBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:"rgba(59,130,246,0.12)",color:"#3B82F6"}});verBadge.textContent="✓ VERIFIED";leftTop.appendChild(verBadge);}
     if(d.off_market){var omBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:"rgba(201,168,76,0.12)",color:cl.gold}});omBadge.textContent="OFF-MARKET";leftTop.appendChild(omBadge);}
     topRow.appendChild(leftTop);
     var purposeBadge=el("span",{style:{fontSize:"10px",color:d.purpose==="sale"?cl.gold:"#60A5FA",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"}});
@@ -4821,8 +4826,10 @@ function renderDeals(){
     if(d.notes){card.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",fontStyle:"italic",marginBottom:"8px",lineHeight:"1.5"},"\""+d.notes+"\""));}
 
     var bottomRow=div({display:"flex",justifyContent:"space-between",alignItems:"center"});
-    bottomRow.appendChild(div({},[span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},d.agent_name+(d.agent_company?" · "+d.agent_company:"")),
-      div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},timeAgo(d.created_at))]));
+    var agentInfo=[span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},d.agent_name+(d.agent_company?" · "+d.agent_company:""))];
+    if(d.rera_number)agentInfo.push(span({color:"#3B82F6",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginLeft:"6px"},"RERA: "+d.rera_number));
+    agentInfo.push(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},timeAgo(d.created_at)));
+    bottomRow.appendChild(div({},agentInfo));
     var contactBtn=el("button",{style:{background:"linear-gradient(135deg,#10B981,#059669)",color:"#fff",border:"none",padding:"7px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
     contactBtn.textContent="WhatsApp";
     contactBtn.onclick=function(e){e.stopPropagation();var phone=d.agent_phone.replace(/[^0-9+]/g,"");
@@ -4886,7 +4893,60 @@ function renderDealForm(wrap,cl){
   agentRow.appendChild(makeInput("Name *","agentName","Your name"));
   agentRow.appendChild(makeInput("WhatsApp *","agentPhone","+971 5X XXX XXXX","tel"));
   card.appendChild(agentRow);
-  card.appendChild(makeInput("Company","agentCompany","Agency name (optional)"));
+  var agentRow2=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"});
+  agentRow2.appendChild(makeInput("Company","agentCompany","Agency name"));
+  agentRow2.appendChild(makeInput("Email","agentEmail","agent@email.com","email"));
+  card.appendChild(agentRow2);
+  var reraRow=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",alignItems:"end"});
+  var reraInp=makeInput("RERA BRN","reraNumber","e.g. 12345");
+  reraRow.appendChild(reraInp);
+  var reraInfo=div({marginBottom:"10px",display:"flex",alignItems:"center",gap:"6px",height:"40px"});
+  if(f.reraNumber&&f.reraNumber.length>=3){reraInfo.appendChild(span({color:"#3B82F6",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",background:"rgba(59,130,246,0.12)",padding:"4px 10px",borderRadius:"8px",fontWeight:"700"},"✓ Verified Badge Active"));}
+  else{reraInfo.appendChild(span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",fontStyle:"italic"},"Add RERA BRN for Verified badge"));}
+  reraRow.appendChild(reraInfo);
+  card.appendChild(reraRow);
+
+  var waSection=div({background:cl.raised,border:"1px solid "+cl.border,borderRadius:"10px",padding:"12px",marginBottom:"14px"});
+  waSection.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"},[
+    div({},[span({color:"#25D366",fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"},"WhatsApp Parser"),
+      span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginLeft:"8px"},"Paste text → auto-fill form")])
+  ]));
+  var waTextarea=el("textarea",{placeholder:"Paste WhatsApp listing text here…\n\ne.g. \"2BR in Marina Gate 1, 1200 sqft, high floor, sea view, asking 3.2M\"",rows:"3",
+    style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",resize:"vertical"}});
+  waTextarea.value=DEAL_STATE.waParser.text||"";
+  waTextarea.oninput=function(){DEAL_STATE.waParser.text=this.value;};
+  waSection.appendChild(waTextarea);
+  var waActions=div({display:"flex",gap:"8px",marginTop:"8px",alignItems:"center"});
+  var waParseBtn=el("button",{style:{background:"linear-gradient(135deg,#25D366,#128C7E)",color:"#fff",border:"none",padding:"8px 16px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",opacity:DEAL_STATE.waParser.parsing?"0.5":"1"},
+    onclick:async function(){
+      var txt=DEAL_STATE.waParser.text.trim();if(!txt||DEAL_STATE.waParser.parsing)return;
+      DEAL_STATE.waParser.parsing=true;render();
+      try{
+        var sys="You are a Dubai real estate listing parser. Extract structured data from informal WhatsApp text. Return ONLY valid JSON, no markdown, no explanation. Schema: {\"area\":\"string\",\"building\":\"string or null\",\"prop_type\":\"apartment|villa|townhouse|penthouse|land|office\",\"beds\":\"Studio|1 BR|2 BR|3 BR|4 BR|5 BR|5+ BR or null\",\"size_sqft\":number or null,\"floor\":\"string or null\",\"view\":\"Sea|Marina|Skyline|Garden|Park|Pool|Canal|Golf|Community|Landmark|Open|Road or null\",\"furnished\":\"Unfurnished|Furnished|Semi-Furnished\",\"purpose\":\"sale|rent\",\"price\":number (AED, no commas),\"urgency\":\"normal|urgent|hot\",\"notes\":\"any extra details not captured above\"}. If M means million (e.g. 3.2M = 3200000). If K means thousand. Default purpose=sale unless rent/rental/yearly/monthly mentioned. Default urgency=normal unless urgent/asap/hot/motivated mentioned.";
+        var reply=await askAI([{role:"user",content:"Parse this listing:\n"+txt}],sys);
+        var cleaned=reply.replace(/```json\s*/g,"").replace(/```\s*/g,"").trim();
+        var parsed=JSON.parse(cleaned);
+        DEAL_STATE.waParser.parsed=parsed;
+        if(parsed.area)f.area=parsed.area;
+        if(parsed.building)f.building=parsed.building;
+        if(parsed.prop_type)f.propType=parsed.prop_type;
+        if(parsed.beds)f.beds=parsed.beds;
+        if(parsed.size_sqft)f.sizeSqft=String(parsed.size_sqft);
+        if(parsed.floor)f.floor=parsed.floor;
+        if(parsed.view)f.view=parsed.view;
+        if(parsed.furnished)f.furnished=parsed.furnished;
+        if(parsed.purpose)f.purpose=parsed.purpose;
+        if(parsed.price)f.price=String(parsed.price);
+        if(parsed.urgency)f.urgency=parsed.urgency;
+        if(parsed.notes)f.notes=parsed.notes;
+      }catch(e){alert("Could not parse text: "+e.message);}
+      DEAL_STATE.waParser.parsing=false;render();
+    }});
+  waParseBtn.textContent=DEAL_STATE.waParser.parsing?"Parsing…":"Parse & Auto-Fill";
+  waActions.appendChild(waParseBtn);
+  if(DEAL_STATE.waParser.parsed){waActions.appendChild(span({color:cl.green,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"},"✓ Parsed — fields auto-filled"));}
+  waSection.appendChild(waActions);
+  card.appendChild(waSection);
 
   card.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",marginTop:"8px"},"Property Details"));
 
