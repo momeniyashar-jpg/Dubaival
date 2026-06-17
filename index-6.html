@@ -4707,7 +4707,7 @@ function findMatches(deal){
 async function sendInquiry(dealId){
   var inq=DEAL_STATE.inquiry;
   if(!inq.name){alert("Please enter your name");return;}
-  if(!inq.phone&&!inq.email){alert("Please enter phone or email");return;}
+  if(!inq.phone){alert("Please enter your phone number");return;}
   inq.sending=true;render();
   try{
     var row={deal_id:dealId,sender_name:inq.name,sender_phone:inq.phone||null,sender_email:inq.email||null,message:inq.message||null};
@@ -4883,7 +4883,7 @@ function renderDeals(){
         style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"8px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
       inqNameInp.oninput=function(){DEAL_STATE.inquiry.name=this.value;};
       inqRow1.appendChild(inqNameInp);
-      var inqPhoneInp=el("input",{type:"tel",placeholder:"WhatsApp / Phone",value:DEAL_STATE.inquiry.phone||"",
+      var inqPhoneInp=el("input",{type:"tel",placeholder:"WhatsApp / Phone *",value:DEAL_STATE.inquiry.phone||"",
         style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"8px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
       inqPhoneInp.oninput=function(){DEAL_STATE.inquiry.phone=this.value;};
       inqRow1.appendChild(inqPhoneInp);
