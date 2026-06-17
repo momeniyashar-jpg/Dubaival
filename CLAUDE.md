@@ -45,8 +45,8 @@ blindly — it drifts every time AREAS/DB/render functions grow.
 |---|---|
 | 83–142 | Cluster database |
 | 144–154 | Market data / view premiums |
-| 157–171 | `var DB={...}` — **building database, single massive line (line 166)**, 5612 entries. Schema: `{"p":psf,"lo":lowPsf,"hi":highPsf,"sc":serviceCharge,"a":"Area Name","g":"Grade","df":1(optional, means "data flag"/lower confidence)}`. Keyed by lowercase building name. |
-| 172–336 | `const AREA_GRADE_PSF` (173, now only used as historical/curated reference data — see note below) + `const AREAS={...}` (174–473) — **area benchmark database, 152 keys**. Schema: `{psf, sc, r1/r2/r3 (apartment rents studio/1BR-ish/2BR-ish/3BR-ish — actually studio/1BR/2BR/3BR tiers), and/or rv2..rv7 (villa rent tiers by bedroom count), y:[yieldLow,yieldHigh], g:[growth0-1yr%,growth1-3yr%,growth2-5yr%]}`. Originally 81 canonical keys; 71 more were researched and added 2026-06-16 to eliminate fallback-to-generic-defaults for buildings whose DLD area tag didn't match a canonical key. |
+| 157–171 | `var DB={...}` — **building database, single massive line (line 166)**, 6,008 entries. Schema: `{"p":psf,"lo":lowPsf,"hi":highPsf,"sc":serviceCharge,"a":"Area Name","g":"Grade","df":1(optional, means "data flag"/lower confidence)}`. Keyed by lowercase building name. |
+| 172–336 | `const AREA_GRADE_PSF` (173, now only used as historical/curated reference data — see note below) + `const AREAS={...}` (174–473) — **area benchmark database, 287 keys**. Schema: `{psf, sc, r1/r2/r3 (apartment rents studio/1BR-ish/2BR-ish/3BR-ish — actually studio/1BR/2BR/3BR tiers), and/or rv2..rv7 (villa rent tiers by bedroom count), y:[yieldLow,yieldHigh], g:[growth0-1yr%,growth1-3yr%,growth2-5yr%]}`. Originally 81 canonical keys; 71 more were researched and added 2026-06-16 to eliminate fallback-to-generic-defaults for buildings whose DLD area tag didn't match a canonical key. |
 | 337–474 | Alias map |
 | 476–520 | `function lookupBuilding(name, areaHint)` — building DB lookup |
 | 521–~644 | `function computeValuation(f, buildingVal, liveData)` — **the valuation engine**, see below |
@@ -161,7 +161,7 @@ whichever is better, I have no preference / act as the senior expert"):
   keyed by `dv_watch_<type>_<name>` to hide the form on repeat views.
 - Verified: `node --check` on all 4 new `api/*.js` files, full-file syntax
   check on `index-6.html` after the edit, and a full re-run of the
-  `AREAS`/`DB`/`computeValuation` eval harness (152/5612/function — all
+  `AREAS`/`DB`/`computeValuation` eval harness (152/6,008/function — all
   unchanged) to confirm the new widget code didn't break the existing app.
   **Not** verified: actual email delivery or the live cron invocation (no
   credentials available in this environment) — that can only be confirmed
