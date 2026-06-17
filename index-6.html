@@ -4,7 +4,7 @@
 <meta; fvRow.appendChil; fvRow.appendChild(vwBox);d(vwBox); charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>DubaiVal — AI Property Valuation Dubai | DLD-Verified</title>
-<meta name="description" content="Instant AI-powered property valuations for Dubai real estate. DLD-verified data, 5,232 buildings, Cascade AVM engine. Get accurate PSF analysis, deal verdicts and PDF reports."/>
+<meta name="description" content="Instant AI-powered property valuations for Dubai real estate. DLD-verified data, 5,612 buildings, Cascade AVM engine. Get accurate PSF analysis, deal verdicts and PDF reports."/>
 <meta name="keywords" content="Dubai property valuation, AVM Dubai, real estate valuation Dubai, DLD data, PSF Dubai, property price Dubai 2026, Dubai real estate AI"/>
 <meta name="robots" content="index, follow"/>
 <link rel="canonical" href="https://dubaival.com/app"/>
@@ -14,7 +14,7 @@
 <meta property="og:type" content="website"/>
 <meta property="og:url" content="https://dubaival.com/app"/>
 <meta property="og:title" content="DubaiVal — AI Property Valuation Dubai"/>
-<meta property="og:description" content="Instant DLD-verified property valuations. 5,232 buildings. Cascade AVM engine. Used by Dubai real estate professionals."/>
+<meta property="og:description" content="Instant DLD-verified property valuations. 5,612 buildings. Cascade AVM engine. Used by Dubai real estate professionals."/>
 <meta property="og:image" content="https://dubaival.com/og-image.png"/>
 <meta property="og:site_name" content="DubaiVal"/>
 <meta property="og:locale" content="en_AE"/>
@@ -155,7 +155,7 @@ const MARKET_STATS=[
 const VIEW_P={"Full Sea View":0.28,"Partial Sea View":0.14,"Burj Khalifa View":0.32,"Partial Burj View":0.16,"Full Canal View":0.19,"Partial Canal View":0.09,"Beach Access View":0.22,"Sheikh Zayed Road View":0.12,"Golf View":0.14,"Lagoon View":0.13,"Pool View":0.09,"Garden/Park View":0.06,"Lake View":0.08,"Community View":0.03,"Backing Open Land":0.02,"Skyline View":0.12,"City Skyline":0.12,"City View":0.10,"Road View":0.00,"Not specified":0.00,"Beach Access View":0.22};
 
 // --- BUILDING DATABASE --------------------------------------------------------
-// VERSION: 3.0 | DATE: June 2026 | ENTRIES: 5232 buildings
+// VERSION: 3.0 | DATE: June 2026 | ENTRIES: 5612 buildings
 // SOURCES: DLD transactions_2026-05-26 (4.1GB, 4570 buildings) + manual market research (298 villa clusters)
 // KEY RULE: manually researched buildings (address fountain views, marina gate, etc) take priority over DLD
 // STRUCTURE: p=median PSF, lo=P20 PSF, hi=P80 PSF, sc=service charge AED/sqft/yr, a=area, g=grade
@@ -948,7 +948,7 @@ function getChatSys(){
   }catch(x){}
   var profile="Investor:"+(USER_PROFILE.investorType||"general")+"|Risk:"+(USER_PROFILE.risk||"moderate")+(USER_PROFILE.budgetMax?"|Budget:AED"+(USER_PROFILE.budgetMax/1e6).toFixed(1)+"M":"");
   return "You are DubaiVal AI - Dubai property intelligence. June 2026.\n"+
-    "DB:5232 buildings DLD-verified. "+areaSummary+"\n"+
+    "DB:5612 buildings DLD-verified. "+areaSummary+"\n"+
     "Market:Post-geo correction. Buyer leverage. Cash 87%. Off-plan 78%.\n"+
     "User:"+profile+"\n"+
     "Rules: Give specific AED numbers. If building in DB use exact PSF. For yield: Gross=(rent/price)*100. Net=Gross minus SC minus 7% costs. Be concise. Verdict first.";
@@ -1291,7 +1291,7 @@ function renderAlerts(){
   // Header
   const hdr=el("div",{style:{marginBottom:"16px"}});
   hdr.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Deal Alerts"));
-  hdr.appendChild(div({color:cl.sub,fontSize:"12px",marginTop:"4px",fontFamily:"'Inter',sans-serif"},"Set your criteria. DubaiVal scans 5,232 buildings instantly."));
+  hdr.appendChild(div({color:cl.sub,fontSize:"12px",marginTop:"4px",fontFamily:"'Inter',sans-serif"},"Set your criteria. DubaiVal scans 5,612 buildings instantly."));
   wrap.appendChild(hdr);
 
   // Load saved alerts
