@@ -1,8 +1,29 @@
 {
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index-6.html" }
+  "version": 2,
+  "builds": [
+    {
+      "src": "index-6.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "api/*.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index-6.html"
+    }
   ],
   "crons": [
-    { "path": "/api/check-price-alerts", "schedule": "0 8 * * *" }
+    {
+      "path": "/api/check-price-alerts",
+      "schedule": "0 8 * * *"
+    }
   ]
 }
