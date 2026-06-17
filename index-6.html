@@ -2754,7 +2754,8 @@ function renderAnalyzerResult(wrap){
     ]):div({}),
   ]));
 
-  // -- PRICE ALERT WATCH --
+  // -- PRICE ALERT WATCH -- (temporarily disabled — backend /api not deploying yet)
+  /*
   (function(){
     const targetType=val.inDB?"building":"area";
     const targetName=val.inDB?(analyzerState.f.building||f.area):f.area;
@@ -2796,6 +2797,7 @@ function renderAnalyzerResult(wrap){
     }
     wrap.appendChild(wWrap);
   })();
+  */
 
   // Mortgage Calculator
   const mortgagePrice=parseInt(analyzerState.f.price)||0;
