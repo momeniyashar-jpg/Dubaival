@@ -3457,6 +3457,40 @@ function computeAssetMetrics(asset){
   var camMosTier=camMosScore>=80?"Deep Value":camMosScore>=65?"Value Buy":camMosScore>=50?"Fair Entry":camMosScore>=35?"Thin Margin":"Speculative";
   return{currentPSF:adjPSF,currentValue:currentValue,purchasePrice:purchasePrice,roi:roi,rent:rent,sc:sc,grossYield:grossYield,netYield:netYield,holdingMonths:holdingMonths,annualizedROI:annualizedROI,g0:gr[0],g1:gr[1],g2:gr[2],inDB:!!bData,grade:bData?bData.g:"N/A",areaYield:aData.y||[5,7],investSignal:investSignal,totalReturn:totalReturn,domEst:domEst,txVol:txVol,liqScore:liqScore,liqLabel:liqLabel,turnoverRate:turnoverRate,turnoverLabel:turnoverLabel,bldgUnits:bldgUnits,bldgAnnualTx:bldgAnnualTx,mosScore:camMosScore,mosTier:camMosTier};
 }
+function computePortfolioHealth(metrics,totalValue){
+if(!metrics.length)return null;
+var ad={},td={apt:0,villa:0};
+metrics.forEach(function(a){ad[a.area]=(ad[a.area]||0)+a.m.currentValue;var isV=a.type==="Villa"||a.type==="Townhouse";if(isV)td.villa+=a.m.currentValue;else td.apt+=a.m.currentValue;});
+var hhi=0;Object.values(ad).forEach(function(v){var s=v/totalValue;hhi+=s*s;});
+var nA=Object.keys(ad).length;var minH=nA>1?1/nA:1;var hhNorm=1>minH?(1-hhi)/(1-minH):0;
+var areaSc=10+hhNorm*85;
+var hasBoth=td.apt>0&&td.villa>0;var typeSc=hasBoth?88:55;
+var divSc=Math.round(areaSc*0.7+typeSc*0.3);
+var avgLiq=metrics.reduce(function(s,a){return s+a.m.liqScore;},0)/metrics.length;
+var avgTO=metrics.reduce(function(s,a){return s+a.m.turnoverRate;},0)/metrics.length;
+var toB=avgTO>=8?15:avgTO>=4?10:avgTO>=2?5:0;
+var liqSc=Math.min(95,Math.round(avgLiq*0.8+toB+10));
+var avgNY=metrics.reduce(function(s,a){return s+a.m.netYield;},0)/metrics.length;
+var avgMoS=metrics.reduce(function(s,a){return s+a.m.mosScore;},0)/metrics.length;
+var ySc=avgNY>=7?92:avgNY>=5.5?80:avgNY>=4?65:avgNY>=2.5?45:25;
+var rrSc=Math.round(ySc*0.6+avgMoS*0.4);
+var avgROI=metrics.reduce(function(s,a){return s+a.m.roi;},0)/metrics.length;
+var avgTR=metrics.reduce(function(s,a){return s+a.m.totalReturn;},0)/metrics.length;
+var roiSc=avgROI>=30?95:avgROI>=15?82:avgROI>=5?68:avgROI>=0?50:avgROI>=-10?30:15;
+var trSc=avgTR>=10?90:avgTR>=7?75:avgTR>=5?60:avgTR>=3?40:20;
+var grSc=Math.round(roiSc*0.5+trSc*0.5);
+var raw=Math.round(divSc*0.25+liqSc*0.25+rrSc*0.25+grSc*0.25);
+var score=Math.min(95,Math.max(5,raw));
+var tier=score>=85?"Excellent":score>=70?"Strong":score>=55?"Moderate":score>=40?"Needs Attention":"At Risk";
+var weakest="div";var wVal=divSc;
+if(liqSc<wVal){weakest="liq";wVal=liqSc;}if(rrSc<wVal){weakest="rr";wVal=rrSc;}if(grSc<wVal){weakest="gr";wVal=grSc;}
+var insight="";
+if(weakest==="div"){if(nA<2)insight="Consider diversifying across multiple areas to reduce concentration risk";else if(!hasBoth)insight="Adding "+(td.villa?"apartments":"villas/townhouses")+" would improve type diversification";else insight="Strong diversification — maintain balance across areas and types";}
+else if(weakest==="liq")insight="Some assets are in low-liquidity markets — monitor exit timing carefully";
+else if(weakest==="rr")insight="Risk-adjusted returns could improve — look for higher-yield or better-value entries";
+else insight="Growth outlook is your weakest dimension — consider areas with stronger appreciation trends";
+return{score:score,tier:tier,div:divSc,liq:liqSc,rr:rrSc,gr:grSc,insight:insight,nAreas:nA,hasBoth:hasBoth};
+}
 function renderPortfolio(){
   var cl=C();var ps=window.PORTFOLIO_STATE;
   var wrap=div({padding:"20px",maxWidth:"640px",margin:"0 auto"});
@@ -3519,6 +3553,112 @@ function renderPortfolio(){
       sumCard.appendChild(legend);
     }
     wrap.appendChild(sumCard);
+
+    // Portfolio Health Score
+    var health=computePortfolioHealth(metrics,totalValue);
+    if(health){
+      var hCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",position:"relative",overflow:"hidden"});
+      var hScColor=health.score>=70?cl.green:health.score>=55?cl.yellow:cl.red;
+      hCard.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,"+hScColor+","+hScColor+",transparent)",animation:"shimmer 3s ease infinite"}));
+      hCard.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"16px"},"◆ Portfolio Health Score"));
+      var scoreAngle=Math.round(health.score/100*360);
+      var circleWrap=div({display:"flex",flexDirection:"column",alignItems:"center",marginBottom:"18px"});
+      var circle=div({width:"110px",height:"110px",borderRadius:"50%",background:"conic-gradient("+hScColor+" "+scoreAngle+"deg, "+cl.border+" "+scoreAngle+"deg)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 24px "+hScColor+"30"});
+      var inner=div({width:"84px",height:"84px",borderRadius:"50%",background:cl.surface,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"});
+      inner.appendChild(span({color:hScColor,fontSize:"32px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",lineHeight:"1"},String(health.score)));
+      inner.appendChild(span({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},"/100"));
+      circle.appendChild(inner);circleWrap.appendChild(circle);
+      var tierBg=health.score>=70?cl.greenBg:health.score>=55?cl.yellowBg:cl.redBg;
+      var tierBo=health.score>=70?cl.greenBo:health.score>=55?cl.yellowBo:cl.redBo;
+      circleWrap.appendChild(div({marginTop:"10px",padding:"4px 16px",borderRadius:"20px",background:tierBg,border:"1px solid "+tierBo},[span({color:hScColor,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em"},health.tier)]));
+      hCard.appendChild(circleWrap);
+      var compGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"14px"});
+      [{l:"Diversification",v:health.div,icon:"◈"},{l:"Liquidity",v:health.liq,icon:"◆"},{l:"Risk-Return",v:health.rr,icon:"◇"},{l:"Growth",v:health.gr,icon:"▲"}].forEach(function(c){
+        var cBox=div({background:cl.raised,borderRadius:"8px",padding:"10px 12px"});
+        var cHead=div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"});
+        cHead.appendChild(span({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},c.icon+" "+c.l));
+        var cColor=c.v>=70?cl.green:c.v>=55?cl.yellow:cl.red;
+        cHead.appendChild(span({color:cColor,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},c.v));
+        cBox.appendChild(cHead);
+        var barBg=div({height:"4px",borderRadius:"2px",background:cl.border,overflow:"hidden"});
+        barBg.appendChild(div({height:"100%",width:c.v+"%",borderRadius:"2px",background:"linear-gradient(90deg,"+cColor+","+cColor+"90)",transition:"width 1s ease"}));
+        cBox.appendChild(barBg);compGrid.appendChild(cBox);
+      });
+      hCard.appendChild(compGrid);
+      if(health.insight){
+        hCard.appendChild(div({background:cl.goldFaint,border:"1px solid "+cl.goldDim+"30",borderRadius:"8px",padding:"10px 12px"},[
+          span({color:cl.gold,fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",display:"block",marginBottom:"3px"},"INSIGHT"),
+          span({color:cl.subHi,fontSize:"11.5px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},health.insight)
+        ]));
+      }
+      wrap.appendChild(hCard);
+    }
+
+    // Future Projection Simulator
+    if(!ps._proj)ps._proj={growth:0,rate:0};
+    var projCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",position:"relative",overflow:"hidden"});
+    projCard.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,"+cl.gold+","+cl.gold+",transparent)",animation:"shimmer 3s ease infinite"}));
+    projCard.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"14px"},"◆ Future Projection Simulator"));
+    projCard.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",display:"block",marginBottom:"16px"},"Adjust assumptions to see how your portfolio evolves"));
+    var gAdj=ps._proj.growth;var rAdj=ps._proj.rate;
+    function mkSlider(label,min,max,step,val,suffix,onChange){
+      var sw=div({marginBottom:"16px"});
+      var sh=div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"});
+      sh.appendChild(span({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},label));
+      var valSpan=span({color:val>0?cl.green:val<0?cl.red:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(val>0?"+":"")+val+suffix);
+      sh.appendChild(valSpan);sw.appendChild(sh);
+      var si=el("input",{style:{width:"100%",height:"6px",borderRadius:"3px",appearance:"none",WebkitAppearance:"none",background:"linear-gradient(90deg,"+cl.red+","+cl.border+" 50%,"+cl.green+")",outline:"none",cursor:"pointer",accentColor:cl.gold},type:"range"});
+      si.min=String(min);si.max=String(max);si.step=String(step);si.value=String(val);
+      si.addEventListener("input",function(){onChange(parseFloat(si.value));});
+      sw.appendChild(si);
+      var ticks=div({display:"flex",justifyContent:"space-between",marginTop:"2px"});
+      ticks.appendChild(span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},min+suffix));
+      ticks.appendChild(span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"0"+suffix));
+      ticks.appendChild(span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"+"+max+suffix));
+      sw.appendChild(ticks);return sw;
+    }
+    projCard.appendChild(mkSlider("Market Growth Adjustment",-30,30,5,gAdj,"%",function(v){ps._proj.growth=v;render();}));
+    projCard.appendChild(mkSlider("Interest Rate Change",-3,5,0.5,rAdj,"%",function(v){ps._proj.rate=v;render();}));
+    var projYears=[1,3,5];
+    var projGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px",marginBottom:"14px"});
+    projYears.forEach(function(yr){
+      var projVal=0;var projRent=0;
+      metrics.forEach(function(a){
+        var baseGrowth=(yr===1?a.m.g0:yr===3?a.m.g1:a.m.g2)||10;
+        var adjGrowth=baseGrowth+gAdj;
+        var cappedGrowth=Math.max(-50,Math.min(100,adjGrowth));
+        var futureVal=a.m.currentValue*(1+cappedGrowth/100);
+        projVal+=futureVal;
+        var yieldImpact=rAdj>0?Math.max(0.7,1-rAdj*0.04):Math.min(1.3,1-rAdj*0.04);
+        projRent+=a.m.rent*yieldImpact*(1+cappedGrowth/200);
+      });
+      var projROI=totalPurchase>0?((projVal-totalPurchase)/totalPurchase*100):0;
+      var projYield=projVal>0?(projRent/projVal*100):0;
+      var valChange=projVal-totalValue;
+      var pBox=div({background:cl.raised,borderRadius:"10px",padding:"12px 10px",textAlign:"center"});
+      pBox.appendChild(span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:"8px"},yr+" Year"));
+      pBox.appendChild(span({color:cl.gold,fontSize:"15px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",display:"block",lineHeight:"1.2"},"AED"));
+      pBox.appendChild(span({color:cl.gold,fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"6px"},Math.round(projVal/1000).toLocaleString()+"K"));
+      pBox.appendChild(div({height:"1px",background:cl.border,margin:"6px 0"}));
+      var chColor=valChange>=0?cl.green:cl.red;
+      pBox.appendChild(span({color:chColor,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},(valChange>=0?"+":"")+"AED "+Math.round(valChange/1000).toLocaleString()+"K"));
+      pBox.appendChild(span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",display:"block",marginTop:"2px"},"ROI "+(projROI>=0?"+":"")+projROI.toFixed(0)+"% · Yield "+projYield.toFixed(1)+"%"));
+      projGrid.appendChild(pBox);
+    });
+    projCard.appendChild(projGrid);
+    var projInsight="";
+    if(gAdj<=-10)projInsight="Stress scenario: significant market correction. Focus on cash flow and avoid leverage.";
+    else if(gAdj<0)projInsight="Cautious outlook: moderate pullback expected. High-yield assets outperform in this scenario.";
+    else if(gAdj>=20)projInsight="Bull scenario: strong appreciation. Consider locking in gains on overheated segments.";
+    else if(gAdj>=10)projInsight="Optimistic outlook: above-trend growth. Growth-oriented areas benefit most.";
+    else projInsight="Base case: in-line with current market forecasts from AREAS database.";
+    if(rAdj>=2)projInsight+=" Higher rates compress yields and reduce buyer demand — watch for pricing pressure.";
+    else if(rAdj<=-1)projInsight+=" Lower rates boost affordability and may accelerate capital inflows.";
+    projCard.appendChild(div({background:cl.goldFaint,border:"1px solid "+cl.goldDim+"30",borderRadius:"8px",padding:"10px 12px"},[
+      span({color:cl.gold,fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",display:"block",marginBottom:"3px"},"SCENARIO ANALYSIS"),
+      span({color:cl.subHi,fontSize:"11.5px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},projInsight)
+    ]));
+    wrap.appendChild(projCard);
   }
 
   // Investment Profile
@@ -3532,6 +3672,91 @@ function renderPortfolio(){
   });
   goalsCard.appendChild(goalsGrid);
   wrap.appendChild(goalsCard);
+
+  // What-If Scenario Simulator
+  if(metrics.length>0){
+    if(!ps._swap)ps._swap={sellId:"",buyArea:"",buyType:"Apartment",buyBeds:"2 BR",buySize:"",showResult:false};
+    var sw=ps._swap;
+    var swCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",position:"relative",overflow:"hidden"});
+    swCard.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,#6366F1,#6366F1,transparent)",animation:"shimmer 3s ease infinite"}));
+    swCard.appendChild(span({color:"#818CF8",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ What-If Scenario"));
+    swCard.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",display:"block",marginBottom:"16px"},"Sell an asset and reinvest — see how your cash flow changes"));
+    var swGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"14px"});
+    var sellW=div({});sellW.appendChild(lbl("Sell This Asset"));
+    var sellOpts=["Select…"].concat(metrics.map(function(a){return(a.building||a.area)+" (AED "+Math.round(a.m.currentValue/1000)+"K)";}));
+    var sellVals=[""].concat(metrics.map(function(a){return a.id;}));
+    sellW.appendChild(mkSelect(Object.assign({},S(),{fontSize:"11px",padding:"8px 10px"}),sellOpts,sw.sellId?sellOpts[sellVals.indexOf(sw.sellId)]||"Select…":"Select…",function(v){
+      var idx=sellOpts.indexOf(v);sw.sellId=idx>0?sellVals[idx]:"";sw.showResult=false;render();
+    }));
+    swGrid.appendChild(sellW);
+    var buyW=div({});buyW.appendChild(lbl("Buy In Area"));
+    buyW.appendChild(mkSelect(Object.assign({},S(),{fontSize:"11px",padding:"8px 10px"}),["Select…"].concat(AREA_NAMES),sw.buyArea||"Select…",function(v){sw.buyArea=v==="Select…"?"":v;sw.showResult=false;render();}));
+    swGrid.appendChild(buyW);
+    var buyW2=div({});buyW2.appendChild(lbl("Property Type"));
+    buyW2.appendChild(mkSelect(Object.assign({},S(),{fontSize:"11px",padding:"8px 10px"}),["Apartment","Villa","Townhouse"],sw.buyType,function(v){sw.buyType=v;sw.showResult=false;render();}));
+    swGrid.appendChild(buyW2);
+    var buyW3=div({});buyW3.appendChild(lbl("Bedrooms"));
+    buyW3.appendChild(mkSelect(Object.assign({},S(),{fontSize:"11px",padding:"8px 10px"}),["Studio","1 BR","2 BR","3 BR","4 BR","5 BR"],sw.buyBeds,function(v){sw.buyBeds=v;sw.showResult=false;render();}));
+    swGrid.appendChild(buyW3);
+    swCard.appendChild(swGrid);
+    var canSim=sw.sellId&&sw.buyArea;
+    swCard.appendChild(btn({width:"100%",padding:"11px",borderRadius:"10px",border:"none",background:canSim?"linear-gradient(135deg,#6366F1,#818CF8)":cl.border,color:canSim?"#fff":cl.sub,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",marginBottom:sw.showResult?"14px":"0",opacity:canSim?"1":"0.5"},"SIMULATE SWAP ◆",function(){if(canSim){sw.showResult=true;render();}}));
+    if(sw.showResult&&canSim){
+      var sellAsset=metrics.find(function(a){return a.id===sw.sellId;});
+      if(sellAsset){
+        var saleProceeds=sellAsset.m.currentValue;
+        var dldFee=Math.round(saleProceeds*0.04);
+        var agentFee=Math.round(saleProceeds*0.02);
+        var netProceeds=saleProceeds-dldFee-agentFee;
+        var buyAreaData=AREAS[sw.buyArea]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
+        var buyPSF=buyAreaData.psf;
+        var buyIsV=sw.buyType==="Villa"||sw.buyType==="Townhouse";
+        var buySize=Math.round(netProceeds/(buyPSF*1.04));
+        var buyDLD=Math.round(netProceeds/(1+0.04)*0.04);
+        var buyPrice=netProceeds-buyDLD;
+        var bn2={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5}[sw.buyBeds]||2;
+        var buyRent=buyIsV?(bn2<=3?buyAreaData.rv3||180000:buyAreaData.rv4||240000):bn2===0?(buyAreaData.r1||65000)*0.65:bn2===1?buyAreaData.r1||65000:bn2===2?buyAreaData.r2||100000:bn2===3?buyAreaData.r3||150000:(buyAreaData.r3||150000)*1.4;
+        var buySC=(buyAreaData.sc||15)*buySize;
+        var buyGrossY=buyPrice>0?(buyRent/buyPrice*100):0;
+        var buyNetY=buyPrice>0?((buyRent-buySC)/buyPrice*100):0;
+        var buyGrowth=buyAreaData.g||[10,18,28];
+        var sellRent=sellAsset.m.rent;var sellNetY=sellAsset.m.netYield;var sellGrowth=sellAsset.m.g1||18;
+        var cashFlowDiff=Math.round((buyRent-buySC)-(sellRent-sellAsset.m.sc));
+        var cashFlowPct=sellRent-sellAsset.m.sc>0?(cashFlowDiff/(sellRent-sellAsset.m.sc)*100):0;
+        var growthDiff=(buyGrowth[1]||18)-(sellGrowth||18);
+        var resCard=div({background:cl.raised,borderRadius:"10px",padding:"14px"});
+        resCard.appendChild(span({color:"#818CF8",fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"SWAP ANALYSIS"));
+        var resG=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"});
+        [{l:"Sale Proceeds (Net)",v:"AED "+Math.round(netProceeds/1000).toLocaleString()+"K",s:"After 4% DLD + 2% agent",c:cl.white},
+         {l:"Buy Power in "+sw.buyArea,v:buySize.toLocaleString()+" sqft",s:"At PSF "+buyPSF.toLocaleString(),c:cl.gold},
+         {l:"Current Net Cash Flow",v:"AED "+Math.round(sellRent-sellAsset.m.sc).toLocaleString()+"/yr",s:sellAsset.building||sellAsset.area,c:cl.white},
+         {l:"New Net Cash Flow",v:"AED "+Math.round(buyRent-buySC).toLocaleString()+"/yr",s:sw.buyArea+" "+sw.buyBeds,c:cashFlowDiff>=0?cl.green:cl.red}
+        ].forEach(function(item){
+          var b=div({background:cl.surface,borderRadius:"8px",padding:"10px 12px"});
+          b.appendChild(lbl(item.l));
+          b.appendChild(span({color:item.c,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},item.v));
+          if(item.s)b.appendChild(span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",display:"block",marginTop:"2px"},item.s));
+          resG.appendChild(b);
+        });
+        resCard.appendChild(resG);
+        var verdictBox=div({background:cashFlowDiff>=0?cl.greenBg:cl.redBg,border:"1px solid "+(cashFlowDiff>=0?cl.greenBo:cl.redBo),borderRadius:"8px",padding:"12px",textAlign:"center",marginBottom:"10px"});
+        verdictBox.appendChild(span({color:cashFlowDiff>=0?cl.green:cl.red,fontSize:"20px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",display:"block"},(cashFlowDiff>=0?"+":"")+"AED "+cashFlowDiff.toLocaleString()+"/yr"));
+        verdictBox.appendChild(span({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",display:"block",marginTop:"2px"},"Cash Flow "+(cashFlowPct>=0?"+":"")+cashFlowPct.toFixed(0)+"% · Net Yield "+sellNetY.toFixed(1)+"% → "+buyNetY.toFixed(1)+"% · 3yr Growth "+(growthDiff>=0?"+":"")+growthDiff.toFixed(0)+"pp"));
+        resCard.appendChild(verdictBox);
+        var verdict="";
+        if(cashFlowDiff>0&&growthDiff>=0)verdict="Strong swap: higher cash flow AND better growth prospects. Consider executing.";
+        else if(cashFlowDiff>0&&growthDiff<0)verdict="Cash flow improves but growth outlook weakens. Good for income-focused investors.";
+        else if(cashFlowDiff<=0&&growthDiff>0)verdict="Lower immediate cash flow but stronger capital appreciation potential. Suits growth investors.";
+        else verdict="This swap reduces both cash flow and growth — reconsider unless there are non-financial reasons.";
+        resCard.appendChild(div({background:cl.goldFaint,borderRadius:"6px",padding:"8px 10px"},[
+          span({color:cl.gold,fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",display:"block",marginBottom:"2px"},"VERDICT"),
+          span({color:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},verdict)
+        ]));
+        swCard.appendChild(resCard);
+      }
+    }
+    wrap.appendChild(swCard);
+  }
 
   // Asset Cards
   metrics.forEach(function(a){
