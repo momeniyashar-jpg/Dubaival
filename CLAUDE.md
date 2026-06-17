@@ -346,11 +346,60 @@ use a Node `eval` harness:
 - All 5 of the user's original strategic proposals now have code shipped or
   already existed (1 Outlier `d96a36a`, 2 & 3 pre-existing, 4 Case Study
   `1b8c59c`, 5 Price Alert — see "Price Alert feature" above, 2026-06-16).
-  **Price Alert is the one item that is code-complete but NOT yet live** —
-  it needs the user's manual activation steps (Resend signup, Supabase SQL
-  migration, Vercel env vars, deploy) before it does anything. Next session:
-  check whether the user has done those steps before assuming the feature
-  is working end-to-end.
+  **Price Alert is code-complete but the `/api` serverless functions are NOT
+  deploying** — the client-side UI widget (🔔 card in `renderAnalyzerResult`)
+  shows up correctly on the live site, but clicking "Watch" fails because
+  the backend functions return 404.
+- **Price Alert deployment blocker (2026-06-17)**: the user completed all
+  activation steps (Supabase SQL migration ✅, Resend signup + domain DNS
+  verification ✅ partially verified, Vercel env vars set ✅: `RESEND_API_KEY`,
+  `SUPABASE_SERVICE_ROLE_KEY`, `RAPIDAPI_KEY`), but `npx vercel --prod`
+  does not deploy the `/api/*.js` serverless functions — they all return 404
+  (including a pre-existing `api/claude.js` that was already in the project).
+  **Debugging done so far**:
+  - Confirmed file structure is correct locally: `api/watch-subscribe.js`,
+    `api/unsubscribe.js`, `api/check-price-alerts.js`, `api/lib/shared.js`
+    all present with correct names (dashes, not camelCase).
+  - `vercel.json` has `"builds":[{"src":"api/*.js","use":"@vercel/node"}]` +
+    explicit `/api/(.*)` route before the catch-all — syntax is correct.
+  - Vercel CLI (v34.10.2) shows warning: "Due to builds existing in your
+    configuration file, the Build and Development Settings defined in your
+    Project Settings apply" — this suggests the `@vercel/node` build entry
+    may be ignored due to project-level settings overriding it.
+  - Attempted switching to modern zero-config format (`"rewrites"` instead
+    of `"builds"`/`"routes"`) — this caused a **blank white page** (static
+    file `index-6.html` not served), so it was immediately reverted.
+  - Vercel Project Settings → Framework Preset is already set to "Other".
+  - Build Logs for the latest deployment are empty (no function build output).
+  - No `.gitignore` or `.vercelignore` excluding the api directory.
+  - The user's local project has many extra files not in the git repo
+    (node_modules, dist, .vercel, db, dld_output2, etc.) — these may
+    affect how Vercel CLI detects/uploads the project.
+  **Suggested next steps for the next session**:
+  1. Check if the user's local `package.json` differs from the repo's
+     minimal one (extra dependencies/framework that triggers Vercel
+     auto-detection overriding the builds config?).
+  2. Try deploying via **git push to main** (Vercel GitHub integration)
+     instead of `npx vercel --prod` (CLI) — the GitHub integration uses
+     Vercel's remote build system which may handle the builds config
+     differently from the local CLI.
+  3. Check the Vercel deployment "Source" tab to see what files were
+     actually uploaded.
+  4. As a fallback: consider moving the 3 API functions to **Supabase
+     Edge Functions** (Deno-based, deployed via Supabase CLI) instead of
+     Vercel Serverless Functions, to completely decouple from the Vercel
+     build config issue.
+- **Resend domain `dubaival.com`**: "Partially Verified" as of 2026-06-17.
+  DNS records (DKIM TXT `resend._domainkey`, SPF MX+TXT `send`, DMARC TXT
+  `_dmarc`) were added to Vercel DNS. Should auto-verify fully within hours.
+  Until then, emails can still be sent via the shared `onboarding@resend.dev`
+  sender (fallback already coded in `api/lib/shared.js`).
+- **Security note**: the user shared `RESEND_API_KEY` and
+  `SUPABASE_SERVICE_ROLE_KEY` values in chat during this session. They were
+  advised to regenerate both keys after everything is working and update
+  only in Vercel Environment Variables. If the next session sees these keys
+  in the conversation history, do NOT echo them — they should be treated as
+  compromised and regenerated.
 - The honest Track Record accuracy numbers (median ~20% error on the 18
   kept transactions) suggest there's real room to improve AVM accuracy
   beyond the B+ grade-guess fix already made — e.g. the DB's "p" (psf) field
