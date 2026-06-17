@@ -799,7 +799,24 @@ function computeValuation(f,buildingVal,liveData){
   const bldgAnnualTx=estimateBldgTx(bldgName,f.area,aData,bData);
   const turnoverRate=bldgUnits>0?Math.round(bldgAnnualTx/bldgUnits*1000)/10:0;
   const turnoverTier=turnoverRate>=12?{label:"Hot Market",c:"green",desc:"Units trade hands rapidly — very high demand, low exit risk"}:turnoverRate>=6?{label:"Active",c:"green",desc:"Healthy trading volume — good liquidity, units sell with ease"}:turnoverRate>=3?{label:"Stable",c:"yellow",desc:"Normal market pace — adequate liquidity for planned exits"}:turnoverRate>=1?{label:"Slow",c:"yellow",desc:"Below-average activity — may take longer to find a buyer"}:{label:"Stagnant",c:"red",desc:"Very few trades — high illiquidity risk, exercise caution"};
-  return{askPSF,adjPSF,psfLo,psfHi,fairPrice,distressPrice,goodPrice,overpricedAt,verdict,vsPct:vsPct.toFixed(1),suggestedOffer,dataSource,dataLayer,confScore,confTier,priceLow,priceHigh,inDB:!!bData,bData,isDevFurnished,vP:Math.round(vP*100),fP:Math.round(fP*100),furnP:Math.round(furnP*100),loftP:Math.round(loftP*100),penthP:Math.round(penthP*100),maidP:Math.round(maidP*100),privatePoolP:Math.round(privatePoolP*100),singleRowP:Math.round(singleRowP*100),cornerVillaP:Math.round(cornerVillaP*100),geo:Math.round(geoAdj*100),rent,sc,grossYield,netYield,g0:gr[0],g1:gr[1],g2:gr[2],prRatio:prRatio?prRatio.toFixed(1):null,investSignal,totalReturnAnnual,domEst,txVol,liqScore,liqTier,txLabel,turnoverRate,turnoverTier,bldgUnits,bldgAnnualTx};
+  // --- Margin of Safety (MoS) Index ---
+  // Component 1: Price Gap (50% weight) — how far below/above fair value
+  const vsPctNum=parseFloat(vsPct)||0;
+  const priceGapScore=vsPctNum<=-20?95:vsPctNum<=-12?85:vsPctNum<=-5?72:vsPctNum<=0?58:vsPctNum<=5?42:vsPctNum<=12?25:10;
+  // Component 2: Time Decay (20% weight) — SC vs area average as age proxy
+  const scPSF=parseFloat(f.serviceCharge)||(bData&&bData.sc)||aData.sc||15;
+  const areaSCAvg=aData.sc||15;
+  const scRatio=areaSCAvg>0?scPSF/areaSCAvg:1;
+  const timeDecayScore=scRatio<=0.75?90:scRatio<=0.95?75:scRatio<=1.10?60:scRatio<=1.35?40:20;
+  // Component 3: Market Depth (30% weight) — is this price point in the area's liquid range?
+  const areaPsfAvg=aData.psf||1500;
+  const psfDeviation=areaPsfAvg>0?Math.abs(askPSF-areaPsfAvg)/areaPsfAvg:0.5;
+  const marketDepthScore=psfDeviation<=0.15?90:psfDeviation<=0.30?72:psfDeviation<=0.50?50:psfDeviation<=0.75?30:15;
+  // Composite MoS (weighted)
+  const mosRaw=Math.round(priceGapScore*0.50+timeDecayScore*0.20+marketDepthScore*0.30);
+  const mosScore=Math.min(95,Math.max(5,mosRaw));
+  const mosTier=mosScore>=80?{label:"Deep Value",c:"green",desc:"Strong margin of safety — price significantly below intrinsic value with favorable market conditions"}:mosScore>=65?{label:"Value Buy",c:"green",desc:"Positive margin of safety — priced below fair value with room for appreciation"}:mosScore>=50?{label:"Fair Entry",c:"yellow",desc:"Neutral margin — price aligns with market value, moderate risk-reward balance"}:mosScore>=35?{label:"Thin Margin",c:"yellow",desc:"Limited safety buffer — priced at or slightly above value, returns depend on market growth"}:{label:"Speculative",c:"red",desc:"Negative margin of safety — price exceeds intrinsic value, high risk of capital loss in a downturn"};
+  return{askPSF,adjPSF,psfLo,psfHi,fairPrice,distressPrice,goodPrice,overpricedAt,verdict,vsPct:vsPct.toFixed(1),suggestedOffer,dataSource,dataLayer,confScore,confTier,priceLow,priceHigh,inDB:!!bData,bData,isDevFurnished,vP:Math.round(vP*100),fP:Math.round(fP*100),furnP:Math.round(furnP*100),loftP:Math.round(loftP*100),penthP:Math.round(penthP*100),maidP:Math.round(maidP*100),privatePoolP:Math.round(privatePoolP*100),singleRowP:Math.round(singleRowP*100),cornerVillaP:Math.round(cornerVillaP*100),geo:Math.round(geoAdj*100),rent,sc,grossYield,netYield,g0:gr[0],g1:gr[1],g2:gr[2],prRatio:prRatio?prRatio.toFixed(1):null,investSignal,totalReturnAnnual,domEst,txVol,liqScore,liqTier,txLabel,turnoverRate,turnoverTier,bldgUnits,bldgAnnualTx,mosScore,mosTier,priceGapScore,timeDecayScore,marketDepthScore};
 }
 
 // --- API ---------------------------------------------------------------------
@@ -2989,6 +3006,68 @@ function renderAnalyzerResult(wrap){
     wrap.appendChild(trWrap);
   })();
 
+  // -- MARGIN OF SAFETY (MoS) INDEX --
+  (function(){
+    var mosC=val.mosTier.c==="green"?cl.green:val.mosTier.c==="yellow"?cl.yellow:cl.red;
+    var mosBg=val.mosTier.c==="green"?cl.greenBg:val.mosTier.c==="yellow"?cl.yellowBg:cl.redBg;
+    var mosWrap=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginTop:"14px",position:"relative",overflow:"hidden"}});
+    // Gold shimmer for Deep Value
+    if(val.mosScore>=80){mosWrap.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,"+cl.gold+","+cl.gold+",transparent)",animation:"shimmer 3s ease infinite"}));}
+    mosWrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
+      span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ Margin of Safety"),
+      span({color:mosC,fontSize:"12px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"6px",background:mosBg},val.mosTier.label)
+    ]));
+    // Risk-Reward slider
+    var sliderOuter=el("div",{style:{position:"relative",height:"32px",marginBottom:"14px"}});
+    // Gradient track: green(left) → yellow(center) → red(right)
+    var track=el("div",{style:{position:"absolute",top:"12px",left:"0",right:"0",height:"8px",borderRadius:"6px",background:"linear-gradient(90deg, #22C55E 0%, #22C55E 30%, #EAB308 50%, #EF4444 80%, #DC2626 100%)"}});
+    sliderOuter.appendChild(track);
+    // Labels above track
+    var lblLeft=el("div",{style:{position:"absolute",top:"0",left:"0",fontSize:"7px",color:cl.green,fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em",textTransform:"uppercase"}});lblLeft.textContent="VALUE BUY";
+    var lblRight=el("div",{style:{position:"absolute",top:"0",right:"0",fontSize:"7px",color:cl.red,fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em",textTransform:"uppercase"}});lblRight.textContent="SPECULATIVE";
+    sliderOuter.appendChild(lblLeft);sliderOuter.appendChild(lblRight);
+    // Pointer (inverted: high MoS = left/safe, low MoS = right/risky)
+    var ptrPos=Math.max(2,Math.min(98,100-val.mosScore));
+    var ptr=el("div",{style:{position:"absolute",top:"8px",left:ptrPos+"%",transform:"translateX(-50%)",width:"16px",height:"16px",borderRadius:"50%",background:mosC,border:"2px solid "+cl.bg,boxShadow:"0 0 8px "+mosC,transition:"left 0.6s ease"}});
+    sliderOuter.appendChild(ptr);
+    mosWrap.appendChild(sliderOuter);
+    // Score display
+    var scoreRow=el("div",{style:{display:"flex",alignItems:"baseline",gap:"8px",marginBottom:"14px"}});
+    scoreRow.appendChild(span({color:mosC,fontSize:"32px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},String(val.mosScore)));
+    scoreRow.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"/ 95  Safety Score"));
+    mosWrap.appendChild(scoreRow);
+    // 3 component breakdown
+    var compGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"12px"}});
+    [{l:"Price Gap",v:val.priceGapScore,w:"50%",icon:"📊"},
+     {l:"Age Factor",v:val.timeDecayScore,w:"20%",icon:"🏗"},
+     {l:"Market Depth",v:val.marketDepthScore,w:"30%",icon:"📈"}
+    ].forEach(function(comp){
+      var cBox=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"10px 8px",textAlign:"center"}});
+      cBox.appendChild(div({fontSize:"14px",marginBottom:"4px"},comp.icon));
+      cBox.appendChild(div({color:cl.sub,fontSize:"7px",letterSpacing:"0.06em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},comp.l));
+      var compC=comp.v>=70?cl.green:comp.v>=45?cl.yellow:cl.red;
+      cBox.appendChild(div({color:compC,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},String(comp.v)));
+      cBox.appendChild(div({color:cl.sub,fontSize:"7px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},"weight: "+comp.w));
+      // Mini bar
+      var miniBar=el("div",{style:{background:"rgba(240,242,245,0.06)",borderRadius:"3px",height:"3px",marginTop:"6px",overflow:"hidden"}});
+      var miniInner=el("div",{style:{width:comp.v+"%",height:"100%",borderRadius:"3px",background:compC,transition:"width 0.5s ease"}});
+      miniBar.appendChild(miniInner);
+      cBox.appendChild(miniBar);
+      compGrid.appendChild(cBox);
+    });
+    mosWrap.appendChild(compGrid);
+    // Description
+    mosWrap.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5",padding:"8px 0",borderTop:"1px solid "+cl.border,marginTop:"4px"},val.mosTier.desc));
+    // Actionable verdict
+    var mosVerdict=val.mosScore>=80?"Strong conviction buy — significant upside with minimal downside risk.":val.mosScore>=65?"Favorable entry point — below fair value with healthy market support.":val.mosScore>=50?"Proceed with standard due diligence — no significant discount or premium.":val.mosScore>=35?"Exercise caution — limited buffer against market correction.":"High-risk position — price exceeds fundamentals. Wait for a better entry or negotiate aggressively.";
+    var verdictC=val.mosScore>=65?cl.green:val.mosScore>=50?cl.yellow:cl.red;
+    mosWrap.appendChild(div({display:"flex",alignItems:"flex-start",gap:"6px",marginTop:"6px"},[
+      span({color:cl.gold,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",flexShrink:"0"},"VERDICT"),
+      span({color:verdictC,fontSize:"10px",fontWeight:"600",fontFamily:"'Inter',sans-serif",lineHeight:"1.4"},mosVerdict)
+    ]));
+    wrap.appendChild(mosWrap);
+  })();
+
   // -- PRICE ALERT WATCH -- (temporarily disabled — backend /api not deploying yet)
   /*
   (function(){
@@ -3364,7 +3443,19 @@ function computeAssetMetrics(asset){
   var bldgAnnualTx=estimateBldgTx(asset.building,asset.area,aData,bData);
   var turnoverRate=bldgUnits>0?Math.round(bldgAnnualTx/bldgUnits*1000)/10:0;
   var turnoverLabel=turnoverRate>=12?"Hot Market":turnoverRate>=6?"Active":turnoverRate>=3?"Stable":turnoverRate>=1?"Slow":"Stagnant";
-  return{currentPSF:adjPSF,currentValue:currentValue,purchasePrice:purchasePrice,roi:roi,rent:rent,sc:sc,grossYield:grossYield,netYield:netYield,holdingMonths:holdingMonths,annualizedROI:annualizedROI,g0:gr[0],g1:gr[1],g2:gr[2],inDB:!!bData,grade:bData?bData.g:"N/A",areaYield:aData.y||[5,7],investSignal:investSignal,totalReturn:totalReturn,domEst:domEst,txVol:txVol,liqScore:liqScore,liqLabel:liqLabel,turnoverRate:turnoverRate,turnoverLabel:turnoverLabel,bldgUnits:bldgUnits,bldgAnnualTx:bldgAnnualTx};
+  // MoS for portfolio
+  var purchasePSF=purchasePrice>0&&size>0?Math.round(purchasePrice/size):0;
+  var camVsPct=purchasePSF>0&&adjPSF>0?((purchasePSF-adjPSF)/adjPSF*100):0;
+  var camPriceGap=camVsPct<=-20?95:camVsPct<=-12?85:camVsPct<=-5?72:camVsPct<=0?58:camVsPct<=5?42:camVsPct<=12?25:10;
+  var camScPSF=parseFloat(asset.serviceCharge)||(bData&&bData.sc)||aData.sc||15;
+  var camScRatio=(aData.sc||15)>0?camScPSF/(aData.sc||15):1;
+  var camTimeDecay=camScRatio<=0.75?90:camScRatio<=0.95?75:camScRatio<=1.10?60:camScRatio<=1.35?40:20;
+  var camAreaPsf=aData.psf||1500;
+  var camPsfDev=camAreaPsf>0?Math.abs(adjPSF-camAreaPsf)/camAreaPsf:0.5;
+  var camMarketDepth=camPsfDev<=0.15?90:camPsfDev<=0.30?72:camPsfDev<=0.50?50:camPsfDev<=0.75?30:15;
+  var camMosScore=Math.min(95,Math.max(5,Math.round(camPriceGap*0.50+camTimeDecay*0.20+camMarketDepth*0.30)));
+  var camMosTier=camMosScore>=80?"Deep Value":camMosScore>=65?"Value Buy":camMosScore>=50?"Fair Entry":camMosScore>=35?"Thin Margin":"Speculative";
+  return{currentPSF:adjPSF,currentValue:currentValue,purchasePrice:purchasePrice,roi:roi,rent:rent,sc:sc,grossYield:grossYield,netYield:netYield,holdingMonths:holdingMonths,annualizedROI:annualizedROI,g0:gr[0],g1:gr[1],g2:gr[2],inDB:!!bData,grade:bData?bData.g:"N/A",areaYield:aData.y||[5,7],investSignal:investSignal,totalReturn:totalReturn,domEst:domEst,txVol:txVol,liqScore:liqScore,liqLabel:liqLabel,turnoverRate:turnoverRate,turnoverLabel:turnoverLabel,bldgUnits:bldgUnits,bldgAnnualTx:bldgAnnualTx,mosScore:camMosScore,mosTier:camMosTier};
 }
 function renderPortfolio(){
   var cl=C();var ps=window.PORTFOLIO_STATE;
