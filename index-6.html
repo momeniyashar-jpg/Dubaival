@@ -58,10 +58,13 @@
 <link rel="dns-prefetch" href="https://www.googletagmanager.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>.dv-popup .leaflet-popup-content-wrapper{background:transparent!important;box-shadow:none!important;border-radius:8px!important;padding:0!important;}.dv-popup .leaflet-popup-content{margin:0!important;}.dv-popup .leaflet-popup-tip{background:#0D1220!important;border:1px solid #1C2540!important;}.leaflet-container{background:#070B14!important;font-family:'Space Grotesk',monospace!important;}</style>
 </head>
 <body>
 <!-- Google Analytics -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-DUBAIVAL01"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 window.dataLayer=window.dataLayer||[];
 function gtag(){dataLayer.push(arguments);}
@@ -467,6 +470,7 @@ const AREAS={
   "Mushrif Park":{psf:800,sc:10,rv3:130000,rv4:170000,rv5:210000,y:[5.0,7.0],g:[4,10,16],dom:55,txVol:120}
 };
 const AREA_NAMES=Object.keys(AREAS);
+const AREA_COORDS={"Downtown Dubai":[25.1972,55.2744],"Dubai Marina":[25.0800,55.1400],"Palm Jumeirah":[25.1124,55.1390],"Business Bay":[25.1850,55.2640],"Emaar Beachfront":[25.0850,55.1350],"Bluewaters Island":[25.0810,55.1260],"Dubai Creek Harbour":[25.2010,55.3400],"MBR City":[25.1700,55.2900],"Sobha Hartland":[25.1750,55.3100],"Jumeirah Village Circle":[25.0650,55.2100],"Dubai Hills Estate":[25.1400,55.2400],"DAMAC Lagoons":[25.0200,55.3200],"Arabian Ranches":[25.0600,55.2650],"Arabian Ranches 2":[25.0400,55.2850],"Arabian Ranches 3":[25.0200,55.2950],"Tilal Al Ghaf":[25.0300,55.3400],"Al Furjan":[25.0500,55.1500],"Dubai South":[24.8960,55.1590],"Jumeirah Lake Towers":[25.0750,55.1460],"The Springs":[25.0900,55.1850],"The Meadows":[25.0950,55.1900],"The Lakes":[25.0930,55.1870],"Meydan":[25.1600,55.3000],"Al Barsha":[25.1130,55.2000],"Jumeirah Golf Estates":[25.0450,55.1800],"Dubai Sports City":[25.0400,55.2200],"DAMAC Hills":[25.0310,55.2440],"DAMAC Hills 2":[24.9900,55.2700],"Town Square":[25.0100,55.2900],"The Valley":[25.0000,55.3200],"Dubai Harbour":[25.0900,55.1350],"DIFC":[25.2100,55.2800],"City Walk":[25.2090,55.2580],"Palm Jebel Ali":[25.0100,55.0100],"Emirates Hills":[25.0930,55.1700],"Mudon":[25.0350,55.2700],"Villanova":[25.0050,55.3100],"Al Barari":[25.0750,55.3000],"Motor City":[25.0500,55.2300],"Jumeirah Bay Island":[25.2000,55.2300],"Jumeirah Village Triangle":[25.0550,55.2150],"Majan":[25.0480,55.2250],"Polo Residences":[25.0600,55.2800],"Wadi Al Safa":[25.0700,55.2900],"Cherrywoods":[25.0150,55.3050],"The Heights":[25.0700,55.2350],"The Oasis":[25.0800,55.2700],"Jumeirah Park":[25.0700,55.1600],"Jumeirah Islands":[25.0800,55.1650],"Victory Heights":[25.0450,55.2200],"The Villa":[25.0500,55.3000],"Mira":[25.0280,55.2780],"Mira Oasis":[25.0250,55.2820],"Serena":[25.0200,55.2850],"Sustainable City":[25.0300,55.3050],"Remraam":[25.0350,55.2500],"Dubai Islands":[25.2800,55.3200],"La Mer":[25.2200,55.2500],"Pearl Jumeirah":[25.2100,55.2180],"The Oasis by Emaar":[25.0830,55.2730],"Nad Al Sheba":[25.1500,55.3100],"Falcon City":[25.0700,55.3100],"Emaar South":[24.9200,55.1600],"Living Legends":[25.1000,55.3300],"International City":[25.1600,55.4100],"Dubai Silicon Oasis":[25.1200,55.3850],"Al Jaddaf":[25.2100,55.3150],"Culture Village":[25.2160,55.3250],"Arjan":[25.0570,55.2380],"Dubailand":[25.0800,55.3200],"Dubai Investment Park":[24.9800,55.1800],"Dubai Studio City":[25.0350,55.2100],"Dubai Production City":[25.0300,55.1900],"Dubai Media City":[25.0900,55.1550],"Barsha Heights":[25.0950,55.1700],"Mirdif":[25.2300,55.4200],"Liwan":[25.0900,55.3300],"Dubai Festival City":[25.2250,55.3500],"Discovery Gardens":[25.0450,55.1350],"Bur Dubai":[25.2500,55.3000],"Al Nahda":[25.2800,55.3700],"Dubai":[25.2000,55.2700],"Beachgate By Address":[25.0850,55.1360],"Al Wasl":[25.2100,55.2500],"Dubai Residence Complex":[25.0650,55.2000],"Jebel Ali":[25.0200,55.1100],"Dubai Science Park":[25.0380,55.2150],"Dubai Maritime City":[25.2350,55.2900],"Mina Rashid":[25.2600,55.2900],"Ras Al Khor":[25.1850,55.3350],"Wasl Gate":[25.0900,55.3350],"Bukadra":[25.1600,55.3400],"Za'Abeel":[25.2230,55.2890],"Dubai Industrial City":[24.9500,55.2200],"Palace Beach Residence":[25.0850,55.1345],"Jumeirah":[25.2150,55.2400],"Umm Suqeim":[25.1600,55.2100],"Jumeirah Beach Residence (Jbr)":[25.0780,55.1340],"Al Satwa":[25.2200,55.2700],"The Greens":[25.0950,55.1750],"Marina Vista":[25.0810,55.1410],"World Trade Centre":[25.2240,55.2830],"Al Sufouh":[25.1000,55.1500],"Al Thanayah Fourth":[25.0600,55.2200],"Expo City":[24.9125,55.1450],"Al Quoz":[25.1500,55.2300],"The Views":[25.0950,55.1800],"Dubai Design District":[25.1800,55.2900],"The Hills":[25.1350,55.2450],"Dubai Internet City":[25.0950,55.1600],"Muhaisnah":[25.2600,55.3900],"Sheikh Zayed Road":[25.2100,55.2750],"Green Community":[24.9850,55.1750],"Jebel Ali Village":[25.0250,55.1150],"Al Barsha South":[25.1050,55.2050],"Dubai Creek":[25.2500,55.3200],"Al Yufrah 1":[25.0000,55.3150],"Al Goze Fourth":[25.1550,55.2400],"Nadd Hessa":[25.1050,55.1650],"Al Yelayiss 2":[24.9700,55.2100],"Al Kheeran":[25.2050,55.3430],"Al Barshaa South Second":[25.1000,55.2000],"Warsan Fourth":[25.1650,55.4050],"Jumeirah First":[25.2200,55.2450],"Saih Shuaib 2":[24.9100,55.1300],"Al Hebiah Second":[25.0350,55.2430],"Al Safouh Second":[25.1050,55.1550],"Al Yelayiss 1":[24.9750,55.2200],"Madinat Dubai Almelaheyah":[25.2700,55.3100],"Ras Al Khor Industrial First":[25.1800,55.3450],"Madinat Hind 4":[25.2550,55.3850],"Al Barsha South Fifth":[25.0950,55.2100],"Zaabeel First":[25.2250,55.2920],"Al Hebiah Sixth":[25.0300,55.2350],"Al Safouh First":[25.1050,55.1450],"Trade Center First":[25.2200,55.2800],"Jabal Ali Industrial Second":[25.0100,55.1000],"Al Kifaf":[25.2350,55.2950],"Zaabeel Second":[25.2180,55.2880],"Island 2":[25.2750,55.3250],"Trade Center Second":[25.2150,55.2780],"Muhaisanah First":[25.2650,55.3950],"Saih Shuaib 1":[24.9150,55.1350],"Hessyan First":[24.9200,55.1700],"Rega Al Buteen":[25.2600,55.3150],"Al Hebiah Third":[25.0350,55.2500],"Nad Al Hamar":[25.1900,55.3600],"Jumeirah Second":[25.2050,55.2350],"Al Qusais Industrial Fourth":[25.2500,55.3800],"World Islands":[25.2300,55.1800],"Al Yelayiss 4":[24.9600,55.2000],"Al Qusais Industrial Fifth":[25.2550,55.3850],"Deira":[25.2700,55.3300],"Al Karama":[25.2450,55.3050],"Al Mamzar":[25.2900,55.3400],"Al Rashidiya":[25.2300,55.3800],"Al Twar":[25.2500,55.3700],"Al Warqaa":[25.2200,55.4100],"Al Mizhar":[25.2400,55.4400],"Al Khawaneej":[25.2600,55.4600],"Al Garhoud":[25.2400,55.3450],"Al Muraqqabat":[25.2620,55.3250],"Al Rigga":[25.2650,55.3200],"Hor Al Anz":[25.2780,55.3300],"Abu Hail":[25.2820,55.3400],"Al Muteena":[25.2680,55.3180],"Port Saeed":[25.2600,55.3350],"Naif":[25.2750,55.3150],"Al Mankhool":[25.2500,55.2950],"Al Raffa":[25.2550,55.2900],"Oud Metha":[25.2350,55.3100],"Umm Hurair":[25.2400,55.3100],"Dubai Healthcare City":[25.2300,55.3200],"Al Safa":[25.1900,55.2400],"Jumeirah Third":[25.1950,55.2300],"Madinat Jumeirah Living":[25.1400,55.1800],"Jumeirah Heights":[25.0800,55.1600],"The Gardens":[25.0400,55.1400],"Umm Ramool":[25.2300,55.3600],"Al Hamriya":[25.2750,55.3200],"Al Fahidi":[25.2600,55.2950],"Hatta":[24.8000,56.1300],"Al Lisaili":[24.9500,55.4200],"Al Awir":[25.1500,55.4800],"Layan":[25.0750,55.2650],"Rukan":[25.0800,55.2600],"Sobha Hartland 2":[25.1780,55.3150],"Mina Seyahi":[25.0950,55.1350],"Dubai Knowledge Park":[25.0920,55.1550],"Al Qusais":[25.2600,55.3850],"Umm Al Sheif":[25.1700,55.2200],"Al Hudaiba":[25.2300,55.2700],"Nad Shamma":[25.2400,55.3550],"Margham":[25.1000,55.5500],"Lehbab":[24.9000,55.4000],"Umm Nahad":[24.9800,55.3500],"Al Rowaiyah":[25.1600,55.4500],"Dubai Academic City":[25.1100,55.4000],"Dubailand Oasis":[25.0850,55.3250],"Al Hebiah First":[25.0380,55.2400],"Al Hebiah Fourth":[25.0320,55.2470],"Al Hebiah Fifth":[25.0300,55.2380],"Al Thanayah First":[25.0650,55.2130],"Al Thanayah Second":[25.0620,55.2180],"Al Thanayah Third":[25.0600,55.2230],"Al Thanayah Fifth":[25.0580,55.2270],"Warsan":[25.1700,55.4000],"Warsan First":[25.1720,55.3950],"Warsan Second":[25.1680,55.4000],"Warsan Third":[25.1650,55.4050],"Al Barsha South Third":[25.1000,55.2020],"Al Barsha South Fourth":[25.0980,55.2070],"Wadi Al Safa 2":[25.0680,55.2850],"Wadi Al Safa 3":[25.0650,55.2900],"Wadi Al Safa 4":[25.0620,55.2950],"Wadi Al Safa 5":[25.0600,55.3000],"District One":[25.1650,55.2900],"Creek Beach":[25.2030,55.3380],"Dubai Creek Golf":[25.2300,55.3300],"Jumeirah Bay":[25.2000,55.2350],"Saadiyat Lagoons":[25.0200,55.3250],"Dubai Outsource City":[25.1050,55.3950],"Dubai Knowledge Village":[25.0920,55.1570],"Dubai Techno Park":[25.1050,55.3900],"Dubai Waterfront":[25.0000,55.0500],"Jebel Ali Industrial First":[25.0150,55.1050],"Jebel Ali Gardens":[25.0350,55.1250],"Muhaisnah Fourth":[25.2550,55.4000],"Al Qusais Second":[25.2620,55.3900],"Al Qusais Third":[25.2580,55.3920],"Ras Al Khor Industrial Second":[25.1780,55.3500],"Ras Al Khor Industrial Third":[25.1750,55.3550],"Jabal Ali Industrial First":[25.0150,55.1050],"Jabal Ali Industrial Third":[25.0050,55.0950],"Al Barshaa South Third":[25.1000,55.2030],"Masakin Al Furjan":[25.0520,55.1530],"Dubai World Central":[24.8950,55.1600],"Rashid Yachts Marina":[25.2650,55.2950],"Dubai Logistics City":[24.9000,55.1500],"Muhaisanah Second":[25.2630,55.3970],"Muhaisanah Third":[25.2610,55.3990],"Muhaisanah Fourth":[25.2590,55.4010],"Al Manara":[25.1700,55.2150],"Umm Suqeim First":[25.1650,55.2120],"Umm Suqeim Second":[25.1550,55.2080],"Umm Suqeim Third":[25.1500,55.2050],"Al Quoz First":[25.1550,55.2280],"Al Quoz Second":[25.1500,55.2320],"Al Quoz Third":[25.1450,55.2350],"Al Quoz Fourth":[25.1400,55.2380],"Al Quoz Industrial First":[25.1520,55.2300],"Al Quoz Industrial Second":[25.1480,55.2330],"Al Quoz Industrial Third":[25.1440,55.2360],"Al Quoz Industrial Fourth":[25.1400,55.2400],"Badrah":[25.0000,55.0600],"Dubai Residence Complex 2":[25.0630,55.2020],"Al Jadaf":[25.2100,55.3180],"Akoya Oxygen":[24.9950,55.2750],"Dubai Star":[25.0800,55.1420],"Mina Rashid Marina":[25.2580,55.2920],"Al Merkad":[25.1850,55.3050],"Bukadra Second":[25.1580,55.3420],"Saih Shuaib 3":[24.9050,55.1250],"Saih Shuaib 4":[24.9000,55.1200],"Hessyan Second":[24.9250,55.1750],"Hessyan Third":[24.9300,55.1800],"Nadd Hessa Second":[25.1080,55.1680],"Al Barsha First":[25.1150,55.1950],"Al Barsha Second":[25.1100,55.1980],"Al Barsha Third":[25.1080,55.2020],"Jebel Ali Hills":[25.0200,55.1200],"Downtown Jebel Ali":[25.0250,55.1100],"Damac Tower":[25.1870,55.2690],"Burj Khalifa Zone":[25.1975,55.2750],"Marsa Dubai":[25.0800,55.1410],"Palm Deira":[25.2850,55.3300],"The Lagoons":[25.2350,55.3350],"Gardenia":[25.0150,55.3030],"Azizi Riviera":[25.0350,55.2700],"Dubai Hills View":[25.1350,55.2430],"Burj Views":[25.1950,55.2730],"Executive Towers":[25.1870,55.2680],"Bay Square":[25.1860,55.2670],"Hadaeq Sheikh Mohammed Bin Rashid":[25.1700,55.3050],"Al Sufouh First":[25.1050,55.1470],"Al Sufouh Second":[25.1050,55.1530],"Mushrif Park":[25.2350,55.4100]};
 
 // Villa/Townhouse communities (show cluster dropdown)
 const VILLA_COMMUNITIES=Object.keys(CLUSTERS);
@@ -1976,7 +1980,7 @@ function render(){
   }
 
   // Nav
-  const tabs=[{id:"Market",icon:"📊",label:"Market"},{id:"Analyzer",icon:"🔍",label:"Analyzer"},{id:"Find",icon:"🔎",label:"Find"},{id:"Compare",icon:"⚖️",label:"Compare"},{id:"Portfolio",icon:"💼",label:"Portfolio"},{id:"Alerts",icon:"🔔",label:"Alerts"},{id:"Chat",icon:"💬",label:"AI Chat"}];
+  const tabs=[{id:"Market",icon:"📊",label:"Market"},{id:"Analyzer",icon:"🔍",label:"Analyzer"},{id:"Map",icon:"🗺️",label:"Map"},{id:"Find",icon:"🔎",label:"Find"},{id:"Compare",icon:"⚖️",label:"Compare"},{id:"Portfolio",icon:"💼",label:"Portfolio"},{id:"Alerts",icon:"🔔",label:"Alerts"},{id:"Chat",icon:"💬",label:"AI Chat"}];
   const nav=div({background:cl.surface,borderBottom:"1px solid "+cl.border,display:"flex",overflowX:"auto",padding:"0 20px"},
     tabs.map(function(t){
       const active=currentTab===t.id;
@@ -1991,6 +1995,7 @@ function render(){
   
   if(currentTab==="Market")content.appendChild(renderMarket());
   else if(currentTab==="Analyzer")content.appendChild(renderAnalyzer());
+  else if(currentTab==="Map")content.appendChild(renderMap());
   else if(currentTab==="Find")content.appendChild(renderFind());
   else if(currentTab==="Admin")content.appendChild(renderAdmin());
   else if(currentTab==="Compare")content.appendChild(renderCompare());
@@ -3951,6 +3956,98 @@ function renderPortfolio(){
   var disc=div({background:cl.goldFaint,border:"1px solid "+cl.goldDim,borderRadius:"8px",padding:"10px 14px",fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6",color:cl.subHi});
   disc.innerHTML="<strong style='color:"+cl.gold+"'>Note:</strong> Valuations use DubaiVal's Cascade AVM with hedonic pricing (5,612 buildings · 152 areas). Portfolio data is stored locally on your device. Not financial advice — consult a licensed advisor for investment decisions.";
   wrap.appendChild(disc);
+  return wrap;
+}
+
+// --- MAP TAB -----------------------------------------------------------------
+var _dvMapState={metric:"growth",map:null};
+function renderMap(){
+  if(_dvMapState.map){try{_dvMapState.map.remove();}catch(e){}_dvMapState.map=null;}
+  var cl=C();
+  var wrap=div({padding:"0",maxWidth:"100%",margin:"0",display:"flex",flexDirection:"column",height:"calc(100vh - 130px)"});
+  var controls=div({background:cl.surface,borderBottom:"1px solid "+cl.border,padding:"10px 16px",display:"flex",alignItems:"center",gap:"10px",flexWrap:"wrap"});
+  controls.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",whiteSpace:"nowrap"},"◆ Interactive Map"));
+  var metricOpts=[{v:"growth",l:"Growth"},{v:"yield",l:"Yield"},{v:"price",l:"Price Level"},{v:"liquidity",l:"Liquidity"},{v:"turnover",l:"Turnover"}];
+  metricOpts.forEach(function(opt){
+    var active=_dvMapState.metric===opt.v;
+    var b=el("button",{style:{background:active?cl.goldFaint:"transparent",border:"1px solid "+(active?cl.goldDim:cl.border),color:active?cl.gold:cl.sub,padding:"5px 12px",borderRadius:"16px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",fontWeight:active?"700":"400",cursor:"pointer"},onclick:function(){_dvMapState.metric=opt.v;render();}},opt.l);
+    controls.appendChild(b);
+  });
+  wrap.appendChild(controls);
+  var mapId="dv-leaflet-map";
+  var mapEl=el("div",{style:{flex:"1",width:"100%",minHeight:"300px"},id:mapId});
+  wrap.appendChild(mapEl);
+  var legend=div({position:"absolute",bottom:"30px",right:"10px",zIndex:"1000",background:cl.surface+"E8",border:"1px solid "+cl.border,borderRadius:"10px",padding:"10px 12px",pointerEvents:"none"});
+  var metricLabel={growth:"3yr Capital Growth",yield:"Net Yield",price:"Price (AED/sqft)",liquidity:"Days on Market",turnover:"Turnover Rate"}[_dvMapState.metric];
+  legend.appendChild(span({color:cl.gold,fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em",display:"block",marginBottom:"6px"},metricLabel));
+  var legendColors=_dvMapState.metric==="liquidity"?[{c:"#00C896",l:"Fast (<30d)"},{c:"#F0A030",l:"Moderate"},{c:"#F04060",l:"Slow (>80d)"}]:_dvMapState.metric==="price"?[{c:"#D4A843",l:"Premium"},{c:"#818CF8",l:"Mid-range"},{c:"#00C896",l:"Affordable"}]:[{c:"#00C896",l:"High"},{c:"#F0A030",l:"Medium"},{c:"#F04060",l:"Low"}];
+  legendColors.forEach(function(lc){
+    var row=div({display:"flex",alignItems:"center",gap:"6px",marginBottom:"3px"});
+    row.appendChild(div({width:"10px",height:"10px",borderRadius:"50%",background:lc.c,flexShrink:"0"}));
+    row.appendChild(span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},lc.l));
+    legend.appendChild(row);
+  });
+  setTimeout(function(){
+    var container=document.getElementById(mapId);
+    if(!container||!window.L)return;
+    var map=L.map(mapId,{zoomControl:false,attributionControl:false}).setView([25.15,55.22],11);
+    L.control.zoom({position:"topright"}).addTo(map);
+    L.control.attribution({position:"bottomleft",prefix:false}).addAttribution('© <a href="https://osm.org">OSM</a>').addTo(map);
+    var isDark=darkMode;
+    L.tileLayer(isDark?"https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png":"https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{maxZoom:18,subdomains:"abcd"}).addTo(map);
+    _dvMapState.map=map;
+    function getVal(aData,metric){
+      if(metric==="growth")return(aData.g&&aData.g[1])||10;
+      if(metric==="yield"){var y=aData.y||[5,7];return(y[0]+y[1])/2;}
+      if(metric==="price")return aData.psf||1500;
+      if(metric==="liquidity")return aData.dom||60;
+      if(metric==="turnover")return aData.txVol||100;
+      return 0;
+    }
+    var vals=AREA_NAMES.map(function(n){return getVal(AREAS[n],_dvMapState.metric);});
+    var vMin=Math.min.apply(null,vals),vMax=Math.max.apply(null,vals);
+    function metricColor(val,metric){
+      var ratio=vMax>vMin?(val-vMin)/(vMax-vMin):0.5;
+      if(metric==="liquidity"){ratio=1-ratio;} // lower DOM = better
+      if(metric==="price"){
+        if(ratio>0.7)return"#D4A843";if(ratio>0.35)return"#818CF8";return"#00C896";
+      }
+      var r,g,b;
+      if(ratio>=0.6){r=Math.round(40+(1-ratio)*300);g=200;b=Math.round(80+ratio*70);}
+      else if(ratio>=0.3){r=Math.round(200+ratio*100);g=Math.round(160+ratio*60);b=48;}
+      else{r=240;g=Math.round(ratio*200);b=Math.round(60+ratio*40);}
+      return"rgb("+r+","+g+","+b+")";
+    }
+    AREA_NAMES.forEach(function(name){
+      var coords=AREA_COORDS[name];if(!coords)return;
+      var aData=AREAS[name];if(!aData)return;
+      var val=getVal(aData,_dvMapState.metric);
+      var color=metricColor(val,_dvMapState.metric);
+      var txVol=aData.txVol||100;
+      var radius=Math.max(6,Math.min(22,Math.sqrt(txVol/10)*2.5));
+      var marker=L.circleMarker(coords,{radius:radius,fillColor:color,color:color,weight:1.5,opacity:0.9,fillOpacity:0.55});
+      var gr=aData.g||[10,18,28];var yi=aData.y||[5,7];
+      var popupContent='<div style="font-family:Space Grotesk,monospace;min-width:200px;color:#E8EDF5;background:#0D1220;border-radius:8px;padding:12px;border:1px solid #1C2540;">'
+        +'<div style="color:#D4A843;font-size:12px;font-weight:700;margin-bottom:8px;">'+name+'</div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;">'
+        +'<div><span style="color:#6B7A9E;">PSF</span><br><b>AED '+aData.psf.toLocaleString()+'</b></div>'
+        +'<div><span style="color:#6B7A9E;">SC</span><br><b>AED '+(aData.sc||15)+'</b></div>'
+        +'<div><span style="color:#6B7A9E;">Yield</span><br><b style="color:#00C896;">'+yi[0]+'-'+yi[1]+'%</b></div>'
+        +'<div><span style="color:#6B7A9E;">Growth 3yr</span><br><b style="color:#00C896;">+'+gr[1]+'%</b></div>'
+        +'<div><span style="color:#6B7A9E;">DOM</span><br><b>'+(aData.dom||"—")+'d</b></div>'
+        +'<div><span style="color:#6B7A9E;">Transactions</span><br><b>'+(aData.txVol||"—")+'/yr</b></div>'
+        +'</div>'
+        +'<div style="margin-top:8px;padding-top:8px;border-top:1px solid #1C2540;font-size:10px;color:#6B7A9E;">'
+        +'Rent: Studio '+(aData.r1?Math.round(aData.r1*0.65).toLocaleString():"—")+' · 1BR '+(aData.r1?aData.r1.toLocaleString():"—")+' · 2BR '+(aData.r2?aData.r2.toLocaleString():"—")
+        +'</div></div>';
+      marker.bindPopup(popupContent,{className:"dv-popup",maxWidth:280,closeButton:true});
+      marker.on("mouseover",function(){this.setStyle({fillOpacity:0.9,weight:3});this.openPopup();});
+      marker.on("mouseout",function(){this.setStyle({fillOpacity:0.55,weight:1.5});});
+      marker.addTo(map);
+    });
+    var legEl=legend.cloneNode(true);legEl.style.position="absolute";legEl.style.bottom="30px";legEl.style.right="10px";legEl.style.zIndex="1000";
+    container.style.position="relative";container.appendChild(legEl);
+  },80);
   return wrap;
 }
 
