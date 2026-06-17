@@ -4621,8 +4621,9 @@ function renderMap(){
 
 // --- DEAL NETWORK TAB --------------------------------------------------------
 var DEAL_STATE={mode:"browse",filter:{type:"all",purpose:"sale",area:"",beds:"",minPrice:"",maxPrice:"",urgency:""},
-  form:{type:"have",agentName:"",agentPhone:"",agentCompany:"",agentEmail:"",reraNumber:"",area:"",building:"",propType:"apartment",beds:"",sizeSqft:"",floor:"",view:"",furnished:"Unfurnished",purpose:"sale",price:"",urgency:"normal",notes:"",offMarket:false},
-  deals:[],loading:false,posting:false,myTokens:[],matches:[],waParser:{text:"",parsing:false,parsed:null}};
+  form:{type:"have",agentName:"",agentPhone:"",agentCompany:"",agentEmail:"",reraNumber:"",area:"",building:"",propType:"apartment",beds:"",sizeSqft:"",floor:"",view:"",furnished:"Unfurnished",purpose:"sale",price:"",urgency:"normal",notes:"",offMarket:false,contactMode:"whatsapp"},
+  deals:[],loading:false,posting:false,myTokens:[],matches:[],waParser:{text:"",parsing:false,parsed:null},
+  inquiry:{dealId:null,name:"",phone:"",email:"",message:"",sending:false},myInquiries:{}};
 try{var dt=localStorage.getItem("dv_deal_tokens");if(dt)DEAL_STATE.myTokens=JSON.parse(dt);}catch(e){}
 try{var ap=localStorage.getItem("dv_agent_profile");if(ap){var p=JSON.parse(ap);DEAL_STATE.form.agentName=p.name||"";DEAL_STATE.form.agentPhone=p.phone||"";DEAL_STATE.form.agentCompany=p.company||"";DEAL_STATE.form.agentEmail=p.email||"";DEAL_STATE.form.reraNumber=p.rera||"";}}catch(e){}
 function saveAgentProfile(){try{localStorage.setItem("dv_agent_profile",JSON.stringify({name:DEAL_STATE.form.agentName,phone:DEAL_STATE.form.agentPhone,company:DEAL_STATE.form.agentCompany,email:DEAL_STATE.form.agentEmail,rera:DEAL_STATE.form.reraNumber}));}catch(e){}}
@@ -4640,7 +4641,7 @@ async function fetchDeals(){
     if(f.maxPrice)q+="&price=lte."+f.maxPrice;
     if(f.urgency&&f.urgency!=="all")q+="&urgency=eq."+f.urgency;
     var resp=await fetch(q,{headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY}});
-    if(resp.ok)DEAL_STATE.deals=await resp.json();
+    if(resp.ok){DEAL_STATE.deals=await resp.json();fetchMyInquiries();}
   }catch(e){console.warn("Deal fetch failed:",e.message);}
   DEAL_STATE.loading=false;render();
 }
@@ -4655,7 +4656,7 @@ async function postDeal(){
     area:f.area,building:f.building||null,prop_type:f.propType,beds:f.beds||null,
     size_sqft:parseFloat(f.sizeSqft)||null,floor_num:f.floor||null,view_type:f.view||null,
     furnished:f.furnished,purpose:f.purpose,price:parseFloat(f.price.replace(/,/g,""))||0,
-    urgency:f.urgency,notes:f.notes||null,off_market:f.offMarket};
+    urgency:f.urgency,notes:f.notes||null,off_market:f.offMarket,contact_mode:f.contactMode||"whatsapp"};
   if(f.type==="have"&&row.size_sqft&&row.price){
     try{
       var valInput={area:f.area,building:f.building||"",buaSize:String(row.size_sqft),price:String(row.price),
@@ -4677,7 +4678,7 @@ async function postDeal(){
         DEAL_STATE.myTokens.push(created[0].edit_token);
         try{localStorage.setItem("dv_deal_tokens",JSON.stringify(DEAL_STATE.myTokens));}catch(e){}
       }
-      DEAL_STATE.form={type:"have",agentName:f.agentName,agentPhone:f.agentPhone,agentCompany:f.agentCompany,agentEmail:f.agentEmail,reraNumber:f.reraNumber,area:"",building:"",propType:"apartment",beds:"",sizeSqft:"",floor:"",view:"",furnished:"Unfurnished",purpose:"sale",price:"",urgency:"normal",notes:"",offMarket:false};
+      DEAL_STATE.form={type:"have",agentName:f.agentName,agentPhone:f.agentPhone,agentCompany:f.agentCompany,agentEmail:f.agentEmail,reraNumber:f.reraNumber,area:"",building:"",propType:"apartment",beds:"",sizeSqft:"",floor:"",view:"",furnished:"Unfurnished",purpose:"sale",price:"",urgency:"normal",notes:"",offMarket:false,contactMode:f.contactMode};
       DEAL_STATE.mode="browse";
       fetchDeals();
     }
@@ -4701,6 +4702,35 @@ function findMatches(deal){
   });
   matches.sort(function(a,b){return b.score-a.score;});
   return matches.slice(0,5);
+}
+
+async function sendInquiry(dealId){
+  var inq=DEAL_STATE.inquiry;
+  if(!inq.name){alert("Please enter your name");return;}
+  if(!inq.phone&&!inq.email){alert("Please enter phone or email");return;}
+  inq.sending=true;render();
+  try{
+    var row={deal_id:dealId,sender_name:inq.name,sender_phone:inq.phone||null,sender_email:inq.email||null,message:inq.message||null};
+    var resp=await fetch(SUPABASE_URL+"/rest/v1/deal_inquiries",{method:"POST",
+      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},
+      body:JSON.stringify(row)});
+    if(resp.ok){DEAL_STATE.inquiry={dealId:null,name:inq.name,phone:inq.phone,email:inq.email,message:"",sending:false};alert("Interest sent! The owner will contact you if interested.");}
+    else{alert("Failed to send");}
+  }catch(e){alert("Error: "+e.message);}
+  inq.sending=false;render();
+}
+
+async function fetchMyInquiries(){
+  if(!DEAL_STATE.myTokens.length)return;
+  try{
+    var myDeals=DEAL_STATE.deals.filter(function(d){return DEAL_STATE.myTokens.indexOf(d.edit_token)!==-1;});
+    for(var i=0;i<myDeals.length;i++){
+      var resp=await fetch(SUPABASE_URL+"/rest/v1/deal_inquiries?deal_id=eq."+myDeals[i].id+"&order=created_at.desc",
+        {headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY}});
+      if(resp.ok){var data=await resp.json();if(data.length)DEAL_STATE.myInquiries[myDeals[i].id]=data;}
+    }
+    render();
+  }catch(e){}
 }
 
 function renderDeals(){
@@ -4830,13 +4860,70 @@ function renderDeals(){
     if(d.rera_number)agentInfo.push(span({color:"#3B82F6",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginLeft:"6px"},"RERA: "+d.rera_number));
     agentInfo.push(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},timeAgo(d.created_at)));
     bottomRow.appendChild(div({},agentInfo));
-    var contactBtn=el("button",{style:{background:"linear-gradient(135deg,#10B981,#059669)",color:"#fff",border:"none",padding:"7px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
-    contactBtn.textContent="WhatsApp";
-    contactBtn.onclick=function(e){e.stopPropagation();var phone=d.agent_phone.replace(/[^0-9+]/g,"");
-      var msg=encodeURIComponent("Hi "+d.agent_name+", I'm interested in your "+d.type+" listing: "+d.area+(d.building?" - "+d.building:"")+" at AED "+d.price.toLocaleString()+" (via DubaiVal Deal Network)");
-      window.open("https://wa.me/"+phone+"?text="+msg,"_blank");};
-    bottomRow.appendChild(contactBtn);
+    if(d.contact_mode==="private"){
+      var intBtn=el("button",{style:{background:"linear-gradient(135deg,#8B5CF6,#7C3AED)",color:"#fff",border:"none",padding:"7px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+      intBtn.textContent=DEAL_STATE.inquiry.dealId===d.id?"Close":"Send Interest";
+      intBtn.onclick=(function(did){return function(e){e.stopPropagation();DEAL_STATE.inquiry.dealId=DEAL_STATE.inquiry.dealId===did?null:did;render();};})(d.id);
+      bottomRow.appendChild(intBtn);
+    }else{
+      var contactBtn=el("button",{style:{background:"linear-gradient(135deg,#10B981,#059669)",color:"#fff",border:"none",padding:"7px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+      contactBtn.textContent="WhatsApp";
+      contactBtn.onclick=function(e){e.stopPropagation();var phone=d.agent_phone.replace(/[^0-9+]/g,"");
+        var msg=encodeURIComponent("Hi "+d.agent_name+", I'm interested in your "+d.type+" listing: "+d.area+(d.building?" - "+d.building:"")+" at AED "+d.price.toLocaleString()+" (via DubaiVal Deal Network)");
+        window.open("https://wa.me/"+phone+"?text="+msg,"_blank");};
+      bottomRow.appendChild(contactBtn);
+    }
     card.appendChild(bottomRow);
+
+    if(d.contact_mode==="private"&&DEAL_STATE.inquiry.dealId===d.id){
+      var inqForm=div({background:cl.raised,borderRadius:"10px",padding:"12px",marginTop:"8px",border:"1px solid rgba(139,92,246,0.3)"});
+      inqForm.appendChild(div({color:"#8B5CF6",fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",fontWeight:"700"},"Send Your Interest"));
+      var inqRow1=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"8px"});
+      var inqNameInp=el("input",{type:"text",placeholder:"Your Name *",value:DEAL_STATE.inquiry.name||"",
+        style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"8px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+      inqNameInp.oninput=function(){DEAL_STATE.inquiry.name=this.value;};
+      inqRow1.appendChild(inqNameInp);
+      var inqPhoneInp=el("input",{type:"tel",placeholder:"WhatsApp / Phone",value:DEAL_STATE.inquiry.phone||"",
+        style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"8px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+      inqPhoneInp.oninput=function(){DEAL_STATE.inquiry.phone=this.value;};
+      inqRow1.appendChild(inqPhoneInp);
+      inqForm.appendChild(inqRow1);
+      var inqEmailInp=el("input",{type:"email",placeholder:"Email (optional)",value:DEAL_STATE.inquiry.email||"",
+        style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"8px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"8px"}});
+      inqEmailInp.oninput=function(){DEAL_STATE.inquiry.email=this.value;};
+      inqForm.appendChild(inqEmailInp);
+      var inqMsgInp=el("textarea",{placeholder:"Message (optional) — e.g. I have a client looking for this type of unit…",rows:"2",
+        style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"8px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",resize:"vertical",marginBottom:"8px"}});
+      inqMsgInp.value=DEAL_STATE.inquiry.message||"";inqMsgInp.oninput=function(){DEAL_STATE.inquiry.message=this.value;};
+      inqForm.appendChild(inqMsgInp);
+      var inqSendBtn=el("button",{style:{width:"100%",padding:"10px",background:"linear-gradient(135deg,#8B5CF6,#7C3AED)",color:"#fff",border:"none",borderRadius:"8px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",opacity:DEAL_STATE.inquiry.sending?"0.5":"1"},
+        onclick:(function(did){return function(){sendInquiry(did);};})(d.id)});
+      inqSendBtn.textContent=DEAL_STATE.inquiry.sending?"Sending…":"Send Interest";
+      inqForm.appendChild(inqSendBtn);
+      inqForm.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif",textAlign:"center",marginTop:"6px"},"Your info is shared only with the deal poster — their number stays private"));
+      card.appendChild(inqForm);
+    }
+
+    var myInqs=DEAL_STATE.myInquiries[d.id];
+    if(myInqs&&myInqs.length&&DEAL_STATE.myTokens.indexOf(d.edit_token)!==-1){
+      var inqWrap=div({background:cl.raised,borderRadius:"8px",padding:"8px 10px",marginTop:"8px",border:"1px solid rgba(139,92,246,0.2)"});
+      inqWrap.appendChild(div({color:"#8B5CF6",fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em",marginBottom:"6px"},"◆ "+myInqs.length+" INTEREST"+(myInqs.length>1?"S":"")+" RECEIVED"));
+      myInqs.slice(0,5).forEach(function(inq){
+        var iRow=div({display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",borderBottom:"1px solid "+cl.border});
+        var iInfo=div({});
+        iInfo.appendChild(div({color:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif",fontWeight:"600"},inq.sender_name));
+        var contactParts=[];
+        if(inq.sender_phone)contactParts.push(inq.sender_phone);
+        if(inq.sender_email)contactParts.push(inq.sender_email);
+        if(contactParts.length)iInfo.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},contactParts.join(" · ")));
+        if(inq.message)iInfo.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",fontStyle:"italic",marginTop:"2px"},"\""+inq.message+"\""));
+        iRow.appendChild(iInfo);
+        var iTime=span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",flexShrink:"0",marginLeft:"8px"},timeAgo(inq.created_at));
+        iRow.appendChild(iTime);
+        inqWrap.appendChild(iRow);
+      });
+      card.appendChild(inqWrap);
+    }
 
     var matches=findMatches(d);
     if(matches.length){
@@ -4993,6 +5080,20 @@ function renderDealForm(wrap,cl){
   omToggle.appendChild(omBtn);
   urgRow.appendChild(omToggle);
   card.appendChild(urgRow);
+
+  card.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",marginTop:"4px"},"Contact Method"));
+  var cmRow=div({display:"flex",gap:"8px",marginBottom:"14px"});
+  [{l:"WhatsApp Direct",v:"whatsapp",ic:"#25D366",desc:"Buyers see your number"},{l:"Private (Anonymous)",v:"private",ic:"#8B5CF6",desc:"Buyers send interest — you decide who to contact"}].forEach(function(cm){
+    var active=f.contactMode===cm.v;
+    var cmBtn=el("button",{style:{flex:"1",padding:"10px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",textAlign:"center",
+      background:active?"rgba("+(cm.v==="whatsapp"?"37,211,102":"139,92,246")+",0.12)":"transparent",
+      color:active?cm.ic:cl.sub,border:"1px solid "+(active?cm.ic+"66":cl.border)},
+      onclick:function(){f.contactMode=cm.v;render();}});
+    cmBtn.appendChild(div({fontWeight:"700",marginBottom:"2px"},cm.l));
+    cmBtn.appendChild(div({fontSize:"9px",opacity:"0.7",fontFamily:"'Inter',sans-serif"},cm.desc));
+    cmRow.appendChild(cmBtn);
+  });
+  card.appendChild(cmRow);
 
   var notesG=div({marginBottom:"14px"});
   notesG.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",marginBottom:"4px"},"Notes"));
