@@ -662,16 +662,138 @@ function lookupBuilding(name,areaHint){
   return null;
 }
 
+// --- STATISTICAL AVM ENGINE ---------------------------------------------------
+// Phase 3: Comparable Sales Method + Auto-Calibration
+var DYNAMIC_BENCHMARKS={};
+var AVM_CALIBRATION={};
+
+function findComparables(building,area,grade,beds,isVilla,limit){
+  limit=limit||8;
+  var targetPSF=0;
+  var bData=DB[building?building.toLowerCase().trim():""];
+  if(bData)targetPSF=bData.p;
+  else if(AREAS[area])targetPSF=AREAS[area].psf;
+  if(!targetPSF)return[];
+  var candidates=[];
+  var keys=Object.keys(DB);
+  for(var i=0;i<keys.length;i++){
+    var k=keys[i];
+    var d=DB[k];
+    if(k===(building||"").toLowerCase().trim())continue;
+    var score=0;
+    if(d.a===area)score+=40;
+    else{var aD=AREAS[d.a];var tD=AREAS[area];if(aD&&tD&&Math.abs(aD.psf-tD.psf)/tD.psf<0.25)score+=15;}
+    if(grade&&d.g===grade)score+=20;
+    else if(grade&&d.g){var gOrder=["C","B","B+","A-","A","A+","Ultra"];var gi=gOrder.indexOf(d.g);var ti=gOrder.indexOf(grade);if(gi>=0&&ti>=0&&Math.abs(gi-ti)<=1)score+=10;}
+    if(targetPSF>0&&d.p>0){var psfDiff=Math.abs(d.p-targetPSF)/targetPSF;if(psfDiff<0.1)score+=25;else if(psfDiff<0.2)score+=15;else if(psfDiff<0.35)score+=8;else score-=5;}
+    var dIsVilla=d.a&&(d.a.includes("Ranches")||d.a.includes("Hills")||d.a.includes("Mudon")||d.a.includes("Tilal")||d.a.includes("DAMAC Hills")||d.a.includes("The Valley")||d.a.includes("Mira"));
+    if(isVilla===dIsVilla)score+=10;
+    if(score>=30)candidates.push({key:k,data:d,score:score});
+  }
+  candidates.sort(function(a,b){return b.score-a.score;});
+  return candidates.slice(0,limit);
+}
+
+function computeComparableEstimate(comps,targetPSF){
+  if(!comps.length)return null;
+  var totalW=0,wSum=0;
+  for(var i=0;i<comps.length;i++){
+    var w=comps[i].score;
+    wSum+=comps[i].data.p*w;
+    totalW+=w;
+  }
+  if(totalW===0)return null;
+  var compPSF=Math.round(wSum/totalW);
+  var blend=targetPSF>0?Math.round(targetPSF*0.7+compPSF*0.3):compPSF;
+  return{compPSF:compPSF,blendedPSF:blend,compCount:comps.length,spread:comps.length>1?Math.round((comps[comps.length-1].data.p-comps[0].data.p)/2):0};
+}
+
+function getCalibrationFactor(area){
+  if(AVM_CALIBRATION[area]&&AVM_CALIBRATION[area].sample_count>=3)return AVM_CALIBRATION[area].bias_factor;
+  return 1.0;
+}
+
+function getDynamicBenchmark(area){
+  var d=DYNAMIC_BENCHMARKS[area];
+  if(!d||!d.updated_at)return null;
+  var age=(Date.now()-new Date(d.updated_at).getTime())/(1000*60*60*24);
+  if(age>7)return null;
+  return d;
+}
+
+async function fetchDynamicBenchmarks(){
+  try{
+    var resp=await fetch(SUPABASE_URL+"/rest/v1/area_benchmarks?select=*",{
+      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY}
+    });
+    if(!resp.ok)return;
+    var rows=await resp.json();
+    if(!rows||!rows.length)return;
+    rows.forEach(function(r){
+      DYNAMIC_BENCHMARKS[r.area_key]={
+        psf:r.psf,r1:r.rent_1br,r2:r.rent_2br,r3:r.rent_3br,
+        rStudio:r.rent_studio,rv3:r.rent_villa_3br,rv4:r.rent_villa_4br,rv5:r.rent_villa_5br,
+        dom:r.dom,txVol:r.tx_vol,sampleSize:r.sample_size,updated_at:r.updated_at
+      };
+    });
+  }catch(e){console.warn("Dynamic benchmarks fetch failed:",e.message);}
+}
+
+async function fetchCalibrationData(){
+  try{
+    var resp=await fetch(SUPABASE_URL+"/rest/v1/avm_calibration?select=*",{
+      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY}
+    });
+    if(!resp.ok)return;
+    var rows=await resp.json();
+    if(!rows||!rows.length)return;
+    rows.forEach(function(r){AVM_CALIBRATION[r.area_key]=r;});
+  }catch(e){console.warn("Calibration data fetch failed:",e.message);}
+}
+
+async function fetchPriceHistory(area,days){
+  days=days||90;
+  try{
+    var since=new Date(Date.now()-days*24*60*60*1000).toISOString().slice(0,10);
+    var resp=await fetch(SUPABASE_URL+"/rest/v1/price_history?area_key=eq."+encodeURIComponent(area)+"&snapshot_date=gte."+since+"&order=snapshot_date.asc&select=psf,rent_avg,snapshot_date",{
+      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY}
+    });
+    if(!resp.ok)return[];
+    return await resp.json();
+  }catch(e){return[];}
+}
+
 // --- VALUATION ENGINE ---------------------------------------------------------
 function computeValuation(f,buildingVal,liveData){
   const bData=lookupBuilding(buildingVal||f.building||"",f.area);
-  const aData=AREAS[f.area]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
+  const staticArea=AREAS[f.area]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
+  const dynBench=getDynamicBenchmark(f.area);
+  const aData=Object.assign({},staticArea);
+  if(dynBench){
+    if(dynBench.psf&&dynBench.sampleSize>=5)aData.psf=Math.round(staticArea.psf*0.4+dynBench.psf*0.6);
+    if(dynBench.r1)aData.r1=Math.round(staticArea.r1*0.3+dynBench.r1*0.7);
+    if(dynBench.r2)aData.r2=Math.round((staticArea.r2||100000)*0.3+dynBench.r2*0.7);
+    if(dynBench.r3)aData.r3=Math.round((staticArea.r3||150000)*0.3+dynBench.r3*0.7);
+    if(dynBench.rStudio)aData.rStudio=dynBench.rStudio;
+    if(dynBench.dom)aData.dom=Math.round((staticArea.dom||60)*0.3+dynBench.dom*0.7);
+    if(dynBench.txVol)aData.txVol=Math.round((staticArea.txVol||100)*0.3+dynBench.txVol*0.7);
+  }
+  const calFactor=getCalibrationFactor(f.area);
   const size=parseFloat((f.buaSize||f.size||"").toString().replace(/,/g,""))||0;
   const price=parseFloat((f.price||"").toString().replace(/,/g,""))||0;
   const askPSF=size>0&&price>0?Math.round(price/size):0;
   if(!askPSF||!f.area)return null;
-  let basePSF,psfLo,psfHi,dataSource,dataLayer;
-  if(bData){basePSF=bData.p;psfLo=bData.lo;psfHi=bData.hi;dataSource=(buildingVal||f.building||"")+" · Verified DB";dataLayer=1;}
+  const isVillaType=f.propCategory==="villa";
+  let basePSF,psfLo,psfHi,dataSource,dataLayer,compData=null;
+  if(bData){
+    basePSF=bData.p;psfLo=bData.lo;psfHi=bData.hi;dataSource=(buildingVal||f.building||"")+" · Verified DB";dataLayer=1;
+    var comps=findComparables(buildingVal||f.building,f.area,bData.g,f.beds,isVillaType,8);
+    if(comps.length>=3){
+      compData=computeComparableEstimate(comps,basePSF);
+      basePSF=compData.blendedPSF;
+      dataSource+=" + "+comps.length+" comps";
+    }
+  }
   else{
     const sales=liveData&&liveData.sales?liveData.sales:[];
     const pool=sales.filter(function(s){return s.psf>400&&s.psf<15000});
@@ -695,8 +817,18 @@ function computeValuation(f,buildingVal,liveData){
       // (e.g. Town Square) whenever any building name was typed but not found in DB.
       basePSF=aData.psf;psfLo=Math.round(basePSF*0.87);psfHi=Math.round(basePSF*1.13);
       dataSource="Area benchmark · "+f.area;dataLayer=4;
+      var areaComps=findComparables(null,f.area,null,f.beds,isVillaType,10);
+      if(areaComps.length>=3){
+        var ac=computeComparableEstimate(areaComps,basePSF);
+        basePSF=Math.round(basePSF*0.5+ac.compPSF*0.5);
+        psfLo=Math.round(basePSF*0.87);psfHi=Math.round(basePSF*1.13);
+        dataSource="Area benchmark + "+areaComps.length+" comps · "+f.area;
+        compData=ac;
+      }
     }
   }
+  if(calFactor!==1.0){basePSF=Math.round(basePSF*calFactor);psfLo=Math.round(psfLo*calFactor);psfHi=Math.round(psfHi*calFactor);}
+  if(dynBench&&dynBench.psf&&dynBench.sampleSize>=5)dataSource+=" · Live";
   // Premiums
   // For DB buildings: apply differential view premium vs the grade baseline,
   // but never penalize — views below baseline get 0 (no negative adjustment).
@@ -770,11 +902,14 @@ function computeValuation(f,buildingVal,liveData){
   else{verdict="OVER";suggestedOffer=fairPrice;}
   const baseConf=[0,95,85,72,58][dataLayer]||58;
   const inputPenalty=(!f.floor&&!isVilla?-4:0)+(f.view==="Not specified"?-2:0)+(!f.serviceCharge?-1:0);
+  const compBonus=compData&&compData.compCount>=5?4:compData&&compData.compCount>=3?2:0;
+  const dynBonus=dynBench&&dynBench.sampleSize>=5?3:0;
+  const calBonus=calFactor!==1.0?2:0;
   // FSD-style spread adjustment (CoreLogic Forecast Standard Deviation logic):
   // tighter lo-hi PSF range relative to price = more confident estimate
   const relSpread=adjPSF>0?(psfHi-psfLo)/adjPSF:0.25;
   const spreadAdj=relSpread<=0.15?5:relSpread<=0.25?0:relSpread<=0.40?-5:-10;
-  const confScore=Math.min(97,Math.max(40,baseConf+inputPenalty+spreadAdj));
+  const confScore=Math.min(97,Math.max(40,baseConf+inputPenalty+spreadAdj+compBonus+dynBonus+calBonus));
   const confTier=confScore>=90?{label:"Very High",range:"±3–5%",spread:0.04,c:"green"}:confScore>=80?{label:"High",range:"±5–8%",spread:0.07,c:"green"}:confScore>=68?{label:"Medium",range:"±8–12%",spread:0.11,c:"yellow"}:confScore>=55?{label:"Low",range:"±12–18%",spread:0.15,c:"yellow"}:{label:"Indicative",range:"±18–25%",spread:0.22,c:"red"};
   const priceLow=Math.round(fairPrice*(1-confTier.spread));
   const priceHigh=Math.round(fairPrice*(1+confTier.spread));
@@ -820,7 +955,7 @@ function computeValuation(f,buildingVal,liveData){
   const mosRaw=Math.round(priceGapScore*0.50+timeDecayScore*0.20+marketDepthScore*0.30);
   const mosScore=Math.min(95,Math.max(5,mosRaw));
   const mosTier=mosScore>=80?{label:"Deep Value",c:"green",desc:"Strong margin of safety — price significantly below intrinsic value with favorable market conditions"}:mosScore>=65?{label:"Value Buy",c:"green",desc:"Positive margin of safety — priced below fair value with room for appreciation"}:mosScore>=50?{label:"Fair Entry",c:"yellow",desc:"Neutral margin — price aligns with market value, moderate risk-reward balance"}:mosScore>=35?{label:"Thin Margin",c:"yellow",desc:"Limited safety buffer — priced at or slightly above value, returns depend on market growth"}:{label:"Speculative",c:"red",desc:"Negative margin of safety — price exceeds intrinsic value, high risk of capital loss in a downturn"};
-  return{askPSF,adjPSF,psfLo,psfHi,fairPrice,distressPrice,goodPrice,overpricedAt,verdict,vsPct:vsPct.toFixed(1),suggestedOffer,dataSource,dataLayer,confScore,confTier,priceLow,priceHigh,inDB:!!bData,bData,isDevFurnished,vP:Math.round(vP*100),fP:Math.round(fP*100),furnP:Math.round(furnP*100),loftP:Math.round(loftP*100),penthP:Math.round(penthP*100),maidP:Math.round(maidP*100),privatePoolP:Math.round(privatePoolP*100),singleRowP:Math.round(singleRowP*100),cornerVillaP:Math.round(cornerVillaP*100),geo:Math.round(geoAdj*100),rent,sc,grossYield,netYield,g0:gr[0],g1:gr[1],g2:gr[2],prRatio:prRatio?prRatio.toFixed(1):null,investSignal,totalReturnAnnual,domEst,txVol,liqScore,liqTier,txLabel,turnoverRate,turnoverTier,bldgUnits,bldgAnnualTx,mosScore,mosTier,priceGapScore,timeDecayScore,marketDepthScore};
+  return{askPSF,adjPSF,psfLo,psfHi,fairPrice,distressPrice,goodPrice,overpricedAt,verdict,vsPct:vsPct.toFixed(1),suggestedOffer,dataSource,dataLayer,confScore,confTier,priceLow,priceHigh,inDB:!!bData,bData,isDevFurnished,vP:Math.round(vP*100),fP:Math.round(fP*100),furnP:Math.round(furnP*100),loftP:Math.round(loftP*100),penthP:Math.round(penthP*100),maidP:Math.round(maidP*100),privatePoolP:Math.round(privatePoolP*100),singleRowP:Math.round(singleRowP*100),cornerVillaP:Math.round(cornerVillaP*100),geo:Math.round(geoAdj*100),rent,sc,grossYield,netYield,g0:gr[0],g1:gr[1],g2:gr[2],prRatio:prRatio?prRatio.toFixed(1):null,investSignal,totalReturnAnnual,domEst,txVol,liqScore,liqTier,txLabel,turnoverRate,turnoverTier,bldgUnits,bldgAnnualTx,mosScore,mosTier,priceGapScore,timeDecayScore,marketDepthScore,compData:compData,hasDynamic:!!dynBench,calFactor:calFactor};
 }
 
 // --- API ---------------------------------------------------------------------
@@ -1086,7 +1221,9 @@ async function saveSupabaseConfig(aptAdj, villaAdj, label){
 
 if(typeof window!=="undefined"){
   setTimeout(fetchLiveMarket,1500);
-  setTimeout(fetchSupabaseConfig,500); // Load config first
+  setTimeout(fetchSupabaseConfig,500);
+  setTimeout(fetchDynamicBenchmarks,600);
+  setTimeout(fetchCalibrationData,700);
 }
 
 // -- USER PROFILE (persisted) ----------------------------------------------
@@ -2968,6 +3105,9 @@ function renderAnalyzerResult(wrap){
     const factors=[
       {l:"Data Source",v:val.dataLayer===1?"Verified DB":"Estimated",ok:val.dataLayer===1},
       {l:"Building Match",v:val.inDB?"Found in DB":"Area benchmark",ok:val.inDB},
+      {l:"Comparable Analysis",v:val.compData?val.compData.compCount+" properties":"No comps",ok:!!val.compData},
+      {l:"Live Market Data",v:val.hasDynamic?"Active":"Static benchmarks",ok:val.hasDynamic},
+      {l:"Auto-Calibration",v:val.calFactor!==1.0?"×"+val.calFactor.toFixed(2):"Pending",ok:val.calFactor!==1.0},
       {l:"Developer Furnished",v:val.isDevFurnished?"Yes — "+furnLabel:"No — "+furnLabel,ok:true},
       {l:"View Specified",v:analyzerState.f.view!=="Not specified"?analyzerState.f.view:"Not specified",ok:analyzerState.f.view!=="Not specified"},
       {l:"Floor Specified",v:analyzerState.f.floor?"Floor "+analyzerState.f.floor:"Not provided",ok:!!analyzerState.f.floor||analyzerState.investorProfile==="villa"},
@@ -3016,6 +3156,48 @@ function renderAnalyzerResult(wrap){
         "◆ Strategy: "+note
       ));
     }
+  })();
+
+  // -- PRICE HISTORY CHART (Phase 2) --
+  (function(){
+    var phArea=analyzerState.f.area;
+    var phCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px",display:"none"}});
+    phCard.id="dv-price-history-card";
+    var phTitle=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}});
+    phTitle.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ PSF Price Trend · "+phArea));
+    phTitle.appendChild(span({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},"90 days"));
+    phCard.appendChild(phTitle);
+    var phCanvas=el("div",{style:{height:"100px",display:"flex",alignItems:"flex-end",gap:"2px",padding:"4px 0"}});
+    phCanvas.id="dv-ph-canvas";
+    phCard.appendChild(phCanvas);
+    var phStats=el("div",{style:{display:"flex",justifyContent:"space-between",marginTop:"8px"}});
+    phStats.id="dv-ph-stats";
+    phCard.appendChild(phStats);
+    wrap.appendChild(phCard);
+    fetchPriceHistory(phArea,90).then(function(rows){
+      if(!rows||rows.length<2)return;
+      phCard.style.display="block";
+      var psfs=rows.map(function(r){return r.psf;});
+      var mn=Math.min.apply(null,psfs);
+      var mx=Math.max.apply(null,psfs);
+      var range=mx-mn||1;
+      phCanvas.innerHTML="";
+      rows.forEach(function(r,idx){
+        var pct=Math.max(8,(r.psf-mn)/range*100);
+        var isLast=idx===rows.length-1;
+        var bar=el("div",{style:{flex:"1",background:isLast?"linear-gradient(180deg,"+cl.gold+","+cl.goldDim+")":"linear-gradient(180deg,rgba(255,255,255,0.15),rgba(255,255,255,0.05))",height:pct+"%",borderRadius:"2px 2px 0 0",minWidth:"4px",cursor:"pointer",transition:"background 0.2s"}});
+        bar.title=r.snapshot_date+": AED "+r.psf+"/sqft";
+        phCanvas.appendChild(bar);
+      });
+      var first=psfs[0],last=psfs[psfs.length-1];
+      var chg=first>0?((last-first)/first*100).toFixed(1):0;
+      var chgColor=chg>=0?cl.green:cl.red;
+      phStats.innerHTML="";
+      phStats.appendChild(span({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},"AED "+mn+" → "+mx));
+      var chgSpan=el("span",{style:{color:chgColor,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"}});
+      chgSpan.textContent=(chg>=0?"+":"")+chg+"%";
+      phStats.appendChild(chgSpan);
+    });
   })();
 
   if(analyzerState.aiText){
