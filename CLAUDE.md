@@ -199,7 +199,7 @@ in `localStorage` — no backend/auth needed for Phase 1.
 **Core features:**
 - **Asset Tracking**: add/remove properties with full details (building, area,
   type, beds, floor, view, size, purchase price/date, furnished, SC). Building
-  auto-lookup from the 5,612-entry DB — auto-fills service charge, area, grade.
+  auto-lookup from the 6,008-entry DB — auto-fills service charge, area, grade.
 - **Real-time Valuations**: each asset is valued using `computeAssetMetrics()`
   which mirrors the main `computeValuation` engine's hedonic pricing (view/floor/
   furnished premiums + `getAreaGeoAdj()` dynamic risk + `MACRO_VARS.aptAdj`/
@@ -207,6 +207,24 @@ in `localStorage` — no backend/auth needed for Phase 1.
   yield/growth forecasts.
 - **Portfolio Overview**: total value, ROI, gross/net yield, annual rent,
   unrealized P&L, area allocation bar chart with legend.
+- **Portfolio Health Score** (added 2026-06-17): composite 1-100 score with
+  4 weighted components — Diversification (25%, HHI-based area concentration +
+  property type mix), Liquidity (25%, avg DOM + turnover rate), Risk-Return
+  (25%, net yield + MoS), Growth (25%, ROI + total return). Visual donut chart
+  with tier badge (Excellent/Strong/Moderate/Needs Attention/At Risk) and
+  auto-generated insight targeting the weakest component. Function:
+  `computePortfolioHealth(metrics, totalValue)`.
+- **Future Projection Simulator** (added 2026-06-17): two interactive sliders —
+  Market Growth Adjustment (-30% to +30%) and Interest Rate Change (-3% to +5%).
+  Shows projected portfolio value, ROI, and yield at 1/3/5 year horizons using
+  each asset's area-specific growth forecasts (g0/g1/g2) adjusted by user input.
+  Includes contextual scenario analysis text (stress/bull/base case + rate
+  impact commentary). State stored in `ps._proj`.
+- **What-If Swap Simulator** (added 2026-06-17): select a portfolio asset to
+  sell and a target area to reinvest. Calculates net sale proceeds (after 4%
+  DLD + 2% agent fees), buying power in target area (at area PSF), new rent/
+  service charge/yield, and net cash flow delta. Shows automated verdict
+  based on cash flow + growth direction. State stored in `ps._swap`.
 - **Investment Profile**: risk appetite (Conservative/Moderate/Aggressive),
   horizon (1-2yr to 10+yr), target (Capital Growth/Rental Income/Balanced/
   Quick Flip) — saved to `localStorage`, fed to AI analysis.
@@ -220,7 +238,8 @@ in `localStorage` — no backend/auth needed for Phase 1.
   goals to `askAI()`, returns HOLD/SELL/BUY MORE signal per property plus
   2-3 strategic portfolio-level recommendations.
 
-**State**: `window.PORTFOLIO_STATE` (assets array, goals object, UI flags).
+**State**: `window.PORTFOLIO_STATE` (assets array, goals object, UI flags,
+`_proj` for Future Projection slider state, `_swap` for What-If Swap state).
 Persisted keys: `dubaival_portfolio` (assets), `dubaival_portfolio_goals`.
 
 **`computeAssetMetrics(asset)`** — standalone function that computes current
@@ -230,11 +249,36 @@ Uses `lookupBuilding(name, area)` for DB match, `AREAS[area]` for benchmarks,
 `MACRO_VARS.aptAdj/villaAdj` for type-specific adjustments. Returns:
 `currentPSF, currentValue, purchasePrice, roi, rent, sc, grossYield, netYield,
 holdingMonths, annualizedROI, g0/g1/g2 (growth), inDB, grade, investSignal,
-totalReturn`.
+totalReturn, domEst, txVol, liqScore, liqLabel, turnoverRate, turnoverLabel,
+bldgUnits, bldgAnnualTx, mosScore, mosTier`.
+
+**`computePortfolioHealth(metrics, totalValue)`** — computes composite portfolio
+health score. Returns: `score, tier, div, liq, rr, gr, insight, nAreas, hasBoth`.
 
 ## Recent work log (most recent first)
 
-- **2026-06-17**: Added **Portfolio Manager** tab — full asset tracking with
+- **2026-06-17 (session 2)**: Three strategic portfolio features:
+  1. **Portfolio Health Score**: composite 1-100 metric (Diversification 25% +
+     Liquidity 25% + Risk-Return 25% + Growth 25%) with donut chart UI, tier
+     badge, and auto-insight. `computePortfolioHealth()` function.
+  2. **Future Projection Simulator**: interactive sliders for market growth
+     (-30%→+30%) and interest rate (-3%→+5%), projecting portfolio at 1/3/5yr
+     horizons with scenario analysis text.
+  3. **What-If Swap Simulator**: sell asset A → buy in area B, shows net
+     proceeds (after DLD 4% + agent 2%), buying power, cash flow delta,
+     yield/growth comparison, automated verdict.
+  Also in this session:
+  - **Building Turnover Rate**: `(Annual Tx / Total Units) × 100%` engine with
+    5 tiers (Hot Market ≥12%, Active ≥6%, Stable ≥3%, Slow ≥1%, Stagnant).
+    `BLDG_UNITS` database: 6,192 entries (100% DB coverage). Smart estimation
+    via `estimateBldgUnits()` and `estimateBldgTx()` with community correction.
+  - **Margin of Safety (MoS) Index**: composite 5-95 score from Price Gap (50%),
+    Time Decay (20%), Market Depth (30%). 5 tiers from Deep Value to Speculative.
+  - **BLDG_UNITS expanded** from 796 → 6,192 entries (100% DB building coverage)
+    using smart name-pattern heuristics.
+  - **Liquidity data (dom/txVol)** added to all 287 AREAS (was 158).
+  - **Market Liquidity / DOM analysis engine** with animated gauge UI.
+- **2026-06-17 (session 1)**: Added **Portfolio Manager** tab — full asset tracking with
   real-time AVM-based valuations, portfolio analytics (ROI, yield, P&L, area
   allocation), investment profile (risk/horizon/target), per-asset expandable
   details (annualized return, growth forecast, investment signal, total
@@ -468,3 +512,31 @@ use a Node `eval` harness:
 - `main` branch vs the Claude working branch are not auto-synced/auto-deployed
   to each other — if a session's changes need to reach production, say so
   explicitly to the user, since merging/deploying is the user's call.
+- **PENDING: Opportunity Alerts (هشدار فرصت‌های پنهان)** — deferred from
+  2026-06-17 session because web research limits were exhausted. This is the
+  user's "item 4" from their 5 strategic UX ideas. Two phases planned:
+  **Phase 1 (no research needed, use existing data):**
+  1. **DLD Fee Recovery Timer**: calculate months until 4% DLD transfer fee
+     is recovered via projected capital appreciation (use `aData.g`).
+  2. **Rent Optimization Alert**: compare asset's estimated rent against area
+     benchmark — flag if renting below market.
+  3. **Optimal Exit Window**: based on growth forecasts, show when selling
+     maximizes total return (net yield + appreciation).
+  4. **Equity Release Calculator**: if property appreciated since purchase,
+     show extractable equity amount (LTV-based).
+  **Phase 2 (needs web research):**
+  5. **Airbnb vs Long-term Rent Comparison**: research and add to AREAS
+     database: `str` (short-term nightly rate AED) and `occ` (occupancy rate
+     0-1) for each of the 287 areas. Formula: `STR annual = str × 365 × occ
+     × 0.8` (after platform fees/cleaning). Compare with `r1`/`r2`/`r3` to
+     generate "switch to short-term" alerts. Sources: AirDNA, AllTheRooms,
+     Bayut/Property Finder short-term listings, DTCM hotel data.
+  6. **Renovation ROI Estimator**: generic cost tiers (cosmetic AED 150-250/sqft,
+     kitchen+bath AED 300-500/sqft, full AED 500-800/sqft) with value-add
+     estimate based on grade upgrade potential and furnished premium (15%).
+  The user explicitly deferred Phase 2 to a session with full research
+  capability. To resume, the user should say:
+  «فرصت‌های پنهان رو انجام بده — فاز ۱ و ۲» or in English:
+  "Implement Opportunity Alerts — Phase 1 (DLD recovery, rent optimization,
+  exit window, equity release) and Phase 2 (Airbnb comparison — needs
+  research for 287 areas' nightly rates and occupancy)."
