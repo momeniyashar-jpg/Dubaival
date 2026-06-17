@@ -763,10 +763,63 @@ async function fetchPriceHistory(area,days){
   }catch(e){return[];}
 }
 
+// --- ERROR LOGGING & SMART GUIDANCE -------------------------------------------
+var DV_ERROR_LOG=[];
+var DV_LOG_MAX=200;
+
+function dvLog(type,context,detail){
+  var entry={ts:Date.now(),type:type,ctx:context,detail:detail};
+  DV_ERROR_LOG.push(entry);
+  if(DV_ERROR_LOG.length>DV_LOG_MAX)DV_ERROR_LOG.shift();
+  try{localStorage.setItem("dv_error_log",JSON.stringify(DV_ERROR_LOG.slice(-50)));}catch(e){}
+}
+
+function dvLoadLog(){
+  try{var s=localStorage.getItem("dv_error_log");if(s)DV_ERROR_LOG=JSON.parse(s);}catch(e){}
+}
+dvLoadLog();
+
+function findNearbyAreas(area,limit){
+  limit=limit||3;
+  var coords=typeof AREA_COORDS!=="undefined"?AREA_COORDS:{};
+  var target=coords[area];
+  if(!target)return[];
+  var candidates=[];
+  var areaKeys=Object.keys(AREAS);
+  for(var i=0;i<areaKeys.length;i++){
+    var k=areaKeys[i];
+    if(k===area)continue;
+    var c=coords[k];
+    if(!c)continue;
+    var dlat=c[0]-target[0];
+    var dlng=c[1]-target[1];
+    var dist=Math.sqrt(dlat*dlat+dlng*dlng);
+    var psfDiff=Math.abs((AREAS[k].psf||1500)-(AREAS[area]?AREAS[area].psf:1500));
+    candidates.push({area:k,dist:dist,psfDiff:psfDiff,psf:AREAS[k].psf});
+  }
+  candidates.sort(function(a,b){return(a.dist*0.6+a.psfDiff/5000*0.4)-(b.dist*0.6+b.psfDiff/5000*0.4);});
+  return candidates.slice(0,limit);
+}
+
+function getConfidenceGuidance(val,f){
+  if(val.confScore>=80)return null;
+  var tips=[];
+  if(!val.inDB)tips.push({tip:"This building is not in our verified database — estimate uses area benchmarks",action:"Try a well-known building in "+f.area});
+  if(f.view==="Not specified")tips.push({tip:"Specifying view type improves accuracy by up to 7%",action:"Select a view (Sea, Marina, Park, etc.)"});
+  if(!f.floor&&f.propCategory!=="villa")tips.push({tip:"Floor level affects pricing by up to 15%",action:"Enter the floor number"});
+  if(!val.hasDynamic)tips.push({tip:"Live market data not available — using curated benchmarks",action:"Data refreshes daily when connected"});
+  if(val.confScore<55){
+    var nearby=findNearbyAreas(f.area,3);
+    if(nearby.length)tips.push({tip:"For higher-confidence analysis, consider nearby areas with more data",action:nearby.map(function(n){return n.area;}).join(", "),nearby:nearby});
+  }
+  return tips.length?tips:null;
+}
+
 // --- VALUATION ENGINE ---------------------------------------------------------
 function computeValuation(f,buildingVal,liveData){
   const bData=lookupBuilding(buildingVal||f.building||"",f.area);
   const staticArea=AREAS[f.area]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
+  if(!AREAS[f.area])dvLog("no_area","computeValuation","Area not in AREAS: "+f.area+" — using generic defaults");
   const dynBench=getDynamicBenchmark(f.area);
   const aData=Object.assign({},staticArea);
   if(dynBench){
@@ -795,6 +848,7 @@ function computeValuation(f,buildingVal,liveData){
     }
   }
   else{
+    dvLog("fallback","computeValuation","Building not in DB: "+(buildingVal||f.building||"")+" · Area: "+f.area);
     const sales=liveData&&liveData.sales?liveData.sales:[];
     const pool=sales.filter(function(s){return s.psf>400&&s.psf<15000});
     if(pool.length>=3){
@@ -817,6 +871,7 @@ function computeValuation(f,buildingVal,liveData){
       // (e.g. Town Square) whenever any building name was typed but not found in DB.
       basePSF=aData.psf;psfLo=Math.round(basePSF*0.87);psfHi=Math.round(basePSF*1.13);
       dataSource="Area benchmark · "+f.area;dataLayer=4;
+      dvLog("area_only","computeValuation","No live comps, area-only: "+(buildingVal||f.building||"")+" · "+f.area);
       var areaComps=findComparables(null,f.area,null,f.beds,isVillaType,10);
       if(areaComps.length>=3){
         var ac=computeComparableEstimate(areaComps,basePSF);
@@ -2126,7 +2181,59 @@ function renderAdmin(){
     preview.appendChild(row);
   });
   wrap.appendChild(preview);
-  
+
+  // -- ERROR LOG (System Monitoring) --
+  var logCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginTop:"16px"}});
+  logCard.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"◆ System Diagnostics · Error Log"));
+  var logStats=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"12px"}});
+  var noAreaCount=DV_ERROR_LOG.filter(function(e){return e.type==="no_area";}).length;
+  var fallbackCount=DV_ERROR_LOG.filter(function(e){return e.type==="fallback";}).length;
+  var areaOnlyCount=DV_ERROR_LOG.filter(function(e){return e.type==="area_only";}).length;
+  [{l:"No Area Match",v:noAreaCount,c:noAreaCount>0?"#EF4444":cl.green},{l:"Building Fallback",v:fallbackCount,c:fallbackCount>5?"#F59E0B":cl.green},{l:"Area-Only Est.",v:areaOnlyCount,c:areaOnlyCount>10?"#F59E0B":cl.green}].forEach(function(s){
+    logStats.appendChild(div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[
+      div({color:s.c,fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},String(s.v)),
+      div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},s.l)
+    ]));
+  });
+  logCard.appendChild(logStats);
+  var logList=el("div",{style:{maxHeight:"200px",overflowY:"auto"}});
+  var recentLogs=DV_ERROR_LOG.slice(-20).reverse();
+  if(!recentLogs.length)logList.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",textAlign:"center",padding:"16px"},"No errors logged yet — system running smoothly"));
+  recentLogs.forEach(function(entry){
+    var row=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid "+cl.border}});
+    var typColor=entry.type==="no_area"?"#EF4444":entry.type==="fallback"?"#F59E0B":"#60A5FA";
+    row.appendChild(span({color:typColor,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",background:"rgba(255,255,255,0.05)",padding:"2px 6px",borderRadius:"8px"},entry.type));
+    row.appendChild(span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",flex:"1",marginLeft:"8px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},entry.detail));
+    row.appendChild(span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},new Date(entry.ts).toLocaleTimeString()));
+    logList.appendChild(row);
+  });
+  logCard.appendChild(logList);
+  var clearBtn=el("button",{style:{marginTop:"10px",padding:"8px 16px",background:cl.raised,border:"1px solid "+cl.border,color:cl.sub,borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+  clearBtn.textContent="Clear Log";
+  clearBtn.onclick=function(){DV_ERROR_LOG.length=0;try{localStorage.removeItem("dv_error_log");}catch(e){}render();};
+  logCard.appendChild(clearBtn);
+  wrap.appendChild(logCard);
+
+  // -- DATA COVERAGE REPORT --
+  var covCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginTop:"12px"}});
+  covCard.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"◆ Data Coverage"));
+  var dbSize=Object.keys(DB).length;
+  var areaSize=Object.keys(AREAS).length;
+  var dynCount=Object.keys(DYNAMIC_BENCHMARKS).length;
+  var calCount=Object.keys(AVM_CALIBRATION).filter(function(k){return AVM_CALIBRATION[k].sample_count>=3;}).length;
+  [{l:"Buildings in DB",v:dbSize.toLocaleString(),pct:100},{l:"Areas Covered",v:areaSize,pct:100},{l:"Dynamic Benchmarks",v:dynCount+"/"+areaSize,pct:Math.round(dynCount/areaSize*100)},{l:"Calibrated Areas",v:calCount+"/"+areaSize,pct:Math.round(calCount/areaSize*100)}].forEach(function(d){
+    var row=el("div",{style:{marginBottom:"8px"}});
+    row.appendChild(div({display:"flex",justifyContent:"space-between",marginBottom:"3px"},[
+      span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},d.l),
+      span({color:cl.gold,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},d.v)
+    ]));
+    row.appendChild(div({height:"4px",background:cl.border,borderRadius:"2px",overflow:"hidden"},[
+      div({height:"100%",width:d.pct+"%",background:d.pct>=80?"#10B981":d.pct>=40?"#F59E0B":"#EF4444",borderRadius:"2px"})
+    ]));
+    covCard.appendChild(row);
+  });
+  wrap.appendChild(covCard);
+
   return wrap;
 }
 
@@ -3123,6 +3230,39 @@ function renderAnalyzerResult(wrap){
       bWrap.appendChild(row);
     });
     wrap.appendChild(bWrap);
+  })();
+
+  // -- SMART GUIDANCE (Proactive Suggestions) --
+  (function(){
+    var guidance=getConfidenceGuidance(val,analyzerState.f);
+    if(!guidance)return;
+    var gCard=el("div",{style:{background:"linear-gradient(135deg,rgba(201,168,76,0.08),rgba(0,200,150,0.04))",border:"1px solid rgba(201,168,76,0.25)",borderRadius:"12px",padding:"14px 16px",marginTop:"10px",marginBottom:"4px"}});
+    gCard.appendChild(div({color:cl.gold,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"◆ How to Improve This Estimate"));
+    guidance.forEach(function(g){
+      var row=el("div",{style:{display:"flex",alignItems:"flex-start",gap:"10px",padding:"6px 0",borderBottom:"1px solid rgba(255,255,255,0.05)"}});
+      row.appendChild(span({color:cl.yellow,fontSize:"14px",lineHeight:"1"},"→"));
+      var content=el("div",{});
+      content.appendChild(div({color:cl.subHi,fontSize:"11.5px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5",marginBottom:"2px"},g.tip));
+      if(g.nearby&&g.nearby.length){
+        var nbRow=el("div",{style:{display:"flex",gap:"6px",flexWrap:"wrap",marginTop:"4px"}});
+        g.nearby.forEach(function(n){
+          var btn=el("button",{style:{background:cl.raised,border:"1px solid "+cl.border,color:cl.gold,padding:"4px 10px",borderRadius:"14px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+          btn.textContent=n.area+" · AED "+n.psf;
+          btn.onclick=function(){
+            analyzerState.f.area=n.area;
+            analyzerState.val=computeValuation(analyzerState.f,analyzerState.f.building,analyzerState.liveData);
+            render();
+          };
+          nbRow.appendChild(btn);
+        });
+        content.appendChild(nbRow);
+      }else{
+        content.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",fontStyle:"italic"},g.action));
+      }
+      row.appendChild(content);
+      gCard.appendChild(row);
+    });
+    wrap.appendChild(gCard);
   })();
 
   // -- MARKET SENTIMENT --
