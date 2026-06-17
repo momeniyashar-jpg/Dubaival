@@ -57,7 +57,8 @@ blindly — it drifts every time AREAS/DB/render functions grow.
 | 2162–2896 | `renderAnalyzer()` / `renderAnalyzerResult()` — the main valuation form + result UI (confidence bar, total return badge, investment signal badge live here) |
 | 2815–2975 | Mortgage standalone + calculator (`renderMortgageStandalone`, `renderMortgage`) |
 | 2976–3041 | Compare tab, Personal tab |
-| 3042–end | Chat tab, `sendChat` (Groq-backed AI chat) |
+| 3042–~3280 | **Portfolio Manager tab** (`renderPortfolio`, `computeAssetMetrics`) — asset tracking, real-time valuations, AI portfolio analysis. Uses `localStorage` for persistence (`dubaival_portfolio`, `dubaival_portfolio_goals` keys). See "Portfolio Manager" section below. |
+| ~3280–end | Chat tab, `sendChat` (Groq-backed AI chat) |
 
 Note: `AREA_GRADE_PSF` (line 173, ~350 hand-researched grade-tier psf entries)
 is currently **unused dead data** — its only call site (a "guess B+ grade for
@@ -189,8 +190,57 @@ whichever is better, I have no preference / act as the senior expert"):
      branch alone does not auto-deploy to Production (see "Repo / deploy
      mechanics" above).
 
+## Portfolio Manager (`renderPortfolio`, added 2026-06-17)
+
+AI-powered asset management tab that transforms DubaiVal from a valuation tool
+into a wealth advisory platform for UHNW investors. All data stored client-side
+in `localStorage` — no backend/auth needed for Phase 1.
+
+**Core features:**
+- **Asset Tracking**: add/remove properties with full details (building, area,
+  type, beds, floor, view, size, purchase price/date, furnished, SC). Building
+  auto-lookup from the 5,612-entry DB — auto-fills service charge, area, grade.
+- **Real-time Valuations**: each asset is valued using `computeAssetMetrics()`
+  which mirrors the main `computeValuation` engine's hedonic pricing (view/floor/
+  furnished premiums + `getAreaGeoAdj()` dynamic risk + `MACRO_VARS.aptAdj`/
+  `villaAdj` type adjustments). Uses the same AREAS benchmark data for rent/
+  yield/growth forecasts.
+- **Portfolio Overview**: total value, ROI, gross/net yield, annual rent,
+  unrealized P&L, area allocation bar chart with legend.
+- **Investment Profile**: risk appetite (Conservative/Moderate/Aggressive),
+  horizon (1-2yr to 10+yr), target (Capital Growth/Rental Income/Balanced/
+  Quick Flip) — saved to `localStorage`, fed to AI analysis.
+- **Per-Asset Analytics** (expandable cards): purchase price vs current value,
+  PSF comparison, estimated rent, service charge, gross/net yield, 3-year
+  growth forecast (conservative/base/optimistic from `aData.g`), annualized
+  return, unrealized P&L, total return (net yield + growth), investment signal
+  (Undervalued/Fair Value/Elevated/Overheated — same price-to-rent ratio
+  thresholds as the main analyzer).
+- **AI Portfolio Analysis** (Groq): sends full portfolio summary + investment
+  goals to `askAI()`, returns HOLD/SELL/BUY MORE signal per property plus
+  2-3 strategic portfolio-level recommendations.
+
+**State**: `window.PORTFOLIO_STATE` (assets array, goals object, UI flags).
+Persisted keys: `dubaival_portfolio` (assets), `dubaival_portfolio_goals`.
+
+**`computeAssetMetrics(asset)`** — standalone function that computes current
+value and metrics for a single portfolio asset without needing live API data.
+Uses `lookupBuilding(name, area)` for DB match, `AREAS[area]` for benchmarks,
+`VIEW_P` for view premiums, `getAreaGeoAdj()` for dynamic risk, and
+`MACRO_VARS.aptAdj/villaAdj` for type-specific adjustments. Returns:
+`currentPSF, currentValue, purchasePrice, roi, rent, sc, grossYield, netYield,
+holdingMonths, annualizedROI, g0/g1/g2 (growth), inDB, grade, investSignal,
+totalReturn`.
+
 ## Recent work log (most recent first)
 
+- **2026-06-17**: Added **Portfolio Manager** tab — full asset tracking with
+  real-time AVM-based valuations, portfolio analytics (ROI, yield, P&L, area
+  allocation), investment profile (risk/horizon/target), per-asset expandable
+  details (annualized return, growth forecast, investment signal, total
+  return), and AI portfolio analysis via Groq (HOLD/SELL/BUY MORE signals +
+  strategic recommendations). Data persisted in `localStorage`. See
+  "Portfolio Manager" section above for architecture details.
 - **2026-06-16 (`1b8c59c`)**: Implemented 2 of the user's 5 strategic
   proposals (see "Strategic proposals" below), in user-approved order
   (Outlier fix → Case Study):

@@ -1806,7 +1806,7 @@ function render(){
   }
 
   // Nav
-  const tabs=[{id:"Market",icon:"📊",label:"Market"},{id:"Analyzer",icon:"🔍",label:"Analyzer"},{id:"Find",icon:"🔎",label:"Find"},{id:"Compare",icon:"⚖️",label:"Compare"},{id:"Alerts",icon:"🔔",label:"Alerts"},{id:"Chat",icon:"💬",label:"AI Chat"}];
+  const tabs=[{id:"Market",icon:"📊",label:"Market"},{id:"Analyzer",icon:"🔍",label:"Analyzer"},{id:"Find",icon:"🔎",label:"Find"},{id:"Compare",icon:"⚖️",label:"Compare"},{id:"Portfolio",icon:"💼",label:"Portfolio"},{id:"Alerts",icon:"🔔",label:"Alerts"},{id:"Chat",icon:"💬",label:"AI Chat"}];
   const nav=div({background:cl.surface,borderBottom:"1px solid "+cl.border,display:"flex",overflowX:"auto",padding:"0 20px"},
     tabs.map(function(t){
       const active=currentTab===t.id;
@@ -1824,6 +1824,7 @@ function render(){
   else if(currentTab==="Find")content.appendChild(renderFind());
   else if(currentTab==="Admin")content.appendChild(renderAdmin());
   else if(currentTab==="Compare")content.appendChild(renderCompare());
+  else if(currentTab==="Portfolio")content.appendChild(renderPortfolio());
   else if(currentTab==="Alerts")content.appendChild(renderAlerts());
   else if(currentTab==="Chat")content.appendChild(renderChat());
   app.appendChild(content);
@@ -3078,6 +3079,317 @@ function renderPersonal(){
     r.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"◆ Your Recommendations"));
     const t=div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.9",fontFamily:"'Inter',sans-serif",whiteSpace:"pre-wrap"});t.textContent=p.result;r.appendChild(t);wrap.appendChild(r);
   }
+  return wrap;
+}
+
+// --- PORTFOLIO TAB -----------------------------------------------------------
+if(!window.PORTFOLIO_STATE){
+  var _pa;try{_pa=JSON.parse(localStorage.getItem("dubaival_portfolio"))||[];}catch(e){_pa=[];}
+  var _pg;try{_pg=JSON.parse(localStorage.getItem("dubaival_portfolio_goals"))||{risk:"Moderate",horizon:"3-5 years",target:"Capital Growth"};}catch(e){_pg={risk:"Moderate",horizon:"3-5 years",target:"Capital Growth"};}
+  window.PORTFOLIO_STATE={assets:_pa,goals:_pg,showAdd:false,aiAnalysis:"",aiLoading:false,aiErr:"",expandedId:null};
+}
+function computeAssetMetrics(asset){
+  var aData=AREAS[asset.area]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
+  var bData=lookupBuilding(asset.building,asset.area);
+  var basePSF=bData?bData.p:aData.psf;
+  var vP=VIEW_P[asset.view]||0;
+  var floorN=parseInt(asset.floor)||20;
+  var fP=floorN>10?(floorN-10)*0.005:0;
+  var furnP=asset.furnished==="Furnished"?0.15:asset.furnished==="Semi-Furnished"?0.07:0;
+  var isV=asset.type==="Villa"||asset.type==="Townhouse";
+  var geoAdj=getAreaGeoAdj(asset.area);
+  var typeAdj=isV?MACRO_VARS.villaAdj:MACRO_VARS.aptAdj;
+  var hedonicMult=(1+vP)*(1+fP)*(1+furnP)*(1+geoAdj+typeAdj);
+  var adjPSF=Math.round(basePSF*hedonicMult);
+  var size=parseInt(asset.size)||0;
+  var currentValue=adjPSF*size;
+  var purchasePrice=parseInt(asset.purchasePrice)||0;
+  var roi=purchasePrice>0?((currentValue-purchasePrice)/purchasePrice*100):0;
+  var bn={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5}[asset.beds]!=null?{"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5}[asset.beds]:2;
+  var rent=isV?(bn<=3?aData.rv3||180000:aData.rv4||240000):bn===0?(aData.r1||65000)*0.65:bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
+  var sc=(parseFloat(asset.serviceCharge)||(bData&&bData.sc)||aData.sc||15)*size;
+  var grossYield=currentValue>0?(rent/currentValue*100):0;
+  var netYield=currentValue>0?((rent-sc)/currentValue*100):0;
+  var gr=aData.g||[10,18,28];
+  var purchaseDate=new Date(asset.purchaseDate);
+  var now=new Date();
+  var holdingMonths=Math.max(1,Math.round((now-purchaseDate)/(30.44*24*60*60*1000)));
+  var holdingYears=holdingMonths/12;
+  var annualizedROI=holdingYears>0&&purchasePrice>0?(Math.pow(currentValue/purchasePrice,1/holdingYears)-1)*100:roi;
+  var prRatio=grossYield>0?(100/grossYield):20;
+  var investSignal=prRatio<15?"Undervalued":prRatio<20?"Fair Value":prRatio<25?"Elevated":"Overheated";
+  var totalReturn=netYield+(gr[1]||18)/3;
+  return{currentPSF:adjPSF,currentValue:currentValue,purchasePrice:purchasePrice,roi:roi,rent:rent,sc:sc,grossYield:grossYield,netYield:netYield,holdingMonths:holdingMonths,annualizedROI:annualizedROI,g0:gr[0],g1:gr[1],g2:gr[2],inDB:!!bData,grade:bData?bData.g:"N/A",areaYield:aData.y||[5,7],investSignal:investSignal,totalReturn:totalReturn};
+}
+function renderPortfolio(){
+  var cl=C();var ps=window.PORTFOLIO_STATE;
+  var wrap=div({padding:"20px",maxWidth:"640px",margin:"0 auto"});
+  wrap.appendChild(div({marginBottom:"16px"},[
+    span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ Portfolio Manager"),
+    span({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Track assets, monitor performance & get AI-powered signals")
+  ]));
+
+  var metrics=ps.assets.map(function(a){return Object.assign({},a,{m:computeAssetMetrics(a)});});
+  var totalValue=metrics.reduce(function(s,a){return s+a.m.currentValue;},0);
+  var totalPurchase=metrics.reduce(function(s,a){return s+a.m.purchasePrice;},0);
+  var totalROI=totalPurchase>0?((totalValue-totalPurchase)/totalPurchase*100):0;
+  var totalRent=metrics.reduce(function(s,a){return s+a.m.rent;},0);
+  var totalSC=metrics.reduce(function(s,a){return s+a.m.sc;},0);
+  var avgGrossYield=totalValue>0?(totalRent/totalValue*100):0;
+  var avgNetYield=totalValue>0?((totalRent-totalSC)/totalValue*100):0;
+
+  // Portfolio Overview
+  if(ps.assets.length>0){
+    var sumCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",position:"relative",overflow:"hidden"});
+    sumCard.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,"+cl.gold+","+cl.gold+",transparent)",animation:"shimmer 3s ease infinite"}));
+    sumCard.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"14px"},"◆ Portfolio Overview"));
+
+    var g1=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"});
+    [{l:"Total Value",v:"AED "+totalValue.toLocaleString(),c:cl.gold},{l:"Total ROI",v:(totalROI>=0?"+":"")+totalROI.toFixed(1)+"%",c:totalROI>=0?cl.green:cl.red},{l:"Gross Yield",v:avgGrossYield.toFixed(1)+"%",c:cl.green},{l:"Net Yield",v:avgNetYield.toFixed(1)+"%",c:cl.green}].forEach(function(item){
+      var box=div({background:cl.raised,borderRadius:"10px",padding:"12px 14px"});
+      box.appendChild(lbl(item.l));
+      box.appendChild(span({color:item.c,fontSize:"17px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},item.v));
+      g1.appendChild(box);
+    });
+    sumCard.appendChild(g1);
+
+    var g2=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px",marginBottom:"12px"});
+    var pnl=totalValue-totalPurchase;
+    [{l:"Assets",v:String(ps.assets.length),c:cl.white},{l:"Annual Rent",v:"AED "+totalRent.toLocaleString(),c:cl.white},{l:"Unrealized P&L",v:(pnl>=0?"+":"")+"AED "+pnl.toLocaleString(),c:pnl>=0?cl.green:cl.red}].forEach(function(item){
+      var box=div({background:cl.raised,borderRadius:"10px",padding:"10px 12px"});
+      box.appendChild(lbl(item.l));
+      box.appendChild(span({color:item.c,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},item.v));
+      g2.appendChild(box);
+    });
+    sumCard.appendChild(g2);
+
+    // Area Allocation bar
+    var areaDist={};
+    metrics.forEach(function(a){areaDist[a.area]=(areaDist[a.area]||0)+a.m.currentValue;});
+    var areaEntries=Object.entries(areaDist).sort(function(a,b){return b[1]-a[1];});
+    if(areaEntries.length>0){
+      sumCard.appendChild(lbl("Area Allocation"));
+      var barColors=[cl.gold,cl.green,cl.blue,cl.yellow,cl.red,cl.goldDim];
+      var bar=div({display:"flex",height:"8px",borderRadius:"4px",overflow:"hidden",marginTop:"6px",marginBottom:"8px"});
+      areaEntries.forEach(function(e,i){bar.appendChild(div({width:(e[1]/totalValue*100)+"%",background:barColors[i%barColors.length]}));});
+      sumCard.appendChild(bar);
+      var legend=div({display:"flex",flexWrap:"wrap",gap:"8px"});
+      areaEntries.forEach(function(e,i){
+        legend.appendChild(div({display:"flex",alignItems:"center",gap:"4px"},[
+          div({width:"8px",height:"8px",borderRadius:"2px",background:barColors[i%barColors.length],flexShrink:"0"}),
+          span({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},e[0]+" "+(e[1]/totalValue*100).toFixed(0)+"%"),
+        ]));
+      });
+      sumCard.appendChild(legend);
+    }
+    wrap.appendChild(sumCard);
+  }
+
+  // Investment Profile
+  var goalsCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"});
+  goalsCard.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"◆ Investment Profile"));
+  var goalsGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px"});
+  [{l:"Risk Appetite",k:"risk",opts:["Conservative","Moderate","Aggressive"]},{l:"Horizon",k:"horizon",opts:["1-2 years","3-5 years","5-10 years","10+ years"]},{l:"Target",k:"target",opts:["Capital Growth","Rental Income","Balanced","Quick Flip"]}].forEach(function(item){
+    var g=div({});g.appendChild(lbl(item.l));
+    g.appendChild(mkSelect(Object.assign({},S(),{fontSize:"11.5px",padding:"8px 10px"}),item.opts,ps.goals[item.k],function(v){ps.goals[item.k]=v;localStorage.setItem("dubaival_portfolio_goals",JSON.stringify(ps.goals));ps.aiAnalysis="";render();}));
+    goalsGrid.appendChild(g);
+  });
+  goalsCard.appendChild(goalsGrid);
+  wrap.appendChild(goalsCard);
+
+  // Asset Cards
+  metrics.forEach(function(a){
+    var expanded=ps.expandedId===a.id;
+    var roiColor=a.m.roi>=15?cl.green:a.m.roi>=0?cl.yellow:cl.red;
+    var sigColor=a.m.investSignal==="Undervalued"||a.m.investSignal==="Fair Value"?cl.green:a.m.investSignal==="Elevated"?cl.yellow:cl.red;
+    var card=el("div",{style:{background:cl.surface,border:"1px solid "+(expanded?cl.goldDim:cl.border),borderRadius:"14px",padding:"16px",marginBottom:"10px",cursor:"pointer",transition:"all 0.2s"},onclick:function(){ps.expandedId=expanded?null:a.id;render();}});
+
+    var header=div({display:"flex",justifyContent:"space-between",alignItems:"flex-start"});
+    var left=div({flex:"1"});
+    var nameRow=div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"4px"});
+    nameRow.appendChild(span({color:cl.white,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},a.building||a.area));
+    if(a.m.inDB)nameRow.appendChild(pill(a.m.grade,"gold"));
+    left.appendChild(nameRow);
+    left.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace",display:"block"},a.area+" · "+a.beds+" · "+parseInt(a.size).toLocaleString()+" sqft"));
+    header.appendChild(left);
+    var right=div({textAlign:"right"});
+    right.appendChild(span({color:cl.gold,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},"AED "+a.m.currentValue.toLocaleString()));
+    right.appendChild(span({color:roiColor,fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",display:"block"},(a.m.roi>=0?"+":"")+a.m.roi.toFixed(1)+"% ROI"));
+    header.appendChild(right);
+    card.appendChild(header);
+
+    var pills=div({display:"flex",gap:"8px",marginTop:"10px",flexWrap:"wrap"});
+    pills.appendChild(pill("Yield "+a.m.grossYield.toFixed(1)+"%","green"));
+    pills.appendChild(pill("PSF "+a.m.currentPSF.toLocaleString(),"gold"));
+    pills.appendChild(pill(a.m.investSignal,sigColor===cl.green?"green":sigColor===cl.yellow?"yellow":"red"));
+    pills.appendChild(pill(a.m.holdingMonths+"mo held","gray"));
+    card.appendChild(pills);
+
+    if(expanded){
+      var details=div({marginTop:"14px",borderTop:"1px solid "+cl.border,paddingTop:"14px"});
+      details.addEventListener("click",function(e){e.stopPropagation();});
+      var dGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"});
+      [{l:"Purchase Price",v:"AED "+a.m.purchasePrice.toLocaleString(),s:"PSF "+(parseInt(a.size)>0?Math.round(a.m.purchasePrice/parseInt(a.size)).toLocaleString():"—"),c:cl.white},{l:"Current Value",v:"AED "+a.m.currentValue.toLocaleString(),s:"PSF "+a.m.currentPSF.toLocaleString(),c:cl.gold},{l:"Annual Rent (Est.)",v:"AED "+a.m.rent.toLocaleString(),s:null,c:cl.white},{l:"Service Charge",v:"AED "+Math.round(a.m.sc).toLocaleString()+"/yr",s:null,c:cl.white},{l:"Gross Yield",v:a.m.grossYield.toFixed(1)+"%",s:null,c:cl.green},{l:"Net Yield",v:a.m.netYield.toFixed(1)+"%",s:null,c:cl.green}].forEach(function(item){
+        var box=div({background:cl.raised,borderRadius:"8px",padding:"10px 12px"});
+        box.appendChild(lbl(item.l));
+        box.appendChild(span({color:item.c,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},item.v));
+        if(item.s)box.appendChild(span({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",display:"block"},item.s));
+        dGrid.appendChild(box);
+      });
+      details.appendChild(dGrid);
+
+      // Growth Forecast
+      var forecast=div({background:cl.raised,borderRadius:"8px",padding:"10px 12px",marginBottom:"12px"});
+      forecast.appendChild(lbl("3-Year Growth Forecast"));
+      var fRow=div({display:"flex",justifyContent:"space-between",marginTop:"6px"});
+      [{l:"Conservative",v:"+"+a.m.g0+"%",c:cl.yellow},{l:"Base",v:"+"+a.m.g1+"%",c:cl.green},{l:"Optimistic",v:"+"+a.m.g2+"%",c:cl.gold}].forEach(function(g){
+        fRow.appendChild(div({textAlign:"center"},[
+          span({color:g.c,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},g.v),
+          span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",display:"block"},g.l),
+        ]));
+      });
+      forecast.appendChild(fRow);
+      details.appendChild(forecast);
+
+      // Annualized Return + P&L
+      var annBox=div({background:cl.goldFaint,border:"1px solid "+cl.goldDim,borderRadius:"8px",padding:"10px 12px",marginBottom:"12px",display:"flex",justifyContent:"space-between",alignItems:"center"});
+      var annLeft=div({});
+      annLeft.appendChild(lbl("Annualized Return"));
+      annLeft.appendChild(span({color:a.m.annualizedROI>=0?cl.green:cl.red,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",display:"block"},(a.m.annualizedROI>=0?"+":"")+a.m.annualizedROI.toFixed(1)+"% p.a."));
+      annBox.appendChild(annLeft);
+      var annRight=div({textAlign:"right"});
+      var unrealized=a.m.currentValue-a.m.purchasePrice;
+      annRight.appendChild(lbl("Unrealized P&L"));
+      annRight.appendChild(span({color:unrealized>=0?cl.green:cl.red,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},(unrealized>=0?"+":"")+"AED "+unrealized.toLocaleString()));
+      annBox.appendChild(annRight);
+      details.appendChild(annBox);
+
+      // Total Return + Signal
+      var trBox=div({background:cl.raised,borderRadius:"8px",padding:"10px 12px",marginBottom:"12px",display:"flex",justifyContent:"space-between",alignItems:"center"});
+      var trLeft=div({});trLeft.appendChild(lbl("Total Return (Net Yield + Growth)"));
+      trLeft.appendChild(span({color:a.m.totalReturn>=8?cl.green:a.m.totalReturn>=5?cl.yellow:cl.red,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",display:"block"},a.m.totalReturn.toFixed(1)+"% p.a."));
+      trBox.appendChild(trLeft);
+      var trRight=div({textAlign:"right"});trRight.appendChild(lbl("Investment Signal"));
+      trRight.appendChild(span({color:sigColor,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},a.m.investSignal));
+      trBox.appendChild(trRight);
+      details.appendChild(trBox);
+
+      details.appendChild(btn({background:cl.redBg,border:"1px solid "+cl.redBo,color:cl.red,padding:"8px 16px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",fontWeight:"600"},"Remove Asset",function(e){e.stopPropagation();ps.assets=ps.assets.filter(function(x){return x.id!==a.id;});localStorage.setItem("dubaival_portfolio",JSON.stringify(ps.assets));if(ps.expandedId===a.id)ps.expandedId=null;ps.aiAnalysis="";render();}));
+      card.appendChild(details);
+    }
+    wrap.appendChild(card);
+  });
+
+  // Empty state
+  if(ps.assets.length===0&&!ps.showAdd){
+    var empty=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"40px 20px",textAlign:"center",marginBottom:"14px"});
+    empty.appendChild(span({fontSize:"32px",display:"block",marginBottom:"12px"},"◆"));
+    empty.appendChild(span({color:cl.white,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"6px"},"Start Building Your Portfolio"));
+    empty.appendChild(span({color:cl.sub,fontSize:"12.5px",lineHeight:"1.7",display:"block",marginBottom:"16px"},"Add your Dubai properties to track performance, monitor valuations, and receive AI-powered investment signals."));
+    wrap.appendChild(empty);
+  }
+
+  // Add button
+  if(!ps.showAdd){
+    var addBtn=el("button",{style:{width:"100%",padding:"13px",borderRadius:"10px",border:"1px dashed "+cl.goldDim,background:cl.goldFaint,color:cl.gold,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",marginBottom:"14px",letterSpacing:"0.04em"},onclick:function(){ps.showAdd=true;render();}},"+ ADD PROPERTY");
+    wrap.appendChild(addBtn);
+  }
+
+  // Add form
+  if(ps.showAdd){
+    if(!ps._new)ps._new={building:"",area:"",type:"Apartment",beds:"2 BR",floor:"",view:"Not specified",size:"",purchasePrice:"",purchaseDate:"",furnished:"Unfurnished",serviceCharge:"",parking:"1"};
+    var n=ps._new;
+    var formCard=div({background:cl.surface,border:"1px solid "+cl.goldDim,borderRadius:"14px",padding:"20px",marginBottom:"14px"});
+    var formHeader=div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"});
+    formHeader.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ Add Property to Portfolio"));
+    formHeader.appendChild(el("button",{style:{background:"transparent",border:"none",color:cl.sub,cursor:"pointer",fontSize:"16px",padding:"4px 8px"},onclick:function(){ps.showAdd=false;render();}},"✕"));
+    formCard.appendChild(formHeader);
+
+    // Building name
+    var bField=div({marginBottom:"12px"});
+    bField.appendChild(lbl("Building Name"));
+    var bInp=inp(I(),"e.g. BLVD Heights, Opera Grand…","text",n.building,function(v){
+      n.building=v;
+      if(v.length>2){var b=lookupBuilding(v,n.area);if(b&&b.sc)n.serviceCharge=String(b.sc);if(b&&b.a)n.area=b.a;}
+    });
+    bField.appendChild(bInp);
+    if(n.building.length>2&&lookupBuilding(n.building,n.area)){
+      var bInfo=lookupBuilding(n.building,n.area);
+      bField.appendChild(div({marginTop:"4px",display:"flex",gap:"6px"},[pill("✓ Verified","green"),pill("SC: "+bInfo.sc,"gold"),pill(bInfo.g,"gold")]));
+    }
+    formCard.appendChild(bField);
+
+    var isVilla=n.type==="Villa"||n.type==="Townhouse";
+    var aptViews=["Burj Khalifa View","Partial Burj View","Full Sea View","Partial Sea View","Full Canal View","Partial Canal View","Pool View","Garden/Park View","City Skyline","Road View","Not specified"];
+    var villaViews=["Beach Access View","Full Sea View","Lagoon View","Golf View","Garden/Park View","Pool View","City Skyline","Road View","Not specified"];
+    var viewOpts=isVilla?villaViews:aptViews;
+
+    var fg1=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"});
+    var areaW=div({});areaW.appendChild(lbl("Area *"));areaW.appendChild(mkSelect(S(),[""].concat(AREA_NAMES),n.area,function(v){n.area=v;}));fg1.appendChild(areaW);
+    var typeW=div({});typeW.appendChild(lbl("Type"));typeW.appendChild(mkSelect(S(),["Apartment","Villa","Townhouse","Penthouse"],n.type,function(v){n.type=v;if((v==="Villa"||v==="Townhouse")&&aptViews.indexOf(n.view)>=0&&villaViews.indexOf(n.view)<0)n.view="Not specified";render();}));fg1.appendChild(typeW);
+    var bedsW=div({});bedsW.appendChild(lbl("Bedrooms"));bedsW.appendChild(mkSelect(S(),["Studio","1 BR","2 BR","3 BR","4 BR","5 BR","5+ BR"],n.beds,function(v){n.beds=v;}));fg1.appendChild(bedsW);
+    var floorW=div({});floorW.appendChild(lbl("Floor"));floorW.appendChild(inp(I(),"Floor #","number",n.floor,function(v){n.floor=v;}));fg1.appendChild(floorW);
+    var viewW=div({});viewW.appendChild(lbl("View"));viewW.appendChild(mkSelect(S(),viewOpts,n.view,function(v){n.view=v;}));fg1.appendChild(viewW);
+    var furnW=div({});furnW.appendChild(lbl("Furnished"));furnW.appendChild(mkSelect(S(),["Unfurnished","Semi-Furnished","Furnished"],n.furnished,function(v){n.furnished=v;}));fg1.appendChild(furnW);
+    formCard.appendChild(fg1);
+
+    var fg2=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"});
+    var sizeW=div({});sizeW.appendChild(lbl("Size (sqft) *"));sizeW.appendChild(inp(I(),"1,200","number",n.size,function(v){n.size=v;}));fg2.appendChild(sizeW);
+    var scW=div({});scW.appendChild(lbl("Service Charge (AED/sqft)"));scW.appendChild(inp(I(),"Auto for known buildings","number",n.serviceCharge,function(v){n.serviceCharge=v;}));fg2.appendChild(scW);
+    formCard.appendChild(fg2);
+
+    var fg3=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"16px"});
+    var ppW=div({});ppW.appendChild(lbl("Purchase Price (AED) *"));ppW.appendChild(inp(I(),"2,500,000","number",n.purchasePrice,function(v){n.purchasePrice=v;}));fg3.appendChild(ppW);
+    var pdW=div({});pdW.appendChild(lbl("Purchase Date *"));
+    var dateInp=el("input",{style:Object.assign({},I(),{colorScheme:"dark"}),type:"date"});dateInp.value=n.purchaseDate||"";dateInp.addEventListener("change",function(){n.purchaseDate=dateInp.value;});
+    pdW.appendChild(dateInp);fg3.appendChild(pdW);
+    formCard.appendChild(fg3);
+
+    var canAdd=n.area&&n.size&&n.purchasePrice&&n.purchaseDate;
+    var btnRow=div({display:"flex",gap:"10px"});
+    btnRow.appendChild(btn({flex:"1",padding:"13px",borderRadius:"10px",border:"none",background:canAdd?"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")":cl.border,color:canAdd?"#070B14":cl.sub,fontSize:"13px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",opacity:canAdd?"1":"0.5"},"ADD TO PORTFOLIO",function(){
+      if(!canAdd)return;
+      var asset=Object.assign({},n,{id:Date.now().toString(36)});
+      ps.assets.push(asset);
+      localStorage.setItem("dubaival_portfolio",JSON.stringify(ps.assets));
+      ps._new={building:"",area:"",type:"Apartment",beds:"2 BR",floor:"",view:"Not specified",size:"",purchasePrice:"",purchaseDate:"",furnished:"Unfurnished",serviceCharge:"",parking:"1"};
+      ps.showAdd=false;ps.aiAnalysis="";render();
+    }));
+    btnRow.appendChild(btn({padding:"13px 20px",borderRadius:"10px",border:"1px solid "+cl.border,background:"transparent",color:cl.sub,fontSize:"13px",fontFamily:"'Space Grotesk',monospace"},"Cancel",function(){ps.showAdd=false;render();}));
+    formCard.appendChild(btnRow);
+    wrap.appendChild(formCard);
+  }
+
+  // AI Analysis
+  if(ps.assets.length>0){
+    wrap.appendChild(btn({width:"100%",padding:"13px",borderRadius:"10px",border:"none",background:ps.aiLoading?cl.border:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",color:ps.aiLoading?cl.sub:"#070B14",fontSize:"13px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",marginBottom:"10px",opacity:ps.aiLoading?"0.5":"1"},ps.aiLoading?"ANALYZING PORTFOLIO…":"AI PORTFOLIO ANALYSIS ◆",function(){
+      if(ps.aiLoading)return;
+      ps.aiLoading=true;ps.aiAnalysis="";ps.aiErr="";render();
+      var areaDist2={};metrics.forEach(function(a){areaDist2[a.area]=(areaDist2[a.area]||0)+a.m.currentValue;});
+      var areaEntries2=Object.entries(areaDist2).sort(function(a,b){return b[1]-a[1];});
+      var summary=metrics.map(function(a){return"- "+(a.building||"Unknown")+" in "+a.area+": "+a.beds+", "+parseInt(a.size).toLocaleString()+" sqft, bought AED "+a.m.purchasePrice.toLocaleString()+" ("+a.purchaseDate+"), now AED "+a.m.currentValue.toLocaleString()+" (ROI "+a.m.roi.toFixed(1)+"%), gross yield "+a.m.grossYield.toFixed(1)+"%, net "+a.m.netYield.toFixed(1)+"%, grade: "+a.m.grade+", signal: "+a.m.investSignal+", total return: "+a.m.totalReturn.toFixed(1)+"%";}).join("\n");
+      var prompt="My Dubai real estate portfolio (June 2026):\n"+summary+"\n\nTotal value: AED "+totalValue.toLocaleString()+" | Total ROI: "+totalROI.toFixed(1)+"%\nAvg gross yield: "+avgGrossYield.toFixed(1)+"% | Avg net yield: "+avgNetYield.toFixed(1)+"%\nAreas: "+areaEntries2.map(function(e){return e[0]+" ("+(e[1]/totalValue*100).toFixed(0)+"%)"}).join(", ")+"\n\nInvestment goals: Risk: "+ps.goals.risk+" | Horizon: "+ps.goals.horizon+" | Target: "+ps.goals.target+"\nMarket: Post-geo correction, supply pressure H2 2026, buyer leverage window.\n\nFor EACH property give a signal: HOLD / SELL / BUY MORE with 1 sentence why.\nThen give 2-3 portfolio-level strategic recommendations.\nBe specific with AED numbers. Consider area growth forecasts and diversification.";
+      askAI([{role:"user",content:prompt}],"You are DubaiVal Portfolio Advisor. June 2026 Dubai expert. Analyze portfolios for UHNW investors. Specific AED numbers, decisive signals. Professional tone.").then(function(text){ps.aiAnalysis=text;ps.aiLoading=false;render();}).catch(function(e){ps.aiErr=e.message;ps.aiLoading=false;render();});
+    }));
+    if(ps.aiErr)wrap.appendChild(span({color:cl.red,fontSize:"11px",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},ps.aiErr));
+  }
+  if(ps.aiLoading){
+    var spinWrap=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"24px",textAlign:"center",marginBottom:"14px"});
+    spinWrap.appendChild(div({width:"36px",height:"36px",borderRadius:"50%",border:"2px solid "+cl.border,borderTopColor:cl.gold,animation:"spin 0.8s linear infinite",margin:"0 auto 14px"}));
+    spinWrap.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},"AI analyzing your portfolio…"));
+    wrap.appendChild(spinWrap);
+  }
+  if(ps.aiAnalysis&&!ps.aiLoading){
+    var aiCard=div({background:cl.surface,border:"1px solid "+cl.goldDim,borderRadius:"14px",padding:"20px",marginBottom:"14px"});
+    aiCard.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"◆ AI Portfolio Intelligence"));
+    var aiText=div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.9",fontFamily:"'Inter',sans-serif",whiteSpace:"pre-wrap"});aiText.textContent=ps.aiAnalysis;aiCard.appendChild(aiText);
+    wrap.appendChild(aiCard);
+  }
+
+  // Disclaimer
+  var disc=div({background:cl.goldFaint,border:"1px solid "+cl.goldDim,borderRadius:"8px",padding:"10px 14px",fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6",color:cl.subHi});
+  disc.innerHTML="<strong style='color:"+cl.gold+"'>Note:</strong> Valuations use DubaiVal's Cascade AVM with hedonic pricing (5,612 buildings · 152 areas). Portfolio data is stored locally on your device. Not financial advice — consult a licensed advisor for investment decisions.";
+  wrap.appendChild(disc);
   return wrap;
 }
 
