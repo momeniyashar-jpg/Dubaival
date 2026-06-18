@@ -4,7 +4,7 @@
 create table if not exists agent_video_analyses (
   id uuid primary key default gen_random_uuid(),
   agent_id bigint not null references dv_agents(id) on delete cascade,
-  deal_id uuid references deal_board(id) on delete set null,
+  deal_id bigint references deal_board(id) on delete set null,
   video_url text not null,
   title text not null,
   summary text check (char_length(summary) <= 500),
