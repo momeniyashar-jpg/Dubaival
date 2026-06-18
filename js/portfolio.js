@@ -260,6 +260,105 @@ function renderPortfolio(){
       wrap.appendChild(hCard);
     }
 
+    // --- OPPORTUNITY ALERTS (Phase 1) ---
+    if(metrics.length>0){
+      var oaCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",position:"relative",overflow:"hidden"});
+      oaCard.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,#F59E0B,#F59E0B,transparent)",animation:"shimmer 3s ease infinite"}));
+      oaCard.appendChild(span({color:"#F59E0B",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"⚡ Opportunity Alerts"));
+      oaCard.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",display:"block",marginBottom:"16px"},"Hidden opportunities and actionable insights for your assets"));
+
+      metrics.forEach(function(a){
+        var aData=AREAS[a.area]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
+        var gr=aData.g||[10,18,28];
+        var alerts=[];
+
+        // 1) DLD Fee Recovery Timer
+        var pp=a.m.purchasePrice||0;
+        var cv=a.m.currentValue||0;
+        var annualGrowthRate=(gr[0]||10)/100;
+        if(pp>0&&annualGrowthRate>0){
+          var dldFee=pp*0.04;
+          var monthlyGrowth=cv*annualGrowthRate/12;
+          var recoveryMonths=monthlyGrowth>0?Math.ceil(dldFee/monthlyGrowth):999;
+          var holdMonths=a.m.holdingMonths||0;
+          var recovered=holdMonths>=recoveryMonths;
+          var pct=Math.min(100,Math.round(holdMonths/recoveryMonths*100));
+          alerts.push({
+            type:recovered?"good":"warn",
+            icon:"🏛️",
+            title:"DLD Fee Recovery",
+            text:recovered?"DLD fees fully recovered after "+recoveryMonths+" months":recoveryMonths>120?"Recovery unlikely at current growth rate":recoveryMonths+" months to recover DLD fees ("+pct+"% done)",
+            pct:pct
+          });
+        }
+
+        // 2) Rent Optimization Alert
+        var bn={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5}[a.beds]!=null?{"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5}[a.beds]:2;
+        var isV=a.type==="Villa"||a.type==="Townhouse";
+        var benchRent=isV?(bn<=3?aData.rv3||180000:aData.rv4||240000):bn===0?(aData.r1||65000)*0.65:bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
+        var actualRent=a.m.rent||0;
+        if(benchRent>0&&actualRent>0){
+          var rentRatio=actualRent/benchRent*100;
+          if(rentRatio<90){
+            alerts.push({type:"warn",icon:"📊",title:"Rent Optimization",text:"You may be under-renting by "+Math.round(100-rentRatio)+"% — benchmark: AED "+benchRent.toLocaleString()+"/yr vs current estimate AED "+actualRent.toLocaleString()+"/yr",pct:Math.round(rentRatio)});
+          }else{
+            alerts.push({type:"good",icon:"📊",title:"Rent Optimization",text:"Rent is at "+Math.round(rentRatio)+"% of area benchmark — well optimized",pct:Math.min(100,Math.round(rentRatio))});
+          }
+        }
+
+        // 3) Optimal Exit Window
+        var g0=gr[0]||10,g1=gr[1]||18,g2=gr[2]||28;
+        var ny=a.m.netYield||5;
+        var tr1=ny+g0;
+        var tr3=ny+g1/3;
+        var tr5=ny+g2/5;
+        var bestTR=Math.max(tr1,tr3,tr5);
+        var bestWindow=bestTR===tr1?"1 year":bestTR===tr3?"3 years":"5 years";
+        var exitType=bestTR>=12?"good":bestTR>=8?"neutral":"warn";
+        alerts.push({type:exitType,icon:"📅",title:"Optimal Exit Window",text:"Best exit: "+bestWindow+" (total return "+bestTR.toFixed(1)+"%/yr) — 1yr: "+tr1.toFixed(1)+"% · 3yr: "+tr3.toFixed(1)+"% · 5yr: "+tr5.toFixed(1)+"%",pct:-1});
+
+        // 4) Equity Release Calculator
+        if(pp>0&&cv>pp){
+          var equity75=Math.round(cv*0.75);
+          var mortgage=parseInt(a.mortgage)||0;
+          var releasable=equity75-mortgage;
+          if(releasable>0){
+            alerts.push({type:"good",icon:"💰",title:"Equity Release",text:"Releasable equity: AED "+releasable.toLocaleString()+" (at 75% LTV). Property grew +"+(a.m.roi>=0?a.m.roi.toFixed(0):0)+"% since purchase.",pct:-1});
+          }else{
+            alerts.push({type:"neutral",icon:"💰",title:"Equity Release",text:"No releasable equity yet — current LTV headroom insufficient. Keep holding for appreciation.",pct:-1});
+          }
+        }else if(pp>0){
+          alerts.push({type:"neutral",icon:"💰",title:"Equity Release",text:"Property has not appreciated beyond purchase price yet. Equity release not recommended.",pct:-1});
+        }
+
+        // Render asset alerts
+        if(alerts.length>0){
+          var assetHeader=div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"10px",paddingTop:metrics.indexOf(a)>0?"12px":"0",borderTop:metrics.indexOf(a)>0?"1px solid "+cl.border:"none"});
+          assetHeader.appendChild(span({color:cl.gold,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},a.building||a.area));
+          assetHeader.appendChild(span({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},"· "+a.beds+" · "+(a.type||"Apartment")));
+          oaCard.appendChild(assetHeader);
+
+          alerts.forEach(function(al){
+            var colors={good:{bg:"rgba(16,185,129,0.08)",border:"rgba(16,185,129,0.25)",text:"#10B981"},warn:{bg:"rgba(245,158,11,0.08)",border:"rgba(245,158,11,0.25)",text:"#F59E0B"},neutral:{bg:"rgba(107,122,158,0.08)",border:"rgba(107,122,158,0.25)",text:"#6B7A9E"}};
+            var ac=colors[al.type]||colors.neutral;
+            var row=div({background:ac.bg,border:"1px solid "+ac.border,borderRadius:"10px",padding:"10px 12px",marginBottom:"8px"});
+            var rowHead=div({display:"flex",alignItems:"center",gap:"6px",marginBottom:"4px"});
+            rowHead.appendChild(span({fontSize:"13px"},al.icon));
+            rowHead.appendChild(span({color:ac.text,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},al.title));
+            row.appendChild(rowHead);
+            row.appendChild(span({color:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6",display:"block"},al.text));
+            if(al.pct>=0){
+              var barWrap=div({height:"4px",borderRadius:"2px",background:cl.border,overflow:"hidden",marginTop:"6px"});
+              barWrap.appendChild(div({height:"100%",width:Math.min(100,al.pct)+"%",borderRadius:"2px",background:ac.text,transition:"width 1s ease"}));
+              row.appendChild(barWrap);
+            }
+            oaCard.appendChild(row);
+          });
+        }
+      });
+      wrap.appendChild(oaCard);
+    }
+
     // Future Projection Simulator
     if(!ps._proj)ps._proj={growth:0,rate:0};
     var projCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",position:"relative",overflow:"hidden"});
