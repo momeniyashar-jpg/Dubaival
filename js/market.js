@@ -1607,6 +1607,229 @@ function renderAnalyzerResult(wrap){
     if(mortWrap)wrap.appendChild(mortWrap);
   }
 
+  // Investment Scenario Planner
+  (function(){
+    var price=parseInt(analyzerState.f.price)||0;
+    if(!price||price<100000||!val)return;
+    if(!window.INV_CALC)window.INV_CALC={dp:25,rate:4.5,hold:5,rentInc:3,vacancy:5,maint:5000,expanded:false};
+    var IC=window.INV_CALC;
+    var aData=AREAS[analyzerState.f.area]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
+    var annualRent=val.rent||0;
+    var scTotal=val.sc*parseInt(analyzerState.f.size||analyzerState.f.buaSize||0)||0;
+    var gr0=(aData.g&&aData.g[0])||10;
+
+    var sec=el('div',{style:{background:cl.surface,border:'1px solid '+cl.goldDim,borderRadius:'14px',padding:'18px',marginTop:'14px'}});
+    sec.appendChild(div({display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px',cursor:'pointer',userSelect:'none'},[
+      div({},[
+        span({color:cl.gold,fontSize:'10px',letterSpacing:'0.14em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace"},'📊 Investment Scenario Planner'),
+      ]),
+      span({color:cl.sub,fontSize:'9px',fontFamily:"'Space Grotesk',monospace"},IC.expanded?'▲ Collapse':'▼ Expand'),
+    ]));
+    sec.firstChild.addEventListener('click',function(){IC.expanded=!IC.expanded;render();});
+
+    if(!IC.expanded){wrap.appendChild(sec);return;}
+
+    function mkSlider(label,key,min,max,step,unit,fmt){
+      var row=el('div',{style:{marginBottom:'10px'}});
+      var top=el('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:'3px'}});
+      top.appendChild(span({color:cl.sub,fontSize:'9px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace"},label));
+      var valStr=fmt?fmt(IC[key]):(IC[key]+(unit||''));
+      top.appendChild(span({color:cl.gold,fontSize:'12px',fontWeight:'700',fontFamily:"'Space Grotesk',monospace"},valStr));
+      row.appendChild(top);
+      var sl=el('input',{type:'range',min:min,max:max,step:step,value:IC[key],style:{width:'100%',accentColor:cl.gold}});
+      sl.addEventListener('input',function(){IC[key]=parseFloat(this.value);render();});
+      row.appendChild(sl);
+      return row;
+    }
+
+    sec.appendChild(mkSlider('Down Payment','dp',20,100,5,'%'));
+    sec.appendChild(mkSlider('Mortgage Rate','rate',2,8,0.25,'%'));
+    sec.appendChild(mkSlider('Holding Period (Years)','hold',1,15,1,' yrs'));
+    sec.appendChild(mkSlider('Annual Rent Increase','rentInc',0,10,0.5,'%'));
+    sec.appendChild(mkSlider('Vacancy Rate','vacancy',0,20,1,'%'));
+    sec.appendChild(mkSlider('Annual Maintenance (beyond SC)','maint',0,20000,500,'',function(v){return 'AED '+v.toLocaleString();}));
+
+    function calcScenario(growthPct,vacPct){
+      var dpAmt=Math.round(price*IC.dp/100);
+      var dld=Math.round(price*0.04);
+      var agent=Math.round(price*0.02);
+      var mortFee=Math.round(price*0.0025);
+      var loanAmt=price-dpAmt;
+      var totalInvestment=dpAmt+dld+agent+mortFee;
+      var monthlyRate=IC.rate/100/12;
+      var nMonths=25*12;
+      var monthlyMort=0;
+      if(loanAmt>0&&monthlyRate>0){
+        monthlyMort=Math.round(loanAmt*(monthlyRate*Math.pow(1+monthlyRate,nMonths))/(Math.pow(1+monthlyRate,nMonths)-1));
+      }
+      var years=IC.hold;
+      var totalRentCollected=0;var totalMortPaid=0;var totalInterest=0;
+      var loanBalance=loanAmt;
+      var equityByYear=[];
+      var cashFlowY1=0;
+      for(var y=0;y<years;y++){
+        var yearRent=annualRent*Math.pow(1+IC.rentInc/100,y);
+        var netRent=yearRent*(1-vacPct/100);
+        var yearMort=monthlyMort*12;
+        var yearSC=scTotal;
+        var yearMaint=IC.maint;
+        var netIncome=netRent-yearMort-yearSC-yearMaint;
+        totalRentCollected+=netRent;
+        totalMortPaid+=yearMort;
+        var yearInterest=loanBalance*IC.rate/100;
+        var yearPrincipal=yearMort-yearInterest>0?yearMort-yearInterest:0;
+        totalInterest+=yearInterest>yearMort?yearMort:yearInterest;
+        loanBalance=Math.max(0,loanBalance-yearPrincipal);
+        var propValue=price*Math.pow(1+growthPct/100,y+1);
+        equityByYear.push({year:y+1,equity:Math.round(propValue-loanBalance),propValue:Math.round(propValue),loanBal:Math.round(loanBalance),netIncome:Math.round(netIncome)});
+        if(y===0)cashFlowY1=netIncome;
+      }
+      var futureValue=price*Math.pow(1+growthPct/100,years);
+      var totalReturn=Math.round((futureValue-price)+totalRentCollected-totalInterest-scTotal*years-IC.maint*years);
+      var monthlyCF=Math.round((annualRent*(1-vacPct/100)/12)-(monthlyMort)-(scTotal/12)-(IC.maint/12));
+      var coc=totalInvestment>0?((cashFlowY1/totalInvestment)*100):0;
+      var cumCF=0;var breakEven=years+1;
+      for(var y=0;y<years;y++){
+        var yr=annualRent*Math.pow(1+IC.rentInc/100,y)*(1-vacPct/100)-monthlyMort*12-scTotal-IC.maint;
+        cumCF+=yr;
+        if(cumCF>=totalInvestment&&breakEven>years){breakEven=y+1;}
+      }
+      // IRR via Newton's method
+      var cashFlows=[-totalInvestment];
+      for(var y=0;y<years;y++){
+        var yr=annualRent*Math.pow(1+IC.rentInc/100,y)*(1-vacPct/100)-monthlyMort*12-scTotal-IC.maint;
+        cashFlows.push(yr);
+      }
+      cashFlows[cashFlows.length-1]+=futureValue-loanBalance;
+      var irr=0.1;
+      for(var iter=0;iter<100;iter++){
+        var npv=0,dnpv=0;
+        for(var i=0;i<cashFlows.length;i++){
+          npv+=cashFlows[i]/Math.pow(1+irr,i);
+          dnpv+=-i*cashFlows[i]/Math.pow(1+irr,i+1);
+        }
+        if(Math.abs(dnpv)<0.001)break;
+        var step=npv/dnpv;
+        irr=irr-step;
+        if(Math.abs(step)<0.0001)break;
+      }
+      return{totalInvestment:totalInvestment,monthlyCF:monthlyCF,coc:coc,breakEven:breakEven,totalReturn:totalReturn,irr:irr*100,equityByYear:equityByYear,futureValue:Math.round(futureValue)};
+    }
+
+    var base=calcScenario(gr0,IC.vacancy);
+
+    // Output metrics
+    var metGrid=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginTop:'14px',marginBottom:'14px'}});
+    function metCard(label,value,color){
+      var c=el('div',{style:{background:'rgba(240,242,245,0.03)',border:'1px solid '+cl.border,borderRadius:'10px',padding:'10px'}});
+      c.appendChild(span({color:cl.sub,fontSize:'8px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",display:'block',marginBottom:'4px'},label));
+      c.appendChild(span({color:color||cl.text,fontSize:'15px',fontWeight:'700',fontFamily:"'Space Grotesk',monospace"},value));
+      return c;
+    }
+    metGrid.appendChild(metCard('Total Investment','AED '+base.totalInvestment.toLocaleString(),cl.gold));
+    metGrid.appendChild(metCard('Monthly Cash Flow','AED '+base.monthlyCF.toLocaleString(),base.monthlyCF>=0?cl.green:cl.red));
+    metGrid.appendChild(metCard('Cash-on-Cash Return',base.coc.toFixed(1)+'%',base.coc>=8?cl.green:base.coc>=4?cl.yellow:cl.red));
+    metGrid.appendChild(metCard('Break-even',base.breakEven>IC.hold?'> '+IC.hold+' yrs':base.breakEven+' yrs',base.breakEven<=5?cl.green:base.breakEven<=10?cl.yellow:cl.red));
+    metGrid.appendChild(metCard('Total Return at Exit','AED '+base.totalReturn.toLocaleString(),base.totalReturn>=0?cl.green:cl.red));
+    metGrid.appendChild(metCard('IRR',isFinite(base.irr)?base.irr.toFixed(1)+'%':'N/A',base.irr>=15?cl.green:base.irr>=8?cl.yellow:cl.red));
+    sec.appendChild(metGrid);
+
+    // 3 Scenarios
+    var scenLabel=el('div',{style:{marginBottom:'10px'}});
+    scenLabel.appendChild(span({color:cl.gold,fontSize:'9px',letterSpacing:'0.12em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace"},'◆ Scenario Comparison'));
+    sec.appendChild(scenLabel);
+    var cons=calcScenario(gr0*0.5,10);
+    var opt=calcScenario(gr0*1.5,2);
+    var scenGrid=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',marginBottom:'14px'}});
+    [{s:cons,label:'Conservative',color:cl.red,bg:'rgba(239,68,68,0.06)',bo:'rgba(239,68,68,0.2)'},
+     {s:base,label:'Base Case',color:cl.yellow,bg:'rgba(234,179,8,0.06)',bo:'rgba(234,179,8,0.2)'},
+     {s:opt,label:'Optimistic',color:cl.green,bg:'rgba(34,197,94,0.06)',bo:'rgba(34,197,94,0.2)'}].forEach(function(sc){
+      var card=el('div',{style:{background:sc.bg,border:'1px solid '+sc.bo,borderRadius:'10px',padding:'10px'}});
+      card.appendChild(span({color:sc.color,fontSize:'10px',fontWeight:'700',fontFamily:"'Space Grotesk',monospace",display:'block',marginBottom:'6px',textAlign:'center'},sc.label));
+      [{l:'IRR',v:isFinite(sc.s.irr)?sc.s.irr.toFixed(1)+'%':'N/A'},
+       {l:'Total Return',v:'AED '+(sc.s.totalReturn/1000).toFixed(0)+'K'},
+       {l:'Monthly CF',v:'AED '+sc.s.monthlyCF.toLocaleString()},
+       {l:'Break-even',v:sc.s.breakEven>IC.hold?'>'+IC.hold+'y':sc.s.breakEven+'y'}].forEach(function(m){
+        var r=el('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:'3px'}});
+        r.appendChild(span({color:cl.sub,fontSize:'8px',fontFamily:"'Space Grotesk',monospace"},m.l));
+        r.appendChild(span({color:sc.color,fontSize:'9px',fontWeight:'700',fontFamily:"'Space Grotesk',monospace"},m.v));
+        card.appendChild(r);
+      });
+      scenGrid.appendChild(card);
+    });
+    sec.appendChild(scenGrid);
+
+    // Equity Growth Chart
+    var chartLabel=el('div',{style:{marginBottom:'8px'}});
+    chartLabel.appendChild(span({color:cl.gold,fontSize:'9px',letterSpacing:'0.12em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace"},'◆ Equity Growth'));
+    sec.appendChild(chartLabel);
+    var maxEq=0;
+    base.equityByYear.forEach(function(e){if(e.equity>maxEq)maxEq=e.equity;});
+    var chartWrap=el('div',{style:{display:'flex',alignItems:'flex-end',gap:'3px',height:'120px',marginBottom:'14px'}});
+    base.equityByYear.forEach(function(e){
+      var pct=maxEq>0?(e.equity/maxEq*100):0;
+      var col=el('div',{style:{flex:'1',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-end',height:'100%'}});
+      var bar=el('div',{style:{width:'100%',height:Math.max(2,pct)+'%',background:'linear-gradient(180deg,'+cl.gold+','+hexAlpha(cl.gold,0.4)+')',borderRadius:'4px 4px 0 0',minHeight:'2px',transition:'height 0.3s'}});
+      bar.title='Year '+e.year+': AED '+e.equity.toLocaleString();
+      col.appendChild(bar);
+      col.appendChild(span({color:cl.sub,fontSize:'7px',fontFamily:"'Space Grotesk',monospace",marginTop:'3px'},'Y'+e.year));
+      chartWrap.appendChild(col);
+    });
+    sec.appendChild(chartWrap);
+
+    // Equity table
+    var tbl=el('div',{style:{marginBottom:'14px'}});
+    var tHead=el('div',{style:{display:'grid',gridTemplateColumns:'40px 1fr 1fr 1fr',gap:'4px',marginBottom:'4px'}});
+    ['Year','Property Value','Loan Balance','Equity'].forEach(function(h){
+      tHead.appendChild(span({color:cl.sub,fontSize:'7px',letterSpacing:'0.06em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace"},h));
+    });
+    tbl.appendChild(tHead);
+    base.equityByYear.forEach(function(e){
+      var r=el('div',{style:{display:'grid',gridTemplateColumns:'40px 1fr 1fr 1fr',gap:'4px',padding:'3px 0',borderBottom:'1px solid '+cl.border}});
+      r.appendChild(span({color:cl.sub,fontSize:'9px',fontFamily:"'Space Grotesk',monospace"},''+e.year));
+      r.appendChild(span({color:cl.text,fontSize:'9px',fontFamily:"'Space Grotesk',monospace"},'AED '+(e.propValue/1000).toFixed(0)+'K'));
+      r.appendChild(span({color:cl.red,fontSize:'9px',fontFamily:"'Space Grotesk',monospace"},'AED '+(e.loanBal/1000).toFixed(0)+'K'));
+      r.appendChild(span({color:cl.green,fontSize:'9px',fontFamily:"'Space Grotesk',monospace"},'AED '+(e.equity/1000).toFixed(0)+'K'));
+      tbl.appendChild(r);
+    });
+    sec.appendChild(tbl);
+
+    // Download Report button
+    var dlBtn=el('button',{style:{width:'100%',padding:'12px',background:'linear-gradient(135deg,'+cl.gold+',#7A5E28)',color:'#08090C',border:'none',borderRadius:'10px',fontSize:'13px',fontWeight:'700',fontFamily:"'Inter',sans-serif",cursor:'pointer',letterSpacing:'0.03em'}});
+    dlBtn.textContent='📋 Download Investment Report';
+    dlBtn.addEventListener('click',function(){
+      var w=window.open('','_blank');
+      var h='<html><head><title>Investment Report - DubaiVal</title><style>body{font-family:Arial,sans-serif;max-width:700px;margin:0 auto;padding:20px;color:#333}h1{color:#C9A84C;font-size:22px}h2{color:#555;font-size:16px;border-bottom:1px solid #ddd;padding-bottom:6px}table{width:100%;border-collapse:collapse;margin:10px 0}td,th{padding:6px 10px;border:1px solid #ddd;font-size:12px;text-align:left}th{background:#f5f5f5}.green{color:#22c55e}.red{color:#ef4444}.gold{color:#C9A84C}@media print{body{padding:0}}</style></head><body>';
+      h+='<h1>📊 DubaiVal Investment Report</h1>';
+      h+='<p><strong>Property:</strong> '+(analyzerState.f.building||'')+(analyzerState.f.building?' · ':'')+analyzerState.f.area+'</p>';
+      h+='<p><strong>Price:</strong> AED '+price.toLocaleString()+' | <strong>Size:</strong> '+(analyzerState.f.size||analyzerState.f.buaSize||'N/A')+' sqft</p>';
+      h+='<h2>Investment Parameters</h2>';
+      h+='<table><tr><td>Down Payment</td><td>'+IC.dp+'%</td></tr><tr><td>Mortgage Rate</td><td>'+IC.rate+'%</td></tr><tr><td>Holding Period</td><td>'+IC.hold+' years</td></tr><tr><td>Rent Increase</td><td>'+IC.rentInc+'%/yr</td></tr><tr><td>Vacancy</td><td>'+IC.vacancy+'%</td></tr><tr><td>Maintenance</td><td>AED '+IC.maint.toLocaleString()+'</td></tr></table>';
+      h+='<h2>Key Metrics</h2>';
+      h+='<table><tr><td>Total Investment</td><td class="gold">AED '+base.totalInvestment.toLocaleString()+'</td></tr>';
+      h+='<tr><td>Monthly Cash Flow</td><td class="'+(base.monthlyCF>=0?'green':'red')+'">AED '+base.monthlyCF.toLocaleString()+'</td></tr>';
+      h+='<tr><td>Cash-on-Cash Return</td><td>'+base.coc.toFixed(1)+'%</td></tr>';
+      h+='<tr><td>Break-even</td><td>'+(base.breakEven>IC.hold?'> '+IC.hold:base.breakEven)+' years</td></tr>';
+      h+='<tr><td>Total Return at Exit</td><td class="'+(base.totalReturn>=0?'green':'red')+'">AED '+base.totalReturn.toLocaleString()+'</td></tr>';
+      h+='<tr><td>IRR</td><td>'+(isFinite(base.irr)?base.irr.toFixed(1)+'%':'N/A')+'</td></tr></table>';
+      h+='<h2>Scenario Comparison</h2>';
+      h+='<table><tr><th></th><th>Conservative</th><th>Base Case</th><th>Optimistic</th></tr>';
+      h+='<tr><td>IRR</td><td>'+(isFinite(cons.irr)?cons.irr.toFixed(1)+'%':'N/A')+'</td><td>'+(isFinite(base.irr)?base.irr.toFixed(1)+'%':'N/A')+'</td><td>'+(isFinite(opt.irr)?opt.irr.toFixed(1)+'%':'N/A')+'</td></tr>';
+      h+='<tr><td>Total Return</td><td>AED '+cons.totalReturn.toLocaleString()+'</td><td>AED '+base.totalReturn.toLocaleString()+'</td><td>AED '+opt.totalReturn.toLocaleString()+'</td></tr>';
+      h+='<tr><td>Monthly CF</td><td>AED '+cons.monthlyCF.toLocaleString()+'</td><td>AED '+base.monthlyCF.toLocaleString()+'</td><td>AED '+opt.monthlyCF.toLocaleString()+'</td></tr></table>';
+      h+='<h2>Equity Build-up</h2><table><tr><th>Year</th><th>Property Value</th><th>Loan Balance</th><th>Equity</th><th>Net Income</th></tr>';
+      base.equityByYear.forEach(function(e){
+        h+='<tr><td>'+e.year+'</td><td>AED '+e.propValue.toLocaleString()+'</td><td>AED '+e.loanBal.toLocaleString()+'</td><td class="green">AED '+e.equity.toLocaleString()+'</td><td class="'+(e.netIncome>=0?'green':'red')+'">AED '+e.netIncome.toLocaleString()+'</td></tr>';
+      });
+      h+='</table><p style="color:#999;font-size:10px;margin-top:20px">Generated by DubaiVal.com · '+new Date().toLocaleDateString()+'</p></body></html>';
+      w.document.write(h);w.document.close();
+      setTimeout(function(){w.print();},500);
+    });
+    sec.appendChild(dlBtn);
+
+    wrap.appendChild(sec);
+  })();
+
   // PDF Report Section
   const pdfWrap=el('div',{style:{background:cl.surface,border:'1px solid '+cl.goldDim,borderRadius:'14px',padding:'18px',marginTop:'14px'}});
   
