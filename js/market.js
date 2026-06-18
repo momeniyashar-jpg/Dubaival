@@ -328,6 +328,122 @@ function renderAnalyzer(){
   const f=analyzerState.f;
   const wrap=el("div",{style:{padding:"16px",maxWidth:"640px",margin:"0 auto"}});
 
+  // --- AI SMART SEARCH ---
+  if(analyzerState.stage===0){
+    if(!window._aiSearch)window._aiSearch={text:"",parsing:false,parsed:null,missing:[],filled:[]};
+    var ai=window._aiSearch;
+    var aiSysPrompt='You are a Dubai real estate property parser. Extract these fields from the user\'s description and return ONLY a JSON object: {"area":null,"building":null,"propType":null,"beds":null,"size_sqft":null,"floor":null,"view":null,"furnished":null,"parking":null,"bathrooms":null,"price":null,"purpose":null}. propType must be one of: apartment, villa, townhouse, penthouse, office, land. beds must be like "Studio","1 BR","2 BR" etc. furnished must be Furnished/Unfurnished/Semi-Furnished. view examples: Full Sea View, Skyline View, Golf View, etc. purpose: sale or rent. If a field is not mentioned, set it to null. Parse Arabic too: غرفتين=2 BR, غرفة=1 BR, ثلاث غرف=3 BR, مارينا=Dubai Marina, داون تاون=Downtown Dubai, شقة=apartment, فيلا=villa, تاون هاوس=townhouse, طابق=floor, إطلالة بحرية=Full Sea View, مفروش=Furnished.';
+    var aiBox=el("div",{style:{background:"rgba(201,168,76,0.03)",border:"2px solid transparent",borderImage:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+","+cl.gold+") 1",borderRadius:"0",padding:"20px",marginBottom:"20px",position:"relative"}});
+    var aiBoxInner=el("div",{style:{background:cl.surface,borderRadius:"16px",padding:"20px",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)"}});
+    aiBoxInner.appendChild(div({textAlign:"center",marginBottom:"14px"},[
+      div({fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",color:cl.gold,marginBottom:"4px"},"✨ AI Smart Search"),
+      div({fontSize:"11px",fontFamily:"'Inter',sans-serif",color:cl.sub},"Describe your property in natural language — AI fills the form automatically")
+    ]));
+    var aiRow=div({display:"flex",gap:"8px",marginBottom:"10px"});
+    var aiInp=el("input",{type:"text",placeholder:"e.g. 2BR apartment in Dubai Marina, 1200 sqft, floor 25, sea view, asking 2.1M",
+      style:{flex:"1",background:cl.raised,border:"2px solid "+(ai.filled.length?cl.green:cl.border),color:"#F0F2F5",padding:"13px 16px",borderRadius:"12px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",transition:"border-color 0.3s, box-shadow 0.3s"}});
+    aiInp.value=ai.text||"";
+    aiInp.addEventListener("input",function(){ai.text=this.value;ai.parsed=null;ai.missing=[];ai.filled=[];});
+    aiInp.addEventListener("focus",function(){this.style.boxShadow="0 0 20px "+hexAlpha(cl.gold,0.15);this.style.borderColor=cl.gold;});
+    aiInp.addEventListener("blur",function(){this.style.boxShadow="none";this.style.borderColor=ai.filled.length?cl.green:cl.border;});
+    aiInp.addEventListener("keydown",function(e){if(e.key==="Enter")doAiParse();});
+    aiRow.appendChild(aiInp);
+    var aiBtn=el("button",{style:{background:ai.parsing?"#4B5563":"linear-gradient(135deg,#C9A84C,#7A5E28)",color:ai.parsing?"#9CA3AF":"#08090C",border:"none",padding:"13px 20px",borderRadius:"12px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:ai.parsing?"not-allowed":"pointer",whiteSpace:"nowrap",minWidth:"110px"}});
+    aiBtn.textContent=ai.parsing?"Parsing…":"✨ Analyze with AI";
+    function doAiParse(){
+      var txt=(ai.text||"").trim();if(!txt||ai.parsing)return;
+      ai.parsing=true;ai.parsed=null;ai.missing=[];ai.filled=[];render();
+      askAI([{role:"user",content:txt}],aiSysPrompt).then(function(resp){
+        ai.parsing=false;
+        try{
+          var raw=resp.replace(/```json\s*/g,"").replace(/```/g,"").trim();
+          var j=JSON.parse(raw);
+          ai.parsed=j;
+          var fieldMap=[
+            {k:"area",fk:"area"},{k:"building",fk:"building"},{k:"price",fk:"price"},
+            {k:"size_sqft",fk:"size"},{k:"beds",fk:"beds"},{k:"floor",fk:"floor"},
+            {k:"view",fk:"view"},{k:"furnished",fk:"furnished"},{k:"parking",fk:"parking"},
+            {k:"bathrooms",fk:"bathrooms"},{k:"propType",fk:"propCategory"}
+          ];
+          var f=analyzerState.f;ai.filled=[];ai.missing=[];
+          fieldMap.forEach(function(m){
+            var v=j[m.k];
+            if(v!==null&&v!==undefined&&v!==""){
+              if(m.k==="price")f[m.fk]=String(v).replace(/[^0-9]/g,"");
+              else if(m.k==="propType"){f.propCategory=v==="villa"||v==="townhouse"?"villa":"apartment";if(v==="villa"||v==="townhouse")f.villaType=v.charAt(0).toUpperCase()+v.slice(1);if(v==="penthouse")f.aptSubtype="Penthouse";}
+              else if(m.k==="size_sqft"){f.size=String(v);f.buaSize=String(v);}
+              else f[m.fk]=String(v);
+              ai.filled.push(m.k);
+            }else{ai.missing.push(m.k);}
+          });
+          if(j.purpose)f.txnType=j.purpose;
+          // Save to history
+          try{
+            var hist=JSON.parse(localStorage.getItem("dv_smart_searches")||"[]");
+            hist=hist.filter(function(h){return h!==txt;});
+            hist.unshift(txt);if(hist.length>5)hist=hist.slice(0,5);
+            localStorage.setItem("dv_smart_searches",JSON.stringify(hist));
+          }catch(e){}
+          // Auto-run if essentials filled
+          if(f.area&&f.price&&(f.size||f.buaSize)){
+            analyzerState.stage=1;render();
+            setTimeout(function(){
+              var val=computeValuation(analyzerState.f);
+              if(val){analyzerState.val=val;analyzerState.stage=2;}else{analyzerState.err="Could not compute";analyzerState.stage=0;}
+              render();
+            },600);
+          }else{render();}
+        }catch(e){ai.missing=["Parse error — try a clearer description"];ai.parsing=false;render();}
+      }).catch(function(e){ai.parsing=false;ai.missing=["AI error: "+e.message];render();});
+    }
+    if(!ai.parsing)aiBtn.addEventListener("click",doAiParse);
+    aiRow.appendChild(aiBtn);
+    aiBoxInner.appendChild(aiRow);
+
+    // Missing/filled feedback
+    if(ai.missing.length>0&&ai.parsed){
+      var essentials=["area","price","size_sqft"];
+      var missingEss=ai.missing.filter(function(m){return essentials.indexOf(m)!==-1;});
+      var missingOpt=ai.missing.filter(function(m){return essentials.indexOf(m)===-1;});
+      var feedMsg="";
+      if(missingEss.length)feedMsg="⚠ Required: "+missingEss.join(", ");
+      if(missingOpt.length)feedMsg+=(feedMsg?" · ":"")+"Optional: "+missingOpt.join(", ");
+      aiBoxInner.appendChild(div({background:hexAlpha("#F59E0B",0.08),border:"1px solid "+hexAlpha("#F59E0B",0.25),borderRadius:"8px",padding:"8px 12px",marginBottom:"8px",color:"#F59E0B",fontSize:"11px",fontFamily:"'Inter',sans-serif"},feedMsg));
+    }
+    if(ai.filled.length>0){
+      aiBoxInner.appendChild(div({color:cl.green,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"✓ Auto-filled: "+ai.filled.join(", ")));
+    }
+
+    // Example chips
+    var chipRow=div({display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"8px"});
+    ["2BR Marina, 1400sqft, 2.5M","Studio JLT, 500sqft, 750K","3BR Villa Arabian Ranches, 3500sqft, 5M"].forEach(function(ex){
+      var chip=el("button",{style:{background:hexAlpha(cl.gold,0.08),border:"1px solid "+hexAlpha(cl.gold,0.2),borderRadius:"20px",padding:"5px 12px",cursor:"pointer",color:cl.gold,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",fontWeight:"600"}});
+      chip.textContent=ex;
+      chip.addEventListener("click",function(){ai.text=ex;doAiParse();});
+      chipRow.appendChild(chip);
+    });
+    aiBoxInner.appendChild(chipRow);
+
+    // Search history chips
+    try{
+      var hist=JSON.parse(localStorage.getItem("dv_smart_searches")||"[]");
+      if(hist.length>0){
+        aiBoxInner.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em",marginBottom:"4px"},"RECENT SEARCHES"));
+        var hRow=div({display:"flex",gap:"5px",flexWrap:"wrap"});
+        hist.forEach(function(h){
+          var hc=el("button",{style:{background:cl.raised,border:"1px solid "+cl.border,borderRadius:"16px",padding:"4px 10px",cursor:"pointer",color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif",maxWidth:"200px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}});
+          hc.textContent=h;
+          hc.addEventListener("click",function(){ai.text=h;doAiParse();});
+          hRow.appendChild(hc);
+        });
+        aiBoxInner.appendChild(hRow);
+      }
+    }catch(e){}
+
+    aiBox.appendChild(aiBoxInner);
+    wrap.appendChild(aiBox);
+  }
+
   // --- QUICK CHECK ---
   if(analyzerState.stage===0){
     var qc=el("div",{style:{background:"rgba(201,168,76,0.04)",border:"1px solid "+cl.goldDim,borderRadius:"16px",padding:"24px 20px",marginBottom:"20px",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)"}});
