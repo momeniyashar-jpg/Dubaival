@@ -4965,16 +4965,67 @@ function renderDeals(){
   filterRow.appendChild(urgSelect);
   wrap.appendChild(filterRow);
 
-  var stats=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"14px"});
-  var haveCount=DEAL_STATE.deals.filter(function(d){return d.type==="have";}).length;
-  var needCount=DEAL_STATE.deals.filter(function(d){return d.type==="need";}).length;
-  var hotCount=DEAL_STATE.deals.filter(function(d){return d.urgency==="hot";}).length;
-  [{l:"Available",v:haveCount,c:cl.green},{l:"Wanted",v:needCount,c:"#60A5FA"},{l:"Hot Deals",v:hotCount,c:"#EF4444"}].forEach(function(s){
-    stats.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"10px",padding:"10px",textAlign:"center"},[
+  var allDeals=DEAL_STATE.deals;
+  var haveCount=allDeals.filter(function(d){return d.type==="have";}).length;
+  var needCount=allDeals.filter(function(d){return d.type==="need";}).length;
+  var hotCount=allDeals.filter(function(d){return d.urgency==="hot";}).length;
+  var nowISO=new Date().toISOString();
+  var expiringCount=allDeals.filter(function(d){if(!d.expires_at)return false;var ms=new Date(d.expires_at).getTime()-Date.now();return ms>0&&ms<3*86400000;}).length;
+
+  // Row 1: core stats
+  var stats=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:"8px",marginBottom:"10px"});
+  [{l:"Total",v:allDeals.length,c:cl.gold},{l:"I Have",v:haveCount,c:cl.green},{l:"I Need",v:needCount,c:"#60A5FA"},{l:"🔥 Hot",v:hotCount,c:"#EF4444"}].forEach(function(s){
+    stats.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"10px",padding:"10px 6px",textAlign:"center"},[
       div({color:s.c,fontSize:"20px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},String(s.v)),
-      div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},s.l)]));
+      div({color:cl.sub,fontSize:"8.5px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},s.l)]));
   });
   wrap.appendChild(stats);
+
+  // Row 2: avg price + top areas + have/need ratio + expiring
+  if(allDeals.length>0){
+    var avgPrice=0,priceN=0;
+    allDeals.forEach(function(d){if(d.price){avgPrice+=d.price;priceN++;}});
+    if(priceN)avgPrice=Math.round(avgPrice/priceN);
+    var areaFreq={};
+    allDeals.forEach(function(d){if(d.area){areaFreq[d.area]=(areaFreq[d.area]||0)+1;}});
+    var topAreas=Object.entries(areaFreq).sort(function(a,b){return b[1]-a[1];}).slice(0,3);
+    var hPct=allDeals.length?Math.round(haveCount/allDeals.length*100):50;
+
+    var row2=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"10px"});
+
+    // Avg price + expiring
+    row2.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"10px",padding:"10px 12px"},[
+      div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"},[
+        div({},[div({color:cl.sub,fontSize:"8.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Avg Price"),
+          div({color:cl.gold,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},avgPrice?"AED "+avgPrice.toLocaleString():"—")]),
+        expiringCount>0?div({textAlign:"right"},[div({color:"#EF4444",fontSize:"8.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"⚠ Expiring"),
+          div({color:"#EF4444",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},String(expiringCount))]):div({})
+      ]),
+      div({background:"rgba(255,255,255,0.05)",borderRadius:"4px",height:"6px",overflow:"hidden",display:"flex"})
+    ]));
+
+    // Top areas
+    var topBox=[div({color:cl.sub,fontSize:"8.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"Top Areas")];
+    if(topAreas.length===0)topBox.push(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},"—"));
+    topAreas.forEach(function(ta){
+      topBox.push(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"2px"},[
+        span({color:"#F0F2F5",fontSize:"10.5px",fontFamily:"'Inter',sans-serif"},ta[0]),
+        span({color:cl.gold,fontSize:"10.5px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},String(ta[1]))]));
+    });
+    row2.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"10px",padding:"10px 12px"},topBox));
+    wrap.appendChild(row2);
+
+    // Have/Need ratio bar
+    var ratioBar=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"10px",padding:"10px 12px",marginBottom:"14px"},[
+      div({display:"flex",justifyContent:"space-between",marginBottom:"5px"},[
+        span({color:cl.green,fontSize:"9.5px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"I HAVE "+hPct+"%"),
+        span({color:"#60A5FA",fontSize:"9.5px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"I NEED "+(100-hPct)+"%")]),
+      div({background:"rgba(255,255,255,0.05)",borderRadius:"4px",height:"7px",overflow:"hidden",position:"relative"},[
+        div({background:"linear-gradient(90deg,#10B981,#059669)",height:"100%",width:hPct+"%",borderRadius:"4px 0 0 4px",position:"absolute",left:"0",top:"0"}),
+        div({background:"linear-gradient(90deg,#3B82F6,#60A5FA)",height:"100%",width:(100-hPct)+"%",borderRadius:"0 4px 4px 0",position:"absolute",right:"0",top:"0"})])
+    ]);
+    wrap.appendChild(ratioBar);
+  }
 
   if(DEAL_STATE.loading){wrap.appendChild(div({textAlign:"center",padding:"40px"},[div({width:"30px",height:"30px",borderRadius:"50%",border:"2px solid "+cl.border,borderTopColor:cl.gold,animation:"spin 0.8s linear infinite",margin:"0 auto 12px"}),span({color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},"Loading deals…")]));return wrap;}
 
