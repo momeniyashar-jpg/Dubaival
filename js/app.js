@@ -986,7 +986,7 @@ function render(){
   }
 
   // Nav
-  const tabs=[{id:"Market",icon:"📊",label:"Market"},{id:"Analyzer",icon:"🔍",label:"Analyzer"},{id:"Map",icon:"🗺️",label:"Map"},{id:"Find",icon:"🔎",label:"Find"},{id:"Deals",icon:"🤝",label:"Deals"},{id:"Compare",icon:"⚖️",label:"Compare"},{id:"Portfolio",icon:"💼",label:"Portfolio"},{id:"Alerts",icon:"🔔",label:"Alerts"},{id:"Chat",icon:"💬",label:"AI Chat"}];
+  const tabs=[{id:"Market",icon:"📊",label:"Market"},{id:"Analyzer",icon:"🔍",label:"Analyzer"},{id:"Map",icon:"🗺️",label:"Map"},{id:"Find",icon:"🔎",label:"Find"},{id:"Deals",icon:"🤝",label:"Deals"},{id:"Compare",icon:"⚖️",label:"Compare"},{id:"Portfolio",icon:"💼",label:"Portfolio"},{id:"Alerts",icon:"🔔",label:"Alerts"},{id:"Chat",icon:"💬",label:"AI Chat"},{id:"About",icon:"ℹ️",label:"About"}];
   const nav=div({background:cl.surface,borderBottom:"1px solid "+cl.border,display:"flex",overflowX:"auto",padding:"0 20px"},
     tabs.map(function(t){
       const active=currentTab===t.id;
@@ -1009,6 +1009,7 @@ function render(){
   else if(currentTab==="Portfolio")content.appendChild(renderPortfolio());
   else if(currentTab==="Alerts")content.appendChild(renderAlerts());
   else if(currentTab==="Chat")content.appendChild(renderChat());
+  else if(currentTab==="About")content.appendChild(renderAbout());
   app.appendChild(content);
 
   app.appendChild(div({borderTop:"1px solid "+cl.border,padding:"10px 20px",display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:"4px"},[
