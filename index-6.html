@@ -4621,12 +4621,14 @@ function renderMap(){
 
 // --- DEAL NETWORK TAB --------------------------------------------------------
 var DEAL_STATE={mode:"browse",filter:{type:"all",purpose:"sale",area:"",beds:"",minPrice:"",maxPrice:"",urgency:""},
-  form:{type:"have",agentName:"",agentPhone:"",agentCompany:"",agentEmail:"",reraNumber:"",area:"",building:"",propType:"apartment",beds:"",sizeSqft:"",floor:"",view:"",furnished:"Unfurnished",purpose:"sale",price:"",urgency:"normal",notes:"",offMarket:false,contactMode:"whatsapp",titleDeedNo:"",titleDeedImg:null},
+  form:{type:"have",agentName:"",agentPhone:"",agentCompany:"",agentEmail:"",reraNumber:"",area:"",building:"",propType:"apartment",beds:"",sizeSqft:"",floor:"",view:"",furnished:"Unfurnished",purpose:"sale",price:"",urgency:"normal",notes:"",offMarket:false,contactMode:"whatsapp",titleDeedNo:"",titleDeedImg:null,requestReferral:false},
   deals:[],loading:false,posting:false,myTokens:[],matches:[],waParser:{text:"",parsing:false,parsed:null},
   inquiry:{dealId:null,name:"",phone:"",email:"",message:"",sending:false},myInquiries:{},
-  mediaPhotos:[],videoUrl:"",mediaUploading:false,mediaView:null,sentInquiries:{},dealMediaCache:{}};
+  mediaPhotos:[],videoUrl:"",mediaUploading:false,mediaView:null,sentInquiries:{},dealMediaCache:{},
+  requestReferral:false,agentHub:{mode:"list",agents:[],referrals:[],regForm:{name:"",phone:"",email:"",company:"",rera:"",areas:"",specialties:"",bio:""},loading:false},adminToken:null};
 try{var dt=localStorage.getItem("dv_deal_tokens");if(dt)DEAL_STATE.myTokens=JSON.parse(dt);}catch(e){}
 try{var si=localStorage.getItem("dv_sent_inquiries");if(si)DEAL_STATE.sentInquiries=JSON.parse(si);}catch(e){}
+try{var at=localStorage.getItem("dv_admin_token");if(at)DEAL_STATE.adminToken=at;}catch(e){}
 try{var ap=localStorage.getItem("dv_agent_profile");if(ap){var p=JSON.parse(ap);DEAL_STATE.form.agentName=p.name||"";DEAL_STATE.form.agentPhone=p.phone||"";DEAL_STATE.form.agentCompany=p.company||"";DEAL_STATE.form.agentEmail=p.email||"";DEAL_STATE.form.reraNumber=p.rera||"";}}catch(e){}
 function saveAgentProfile(){try{localStorage.setItem("dv_agent_profile",JSON.stringify({name:DEAL_STATE.form.agentName,phone:DEAL_STATE.form.agentPhone,company:DEAL_STATE.form.agentCompany,email:DEAL_STATE.form.agentEmail,rera:DEAL_STATE.form.reraNumber}));}catch(e){}}
 
@@ -4686,9 +4688,12 @@ async function postDeal(){
         if(DEAL_STATE.mediaPhotos.length||DEAL_STATE.videoUrl){
           try{await uploadDealMedia(created[0].id,DEAL_STATE.mediaPhotos,DEAL_STATE.videoUrl);}catch(e){console.warn("Media upload failed:",e);}
         }
+        if(f.type==="need"&&f.requestReferral){
+          try{await createReferral(created[0].id,f.agentName,f.agentPhone,f.area,parseFloat(f.price.replace(/,/g,""))||null,f.propType);}catch(e){console.warn("Referral creation failed:",e);}
+        }
       }
       DEAL_STATE.mediaPhotos=[];DEAL_STATE.videoUrl="";
-      DEAL_STATE.form={type:"have",agentName:f.agentName,agentPhone:f.agentPhone,agentCompany:f.agentCompany,agentEmail:f.agentEmail,reraNumber:f.reraNumber,area:"",building:"",propType:"apartment",beds:"",sizeSqft:"",floor:"",view:"",furnished:"Unfurnished",purpose:"sale",price:"",urgency:"normal",notes:"",offMarket:false,contactMode:f.contactMode,titleDeedNo:"",titleDeedImg:null};
+      DEAL_STATE.form={type:"have",agentName:f.agentName,agentPhone:f.agentPhone,agentCompany:f.agentCompany,agentEmail:f.agentEmail,reraNumber:f.reraNumber,area:"",building:"",propType:"apartment",beds:"",sizeSqft:"",floor:"",view:"",furnished:"Unfurnished",purpose:"sale",price:"",urgency:"normal",notes:"",offMarket:false,contactMode:f.contactMode,titleDeedNo:"",titleDeedImg:null,requestReferral:false};
       DEAL_STATE.mode="browse";
       fetchDeals();
     }
@@ -4795,6 +4800,78 @@ async function sendInquiry(dealId){
   inq.sending=false;render();
 }
 
+async function registerAgent(formData){
+  try{
+    var row={agent_name:formData.name,agent_phone:formData.phone,agent_email:formData.email||null,
+      agent_company:formData.company||null,rera_number:formData.rera,
+      areas_text:formData.areas||null,specialties:formData.specialties||null,bio:formData.bio||null};
+    var resp=await fetch(SUPABASE_URL+"/rest/v1/dv_agents",{method:"POST",
+      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json","Prefer":"return=representation"},
+      body:JSON.stringify(row)});
+    if(resp.ok){alert("Agent registration successful! You'll be notified when approved for the referral program.");return true;}
+    else{var err=await resp.text();alert("Registration failed: "+err);return false;}
+  }catch(e){alert("Error: "+e.message);return false;}
+}
+
+async function fetchAgents(){
+  DEAL_STATE.agentHub.loading=true;
+  try{
+    var resp=await fetch(SUPABASE_URL+"/rest/v1/dv_agents?active=eq.true&order=rating.desc,deals_closed.desc",
+      {headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY}});
+    if(resp.ok)DEAL_STATE.agentHub.agents=await resp.json();
+  }catch(e){}
+  DEAL_STATE.agentHub.loading=false;render();
+}
+
+async function createReferral(buyerDealId,buyerName,buyerPhone,area,budget,propType){
+  try{
+    var row={buyer_deal_id:buyerDealId,buyer_name:buyerName,buyer_phone:buyerPhone,
+      buyer_area:area||null,buyer_budget:budget||null,buyer_prop_type:propType||null,status:"pending"};
+    var resp=await fetch(SUPABASE_URL+"/rest/v1/dv_referrals",{method:"POST",
+      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},
+      body:JSON.stringify(row)});
+    return resp.ok;
+  }catch(e){return false;}
+}
+
+async function fetchReferrals(){
+  try{
+    var resp=await fetch(SUPABASE_URL+"/rest/v1/dv_referrals?order=created_at.desc&limit=50",
+      {headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY}});
+    if(resp.ok)DEAL_STATE.agentHub.referrals=await resp.json();
+  }catch(e){}
+}
+
+async function assignReferral(referralId,agentId){
+  try{
+    await fetch(SUPABASE_URL+"/rest/v1/dv_referrals?id=eq."+referralId,{method:"PATCH",
+      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
+      body:JSON.stringify({assigned_agent_id:agentId,status:"assigned",updated_at:new Date().toISOString()})});
+    fetchReferrals().then(function(){render();});
+  }catch(e){alert("Failed: "+e.message);}
+}
+
+async function updateReferralStatus(referralId,status,dealValue){
+  try{
+    var patch={status:status,updated_at:new Date().toISOString()};
+    if(dealValue)patch.deal_value=dealValue;
+    if(status==="closed"&&dealValue){patch.commission_earned=dealValue*0.02;}
+    await fetch(SUPABASE_URL+"/rest/v1/dv_referrals?id=eq."+referralId,{method:"PATCH",
+      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
+      body:JSON.stringify(patch)});
+    fetchReferrals().then(function(){render();});
+  }catch(e){alert("Failed: "+e.message);}
+}
+
+async function updateAgentSubscription(agentId,subscription){
+  try{
+    await fetch(SUPABASE_URL+"/rest/v1/dv_agents?id=eq."+agentId,{method:"PATCH",
+      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
+      body:JSON.stringify({subscription:subscription,updated_at:new Date().toISOString()})});
+    fetchAgents();
+  }catch(e){alert("Failed: "+e.message);}
+}
+
 async function fetchMyInquiries(){
   var dealIds=[];
   if(DEAL_STATE.myTokens.length){
@@ -4816,14 +4893,32 @@ async function fetchMyInquiries(){
 
 function renderDeals(){
   var cl=C();var wrap=div({padding:"16px 20px",maxWidth:"640px",margin:"0 auto",paddingBottom:"90px"});
-  wrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"16px"},[
+  wrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"},[
     div({},[span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block"},"◆ Deal Network"),
       span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Agent-to-Agent · Off-Market Deals")]),
     el("button",{style:{background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",color:"#070B14",border:"none",padding:"8px 16px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
       onclick:function(){DEAL_STATE.mode=DEAL_STATE.mode==="post"?"browse":"post";render();}},DEAL_STATE.mode==="post"?"← Browse":"+ Post Deal")
   ]));
+  var modeBar=div({display:"flex",gap:"6px",marginBottom:"14px"});
+  [{l:"Deals",v:"browse"},{l:"Agent Hub",v:"agents"},{l:"Admin",v:"admin"}].forEach(function(m){
+    if(m.v==="admin"&&!DEAL_STATE.adminToken)return;
+    var active=DEAL_STATE.mode===m.v||(m.v==="browse"&&(DEAL_STATE.mode==="browse"||DEAL_STATE.mode==="post"));
+    var btn=el("button",{style:{padding:"6px 14px",borderRadius:"8px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",
+      background:active?"rgba(201,168,76,0.15)":"transparent",color:active?cl.gold:cl.sub,border:"1px solid "+(active?"rgba(201,168,76,0.3)":cl.border)},
+      onclick:function(){DEAL_STATE.mode=m.v;if(m.v==="agents")fetchAgents();if(m.v==="admin"){fetchAgents();fetchReferrals().then(function(){render();});}render();}});
+    btn.textContent=m.l;modeBar.appendChild(btn);
+  });
+  if(!DEAL_STATE.adminToken){
+    var adminLink=el("button",{style:{padding:"6px 10px",borderRadius:"8px",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",
+      background:"transparent",color:cl.sub,border:"1px solid "+cl.border,marginLeft:"auto"},
+      onclick:function(){var token=prompt("Enter DubaiVal Admin Token:");if(token&&token.trim()){DEAL_STATE.adminToken=token.trim();try{localStorage.setItem("dv_admin_token",token.trim());}catch(e){}DEAL_STATE.mode="admin";fetchAgents();fetchReferrals().then(function(){render();});render();}}});
+    adminLink.textContent="Admin Login";modeBar.appendChild(adminLink);
+  }
+  wrap.appendChild(modeBar);
 
   if(DEAL_STATE.mode==="post")return renderDealForm(wrap,cl);
+  if(DEAL_STATE.mode==="agents")return renderAgentHub(wrap,cl);
+  if(DEAL_STATE.mode==="admin")return renderAdminDashboard(wrap,cl);
 
   var fBar=div({display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"14px"});
   [{l:"All",v:"all"},{l:"I Have",v:"have"},{l:"I Need",v:"need"}].forEach(function(t){
@@ -5383,6 +5478,35 @@ function renderDealForm(wrap,cl){
     card.appendChild(tdSection);
   }
 
+  if(f.type==="need"){
+    var refSection=div({background:cl.raised,border:"1px solid rgba(201,168,76,0.25)",borderRadius:"10px",padding:"12px",marginBottom:"14px"});
+    var refToggle=div({display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"});
+    refToggle.onclick=function(){f.requestReferral=!f.requestReferral;render();};
+    var refLeft=div({});
+    refLeft.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"},"DubaiVal Agent Matching"));
+    refLeft.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},"We'll match you with a verified Gold agent for your search"));
+    refToggle.appendChild(refLeft);
+    var refSwitch=div({width:"44px",height:"24px",borderRadius:"12px",position:"relative",cursor:"pointer",transition:"background 0.3s",
+      background:f.requestReferral?"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")":"rgba(255,255,255,0.1)"});
+    var refKnob=div({width:"20px",height:"20px",borderRadius:"50%",background:"#fff",position:"absolute",top:"2px",transition:"left 0.3s",
+      left:f.requestReferral?"22px":"2px",boxShadow:"0 1px 3px rgba(0,0,0,0.3)"});
+    refSwitch.appendChild(refKnob);
+    refToggle.appendChild(refSwitch);
+    refSection.appendChild(refToggle);
+    if(f.requestReferral){
+      refSection.appendChild(div({marginTop:"10px",padding:"8px",background:cl.surface,borderRadius:"8px",border:"1px solid rgba(201,168,76,0.15)"},[
+        div({color:cl.gold,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6"},[
+          div({marginBottom:"4px",fontWeight:"700"},"How it works:"),
+          div({},"1. Post your request — we receive it instantly"),
+          div({},"2. DubaiVal selects a verified Gold agent specializing in your area"),
+          div({},"3. Agent connects you with matching properties & sellers"),
+          div({color:cl.sub,fontSize:"10px",marginTop:"6px",fontStyle:"italic"},"DubaiVal referral fee: 2% of final transaction value — paid by agent, not by you")
+        ])
+      ]));
+    }
+    card.appendChild(refSection);
+  }
+
   var notesG=div({marginBottom:"14px"});
   notesG.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",marginBottom:"4px"},"Notes"));
   var notesInp=el("textarea",{placeholder:"Additional details, special conditions, commission split…",rows:"3",
@@ -5403,6 +5527,231 @@ function renderDealForm(wrap,cl){
 
   wrap.appendChild(card);
   return wrap;
+}
+
+function renderAgentHub(wrap,cl){
+  var hub=DEAL_STATE.agentHub;
+  var card=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"});
+  card.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"◆ Agent Referral Program"));
+  card.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",marginBottom:"14px",lineHeight:"1.6"},
+    "Join DubaiVal's verified agent network. Gold agents receive buyer referrals matched to their area of expertise. Earn more deals, build your reputation."));
+
+  var subTabs=div({display:"flex",gap:"6px",marginBottom:"14px"});
+  [{l:"Registered Agents",v:"list"},{l:"Join Program",v:"register"}].forEach(function(t){
+    var active=hub.mode===t.v;
+    subTabs.appendChild(el("button",{style:{flex:"1",padding:"8px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",
+      background:active?"rgba(201,168,76,0.12)":"transparent",color:active?cl.gold:cl.sub,border:"1px solid "+(active?"rgba(201,168,76,0.3)":cl.border)},
+      onclick:function(){hub.mode=t.v;render();}},t.l));
+  });
+  card.appendChild(subTabs);
+
+  if(hub.mode==="register"){
+    var rf=hub.regForm;
+    function regInput(label,key,placeholder,type){
+      var g=div({marginBottom:"10px"});
+      g.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",marginBottom:"4px"},label));
+      var inp=el("input",{type:type||"text",placeholder:placeholder||"",value:rf[key]||"",
+        style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"10px",borderRadius:"8px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+      inp.oninput=function(){rf[key]=this.value;};
+      g.appendChild(inp);return g;
+    }
+    var r1=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"});
+    r1.appendChild(regInput("Full Name *","name","Agent name"));
+    r1.appendChild(regInput("WhatsApp *","phone","+971 5X XXX XXXX","tel"));
+    card.appendChild(r1);
+    var r2=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"});
+    r2.appendChild(regInput("Company","company","Agency name"));
+    r2.appendChild(regInput("RERA BRN *","rera","e.g. 12345"));
+    card.appendChild(r2);
+    card.appendChild(regInput("Email","email","agent@email.com","email"));
+    card.appendChild(regInput("Areas of Expertise","areas","e.g. Dubai Marina, Downtown, JBR"));
+    card.appendChild(regInput("Specialties","specialties","e.g. Luxury villas, Off-plan, Commercial"));
+    var bioG=div({marginBottom:"14px"});
+    bioG.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",marginBottom:"4px"},"Short Bio"));
+    var bioInp=el("textarea",{placeholder:"Tell buyers about your experience and track record…",rows:"3",
+      style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"10px",borderRadius:"8px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",resize:"vertical"}});
+    bioInp.value=rf.bio||"";bioInp.oninput=function(){rf.bio=this.value;};
+    bioG.appendChild(bioInp);card.appendChild(bioG);
+
+    var tierInfo=div({background:cl.raised,borderRadius:"10px",padding:"12px",marginBottom:"14px",border:"1px solid rgba(201,168,76,0.15)"});
+    tierInfo.appendChild(div({color:cl.gold,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em",marginBottom:"8px"},"SUBSCRIPTION TIERS"));
+    [{t:"Free",c:cl.sub,d:"Listed in directory · No referral priority",p:"AED 0"},
+     {t:"Gold",c:"#EAB308",d:"Priority referrals · Verified badge · Featured listing · Video analysis uploads",p:"AED 499/mo"},
+     {t:"Platinum",c:"#A78BFA",d:"Top priority · Exclusive leads · DubaiVal co-branding · Premium support",p:"AED 999/mo"}
+    ].forEach(function(tier){
+      tierInfo.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid "+cl.border},[
+        div({},[span({color:tier.c,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},tier.t),
+          div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},tier.d)]),
+        span({color:tier.c,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},tier.p)
+      ]));
+    });
+    card.appendChild(tierInfo);
+
+    var regBtn=el("button",{style:{width:"100%",padding:"14px",background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",color:"#070B14",border:"none",borderRadius:"10px",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
+      onclick:async function(){
+        if(!rf.name||!rf.phone||!rf.rera){alert("Please fill required fields (Name, WhatsApp, RERA)");return;}
+        var ok=await registerAgent(rf);
+        if(ok){hub.regForm={name:"",phone:"",email:"",company:"",rera:"",areas:"",specialties:"",bio:""};hub.mode="list";fetchAgents();}
+      }});
+    regBtn.textContent="Register as Agent";
+    card.appendChild(regBtn);
+    card.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",textAlign:"center",marginTop:"8px"},"Registration starts on Free tier — upgrade to Gold for referral priority"));
+  }
+
+  if(hub.mode==="list"){
+    if(hub.loading){card.appendChild(div({textAlign:"center",padding:"20px",color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},"Loading agents…"));}
+    else if(!hub.agents.length){
+      card.appendChild(div({textAlign:"center",padding:"20px"},[
+        div({fontSize:"28px",marginBottom:"8px"},"🏢"),
+        div({color:cl.subHi,fontSize:"13px",fontWeight:"600",fontFamily:"'Inter',sans-serif",marginBottom:"4px"},"No agents registered yet"),
+        div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Be the first to join the DubaiVal referral network")]));
+    }else{
+      hub.agents.forEach(function(ag){
+        var agCard=div({background:cl.raised,borderRadius:"10px",padding:"10px 12px",marginBottom:"8px",border:"1px solid "+cl.border});
+        var agTop=div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"4px"});
+        var agLeft=div({display:"flex",alignItems:"center",gap:"8px"});
+        var subColors={free:cl.sub,gold:"#EAB308",platinum:"#A78BFA"};
+        agLeft.appendChild(div({width:"36px",height:"36px",borderRadius:"50%",background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",display:"flex",alignItems:"center",justifyContent:"center",color:"#070B14",fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},ag.agent_name?ag.agent_name.charAt(0).toUpperCase():"A"));
+        var agInfo=div({});
+        agInfo.appendChild(div({display:"flex",alignItems:"center",gap:"6px"},[
+          span({color:cl.subHi,fontSize:"12px",fontWeight:"700",fontFamily:"'Inter',sans-serif"},ag.agent_name),
+          span({color:subColors[ag.subscription]||cl.sub,fontSize:"8px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"2px 6px",borderRadius:"6px",
+            background:(subColors[ag.subscription]||cl.sub).replace(")",",0.12)").replace("rgb","rgba")||"rgba(255,255,255,0.05)",textTransform:"uppercase"},ag.subscription||"FREE")
+        ]));
+        if(ag.agent_company)agInfo.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},ag.agent_company));
+        agLeft.appendChild(agInfo);
+        agTop.appendChild(agLeft);
+        if(ag.rera_number)agTop.appendChild(span({color:"#3B82F6",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",background:"rgba(59,130,246,0.12)",padding:"3px 8px",borderRadius:"6px",fontWeight:"700"},"RERA: "+ag.rera_number));
+        agCard.appendChild(agTop);
+        if(ag.areas_text)agCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginTop:"4px"},"Areas: "+ag.areas_text));
+        if(ag.specialties)agCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},"Specialties: "+ag.specialties));
+        if(ag.deals_closed>0||ag.video_analyses>0){
+          var agStats=div({display:"flex",gap:"12px",marginTop:"6px"});
+          if(ag.deals_closed>0)agStats.appendChild(span({color:cl.green,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},ag.deals_closed+" deals closed"));
+          if(ag.video_analyses>0)agStats.appendChild(span({color:"#60A5FA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},ag.video_analyses+" video analyses"));
+          agCard.appendChild(agStats);
+        }
+        card.appendChild(agCard);
+      });
+    }
+  }
+  wrap.appendChild(card);return wrap;
+}
+
+function renderAdminDashboard(wrap,cl){
+  var hub=DEAL_STATE.agentHub;
+  var card=div({background:cl.surface,border:"1px solid rgba(239,68,68,0.2)",borderRadius:"14px",padding:"18px",marginBottom:"14px"});
+  card.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
+    div({},[span({color:"#EF4444",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block"},"◆ Admin Dashboard"),
+      span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Referral Management · Agent Control")]),
+    el("button",{style:{background:"rgba(239,68,68,0.1)",color:"#EF4444",border:"1px solid rgba(239,68,68,0.2)",padding:"6px 12px",borderRadius:"6px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
+      onclick:function(){DEAL_STATE.adminToken=null;try{localStorage.removeItem("dv_admin_token");}catch(e){}DEAL_STATE.mode="browse";render();}},"Logout")
+  ]));
+
+  var stats=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:"8px",marginBottom:"14px"});
+  var totalAgents=hub.agents.length;
+  var goldAgents=hub.agents.filter(function(a){return a.subscription==="gold"||a.subscription==="platinum";}).length;
+  var pendingRefs=hub.referrals.filter(function(r){return r.status==="pending";}).length;
+  var closedRefs=hub.referrals.filter(function(r){return r.status==="closed";}).length;
+  var totalCommission=hub.referrals.reduce(function(sum,r){return sum+(r.commission_earned||0);},0);
+  [{l:"Total Agents",v:totalAgents,c:cl.subHi},{l:"Gold/Platinum",v:goldAgents,c:"#EAB308"},{l:"Pending Referrals",v:pendingRefs,c:"#F59E0B"},{l:"Closed Deals",v:closedRefs,c:cl.green}].forEach(function(s){
+    stats.appendChild(div({background:cl.raised,borderRadius:"8px",padding:"8px",textAlign:"center"},[
+      div({color:s.c,fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},String(s.v)),
+      div({color:cl.sub,fontSize:"8px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},s.l)]));
+  });
+  wrap.appendChild(stats);
+  if(totalCommission>0){
+    wrap.appendChild(div({background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.2)",borderRadius:"10px",padding:"10px",textAlign:"center",marginBottom:"14px"},[
+      div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"TOTAL REFERRAL COMMISSION EARNED"),
+      div({color:cl.green,fontSize:"22px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"AED "+totalCommission.toLocaleString())]));
+  }
+
+  card.appendChild(div({color:"#F59E0B",fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",fontWeight:"700"},"◆ PENDING REFERRAL REQUESTS"));
+  var pendingList=hub.referrals.filter(function(r){return r.status==="pending";});
+  if(!pendingList.length){
+    card.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",padding:"12px",textAlign:"center"},"No pending referrals"));
+  }else{
+    pendingList.forEach(function(ref){
+      var refCard=div({background:cl.raised,borderRadius:"8px",padding:"10px",marginBottom:"6px",border:"1px solid rgba(245,158,11,0.2)"});
+      refCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"},[
+        div({},[div({color:cl.subHi,fontSize:"12px",fontWeight:"700",fontFamily:"'Inter',sans-serif"},ref.buyer_name),
+          div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},ref.buyer_phone)]),
+        span({color:"#F59E0B",fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",background:"rgba(245,158,11,0.12)",padding:"3px 8px",borderRadius:"6px"},"PENDING")
+      ]));
+      var details=[];
+      if(ref.buyer_area)details.push("Area: "+ref.buyer_area);
+      if(ref.buyer_budget)details.push("Budget: AED "+ref.buyer_budget.toLocaleString());
+      if(ref.buyer_prop_type)details.push("Type: "+ref.buyer_prop_type);
+      if(details.length)refCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginBottom:"8px"},details.join(" · ")));
+
+      var goldAgentsList=hub.agents.filter(function(a){return a.subscription==="gold"||a.subscription==="platinum";});
+      if(goldAgentsList.length){
+        var assignRow=div({display:"flex",gap:"6px",alignItems:"center"});
+        var agentSelect=el("select",{style:{flex:"1",background:cl.surface,border:"1px solid "+cl.border,color:cl.subHi,padding:"8px",borderRadius:"6px",fontSize:"11px",fontFamily:"'Inter',sans-serif"}});
+        agentSelect.appendChild(el("option",{value:""},"Select Agent…"));
+        goldAgentsList.forEach(function(a){var o=el("option",{value:String(a.id)});o.textContent=a.agent_name+" ("+a.subscription+") — "+(a.areas_text||"all areas");agentSelect.appendChild(o);});
+        assignRow.appendChild(agentSelect);
+        var assignBtn=el("button",{style:{background:"linear-gradient(135deg,#10B981,#059669)",color:"#fff",border:"none",padding:"8px 14px",borderRadius:"6px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
+          onclick:(function(rid,sel){return function(){var aid=sel.value;if(!aid){alert("Please select an agent");return;}assignReferral(rid,parseInt(aid));};})(ref.id,agentSelect)});
+        assignBtn.textContent="Assign";assignRow.appendChild(assignBtn);
+        refCard.appendChild(assignRow);
+      }else{
+        refCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",fontStyle:"italic"},"No Gold agents available — agents need Gold subscription for referrals"));
+      }
+      card.appendChild(refCard);
+    });
+  }
+
+  card.appendChild(div({color:"#10B981",fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",marginTop:"14px",fontWeight:"700"},"◆ ACTIVE & CLOSED REFERRALS"));
+  var activeRefs=hub.referrals.filter(function(r){return r.status!=="pending";});
+  if(!activeRefs.length){
+    card.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",padding:"12px",textAlign:"center"},"No active referrals yet"));
+  }else{
+    activeRefs.forEach(function(ref){
+      var statusColors={assigned:"#60A5FA",connected:"#F59E0B",negotiating:"#A78BFA",closed:"#10B981",cancelled:"#EF4444"};
+      var sc=statusColors[ref.status]||cl.sub;
+      var refRow=div({background:cl.raised,borderRadius:"8px",padding:"8px 10px",marginBottom:"4px",border:"1px solid "+cl.border,display:"flex",justifyContent:"space-between",alignItems:"center"});
+      var refInfo=div({});
+      refInfo.appendChild(div({display:"flex",alignItems:"center",gap:"6px"},[
+        span({color:cl.subHi,fontSize:"11px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},ref.buyer_name+(ref.buyer_area?" · "+ref.buyer_area:"")),
+        span({color:sc,fontSize:"8px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",background:sc.replace(")",",0.12)").replace("rgb","rgba"),padding:"2px 6px",borderRadius:"6px",textTransform:"uppercase"},ref.status)
+      ]));
+      if(ref.deal_value)refInfo.appendChild(div({color:cl.green,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"Deal: AED "+ref.deal_value.toLocaleString()+(ref.commission_earned?" · Commission: AED "+ref.commission_earned.toLocaleString():"")));
+      refRow.appendChild(refInfo);
+      if(ref.status!=="closed"&&ref.status!=="cancelled"){
+        var actionSel=el("select",{style:{background:cl.surface,border:"1px solid "+cl.border,color:cl.subHi,padding:"4px 8px",borderRadius:"6px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}});
+        [{l:"→ Connected",v:"connected"},{l:"→ Negotiating",v:"negotiating"},{l:"→ Closed",v:"closed"},{l:"→ Cancelled",v:"cancelled"}].forEach(function(s){
+          var o=el("option",{value:s.v});o.textContent=s.l;actionSel.appendChild(o);});
+        actionSel.onchange=(function(rid){return function(){
+          var newStatus=this.value;
+          if(newStatus==="closed"){var val=prompt("Enter deal value (AED):");updateReferralStatus(rid,newStatus,parseFloat(val)||0);}
+          else{updateReferralStatus(rid,newStatus,null);}
+        };})(ref.id);
+        refRow.appendChild(actionSel);
+      }
+      card.appendChild(refRow);
+    });
+  }
+
+  card.appendChild(div({color:"#60A5FA",fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",marginTop:"14px",fontWeight:"700"},"◆ AGENT MANAGEMENT"));
+  hub.agents.forEach(function(ag){
+    var agRow=div({background:cl.raised,borderRadius:"8px",padding:"8px 10px",marginBottom:"4px",border:"1px solid "+cl.border,display:"flex",justifyContent:"space-between",alignItems:"center"});
+    var subColors={free:cl.sub,gold:"#EAB308",platinum:"#A78BFA"};
+    agRow.appendChild(div({display:"flex",alignItems:"center",gap:"8px"},[
+      span({color:cl.subHi,fontSize:"11px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},ag.agent_name),
+      span({color:subColors[ag.subscription]||cl.sub,fontSize:"8px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"2px 6px",borderRadius:"6px",
+        background:(subColors[ag.subscription]||cl.sub).replace(")",",0.12)").replace("rgb","rgba"),textTransform:"uppercase"},ag.subscription||"free"),
+      span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"RERA: "+(ag.rera_number||"—"))
+    ]));
+    var subSel=el("select",{style:{background:cl.surface,border:"1px solid "+cl.border,color:cl.subHi,padding:"4px 8px",borderRadius:"6px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}});
+    [{l:"Free",v:"free"},{l:"Gold ★",v:"gold"},{l:"Platinum ★★",v:"platinum"}].forEach(function(s){
+      var o=el("option",{value:s.v});o.textContent=s.l;if(ag.subscription===s.v)o.selected=true;subSel.appendChild(o);});
+    subSel.onchange=(function(aid){return function(){updateAgentSubscription(aid,this.value);};})(ag.id);
+    agRow.appendChild(subSel);
+    card.appendChild(agRow);
+  });
+
+  wrap.appendChild(card);return wrap;
 }
 
 function timeAgo(dateStr){
