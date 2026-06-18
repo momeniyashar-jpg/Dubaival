@@ -448,6 +448,34 @@ function renderAnalyzer(){
   const f=analyzerState.f;
   const wrap=el("div",{style:{padding:"16px",maxWidth:"640px",margin:"0 auto"}});
 
+  // --- RECENT & SAVED SEARCHES ---
+  if(analyzerState.stage===0&&DV_SAVED.searches.length>0){
+    var ssWrap=el("div",{style:{marginBottom:"14px"}});
+    ssWrap.appendChild(span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"6px"},"Recent & Saved Searches"));
+    var ssScroll=el("div",{style:{display:"flex",gap:"6px",overflowX:"auto",paddingBottom:"6px",scrollbarWidth:"thin"}});
+    DV_SAVED.searches.forEach(function(s,idx){
+      var verdictColors={DISTRESS:"#22C55E",GOOD:"#22C55E",FAIR:"#EAB308",OVER:"#EF4444"};
+      var vc=verdictColors[s.verdict]||cl.sub;
+      var chip=el("div",{style:{display:"flex",alignItems:"center",gap:"6px",background:hexAlpha(vc,0.08),border:"1px solid "+hexAlpha(vc,0.25),borderRadius:"20px",padding:"5px 8px 5px 12px",cursor:"pointer",whiteSpace:"nowrap",flexShrink:"0"}});
+      var chipText=el("span",{style:{color:cl.subHi,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}});
+      chipText.textContent=(s.building?s.building+" · ":"")+s.area+" · "+s.verdict;
+      chip.appendChild(chipText);
+      var xBtn=el("button",{style:{background:"rgba(255,255,255,0.1)",border:"none",color:cl.sub,fontSize:"10px",width:"16px",height:"16px",borderRadius:"50%",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:"0",lineHeight:"1",flexShrink:"0"}});
+      xBtn.textContent="×";
+      xBtn.addEventListener("click",function(e){e.stopPropagation();removeSearch(idx);render();});
+      chip.appendChild(xBtn);
+      chip.addEventListener("click",function(){
+        analyzerState.f.area=s.area;analyzerState.f.building=s.building||"";analyzerState.f.size=s.size||"";analyzerState.f.buaSize=s.size||"";
+        analyzerState.f.price=s.price||"";analyzerState.f.beds=s.beds||"";analyzerState.f.floor=s.floor||"";
+        analyzerState.f.view=s.view||"Not specified";analyzerState.f.propCategory=s.propType||"apartment";
+        try{analyzerState.val=computeValuation(analyzerState.f);analyzerState.stage=2;render();}catch(e){render();}
+      });
+      ssScroll.appendChild(chip);
+    });
+    ssWrap.appendChild(ssScroll);
+    wrap.appendChild(ssWrap);
+  }
+
   // --- AI SMART SEARCH ---
   if(analyzerState.stage===0){
     if(!window._aiSearch)window._aiSearch={text:"",parsing:false,parsed:null,missing:[],filled:[]};
@@ -1950,12 +1978,22 @@ function renderAnalyzerResult(wrap){
     wrap.appendChild(sec);
   })();
 
-  // CSV Export
-  wrap.appendChild(csvExportBtn("Export Report (CSV)",cl,function(){
+  // CSV Export + Save Search
+  var expRow=div({display:"flex",gap:"8px",flexWrap:"wrap",marginTop:"8px"});
+  expRow.appendChild(csvExportBtn("Export Report (CSV)",cl,function(){
     exportCSV("DubaiVal_Valuation_"+csvDate()+".csv",
       ["building","area","size_sqft","asking_price","fair_price","ask_psf","adj_psf","verdict","confidence","gross_yield","net_yield","signal","total_return_annual"],
       [[f.building||"",f.area,f.size||f.buaSize||"",f.price||"",val.fairPrice,val.askPSF,val.adjPSF,val.verdict,val.confScore,val.grossYield,val.netYield,val.investSignal?val.investSignal.label:"",val.totalReturnAnnual]]);
   }));
+  var saveBtn=el("button",{style:{background:"transparent",border:"1px solid "+cl.goldDim,color:cl.gold,padding:"8px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",display:"inline-flex",alignItems:"center",gap:"6px"}});
+  var alreadySaved=DV_SAVED.searches.some(function(s){return s.area===f.area&&s.building===f.building&&s.price===f.price;});
+  saveBtn.textContent=alreadySaved?"✓ Saved":"⭐ Save This Search";
+  if(!alreadySaved)saveBtn.addEventListener("click",function(){
+    saveSearch({area:f.area,building:f.building||"",size:f.size||f.buaSize||"",price:f.price,beds:f.beds,floor:f.floor,view:f.view,propType:f.propCategory,verdict:val.verdict,fairPrice:val.fairPrice,ts:Date.now()});
+    render();
+  });
+  expRow.appendChild(saveBtn);
+  wrap.appendChild(expRow);
 
   // PDF Report Section
   const pdfWrap=el('div',{style:{background:cl.surface,border:'1px solid '+cl.goldDim,borderRadius:'14px',padding:'18px',marginTop:'14px'}});

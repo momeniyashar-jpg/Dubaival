@@ -417,6 +417,36 @@ var compareState={a1:"",a2:"",budget:"",purpose:"Investment",loading:false,resul
 var personalState={budget:"",role:"Investor",family:"Couple",children:"0",work:"",purpose:"Investment",timeline:"6 months",loading:false,result:"",err:""};
 var chatState={msgs:[{role:"assistant",text:"DubAIVal Intelligence.\n\nBuilding-level knowledge · June 2026 data · Confidence scoring.\n\nAsk me about any building, deal, or strategy."}],input:"",loading:false};
 
+// --- SAVED SEARCHES & FAVORITES ---
+var DV_SAVED={searches:[],favDeals:[],favAreas:[]};
+try{var _ss=localStorage.getItem("dv_saved_searches");if(_ss)DV_SAVED.searches=JSON.parse(_ss);}catch(e){}
+try{var _fd=localStorage.getItem("dv_favorite_deals");if(_fd)DV_SAVED.favDeals=JSON.parse(_fd);}catch(e){}
+try{var _fa=localStorage.getItem("dv_favorite_areas");if(_fa)DV_SAVED.favAreas=JSON.parse(_fa);}catch(e){}
+function saveFavState(){
+  try{localStorage.setItem("dv_saved_searches",JSON.stringify(DV_SAVED.searches));localStorage.setItem("dv_favorite_deals",JSON.stringify(DV_SAVED.favDeals));localStorage.setItem("dv_favorite_areas",JSON.stringify(DV_SAVED.favAreas));}catch(e){}
+  if(typeof portfolioChanged==="function")portfolioChanged();
+}
+function saveSearch(data){
+  DV_SAVED.searches=DV_SAVED.searches.filter(function(s){return s.area!==data.area||s.building!==data.building||s.price!==data.price;});
+  DV_SAVED.searches.unshift(data);
+  if(DV_SAVED.searches.length>20)DV_SAVED.searches=DV_SAVED.searches.slice(0,20);
+  saveFavState();
+}
+function removeSearch(idx){DV_SAVED.searches.splice(idx,1);saveFavState();}
+function toggleFavDeal(dealId){
+  var i=DV_SAVED.favDeals.indexOf(dealId);
+  if(i===-1){DV_SAVED.favDeals.unshift(dealId);if(DV_SAVED.favDeals.length>50)DV_SAVED.favDeals=DV_SAVED.favDeals.slice(0,50);}
+  else DV_SAVED.favDeals.splice(i,1);
+  saveFavState();
+}
+function isFavDeal(dealId){return DV_SAVED.favDeals.indexOf(dealId)!==-1;}
+function toggleFavArea(area){
+  var i=DV_SAVED.favAreas.indexOf(area);
+  if(i===-1)DV_SAVED.favAreas.push(area);else DV_SAVED.favAreas.splice(i,1);
+  saveFavState();
+}
+function isFavArea(area){return DV_SAVED.favAreas.indexOf(area)!==-1;}
+
 // --- CSV EXPORT ---
 function exportCSV(filename,headers,rows){
   function esc(v){var s=String(v==null?"":v);if(s.indexOf(",")!==-1||s.indexOf('"')!==-1||s.indexOf("\n")!==-1)return'"'+s.replace(/"/g,'""')+'"';return s;}

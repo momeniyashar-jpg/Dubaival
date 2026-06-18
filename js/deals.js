@@ -443,6 +443,12 @@ function renderDeals(){
   reraTBtn.textContent=(reraActive?"✓ ":"")+"RERA Verified Only";
   reraTBtn.addEventListener("click",function(){DEAL_STATE.filter.reraOnly=!DEAL_STATE.filter.reraOnly;render();});
   reraToggle.appendChild(reraTBtn);
+  if(!DEAL_STATE.filter.favOnly)DEAL_STATE.filter.favOnly=false;
+  var favActive=DEAL_STATE.filter.favOnly;
+  var favBtn=el("button",{style:{display:"flex",alignItems:"center",gap:"6px",padding:"6px 14px",borderRadius:"8px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",background:favActive?hexAlpha("#EF4444",0.15):"transparent",color:favActive?"#EF4444":cl.sub,border:"1px solid "+(favActive?"rgba(239,68,68,0.3)":cl.border)}});
+  favBtn.textContent=(favActive?"✓ ":"")+"♥ Favorites Only";
+  favBtn.addEventListener("click",function(){DEAL_STATE.filter.favOnly=!DEAL_STATE.filter.favOnly;render();});
+  reraToggle.appendChild(favBtn);
   if(!DEAL_STATE.filter.sortBestMatch)DEAL_STATE.filter.sortBestMatch=false;
   var bmActive=DEAL_STATE.filter.sortBestMatch;
   var bmBtn=el("button",{style:{display:"flex",alignItems:"center",gap:"6px",padding:"6px 14px",borderRadius:"8px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",background:bmActive?hexAlpha("#8B5CF6",0.15):"transparent",color:bmActive?"#A78BFA":cl.sub,border:"1px solid "+(bmActive?"rgba(139,92,246,0.3)":cl.border)}});
@@ -453,6 +459,7 @@ function renderDeals(){
 
   var allDeals=DEAL_STATE.deals;
   if(DEAL_STATE.filter.reraOnly)allDeals=allDeals.filter(function(d){return d.rera_number&&d.rera_number.length>=3;});
+  if(DEAL_STATE.filter.favOnly)allDeals=allDeals.filter(function(d){return isFavDeal(d.id);});
   var haveCount=allDeals.filter(function(d){return d.type==="have";}).length;
   var needCount=allDeals.filter(function(d){return d.type==="need";}).length;
   var hotCount=allDeals.filter(function(d){return d.urgency==="hot";}).length;
@@ -664,9 +671,16 @@ function renderDeals(){
     (function(dealId,cardEl){fetchDealVideoAnalyses(dealId).then(function(vids){if(vids&&vids.length){var vBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:hexAlpha("#8B5CF6",0.12),color:"#A78BFA",cursor:"pointer"},onclick:function(e){e.stopPropagation();DEAL_STATE.videoViewDeal["_show_"+dealId]=!DEAL_STATE.videoViewDeal["_show_"+dealId];render();}});vBadge.textContent="🎬 Video Analysis ("+vids.length+")";leftTop.appendChild(vBadge);}});})(d.id,card);
     if(d.off_market){var omBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:"rgba(201,168,76,0.12)",color:cl.gold}});omBadge.textContent="OFF-MARKET";leftTop.appendChild(omBadge);}
     topRow.appendChild(leftTop);
+    var rightTop=el("div",{style:{display:"flex",alignItems:"center",gap:"8px"}});
     var purposeBadge=el("span",{style:{fontSize:"10px",color:d.purpose==="sale"?cl.gold:"#60A5FA",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"}});
     purposeBadge.textContent=d.purpose==="sale"?"FOR SALE":"FOR RENT";
-    topRow.appendChild(purposeBadge);
+    rightTop.appendChild(purposeBadge);
+    var isFav=isFavDeal(d.id);
+    var heartBtn=el("button",{style:{background:"transparent",border:"none",fontSize:"16px",cursor:"pointer",padding:"0",lineHeight:"1",color:isFav?"#EF4444":"rgba(255,255,255,0.2)",transition:"color 0.2s,transform 0.2s"}});
+    heartBtn.textContent=isFav?"♥":"♡";
+    (function(did){heartBtn.addEventListener("click",function(e){e.stopPropagation();toggleFavDeal(did);render();});})(d.id);
+    rightTop.appendChild(heartBtn);
+    topRow.appendChild(rightTop);
     card.appendChild(topRow);
 
     // Expiry countdown

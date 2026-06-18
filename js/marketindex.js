@@ -296,6 +296,30 @@ function renderMarketIndex(){
   }
   wrap.appendChild(cmpCard);
 
+  // --- Your Favorite Areas ---
+  if(DV_SAVED.favAreas.length>0){
+    var favCard=div({background:"linear-gradient(135deg,rgba(201,168,76,0.06),transparent)",border:"1px solid "+cl.goldDim,borderRadius:"14px",padding:"14px 16px",marginBottom:"14px"});
+    favCard.appendChild(div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"10px"},[
+      span({fontSize:"14px"},"⭐"),
+      span({color:cl.gold,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"},"Your Favorite Areas")]));
+    var favGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}});
+    DV_SAVED.favAreas.forEach(function(aName){
+      var a=AREAS[aName];if(!a)return;
+      var y=a.y||[5,7];var g=a.g||[10,18,28];
+      var fc=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"10px",padding:"10px",cursor:"pointer"}});
+      fc.addEventListener("click",function(){analyzerState.f.area=aName;currentTab="Analyzer";render();});
+      fc.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"4px"},[
+        span({color:cl.subHi,fontSize:"11px",fontWeight:"700",fontFamily:"'Inter',sans-serif"},aName.length>16?aName.substring(0,16)+"…":aName),
+        span({color:cl.gold,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+(a.psf||0).toLocaleString())]));
+      fc.appendChild(div({display:"flex",gap:"10px"},[
+        span({color:cl.green,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},((y[0]+y[1])/2).toFixed(1)+"% yield"),
+        span({color:"#3B82F6",fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"+"+(g[0]||0)+"% growth")]));
+      favGrid.appendChild(fc);
+    });
+    favCard.appendChild(favGrid);
+    wrap.appendChild(favCard);
+  }
+
   // --- Price Heatmap ---
   var hmCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"16px"});
   hmCard.appendChild(el("div",{style:{color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:"4px"}},"◆ Price Heatmap — All Areas"));
@@ -328,9 +352,13 @@ function renderMarketIndex(){
     var ratio=psfMax>psfMin?(d.psf-psfMin)/(psfMax-psfMin):0.5;
     var barColor=ratio>0.65?"#F04060":ratio>0.3?"#F0A030":"#10B981";
     var barW=Math.max(8,Math.round(ratio*100));
-    var row=div({display:"grid",gridTemplateColumns:"2fr 3fr 0.8fr",gap:"8px",alignItems:"center",padding:"5px 10px",cursor:"pointer",borderRadius:"4px"});
+    var row=div({display:"grid",gridTemplateColumns:"20px 2fr 3fr 0.8fr",gap:"6px",alignItems:"center",padding:"5px 10px",cursor:"pointer",borderRadius:"4px"});
     row.addEventListener("mouseenter",function(){this.style.background=cl.raised;});
     row.addEventListener("mouseleave",function(){this.style.background="transparent";});
+    var starBtn=el("span",{style:{fontSize:"12px",cursor:"pointer",color:isFavArea(d.name)?"#EAB308":"rgba(255,255,255,0.15)",transition:"color 0.2s"}});
+    starBtn.textContent=isFavArea(d.name)?"★":"☆";
+    (function(name){starBtn.addEventListener("click",function(e){e.stopPropagation();toggleFavArea(name);render();});})(d.name);
+    row.appendChild(starBtn);
     row.addEventListener("click",function(){analyzerState.f.area=d.name;currentTab="Analyzer";render();});
     row.appendChild(span({color:cl.text,fontSize:"11px",fontFamily:"'Inter',sans-serif",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},d.name));
     var barWrap=div({height:"6px",borderRadius:"3px",background:cl.border,overflow:"hidden"});
