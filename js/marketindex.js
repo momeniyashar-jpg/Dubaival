@@ -122,53 +122,161 @@ function renderMarketIndex(){
     {label:"PSF",w:"0.8fr",mono:true,bold:true,align:"right",color:function(){return cl.gold;},render:function(d){return"AED "+d.psf.toLocaleString();}}
   ]));
 
-  // --- Area Comparison ---
-  if(!window._idxCmp)window._idxCmp={a1:"",a2:""};
+  // --- Advanced Area Comparison ---
+  if(!window._idxCmp)window._idxCmp={areas:["","",""],aiVerdict:"",aiLoading:false};
+  // URL param auto-load
+  (function(){
+    if(!window._idxCmpInit){
+      window._idxCmpInit=true;
+      try{
+        var sp=new URLSearchParams(window.location.search);
+        var cmp=sp.get("compare");
+        if(cmp){var parts=cmp.split(",").map(function(s){return s.trim();});for(var i=0;i<3&&i<parts.length;i++)window._idxCmp.areas[i]=parts[i];}
+      }catch(e){}
+    }
+  })();
+  var cmp=window._idxCmp;
   var cmpCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"16px"});
-  cmpCard.appendChild(el("div",{style:{color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:"4px"}},"◆ Area Comparison"));
-  cmpCard.appendChild(el("div",{style:{color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"14px"}},"Select two areas to compare side by side"));
-  var cmpRow=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"14px"});
-  var sel1=el("select",{style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"10px 12px",borderRadius:"10px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none"}});
-  var sel2=el("select",{style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"10px 12px",borderRadius:"10px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none"}});
-  var defOpt1=el("option",{value:""});defOpt1.textContent="Select Area A";sel1.appendChild(defOpt1);
-  var defOpt2=el("option",{value:""});defOpt2.textContent="Select Area B";sel2.appendChild(defOpt2);
-  names.forEach(function(n){
-    var o1=el("option",{value:n});o1.textContent=n;if(window._idxCmp.a1===n)o1.selected=true;sel1.appendChild(o1);
-    var o2=el("option",{value:n});o2.textContent=n;if(window._idxCmp.a2===n)o2.selected=true;sel2.appendChild(o2);
-  });
-  sel1.addEventListener("change",function(){window._idxCmp.a1=this.value;render();});
-  sel2.addEventListener("change",function(){window._idxCmp.a2=this.value;render();});
-  cmpRow.appendChild(sel1);cmpRow.appendChild(sel2);
-  cmpCard.appendChild(cmpRow);
+  cmpCard.appendChild(el("div",{style:{color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:"4px"}},"◆ Advanced Area Comparison"));
+  cmpCard.appendChild(el("div",{style:{color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"14px"}},"Compare 2-3 areas side by side with AI-powered analysis"));
 
-  if(window._idxCmp.a1&&window._idxCmp.a2){
-    var d1=AREAS[window._idxCmp.a1]||{};var d2=AREAS[window._idxCmp.a2]||{};
-    var y1=d1.y||[5,7];var y2=d2.y||[5,7];
-    var g1=d1.g||[10,18,28];var g2=d2.g||[10,18,28];
-    var rows=[
-      {l:"PSF",v1:"AED "+(d1.psf||0).toLocaleString(),v2:"AED "+(d2.psf||0).toLocaleString(),better:(d1.psf||9999)<(d2.psf||9999)?1:2},
-      {l:"Yield",v1:((y1[0]+y1[1])/2).toFixed(1)+"%",v2:((y2[0]+y2[1])/2).toFixed(1)+"%",better:(y1[0]+y1[1])>(y2[0]+y2[1])?1:2},
-      {l:"1yr Growth",v1:"+"+(g1[0]||0)+"%",v2:"+"+(g2[0]||0)+"%",better:(g1[0]||0)>(g2[0]||0)?1:2},
-      {l:"3yr Growth",v1:"+"+(g1[1]||0)+"%",v2:"+"+(g2[1]||0)+"%",better:(g1[1]||0)>(g2[1]||0)?1:2},
-      {l:"1BR Rent",v1:"AED "+(d1.r1||0).toLocaleString(),v2:"AED "+(d2.r1||0).toLocaleString(),better:(d1.r1||0)>(d2.r1||0)?1:2},
-      {l:"2BR Rent",v1:"AED "+(d1.r2||0).toLocaleString(),v2:"AED "+(d2.r2||0).toLocaleString(),better:(d1.r2||0)>(d2.r1||0)?1:2},
-      {l:"DOM",v1:(d1.dom||"—")+"d",v2:(d2.dom||"—")+"d",better:(d1.dom||999)<(d2.dom||999)?1:2},
-      {l:"Service Charge",v1:"AED "+(d1.sc||0)+"/sqft",v2:"AED "+(d2.sc||0)+"/sqft",better:(d1.sc||999)<(d2.sc||999)?1:2},
-      {l:"Transactions",v1:(d1.txVol||"—")+"/yr",v2:(d2.txVol||"—")+"/yr",better:(d1.txVol||0)>(d2.txVol||0)?1:2}
+  var selRow=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"12px"});
+  ["Area A","Area B","Area C (optional)"].forEach(function(ph,idx){
+    var sel=el("select",{style:{width:"100%",background:cl.raised,border:"1px solid "+(cmp.areas[idx]?cl.green:cl.border),color:cmp.areas[idx]?"#F0F2F5":"#6B7A9E",padding:"10px 12px",borderRadius:"10px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none"}});
+    sel.appendChild(el("option",{value:""},ph));
+    names.forEach(function(n){var o=el("option",{value:n});o.textContent=n;if(cmp.areas[idx]===n)o.selected=true;sel.appendChild(o);});
+    sel.addEventListener("change",(function(i){return function(){cmp.areas[i]=this.value;cmp.aiVerdict="";render();};})(idx));
+    selRow.appendChild(sel);
+  });
+  cmpCard.appendChild(selRow);
+
+  var activeAreas=cmp.areas.filter(function(a){return a&&AREAS[a];});
+  if(activeAreas.length>=2){
+    var datas=activeAreas.map(function(n){return{name:n,d:AREAS[n]||{}};});
+    // Count buildings per area
+    var bldgCounts={};activeAreas.forEach(function(a){bldgCounts[a]=0;});
+    Object.values(DB).forEach(function(b){if(b.a&&bldgCounts[b.a]!==undefined)bldgCounts[b.a]++;});
+
+    var colTemplate=activeAreas.length===3?"1.4fr 1fr 1fr 1fr":"1.4fr 1fr 1fr";
+
+    // Header
+    var hdr=div({display:"grid",gridTemplateColumns:colTemplate,gap:"6px",padding:"8px 10px",borderBottom:"2px solid "+cl.gold,marginBottom:"2px"});
+    hdr.appendChild(span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"METRIC"));
+    activeAreas.forEach(function(a){hdr.appendChild(span({color:cl.gold,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",textAlign:"center"},a));});
+    cmpCard.appendChild(hdr);
+
+    // Build rows
+    function bestIdx(vals,higherBetter){
+      var best=higherBetter?-Infinity:Infinity;var bi=0;
+      vals.forEach(function(v,i){if(higherBetter?v>best:v<best){best=v;bi=i;}});
+      return bi;
+    }
+    function worstIdx(vals,higherBetter){return bestIdx(vals,!higherBetter);}
+
+    var metrics=[
+      {l:"Average PSF",fn:function(d){return d.psf||0;},fmt:function(v){return"AED "+v.toLocaleString();},hi:false},
+      {l:"Service Charge",fn:function(d){return d.sc||0;},fmt:function(v){return"AED "+v+"/sqft";},hi:false},
+      {l:"Studio Rent",fn:function(d){return Math.round((d.r1||0)*0.65);},fmt:function(v){return v?"AED "+v.toLocaleString():"—";},hi:true},
+      {l:"1BR Rent",fn:function(d){return d.r1||0;},fmt:function(v){return v?"AED "+v.toLocaleString():"—";},hi:true},
+      {l:"2BR Rent",fn:function(d){return d.r2||0;},fmt:function(v){return v?"AED "+v.toLocaleString():"—";},hi:true},
+      {l:"3BR Rent",fn:function(d){return d.r3||0;},fmt:function(v){return v?"AED "+v.toLocaleString():"—";},hi:true},
+      {l:"Gross Yield",fn:function(d){var y=d.y||[5,7];return(y[0]+y[1])/2;},fmt:function(v){return v.toFixed(1)+"%";},hi:true},
+      {l:"Growth 1yr",fn:function(d){return(d.g||[10,18,28])[0]||0;},fmt:function(v){return(v>=0?"+":"")+v+"%";},hi:true},
+      {l:"Growth 3yr",fn:function(d){return(d.g||[10,18,28])[1]||0;},fmt:function(v){return(v>=0?"+":"")+v+"%";},hi:true},
+      {l:"Growth 5yr",fn:function(d){return(d.g||[10,18,28])[2]||0;},fmt:function(v){return(v>=0?"+":"")+v+"%";},hi:true},
+      {l:"Days on Market",fn:function(d){return d.dom||0;},fmt:function(v){return v?v+"d":"—";},hi:false},
+      {l:"Tx Volume",fn:function(d){return d.txVol||0;},fmt:function(v){return v?v.toLocaleString()+"/yr":"—";},hi:true},
+      {l:"Sustainability",fn:function(d,n){return GREEN_AREAS[n]||50;},fmt:function(v){return v+"/100";},hi:true},
+      {l:"Buildings in DB",fn:function(d,n){return bldgCounts[n]||0;},fmt:function(v){return v.toLocaleString();},hi:true}
     ];
-    // Column headers
-    var cmpHdr=div({display:"grid",gridTemplateColumns:"1.2fr 1fr 1fr",gap:"6px",padding:"6px 10px",borderBottom:"1px solid "+cl.border,marginBottom:"4px"});
-    cmpHdr.appendChild(span({color:cl.sub,fontSize:"9px"},"Metric"));
-    cmpHdr.appendChild(span({color:cl.gold,fontSize:"10px",fontWeight:"700",textAlign:"center"},window._idxCmp.a1));
-    cmpHdr.appendChild(span({color:cl.gold,fontSize:"10px",fontWeight:"700",textAlign:"center"},window._idxCmp.a2));
-    cmpCard.appendChild(cmpHdr);
-    rows.forEach(function(r,i){
-      var rw=div({display:"grid",gridTemplateColumns:"1.2fr 1fr 1fr",gap:"6px",padding:"7px 10px",background:i%2===0?"transparent":cl.raised,borderRadius:"4px"});
-      rw.appendChild(span({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},r.l));
-      rw.appendChild(span({color:r.better===1?"#10B981":cl.text,fontSize:"11.5px",fontWeight:r.better===1?"700":"400",fontFamily:"'Space Grotesk',monospace",textAlign:"center"},r.v1+(r.better===1?" ✓":"")));
-      rw.appendChild(span({color:r.better===2?"#10B981":cl.text,fontSize:"11.5px",fontWeight:r.better===2?"700":"400",fontFamily:"'Space Grotesk',monospace",textAlign:"center"},r.v2+(r.better===2?" ✓":"")));
+
+    metrics.forEach(function(m,ri){
+      var vals=datas.map(function(dd){return m.fn(dd.d,dd.name);});
+      var bi=bestIdx(vals,m.hi);
+      var wi=worstIdx(vals,m.hi);
+      if(vals[bi]===vals[wi])wi=-1;
+      var rw=div({display:"grid",gridTemplateColumns:colTemplate,gap:"6px",padding:"7px 10px",background:ri%2===0?"transparent":cl.raised,borderRadius:"4px"});
+      rw.appendChild(span({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},m.l));
+      vals.forEach(function(v,i){
+        var color=i===bi?"#10B981":i===wi?"#EF4444":cl.text;
+        var fw=i===bi?"700":"400";
+        rw.appendChild(span({color:color,fontSize:"11px",fontWeight:fw,fontFamily:"'Space Grotesk',monospace",textAlign:"center"},m.fmt(v)+(i===bi?" ✓":"")));
+      });
       cmpCard.appendChild(rw);
     });
+
+    // --- Bar Charts ---
+    var chartCard=div({marginTop:"16px",paddingTop:"14px",borderTop:"1px solid "+cl.border});
+    chartCard.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"VISUAL COMPARISON"));
+    var barColors=["#C9A84C","#3B82F6","#A78BFA"];
+
+    // PSF chart
+    chartCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"Price Per Sqft (AED)"));
+    var psfMax=Math.max.apply(null,datas.map(function(dd){return dd.d.psf||0;}))||1;
+    datas.forEach(function(dd,i){
+      var psfVal=dd.d.psf||0;
+      var barRow=div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"6px"});
+      barRow.appendChild(span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",width:"80px",textAlign:"right",flexShrink:"0"},dd.name.length>12?dd.name.substring(0,12)+"…":dd.name));
+      var barBg=div({flex:"1",height:"20px",borderRadius:"4px",background:cl.raised,overflow:"hidden",position:"relative"});
+      barBg.appendChild(div({height:"100%",width:Math.round(psfVal/psfMax*100)+"%",background:barColors[i],borderRadius:"4px",transition:"width 1s ease"}));
+      barBg.appendChild(span({position:"absolute",right:"8px",top:"3px",color:"#fff",fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+psfVal.toLocaleString()));
+      barRow.appendChild(barBg);
+      chartCard.appendChild(barRow);
+    });
+
+    // Yield chart
+    chartCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginTop:"14px",marginBottom:"6px"},"Gross Yield (%)"));
+    var yMax=Math.max.apply(null,datas.map(function(dd){var y=dd.d.y||[5,7];return(y[0]+y[1])/2;}))||1;
+    datas.forEach(function(dd,i){
+      var yy=dd.d.y||[5,7];var yVal=(yy[0]+yy[1])/2;
+      var barRow=div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"6px"});
+      barRow.appendChild(span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",width:"80px",textAlign:"right",flexShrink:"0"},dd.name.length>12?dd.name.substring(0,12)+"…":dd.name));
+      var barBg=div({flex:"1",height:"20px",borderRadius:"4px",background:cl.raised,overflow:"hidden",position:"relative"});
+      barBg.appendChild(div({height:"100%",width:Math.round(yVal/yMax*100)+"%",background:barColors[i],borderRadius:"4px",transition:"width 1s ease"}));
+      barBg.appendChild(span({position:"absolute",right:"8px",top:"3px",color:"#fff",fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},yVal.toFixed(1)+"%"));
+      barRow.appendChild(barBg);
+      chartCard.appendChild(barRow);
+    });
+    cmpCard.appendChild(chartCard);
+
+    // --- AI Verdict ---
+    var aiSection=div({marginTop:"16px",paddingTop:"14px",borderTop:"1px solid "+cl.border});
+    if(cmp.aiVerdict){
+      aiSection.appendChild(div({color:cl.gold,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"◆ AI ANALYSIS"));
+      aiSection.appendChild(div({background:cl.raised,borderRadius:"10px",padding:"14px",color:cl.subHi,fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.7",whiteSpace:"pre-wrap"},cmp.aiVerdict));
+    }else{
+      var aiBtn=el("button",{style:{width:"100%",padding:"12px",background:cmp.aiLoading?"#4B5563":"linear-gradient(135deg,#C9A84C,#7A5E28)",color:cmp.aiLoading?"#9CA3AF":"#08090C",border:"none",borderRadius:"10px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:cmp.aiLoading?"not-allowed":"pointer"}});
+      aiBtn.textContent=cmp.aiLoading?"Analyzing…":"🤖 Get AI Verdict";
+      if(!cmp.aiLoading)aiBtn.addEventListener("click",function(){
+        cmp.aiLoading=true;render();
+        var summary=activeAreas.map(function(n){var d=AREAS[n]||{};var y=d.y||[5,7];var g=d.g||[10,18,28];return n+": PSF "+d.psf+", SC "+d.sc+", yield "+(y[0]+y[1])/2+"%, 1yr growth "+g[0]+"%, 3yr "+g[1]+"%, DOM "+(d.dom||"?")+"d, txVol "+(d.txVol||"?")+" , buildings "+bldgCounts[n]+", sustainability "+(GREEN_AREAS[n]||50);}).join(". ");
+        askAI([{role:"user",content:"Compare these Dubai areas for a real estate buyer:\n"+summary+"\n\nProvide: 1) For Investment: which is best and why (yield, growth, liquidity), 2) For Living: which is best and why (community, SC, grade), 3) Value Pick: which offers best value. Be specific with numbers. 3-4 sentences each."}],
+          "You are a Dubai real estate advisor. Give clear, data-backed area comparison advice. Use the numbers provided."
+        ).then(function(r){cmp.aiVerdict=r;cmp.aiLoading=false;render();}).catch(function(e){cmp.aiLoading=false;cmp.aiVerdict="Error: "+e.message;render();});
+      });
+      aiSection.appendChild(aiBtn);
+    }
+    cmpCard.appendChild(aiSection);
+
+    // --- Share button ---
+    var shareRow=div({marginTop:"14px",display:"flex",gap:"8px"});
+    var shareBtn=el("button",{style:{flex:"1",padding:"10px",background:hexAlpha("#3B82F6",0.12),border:"1px solid "+hexAlpha("#3B82F6",0.3),borderRadius:"8px",color:"#60A5FA",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+    shareBtn.textContent="📤 Share Comparison";
+    shareBtn.addEventListener("click",function(){
+      var url=window.location.origin+window.location.pathname+"?compare="+encodeURIComponent(activeAreas.join(","));
+      if(navigator.clipboard){navigator.clipboard.writeText(url).then(function(){shareBtn.textContent="✓ Link Copied!";setTimeout(function(){shareBtn.textContent="📤 Share Comparison";},2000);});}
+      else{prompt("Copy this link:",url);}
+    });
+    shareRow.appendChild(shareBtn);
+    if(cmp.aiVerdict){
+      var resetAi=el("button",{style:{padding:"10px 16px",background:"transparent",border:"1px solid "+cl.border,borderRadius:"8px",color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+      resetAi.textContent="↻ Re-analyze";
+      resetAi.addEventListener("click",function(){cmp.aiVerdict="";render();});
+      shareRow.appendChild(resetAi);
+    }
+    cmpCard.appendChild(shareRow);
+  }else if(activeAreas.length===1){
+    cmpCard.appendChild(div({textAlign:"center",padding:"20px",color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Select at least 2 areas to compare"));
   }
   wrap.appendChild(cmpCard);
 
