@@ -33,6 +33,7 @@ async function postDeal(){
   if(DEAL_STATE.posting)return;
   var f=DEAL_STATE.form;
   if(!f.agentName||!f.agentPhone||!f.area||!f.price){alert("Please fill required fields");return;}
+  if(!f.reraNumber||f.reraNumber.trim().length<3){alert("RERA BRN is required (minimum 3 characters). Please enter your RERA number to post a deal.");return;}
   if(f.type==="have"&&!f.titleDeedNo){alert("Title Deed number is required for listings. Please enter your Title Deed number to verify property ownership.");return;}
   saveAgentProfile();
   DEAL_STATE.posting=true;render();
@@ -343,7 +344,18 @@ function renderDeals(){
   filterRow.appendChild(urgSelect);
   wrap.appendChild(filterRow);
 
+  // RERA Verified toggle
+  if(!DEAL_STATE.filter.reraOnly)DEAL_STATE.filter.reraOnly=false;
+  var reraToggle=div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"14px"});
+  var reraActive=DEAL_STATE.filter.reraOnly;
+  var reraTBtn=el("button",{style:{display:"flex",alignItems:"center",gap:"6px",padding:"6px 14px",borderRadius:"8px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",background:reraActive?hexAlpha("#3B82F6",0.15):"transparent",color:reraActive?"#3B82F6":cl.sub,border:"1px solid "+(reraActive?"rgba(59,130,246,0.3)":cl.border)}});
+  reraTBtn.textContent=(reraActive?"✓ ":"")+"RERA Verified Only";
+  reraTBtn.addEventListener("click",function(){DEAL_STATE.filter.reraOnly=!DEAL_STATE.filter.reraOnly;render();});
+  reraToggle.appendChild(reraTBtn);
+  wrap.appendChild(reraToggle);
+
   var allDeals=DEAL_STATE.deals;
+  if(DEAL_STATE.filter.reraOnly)allDeals=allDeals.filter(function(d){return d.rera_number&&d.rera_number.length>=3;});
   var haveCount=allDeals.filter(function(d){return d.type==="have";}).length;
   var needCount=allDeals.filter(function(d){return d.type==="need";}).length;
   var hotCount=allDeals.filter(function(d){return d.urgency==="hot";}).length;
@@ -489,7 +501,7 @@ function renderDeals(){
     typeBadge.textContent=isHave?"I HAVE":"I NEED";
     leftTop.appendChild(typeBadge);
     if(d.urgency!=="normal"){var urgBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:"rgba(239,68,68,0.12)",color:urgColors[d.urgency]}});urgBadge.textContent=urgLabels[d.urgency];leftTop.appendChild(urgBadge);}
-    if(d.rera_number){var verBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:"rgba(59,130,246,0.12)",color:"#3B82F6"}});verBadge.textContent="✓ VERIFIED";leftTop.appendChild(verBadge);}
+    if(d.rera_number){var verBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:hexAlpha("#3B82F6",0.12),color:"#3B82F6"}});verBadge.textContent="RERA Verified ✓";leftTop.appendChild(verBadge);}
     if(d.title_deed_no){var tdBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:"rgba(234,179,8,0.12)",color:"#EAB308"}});tdBadge.textContent="📜 TITLE DEED";leftTop.appendChild(tdBadge);}
     if(d.off_market){var omBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:"rgba(201,168,76,0.12)",color:cl.gold}});omBadge.textContent="OFF-MARKET";leftTop.appendChild(omBadge);}
     topRow.appendChild(leftTop);
@@ -821,7 +833,7 @@ function renderDealForm(wrap,cl){
   agentRow2.appendChild(makeInput("Email","agentEmail","agent@email.com","email"));
   card.appendChild(agentRow2);
   var reraRow=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",alignItems:"end"});
-  var reraInp=makeInput("RERA BRN","reraNumber","e.g. 12345");
+  var reraInp=makeInput("RERA BRN *","reraNumber","e.g. 12345");
   reraRow.appendChild(reraInp);
   var reraInfo=div({marginBottom:"10px",display:"flex",alignItems:"center",gap:"6px",height:"40px"});
   if(f.reraNumber&&f.reraNumber.length>=3){reraInfo.appendChild(span({color:"#3B82F6",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",background:"rgba(59,130,246,0.12)",padding:"4px 10px",borderRadius:"8px",fontWeight:"700"},"✓ Verified Badge Active"));}
@@ -1150,25 +1162,37 @@ function renderAgentHub(wrap,cl){
         div({color:cl.subHi,fontSize:"13px",fontWeight:"600",fontFamily:"'Inter',sans-serif",marginBottom:"4px"},"No agents registered yet"),
         div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Be the first to join the DubAIVal referral network")]));
     }else{
-      hub.agents.forEach(function(ag){
+      var sortedAgents=hub.agents.slice().sort(function(a,b){
+        var aTier=(a.subscription==="gold"||a.subscription==="platinum")?1:0;
+        var bTier=(b.subscription==="gold"||b.subscription==="platinum")?1:0;
+        var aRera=a.rera_number?1:0;var bRera=b.rera_number?1:0;
+        var scoreA=aTier*2+aRera;var scoreB=bTier*2+bRera;
+        return scoreB-scoreA;
+      });
+      sortedAgents.forEach(function(ag){
         var agCard=div({background:cl.raised,borderRadius:"10px",padding:"10px 12px",marginBottom:"8px",border:"1px solid "+cl.border});
         var agTop=div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"4px"});
         var agLeft=div({display:"flex",alignItems:"center",gap:"8px"});
         var subColors={free:cl.sub,gold:"#EAB308",platinum:"#A78BFA"};
         agLeft.appendChild(div({width:"36px",height:"36px",borderRadius:"50%",background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",display:"flex",alignItems:"center",justifyContent:"center",color:"#070B14",fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},ag.agent_name?ag.agent_name.charAt(0).toUpperCase():"A"));
         var agInfo=div({});
-        agInfo.appendChild(div({display:"flex",alignItems:"center",gap:"6px"},[
-          span({color:cl.subHi,fontSize:"12px",fontWeight:"700",fontFamily:"'Inter',sans-serif"},ag.agent_name),
-          span({color:subColors[ag.subscription]||cl.sub,fontSize:"8px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"2px 6px",borderRadius:"6px",
-            background:hexAlpha(subColors[ag.subscription]||cl.sub,0.12),textTransform:"uppercase"},ag.subscription||"FREE")
-        ]));
+        var nameRow=div({display:"flex",alignItems:"center",gap:"6px"});
+        nameRow.appendChild(span({color:cl.subHi,fontSize:"12px",fontWeight:"700",fontFamily:"'Inter',sans-serif"},ag.agent_name));
+        if(ag.rera_number)nameRow.appendChild(span({color:"#3B82F6",fontSize:"11px",fontWeight:"700",title:"RERA Verified"},"✓"));
+        nameRow.appendChild(span({color:subColors[ag.subscription]||cl.sub,fontSize:"8px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"2px 6px",borderRadius:"6px",
+            background:hexAlpha(subColors[ag.subscription]||cl.sub,0.12),textTransform:"uppercase"},ag.subscription||"FREE"));
+        agInfo.appendChild(nameRow);
         if(ag.agent_company)agInfo.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},ag.agent_company));
         agLeft.appendChild(agInfo);
         agTop.appendChild(agLeft);
-        if(ag.rera_number)agTop.appendChild(span({color:"#3B82F6",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",background:"rgba(59,130,246,0.12)",padding:"3px 8px",borderRadius:"6px",fontWeight:"700"},"RERA: "+ag.rera_number));
+        if(ag.rera_number)agTop.appendChild(span({color:"#3B82F6",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",background:hexAlpha("#3B82F6",0.12),padding:"3px 8px",borderRadius:"6px",fontWeight:"700"},"RERA: "+ag.rera_number));
         agCard.appendChild(agTop);
         if(ag.areas_text)agCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginTop:"4px"},"Areas: "+ag.areas_text));
         if(ag.specialties)agCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},"Specialties: "+ag.specialties));
+        if(!ag.rera_number)agCard.appendChild(div({background:hexAlpha("#F59E0B",0.08),border:"1px solid "+hexAlpha("#F59E0B",0.25),borderRadius:"6px",padding:"5px 10px",marginTop:"6px",display:"flex",alignItems:"center",gap:"4px"},[
+          span({color:"#F59E0B",fontSize:"9px"},"⚠"),
+          span({color:"#F59E0B",fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Add RERA number to get verified badge")
+        ]));
         if(ag.deals_closed>0||ag.video_analyses>0){
           var agStats=div({display:"flex",gap:"12px",marginTop:"6px"});
           if(ag.deals_closed>0)agStats.appendChild(span({color:cl.green,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},ag.deals_closed+" deals closed"));
