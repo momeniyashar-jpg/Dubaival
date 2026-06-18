@@ -12,6 +12,14 @@ function renderMarketIndex(){
   header.appendChild(el("div",{style:{color:cl.sub,fontSize:"11px"}},"by DubAIVal · "+dateStr));
   wrap.appendChild(header);
 
+  // Full Market Data CSV Export
+  wrap.appendChild(el("div",{style:{textAlign:"center",marginBottom:"16px"}},[csvExportBtn("Download Full Market Data (CSV)",cl,function(){
+    var hdrs=["area_name","avg_psf","service_charge","studio_rent","1br_rent","2br_rent","3br_rent","yield_low","yield_high","growth_1y","growth_3y","growth_5y","dom","tx_volume"];
+    var rows=[];AREA_NAMES.forEach(function(n){var a=AREAS[n];if(!a)return;var y=a.y||[0,0];var g=a.g||[0,0,0];
+      rows.push([n,a.psf||0,a.sc||0,a.r1||0,a.r2||0,a.r3||0,a.rv2||0,y[0],y[1],g[0],g[1],g[2],a.dom||0,a.txVol||0]);});
+    exportCSV("DubaiVal_Market_Data_"+csvDate()+".csv",hdrs,rows);
+  })]));
+
   // Compute aggregates
   var names=AREA_NAMES;
   var totalPsf=0,totalYield=0,totalG0=0,cnt=0;
@@ -268,6 +276,14 @@ function renderMarketIndex(){
       else{prompt("Copy this link:",url);}
     });
     shareRow.appendChild(shareBtn);
+    (function(aa,ds,ms){
+      var expBtn=csvExportBtn("Export Comparison (CSV)",cl,function(){
+        var hdrs=["metric"].concat(aa);
+        var rows=ms.map(function(m){var r=[m.l];ds.forEach(function(dd){r.push(m.fn(dd.d,dd.name));});return r;});
+        exportCSV("DubaiVal_Comparison_"+csvDate()+".csv",hdrs,rows);
+      });
+      expBtn.style.flex="1";shareRow.appendChild(expBtn);
+    })(activeAreas,datas,metrics);
     if(cmp.aiVerdict){
       var resetAi=el("button",{style:{padding:"10px 16px",background:"transparent",border:"1px solid "+cl.border,borderRadius:"8px",color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
       resetAi.textContent="↻ Re-analyze";

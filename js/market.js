@@ -1950,6 +1950,13 @@ function renderAnalyzerResult(wrap){
     wrap.appendChild(sec);
   })();
 
+  // CSV Export
+  wrap.appendChild(csvExportBtn("Export Report (CSV)",cl,function(){
+    exportCSV("DubaiVal_Valuation_"+csvDate()+".csv",
+      ["building","area","size_sqft","asking_price","fair_price","ask_psf","adj_psf","verdict","confidence","gross_yield","net_yield","signal","total_return_annual"],
+      [[f.building||"",f.area,f.size||f.buaSize||"",f.price||"",val.fairPrice,val.askPSF,val.adjPSF,val.verdict,val.confScore,val.grossYield,val.netYield,val.investSignal?val.investSignal.label:"",val.totalReturnAnnual]]);
+  }));
+
   // PDF Report Section
   const pdfWrap=el('div',{style:{background:cl.surface,border:'1px solid '+cl.goldDim,borderRadius:'14px',padding:'18px',marginTop:'14px'}});
   

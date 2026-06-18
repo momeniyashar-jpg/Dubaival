@@ -417,6 +417,21 @@ var compareState={a1:"",a2:"",budget:"",purpose:"Investment",loading:false,resul
 var personalState={budget:"",role:"Investor",family:"Couple",children:"0",work:"",purpose:"Investment",timeline:"6 months",loading:false,result:"",err:""};
 var chatState={msgs:[{role:"assistant",text:"DubAIVal Intelligence.\n\nBuilding-level knowledge · June 2026 data · Confidence scoring.\n\nAsk me about any building, deal, or strategy."}],input:"",loading:false};
 
+// --- CSV EXPORT ---
+function exportCSV(filename,headers,rows){
+  function esc(v){var s=String(v==null?"":v);if(s.indexOf(",")!==-1||s.indexOf('"')!==-1||s.indexOf("\n")!==-1)return'"'+s.replace(/"/g,'""')+'"';return s;}
+  var lines=[headers.map(esc).join(",")];
+  rows.forEach(function(r){lines.push(r.map(esc).join(","));});
+  var blob=new Blob(["﻿"+lines.join("\n")],{type:"text/csv;charset=utf-8"});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+function csvDate(){return new Date().toISOString().slice(0,10);}
+function csvExportBtn(label,cl,onclick){
+  var b=el("button",{style:{background:"transparent",border:"1px solid "+cl.goldDim,color:cl.gold,padding:"8px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",display:"inline-flex",alignItems:"center",gap:"6px"}});
+  b.textContent="📥 "+label;b.addEventListener("click",onclick);return b;
+}
+
 // --- NOTIFICATION SYSTEM ---
 var DV_NOTIF={items:[],showPanel:false};
 try{var _nn=localStorage.getItem("dv_notifications");if(_nn)DV_NOTIF.items=JSON.parse(_nn);}catch(e){}
