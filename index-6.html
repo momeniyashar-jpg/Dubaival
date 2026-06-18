@@ -5039,6 +5039,66 @@ function renderDeals(){
     return wrap;
   }
 
+  // --- SMART MATCHING ALERTS ---
+  var allMatches=[];
+  var seenPairs={};
+  DEAL_STATE.deals.forEach(function(d){
+    var ms=findMatches(d);
+    ms.forEach(function(m){
+      var pairKey=[Math.min(d.id,m.deal.id),Math.max(d.id,m.deal.id)].join("-");
+      if(seenPairs[pairKey])return;
+      seenPairs[pairKey]=true;
+      var have=d.type==="have"?d:m.deal;
+      var need=d.type==="need"?d:m.deal;
+      allMatches.push({have:have,need:need,score:m.score});
+    });
+  });
+  allMatches.sort(function(a,b){return b.score-a.score;});
+
+  if(allMatches.length>0){
+    var matchPanel=div({background:"linear-gradient(135deg,rgba(201,168,76,0.08),rgba(201,168,76,0.03))",border:"1px solid rgba(201,168,76,0.35)",borderRadius:"14px",padding:"14px 16px",marginBottom:"14px"});
+    matchPanel.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"},[
+      div({display:"flex",alignItems:"center",gap:"8px"},[
+        span({fontSize:"16px"},"🔗"),
+        div({},[
+          div({color:cl.gold,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"},"Smart Matches"),
+          div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},"Have ↔ Need deals matched by area, type & budget")])]),
+      span({background:"rgba(201,168,76,0.15)",color:cl.gold,fontSize:"11px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",padding:"4px 10px",borderRadius:"10px"},String(allMatches.length)+" match"+(allMatches.length!==1?"es":""))
+    ]));
+    allMatches.slice(0,5).forEach(function(m,idx){
+      var mCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"10px",padding:"10px 12px",marginBottom:idx<Math.min(allMatches.length,5)-1?"8px":"0"});
+      // Score badge
+      var scoreColor=m.score>=80?"#10B981":m.score>=60?cl.gold:"#60A5FA";
+      var scoreLabel=m.score>=80?"Excellent":m.score>=60?"Strong":"Good";
+      // Top: score + area
+      mCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"},[
+        div({display:"flex",alignItems:"center",gap:"6px"},[
+          span({background:hexAlpha(scoreColor,0.12),color:scoreColor,fontSize:"10px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"8px"},m.score+"% "+scoreLabel),
+          span({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},m.have.area+(m.have.prop_type?" · "+m.have.prop_type:""))]),
+        span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},m.have.beds||"")
+      ]));
+      // Have row
+      var hRow=div({display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 8px",background:"rgba(0,200,150,0.06)",borderRadius:"6px",marginBottom:"4px"});
+      hRow.appendChild(div({display:"flex",alignItems:"center",gap:"6px"},[
+        span({color:cl.green,fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"HAVE"),
+        span({color:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif"},m.have.agent_name+(m.have.building?" · "+m.have.building:""))]));
+      hRow.appendChild(span({color:cl.green,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+m.have.price.toLocaleString()));
+      mCard.appendChild(hRow);
+      // Need row
+      var nRow=div({display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 8px",background:"rgba(96,165,250,0.06)",borderRadius:"6px"});
+      nRow.appendChild(div({display:"flex",alignItems:"center",gap:"6px"},[
+        span({color:"#60A5FA",fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"NEED"),
+        span({color:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif"},m.need.agent_name+(m.need.building?" · "+m.need.building:""))]));
+      nRow.appendChild(span({color:"#60A5FA",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+m.need.price.toLocaleString()));
+      mCard.appendChild(nRow);
+      matchPanel.appendChild(mCard);
+    });
+    if(allMatches.length>5){
+      matchPanel.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",textAlign:"center",marginTop:"8px"},"+ "+(allMatches.length-5)+" more matches"));
+    }
+    wrap.appendChild(matchPanel);
+  }
+
   DEAL_STATE.deals.forEach(function(d){
     var isHave=d.type==="have";
     var urgColors={hot:"#EF4444",urgent:"#F59E0B",normal:cl.border};
