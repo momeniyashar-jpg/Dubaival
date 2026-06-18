@@ -1014,13 +1014,16 @@ function computeValuation(f,buildingVal,liveData){
 }
 
 // --- API ---------------------------------------------------------------------
-const UAE_RE_KEY=localStorage.getItem("dv_rapidapi")||"ddc307f847msh24a823bf182609ap19b50cjsn17114bab81f9";
+var API_BASE=(location.hostname==="localhost"||location.hostname==="127.0.0.1")?"":"/api";
+const UAE_RE_KEY=localStorage.getItem("dv_rapidapi")||"";
 const UAE_RE_HOST="uae-real-estate2.p.rapidapi.com";
 const GROQ_KEY=localStorage.getItem("dv_groq")||"";
 
 async function getUAELocationId(query){
   try{
-    const r=await fetch("https://"+UAE_RE_HOST+"/auto-complete?query="+encodeURIComponent(query)+"&hitsPerPage=5",{headers:{"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":UAE_RE_HOST}});
+    var r;
+    if(UAE_RE_KEY){r=await fetch("https://"+UAE_RE_HOST+"/auto-complete?query="+encodeURIComponent(query)+"&hitsPerPage=5",{headers:{"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":UAE_RE_HOST}});}
+    else{r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=auto-complete&query="+encodeURIComponent(query)+"&hitsPerPage=5");}
     if(!r.ok)return null;
     const d=await r.json();
     const hits=d.hits||[];
@@ -1035,12 +1038,19 @@ async function fetchLiveData(building,area,beds){
   try{
     const locId=await getUAELocationId(q)||await getUAELocationId(area);
     if(!locId)return{sales:[],txs:[]};
-    const h={"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":UAE_RE_HOST};
-    const params=new URLSearchParams({locationExternalIDs:locId,purpose:"for-sale",hitsPerPage:"15",page:"0",rooms_min:String(bn),rooms_max:String(bn)});
-    const [sp,tp]=await Promise.allSettled([
-      fetch("https://"+UAE_RE_HOST+"/properties/list?"+params,{headers:h}).then(function(r){return r.ok?r.json():null}),
-      fetch("https://"+UAE_RE_HOST+"/transactions/list?locationExternalIDs="+locId+"&page=1&hitsPerPage=12",{headers:h}).then(function(r){return r.ok?r.json():null}),
-    ]);
+    var listParams="endpoint=properties/list&locationExternalIDs="+locId+"&purpose=for-sale&hitsPerPage=15&page=0&rooms_min="+bn+"&rooms_max="+bn;
+    var txParams="endpoint=transactions/list&locationExternalIDs="+locId+"&page=1&hitsPerPage=12";
+    var fetchList,fetchTx;
+    if(UAE_RE_KEY){
+      const h={"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":UAE_RE_HOST};
+      const params=new URLSearchParams({locationExternalIDs:locId,purpose:"for-sale",hitsPerPage:"15",page:"0",rooms_min:String(bn),rooms_max:String(bn)});
+      fetchList=fetch("https://"+UAE_RE_HOST+"/properties/list?"+params,{headers:h}).then(function(r){return r.ok?r.json():null});
+      fetchTx=fetch("https://"+UAE_RE_HOST+"/transactions/list?locationExternalIDs="+locId+"&page=1&hitsPerPage=12",{headers:h}).then(function(r){return r.ok?r.json():null});
+    }else{
+      fetchList=fetch(API_BASE+"/proxy-rapidapi?"+listParams).then(function(r){return r.ok?r.json():null});
+      fetchTx=fetch(API_BASE+"/proxy-rapidapi?"+txParams).then(function(r){return r.ok?r.json():null});
+    }
+    const [sp,tp]=await Promise.allSettled([fetchList,fetchTx]);
     const sales=sp.status==="fulfilled"&&sp.value&&sp.value.hits?sp.value.hits.filter(function(p){return p.price&&p.area}).map(function(p){return{price:p.price,size:p.area,psf:Math.round(p.price/p.area),beds:p.rooms}}).filter(function(p){return p.psf>400&&p.psf<15000}):[];
     const txs=tp.status==="fulfilled"&&tp.value&&tp.value.hits?tp.value.hits.filter(function(t){return t.price&&t.area}).map(function(t){return{price:t.price,size:t.area,psf:Math.round(t.price/t.area)}}).filter(function(t){return t.psf>400&&t.psf<15000}):[];
     return{sales,txs};
@@ -1051,14 +1061,27 @@ async function askAI(messages,system){
   const groqMessages=[];
   if(system)groqMessages.push({role:"system",content:system});
   messages.forEach(function(m){groqMessages.push({role:m.role,content:m.content})});
-  const r=await fetch("https://api.groq.com/openai/v1/chat/completions",{
-    method:"POST",
-    headers:{"Content-Type":"application/json","Authorization":"Bearer "+GROQ_KEY+""},
-    body:JSON.stringify({model:"llama-3.3-70b-versatile",max_tokens:1000,messages:groqMessages})
-  });
+  var r;
+  if(GROQ_KEY){
+    r=await fetch("https://api.groq.com/openai/v1/chat/completions",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+GROQ_KEY},
+      body:JSON.stringify({model:"llama-3.3-70b-versatile",max_tokens:1000,messages:groqMessages})
+    });
+  }else{
+    r=await fetch(API_BASE+"/proxy-groq",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({model:"llama-3.3-70b-versatile",max_tokens:1000,messages:groqMessages})
+    });
+  }
   if(!r.ok)throw new Error("API "+r.status);
   const d=await r.json();
   return d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||"";
+}
+function callGroqRaw(groqBody){
+  if(GROQ_KEY){return fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+GROQ_KEY},body:JSON.stringify(groqBody)});}
+  return fetch(API_BASE+"/proxy-groq",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(groqBody)});
 }
 
 // --- AI RESPONSE FORMATTER (Rich styled output) ------------------------------
@@ -1278,12 +1301,8 @@ async function fetchLiveMarket(){
     var today=new Date();
     var dateStr=today.toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"});
     var prompt='Dubai real estate macro risk analysis for '+dateStr+'.\n\nOFFICIAL DLD CONTEXT:\n- Q1 2026: AED 252B transactions (+31% YoY)\n- Jan 2026: 16,919 sales, avg PSF AED 1,976 (+18% YoY)\n- Feb-Mar 2026: Geo shock from US-Israel-Iran strikes, -20% DFM index\n- May 2026: Full recovery, AED 14B+/week, 87% cash purchases\n- June 2026: Volatile stabilization phase\n\nBased on latest available data, return ONLY this JSON (no other text):\n{"riskFactor":<0.90-1.05>,"socialIndex":<0.95-1.05>,"economicOutlook":<0.95-1.05>,"label":"<brief status in English>","reason":"<one sentence why>"}\n\nGuidelines:\n- riskFactor<1 = geopolitical tension reducing demand\n- socialIndex reflects DLD weekly volume trend\n- economicOutlook reflects price trend and fundamentals\n- Be conservative, not optimistic';
-    
-    var resp=await fetch("https://api.groq.com/openai/v1/chat/completions",{
-      method:"POST",
-      headers:{"Content-Type":"application/json","Authorization":"Bearer "+GROQ_KEY+""},
-      body:JSON.stringify({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:prompt}],max_tokens:200,temperature:0.1})
-    });
+
+    var resp=await callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:prompt}],max_tokens:200,temperature:0.1});
     
     var data=await resp.json();
     var text=data.choices&&data.choices[0]?data.choices[0].message.content:"";
@@ -1344,11 +1363,7 @@ async function fetchMarketIntelligence(){
   MACRO_VARS.intelFetched=true;
   try{
     var prompt='Dubai real estate market intelligence for June 14, 2026.\n\nVERIFIED DLD DATA:\n- Avg PSF June 2026: AED 1,755 (+19.8% YoY) [Dubai-Index.com]\n- Q1 2026 volume: AED 252B (+31% YoY) [DLD]\n- Villa PSF: +16% YoY [DLD/Bayut]\n- Apt PSF: -3% MoM (April adj), still +5.49% YoY\n- Ready market: -8% transactions YoY (off-plan dominates at 72%)\n- Feb-Mar 2026: geo shock, -51% transaction volume week of March\n- May 2026: full recovery, AED 14B+/week\n- Distress deals: Marina 15-35%, Downtown/Palm 20-30% below asking\n\nBased on this OFFICIAL data, return JSON only:\n{"apt_adj":<-0.05 to 0.05>,"villa_adj":<-0.03 to 0.05>,"label":"<10 words>","reason":"<one sentence with specific data point>","market_psf":1755,"trend":"stable"}\n\nNote: adj=0 means no change to DB PSF values. Negative=buyers have leverage. DLD PSF is already current 2026 data.';
-    var resp=await fetch("https://api.groq.com/openai/v1/chat/completions",{
-      method:"POST",
-      headers:{"Content-Type":"application/json","Authorization":"Bearer "+GROQ_KEY+""},
-      body:JSON.stringify({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:prompt}],max_tokens:200,temperature:0.1})
-    });
+    var resp=await callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:prompt}],max_tokens:200,temperature:0.1});
     var data=await resp.json();
     var text=data.choices&&data.choices[0]?data.choices[0].message.content:"";
     var clean=text.replace(/```json|```/g,"").trim();
@@ -1788,7 +1803,6 @@ function renderFind(){
 
     try{
       // Step 1: Try uae-real-estate2 for real live listings
-      var uaeH={"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":UAE_RE_HOST};
       var bedsNumMap={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5};
       var bn=bedsNumMap[beds]||2;
       var searchTerm=query||(area?area:"Dubai");
@@ -1799,7 +1813,9 @@ function renderFind(){
         var params=new URLSearchParams({locationExternalIDs:locId,purpose:"for-sale",hitsPerPage:"25",page:"0"});
         if(beds){params.set("rooms_min",String(bn));params.set("rooms_max",String(bn));}
         if(maxPrice>0)params.set("priceMax",String(maxPrice));
-        var listResp=await fetch("https://"+UAE_RE_HOST+"/properties/list?"+params,{headers:uaeH});
+        var listResp;
+        if(UAE_RE_KEY){listResp=await fetch("https://"+UAE_RE_HOST+"/properties/list?"+params,{headers:{"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":UAE_RE_HOST}});}
+        else{listResp=await fetch(API_BASE+"/proxy-rapidapi?endpoint=properties/list&"+params);}
         if(listResp.ok){
           var listData=await listResp.json();
           var liveHits=listData.hits||[];
@@ -1840,11 +1856,7 @@ function renderFind(){
       if(FS.results.length===0){
         var searchQuery=(beds?beds+" ":"")+type+" for sale"+(area?" in "+area:"")+(maxPrice?" under AED "+(maxPrice/1e6).toFixed(1)+"M":"")+". June 2026. Dubai UAE.";
         var prompt="Provide market intelligence for: "+searchQuery+"\n\nReturn EXACTLY this JSON array (5-8 typical options based on June 2026 market data):\n[{\"title\":\"Building Name Type Beds\",\"area\":\"Area Name\",\"price\":2500000,\"size\":1200,\"beds\":2,\"baths\":2,\"floor\":15,\"furnished\":\"Unfurnished\",\"permit\":\"\",\"agentName\":\"DubaiVal AI\",\"agencyName\":\"Market Estimate\",\"agentPhone\":\"\",\"agentWA\":\"\",\"photo\":\"\",\"listingUrl\":\"https://www.bayut.com\",\"source\":\"AI Estimate\"}]\n\nUse real June 2026 market prices. Return ONLY the JSON array, no other text.";
-        var resp=await fetch("https://api.groq.com/openai/v1/chat/completions",{
-          method:"POST",
-          headers:{"Content-Type":"application/json","Authorization":"Bearer "+GROQ_KEY+""},
-          body:JSON.stringify({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:"You are a Dubai real estate market expert. Return ONLY valid JSON arrays based on June 2026 market data."},{role:"user",content:prompt}],max_tokens:2000,temperature:0.3})
-        });
+        var resp=await callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:"You are a Dubai real estate market expert. Return ONLY valid JSON arrays based on June 2026 market data."},{role:"user",content:prompt}],max_tokens:2000,temperature:0.3});
         var data=await resp.json();
         var text=data.choices&&data.choices[0]?data.choices[0].message.content:"";
         var clean=text.replace(/```json|```/g,"").trim();
@@ -3147,7 +3159,7 @@ function renderAnalyzer(){
           try{dvTrack("analyze_property",{area:analyzerState.f.area,type:"villa"});}catch(e){}
           const aiPrompt=analyzerState.f.building+" villa/townhouse in "+analyzerState.f.area+". BUA:"+f.size+"sqft. Asking AED "+parseInt(f.price).toLocaleString()+". Verdict:"+analyzerState.val.verdict+". PSF "+analyzerState.val.vsPct+"% vs market. Investor:"+USER_PROFILE.investorType+". 3 sentences: assessment, negotiation, risk.";
           const groqBody={model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4};
-          fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+GROQ_KEY+""},body:JSON.stringify(groqBody)}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){analyzerState.aiText="";render();});
+          callGroqRaw(groqBody).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){analyzerState.aiText="";render();});
           render();
         },50);
       });
@@ -3243,7 +3255,7 @@ function renderAnalyzer(){
           const propDesc=analyzerState.f.building+" "+analyzerState.f.area+" "+(f.aptSubtype||f.beds||"")+" floor"+f.floor+" "+f.view+" "+f.size+"sqft AED "+parseInt(f.price).toLocaleString();
           const aiPrompt=propDesc+". Verdict:"+analyzerState.val.verdict+". Asking PSF "+analyzerState.val.vsPct+"% vs market("+analyzerState.val.adjPSF.toLocaleString()+")."+sentCtx+" Investor:"+profileCtx+riskCtx+" 3 sentences: assessment, negotiation target AED, key risk/opportunity.";
           const groqBody={model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4};
-          fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+GROQ_KEY+""},body:JSON.stringify(groqBody)}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){analyzerState.aiText="";render();});
+          callGroqRaw(groqBody).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){analyzerState.aiText="";render();});
           render();
         },50);
       });
