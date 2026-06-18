@@ -6,7 +6,7 @@ function renderChat(){
   chatState.msgs.forEach(function(m){
     const isA=m.role==="assistant";
     const row=div({display:"flex",justifyContent:isA?"flex-start":"flex-end",gap:"8px"});
-    if(isA){var av=el("div",{style:{width:"28px",height:"28px",borderRadius:"7px",flexShrink:"0",background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden"}});av.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20"><g transform="translate(12,1)"><line x1="0" y1="0" x2="0" y2="5" stroke="#fff" stroke-width="1" stroke-linecap="round"/><rect x="-1.5" y="5" width="3" height="2.5" fill="#fff" rx="0.3"/><polygon points="-3,7.5 3,7.5 1.5,5 -1.5,5" fill="#fff"/><rect x="-3.5" y="7.5" width="7" height="3" fill="#fff" rx="0.3"/><polygon points="-5,10.5 5,10.5 3.5,7.5 -3.5,7.5" fill="#fff"/><rect x="-5.5" y="10.5" width="11" height="3.5" fill="#fff" rx="0.4"/><rect x="-6.5" y="14" width="13" height="2" fill="#fff" rx="0.3"/><text x="-4" y="19.5" font-family="Space Grotesk,monospace" font-size="5" font-weight="900" fill="rgba(255,255,255,0.7)">AI</text></g></svg>';row.appendChild(av);}
+    if(isA){var av=el("img",{src:"logo.png",alt:"dAIv",style:{width:"28px",height:"28px",borderRadius:"7px",flexShrink:"0",objectFit:"contain"}});row.appendChild(av);}
     const bubble=div({maxWidth:"84%",background:isA?cl.surface:cl.goldFaint,border:"1px solid "+(isA?cl.border:cl.goldDim),borderRadius:isA?"14px 14px 14px 0":"14px 14px 0 14px",padding:"11px 15px",color:cl.subHi,fontSize:"13px",lineHeight:"1.8",fontFamily:"'Inter',sans-serif"});
     if(isA){var formatted=formatAIResponse(m.text,cl);if(formatted)bubble.appendChild(formatted);else{bubble.style.whiteSpace="pre-wrap";bubble.textContent=m.text;}}
     else{bubble.style.whiteSpace="pre-wrap";bubble.textContent=m.text;}
@@ -14,7 +14,7 @@ function renderChat(){
   });
   if(chatState.loading){
     const row=div({display:"flex",gap:"8px",alignItems:"center"});
-    var av2=el("div",{style:{width:"28px",height:"28px",borderRadius:"7px",background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden"}});av2.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20"><g transform="translate(12,1)"><line x1="0" y1="0" x2="0" y2="5" stroke="#fff" stroke-width="1" stroke-linecap="round"/><rect x="-1.5" y="5" width="3" height="2.5" fill="#fff" rx="0.3"/><polygon points="-3,7.5 3,7.5 1.5,5 -1.5,5" fill="#fff"/><rect x="-3.5" y="7.5" width="7" height="3" fill="#fff" rx="0.3"/><polygon points="-5,10.5 5,10.5 3.5,7.5 -3.5,7.5" fill="#fff"/><rect x="-5.5" y="10.5" width="11" height="3.5" fill="#fff" rx="0.4"/><rect x="-6.5" y="14" width="13" height="2" fill="#fff" rx="0.3"/><text x="-4" y="19.5" font-family="Space Grotesk,monospace" font-size="5" font-weight="900" fill="rgba(255,255,255,0.7)">AI</text></g></svg>';row.appendChild(av2);
+    var av2=el("img",{src:"logo.png",alt:"dAIv",style:{width:"28px",height:"28px",borderRadius:"7px",objectFit:"contain"}});row.appendChild(av2);
     const dots=div({display:"flex",gap:"4px"});
     [0,1,2].forEach(function(j){dots.appendChild(div({width:"7px",height:"7px",borderRadius:"50%",background:cl.gold,animation:"bounce 1.1s "+(j*0.18)+"s infinite"}))});
     row.appendChild(dots);msgsDiv.appendChild(row);
