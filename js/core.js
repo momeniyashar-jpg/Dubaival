@@ -417,6 +417,105 @@ var compareState={a1:"",a2:"",budget:"",purpose:"Investment",loading:false,resul
 var personalState={budget:"",role:"Investor",family:"Couple",children:"0",work:"",purpose:"Investment",timeline:"6 months",loading:false,result:"",err:""};
 var chatState={msgs:[{role:"assistant",text:"DubAIVal Intelligence.\n\nBuilding-level knowledge · June 2026 data · Confidence scoring.\n\nAsk me about any building, deal, or strategy."}],input:"",loading:false};
 
+// --- NOTIFICATION SYSTEM ---
+var DV_NOTIF={items:[],showPanel:false};
+try{var _nn=localStorage.getItem("dv_notifications");if(_nn)DV_NOTIF.items=JSON.parse(_nn);}catch(e){}
+function addNotification(icon,text,tab,extra){
+  var n={id:Date.now()+"_"+Math.random().toString(36).slice(2,6),icon:icon,text:text,tab:tab||null,extra:extra||null,read:false,ts:new Date().toISOString()};
+  DV_NOTIF.items.unshift(n);
+  if(DV_NOTIF.items.length>50)DV_NOTIF.items=DV_NOTIF.items.slice(0,50);
+  try{localStorage.setItem("dv_notifications",JSON.stringify(DV_NOTIF.items));}catch(e){}
+  render();
+}
+function markAllNotifRead(){
+  DV_NOTIF.items.forEach(function(n){n.read=true;});
+  try{localStorage.setItem("dv_notifications",JSON.stringify(DV_NOTIF.items));}catch(e){}
+  render();
+}
+function getUnreadCount(){return DV_NOTIF.items.filter(function(n){return!n.read;}).length;}
+function checkDealNotifications(oldInquiries,newInquiries,deals,myTokens){
+  var myDeals=deals.filter(function(d){return myTokens.indexOf(d.edit_token)!==-1;});
+  var myDealIds=myDeals.map(function(d){return d.id;});
+  var oldIds={};
+  Object.keys(oldInquiries).forEach(function(did){
+    (oldInquiries[did]||[]).forEach(function(inq){oldIds[inq.id]=inq.status;});
+  });
+  Object.keys(newInquiries).forEach(function(did){
+    (newInquiries[did]||[]).forEach(function(inq){
+      var dealId=parseInt(did);
+      var deal=deals.find(function(d){return d.id===dealId;});
+      var area=deal?deal.area:"property";
+      if(!oldIds[inq.id]&&myDealIds.indexOf(dealId)!==-1){
+        addNotification("📩","New inquiry from "+inq.buyer_name+" for your "+area+" listing","deals");
+      }
+      if(oldIds[inq.id]&&oldIds[inq.id]==="pending"&&inq.status==="approved"&&myDealIds.indexOf(dealId)===-1){
+        addNotification("✅","Your inquiry for "+area+" deal has been approved! You can now view media","deals");
+      }
+      if(oldIds[inq.id]&&oldIds[inq.id]==="pending"&&inq.status==="rejected"&&myDealIds.indexOf(dealId)===-1){
+        addNotification("❌","Your inquiry for "+area+" deal was declined","deals");
+      }
+    });
+  });
+}
+function checkMatchNotifications(dealId,matches){
+  var key="dv_notif_matches_"+dealId;
+  var prev={};try{var p=localStorage.getItem(key);if(p)prev=JSON.parse(p);}catch(e){}
+  var now={};
+  matches.forEach(function(m){
+    now[m.deal.id]=true;
+    if(!prev[m.deal.id]){
+      addNotification("🤖","New matching deal in "+m.deal.area+" — "+(m.aiScore||m.score)+"% match","deals");
+    }
+  });
+  try{localStorage.setItem(key,JSON.stringify(now));}catch(e){}
+}
+function renderNotifBell(){
+  var cl=C();var cnt=getUnreadCount();
+  var wrap=el("div",{style:{position:"relative",display:"inline-block"}});
+  var btn=el("button",{style:{background:DV_NOTIF.showPanel?cl.goldFaint:"transparent",border:"1px solid "+(DV_NOTIF.showPanel?cl.gold:cl.border),borderRadius:"20px",padding:"5px 10px",cursor:"pointer",color:DV_NOTIF.showPanel?cl.gold:cl.sub,fontSize:"14px",position:"relative"}});
+  btn.textContent="🔔";
+  if(cnt>0){
+    var badge=el("div",{style:{position:"absolute",top:"-4px",right:"-4px",background:"#EF4444",color:"#fff",fontSize:"8px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",minWidth:"16px",height:"16px",borderRadius:"8px",display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px",boxSizing:"border-box"}});
+    badge.textContent=cnt>9?"9+":String(cnt);
+    btn.appendChild(badge);
+  }
+  btn.addEventListener("click",function(e){e.stopPropagation();DV_NOTIF.showPanel=!DV_NOTIF.showPanel;render();});
+  wrap.appendChild(btn);
+  if(DV_NOTIF.showPanel){
+    var panel=el("div",{style:{position:"absolute",top:"42px",right:"0",width:"300px",maxHeight:"360px",background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",boxShadow:"0 8px 32px rgba(0,0,0,0.5)",zIndex:"200",overflow:"hidden"}});
+    var pHdr=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",borderBottom:"1px solid "+cl.border}});
+    pHdr.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"},"Notifications"));
+    if(cnt>0){
+      var markBtn=el("button",{style:{background:"transparent",border:"none",color:"#3B82F6",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",padding:"2px 6px"}});
+      markBtn.textContent="Mark all read";
+      markBtn.addEventListener("click",function(e){e.stopPropagation();markAllNotifRead();});
+      pHdr.appendChild(markBtn);
+    }
+    panel.appendChild(pHdr);
+    var list=el("div",{style:{maxHeight:"300px",overflowY:"auto"}});
+    if(!DV_NOTIF.items.length){
+      list.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",textAlign:"center",padding:"30px 14px"},"No notifications yet"));
+    }
+    DV_NOTIF.items.forEach(function(n){
+      var item=el("div",{style:{display:"flex",gap:"10px",padding:"10px 14px",borderBottom:"1px solid "+cl.border,background:n.read?"transparent":"rgba(201,168,76,0.04)",cursor:"pointer",transition:"background 0.2s"}});
+      item.addEventListener("mouseenter",function(){this.style.background="rgba(255,255,255,0.03)";});
+      item.addEventListener("mouseleave",function(){this.style.background=n.read?"transparent":"rgba(201,168,76,0.04)";});
+      item.addEventListener("click",function(e){e.stopPropagation();n.read=true;try{localStorage.setItem("dv_notifications",JSON.stringify(DV_NOTIF.items));}catch(e){}if(n.tab){activeTab=n.tab;DV_NOTIF.showPanel=false;render();}});
+      item.appendChild(span({fontSize:"16px",flexShrink:"0"},n.icon));
+      var right=el("div",{style:{flex:"1",minWidth:"0"}});
+      right.appendChild(div({color:n.read?cl.sub:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.4",wordBreak:"break-word"},n.text));
+      right.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginTop:"3px",opacity:"0.6"},timeAgo(n.ts)));
+      item.appendChild(right);
+      if(!n.read){item.appendChild(el("div",{style:{width:"6px",height:"6px",borderRadius:"50%",background:cl.gold,flexShrink:"0",marginTop:"4px"}}));}
+      list.appendChild(item);
+    });
+    panel.appendChild(list);
+    wrap.appendChild(panel);
+    setTimeout(function(){document.addEventListener("click",function closeNotif(){DV_NOTIF.showPanel=false;render();document.removeEventListener("click",closeNotif);},{once:true});},0);
+  }
+  return wrap;
+}
+
 // --- REUSABLE AI SMART BAR ---
 function renderSmartBar(opts){
   var cl=C();

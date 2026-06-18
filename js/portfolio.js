@@ -382,6 +382,18 @@ function renderPortfolio(){
           }
         }
 
+        // Portfolio notifications for actionable alerts
+        var notifKey="dv_pnotif_"+a.area+"_"+(a.building||"");
+        var prevNotifTs=0;try{prevNotifTs=parseInt(localStorage.getItem(notifKey))||0;}catch(e){}
+        if(Date.now()-prevNotifTs>86400000){
+          alerts.forEach(function(al){
+            if(al.type==="warn"&&al.title.indexOf("Rent")!==-1){
+              addNotification("📊","Rent optimization opportunity for your "+a.area+" property","portfolio");
+              try{localStorage.setItem(notifKey,String(Date.now()));}catch(e){}
+            }
+          });
+        }
+
         // Render asset alerts
         if(alerts.length>0){
           var assetHeader=div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"10px",paddingTop:metrics.indexOf(a)>0?"12px":"0",borderTop:metrics.indexOf(a)>0?"1px solid "+cl.border:"none"});

@@ -1024,6 +1024,8 @@ function render(){
       div({display:"flex",alignItems:"center",gap:"5px",background:cl.greenBg,border:"1px solid "+cl.greenBo,borderRadius:"20px",padding:"4px 10px"},[div({width:"5px",height:"5px",borderRadius:"50%",background:cl.green,animation:"pulse 2s infinite",flexShrink:"0"}),(function(){var lb=el("span",{style:{color:cl.green,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"}});lb.textContent=LIVE_GEO.fetched?"LIVE ·"+LIVE_GEO.trend:"LIVE";return lb;})()]),
       el("button",{style:{background:cl.raised,border:"1px solid "+cl.border,borderRadius:"20px",padding:"5px 10px",cursor:"pointer",color:cl.sub,fontSize:"14px"},onclick:function(){darkMode=!darkMode;render();}},darkMode?"☀️":"🌙"),
       el("button",{style:{background:isRTL()?hexAlpha("#3B82F6",0.12):"transparent",border:"1px solid "+(isRTL()?"rgba(59,130,246,0.3)":cl.border),borderRadius:"20px",padding:"4px 10px",cursor:"pointer",color:isRTL()?"#3B82F6":cl.sub,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},onclick:function(){setLang(dvLang==="ar"?"en":"ar");}},dvLang==="ar"?"EN":"عر"),
+      // Notification bell
+      renderNotifBell(),
       // Auth button
       renderAuthButton(),
       // Profile button

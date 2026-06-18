@@ -126,6 +126,8 @@ async function findAIMatches(deal){
     });
     merged.sort(function(a,b){return b.aiScore-a.aiScore;});
     DEAL_STATE.matches[cacheKey]={data:merged,ts:Date.now()};
+    var myDeal=DEAL_STATE.deals.find(function(d){return d.id===deal.id&&DEAL_STATE.myTokens.indexOf(d.edit_token)!==-1;});
+    if(myDeal)checkMatchNotifications(deal.id,merged);
     return merged;
   }catch(e){
     console.warn("AI match failed, using rule-based:",e.message);
@@ -359,10 +361,13 @@ async function fetchMyInquiries(){
       {headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY}});
     if(resp.ok){
       var data=await resp.json();
+      var oldInq={};Object.keys(DEAL_STATE.myInquiries).forEach(function(k){oldInq[k]=(DEAL_STATE.myInquiries[k]||[]).slice();});
+      DEAL_STATE.myInquiries={};
       data.forEach(function(inq){
         if(!DEAL_STATE.myInquiries[inq.deal_id])DEAL_STATE.myInquiries[inq.deal_id]=[];
         DEAL_STATE.myInquiries[inq.deal_id].push(inq);
       });
+      checkDealNotifications(oldInq,DEAL_STATE.myInquiries,DEAL_STATE.deals,DEAL_STATE.myTokens);
     }
     render();
   }catch(e){}
