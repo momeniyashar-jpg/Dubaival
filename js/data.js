@@ -395,6 +395,106 @@ const AREAS={
 const AREA_NAMES=Object.keys(AREAS);
 const AREA_COORDS={"Downtown Dubai":[25.1972,55.2744],"Dubai Marina":[25.0800,55.1400],"Palm Jumeirah":[25.1124,55.1390],"Business Bay":[25.1850,55.2640],"Emaar Beachfront":[25.0850,55.1350],"Bluewaters Island":[25.0810,55.1260],"Dubai Creek Harbour":[25.2010,55.3400],"MBR City":[25.1700,55.2900],"Sobha Hartland":[25.1750,55.3100],"Jumeirah Village Circle":[25.0650,55.2100],"Dubai Hills Estate":[25.1400,55.2400],"DAMAC Lagoons":[25.0200,55.3200],"Arabian Ranches":[25.0600,55.2650],"Arabian Ranches 2":[25.0400,55.2850],"Arabian Ranches 3":[25.0200,55.2950],"Tilal Al Ghaf":[25.0300,55.3400],"Al Furjan":[25.0500,55.1500],"Dubai South":[24.8960,55.1590],"Jumeirah Lake Towers":[25.0750,55.1460],"The Springs":[25.0900,55.1850],"The Meadows":[25.0950,55.1900],"The Lakes":[25.0930,55.1870],"Meydan":[25.1600,55.3000],"Al Barsha":[25.1130,55.2000],"Jumeirah Golf Estates":[25.0450,55.1800],"Dubai Sports City":[25.0400,55.2200],"DAMAC Hills":[25.0310,55.2440],"DAMAC Hills 2":[24.9900,55.2700],"Town Square":[25.0100,55.2900],"The Valley":[25.0000,55.3200],"Dubai Harbour":[25.0900,55.1350],"DIFC":[25.2100,55.2800],"City Walk":[25.2090,55.2580],"Palm Jebel Ali":[25.0100,55.0100],"Emirates Hills":[25.0930,55.1700],"Mudon":[25.0350,55.2700],"Villanova":[25.0050,55.3100],"Al Barari":[25.0750,55.3000],"Motor City":[25.0500,55.2300],"Jumeirah Bay Island":[25.2000,55.2300],"Jumeirah Village Triangle":[25.0550,55.2150],"Majan":[25.0480,55.2250],"Polo Residences":[25.0600,55.2800],"Wadi Al Safa":[25.0700,55.2900],"Cherrywoods":[25.0150,55.3050],"The Heights":[25.0700,55.2350],"The Oasis":[25.0800,55.2700],"Jumeirah Park":[25.0700,55.1600],"Jumeirah Islands":[25.0800,55.1650],"Victory Heights":[25.0450,55.2200],"The Villa":[25.0500,55.3000],"Mira":[25.0280,55.2780],"Mira Oasis":[25.0250,55.2820],"Serena":[25.0200,55.2850],"Sustainable City":[25.0300,55.3050],"Remraam":[25.0350,55.2500],"Dubai Islands":[25.2800,55.3200],"La Mer":[25.2200,55.2500],"Pearl Jumeirah":[25.2100,55.2180],"The Oasis by Emaar":[25.0830,55.2730],"Nad Al Sheba":[25.1500,55.3100],"Falcon City":[25.0700,55.3100],"Emaar South":[24.9200,55.1600],"Living Legends":[25.1000,55.3300],"International City":[25.1600,55.4100],"Dubai Silicon Oasis":[25.1200,55.3850],"Al Jaddaf":[25.2100,55.3150],"Culture Village":[25.2160,55.3250],"Arjan":[25.0570,55.2380],"Dubailand":[25.0800,55.3200],"Dubai Investment Park":[24.9800,55.1800],"Dubai Studio City":[25.0350,55.2100],"Dubai Production City":[25.0300,55.1900],"Dubai Media City":[25.0900,55.1550],"Barsha Heights":[25.0950,55.1700],"Mirdif":[25.2300,55.4200],"Liwan":[25.0900,55.3300],"Dubai Festival City":[25.2250,55.3500],"Discovery Gardens":[25.0450,55.1350],"Bur Dubai":[25.2500,55.3000],"Al Nahda":[25.2800,55.3700],"Dubai":[25.2000,55.2700],"Beachgate By Address":[25.0850,55.1360],"Al Wasl":[25.2100,55.2500],"Dubai Residence Complex":[25.0650,55.2000],"Jebel Ali":[25.0200,55.1100],"Dubai Science Park":[25.0380,55.2150],"Dubai Maritime City":[25.2350,55.2900],"Mina Rashid":[25.2600,55.2900],"Ras Al Khor":[25.1850,55.3350],"Wasl Gate":[25.0900,55.3350],"Bukadra":[25.1600,55.3400],"Za'Abeel":[25.2230,55.2890],"Dubai Industrial City":[24.9500,55.2200],"Palace Beach Residence":[25.0850,55.1345],"Jumeirah":[25.2150,55.2400],"Umm Suqeim":[25.1600,55.2100],"Jumeirah Beach Residence (Jbr)":[25.0780,55.1340],"Al Satwa":[25.2200,55.2700],"The Greens":[25.0950,55.1750],"Marina Vista":[25.0810,55.1410],"World Trade Centre":[25.2240,55.2830],"Al Sufouh":[25.1000,55.1500],"Al Thanayah Fourth":[25.0600,55.2200],"Expo City":[24.9125,55.1450],"Al Quoz":[25.1500,55.2300],"The Views":[25.0950,55.1800],"Dubai Design District":[25.1800,55.2900],"The Hills":[25.1350,55.2450],"Dubai Internet City":[25.0950,55.1600],"Muhaisnah":[25.2600,55.3900],"Sheikh Zayed Road":[25.2100,55.2750],"Green Community":[24.9850,55.1750],"Jebel Ali Village":[25.0250,55.1150],"Al Barsha South":[25.1050,55.2050],"Dubai Creek":[25.2500,55.3200],"Al Yufrah 1":[25.0000,55.3150],"Al Goze Fourth":[25.1550,55.2400],"Nadd Hessa":[25.1050,55.1650],"Al Yelayiss 2":[24.9700,55.2100],"Al Kheeran":[25.2050,55.3430],"Al Barshaa South Second":[25.1000,55.2000],"Warsan Fourth":[25.1650,55.4050],"Jumeirah First":[25.2200,55.2450],"Saih Shuaib 2":[24.9100,55.1300],"Al Hebiah Second":[25.0350,55.2430],"Al Safouh Second":[25.1050,55.1550],"Al Yelayiss 1":[24.9750,55.2200],"Madinat Dubai Almelaheyah":[25.2700,55.3100],"Ras Al Khor Industrial First":[25.1800,55.3450],"Madinat Hind 4":[25.2550,55.3850],"Al Barsha South Fifth":[25.0950,55.2100],"Zaabeel First":[25.2250,55.2920],"Al Hebiah Sixth":[25.0300,55.2350],"Al Safouh First":[25.1050,55.1450],"Trade Center First":[25.2200,55.2800],"Jabal Ali Industrial Second":[25.0100,55.1000],"Al Kifaf":[25.2350,55.2950],"Zaabeel Second":[25.2180,55.2880],"Island 2":[25.2750,55.3250],"Trade Center Second":[25.2150,55.2780],"Muhaisanah First":[25.2650,55.3950],"Saih Shuaib 1":[24.9150,55.1350],"Hessyan First":[24.9200,55.1700],"Rega Al Buteen":[25.2600,55.3150],"Al Hebiah Third":[25.0350,55.2500],"Nad Al Hamar":[25.1900,55.3600],"Jumeirah Second":[25.2050,55.2350],"Al Qusais Industrial Fourth":[25.2500,55.3800],"World Islands":[25.2300,55.1800],"Al Yelayiss 4":[24.9600,55.2000],"Al Qusais Industrial Fifth":[25.2550,55.3850],"Deira":[25.2700,55.3300],"Al Karama":[25.2450,55.3050],"Al Mamzar":[25.2900,55.3400],"Al Rashidiya":[25.2300,55.3800],"Al Twar":[25.2500,55.3700],"Al Warqaa":[25.2200,55.4100],"Al Mizhar":[25.2400,55.4400],"Al Khawaneej":[25.2600,55.4600],"Al Garhoud":[25.2400,55.3450],"Al Muraqqabat":[25.2620,55.3250],"Al Rigga":[25.2650,55.3200],"Hor Al Anz":[25.2780,55.3300],"Abu Hail":[25.2820,55.3400],"Al Muteena":[25.2680,55.3180],"Port Saeed":[25.2600,55.3350],"Naif":[25.2750,55.3150],"Al Mankhool":[25.2500,55.2950],"Al Raffa":[25.2550,55.2900],"Oud Metha":[25.2350,55.3100],"Umm Hurair":[25.2400,55.3100],"Dubai Healthcare City":[25.2300,55.3200],"Al Safa":[25.1900,55.2400],"Jumeirah Third":[25.1950,55.2300],"Madinat Jumeirah Living":[25.1400,55.1800],"Jumeirah Heights":[25.0800,55.1600],"The Gardens":[25.0400,55.1400],"Umm Ramool":[25.2300,55.3600],"Al Hamriya":[25.2750,55.3200],"Al Fahidi":[25.2600,55.2950],"Hatta":[24.8000,56.1300],"Al Lisaili":[24.9500,55.4200],"Al Awir":[25.1500,55.4800],"Layan":[25.0750,55.2650],"Rukan":[25.0800,55.2600],"Sobha Hartland 2":[25.1780,55.3150],"Mina Seyahi":[25.0950,55.1350],"Dubai Knowledge Park":[25.0920,55.1550],"Al Qusais":[25.2600,55.3850],"Umm Al Sheif":[25.1700,55.2200],"Al Hudaiba":[25.2300,55.2700],"Nad Shamma":[25.2400,55.3550],"Margham":[25.1000,55.5500],"Lehbab":[24.9000,55.4000],"Umm Nahad":[24.9800,55.3500],"Al Rowaiyah":[25.1600,55.4500],"Dubai Academic City":[25.1100,55.4000],"Dubailand Oasis":[25.0850,55.3250],"Al Hebiah First":[25.0380,55.2400],"Al Hebiah Fourth":[25.0320,55.2470],"Al Hebiah Fifth":[25.0300,55.2380],"Al Thanayah First":[25.0650,55.2130],"Al Thanayah Second":[25.0620,55.2180],"Al Thanayah Third":[25.0600,55.2230],"Al Thanayah Fifth":[25.0580,55.2270],"Warsan":[25.1700,55.4000],"Warsan First":[25.1720,55.3950],"Warsan Second":[25.1680,55.4000],"Warsan Third":[25.1650,55.4050],"Al Barsha South Third":[25.1000,55.2020],"Al Barsha South Fourth":[25.0980,55.2070],"Wadi Al Safa 2":[25.0680,55.2850],"Wadi Al Safa 3":[25.0650,55.2900],"Wadi Al Safa 4":[25.0620,55.2950],"Wadi Al Safa 5":[25.0600,55.3000],"District One":[25.1650,55.2900],"Creek Beach":[25.2030,55.3380],"Dubai Creek Golf":[25.2300,55.3300],"Jumeirah Bay":[25.2000,55.2350],"Saadiyat Lagoons":[25.0200,55.3250],"Dubai Outsource City":[25.1050,55.3950],"Dubai Knowledge Village":[25.0920,55.1570],"Dubai Techno Park":[25.1050,55.3900],"Dubai Waterfront":[25.0000,55.0500],"Jebel Ali Industrial First":[25.0150,55.1050],"Jebel Ali Gardens":[25.0350,55.1250],"Muhaisnah Fourth":[25.2550,55.4000],"Al Qusais Second":[25.2620,55.3900],"Al Qusais Third":[25.2580,55.3920],"Ras Al Khor Industrial Second":[25.1780,55.3500],"Ras Al Khor Industrial Third":[25.1750,55.3550],"Jabal Ali Industrial First":[25.0150,55.1050],"Jabal Ali Industrial Third":[25.0050,55.0950],"Al Barshaa South Third":[25.1000,55.2030],"Masakin Al Furjan":[25.0520,55.1530],"Dubai World Central":[24.8950,55.1600],"Rashid Yachts Marina":[25.2650,55.2950],"Dubai Logistics City":[24.9000,55.1500],"Muhaisanah Second":[25.2630,55.3970],"Muhaisanah Third":[25.2610,55.3990],"Muhaisanah Fourth":[25.2590,55.4010],"Al Manara":[25.1700,55.2150],"Umm Suqeim First":[25.1650,55.2120],"Umm Suqeim Second":[25.1550,55.2080],"Umm Suqeim Third":[25.1500,55.2050],"Al Quoz First":[25.1550,55.2280],"Al Quoz Second":[25.1500,55.2320],"Al Quoz Third":[25.1450,55.2350],"Al Quoz Fourth":[25.1400,55.2380],"Al Quoz Industrial First":[25.1520,55.2300],"Al Quoz Industrial Second":[25.1480,55.2330],"Al Quoz Industrial Third":[25.1440,55.2360],"Al Quoz Industrial Fourth":[25.1400,55.2400],"Badrah":[25.0000,55.0600],"Dubai Residence Complex 2":[25.0630,55.2020],"Al Jadaf":[25.2100,55.3180],"Akoya Oxygen":[24.9950,55.2750],"Dubai Star":[25.0800,55.1420],"Mina Rashid Marina":[25.2580,55.2920],"Al Merkad":[25.1850,55.3050],"Bukadra Second":[25.1580,55.3420],"Saih Shuaib 3":[24.9050,55.1250],"Saih Shuaib 4":[24.9000,55.1200],"Hessyan Second":[24.9250,55.1750],"Hessyan Third":[24.9300,55.1800],"Nadd Hessa Second":[25.1080,55.1680],"Al Barsha First":[25.1150,55.1950],"Al Barsha Second":[25.1100,55.1980],"Al Barsha Third":[25.1080,55.2020],"Jebel Ali Hills":[25.0200,55.1200],"Downtown Jebel Ali":[25.0250,55.1100],"Damac Tower":[25.1870,55.2690],"Burj Khalifa Zone":[25.1975,55.2750],"Marsa Dubai":[25.0800,55.1410],"Palm Deira":[25.2850,55.3300],"The Lagoons":[25.2350,55.3350],"Gardenia":[25.0150,55.3030],"Azizi Riviera":[25.0350,55.2700],"Dubai Hills View":[25.1350,55.2430],"Burj Views":[25.1950,55.2730],"Executive Towers":[25.1870,55.2680],"Bay Square":[25.1860,55.2670],"Hadaeq Sheikh Mohammed Bin Rashid":[25.1700,55.3050],"Al Sufouh First":[25.1050,55.1470],"Al Sufouh Second":[25.1050,55.1530],"Mushrif Park":[25.2350,55.4100]};
 
+// --- DUBAI TRANSIT & POI DATABASE (Geospatial Intelligence) ---
+// 53 Metro stations (Red + Green lines) + 11 Tram stations + key POIs
+const METRO_STATIONS=[
+// Red Line (29 stations) — Jebel Ali to Rashidiya
+{n:"Jebel Ali",lat:25.0263,lng:55.1065,line:"Red"},{n:"Ibn Battuta",lat:25.0440,lng:55.1185,line:"Red"},{n:"Energy",lat:25.0377,lng:55.1340,line:"Red"},{n:"Danube/Dubai Outlet Mall",lat:25.0360,lng:55.1380,line:"Red"},{n:"Discovery Gardens",lat:25.0430,lng:55.1410,line:"Red"},{n:"The Gardens",lat:25.0470,lng:55.1370,line:"Red"},{n:"Nakheel Harbour & Tower",lat:25.0685,lng:55.1370,line:"Red"},{n:"DMCC",lat:25.0730,lng:55.1430,line:"Red"},{n:"Sobha Realty",lat:25.0800,lng:55.1480,line:"Red"},{n:"Marina",lat:25.0870,lng:55.1490,line:"Red"},{n:"Jumeirah Lakes Towers",lat:25.0760,lng:55.1450,line:"Red"},{n:"Dubai Internet City",lat:25.0990,lng:55.1570,line:"Red"},{n:"Sharaf DG",lat:25.1170,lng:55.1980,line:"Red"},{n:"Mall of the Emirates",lat:25.1180,lng:55.2005,line:"Red"},{n:"First Abu Dhabi Bank",lat:25.1260,lng:55.2110,line:"Red"},{n:"Dubai Hills",lat:25.1350,lng:55.2400,line:"Red"},{n:"Business Bay",lat:25.1860,lng:55.2620,line:"Red"},{n:"Burj Khalifa/Dubai Mall",lat:25.2000,lng:55.2700,line:"Red"},{n:"Financial Centre",lat:25.2100,lng:55.2750,line:"Red"},{n:"Emirates Towers",lat:25.2170,lng:55.2790,line:"Red"},{n:"World Trade Centre",lat:25.2240,lng:55.2830,line:"Red"},{n:"Al Karama",lat:25.2450,lng:55.3060,line:"Red"},{n:"ADCB",lat:25.2530,lng:55.3100,line:"Red"},{n:"Al Rigga",lat:25.2650,lng:55.3200,line:"Red"},{n:"Deira City Centre",lat:25.2530,lng:55.3310,line:"Red"},{n:"GGICO",lat:25.2580,lng:55.3430,line:"Red"},{n:"Airport Terminal 1",lat:25.2520,lng:55.3610,line:"Red"},{n:"Airport Terminal 3",lat:25.2470,lng:55.3560,line:"Red"},{n:"Rashidiya",lat:25.2350,lng:55.3920,line:"Red"},
+// Green Line (20 stations) — Creek to Etisalat
+{n:"Creek",lat:25.2280,lng:55.3310,line:"Green"},{n:"Healthcare City",lat:25.2330,lng:55.3210,line:"Green"},{n:"Oud Metha",lat:25.2370,lng:55.3110,line:"Green"},{n:"Dubai Healthcare City 2",lat:25.2350,lng:55.3180,line:"Green"},{n:"Al Jadaf",lat:25.2150,lng:55.3180,line:"Green"},{n:"Bur Juman",lat:25.2530,lng:55.3020,line:"Green"},{n:"Al Fahidi",lat:25.2610,lng:55.2980,line:"Green"},{n:"Al Ghubaiba",lat:25.2620,lng:55.2910,line:"Green"},{n:"Sharaf DG Green",lat:25.2600,lng:55.2860,line:"Green"},{n:"Gold Souq",lat:25.2720,lng:55.3000,line:"Green"},{n:"Al Ras",lat:25.2740,lng:55.2980,line:"Green"},{n:"Baniyas Square",lat:25.2660,lng:55.3110,line:"Green"},{n:"Union",lat:25.2670,lng:55.3170,line:"Green"},{n:"Salah Al Din",lat:25.2690,lng:55.3210,line:"Green"},{n:"Abu Baker Al Siddique",lat:25.2700,lng:55.3300,line:"Green"},{n:"Abu Hail",lat:25.2760,lng:55.3380,line:"Green"},{n:"Al Qiyadah",lat:25.2730,lng:55.3510,line:"Green"},{n:"Stadium",lat:25.2700,lng:55.3640,line:"Green"},{n:"Al Nahda",lat:25.2660,lng:55.3770,line:"Green"},{n:"Etisalat",lat:25.2630,lng:55.3900,line:"Green"},
+// Route 2020 Extension (7 stations)
+{n:"Jebel Ali Route 2020",lat:25.0263,lng:55.1065,line:"2020"},{n:"The Gardens Route 2020",lat:25.0355,lng:55.1370,line:"2020"},{n:"Discovery Gardens Route 2020",lat:25.0430,lng:55.1410,line:"2020"},{n:"Al Furjan",lat:25.0525,lng:55.1500,line:"2020"},{n:"Jumeirah Golf Estates",lat:25.0470,lng:55.1690,line:"2020"},{n:"Dubai Investment Park",lat:24.9850,lng:55.1780,line:"2020"},{n:"Expo 2020",lat:24.9125,lng:55.1450,line:"2020"}
+];
+// Dubai Tram (11 stations — Marina to JBR to Media City)
+const TRAM_STATIONS=[
+{n:"Marina Towers",lat:25.0770,lng:55.1380},{n:"Marina Mall",lat:25.0780,lng:55.1400},{n:"Marina Promenade",lat:25.0800,lng:55.1420},{n:"JBR 1",lat:25.0790,lng:55.1350},{n:"JBR 2",lat:25.0810,lng:55.1330},{n:"Media City",lat:25.0900,lng:55.1520},{n:"Dubai Knowledge Park",lat:25.0930,lng:55.1560},{n:"Palm Jumeirah",lat:25.1120,lng:55.1390},{n:"Al Sufouh",lat:25.1050,lng:55.1480},{n:"Mina Seyahi",lat:25.0960,lng:55.1370},{n:"Dubai Marina",lat:25.0830,lng:55.1410}
+];
+// Key POIs — Malls, Beaches, Landmarks (top 30)
+const KEY_POIS=[
+{n:"Dubai Mall",lat:25.1985,lng:55.2796,cat:"mall"},{n:"Mall of the Emirates",lat:25.1180,lng:55.2005,cat:"mall"},{n:"Dubai Marina Mall",lat:25.0770,lng:55.1400,cat:"mall"},{n:"Ibn Battuta Mall",lat:25.0440,lng:55.1190,cat:"mall"},{n:"City Centre Deira",lat:25.2530,lng:55.3310,cat:"mall"},{n:"City Centre Mirdif",lat:25.2150,lng:55.4100,cat:"mall"},{n:"Dubai Hills Mall",lat:25.1340,lng:55.2430,cat:"mall"},{n:"Nakheel Mall",lat:25.1170,lng:55.1380,cat:"mall"},{n:"Dragon Mart",lat:25.1720,lng:55.4150,cat:"mall"},{n:"Festival Plaza",lat:25.2200,lng:55.3500,cat:"mall"},
+{n:"Burj Khalifa",lat:25.1972,lng:55.2744,cat:"landmark"},{n:"Burj Al Arab",lat:25.1412,lng:55.1853,cat:"landmark"},{n:"Palm Jumeirah Crescent",lat:25.1180,lng:55.1380,cat:"landmark"},{n:"Dubai Frame",lat:25.2350,lng:55.3000,cat:"landmark"},{n:"Museum of the Future",lat:25.2200,lng:55.2800,cat:"landmark"},
+{n:"JBR Beach",lat:25.0790,lng:55.1320,cat:"beach"},{n:"La Mer Beach",lat:25.2200,lng:55.2530,cat:"beach"},{n:"Kite Beach",lat:25.1650,lng:55.2050,cat:"beach"},{n:"Al Mamzar Beach",lat:25.2950,lng:55.3450,cat:"beach"},
+{n:"DIFC",lat:25.2100,lng:55.2800,cat:"business"},{n:"Media City",lat:25.0900,lng:55.1550,cat:"business"},{n:"Internet City",lat:25.0950,lng:55.1600,cat:"business"},{n:"Business Bay Hub",lat:25.1860,lng:55.2650,cat:"business"},{n:"Dubai Airport T3",lat:25.2530,lng:55.3640,cat:"airport"},{n:"DWC/Al Maktoum Airport",lat:24.8960,lng:55.1590,cat:"airport"},
+{n:"Dubai Creek Harbour",lat:25.2010,lng:55.3400,cat:"waterfront"},{n:"Dubai Marina Walk",lat:25.0800,lng:55.1410,cat:"waterfront"},{n:"Bluewaters Island",lat:25.0810,lng:55.1260,cat:"waterfront"},{n:"Madinat Jumeirah",lat:25.1340,lng:55.1850,cat:"waterfront"},{n:"Dubai Canal",lat:25.1900,lng:55.2550,cat:"waterfront"}
+];
+
+// Haversine distance in km
+function haversineKm(lat1,lng1,lat2,lng2){
+  var R=6371,dLat=(lat2-lat1)*Math.PI/180,dLng=(lng2-lng1)*Math.PI/180;
+  var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// Compute transit & amenity scores for an area
+function computeGeoScore(areaName){
+  var coords=AREA_COORDS[areaName];
+  if(!coords)return null;
+  var lat=coords[0],lng=coords[1];
+
+  // Nearest metro
+  var minMetro=Infinity,nearestMetro=null;
+  METRO_STATIONS.forEach(function(s){var d=haversineKm(lat,lng,s.lat,s.lng);if(d<minMetro){minMetro=d;nearestMetro=s;}});
+  // Nearest tram
+  var minTram=Infinity,nearestTram=null;
+  TRAM_STATIONS.forEach(function(s){var d=haversineKm(lat,lng,s.lat,s.lng);if(d<minTram){minTram=d;nearestTram=s;}});
+  // Best transit (metro or tram, whichever closer)
+  var transitDist=Math.min(minMetro,minTram);
+  var transitName=minMetro<=minTram?(nearestMetro?nearestMetro.n:""):(nearestTram?nearestTram.n+" Tram":"");
+  var transitType=minMetro<=minTram?"Metro":"Tram";
+
+  // Metro Score (1-10): <0.3km=10, <0.5=9, <0.8=8, <1.2=7, <2=6, <3=5, <5=4, <8=3, <12=2, else 1
+  var metroScore=transitDist<0.3?10:transitDist<0.5?9:transitDist<0.8?8:transitDist<1.2?7:transitDist<2?6:transitDist<3?5:transitDist<5?4:transitDist<8?3:transitDist<12?2:1;
+
+  // Count transit stations within 2km radius
+  var transitCount=0;
+  METRO_STATIONS.forEach(function(s){if(haversineKm(lat,lng,s.lat,s.lng)<=2)transitCount++;});
+  TRAM_STATIONS.forEach(function(s){if(haversineKm(lat,lng,s.lat,s.lng)<=2)transitCount++;});
+
+  // Nearest mall
+  var minMall=Infinity,nearestMall=null;
+  KEY_POIS.forEach(function(p){if(p.cat==="mall"){var d=haversineKm(lat,lng,p.lat,p.lng);if(d<minMall){minMall=d;nearestMall=p;}}});
+
+  // Nearest beach
+  var minBeach=Infinity,nearestBeach=null;
+  KEY_POIS.forEach(function(p){if(p.cat==="beach"){var d=haversineKm(lat,lng,p.lat,p.lng);if(d<minBeach){minBeach=d;nearestBeach=p;}}});
+
+  // Nearest business hub
+  var minBiz=Infinity,nearestBiz=null;
+  KEY_POIS.forEach(function(p){if(p.cat==="business"){var d=haversineKm(lat,lng,p.lat,p.lng);if(d<minBiz){minBiz=d;nearestBiz=p;}}});
+
+  // Nearest airport
+  var minAirport=Infinity,nearestAirport=null;
+  KEY_POIS.forEach(function(p){if(p.cat==="airport"){var d=haversineKm(lat,lng,p.lat,p.lng);if(d<minAirport){minAirport=d;nearestAirport=p;}}});
+
+  // Amenity Score (1-10): weighted average of mall + beach + business proximity
+  var mallScore=minMall<1?10:minMall<2?8:minMall<4?6:minMall<7?4:minMall<12?2:1;
+  var beachScore=minBeach<1?10:minBeach<2?8:minBeach<4?6:minBeach<8?4:minBeach<15?2:1;
+  var bizScore=minBiz<1?10:minBiz<2?8:minBiz<4?6:minBiz<8?4:minBiz<15?2:1;
+  var amenityScore=Math.round(mallScore*0.4+beachScore*0.3+bizScore*0.3);
+
+  // Location Premium: composite score that affects valuation
+  // Metro(40%) + Amenity(35%) + Airport(15%) + Transit density(10%)
+  var airportScore=minAirport<5?8:minAirport<10?7:minAirport<15?6:minAirport<25?4:2;
+  var densityScore=transitCount>=5?10:transitCount>=3?8:transitCount>=2?6:transitCount>=1?4:1;
+  var locationScore=Math.round(metroScore*0.40+amenityScore*0.35+airportScore*0.15+densityScore*0.10);
+  locationScore=Math.min(10,Math.max(1,locationScore));
+
+  // Location premium %: maps 1-10 score to -3% to +8% valuation adjustment
+  var locationPremium=locationScore>=9?0.08:locationScore>=8?0.06:locationScore>=7?0.04:locationScore>=6?0.02:locationScore>=5?0:locationScore>=4?-0.01:locationScore>=3?-0.02:-0.03;
+
+  return{
+    metroScore:metroScore,metroDist:Math.round(minMetro*100)/100,metroName:nearestMetro?nearestMetro.n:"",metroLine:nearestMetro?nearestMetro.line:"",
+    tramDist:Math.round(minTram*100)/100,tramName:nearestTram?nearestTram.n:"",
+    transitDist:Math.round(transitDist*100)/100,transitName:transitName,transitType:transitType,transitCount:transitCount,
+    mallDist:Math.round(minMall*100)/100,mallName:nearestMall?nearestMall.n:"",mallScore:mallScore,
+    beachDist:Math.round(minBeach*100)/100,beachName:nearestBeach?nearestBeach.n:"",beachScore:beachScore,
+    bizDist:Math.round(minBiz*100)/100,bizName:nearestBiz?nearestBiz.n:"",bizScore:bizScore,
+    airportDist:Math.round(minAirport*100)/100,airportName:nearestAirport?nearestAirport.n:"",airportScore:airportScore,
+    amenityScore:amenityScore,densityScore:densityScore,
+    locationScore:locationScore,locationPremium:locationPremium
+  };
+}
+
 // Villa/Townhouse communities (show cluster dropdown)
 const VILLA_COMMUNITIES=Object.keys(CLUSTERS);
 // Areas where ALL properties are villas/townhouses

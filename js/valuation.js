@@ -316,7 +316,10 @@ function computeValuation(f,buildingVal,liveData){
     furnP=f.furnished==="Furnished"?0.15:f.furnished==="Semi-Furnished"?0.07:0;
   }
   const geoAdj=-0.06; // Regional discount Jun 2026 — reflected in prime area market data
-  const hedonicMult=(1+vP)*(1+fP)*(1+loftP)*(1+penthP)*(1+maidP)*(1+furnP)*(1+privatePoolP)*(1+singleRowP)*(1+cornerVillaP)*(1+geoAdj);
+  // Location Intelligence: metro/amenity proximity premium
+  const geoScore=computeGeoScore(f.area);
+  const locP=geoScore?geoScore.locationPremium:0;
+  const hedonicMult=(1+vP)*(1+fP)*(1+loftP)*(1+penthP)*(1+maidP)*(1+furnP)*(1+privatePoolP)*(1+singleRowP)*(1+cornerVillaP)*(1+geoAdj)*(1+locP);
   const adjPSF=Math.round(basePSF*hedonicMult);
   psfLo=Math.round(psfLo*hedonicMult);psfHi=Math.round(psfHi*hedonicMult);
   const parkBonus=Math.max(0,(parseInt(f.parking)||1)-1)*80000;
@@ -391,6 +394,6 @@ function computeValuation(f,buildingVal,liveData){
   const mosRaw=Math.round(priceGapScore*0.50+timeDecayScore*0.20+marketDepthScore*0.30);
   const mosScore=Math.min(95,Math.max(5,mosRaw));
   const mosTier=mosScore>=80?{label:"Deep Value",c:"green",desc:"Strong margin of safety — price significantly below intrinsic value with favorable market conditions"}:mosScore>=65?{label:"Value Buy",c:"green",desc:"Positive margin of safety — priced below fair value with room for appreciation"}:mosScore>=50?{label:"Fair Entry",c:"yellow",desc:"Neutral margin — price aligns with market value, moderate risk-reward balance"}:mosScore>=35?{label:"Thin Margin",c:"yellow",desc:"Limited safety buffer — priced at or slightly above value, returns depend on market growth"}:{label:"Speculative",c:"red",desc:"Negative margin of safety — price exceeds intrinsic value, high risk of capital loss in a downturn"};
-  return{askPSF,adjPSF,psfLo,psfHi,fairPrice,distressPrice,goodPrice,overpricedAt,verdict,vsPct:vsPct.toFixed(1),suggestedOffer,dataSource,dataLayer,confScore,confTier,priceLow,priceHigh,inDB:!!bData,bData,isDevFurnished,vP:Math.round(vP*100),fP:Math.round(fP*100),furnP:Math.round(furnP*100),loftP:Math.round(loftP*100),penthP:Math.round(penthP*100),maidP:Math.round(maidP*100),privatePoolP:Math.round(privatePoolP*100),singleRowP:Math.round(singleRowP*100),cornerVillaP:Math.round(cornerVillaP*100),geo:Math.round(geoAdj*100),rent,sc,grossYield,netYield,g0:gr[0],g1:gr[1],g2:gr[2],prRatio:prRatio?prRatio.toFixed(1):null,investSignal,totalReturnAnnual,domEst,txVol,liqScore,liqTier,txLabel,turnoverRate,turnoverTier,bldgUnits,bldgAnnualTx,mosScore,mosTier,priceGapScore,timeDecayScore,marketDepthScore,compData:compData,hasDynamic:!!dynBench,calFactor:calFactor};
+  return{askPSF,adjPSF,psfLo,psfHi,fairPrice,distressPrice,goodPrice,overpricedAt,verdict,vsPct:vsPct.toFixed(1),suggestedOffer,dataSource,dataLayer,confScore,confTier,priceLow,priceHigh,inDB:!!bData,bData,isDevFurnished,vP:Math.round(vP*100),fP:Math.round(fP*100),furnP:Math.round(furnP*100),loftP:Math.round(loftP*100),penthP:Math.round(penthP*100),maidP:Math.round(maidP*100),privatePoolP:Math.round(privatePoolP*100),singleRowP:Math.round(singleRowP*100),cornerVillaP:Math.round(cornerVillaP*100),locP:Math.round(locP*100),geo:Math.round(geoAdj*100),rent,sc,grossYield,netYield,g0:gr[0],g1:gr[1],g2:gr[2],prRatio:prRatio?prRatio.toFixed(1):null,investSignal,totalReturnAnnual,domEst,txVol,liqScore,liqTier,txLabel,turnoverRate,turnoverTier,bldgUnits,bldgAnnualTx,mosScore,mosTier,priceGapScore,timeDecayScore,marketDepthScore,compData:compData,hasDynamic:!!dynBench,calFactor:calFactor,geoScore:geoScore};
 }
 

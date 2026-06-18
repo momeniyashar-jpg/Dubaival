@@ -1141,6 +1141,99 @@ function renderAnalyzerResult(wrap){
     wrap.appendChild(mosWrap);
   })();
 
+  // -- LOCATION INTELLIGENCE --
+  if(val.geoScore){(function(){
+    var gs=val.geoScore;
+    var locC=gs.locationScore>=7?cl.green:gs.locationScore>=5?cl.yellow:cl.red;
+    var locBg=gs.locationScore>=7?cl.greenBg:gs.locationScore>=5?cl.yellowBg:cl.redBg;
+    var locBo=gs.locationScore>=7?cl.greenBo:gs.locationScore>=5?cl.yellowBo:cl.redBo;
+    var locLabel=gs.locationScore>=9?"Prime":gs.locationScore>=7?"Excellent":gs.locationScore>=5?"Good":gs.locationScore>=3?"Fair":"Remote";
+    var locWrap=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginTop:"14px",position:"relative",overflow:"hidden"}});
+
+    locWrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
+      div({},[
+        span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"2px"},"◆ Location Intelligence"),
+        span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},"Transit & Amenity Proximity Analysis")
+      ]),
+      span({color:locC,fontSize:"12px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",padding:"3px 10px",borderRadius:"6px",background:locBg},locLabel+" · "+gs.locationScore+"/10")
+    ]));
+
+    // Location Score visual gauge
+    var gaugeOuter=el("div",{style:{background:"rgba(240,242,245,0.06)",borderRadius:"8px",height:"10px",marginBottom:"16px",overflow:"hidden",position:"relative"}});
+    var gaugeInner=el("div",{style:{width:(gs.locationScore*10)+"%",height:"100%",borderRadius:"8px",background:gs.locationScore>=7?"linear-gradient(90deg,#22C55E,#10B981)":gs.locationScore>=5?"linear-gradient(90deg,#EAB308,#F59E0B)":"linear-gradient(90deg,#EF4444,#F87171)",transition:"width 0.8s ease"}});
+    gaugeOuter.appendChild(gaugeInner);locWrap.appendChild(gaugeOuter);
+
+    // Sub-scores grid
+    var grid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"14px"}});
+
+    // Metro card
+    var metroC=gs.metroScore>=7?cl.green:gs.metroScore>=5?cl.yellow:cl.red;
+    var mCard=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px"}});
+    mCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"},[
+      span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"🚇 Metro"),
+      span({color:metroC,fontSize:"11px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},gs.metroScore+"/10")
+    ]));
+    mCard.appendChild(div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},gs.metroDist+" km"));
+    mCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},gs.metroName+" ("+gs.metroLine+")"));
+    if(gs.transitCount>1)mCard.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginTop:"4px",padding:"2px 6px",background:cl.surface,borderRadius:"4px",display:"inline-block"},gs.transitCount+" stations within 2km"));
+    grid.appendChild(mCard);
+
+    // Mall card
+    var mallC=gs.mallScore>=7?cl.green:gs.mallScore>=5?cl.yellow:cl.red;
+    var maCard=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px"}});
+    maCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"},[
+      span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"🛍️ Mall"),
+      span({color:mallC,fontSize:"11px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},gs.mallScore+"/10")
+    ]));
+    maCard.appendChild(div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},gs.mallDist+" km"));
+    maCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},gs.mallName));
+    grid.appendChild(maCard);
+
+    // Beach card
+    var beachC=gs.beachScore>=7?cl.green:gs.beachScore>=5?cl.yellow:cl.red;
+    var bCard=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px"}});
+    bCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"},[
+      span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"🏖️ Beach"),
+      span({color:beachC,fontSize:"11px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},gs.beachScore+"/10")
+    ]));
+    bCard.appendChild(div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},gs.beachDist+" km"));
+    bCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},gs.beachName));
+    grid.appendChild(bCard);
+
+    // Business hub card
+    var bizC=gs.bizScore>=7?cl.green:gs.bizScore>=5?cl.yellow:cl.red;
+    var biCard=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px"}});
+    biCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"},[
+      span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"🏢 Business"),
+      span({color:bizC,fontSize:"11px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},gs.bizScore+"/10")
+    ]));
+    biCard.appendChild(div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},gs.bizDist+" km"));
+    biCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},gs.bizName));
+    grid.appendChild(biCard);
+
+    locWrap.appendChild(grid);
+
+    // Airport distance
+    locWrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",background:cl.raised,borderRadius:"8px",marginBottom:"12px"},[
+      span({color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},"✈️ "+gs.airportName),
+      span({color:cl.subHi,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},gs.airportDist+" km · ~"+Math.round(gs.airportDist*1.5)+" min")
+    ]));
+
+    // Valuation impact
+    var impactC=gs.locationPremium>0?cl.green:gs.locationPremium<0?cl.red:cl.yellow;
+    var impactLabel=gs.locationPremium>0?"+"+Math.round(gs.locationPremium*100)+"%":gs.locationPremium<0?Math.round(gs.locationPremium*100)+"%":"0%";
+    var impactDesc=gs.locationPremium>=0.06?"Premium location commands higher PSF due to exceptional connectivity and amenities":gs.locationPremium>=0.02?"Above-average location — good transit access contributes to price resilience":gs.locationPremium>=0?"Neutral location impact — average connectivity for Dubai":gs.locationPremium>=-0.02?"Below-average connectivity — slight discount applied":"Remote location — limited transit access reduces property premium";
+    locWrap.appendChild(div({background:locBg,border:"1px solid "+locBo,borderRadius:"10px",padding:"12px 14px",display:"flex",alignItems:"center",gap:"12px"},[
+      div({color:impactC,fontSize:"20px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",minWidth:"55px",textAlign:"center"},impactLabel),
+      div({},[
+        span({color:impactC,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em",display:"block",marginBottom:"2px"},"VALUATION IMPACT"),
+        span({color:cl.sub,fontSize:"10.5px",fontFamily:"'Inter',sans-serif",lineHeight:"1.4"},impactDesc)
+      ])
+    ]));
+
+    wrap.appendChild(locWrap);
+  })();}
+
   // -- PRICE ALERT WATCH -- (temporarily disabled — backend /api not deploying yet)
   /*
   (function(){
