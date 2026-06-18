@@ -1,6 +1,103 @@
 // --- THEME --------------------------------------------------------------------
 function useThemeToggle(){return function(){darkMode=!darkMode;render();}}
 
+// --- i18n --------------------------------------------------------------------
+var dvLang="en";
+try{dvLang=localStorage.getItem("dv_lang")||"en";}catch(e){}
+var LANG={
+en:{
+  // Tabs
+  tab_market:"Market",tab_index:"Index",tab_analyzer:"Analyzer",tab_map:"Map",tab_find:"Find",
+  tab_deals:"Deals",tab_compare:"Compare",tab_portfolio:"Portfolio",tab_alerts:"Alerts",
+  tab_chat:"AI Chat",tab_about:"About",
+  // Header
+  hdr_subtitle:"AI Property Intelligence",hdr_live:"LIVE",hdr_profile:"Profile",
+  // Analyzer
+  az_title:"Property Valuation",az_search:"Search Building, Cluster or Community",
+  az_search_ph:"e.g. Marina Gate, Venice, Address Kempinski, Sidra...",
+  az_area:"Area",az_building:"Building",az_beds:"Bedrooms",az_size:"Size (sqft)",
+  az_price:"Asking Price (AED)",az_floor:"Floor",az_view:"View",az_furnished:"Furnished",
+  az_analyze:"Analyze Property",az_loading:"Analyzing with DLD data...",
+  // Quick Check
+  qc_title:"Quick Check — Is Your Deal Fair?",qc_sub:"Enter any Dubai property to get an instant AI verdict",
+  qc_select_area:"Select Area",qc_building_ph:"Building name (optional)",qc_price_ph:"Asking price (AED)",
+  qc_btn:"Is This Price Fair?",qc_full:"Want full analysis? →",qc_error:"Could not compute — try selecting a different area.",
+  // Verdicts
+  v_distress:"DISTRESS DEAL",v_good:"GOOD PRICE",v_fair:"FAIR MARKET",v_over:"OVERPRICED",
+  v_distress_s:"GREAT DEAL ✓",v_good_s:"GOOD PRICE ✓",v_fair_s:"FAIR PRICE",v_over_s:"OVERPRICED ✗",
+  // Signals
+  sig_under:"Undervalued",sig_fair:"Fair Value",sig_elevated:"Elevated",sig_bubble:"Bubble Risk",
+  // Confidence
+  conf_vh:"Very High",conf_h:"High",conf_m:"Medium",conf_l:"Low",conf_ind:"Indicative",
+  // Market
+  mkt_overview:"Market Overview",mkt_track:"Track Record",
+  // Portfolio
+  pf_title:"Portfolio Manager",pf_add:"Add Asset",pf_health:"Portfolio Health Score",
+  pf_opp:"Opportunity Alerts",pf_proj:"Future Projection Simulator",pf_swap:"What-If Scenario",
+  pf_profile:"Investment Profile",
+  // Deals
+  dl_title:"Deal Network",dl_post:"Post Deal",dl_browse:"Browse",dl_agents:"Agent Hub",
+  dl_rera_req:"RERA BRN is required",dl_verified:"RERA Verified ✓",dl_filter_rera:"RERA Verified Only",
+  // Map
+  map_title:"Interactive Map",
+  // Index
+  idx_title:"Dubai Real Estate Market Index",idx_expensive:"Most Expensive Areas",
+  idx_yield:"Highest Yield Areas",idx_growth:"Fastest Growing Areas",idx_value:"Best Value Areas",
+  idx_compare:"Area Comparison",idx_heatmap:"Price Heatmap — All Areas",
+  // About
+  abt_mission:"Bringing AI-Powered Transparency to Dubai Real Estate",
+  abt_whatwedo:"What We Do",abt_tech:"Technology",abt_partners:"For Partners & Government",
+  // Common
+  download_pdf:"Download PDF Report",arabic_pdf:"تقرير بالعربية",
+  print_hint:"Print dialog opens → Save as PDF",
+  not_advice:"Not financial advice — consult a licensed advisor for investment decisions.",
+  footer_tag:"DubAIVal · DLD · Cascade AVM · June 2026"
+},
+ar:{
+  tab_market:"السوق",tab_index:"المؤشر",tab_analyzer:"التقييم",tab_map:"الخريطة",tab_find:"البحث",
+  tab_deals:"الصفقات",tab_compare:"المقارنة",tab_portfolio:"المحفظة",tab_alerts:"التنبيهات",
+  tab_chat:"الذكاء الاصطناعي",tab_about:"حول",
+  hdr_subtitle:"ذكاء عقاري بالذكاء الاصطناعي",hdr_live:"مباشر",hdr_profile:"الملف الشخصي",
+  az_title:"تقييم العقار",az_search:"ابحث عن مبنى أو مجمع أو منطقة",
+  az_search_ph:"مثال: مارينا جيت، فينيس، داماك هيلز...",
+  az_area:"المنطقة",az_building:"المبنى",az_beds:"غرف النوم",az_size:"المساحة (قدم مربع)",
+  az_price:"السعر المطلوب (درهم)",az_floor:"الطابق",az_view:"الإطلالة",az_furnished:"التأثيث",
+  az_analyze:"تحليل العقار",az_loading:"جاري التحليل ببيانات دائرة الأراضي...",
+  qc_title:"فحص سريع — هل الصفقة عادلة؟",qc_sub:"أدخل أي عقار في دبي للحصول على حكم فوري",
+  qc_select_area:"اختر المنطقة",qc_building_ph:"اسم المبنى (اختياري)",qc_price_ph:"السعر المطلوب (درهم)",
+  qc_btn:"هل هذا السعر عادل؟",qc_full:"تحليل كامل →",qc_error:"تعذر الحساب — حاول اختيار منطقة أخرى.",
+  v_distress:"صفقة ممتازة",v_good:"سعر جيد",v_fair:"سعر عادل",v_over:"سعر مرتفع",
+  v_distress_s:"صفقة ممتازة ✓",v_good_s:"سعر جيد ✓",v_fair_s:"سعر عادل",v_over_s:"سعر مرتفع ✗",
+  sig_under:"مقوّم بأقل من قيمته",sig_fair:"قيمة عادلة",sig_elevated:"مرتفع",sig_bubble:"مخاطر فقاعة",
+  conf_vh:"عالية جداً",conf_h:"عالية",conf_m:"متوسطة",conf_l:"منخفضة",conf_ind:"استرشادي",
+  mkt_overview:"نظرة عامة على السوق",mkt_track:"سجل الأداء",
+  pf_title:"مدير المحفظة",pf_add:"إضافة أصل",pf_health:"مؤشر صحة المحفظة",
+  pf_opp:"تنبيهات الفرص",pf_proj:"محاكاة التوقعات المستقبلية",pf_swap:"سيناريو ماذا لو",
+  pf_profile:"الملف الاستثماري",
+  dl_title:"شبكة الصفقات",dl_post:"نشر صفقة",dl_browse:"تصفح",dl_agents:"مركز الوكلاء",
+  dl_rera_req:"رقم ريرا مطلوب",dl_verified:"ريرا موثق ✓",dl_filter_rera:"الموثقون فقط",
+  map_title:"الخريطة التفاعلية",
+  idx_title:"مؤشر سوق العقارات في دبي",idx_expensive:"أغلى المناطق",
+  idx_yield:"أعلى عائد",idx_growth:"أسرع نمواً",idx_value:"أفضل قيمة",
+  idx_compare:"مقارنة المناطق",idx_heatmap:"خريطة الأسعار — جميع المناطق",
+  abt_mission:"نقل الشفافية المدعومة بالذكاء الاصطناعي إلى سوق دبي العقاري",
+  abt_whatwedo:"ماذا نقدم",abt_tech:"التكنولوجيا",abt_partners:"للشركاء والجهات الحكومية",
+  download_pdf:"تحميل تقرير PDF",arabic_pdf:"تقرير بالعربية",
+  print_hint:"يفتح مربع الطباعة → حفظ كـ PDF",
+  not_advice:"ليس نصيحة مالية — استشر مستشاراً مرخصاً لقرارات الاستثمار.",
+  footer_tag:"DubAIVal · دائرة الأراضي · محرك Cascade · يونيو ٢٠٢٦"
+}
+};
+function t(key){return(LANG[dvLang]&&LANG[dvLang][key])||LANG.en[key]||key;}
+function setLang(lang){dvLang=lang;try{localStorage.setItem("dv_lang",lang);}catch(e){}
+  document.documentElement.dir=lang==="ar"?"rtl":"ltr";
+  document.documentElement.lang=lang==="ar"?"ar":"en";
+  if(lang==="ar")document.body.style.fontFamily="Cairo,'Space Grotesk',monospace";
+  else document.body.style.fontFamily="";
+  render();
+}
+function isRTL(){return dvLang==="ar";}
+
 // --- HELPERS -----------------------------------------------------------------
 function hexAlpha(c,a){if(c&&c.charAt(0)==="#"){var r=parseInt(c.slice(1,3),16),g=parseInt(c.slice(3,5),16),b=parseInt(c.slice(5,7),16);return"rgba("+r+","+g+","+b+","+a+")";}if(c&&c.indexOf("rgb(")===0)return c.replace("rgb(","rgba(").replace(")",","+a+")");return c||"rgba(255,255,255,0.05)";}
 function el(tag,attrs,children){

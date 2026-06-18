@@ -332,15 +332,15 @@ function renderAnalyzer(){
   if(analyzerState.stage===0){
     var qc=el("div",{style:{background:"rgba(201,168,76,0.04)",border:"1px solid "+cl.goldDim,borderRadius:"16px",padding:"24px 20px",marginBottom:"20px",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)"}});
     qc.appendChild(el("div",{style:{textAlign:"center",marginBottom:"16px"}},[
-      el("div",{style:{color:cl.gold,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"}},"Quick Check — Is Your Deal Fair?"),
-      el("div",{style:{color:cl.sub,fontSize:"11.5px",fontFamily:"'Inter',sans-serif"}},"Enter any Dubai property to get an instant AI verdict")
+      el("div",{style:{color:cl.gold,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"}},t("qc_title")),
+      el("div",{style:{color:cl.sub,fontSize:"11.5px",fontFamily:"'Inter',sans-serif"}},t("qc_sub"))
     ]));
     if(!window._qcState)window._qcState={area:"",building:"",price:"",result:null};
     var qs=window._qcState;
 
     // Area dropdown
     var areaSelect=el("select",{style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",marginBottom:"10px",outline:"none",boxSizing:"border-box",appearance:"none",WebkitAppearance:"none"}});
-    var defOpt=el("option",{value:""});defOpt.textContent="Select Area";areaSelect.appendChild(defOpt);
+    var defOpt=el("option",{value:""});defOpt.textContent=t("qc_select_area");areaSelect.appendChild(defOpt);
     AREA_NAMES.forEach(function(n){var o=el("option",{value:n});o.textContent=n;if(qs.area===n)o.selected=true;areaSelect.appendChild(o);});
     areaSelect.addEventListener("change",function(){qs.area=this.value;qs.result=null;render();});
     qc.appendChild(areaSelect);
@@ -379,7 +379,7 @@ function renderAnalyzer(){
 
     // Check button
     var checkBtn=el("button",{style:{width:"100%",padding:"14px",borderRadius:"12px",border:"none",background:"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#08090C",fontSize:"15px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.03em"}});
-    checkBtn.textContent="Is This Price Fair?";
+    checkBtn.textContent=t("qc_btn");
     checkBtn.addEventListener("click",function(){
       if(!qs.area){alert("Please select an area");return;}
       var price=parseInt((qs.price||"").replace(/[^0-9]/g,""));
@@ -398,7 +398,7 @@ function renderAnalyzer(){
     // Result display
     if(qs.result&&!qs.result.error){
       var r=qs.result;
-      var verdictMap={DISTRESS:{label:"GREAT DEAL ✓",bg:"rgba(16,185,129,0.1)",border:"#10B981",color:"#10B981"},GOOD:{label:"GOOD PRICE ✓",bg:"rgba(16,185,129,0.1)",border:"#10B981",color:"#10B981"},FAIR:{label:"FAIR PRICE",bg:"rgba(245,158,11,0.1)",border:"#F59E0B",color:"#F59E0B"},OVER:{label:"OVERPRICED ✗",bg:"rgba(239,68,68,0.1)",border:"#EF4444",color:"#EF4444"}};
+      var verdictMap={DISTRESS:{label:t("v_distress_s"),bg:"rgba(16,185,129,0.1)",border:"#10B981",color:"#10B981"},GOOD:{label:t("v_good_s"),bg:"rgba(16,185,129,0.1)",border:"#10B981",color:"#10B981"},FAIR:{label:t("v_fair_s"),bg:"rgba(245,158,11,0.1)",border:"#F59E0B",color:"#F59E0B"},OVER:{label:t("v_over_s"),bg:"rgba(239,68,68,0.1)",border:"#EF4444",color:"#EF4444"}};
       var vm=verdictMap[r.verdict]||verdictMap.FAIR;
       var resCard=el("div",{style:{marginTop:"16px",padding:"16px",borderRadius:"12px",border:"2px solid "+vm.border,background:vm.bg,textAlign:"center"}});
       resCard.appendChild(el("div",{style:{fontSize:"20px",fontWeight:"900",color:vm.color,fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"}},vm.label));
@@ -406,7 +406,7 @@ function renderAnalyzer(){
       // Full analysis link
       var fullLink=el("div",{style:{marginTop:"12px"}});
       var fBtn=el("button",{style:{background:"transparent",border:"1px solid "+cl.goldDim,color:cl.gold,padding:"8px 20px",borderRadius:"8px",fontSize:"11.5px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",fontWeight:"600"}});
-      fBtn.textContent="Want full analysis? →";
+      fBtn.textContent=t("qc_full");
       fBtn.addEventListener("click",function(){
         var price=parseInt((qs.price||"").replace(/[^0-9]/g,""))||0;
         var aData=AREAS[qs.area]||{psf:1800};
@@ -437,7 +437,7 @@ function renderAnalyzer(){
     const loadDiv=el("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"300px",gap:"16px"}});
     const spinner=el("div",{style:{width:"36px",height:"36px",borderRadius:"50%",border:"2px solid "+cl.border,borderTopColor:cl.gold,animation:"spin 0.8s linear infinite"}});
     loadDiv.appendChild(spinner);
-    loadDiv.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Space Grotesk',monospace"},"Analyzing with DLD data..."));
+    loadDiv.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Space Grotesk',monospace"},t("az_loading")));
     wrap.appendChild(loadDiv);
     return wrap;
   }
@@ -1431,10 +1431,10 @@ function renderAnalyzerResult(wrap){
     pdfWrap.appendChild(div({color:cl.sub,fontSize:'9px',fontFamily:"'Space Grotesk',monospace",textAlign:'center',marginTop:'6px'},'Free · No spam · One-time only'));
   } else {
     const dlBtn=el('button',{style:{width:'100%',padding:'13px',borderRadius:'10px',border:'none',background:'linear-gradient(135deg,#C9A84C,#7A5E28)',color:'#08090C',fontSize:'14px',fontWeight:'700',fontFamily:"'Inter',sans-serif",cursor:'pointer'}});
-    dlBtn.textContent='Download PDF Report';
+    dlBtn.textContent=t('download_pdf');
     dlBtn.addEventListener('click',function(){generatePDF();});
     var arBtn=el('button',{style:{width:'100%',padding:'13px',borderRadius:'10px',border:'1px solid '+cl.goldDim,background:'transparent',color:cl.gold,fontSize:'14px',fontWeight:'700',fontFamily:"Cairo,'Space Grotesk',sans-serif",cursor:'pointer',marginTop:'8px',direction:'rtl'}});
-    arBtn.textContent='📄 تقرير بالعربية';
+    arBtn.textContent='📄 '+t('arabic_pdf');
     arBtn.addEventListener('click',function(){generateArabicPDF();});
     pdfWrap.appendChild(dlBtn);
     pdfWrap.appendChild(arBtn);

@@ -6,7 +6,7 @@ function renderAbout(){
   // Hero / Mission
   var hero=div({textAlign:"center",marginBottom:"40px"});
   hero.appendChild(el("img",{src:"logo.png",alt:"DubAIVal",style:{width:"64px",height:"64px",borderRadius:"14px",margin:"0 auto 16px",display:"block",objectFit:"contain"}}));
-  hero.appendChild(el("h1",{style:{color:cl.gold,fontSize:"22px",fontWeight:"700",margin:"0 0 8px",letterSpacing:"0.04em"}},"Bringing AI-Powered Transparency to Dubai Real Estate"));
+  hero.appendChild(el("h1",{style:{color:cl.gold,fontSize:"22px",fontWeight:"700",margin:"0 0 8px",letterSpacing:"0.04em"}},t("abt_mission")));
   hero.appendChild(el("p",{style:{color:cl.sub,fontSize:"13px",lineHeight:"1.7",maxWidth:"560px",margin:"0 auto"}},"DubAIVal is an independent AI valuation platform built to bring data-driven clarity to one of the world’s most dynamic property markets."));
   wrap.appendChild(hero);
 

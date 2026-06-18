@@ -8,7 +8,7 @@ function renderMarketIndex(){
   // Header
   var header=div({textAlign:"center",marginBottom:"24px"});
   header.appendChild(el("div",{style:{color:cl.gold,fontSize:"10px",letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:"6px"}},"◆ Market Intelligence"));
-  header.appendChild(el("h1",{style:{color:cl.text,fontSize:"18px",fontWeight:"800",margin:"0 0 4px"}},"Dubai Real Estate Market Index"));
+  header.appendChild(el("h1",{style:{color:cl.text,fontSize:"18px",fontWeight:"800",margin:"0 0 4px"}},t("idx_title")));
   header.appendChild(el("div",{style:{color:cl.sub,fontSize:"11px"}},"by DubAIVal · "+dateStr));
   wrap.appendChild(header);
 

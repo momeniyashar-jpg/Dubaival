@@ -1000,6 +1000,10 @@ function render(){
     }
     return;
   }
+  document.documentElement.dir=isRTL()?"rtl":"ltr";
+  document.documentElement.lang=isRTL()?"ar":"en";
+  if(isRTL())document.body.style.fontFamily="Cairo,'Space Grotesk',monospace";
+  else document.body.style.fontFamily="";
   const cl=C();
   const app=document.getElementById("app");
   app.innerHTML="";
@@ -1014,11 +1018,12 @@ function render(){
   const header=div({background:cl.surface,borderBottom:"1px solid "+cl.border,padding:"0 20px",display:"flex",alignItems:"center",justifyContent:"space-between",height:"54px",position:"sticky",top:"0",zIndex:"100"},[
     div({display:"flex",alignItems:"center",gap:"10px"},[
       el("img",{src:"logo.png",alt:"dAIv",style:{width:"36px",height:"36px",borderRadius:"7px",flexShrink:"0",objectFit:"contain"}}),
-      div({},[div({fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",color:"#fff"},"DubAIVal"),div({color:cl.goldDim,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"AI Property Intelligence")])
+      div({},[div({fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",color:"#fff"},"DubAIVal"),div({color:cl.goldDim,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},t("hdr_subtitle"))])
     ]),
     div({display:"flex",alignItems:"center",gap:"8px"},[
       div({display:"flex",alignItems:"center",gap:"5px",background:cl.greenBg,border:"1px solid "+cl.greenBo,borderRadius:"20px",padding:"4px 10px"},[div({width:"5px",height:"5px",borderRadius:"50%",background:cl.green,animation:"pulse 2s infinite",flexShrink:"0"}),(function(){var lb=el("span",{style:{color:cl.green,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"}});lb.textContent=LIVE_GEO.fetched?"LIVE ·"+LIVE_GEO.trend:"LIVE";return lb;})()]),
       el("button",{style:{background:cl.raised,border:"1px solid "+cl.border,borderRadius:"20px",padding:"5px 10px",cursor:"pointer",color:cl.sub,fontSize:"14px"},onclick:function(){darkMode=!darkMode;render();}},darkMode?"☀️":"🌙"),
+      el("button",{style:{background:isRTL()?hexAlpha("#3B82F6",0.12):"transparent",border:"1px solid "+(isRTL()?"rgba(59,130,246,0.3)":cl.border),borderRadius:"20px",padding:"4px 10px",cursor:"pointer",color:isRTL()?"#3B82F6":cl.sub,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},onclick:function(){setLang(dvLang==="ar"?"en":"ar");}},dvLang==="ar"?"EN":"عر"),
       // Profile button
       (function(){
         var pb=el("button",{style:{background:showProfilePanel?cl.goldFaint:"transparent",border:"1px solid "+(showProfilePanel?cl.gold:cl.border),borderRadius:"20px",padding:"5px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:"5px",color:showProfilePanel?cl.gold:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace",marginLeft:"4px"}});
@@ -1105,11 +1110,11 @@ function render(){
   }
 
   // Nav
-  const tabs=[{id:"Market",icon:"📊",label:"Market"},{id:"Index",icon:"📈",label:"Index"},{id:"Analyzer",icon:"🔍",label:"Analyzer"},{id:"Map",icon:"🗺️",label:"Map"},{id:"Find",icon:"🔎",label:"Find"},{id:"Deals",icon:"🤝",label:"Deals"},{id:"Compare",icon:"⚖️",label:"Compare"},{id:"Portfolio",icon:"💼",label:"Portfolio"},{id:"Alerts",icon:"🔔",label:"Alerts"},{id:"Chat",icon:"💬",label:"AI Chat"},{id:"About",icon:"ℹ️",label:"About"}];
+  const tabs=[{id:"Market",icon:"📊",lk:"tab_market"},{id:"Index",icon:"📈",lk:"tab_index"},{id:"Analyzer",icon:"🔍",lk:"tab_analyzer"},{id:"Map",icon:"🗺️",lk:"tab_map"},{id:"Find",icon:"🔎",lk:"tab_find"},{id:"Deals",icon:"🤝",lk:"tab_deals"},{id:"Compare",icon:"⚖️",lk:"tab_compare"},{id:"Portfolio",icon:"💼",lk:"tab_portfolio"},{id:"Alerts",icon:"🔔",lk:"tab_alerts"},{id:"Chat",icon:"💬",lk:"tab_chat"},{id:"About",icon:"ℹ️",lk:"tab_about"}];
   const nav=div({background:cl.surface,borderBottom:"1px solid "+cl.border,display:"flex",overflowX:"auto",padding:"0 20px"},
-    tabs.map(function(t){
-      const active=currentTab===t.id;
-      return el("button",{style:{background:"transparent",border:"none",borderBottom:"2px solid "+(active?cl.gold:"transparent"),color:active?cl.gold:cl.sub,padding:"11px 14px",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",fontSize:"12.5px",fontWeight:active?"700":"400",whiteSpace:"nowrap"},onclick:function(){currentTab=t.id;render();}},t.icon+" "+t.label);
+    tabs.map(function(tab){
+      const active=currentTab===tab.id;
+      return el("button",{style:{background:"transparent",border:"none",borderBottom:"2px solid "+(active?cl.gold:"transparent"),color:active?cl.gold:cl.sub,padding:"11px 14px",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",fontSize:"12.5px",fontWeight:active?"700":"400",whiteSpace:"nowrap"},onclick:function(){currentTab=tab.id;render();}},tab.icon+" "+t(tab.lk));
     })
   );
   app.appendChild(nav);
@@ -1133,8 +1138,8 @@ function render(){
   app.appendChild(content);
 
   app.appendChild(div({borderTop:"1px solid "+cl.border,padding:"10px 20px",display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:"4px"},[
-    span({color:cl.sub,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},"DubAIVal · DLD · Cascade AVM · June 2026"),
-    span({color:cl.sub,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},"Professional use only · Not financial advice"),
+    span({color:cl.sub,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},t("footer_tag")),
+    span({color:cl.sub,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},t("not_advice")),
   ]));
 }
 
