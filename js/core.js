@@ -691,7 +691,84 @@ function renderSmartBar(opts){
     }
   }catch(e){}
 
+  // Voice mic button for smart bar
+  var micEl=createVoiceMic("_voice_"+stateKey,function(txt){
+    ai.text=txt;doAiParse();
+  },{inline:true});
+  row.appendChild(micEl);
+
   box.appendChild(inner);
   return box;
+}
+
+// --- SHARED VOICE INPUT ---
+var _voiceStates={};
+function _getVoiceState(key){
+  if(!_voiceStates[key])_voiceStates[key]={active:false,recog:null};
+  return _voiceStates[key];
+}
+
+function createVoiceMic(stateKey,onResult,opts){
+  opts=opts||{};
+  var cl=C();
+  var vs=_getVoiceState(stateKey);
+  var hasSpeech=!!(window.SpeechRecognition||window.webkitSpeechRecognition);
+  var inline=opts.inline;
+  var sz=inline?"40px":"64px";
+  var fsz=inline?"16px":"24px";
+
+  if(!hasSpeech){
+    var dis=el("button",{style:{width:sz,height:sz,borderRadius:"50%",border:"1px solid "+cl.border,background:cl.raised,color:cl.sub,fontSize:fsz,cursor:"not-allowed",opacity:"0.5",flexShrink:"0"},title:"Voice not supported"});
+    dis.textContent="🎤";
+    return dis;
+  }
+
+  // Inject keyframes once
+  if(!document.getElementById("voiceWaveStyle")){
+    var st=document.createElement("style");st.id="voiceWaveStyle";
+    st.textContent="@keyframes voiceWave{0%{height:8px}100%{height:28px}}@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,0.4)}70%{box-shadow:0 0 0 12px rgba(239,68,68,0)}100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}";
+    document.head.appendChild(st);
+  }
+
+  var wrap=div({display:inline?"inline-flex":"flex",flexDirection:"column",alignItems:"center",flexShrink:"0"});
+  var micBtn=el("button",{style:{width:sz,height:sz,borderRadius:"50%",border:"2px solid "+cl.gold,fontSize:fsz,cursor:"pointer",flexShrink:"0",
+    background:vs.active?"#EF4444":"linear-gradient(135deg,"+cl.gold+",#7A5E28)",
+    color:vs.active?"#fff":"#08090C",
+    animation:vs.active?"pulse 1.5s infinite":"none",
+    boxShadow:vs.active?"0 0 20px rgba(239,68,68,0.4)":"none",transition:"all 0.3s"}});
+  micBtn.textContent="🎤";
+  micBtn.addEventListener("click",function(){
+    if(vs.active){if(vs.recog)vs.recog.stop();vs.active=false;render();return;}
+    var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    var recog=new SR();recog.continuous=false;recog.interimResults=false;
+    recog.lang=opts.lang||"en-US";
+    vs.recog=recog;vs.active=true;render();
+    recog.onresult=function(e){
+      var txt="";for(var i=0;i<e.results.length;i++)txt+=e.results[i][0].transcript;
+      vs.active=false;
+      if(onResult)onResult(txt);
+      else render();
+    };
+    recog.onerror=function(){vs.active=false;render();};
+    recog.onend=function(){vs.active=false;render();};
+    recog.start();
+  });
+  wrap.appendChild(micBtn);
+
+  if(vs.active&&!inline){
+    wrap.appendChild(div({marginTop:"12px"},[
+      div({display:"flex",justifyContent:"center",alignItems:"center",gap:"3px",height:"30px"},(function(){
+        var bars=[];for(var i=0;i<6;i++){
+          bars.push(el("div",{style:{width:"4px",background:cl.gold,borderRadius:"2px",
+            animation:"voiceWave 0.8s ease-in-out "+(i*0.1)+"s infinite alternate",height:"8px"}}));
+        }return bars;
+      })()),
+      div({color:"#EF4444",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",marginTop:"6px"},"Listening...")]));
+  }
+  if(vs.active&&inline){
+    micBtn.title="Listening... tap to stop";
+  }
+
+  return wrap;
 }
 

@@ -256,56 +256,10 @@ function renderReportBuilder(wrap,cl){
     // Voice section
     if(WS_STATE.reportMode==="voice"){
       var voiceWrap=div({textAlign:"center",padding:"16px 0",marginBottom:"12px"});
-      var hasSpeech=!!(window.SpeechRecognition||window.webkitSpeechRecognition);
-      if(hasSpeech){
-        var micBtn=el("button",{style:{width:"64px",height:"64px",borderRadius:"50%",border:"none",fontSize:"24px",cursor:"pointer",
-          background:WS_STATE.voiceActive?"#EF4444":"linear-gradient(135deg,"+cl.gold+",#7A5E28)",
-          color:WS_STATE.voiceActive?"#fff":"#08090C",
-          animation:WS_STATE.voiceActive?"pulse 1.5s infinite":"none",
-          boxShadow:WS_STATE.voiceActive?"0 0 20px rgba(239,68,68,0.4)":"none",transition:"all 0.3s"}});
-        micBtn.textContent="🎤";
-        micBtn.addEventListener("click",function(){
-          if(WS_STATE.voiceActive){
-            if(window._wsRecog)window._wsRecog.stop();
-            WS_STATE.voiceActive=false;render();return;
-          }
-          var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-          var recog=new SR();recog.continuous=false;recog.interimResults=false;
-          recog.lang="en-US";
-          window._wsRecog=recog;
-          WS_STATE.voiceActive=true;WS_STATE.voiceText="";render();
-          recog.onresult=function(e){
-            var txt="";for(var i=0;i<e.results.length;i++)txt+=e.results[i][0].transcript;
-            WS_STATE.voiceText=txt;window._wsTextInp=txt;WS_STATE.voiceActive=false;render();
-          };
-          recog.onerror=function(){WS_STATE.voiceActive=false;render();};
-          recog.onend=function(){WS_STATE.voiceActive=false;render();};
-          recog.start();
-        });
-        voiceWrap.appendChild(micBtn);
-        if(WS_STATE.voiceActive){
-          voiceWrap.appendChild(div({marginTop:"12px"},[
-            div({display:"flex",justifyContent:"center",alignItems:"center",gap:"3px",height:"30px"},(function(){
-              var bars=[];for(var i=0;i<6;i++){
-                bars.push(el("div",{style:{width:"4px",background:cl.gold,borderRadius:"2px",
-                  animation:"voiceWave 0.8s ease-in-out "+(i*0.1)+"s infinite alternate",height:"8px"}}));
-              }return bars;
-            })()),
-            div({color:"#EF4444",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",marginTop:"6px"},"Listening...")]));
-          // Add voice wave keyframes
-          if(!document.getElementById("voiceWaveStyle")){
-            var style=document.createElement("style");style.id="voiceWaveStyle";
-            style.textContent="@keyframes voiceWave{0%{height:8px}100%{height:28px}}";
-            document.head.appendChild(style);
-          }
-        }
-        if(WS_STATE.voiceText){voiceWrap.appendChild(div({color:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif",marginTop:"8px",fontStyle:"italic"},'"'+WS_STATE.voiceText+'"'));}
-      }else{
-        var disabledMic=el("button",{style:{width:"64px",height:"64px",borderRadius:"50%",border:"1px solid "+cl.border,background:cl.raised,color:cl.sub,fontSize:"24px",cursor:"not-allowed",opacity:"0.5"},title:"Voice not supported in this browser"});
-        disabledMic.textContent="🎤";
-        voiceWrap.appendChild(disabledMic);
-        voiceWrap.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginTop:"6px"},"Voice not supported in this browser"));
-      }
+      voiceWrap.appendChild(createVoiceMic("_voice_ws_report",function(txt){
+        WS_STATE.voiceText=txt;window._wsTextInp=txt;render();
+      }));
+      if(WS_STATE.voiceText){voiceWrap.appendChild(div({color:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif",marginTop:"8px",fontStyle:"italic"},'"'+WS_STATE.voiceText+'"'));}
       card.appendChild(voiceWrap);
     }
   }

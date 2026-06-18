@@ -546,6 +546,9 @@ function renderAnalyzer(){
     }
     if(!ai.parsing)aiBtn.addEventListener("click",doAiParse);
     aiRow.appendChild(aiBtn);
+    aiRow.appendChild(createVoiceMic("_voice_analyzer",function(txt){
+      ai.text=txt;doAiParse();
+    },{inline:true}));
     aiBoxInner.appendChild(aiRow);
 
     // Missing/filled feedback
