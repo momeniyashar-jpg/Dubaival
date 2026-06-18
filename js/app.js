@@ -641,6 +641,125 @@ function generatePDF(){
   },150);
 }
 
+function generateArabicPDF(){
+  try{dvTrack('pdf_arabic_generated',{area:analyzerState&&analyzerState.f?analyzerState.f.area:''});}catch(e){}
+  var f=analyzerState.f;
+  var val=analyzerState.val;
+  if(!val)return;
+  var now=new Date();
+  var dateStr=now.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  var vColors={DISTRESS:'#10B981',GOOD:'#10B981',FAIR:'#F59E0B',OVER:'#EF4444'};
+  var vLabels={DISTRESS:'صفقة ممتازة',GOOD:'سعر جيد',FAIR:'سعر عادل',OVER:'سعر مرتفع'};
+  var vColor=vColors[val.verdict]||'#888';
+  var vLabel=vLabels[val.verdict]||val.verdict;
+  var propType=f.propCategory==='villa'?'فيلا':'شقة';
+  var viewAr=f.view&&f.view!=='Not specified'?f.view:'—';
+  var furnAr={'Furnished':'مفروشة','Semi-furnished':'نصف مفروشة','Unfurnished':'غير مفروشة'}[f.furnished]||f.furnished||'غير مفروشة';
+  var investLabels={'Undervalued':'مقوّم بأقل من قيمته','Fair Value':'قيمة عادلة','Elevated':'مرتفع','Bubble Risk':'مخاطر فقاعة'};
+  var investAr=investLabels[val.investSignal]||val.investSignal||'—';
+
+  var h='<div style="width:210mm;min-height:297mm;padding:18mm 16mm;box-sizing:border-box;font-family:Cairo,Noto Sans Arabic,Tahoma,sans-serif;direction:rtl;text-align:right">';
+  // Header
+  h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #C9A84C;padding-bottom:12px;margin-bottom:20px">';
+  h+='<div style="text-align:left"><div style="font-weight:700;font-size:12px;color:#111;font-family:Inter,sans-serif">DubAIVal</div>';
+  h+='<div style="font-size:9px;color:#888;letter-spacing:0.08em">www.dubaival.com</div></div>';
+  h+='<div><div style="font-size:20px;font-weight:800;color:#111">تقرير التقييم العقاري</div>';
+  h+='<div style="font-size:10px;color:#666;margin-top:4px">'+dateStr+'</div>';
+  h+='<div style="font-size:9px;color:#C9A84C;margin-top:3px">درجة الثقة: '+val.confScore+'/100 — '+(val.confTier.label||'')+'</div>';
+  h+='</div></div>';
+
+  // Property info
+  h+='<div style="background:#f8f8f8;border-right:4px solid #C9A84C;border-left:none;padding:12px 16px;margin-bottom:18px;border-radius:4px">';
+  h+='<div style="font-size:16px;font-weight:700;color:#111;margin-bottom:6px">'+(f.building||f.cluster||f.area||'عقار')+' — '+propType+'</div>';
+  h+='<table style="width:100%;font-size:11px;color:#555;border-collapse:collapse">';
+  h+='<tr><td style="padding:3px 0;width:30%;font-weight:600">المنطقة</td><td>'+(f.area||'—')+'</td></tr>';
+  h+='<tr><td style="padding:3px 0;font-weight:600">المبنى</td><td>'+(f.building||'—')+'</td></tr>';
+  h+='<tr><td style="padding:3px 0;font-weight:600">المساحة</td><td>'+(f.size||'—')+' قدم مربع</td></tr>';
+  h+='<tr><td style="padding:3px 0;font-weight:600">الطابق</td><td>'+(f.floor||'—')+'</td></tr>';
+  h+='<tr><td style="padding:3px 0;font-weight:600">الإطلالة</td><td>'+viewAr+'</td></tr>';
+  h+='<tr><td style="padding:3px 0;font-weight:600">التأثيث</td><td>'+furnAr+'</td></tr>';
+  h+='</table></div>';
+
+  // Verdict
+  var vBg={DISTRESS:'#f0fdf4',GOOD:'#f0fdf4',FAIR:'#fffbeb',OVER:'#fef2f2'};
+  h+='<div style="text-align:center;padding:16px;margin-bottom:18px;border:2px solid '+vColor+';border-radius:8px;background:'+(vBg[val.verdict]||'#f8f8f8')+'">';
+  h+='<div style="font-size:22px;font-weight:900;color:'+vColor+';margin-bottom:6px">'+vLabel+'</div>';
+  h+='<div style="font-size:12px;color:#555">سعر القدم المربع المطلوب: '+val.askPSF.toLocaleString()+' درهم — السوق: '+val.adjPSF.toLocaleString()+' درهم';
+  h+=' &bull; '+(parseFloat(val.vsPct)>=0?'+':'')+val.vsPct+'%</div>';
+  h+='</div>';
+
+  // Metrics
+  h+='<div style="font-size:10px;letter-spacing:0.12em;color:#C9A84C;font-weight:700;margin-bottom:10px;padding-bottom:4px;border-bottom:1px solid #e0e0e0">نتائج التقييم</div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px">';
+  var arMetrics=[
+    {l:'السعر العادل',v:'AED '+val.fairPrice.toLocaleString(),s:val.confTier.range},
+    {l:'سعر القدم المربع',v:'AED '+val.adjPSF.toLocaleString(),s:val.dataSource||''},
+    {l:'العائد الإجمالي',v:val.grossYield+'%',s:'صافي '+val.netYield+'%'},
+    {l:'إشارة الاستثمار',v:investAr,s:'P/R '+(val.priceRentRatio||'—')},
+    {l:'العائد الكلي السنوي',v:(val.totalReturnAnnual||'—')+'%',s:'عائد + نمو'},
+    {l:'رسوم الخدمة',v:'AED '+Math.round(val.sc).toLocaleString()+'/سنة',s:(val.bData&&val.bData.sc?val.bData.sc:'—')+' درهم/قدم'}
+  ];
+  arMetrics.forEach(function(m){
+    h+='<div style="border:1px solid #e0e0e0;border-radius:6px;padding:10px 12px">';
+    h+='<div style="font-size:8.5px;letter-spacing:0.08em;color:#888;margin-bottom:3px">'+m.l+'</div>';
+    h+='<div style="font-size:15px;font-weight:700;color:#111;direction:ltr;text-align:right">'+m.v+'</div>';
+    h+='<div style="font-size:9px;color:#888;margin-top:2px">'+m.s+'</div>';
+    h+='</div>';
+  });
+  h+='</div>';
+
+  // Price ladder
+  h+='<div style="font-size:10px;letter-spacing:0.12em;color:#C9A84C;font-weight:700;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e0e0e0">سلّم الأسعار</div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px">';
+  var arLadder=[
+    {l:'سعر الاستغاثة',v:'AED '+val.distressPrice.toLocaleString(),c:'#10B981'},
+    {l:'هدف الشراء الجيد',v:'AED '+val.goodPrice.toLocaleString(),c:'#10B981'},
+    {l:'القيمة السوقية العادلة',v:'AED '+val.fairPrice.toLocaleString(),c:'#F59E0B'},
+    {l:'مبالغ فيه فوق',v:'AED '+val.overpricedAt.toLocaleString(),c:'#EF4444'},
+    {l:'السعر المطلوب',v:'AED '+(parseInt(f.price)||0).toLocaleString(),c:vColor},
+    {l:'هدف التفاوض',v:val.suggestedOffer?'AED '+val.suggestedOffer.toLocaleString():'بالسعر المطلوب',c:'#C9A84C'}
+  ];
+  arLadder.forEach(function(item){
+    h+='<div style="border:1px solid #e0e0e0;border-radius:6px;padding:8px 12px">';
+    h+='<div style="font-size:8.5px;letter-spacing:0.08em;color:#888;margin-bottom:2px">'+item.l+'</div>';
+    h+='<div style="font-size:14px;font-weight:700;color:'+item.c+';direction:ltr;text-align:right">'+item.v+'</div>';
+    h+='</div>';
+  });
+  h+='</div>';
+
+  // Mortgage section if available
+  if(val.mortgage&&val.mortgage.monthly){
+    h+='<div style="font-size:10px;letter-spacing:0.12em;color:#C9A84C;font-weight:700;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e0e0e0">بيانات الرهن العقاري</div>';
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px">';
+    h+='<div style="border:1px solid #e0e0e0;border-radius:6px;padding:10px 12px">';
+    h+='<div style="font-size:8.5px;color:#888;margin-bottom:3px">القسط الشهري</div>';
+    h+='<div style="font-size:15px;font-weight:700;color:#111;direction:ltr;text-align:right">AED '+val.mortgage.monthly.toLocaleString()+'</div></div>';
+    h+='<div style="border:1px solid #e0e0e0;border-radius:6px;padding:10px 12px">';
+    h+='<div style="font-size:8.5px;color:#888;margin-bottom:3px">إجمالي الفوائد</div>';
+    h+='<div style="font-size:15px;font-weight:700;color:#111;direction:ltr;text-align:right">AED '+(val.mortgage.totalInterest||0).toLocaleString()+'</div></div>';
+    h+='</div>';
+  }
+
+  // Footer
+  h+='<div style="border-top:2px solid #C9A84C;padding-top:14px;margin-top:20px;text-align:center">';
+  h+='<div style="font-size:11px;color:#555;line-height:1.8">تم إنشاء هذا التقرير بواسطة</div>';
+  h+='<div style="font-size:16px;font-weight:800;margin:4px 0;font-family:Inter,sans-serif"><span style="color:#111">Dub</span><span style="color:#C9A84C">AI</span><span style="color:#111">Val</span></div>';
+  h+='<div style="font-size:10px;color:#888">www.dubaival.com</div>';
+  h+='<div style="font-size:8px;color:#aaa;margin-top:12px">تقرير تقييم معتمد على بيانات دائرة الأراضي والأملاك &bull; للاستخدام المهني فقط &bull; ليس نصيحة مالية &bull; '+dateStr+'</div>';
+  h+='</div></div>';
+
+  var printEl=document.getElementById('print-report');
+  if(printEl){printEl.innerHTML=h;}
+  var fontLink=document.createElement('link');
+  fontLink.rel='stylesheet';
+  fontLink.href='https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap';
+  document.head.appendChild(fontLink);
+  setTimeout(function(){
+    window.print();
+    setTimeout(function(){if(printEl)printEl.innerHTML='';},2000);
+  },300);
+}
+
 // Update search suggestions without full re-render (keeps focus)
 function updateSearchSuggestions(query){
   var suggestEl=document.getElementById("dv-search-suggestions");

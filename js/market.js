@@ -1329,7 +1329,11 @@ function renderAnalyzerResult(wrap){
     const dlBtn=el('button',{style:{width:'100%',padding:'13px',borderRadius:'10px',border:'none',background:'linear-gradient(135deg,#C9A84C,#7A5E28)',color:'#08090C',fontSize:'14px',fontWeight:'700',fontFamily:"'Inter',sans-serif",cursor:'pointer'}});
     dlBtn.textContent='Download PDF Report';
     dlBtn.addEventListener('click',function(){generatePDF();});
+    var arBtn=el('button',{style:{width:'100%',padding:'13px',borderRadius:'10px',border:'1px solid '+cl.goldDim,background:'transparent',color:cl.gold,fontSize:'14px',fontWeight:'700',fontFamily:"Cairo,'Space Grotesk',sans-serif",cursor:'pointer',marginTop:'8px',direction:'rtl'}});
+    arBtn.textContent='📄 تقرير بالعربية';
+    arBtn.addEventListener('click',function(){generateArabicPDF();});
     pdfWrap.appendChild(dlBtn);
+    pdfWrap.appendChild(arBtn);
     pdfWrap.appendChild(div({color:cl.sub,fontSize:'9px',fontFamily:"'Space Grotesk',monospace",textAlign:'center',marginTop:'8px'},'Print dialog opens → Save as PDF'));
   }
   wrap.appendChild(pdfWrap);
