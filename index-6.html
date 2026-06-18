@@ -3,26 +3,26 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>DubaiVal — AI Property Valuation Dubai | DLD-Verified</title>
+<title>DubAIVal — AI Property Valuation Dubai | DLD-Verified</title>
 <meta name="description" content="Instant AI-powered property valuations for Dubai real estate. DLD-verified data, 5,612 buildings, Cascade AVM engine. Get accurate PSF analysis, deal verdicts and PDF reports."/>
 <meta name="keywords" content="Dubai property valuation, AVM Dubai, real estate valuation Dubai, DLD data, PSF Dubai, property price Dubai 2026, Dubai real estate AI"/>
 <meta name="robots" content="index, follow"/>
 <link rel="canonical" href="https://www.dubaival.com/"/>
 <meta name="theme-color" content="#070B14"/>
-<meta name="author" content="DubaiVal"/>
+<meta name="author" content="DubAIVal"/>
 
 <!-- Open Graph -->
 <meta property="og:type" content="website"/>
 <meta property="og:url" content="https://www.dubaival.com/"/>
-<meta property="og:title" content="DubaiVal — AI Property Valuation Dubai"/>
+<meta property="og:title" content="DubAIVal — AI Property Valuation Dubai"/>
 <meta property="og:description" content="Instant DLD-verified property valuations. 5,612 buildings. Cascade AVM engine. Used by Dubai real estate professionals."/>
 <meta property="og:image" content="https://dubaival.com/og-image.png"/>
-<meta property="og:site_name" content="DubaiVal"/>
+<meta property="og:site_name" content="DubAIVal"/>
 <meta property="og:locale" content="en_AE"/>
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image"/>
-<meta name="twitter:title" content="DubaiVal — AI Property Valuation Dubai"/>
+<meta name="twitter:title" content="DubAIVal — AI Property Valuation Dubai"/>
 <meta name="twitter:description" content="Instant DLD-verified property valuations for Dubai real estate professionals."/>
 <meta name="twitter:image" content="https://dubaival.com/og-image.png"/>
 
@@ -31,7 +31,7 @@
 {
   "@context": "https://schema.org",
   "@type": "WebApplication",
-  "name": "DubaiVal",
+  "name": "DubAIVal",
   "url": "https://dubaival.com",
   "description": "AI-powered Dubai property valuation platform using DLD-verified transaction data",
   "applicationCategory": "BusinessApplication",
@@ -43,7 +43,7 @@
   },
   "provider": {
     "@type": "Organization",
-    "name": "DubaiVal",
+    "name": "DubAIVal",
     "url": "https://dubaival.com"
   }
 }
@@ -69,7 +69,7 @@
 window.dataLayer=window.dataLayer||[];
 function gtag(){dataLayer.push(arguments);}
 gtag('js',new Date());
-gtag('config','G-DUBAIVAL01',{page_title:'DubaiVal App',page_location:'https://dubaival.com/app'});
+gtag('config','G-DUBAIVAL01',{page_title:'DubAIVal App',page_location:'https://dubaival.com/app'});
 // Track key events
 window.dvTrack=function(event,params){try{gtag('event',event,params||{});}catch(e){}};
 </script>
@@ -1443,7 +1443,7 @@ function getChatSys(){
     areaSummary=lines.join("|");
   }catch(x){}
   var profile="Investor:"+(USER_PROFILE.investorType||"general")+"|Risk:"+(USER_PROFILE.risk||"moderate")+(USER_PROFILE.budgetMax?"|Budget:AED"+(USER_PROFILE.budgetMax/1e6).toFixed(1)+"M":"");
-  return "You are DubaiVal AI - Dubai property intelligence. June 2026.\n"+
+  return "You are DubAIVal AI - Dubai property intelligence. June 2026.\n"+
     "DB:5612 buildings DLD-verified. "+areaSummary+"\n"+
     "Market:Post-geo correction. Buyer leverage. Cash 87%. Off-plan 78%.\n"+
     "User:"+profile+"\n"+
@@ -1488,7 +1488,7 @@ var analyzerState={
 };
 var compareState={a1:"",a2:"",budget:"",purpose:"Investment",loading:false,result:"",err:""};
 var personalState={budget:"",role:"Investor",family:"Couple",children:"0",work:"",purpose:"Investment",timeline:"6 months",loading:false,result:"",err:""};
-var chatState={msgs:[{role:"assistant",text:"DubaiVal Intelligence.\n\nBuilding-level knowledge · June 2026 data · Confidence scoring.\n\nAsk me about any building, deal, or strategy."}],input:"",loading:false};
+var chatState={msgs:[{role:"assistant",text:"DubAIVal Intelligence.\n\nBuilding-level knowledge · June 2026 data · Confidence scoring.\n\nAsk me about any building, deal, or strategy."}],input:"",loading:false};
 
 // --- RENDER -------------------------------------------------------------------
 const MARKET_SENTIMENT={"Downtown Dubai":{"chg":-20.1,"s":"bear"},"Dubai Marina":{"chg":-18.1,"s":"bear"},"Palm Jumeirah":{"chg":6.2,"s":"bull"},"Business Bay":{"chg":-14.1,"s":"bear"},"Dubai Hills":{"chg":-5.8,"s":"bear"},"Dubai Creek Harbour":{"chg":0.0,"s":"neutral"},"JVC":{"chg":8.6,"s":"bull"},"JLT":{"chg":-11.9,"s":"bear"},"MBR City":{"chg":-3.4,"s":"bear"},"DAMAC Hills":{"chg":59.6,"s":"bull"},"Meydan":{"chg":-36.8,"s":"bear"},"Dubai South":{"chg":5.9,"s":"bull"},"City Walk":{"chg":2.6,"s":"neutral"},"Jumeirah":{"chg":-12.3,"s":"bear"}};
@@ -1498,7 +1498,7 @@ function renderFind(){
   const wrap=el("div",{style:{padding:"16px",maxWidth:"640px",margin:"0 auto"}});
 
   wrap.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Property Search"));
-  wrap.appendChild(div({color:cl.sub,fontSize:"12px",marginBottom:"16px",fontFamily:"'Inter',sans-serif"},"Tell DubaiVal what you're looking for. AI searches PropertyFinder & market data."));
+  wrap.appendChild(div({color:cl.sub,fontSize:"12px",marginBottom:"16px",fontFamily:"'Inter',sans-serif"},"Tell DubAIVal what you're looking for. AI searches PropertyFinder & market data."));
 
   if(!window.FIND_STATE)window.FIND_STATE={area:"",beds:"2 BR",maxPrice:"",minYield:"",type:"Apartment",query:"",results:[],loading:false,searched:false,
     sf:{area:"",grade:"",minYield:"",maxPSF:"",minPSF:"",minGrowth:"",maxDOM:"",minTurnover:"",type:"Apartment",beds:"Any",sort:"yield",showResults:false,results:[]}
@@ -1855,7 +1855,7 @@ function renderFind(){
       // Step 2: Groq AI fallback if no live results
       if(FS.results.length===0){
         var searchQuery=(beds?beds+" ":"")+type+" for sale"+(area?" in "+area:"")+(maxPrice?" under AED "+(maxPrice/1e6).toFixed(1)+"M":"")+". June 2026. Dubai UAE.";
-        var prompt="Provide market intelligence for: "+searchQuery+"\n\nReturn EXACTLY this JSON array (5-8 typical options based on June 2026 market data):\n[{\"title\":\"Building Name Type Beds\",\"area\":\"Area Name\",\"price\":2500000,\"size\":1200,\"beds\":2,\"baths\":2,\"floor\":15,\"furnished\":\"Unfurnished\",\"permit\":\"\",\"agentName\":\"DubaiVal AI\",\"agencyName\":\"Market Estimate\",\"agentPhone\":\"\",\"agentWA\":\"\",\"photo\":\"\",\"listingUrl\":\"https://www.bayut.com\",\"source\":\"AI Estimate\"}]\n\nUse real June 2026 market prices. Return ONLY the JSON array, no other text.";
+        var prompt="Provide market intelligence for: "+searchQuery+"\n\nReturn EXACTLY this JSON array (5-8 typical options based on June 2026 market data):\n[{\"title\":\"Building Name Type Beds\",\"area\":\"Area Name\",\"price\":2500000,\"size\":1200,\"beds\":2,\"baths\":2,\"floor\":15,\"furnished\":\"Unfurnished\",\"permit\":\"\",\"agentName\":\"DubAIVal AI\",\"agencyName\":\"Market Estimate\",\"agentPhone\":\"\",\"agentWA\":\"\",\"photo\":\"\",\"listingUrl\":\"https://www.bayut.com\",\"source\":\"AI Estimate\"}]\n\nUse real June 2026 market prices. Return ONLY the JSON array, no other text.";
         var resp=await callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:"You are a Dubai real estate market expert. Return ONLY valid JSON arrays based on June 2026 market data."},{role:"user",content:prompt}],max_tokens:2000,temperature:0.3});
         var data=await resp.json();
         var text=data.choices&&data.choices[0]?data.choices[0].message.content:"";
@@ -1866,7 +1866,7 @@ function renderFind(){
           var parsed=JSON.parse(clean.substring(arrStart,arrEnd));
           if(Array.isArray(parsed)&&parsed.length>0){
             FS.results=parsed.map(function(p){
-              return{title:p.title||"Property",area:p.area||area,price:p.price||0,size:p.size||0,psf:p.size>0?Math.round(p.price/p.size):0,beds:p.beds||0,baths:p.baths||0,floor:p.floor||"",furnished:p.furnished||"",permit:p.permit||"",agentName:p.agentName||"DubaiVal AI",agencyName:p.agencyName||"Market Estimate",agentPhone:p.agentPhone||"",agentWA:p.agentWA||"",photo:p.photo||"",listingUrl:p.listingUrl||"https://www.bayut.com",listingSource:p.source||"AI Estimate",source:p.source||"AI Estimate"};
+              return{title:p.title||"Property",area:p.area||area,price:p.price||0,size:p.size||0,psf:p.size>0?Math.round(p.price/p.size):0,beds:p.beds||0,baths:p.baths||0,floor:p.floor||"",furnished:p.furnished||"",permit:p.permit||"",agentName:p.agentName||"DubAIVal AI",agencyName:p.agencyName||"Market Estimate",agentPhone:p.agentPhone||"",agentWA:p.agentWA||"",photo:p.photo||"",listingUrl:p.listingUrl||"https://www.bayut.com",listingSource:p.source||"AI Estimate",source:p.source||"AI Estimate"};
             });
             FS.aiSummary="Live API unavailable — showing AI market estimates. Prices reflect typical June 2026 values for "+searchQuery;
           }
@@ -1879,7 +1879,7 @@ function renderFind(){
     // If no results, fallback to DB
     if(FS.results.length===0){
       doDBSearch(query,area,beds,maxPrice,type);
-      FS.aiSummary="Live search unavailable. Showing DubaiVal database results.";
+      FS.aiSummary="Live search unavailable. Showing DubAIVal database results.";
     }
     
     FS.searched=true;FS.loading=false;
@@ -1894,11 +1894,11 @@ function renderFind(){
       if(areaMatch){
         var estPrice=val.p*(beds==="Studio"?500:beds==="1 BR"?750:beds==="2 BR"?1100:beds==="3 BR"?1600:2200);
         if(maxPrice&&estPrice>maxPrice)return;
-        dbResults.push({title:key,area:val.a,psf:val.p,price:estPrice,g:val.g,apiSource:"DubaiVal DB"});
+        dbResults.push({title:key,area:val.a,psf:val.p,price:estPrice,g:val.g,apiSource:"DubAIVal DB"});
       }
     });
     FS.results=dbResults;
-    FS.apiSource="DubaiVal DB";
+    FS.apiSource="DubAIVal DB";
   }
 
   return wrap;
@@ -1911,7 +1911,7 @@ function renderAlerts(){
   // Header
   const hdr=el("div",{style:{marginBottom:"16px"}});
   hdr.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Deal Alerts"));
-  hdr.appendChild(div({color:cl.sub,fontSize:"12px",marginTop:"4px",fontFamily:"'Inter',sans-serif"},"Set your criteria. DubaiVal scans 5,612 buildings instantly."));
+  hdr.appendChild(div({color:cl.sub,fontSize:"12px",marginTop:"4px",fontFamily:"'Inter',sans-serif"},"Set your criteria. DubAIVal scans 6,162 buildings instantly."));
   wrap.appendChild(hdr);
 
   // Load saved alerts
@@ -2059,7 +2059,7 @@ function generatePDF(){
   var h='<div style="width:210mm;min-height:297mm;padding:18mm 16mm;box-sizing:border-box;font-family:Inter,sans-serif">';
   // Header
   h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #C9A84C;padding-bottom:12px;margin-bottom:20px">';
-  h+='<div><div style="font-size:20px;font-weight:800;color:#C9A84C">DubaiVal</div>';
+  h+='<div><div style="font-size:20px;font-weight:800"><span style="color:#111">Dub</span><span style="color:#C9A84C">AI</span><span style="color:#111">Val</span></div>';
   h+='<div style="font-size:9px;color:#888;letter-spacing:0.12em;text-transform:uppercase">Property Intelligence &bull; DLD-Verified</div></div>';
   h+='<div style="text-align:right;font-size:10px;color:#666">';
   h+='<div style="font-weight:700;font-size:12px;color:#111">Valuation Report</div>';
@@ -2120,7 +2120,7 @@ function generatePDF(){
   // Broker + Footer
   h+='<div style="border-top:1px solid #e0e0e0;padding-top:14px;margin-top:14px;display:flex;justify-content:space-between;align-items:flex-end">';
   h+='<div>'+brokerHtml+'</div>';
-  h+='<div style="text-align:right"><div style="font-weight:700;color:#C9A84C;font-size:13px">DubaiVal</div><div style="font-size:10px;color:#888">dubaival.com</div></div>';
+  h+='<div style="text-align:right"><div style="font-weight:700;font-size:13px"><span style="color:#111">Dub</span><span style="color:#C9A84C">AI</span><span style="color:#111">Val</span></div><div style="font-size:10px;color:#888">dubaival.com</div></div>';
   h+='</div>';
   h+='<div style="font-size:8px;color:#aaa;margin-top:16px;border-top:1px solid #eee;padding-top:8px">DLD-Verified Valuation Report &bull; Professional use only &bull; Not financial advice &bull; Accuracy '+val.confTier.range+' &bull; '+dateStr+'</div>';
   h+='</div>';
@@ -2227,7 +2227,7 @@ function renderAdmin(){
   // Password check
   if(!window.ADMIN_UNLOCKED){
     var pwWrap=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"24px",marginTop:"40px"}});
-    pwWrap.appendChild(div({color:cl.gold,fontSize:"12px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"16px"},"◆ DubaiVal Admin"));
+    pwWrap.appendChild(div({color:cl.gold,fontSize:"12px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"16px"},"◆ DubAIVal Admin"));
     var pwInp=el("input",{type:"password",placeholder:"Enter admin password",style:{width:"100%",background:"rgba(240,242,245,0.05)",border:"1px solid "+cl.border,color:"#F0F2F5",padding:"12px",borderRadius:"8px",fontSize:"14px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"}});
     var pwBtn=el("button",{style:{width:"100%",padding:"12px",background:"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#08090C",border:"none",borderRadius:"8px",fontSize:"14px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
     pwBtn.textContent="Login";
@@ -2387,7 +2387,7 @@ function render(){
   const header=div({background:cl.surface,borderBottom:"1px solid "+cl.border,padding:"0 20px",display:"flex",alignItems:"center",justifyContent:"space-between",height:"54px",position:"sticky",top:"0",zIndex:"100"},[
     div({display:"flex",alignItems:"center",gap:"10px"},[
       div({width:"30px",height:"30px",borderRadius:"7px",background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"10px",fontWeight:"900",color:"#070B14",fontFamily:"'Space Grotesk',monospace",flexShrink:"0"},"DV"),
-      div({},[div({color:cl.white,fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"DubaiVal"),div({color:cl.goldDim,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Property Intelligence")])
+      div({},[el("div",{style:{fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},innerHTML:"<span style='color:#F0F2F5'>Dub</span><span style='color:"+cl.gold+"'>AI</span><span style='color:#F0F2F5'>Val</span>"}),div({color:cl.goldDim,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"AI Property Intelligence")])
     ]),
     div({display:"flex",alignItems:"center",gap:"8px"},[
       div({display:"flex",alignItems:"center",gap:"5px",background:cl.greenBg,border:"1px solid "+cl.greenBo,borderRadius:"20px",padding:"4px 10px"},[div({width:"5px",height:"5px",borderRadius:"50%",background:cl.green,animation:"pulse 2s infinite",flexShrink:"0"}),(function(){var lb=el("span",{style:{color:cl.green,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"}});lb.textContent=LIVE_GEO.fetched?"LIVE ·"+LIVE_GEO.trend:"LIVE";return lb;})()]),
@@ -2504,7 +2504,7 @@ function render(){
   app.appendChild(content);
 
   app.appendChild(div({borderTop:"1px solid "+cl.border,padding:"10px 20px",display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:"4px"},[
-    span({color:cl.sub,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},"DubaiVal · DLD · Cascade AVM · June 2026"),
+    span({color:cl.sub,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},"DubAIVal · DLD · Cascade AVM · June 2026"),
     span({color:cl.sub,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},"Professional use only · Not financial advice"),
   ]));
 }
@@ -3933,7 +3933,7 @@ function renderCompare(){
     compareState.loading=true;compareState.result="";render();
     try{
       const d1=AREAS[s.a1]||{};const d2=AREAS[s.a2]||{};
-      const text=await askAI([{role:"user",content:"Compare for a client — Dubai June 2026:\nArea A: "+s.a1+" — avg PSF AED "+(d1.psf||"N/A")+", yield "+(d1.y||["N/A","N/A"]).join("-")+"%\nArea B: "+s.a2+" — avg PSF AED "+(d2.psf||"N/A")+", yield "+(d2.y||["N/A","N/A"]).join("-")+"%\nBudget: "+(s.budget?"AED "+parseInt(s.budget).toLocaleString():"not specified")+" | Purpose: "+s.purpose+"\n\nPSF · Yield · 3yr growth · Demand/liquidity · Risk · Decisive verdict"}],"You are DubaiVal AI. June 2026 Dubai market expert. Specific AED numbers only. No fluff. 5 sections, 2 sentences each.");
+      const text=await askAI([{role:"user",content:"Compare for a client — Dubai June 2026:\nArea A: "+s.a1+" — avg PSF AED "+(d1.psf||"N/A")+", yield "+(d1.y||["N/A","N/A"]).join("-")+"%\nArea B: "+s.a2+" — avg PSF AED "+(d2.psf||"N/A")+", yield "+(d2.y||["N/A","N/A"]).join("-")+"%\nBudget: "+(s.budget?"AED "+parseInt(s.budget).toLocaleString():"not specified")+" | Purpose: "+s.purpose+"\n\nPSF · Yield · 3yr growth · Demand/liquidity · Risk · Decisive verdict"}],"You are DubAIVal AI. June 2026 Dubai market expert. Specific AED numbers only. No fluff. 5 sections, 2 sentences each.");
       compareState.result=text;
     }catch(e){compareState.result="Error: "+e.message;}
     compareState.loading=false;render();
@@ -3967,7 +3967,7 @@ function renderPersonal(){
     if(!p.budget)return;
     personalState.loading=true;personalState.result="";render();
     try{
-      const text=await askAI([{role:"user",content:"My profile:\nBudget: AED "+parseInt(p.budget).toLocaleString()+" | I am: "+p.role+" | Family: "+p.family+" | Children: "+p.children+"\nWork: "+(p.work||"flexible")+" | Purpose: "+p.purpose+" | Timeline: "+p.timeline+"\n\nGive me 3 specific area recommendations, 3 communities, and 3 buildings in Dubai.\nFor each: current PSF range, expected yield, lifestyle fit, why it matches my profile.\nBe specific with AED numbers."}],"You are DubaiVal Personal Advisor. June 2026 Dubai expert. Specific AED numbers, direct recommendations, no fluff.");
+      const text=await askAI([{role:"user",content:"My profile:\nBudget: AED "+parseInt(p.budget).toLocaleString()+" | I am: "+p.role+" | Family: "+p.family+" | Children: "+p.children+"\nWork: "+(p.work||"flexible")+" | Purpose: "+p.purpose+" | Timeline: "+p.timeline+"\n\nGive me 3 specific area recommendations, 3 communities, and 3 buildings in Dubai.\nFor each: current PSF range, expected yield, lifestyle fit, why it matches my profile.\nBe specific with AED numbers."}],"You are DubAIVal Personal Advisor. June 2026 Dubai expert. Specific AED numbers, direct recommendations, no fluff.");
       personalState.result=text;
     }catch(e){personalState.result="Error: "+e.message;}
     personalState.loading=false;render();
@@ -4514,7 +4514,7 @@ function renderPortfolio(){
       var areaEntries2=Object.entries(areaDist2).sort(function(a,b){return b[1]-a[1];});
       var summary=metrics.map(function(a){return"- "+(a.building||"Unknown")+" in "+a.area+": "+a.beds+", "+parseInt(a.size).toLocaleString()+" sqft, bought AED "+a.m.purchasePrice.toLocaleString()+" ("+a.purchaseDate+"), now AED "+a.m.currentValue.toLocaleString()+" (ROI "+a.m.roi.toFixed(1)+"%), gross yield "+a.m.grossYield.toFixed(1)+"%, net "+a.m.netYield.toFixed(1)+"%, grade: "+a.m.grade+", signal: "+a.m.investSignal+", total return: "+a.m.totalReturn.toFixed(1)+"%";}).join("\n");
       var prompt="My Dubai real estate portfolio (June 2026):\n"+summary+"\n\nTotal value: AED "+totalValue.toLocaleString()+" | Total ROI: "+totalROI.toFixed(1)+"%\nAvg gross yield: "+avgGrossYield.toFixed(1)+"% | Avg net yield: "+avgNetYield.toFixed(1)+"%\nAreas: "+areaEntries2.map(function(e){return e[0]+" ("+(e[1]/totalValue*100).toFixed(0)+"%)"}).join(", ")+"\n\nInvestment goals: Risk: "+ps.goals.risk+" | Horizon: "+ps.goals.horizon+" | Target: "+ps.goals.target+"\nMarket: Post-geo correction, supply pressure H2 2026, buyer leverage window.\n\nFor EACH property give a signal: HOLD / SELL / BUY MORE with 1 sentence why.\nThen give 2-3 portfolio-level strategic recommendations.\nBe specific with AED numbers. Consider area growth forecasts and diversification.";
-      askAI([{role:"user",content:prompt}],"You are DubaiVal Portfolio Advisor. June 2026 Dubai expert. Analyze portfolios for UHNW investors. Specific AED numbers, decisive signals. Professional tone.").then(function(text){ps.aiAnalysis=text;ps.aiLoading=false;render();}).catch(function(e){ps.aiErr=e.message;ps.aiLoading=false;render();});
+      askAI([{role:"user",content:prompt}],"You are DubAIVal Portfolio Advisor. June 2026 Dubai expert. Analyze portfolios for UHNW investors. Specific AED numbers, decisive signals. Professional tone.").then(function(text){ps.aiAnalysis=text;ps.aiLoading=false;render();}).catch(function(e){ps.aiErr=e.message;ps.aiLoading=false;render();});
     }));
     if(ps.aiErr)wrap.appendChild(span({color:cl.red,fontSize:"11px",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},ps.aiErr));
   }
@@ -4535,7 +4535,7 @@ function renderPortfolio(){
 
   // Disclaimer
   var disc=div({background:cl.goldFaint,border:"1px solid "+cl.goldDim,borderRadius:"8px",padding:"10px 14px",fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6",color:cl.subHi});
-  disc.innerHTML="<strong style='color:"+cl.gold+"'>Note:</strong> Valuations use DubaiVal's Cascade AVM with hedonic pricing (5,612 buildings · 152 areas). Portfolio data is stored locally on your device. Not financial advice — consult a licensed advisor for investment decisions.";
+  disc.innerHTML="<strong style='color:"+cl.gold+"'>Note:</strong> Valuations use DubAIVal's Cascade AVM with hedonic pricing (5,612 buildings · 152 areas). Portfolio data is stored locally on your device. Not financial advice — consult a licensed advisor for investment decisions.";
   wrap.appendChild(disc);
   return wrap;
 }
@@ -4935,7 +4935,7 @@ function renderDeals(){
   if(!DEAL_STATE.adminToken){
     var adminLink=el("button",{style:{padding:"6px 10px",borderRadius:"8px",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",
       background:"transparent",color:cl.sub,border:"1px solid "+cl.border,marginLeft:"auto"},
-      onclick:function(){var token=prompt("Enter DubaiVal Admin Token:");if(token&&token.trim()){DEAL_STATE.adminToken=token.trim();try{localStorage.setItem("dv_admin_token",token.trim());}catch(e){}DEAL_STATE.mode="admin";fetchAgents();fetchReferrals().then(function(){render();});render();}}});
+      onclick:function(){var token=prompt("Enter DubAIVal Admin Token:");if(token&&token.trim()){DEAL_STATE.adminToken=token.trim();try{localStorage.setItem("dv_admin_token",token.trim());}catch(e){}DEAL_STATE.mode="admin";fetchAgents();fetchReferrals().then(function(){render();});render();}}});
     adminLink.textContent="Admin Login";modeBar.appendChild(adminLink);
   }
   wrap.appendChild(modeBar);
@@ -5045,7 +5045,7 @@ function renderDeals(){
     wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"32px",textAlign:"center"},[
       div({fontSize:"32px",marginBottom:"12px"},"🤝"),
       div({color:cl.subHi,fontSize:"14px",fontWeight:"600",fontFamily:"'Inter',sans-serif",marginBottom:"6px"},"No deals yet"),
-      div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",marginBottom:"16px"},"Be the first to post — your deal gets auto-valued by DubaiVal AVM"),
+      div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",marginBottom:"16px"},"Be the first to post — your deal gets auto-valued by DubAIVal AVM"),
       el("button",{style:{background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",color:"#070B14",border:"none",padding:"10px 24px",borderRadius:"8px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
         onclick:function(){DEAL_STATE.mode="post";render();}},"Post Your First Deal")]));
     return wrap;
@@ -5173,7 +5173,7 @@ function renderDeals(){
       var verdictColors={DISTRESS:cl.green,GOOD:cl.green,FAIR:"#F59E0B",OVER:"#EF4444"};
       var verdictLabels={DISTRESS:"DISTRESS DEAL",GOOD:"GOOD PRICE",FAIR:"FAIR",OVER:"OVERPRICED"};
       priceRow.appendChild(div({textAlign:"right"},[
-        div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"DubaiVal Estimate"),
+        div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"DubAIVal Estimate"),
         div({color:verdictColors[d.dv_verdict]||cl.sub,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+d.dv_fair_price.toLocaleString()),
         span({color:verdictColors[d.dv_verdict]||cl.sub,fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",background:hexAlpha(verdictColors[d.dv_verdict]||cl.sub,0.12),padding:"2px 6px",borderRadius:"8px"},verdictLabels[d.dv_verdict]||"—")
       ]));
@@ -5205,7 +5205,7 @@ function renderDeals(){
       var contactBtn=el("button",{style:{background:"linear-gradient(135deg,#10B981,#059669)",color:"#fff",border:"none",padding:"7px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
       contactBtn.textContent="WhatsApp";
       contactBtn.onclick=function(e){e.stopPropagation();var phone=d.agent_phone.replace(/[^0-9+]/g,"");
-        var msg=encodeURIComponent("Hi "+d.agent_name+", I'm interested in your "+d.type+" listing: "+d.area+(d.building?" - "+d.building:"")+" at AED "+d.price.toLocaleString()+" (via DubaiVal Deal Network)");
+        var msg=encodeURIComponent("Hi "+d.agent_name+", I'm interested in your "+d.type+" listing: "+d.area+(d.building?" - "+d.building:"")+" at AED "+d.price.toLocaleString()+" (via DubAIVal Deal Network)");
         window.open("https://wa.me/"+phone+"?text="+msg,"_blank");};
       bottomRow.appendChild(contactBtn);
     }
@@ -5213,7 +5213,7 @@ function renderDeals(){
 
     // Share buttons
     var shareRow=div({display:"flex",gap:"6px",marginTop:"8px",paddingTop:"8px",borderTop:"1px solid "+cl.border});
-    var shareText=(d.type==="have"?"🏠 ":"🔍 ")+d.area+(d.building?" – "+d.building:"")+" | "+(d.beds||"")+" "+d.prop_type+" | AED "+d.price.toLocaleString()+(d.dv_verdict?" | DubaiVal: "+d.dv_verdict:"")+" | dubaival.com";
+    var shareText=(d.type==="have"?"🏠 ":"🔍 ")+d.area+(d.building?" – "+d.building:"")+" | "+(d.beds||"")+" "+d.prop_type+" | AED "+d.price.toLocaleString()+(d.dv_verdict?" | DubAIVal: "+d.dv_verdict:"")+" | dubaival.com";
     var waShareBtn=el("button",{style:{background:"rgba(37,211,102,0.1)",border:"1px solid rgba(37,211,102,0.25)",color:"#25D366",padding:"5px 10px",borderRadius:"6px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",display:"flex",alignItems:"center",gap:"4px"},
       onclick:(function(txt){return function(e){e.stopPropagation();window.open("https://wa.me/?text="+encodeURIComponent(txt),"_blank");};})(shareText)});
     waShareBtn.textContent="WhatsApp";
@@ -5224,7 +5224,7 @@ function renderDeals(){
     shareRow.appendChild(copyBtn);
     if(navigator.share){
       var nativeBtn=el("button",{style:{background:"rgba(255,255,255,0.05)",border:"1px solid "+cl.border,color:cl.sub,padding:"5px 10px",borderRadius:"6px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
-        onclick:(function(txt,area,bld){return function(e){e.stopPropagation();navigator.share({title:"DubaiVal Deal – "+area+(bld?" – "+bld:""),text:txt}).catch(function(){});};})(shareText,d.area,d.building)});
+        onclick:(function(txt,area,bld){return function(e){e.stopPropagation();navigator.share({title:"DubAIVal Deal – "+area+(bld?" – "+bld:""),text:txt}).catch(function(){});};})(shareText,d.area,d.building)});
       nativeBtn.textContent="📤 Share";
       shareRow.appendChild(nativeBtn);
     }
@@ -5290,7 +5290,7 @@ function renderDeals(){
           rejectBtn.textContent="Reject";iActions.appendChild(rejectBtn);
         }else if(inq.status==="approved"&&inq.sender_phone){
           var waBtn=el("button",{style:{background:"rgba(37,211,102,0.15)",color:"#25D366",border:"1px solid rgba(37,211,102,0.3)",padding:"4px 10px",borderRadius:"6px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
-            onclick:(function(phone,name){return function(e){e.stopPropagation();window.open("https://wa.me/"+phone.replace(/[^0-9+]/g,"")+"?text="+encodeURIComponent("Hi "+name+", your request for my property listing on DubaiVal has been approved. Photos and details are now available for you."),"_blank");};})(inq.sender_phone,inq.sender_name)});
+            onclick:(function(phone,name){return function(e){e.stopPropagation();window.open("https://wa.me/"+phone.replace(/[^0-9+]/g,"")+"?text="+encodeURIComponent("Hi "+name+", your request for my property listing on DubAIVal has been approved. Photos and details are now available for you."),"_blank");};})(inq.sender_phone,inq.sender_name)});
           waBtn.textContent="WhatsApp";iActions.appendChild(waBtn);
         }
         iActions.appendChild(span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},timeAgo(inq.created_at)));
@@ -5661,7 +5661,7 @@ function renderDealForm(wrap,cl){
     var refToggle=div({display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"});
     refToggle.onclick=function(){f.requestReferral=!f.requestReferral;render();};
     var refLeft=div({});
-    refLeft.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"},"DubaiVal Agent Matching"));
+    refLeft.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"},"DubAIVal Agent Matching"));
     refLeft.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},"We'll match you with a verified Gold agent for your search"));
     refToggle.appendChild(refLeft);
     var refSwitch=div({width:"44px",height:"24px",borderRadius:"12px",position:"relative",cursor:"pointer",transition:"background 0.3s",
@@ -5676,9 +5676,9 @@ function renderDealForm(wrap,cl){
         div({color:cl.gold,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6"},[
           div({marginBottom:"4px",fontWeight:"700"},"How it works:"),
           div({},"1. Post your request — we receive it instantly"),
-          div({},"2. DubaiVal selects a verified Gold agent specializing in your area"),
+          div({},"2. DubAIVal selects a verified Gold agent specializing in your area"),
           div({},"3. Agent connects you with matching properties & sellers"),
-          div({color:cl.sub,fontSize:"10px",marginTop:"6px",fontStyle:"italic"},"DubaiVal referral fee: 2% of final transaction value — paid by agent, not by you")
+          div({color:cl.sub,fontSize:"10px",marginTop:"6px",fontStyle:"italic"},"DubAIVal referral fee: 2% of final transaction value — paid by agent, not by you")
         ])
       ]));
     }
@@ -5700,7 +5700,7 @@ function renderDealForm(wrap,cl){
   card.appendChild(submitBtn);
 
   if(f.type==="have"){
-    card.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",textAlign:"center",marginTop:"8px",lineHeight:"1.5"},"Your listing will be auto-valued by DubaiVal AVM engine — buyers see Fair/Good/Over verdict instantly"));
+    card.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",textAlign:"center",marginTop:"8px",lineHeight:"1.5"},"Your listing will be auto-valued by DubAIVal AVM engine — buyers see Fair/Good/Over verdict instantly"));
   }
 
   wrap.appendChild(card);
@@ -5712,7 +5712,7 @@ function renderAgentHub(wrap,cl){
   var card=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"});
   card.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"◆ Agent Referral Program"));
   card.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",marginBottom:"14px",lineHeight:"1.6"},
-    "Join DubaiVal's verified agent network. Gold agents receive buyer referrals matched to their area of expertise. Earn more deals, build your reputation."));
+    "Join DubAIVal's verified agent network. Gold agents receive buyer referrals matched to their area of expertise. Earn more deals, build your reputation."));
 
   var subTabs=div({display:"flex",gap:"6px",marginBottom:"14px"});
   [{l:"Registered Agents",v:"list"},{l:"Join Program",v:"register"}].forEach(function(t){
@@ -5755,7 +5755,7 @@ function renderAgentHub(wrap,cl){
     tierInfo.appendChild(div({color:cl.gold,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em",marginBottom:"8px"},"SUBSCRIPTION TIERS"));
     [{t:"Free",c:cl.sub,d:"Listed in directory · No referral priority",p:"AED 0"},
      {t:"Gold",c:"#EAB308",d:"Priority referrals · Verified badge · Featured listing · Video analysis uploads",p:"AED 499/mo"},
-     {t:"Platinum",c:"#A78BFA",d:"Top priority · Exclusive leads · DubaiVal co-branding · Premium support",p:"AED 999/mo"}
+     {t:"Platinum",c:"#A78BFA",d:"Top priority · Exclusive leads · DubAIVal co-branding · Premium support",p:"AED 999/mo"}
     ].forEach(function(tier){
       tierInfo.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid "+cl.border},[
         div({},[span({color:tier.c,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},tier.t),
@@ -5782,7 +5782,7 @@ function renderAgentHub(wrap,cl){
       card.appendChild(div({textAlign:"center",padding:"20px"},[
         div({fontSize:"28px",marginBottom:"8px"},"🏢"),
         div({color:cl.subHi,fontSize:"13px",fontWeight:"600",fontFamily:"'Inter',sans-serif",marginBottom:"4px"},"No agents registered yet"),
-        div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Be the first to join the DubaiVal referral network")]));
+        div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Be the first to join the DubAIVal referral network")]));
     }else{
       hub.agents.forEach(function(ag){
         var agCard=div({background:cl.raised,borderRadius:"10px",padding:"10px 12px",marginBottom:"8px",border:"1px solid "+cl.border});
