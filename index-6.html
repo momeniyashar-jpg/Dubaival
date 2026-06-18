@@ -4621,7 +4621,7 @@ function renderMap(){
 
 // --- DEAL NETWORK TAB --------------------------------------------------------
 var DEAL_STATE={mode:"browse",filter:{type:"all",purpose:"sale",area:"",beds:"",minPrice:"",maxPrice:"",urgency:""},
-  form:{type:"have",agentName:"",agentPhone:"",agentCompany:"",agentEmail:"",reraNumber:"",area:"",building:"",propType:"apartment",beds:"",sizeSqft:"",floor:"",view:"",furnished:"Unfurnished",purpose:"sale",price:"",urgency:"normal",notes:"",offMarket:false,contactMode:"whatsapp"},
+  form:{type:"have",agentName:"",agentPhone:"",agentCompany:"",agentEmail:"",reraNumber:"",area:"",building:"",propType:"apartment",beds:"",sizeSqft:"",floor:"",view:"",furnished:"Unfurnished",purpose:"sale",price:"",urgency:"normal",notes:"",offMarket:false,contactMode:"whatsapp",titleDeedNo:"",titleDeedImg:null},
   deals:[],loading:false,posting:false,myTokens:[],matches:[],waParser:{text:"",parsing:false,parsed:null},
   inquiry:{dealId:null,name:"",phone:"",email:"",message:"",sending:false},myInquiries:{}};
 try{var dt=localStorage.getItem("dv_deal_tokens");if(dt)DEAL_STATE.myTokens=JSON.parse(dt);}catch(e){}
@@ -4649,6 +4649,7 @@ async function fetchDeals(){
 async function postDeal(){
   var f=DEAL_STATE.form;
   if(!f.agentName||!f.agentPhone||!f.area||!f.price){alert("Please fill required fields");return;}
+  if(f.type==="have"&&!f.titleDeedNo){alert("Title Deed number is required for listings. Please enter your Title Deed number to verify property ownership.");return;}
   saveAgentProfile();
   DEAL_STATE.posting=true;render();
   var row={type:f.type,agent_name:f.agentName,agent_phone:f.agentPhone,agent_company:f.agentCompany||null,
@@ -4656,7 +4657,8 @@ async function postDeal(){
     area:f.area,building:f.building||null,prop_type:f.propType,beds:f.beds||null,
     size_sqft:parseFloat(f.sizeSqft)||null,floor_num:f.floor||null,view_type:f.view||null,
     furnished:f.furnished,purpose:f.purpose,price:parseFloat(f.price.replace(/,/g,""))||0,
-    urgency:f.urgency,notes:f.notes||null,off_market:f.offMarket,contact_mode:f.contactMode||"whatsapp"};
+    urgency:f.urgency,notes:f.notes||null,off_market:f.offMarket,contact_mode:f.contactMode||"whatsapp",
+    title_deed_no:f.titleDeedNo||null,title_deed_img:f.titleDeedImg||null};
   if(f.type==="have"&&row.size_sqft&&row.price){
     try{
       var valInput={area:f.area,building:f.building||"",buaSize:String(row.size_sqft),price:String(row.price),
@@ -4678,7 +4680,7 @@ async function postDeal(){
         DEAL_STATE.myTokens.push(created[0].edit_token);
         try{localStorage.setItem("dv_deal_tokens",JSON.stringify(DEAL_STATE.myTokens));}catch(e){}
       }
-      DEAL_STATE.form={type:"have",agentName:f.agentName,agentPhone:f.agentPhone,agentCompany:f.agentCompany,agentEmail:f.agentEmail,reraNumber:f.reraNumber,area:"",building:"",propType:"apartment",beds:"",sizeSqft:"",floor:"",view:"",furnished:"Unfurnished",purpose:"sale",price:"",urgency:"normal",notes:"",offMarket:false,contactMode:f.contactMode};
+      DEAL_STATE.form={type:"have",agentName:f.agentName,agentPhone:f.agentPhone,agentCompany:f.agentCompany,agentEmail:f.agentEmail,reraNumber:f.reraNumber,area:"",building:"",propType:"apartment",beds:"",sizeSqft:"",floor:"",view:"",furnished:"Unfurnished",purpose:"sale",price:"",urgency:"normal",notes:"",offMarket:false,contactMode:f.contactMode,titleDeedNo:"",titleDeedImg:null};
       DEAL_STATE.mode="browse";
       fetchDeals();
     }
@@ -4813,6 +4815,7 @@ function renderDeals(){
     leftTop.appendChild(typeBadge);
     if(d.urgency!=="normal"){var urgBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:"rgba(239,68,68,0.12)",color:urgColors[d.urgency]}});urgBadge.textContent=urgLabels[d.urgency];leftTop.appendChild(urgBadge);}
     if(d.rera_number){var verBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:"rgba(59,130,246,0.12)",color:"#3B82F6"}});verBadge.textContent="✓ VERIFIED";leftTop.appendChild(verBadge);}
+    if(d.title_deed_no){var tdBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:"rgba(234,179,8,0.12)",color:"#EAB308"}});tdBadge.textContent="📜 TITLE DEED";leftTop.appendChild(tdBadge);}
     if(d.off_market){var omBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:"rgba(201,168,76,0.12)",color:cl.gold}});omBadge.textContent="OFF-MARKET";leftTop.appendChild(omBadge);}
     topRow.appendChild(leftTop);
     var purposeBadge=el("span",{style:{fontSize:"10px",color:d.purpose==="sale"?cl.gold:"#60A5FA",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"}});
@@ -5094,6 +5097,49 @@ function renderDealForm(wrap,cl){
     cmRow.appendChild(cmBtn);
   });
   card.appendChild(cmRow);
+
+  if(f.type==="have"){
+    var tdSection=div({background:cl.raised,border:"1px solid rgba(234,179,8,0.25)",borderRadius:"10px",padding:"12px",marginBottom:"14px"});
+    tdSection.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"},[
+      div({},[span({color:"#EAB308",fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"},"Title Deed Verification"),
+        span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginLeft:"8px"},"Required for listings")])
+    ]));
+    var tdRow=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"8px"});
+    tdRow.appendChild(makeInput("Title Deed Number *","titleDeedNo","e.g. 123-456-7890"));
+    var tdUploadG=div({marginBottom:"10px"});
+    tdUploadG.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",marginBottom:"4px"},"Upload Title Deed Photo"));
+    var tdFileWrap=div({display:"flex",alignItems:"center",gap:"8px"});
+    var tdFileBtn=el("label",{style:{display:"inline-flex",alignItems:"center",gap:"6px",background:cl.surface,border:"1px solid "+cl.border,color:cl.subHi,padding:"9px 14px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",transition:"border-color 0.2s"}});
+    var tdFileInput=el("input",{type:"file",accept:"image/*,.pdf",style:{display:"none"}});
+    tdFileInput.onchange=function(){
+      var file=this.files[0];if(!file)return;
+      if(file.size>5*1024*1024){alert("File too large — max 5MB");return;}
+      var reader=new FileReader();
+      reader.onload=function(e){f.titleDeedImg=e.target.result;render();};
+      reader.readAsDataURL(file);
+    };
+    tdFileBtn.appendChild(tdFileInput);
+    tdFileBtn.appendChild(document.createTextNode(f.titleDeedImg?"Change File":"Choose File"));
+    tdFileWrap.appendChild(tdFileBtn);
+    if(f.titleDeedImg){
+      tdFileWrap.appendChild(span({color:cl.green,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"},"✓ Uploaded"));
+      var tdRemoveBtn=el("button",{style:{background:"transparent",border:"1px solid rgba(239,68,68,0.3)",color:"#EF4444",padding:"4px 10px",borderRadius:"6px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
+        onclick:function(){f.titleDeedImg=null;render();}});
+      tdRemoveBtn.textContent="Remove";
+      tdFileWrap.appendChild(tdRemoveBtn);
+    }
+    tdUploadG.appendChild(tdFileWrap);
+    tdRow.appendChild(tdUploadG);
+    tdSection.appendChild(tdRow);
+    if(f.titleDeedNo&&f.titleDeedNo.length>=3){
+      tdSection.appendChild(div({display:"flex",alignItems:"center",gap:"6px"},[
+        span({color:"#EAB308",fontSize:"18px"},"📜"),
+        span({color:"#EAB308",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",fontWeight:"700",background:"rgba(234,179,8,0.12)",padding:"4px 10px",borderRadius:"8px"},"Title Deed #"+f.titleDeedNo+(f.titleDeedImg?" · Document Attached":""))]));
+    }else{
+      tdSection.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",fontStyle:"italic"},"Enter your Title Deed number to verify ownership and build buyer trust"));
+    }
+    card.appendChild(tdSection);
+  }
 
   var notesG=div({marginBottom:"14px"});
   notesG.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",marginBottom:"4px"},"Notes"));

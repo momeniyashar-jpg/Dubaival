@@ -36,6 +36,10 @@ create table if not exists deal_board (
   dv_yield numeric,
   dv_signal text,
 
+  -- Title Deed verification
+  title_deed_no text,
+  title_deed_img text,
+
   -- Meta
   urgency text default 'normal' check (urgency in ('normal','urgent','hot')),
   notes text,

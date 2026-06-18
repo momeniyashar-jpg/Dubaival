@@ -6,6 +6,10 @@ alter table deal_board add column if not exists
   contact_mode text not null default 'whatsapp'
   check (contact_mode in ('whatsapp','private'));
 
+-- Add title deed fields to deal_board
+alter table deal_board add column if not exists title_deed_no text;
+alter table deal_board add column if not exists title_deed_img text;
+
 -- Inquiry table: stores "Send Interest" messages
 create table if not exists deal_inquiries (
   id bigint generated always as identity primary key,
