@@ -65,6 +65,7 @@ function renderPersonal(){
 }
 
 // --- PORTFOLIO TAB -----------------------------------------------------------
+var STR_DATA={"Dubai Marina":{nightly:650,occ:0.78},"Downtown Dubai":{nightly:850,occ:0.75},"JBR":{nightly:700,occ:0.80},"Business Bay":{nightly:550,occ:0.72},"Palm Jumeirah":{nightly:1200,occ:0.70},"JLT":{nightly:450,occ:0.75},"Dubai Hills":{nightly:600,occ:0.68},"Arabian Ranches":{nightly:800,occ:0.65},"Sports City":{nightly:350,occ:0.70},"Discovery Gardens":{nightly:250,occ:0.72},"International City":{nightly:200,occ:0.68},"Dubai Silicon Oasis":{nightly:350,occ:0.70},"Motor City":{nightly:400,occ:0.67},"Jumeirah Village Circle":{nightly:400,occ:0.73},"DAMAC Hills":{nightly:500,occ:0.65},"Town Square":{nightly:350,occ:0.70},"Mirdif":{nightly:450,occ:0.63},"Al Barsha":{nightly:400,occ:0.72},"Deira":{nightly:300,occ:0.74},"Bur Dubai":{nightly:280,occ:0.76},"Creek Harbour":{nightly:700,occ:0.68},"Emaar Beachfront":{nightly:900,occ:0.72},"City Walk":{nightly:750,occ:0.65},"MBR City":{nightly:600,occ:0.64},"Arjan":{nightly:350,occ:0.71},"Furjan":{nightly:400,occ:0.69},"Mudon":{nightly:500,occ:0.62},"Remraam":{nightly:300,occ:0.70},"Tecom":{nightly:400,occ:0.74},"Barsha Heights":{nightly:380,occ:0.73},"JVC":{nightly:400,occ:0.73}};
 if(!window.PORTFOLIO_STATE){
   var _pa;try{_pa=JSON.parse(localStorage.getItem("dubaival_portfolio"))||[];}catch(e){_pa=[];}
   var _pg;try{_pg=JSON.parse(localStorage.getItem("dubaival_portfolio_goals"))||{risk:"Moderate",horizon:"3-5 years",target:"Capital Growth"};}catch(e){_pg={risk:"Moderate",horizon:"3-5 years",target:"Capital Growth"};}
@@ -329,6 +330,54 @@ function renderPortfolio(){
           }
         }else if(pp>0){
           alerts.push({type:"neutral",icon:"💰",title:"Equity Release",text:"Property has not appreciated beyond purchase price yet. Equity release not recommended.",pct:-1});
+        }
+
+        // 5) Airbnb vs Long-term Rent Comparison (Phase 2)
+        var strInfo=STR_DATA[a.area];
+        if(strInfo&&actualRent>0){
+          var strAnnual=Math.round(strInfo.nightly*365*strInfo.occ*0.80);
+          var strDiff=Math.round((strAnnual-actualRent)/actualRent*100);
+          if(strDiff>30){
+            alerts.push({type:"good",icon:"🏨",title:"Airbnb Opportunity",text:"Short-term rental could increase income by "+strDiff+"% — STR estimate: AED "+strAnnual.toLocaleString()+"/yr ("+strInfo.nightly+" AED/night × "+Math.round(strInfo.occ*100)+"% occ × 80% net) vs long-term: AED "+actualRent.toLocaleString()+"/yr",pct:-1});
+          }else if(strDiff>0){
+            alerts.push({type:"neutral",icon:"🏨",title:"Airbnb vs Long-term",text:"STR premium only "+strDiff+"% — marginal after management hassle. Long-term rental is optimal. STR: AED "+strAnnual.toLocaleString()+"/yr vs LTR: AED "+actualRent.toLocaleString()+"/yr",pct:-1});
+          }else{
+            alerts.push({type:"neutral",icon:"🏨",title:"Long-term Optimal",text:"Long-term rental is optimal for "+a.area+". STR estimate: AED "+strAnnual.toLocaleString()+"/yr vs LTR: AED "+actualRent.toLocaleString()+"/yr",pct:-1});
+          }
+        }else if(strInfo){
+          var strEst=Math.round(strInfo.nightly*365*strInfo.occ*0.80);
+          alerts.push({type:"neutral",icon:"🏨",title:"STR Potential",text:a.area+" STR estimate: AED "+strEst.toLocaleString()+"/yr ("+strInfo.nightly+" AED/night × "+Math.round(strInfo.occ*100)+"% occ). Compare with your rental income.",pct:-1});
+        }
+
+        // 6) Renovation ROI Estimator (Phase 2)
+        var sz=parseFloat(a.size)||parseFloat(a.buaSize)||0;
+        var bGrade=(function(){var bd=DB[(a.building||"").toLowerCase()];return bd?bd.g:"B";})();
+        if(sz>0&&cv>0){
+          var gradeMulti=bGrade==="C"?1.3:bGrade==="B"?1.15:bGrade==="B+"?1.05:bGrade==="A-"?0.9:bGrade==="A"||bGrade==="A+"||bGrade==="Ultra"?0.7:1;
+          var levels=[
+            {l:"Cosmetic",costLo:150,costHi:250,valLo:5,valHi:8,desc:"Paint, flooring, fixtures"},
+            {l:"Kitchen+Bath",costLo:300,costHi:500,valLo:10,valHi:15,desc:"Kitchen & bathroom remodel"},
+            {l:"Full Renovation",costLo:500,costHi:800,valLo:15,valHi:22,desc:"Complete interior overhaul"}
+          ];
+          if(bGrade==="A+"||bGrade==="Ultra"){
+            alerts.push({type:"neutral",icon:"🔧",title:"Renovation ROI",text:"Limited renovation upside for "+bGrade+" grade. Premium properties have minimal value-add from renovations.",pct:-1});
+          }else{
+            var bestLvl=null,bestRoi=0;
+            levels.forEach(function(lv){
+              var avgCost=Math.round(sz*(lv.costLo+lv.costHi)/2);
+              var avgValPct=(lv.valLo+lv.valHi)/2*gradeMulti;
+              var valAdd=Math.round(cv*avgValPct/100);
+              var roi=Math.round(valAdd/avgCost*100);
+              if(roi>bestRoi){bestRoi=roi;bestLvl={name:lv.l,cost:avgCost,valAdd:valAdd,roi:roi,pct:avgValPct,payback:avgCost>0?Math.round(avgCost/(valAdd/12))+"mo":"—"};}
+            });
+            if(bestLvl){
+              var renoType=bestRoi>=200?"good":bestRoi>=120?"neutral":"warn";
+              var renoLines=levels.map(function(lv){
+                var c=Math.round(sz*(lv.costLo+lv.costHi)/2);var v=Math.round(cv*(lv.valLo+lv.valHi)/2*gradeMulti/100);return lv.l+": AED "+c.toLocaleString()+" cost → +AED "+v.toLocaleString()+" value ("+Math.round(v/c*100)+"% ROI)";
+              }).join(" · ");
+              alerts.push({type:renoType,icon:"🔧",title:"Renovation ROI — Best: "+bestLvl.name,text:renoLines+" · Grade "+bGrade+" "+(gradeMulti>1?"(higher upside)":"")+" · Payback: "+bestLvl.payback,pct:-1});
+            }
+          }
         }
 
         // Render asset alerts
