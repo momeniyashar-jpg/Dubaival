@@ -556,6 +556,15 @@ function renderDeals(){
         span({color:verdictColors[d.dv_verdict]||cl.sub,fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",background:hexAlpha(verdictColors[d.dv_verdict]||cl.sub,0.12),padding:"2px 6px",borderRadius:"8px"},verdictLabels[d.dv_verdict]||"—")
       ]));
     }
+    // Anomaly badge
+    if(d.dv_fair_price&&d.price&&isHave){
+      var dealDevPct=Math.abs((d.price-d.dv_fair_price)/d.dv_fair_price*100);
+      if(dealDevPct>=30){
+        var anomBadgeColor=dealDevPct>=60?"#EF4444":dealDevPct>=40?"#F97316":"#F59E0B";
+        priceRow.appendChild(div({position:"absolute",top:"-2px",right:"-2px",background:anomBadgeColor,color:"#fff",fontSize:"8px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"2px 6px",borderRadius:"0 10px 0 6px",letterSpacing:"0.05em"},"⚠ ANOMALY"));
+        priceRow.style.position="relative";
+      }
+    }
     card.appendChild(priceRow);
 
     if(d.dv_psf||d.dv_yield||d.dv_confidence){

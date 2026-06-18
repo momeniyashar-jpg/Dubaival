@@ -915,6 +915,61 @@ function renderAnalyzerResult(wrap){
     ]),
   ]));
 
+  // -- PRICE ANOMALY DETECTION --
+  var anomalyPct=Math.abs(parseFloat(val.vsPct)||0);
+  var anomalyDir=parseFloat(val.vsPct)>0?"above":"below";
+  if(anomalyPct>=30){
+    var anomLevel=anomalyPct>=60?"extreme":anomalyPct>=40?"significant":"unusual";
+    var anomColors={unusual:{bg:hexAlpha("#F59E0B",0.08),border:hexAlpha("#F59E0B",0.3),text:"#F59E0B",icon:"⚠️"},significant:{bg:hexAlpha("#F97316",0.08),border:hexAlpha("#F97316",0.3),text:"#F97316",icon:"⚠️"},extreme:{bg:hexAlpha("#EF4444",0.1),border:hexAlpha("#EF4444",0.35),text:"#EF4444",icon:"🚨"}};
+    var ac=anomColors[anomLevel];
+    var anomTitles={unusual:"Unusual Price — Verify with additional sources",significant:"Significant Anomaly — This price deviates significantly from market norms",extreme:"Extreme Anomaly — This pricing is highly irregular and may warrant investigation"};
+    var anomCard=div({background:ac.bg,border:"2px solid "+ac.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"});
+    anomCard.appendChild(div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"10px"},[
+      span({fontSize:"18px"},ac.icon),
+      div({},[
+        span({color:ac.text,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",textTransform:"uppercase",display:"block"},"Market Integrity Check"),
+        span({color:ac.text,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",opacity:"0.7"},"Powered by DubaiVal AI")
+      ])
+    ]));
+    anomCard.appendChild(div({color:ac.text,fontSize:"13px",fontWeight:"700",fontFamily:"'Inter',sans-serif",marginBottom:"12px",lineHeight:"1.5"},anomTitles[anomLevel]));
+    // Details
+    var anomDetails=div({background:hexAlpha(ac.text,0.06),borderRadius:"10px",padding:"12px",marginBottom:"12px"});
+    anomDetails.appendChild(div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px"},[
+      div({textAlign:"center"},[
+        div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"DEVIATION"),
+        div({color:ac.text,fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},(anomalyDir==="above"?"+":"-")+anomalyPct.toFixed(1)+"%"),
+        div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},anomalyDir+" market")
+      ]),
+      div({textAlign:"center"},[
+        div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"ASKING PSF"),
+        div({color:cl.text,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+val.askPSF.toLocaleString()),
+      ]),
+      div({textAlign:"center"},[
+        div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"AREA AVG PSF"),
+        div({color:cl.text,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+val.adjPSF.toLocaleString()),
+      ])
+    ]));
+    anomCard.appendChild(anomDetails);
+    // Possible reasons
+    anomCard.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:"8px"},"POSSIBLE EXPLANATIONS"));
+    var reasons=anomalyDir==="below"?[
+      {icon:"📉",text:"Distress sale — owner may need urgent liquidity (divorce, debt, relocation)"},
+      {icon:"❌",text:"Data entry error — price or size may be incorrectly entered"},
+      {icon:"🔧",text:"Property condition — significant damage, legal dispute, or encumbrance"}
+    ]:[
+      {icon:"💎",text:"Premium off-market factors — unique view, renovation, or celebrity provenance"},
+      {icon:"❌",text:"Data entry error — price or size may be incorrectly entered"},
+      {icon:"⚠️",text:"Inflated listing — price may not reflect genuine market intent"}
+    ];
+    reasons.forEach(function(r){
+      anomCard.appendChild(div({display:"flex",alignItems:"flex-start",gap:"8px",marginBottom:"6px"},[
+        span({fontSize:"12px",flexShrink:"0",marginTop:"1px"},r.icon),
+        span({color:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},r.text)
+      ]));
+    });
+    wrap.appendChild(anomCard);
+  }
+
   // -- DEVELOPER FURNISHED NOTICE --
   if(val.isDevFurnished){
     const dfFurnLabel=analyzerState.f.furnished==="Unfurnished"?"Stripped − furniture removed (−10% applied)":analyzerState.f.furnished==="Semi-Furnished"?"Partially furnished (−5% applied)":"Included in base price — no extra premium";
