@@ -772,3 +772,114 @@ function createVoiceMic(stateKey,onResult,opts){
   return wrap;
 }
 
+// --- INTERACTIVE TOUR ---
+var DV_TOUR={step:0,active:false};
+var TOUR_STEPS=[
+  {type:"center",title:"Welcome to DubAIVal!",text:"AI-Powered Dubai Real Estate Intelligence Platform — 6,162 buildings, 287 areas, real-time analytics.",icon:"logo"},
+  {sel:function(){return document.querySelector('input[placeholder*="Describe"]')||document.querySelector('input[placeholder*="bedroom"]')||document.querySelector('input[placeholder*="describe"]');},title:"AI Smart Search",text:"Type or speak to describe any property — our AI parses it instantly and fills the form.",arrow:"bottom",needTab:"Analyzer"},
+  {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){if(bs[i].textContent.indexOf("Fair Price")!==-1)return bs[i];}return null;},title:"Fair Price Checker",text:"Quick check: is your deal fair? Just enter area, building, and price for an instant verdict.",arrow:"bottom"},
+  {tab:"Analyzer",title:"AI Valuation Engine",text:"Full AI valuation with confidence score, yield analysis, investment signal, and scenario planner.",arrow:"top"},
+  {tab:"Index",title:"Market Index",text:"Live market dashboard — track 287 areas and 6,162 buildings with heatmaps, histograms, and rankings.",arrow:"top"},
+  {tab:"Portfolio",title:"Portfolio Manager",text:"Track your investments with AI-powered analytics, health scores, projections, and opportunity alerts.",arrow:"top"},
+  {tab:"Deals",title:"Deal Network",text:"Agent-to-agent deal board — post listings, find AI-matched deals, connect with verified agents.",arrow:"top"},
+  {tab:"Workspace",title:"My Workspace",text:"Customize your dashboard and build personalized reports with voice commands and smart templates.",arrow:"top"}
+];
+
+function startTour(){DV_TOUR.step=0;DV_TOUR.active=true;showTourStep();}
+
+function endTour(){
+  DV_TOUR.active=false;
+  var old=document.getElementById("dv-tour-overlay");if(old)old.remove();
+  try{localStorage.setItem("dv_tour_done","true");}catch(e){}
+}
+
+function _findTabBtn(tabId){
+  var bs=document.querySelectorAll("button");
+  for(var i=0;i<bs.length;i++){
+    var txt=bs[i].textContent||"";
+    if(txt.indexOf(tabId)!==-1)return bs[i];
+    var lk="tab_"+tabId.toLowerCase();
+    if(txt.indexOf(t(lk))!==-1)return bs[i];
+  }
+  return null;
+}
+
+function showTourStep(){
+  var old=document.getElementById("dv-tour-overlay");if(old)old.remove();
+  if(!DV_TOUR.active)return;
+  var s=TOUR_STEPS[DV_TOUR.step];
+  if(!s){endTour();return;}
+  var cl=C();var total=TOUR_STEPS.length;
+  var isLast=DV_TOUR.step===total-1;
+
+  if(s.needTab&&typeof currentTab!=="undefined"&&currentTab!==s.needTab){
+    currentTab=s.needTab;render();setTimeout(showTourStep,400);return;
+  }
+
+  var target=null;
+  if(s.tab)target=_findTabBtn(s.tab);
+  else if(s.sel)target=s.sel();
+
+  if(!document.getElementById("dv-tour-css")){
+    var css=document.createElement("style");css.id="dv-tour-css";
+    css.textContent="@keyframes dvTourFade{from{opacity:0}to{opacity:1}}@keyframes dvTourPulse{0%{box-shadow:0 0 0 0 rgba(201,168,76,0.4)}70%{box-shadow:0 0 0 14px rgba(201,168,76,0)}100%{box-shadow:0 0 0 0 rgba(201,168,76,0)}}@keyframes dvTourSlide{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}";
+    document.head.appendChild(css);
+  }
+
+  var overlay=document.createElement("div");
+  overlay.id="dv-tour-overlay";
+  overlay.style.cssText="position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;animation:dvTourFade 0.3s ease;";
+
+  var backdrop=document.createElement("div");
+  backdrop.style.cssText="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.78);z-index:99999;";
+  backdrop.addEventListener("click",function(e){e.stopPropagation();});
+  overlay.appendChild(backdrop);
+
+  if(target&&s.type!=="center"){
+    var r=target.getBoundingClientRect();var pad=8;
+    var spot=document.createElement("div");
+    spot.style.cssText="position:fixed;z-index:100000;border:2px solid "+cl.gold+";border-radius:8px;pointer-events:none;animation:dvTourPulse 2s infinite;background:transparent;left:"+(r.left-pad)+"px;top:"+(r.top-pad)+"px;width:"+(r.width+pad*2)+"px;height:"+(r.height+pad*2)+"px;";
+    overlay.appendChild(spot);
+    backdrop.style.clipPath="polygon(0% 0%, 0% 100%, "+(r.left-pad)+"px 100%, "+(r.left-pad)+"px "+(r.top-pad)+"px, "+(r.right+pad)+"px "+(r.top-pad)+"px, "+(r.right+pad)+"px "+(r.bottom+pad)+"px, "+(r.left-pad)+"px "+(r.bottom+pad)+"px, "+(r.left-pad)+"px 100%, 100% 100%, 100% 0%)";
+  }
+
+  var card=document.createElement("div");
+  card.style.cssText="position:fixed;z-index:100001;max-width:360px;width:90vw;background:#13161F;border:1px solid "+cl.gold+";border-radius:16px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,0.5);animation:dvTourSlide 0.35s ease;";
+
+  if(s.type==="center"||!target){
+    card.style.left="50%";card.style.top="50%";card.style.transform="translate(-50%,-50%)";
+  }else{
+    var r=target.getBoundingClientRect();
+    var cw=Math.min(360,window.innerWidth*0.9);
+    card.style.top=s.arrow==="top"?(r.bottom+16)+"px":Math.max(8,(r.top-220))+"px";
+    card.style.left=Math.max(8,Math.min(window.innerWidth-cw-8,r.left+(r.width/2)-(cw/2)))+"px";
+  }
+
+  var h="";
+  if(s.type==="center"){
+    h+='<div style="text-align:center;margin-bottom:16px"><img src="logo.png" alt="DubAIVal" style="width:64px;height:64px;border-radius:14px;margin:0 auto 12px;display:block;object-fit:contain"><div style="color:'+cl.gold+';font-size:18px;font-weight:800;font-family:Space Grotesk,monospace;margin-bottom:6px">'+s.title+'</div><div style="color:#9CA3AF;font-size:12px;font-family:Inter,sans-serif;line-height:1.6">'+s.text+'</div></div>';
+  }else{
+    h+='<div style="margin-bottom:14px"><div style="color:'+cl.gold+';font-size:15px;font-weight:700;font-family:Space Grotesk,monospace;margin-bottom:8px">'+s.title+'</div><div style="color:#D1D5DB;font-size:12px;font-family:Inter,sans-serif;line-height:1.7">'+s.text+'</div></div>';
+  }
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px"><span style="color:#6B7280;font-size:11px;font-family:Space Grotesk,monospace;font-weight:600">'+(DV_TOUR.step+1)+' / '+total+'</span><div style="display:flex;gap:8px">';
+  if(!isLast)h+='<button id="dv-tour-skip" style="background:transparent;border:1px solid #374151;color:#9CA3AF;padding:8px 16px;border-radius:8px;font-size:11px;font-weight:600;font-family:Space Grotesk,monospace;cursor:pointer">Skip Tour</button>';
+  if(isLast)h+='<button id="dv-tour-finish" style="background:linear-gradient(135deg,'+cl.gold+',#7A5E28);color:#08090C;border:none;padding:8px 20px;border-radius:8px;font-size:12px;font-weight:700;font-family:Space Grotesk,monospace;cursor:pointer">Start Exploring 🎯</button>';
+  else h+='<button id="dv-tour-next" style="background:linear-gradient(135deg,'+cl.gold+',#7A5E28);color:#08090C;border:none;padding:8px 20px;border-radius:8px;font-size:12px;font-weight:700;font-family:Space Grotesk,monospace;cursor:pointer">Next →</button>';
+  h+='</div></div>';
+  var pct=((DV_TOUR.step+1)/total*100).toFixed(0);
+  h+='<div style="margin-top:12px;height:3px;background:#1F2937;border-radius:2px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,'+cl.gold+',#7A5E28);border-radius:2px;transition:width 0.4s ease"></div></div>';
+  card.innerHTML=h;overlay.appendChild(card);document.body.appendChild(overlay);
+
+  var sk=document.getElementById("dv-tour-skip");
+  var nx=document.getElementById("dv-tour-next");
+  var fn=document.getElementById("dv-tour-finish");
+  if(sk)sk.addEventListener("click",endTour);
+  if(nx)nx.addEventListener("click",function(){DV_TOUR.step++;showTourStep();});
+  if(fn)fn.addEventListener("click",function(){endTour();currentTab="Analyzer";render();});
+}
+
+function checkTourOnLoad(){
+  try{if(localStorage.getItem("dv_tour_done"))return;}catch(e){return;}
+  setTimeout(startTour,800);
+}
+

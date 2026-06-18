@@ -149,6 +149,11 @@ function renderWorkspace(){
     wrap.appendChild(dashGrid);
   }
 
+  var tourBtn2=el("button",{style:{display:"block",margin:"24px auto 0",background:"transparent",border:"1px solid "+cl.gold,color:cl.gold,padding:"10px 22px",borderRadius:"10px",fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+  tourBtn2.textContent="🎯 Take the Tour Again";
+  tourBtn2.addEventListener("click",function(){try{localStorage.removeItem("dv_tour_done");}catch(e){}startTour();});
+  wrap.appendChild(tourBtn2);
+
   return wrap;
 }
 

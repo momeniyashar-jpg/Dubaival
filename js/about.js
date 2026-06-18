@@ -300,5 +300,11 @@ function renderApiDocs(cl){
   reqCard.appendChild(el("div",{style:{color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",textAlign:"center",marginTop:"8px"}},"We'll respond within 24 hours with your API key and documentation."));
   wrap.appendChild(reqCard);
 
+  // Take Tour Again
+  var tourBtn=el("button",{style:{display:"block",margin:"30px auto 0",background:"transparent",border:"2px solid "+cl.gold,color:cl.gold,padding:"12px 28px",borderRadius:"12px",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.04em"}});
+  tourBtn.textContent="🎯 Take the Tour Again";
+  tourBtn.addEventListener("click",function(){try{localStorage.removeItem("dv_tour_done");}catch(e){}startTour();});
+  wrap.appendChild(tourBtn);
+
   return wrap;
 }

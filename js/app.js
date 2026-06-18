@@ -1158,5 +1158,8 @@ function render(){
     try{analyzerState.val=computeValuation(analyzerState.f);analyzerState.stage=2;}catch(e){}
     setTimeout(render,50);
   }
+
+  // Interactive tour for first-time users
+  checkTourOnLoad();
 }
 
