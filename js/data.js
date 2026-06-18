@@ -81,7 +81,7 @@ const MARKET_STATS=[
 const VIEW_P={"Full Sea View":0.28,"Partial Sea View":0.14,"Burj Khalifa View":0.32,"Partial Burj View":0.16,"Full Canal View":0.19,"Partial Canal View":0.09,"Beach Access View":0.22,"Sheikh Zayed Road View":0.12,"Golf View":0.14,"Lagoon View":0.13,"Pool View":0.09,"Garden/Park View":0.06,"Lake View":0.08,"Community View":0.03,"Backing Open Land":0.02,"Skyline View":0.12,"City Skyline":0.12,"City View":0.10,"Road View":0.00,"Not specified":0.00,"Beach Access View":0.22};
 
 // --- BUILDING DATABASE --------------------------------------------------------
-// VERSION: 3.0 | DATE: June 2026 | ENTRIES: 5612 buildings
+// VERSION: 3.0 | DATE: June 2026 | ENTRIES: 6162 buildings
 // SOURCES: DLD transactions_2026-05-26 (4.1GB, 4570 buildings) + manual market research (298 villa clusters)
 // KEY RULE: manually researched buildings (address fountain views, marina gate, etc) take priority over DLD
 // STRUCTURE: p=median PSF, lo=P20 PSF, hi=P80 PSF, sc=service charge AED/sqft/yr, a=area, g=grade

@@ -244,7 +244,7 @@ function getChatSys(){
   }catch(x){}
   var profile="Investor:"+(USER_PROFILE.investorType||"general")+"|Risk:"+(USER_PROFILE.risk||"moderate")+(USER_PROFILE.budgetMax?"|Budget:AED"+(USER_PROFILE.budgetMax/1e6).toFixed(1)+"M":"");
   return "You are DubAIVal AI - Dubai property intelligence. June 2026.\n"+
-    "DB:5612 buildings DLD-verified. "+areaSummary+"\n"+
+    "DB:6162 buildings DLD-verified. "+areaSummary+"\n"+
     "Market:Post-geo correction. Buyer leverage. Cash 87%. Off-plan 78%.\n"+
     "User:"+profile+"\n"+
     "Rules: Give specific AED numbers. If building in DB use exact PSF. For yield: Gross=(rent/price)*100. Net=Gross minus SC minus 7% costs. Be concise. Verdict first.";
