@@ -4,7 +4,8 @@ var DEAL_STATE={mode:"browse",filter:{type:"all",purpose:"sale",area:"",beds:"",
   deals:[],loading:false,posting:false,myTokens:[],matches:[],waParser:{text:"",parsing:false,parsed:null},
   inquiry:{dealId:null,name:"",phone:"",email:"",message:"",sending:false},myInquiries:{},
   mediaPhotos:[],videoUrl:"",mediaUploading:false,mediaView:null,sentInquiries:{},dealMediaCache:{},
-  requestReferral:false,agentHub:{mode:"list",agents:[],referrals:[],regForm:{name:"",phone:"",email:"",company:"",rera:"",areas:"",specialties:"",bio:""},loading:false},adminToken:null};
+  requestReferral:false,agentHub:{mode:"list",agents:[],referrals:[],regForm:{name:"",phone:"",email:"",company:"",rera:"",areas:"",specialties:"",bio:""},loading:false},adminToken:null,
+  videoAnalyses:[],videoForm:{dealId:"",videoUrl:"",title:"",summary:"",agentId:null},videoUploading:false,videoViewDeal:{}};
 try{var dt=localStorage.getItem("dv_deal_tokens");if(dt)DEAL_STATE.myTokens=JSON.parse(dt);}catch(e){}
 try{var si=localStorage.getItem("dv_sent_inquiries");if(si)DEAL_STATE.sentInquiries=JSON.parse(si);}catch(e){}
 try{var at=localStorage.getItem("dv_admin_token");if(at)DEAL_STATE.adminToken=at;}catch(e){}
@@ -259,6 +260,52 @@ async function updateAgentSubscription(agentId,subscription){
   }catch(e){alert("Failed: "+e.message);}
 }
 
+// --- VIDEO ANALYSIS ---
+async function fetchVideoAnalyses(status){
+  var q=SUPABASE_URL+"/rest/v1/agent_video_analyses?select=*&order=created_at.desc";
+  if(status)q+="&status=eq."+status;
+  try{
+    var resp=await fetch(q,{headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY}});
+    if(resp.ok)return await resp.json();
+  }catch(e){}
+  return[];
+}
+async function postVideoAnalysis(data){
+  DEAL_STATE.videoUploading=true;render();
+  try{
+    var resp=await fetch(SUPABASE_URL+"/rest/v1/agent_video_analyses",{method:"POST",
+      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json","Prefer":"return=representation"},
+      body:JSON.stringify(data)});
+    if(!resp.ok){alert("Failed to submit video analysis");DEAL_STATE.videoUploading=false;render();return false;}
+    DEAL_STATE.videoForm={dealId:"",videoUrl:"",title:"",summary:"",agentId:null};
+    DEAL_STATE.videoUploading=false;render();return true;
+  }catch(e){alert("Error: "+e.message);DEAL_STATE.videoUploading=false;render();return false;}
+}
+async function updateVideoStatus(videoId,status){
+  try{
+    await fetch(SUPABASE_URL+"/rest/v1/agent_video_analyses?id=eq."+videoId,{method:"PATCH",
+      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
+      body:JSON.stringify({status:status})});
+    if(status==="approved"){
+      var vids=await fetchVideoAnalyses("approved");
+      var agentCounts={};
+      vids.forEach(function(v){agentCounts[v.agent_id]=(agentCounts[v.agent_id]||0)+1;});
+      for(var aid in agentCounts){
+        await fetch(SUPABASE_URL+"/rest/v1/dv_agents?id=eq."+aid,{method:"PATCH",
+          headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
+          body:JSON.stringify({video_analyses:agentCounts[aid]})});
+      }
+    }
+  }catch(e){alert("Failed: "+e.message);}
+}
+async function fetchDealVideoAnalyses(dealId){
+  if(DEAL_STATE.videoViewDeal[dealId])return DEAL_STATE.videoViewDeal[dealId];
+  var vids=await fetchVideoAnalyses("approved");
+  var dealVids=vids.filter(function(v){return v.deal_id===dealId;});
+  if(dealVids.length)DEAL_STATE.videoViewDeal[dealId]=dealVids;
+  return dealVids;
+}
+
 async function fetchMyInquiries(){
   var dealIds=[];
   if(DEAL_STATE.myTokens.length){
@@ -503,6 +550,7 @@ function renderDeals(){
     if(d.urgency!=="normal"){var urgBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:"rgba(239,68,68,0.12)",color:urgColors[d.urgency]}});urgBadge.textContent=urgLabels[d.urgency];leftTop.appendChild(urgBadge);}
     if(d.rera_number){var verBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:hexAlpha("#3B82F6",0.12),color:"#3B82F6"}});verBadge.textContent="RERA Verified ✓";leftTop.appendChild(verBadge);}
     if(d.title_deed_no){var tdBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:"rgba(234,179,8,0.12)",color:"#EAB308"}});tdBadge.textContent="📜 TITLE DEED";leftTop.appendChild(tdBadge);}
+    (function(dealId,cardEl){fetchDealVideoAnalyses(dealId).then(function(vids){if(vids&&vids.length){var vBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:hexAlpha("#8B5CF6",0.12),color:"#A78BFA",cursor:"pointer"},onclick:function(e){e.stopPropagation();DEAL_STATE.videoViewDeal["_show_"+dealId]=!DEAL_STATE.videoViewDeal["_show_"+dealId];render();}});vBadge.textContent="🎬 Video Analysis ("+vids.length+")";leftTop.appendChild(vBadge);}});})(d.id,card);
     if(d.off_market){var omBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:"rgba(201,168,76,0.12)",color:cl.gold}});omBadge.textContent="OFF-MARKET";leftTop.appendChild(omBadge);}
     topRow.appendChild(leftTop);
     var purposeBadge=el("span",{style:{fontSize:"10px",color:d.purpose==="sale"?cl.gold:"#60A5FA",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"}});
@@ -577,6 +625,20 @@ function renderDeals(){
     }
 
     if(d.notes){card.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",fontStyle:"italic",marginBottom:"8px",lineHeight:"1.5"},"\""+d.notes+"\""));}
+    // Video Analysis expand
+    if(DEAL_STATE.videoViewDeal["_show_"+d.id]&&DEAL_STATE.videoViewDeal[d.id]){
+      var vaPanel=div({background:hexAlpha("#8B5CF6",0.06),border:"1px solid "+hexAlpha("#8B5CF6",0.2),borderRadius:"10px",padding:"12px",marginBottom:"8px"});
+      vaPanel.appendChild(div({color:"#A78BFA",fontSize:"9px",fontWeight:"700",letterSpacing:"0.1em",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"🎬 VIDEO ANALYSES"));
+      DEAL_STATE.videoViewDeal[d.id].forEach(function(vid){
+        var vRow=div({marginBottom:"8px",paddingBottom:"8px",borderBottom:"1px solid "+hexAlpha("#8B5CF6",0.15)});
+        vRow.appendChild(div({color:cl.subHi,fontSize:"12px",fontWeight:"700",fontFamily:"'Inter',sans-serif",marginBottom:"4px"},vid.title));
+        if(vid.summary)vRow.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5",marginBottom:"6px"},vid.summary));
+        var vLink=el("a",{href:vid.video_url,target:"_blank",rel:"noopener",style:{color:"#A78BFA",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",textDecoration:"none"}});
+        vLink.textContent="▶ Watch Video";vRow.appendChild(vLink);
+        vaPanel.appendChild(vRow);
+      });
+      card.appendChild(vaPanel);
+    }
 
     var bottomRow=div({display:"flex",justifyContent:"space-between",alignItems:"center"});
     var agentInfo=[span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},d.agent_name+(d.agent_company?" · "+d.agent_company:""))];
@@ -1205,8 +1267,56 @@ function renderAgentHub(wrap,cl){
         if(ag.deals_closed>0||ag.video_analyses>0){
           var agStats=div({display:"flex",gap:"12px",marginTop:"6px"});
           if(ag.deals_closed>0)agStats.appendChild(span({color:cl.green,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},ag.deals_closed+" deals closed"));
-          if(ag.video_analyses>0)agStats.appendChild(span({color:"#60A5FA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},ag.video_analyses+" video analyses"));
+          if(ag.video_analyses>0)agStats.appendChild(span({color:"#A78BFA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"🎬 "+ag.video_analyses+" video analyses"));
           agCard.appendChild(agStats);
+        }
+        // Upload Video Analysis button (Gold/Platinum only)
+        if((ag.subscription==="gold"||ag.subscription==="platinum")&&ag.rera_number){
+          var vaToggleKey="_va_"+ag.id;
+          var vaBtn=el("button",{style:{marginTop:"6px",background:hexAlpha("#8B5CF6",0.1),border:"1px solid "+hexAlpha("#8B5CF6",0.25),color:"#A78BFA",padding:"5px 12px",borderRadius:"8px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
+            onclick:(function(k,aid){return function(e){e.stopPropagation();DEAL_STATE.videoForm.agentId=aid;window[k]=!window[k];render();};})(vaToggleKey,ag.id)});
+          vaBtn.textContent=window[vaToggleKey]?"Close":"🎬 Upload Video Analysis";
+          agCard.appendChild(vaBtn);
+          if(window[vaToggleKey]){
+            var vaForm=div({background:cl.raised,borderRadius:"10px",padding:"12px",marginTop:"8px",border:"1px solid "+hexAlpha("#8B5CF6",0.2)});
+            vaForm.appendChild(div({color:"#A78BFA",fontSize:"9px",fontWeight:"700",letterSpacing:"0.1em",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"NEW VIDEO ANALYSIS"));
+            // Deal select
+            var dSel=el("select",{style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:cl.subHi,padding:"9px 10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",marginBottom:"8px",boxSizing:"border-box"}});
+            dSel.appendChild(el("option",{value:""},"Select Deal (optional)"));
+            DEAL_STATE.deals.forEach(function(dd){var o=el("option",{value:dd.id});o.textContent=(dd.building||dd.area||"Unknown")+" — "+(dd.beds||"")+" "+(dd.prop_type||"")+" (AED "+(dd.price?dd.price.toLocaleString():"?")+")";if(DEAL_STATE.videoForm.dealId===dd.id)o.selected=true;dSel.appendChild(o);});
+            dSel.onchange=function(){DEAL_STATE.videoForm.dealId=this.value;};
+            vaForm.appendChild(dSel);
+            // Video URL
+            var vUrlInp=el("input",{type:"url",placeholder:"YouTube or Instagram video URL",value:DEAL_STATE.videoForm.videoUrl||"",
+              style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"9px 10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"8px"}});
+            vUrlInp.oninput=function(){DEAL_STATE.videoForm.videoUrl=this.value;};
+            vaForm.appendChild(vUrlInp);
+            // Title
+            var vTitleInp=el("input",{type:"text",placeholder:"e.g. Marina Gate 1 — Full Unit Tour & Market Analysis",value:DEAL_STATE.videoForm.title||"",
+              style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"9px 10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"8px"}});
+            vTitleInp.oninput=function(){DEAL_STATE.videoForm.title=this.value;};
+            vaForm.appendChild(vTitleInp);
+            // Summary
+            var vSumInp=el("textarea",{placeholder:"Brief analysis summary (max 500 chars)",rows:"3",maxlength:"500",
+              style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"9px 10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",resize:"vertical",marginBottom:"4px"}});
+            vSumInp.value=DEAL_STATE.videoForm.summary||"";
+            vSumInp.oninput=function(){if(this.value.length>500)this.value=this.value.substring(0,500);DEAL_STATE.videoForm.summary=this.value;};
+            vaForm.appendChild(vSumInp);
+            vaForm.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",textAlign:"right",marginBottom:"10px"},(DEAL_STATE.videoForm.summary||"").length+"/500"));
+            // Submit
+            var vSubmit=el("button",{style:{width:"100%",padding:"10px",background:DEAL_STATE.videoUploading?"#4B5563":"linear-gradient(135deg,#8B5CF6,#7C3AED)",color:"#fff",border:"none",borderRadius:"8px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:DEAL_STATE.videoUploading?"not-allowed":"pointer"},
+              onclick:(function(agId,k){return async function(){
+                var vf=DEAL_STATE.videoForm;
+                if(!vf.videoUrl||!vf.title){alert("Video URL and title are required");return;}
+                if(vf.videoUrl.indexOf("youtube")===-1&&vf.videoUrl.indexOf("youtu.be")===-1&&vf.videoUrl.indexOf("instagram")===-1){alert("Only YouTube or Instagram URLs are accepted");return;}
+                var ok=await postVideoAnalysis({agent_id:agId,deal_id:vf.dealId||null,video_url:vf.videoUrl,title:vf.title,summary:vf.summary||null});
+                if(ok){window[k]=false;alert("Video analysis submitted for review!");render();}
+              };})(ag.id,vaToggleKey)});
+            vSubmit.textContent=DEAL_STATE.videoUploading?"Submitting…":"Submit for Review";
+            vaForm.appendChild(vSubmit);
+            vaForm.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif",textAlign:"center",marginTop:"6px"},"Videos are reviewed by admin before publishing"));
+            agCard.appendChild(vaForm);
+          }
         }
         card.appendChild(agCard);
       });
@@ -1310,6 +1420,37 @@ function renderAdminDashboard(wrap,cl){
       card.appendChild(refRow);
     });
   }
+
+  // Pending Video Reviews
+  card.appendChild(div({color:"#A78BFA",fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",marginTop:"14px",fontWeight:"700"},"◆ PENDING VIDEO REVIEWS"));
+  (function(){
+    var vidSection=div({});
+    fetchVideoAnalyses("pending").then(function(pending){
+      if(!pending.length){vidSection.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",padding:"12px",textAlign:"center",marginBottom:"10px"},"No pending video reviews"));return;}
+      pending.forEach(function(vid){
+        var vCard=div({background:cl.raised,borderRadius:"8px",padding:"10px",marginBottom:"6px",border:"1px solid "+hexAlpha("#A78BFA",0.2)});
+        vCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"6px"},[
+          div({},[div({color:cl.subHi,fontSize:"12px",fontWeight:"700",fontFamily:"'Inter',sans-serif"},vid.title),
+            div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},"Agent #"+vid.agent_id+(vid.deal_id?" · Deal: "+vid.deal_id.substring(0,8)+"…":""))]),
+          span({color:"#F59E0B",fontSize:"8px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",background:"rgba(245,158,11,0.12)",padding:"2px 6px",borderRadius:"6px"},"PENDING")
+        ]));
+        if(vid.summary)vCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5",marginBottom:"6px"},vid.summary));
+        var vLink=el("a",{href:vid.video_url,target:"_blank",rel:"noopener",style:{color:"#A78BFA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",textDecoration:"none",display:"block",marginBottom:"8px"}});
+        vLink.textContent="▶ "+vid.video_url;vCard.appendChild(vLink);
+        var vActions=div({display:"flex",gap:"6px"});
+        var approveBtn=el("button",{style:{flex:"1",padding:"7px",background:"rgba(16,185,129,0.12)",color:cl.green,border:"1px solid rgba(16,185,129,0.3)",borderRadius:"6px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
+          onclick:(function(vId){return async function(){await updateVideoStatus(vId,"approved");render();};})(vid.id)});
+        approveBtn.textContent="✓ Approve";
+        var rejectBtn=el("button",{style:{flex:"1",padding:"7px",background:"rgba(239,68,68,0.12)",color:"#EF4444",border:"1px solid rgba(239,68,68,0.3)",borderRadius:"6px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
+          onclick:(function(vId){return async function(){await updateVideoStatus(vId,"rejected");render();};})(vid.id)});
+        rejectBtn.textContent="✗ Reject";
+        vActions.appendChild(approveBtn);vActions.appendChild(rejectBtn);
+        vCard.appendChild(vActions);
+        vidSection.appendChild(vCard);
+      });
+    });
+    card.appendChild(vidSection);
+  })();
 
   card.appendChild(div({color:"#60A5FA",fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",marginTop:"14px",fontWeight:"700"},"◆ AGENT MANAGEMENT"));
   hub.agents.forEach(function(ag){
