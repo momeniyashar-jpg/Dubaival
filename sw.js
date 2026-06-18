@@ -15,6 +15,7 @@ var PRECACHE=[
   '/js/deals.js',
   '/js/chat.js',
   '/js/about.js',
+  '/js/marketindex.js',
   '/manifest.json'
 ];
 

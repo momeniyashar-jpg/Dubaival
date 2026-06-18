@@ -1105,7 +1105,7 @@ function render(){
   }
 
   // Nav
-  const tabs=[{id:"Market",icon:"📊",label:"Market"},{id:"Analyzer",icon:"🔍",label:"Analyzer"},{id:"Map",icon:"🗺️",label:"Map"},{id:"Find",icon:"🔎",label:"Find"},{id:"Deals",icon:"🤝",label:"Deals"},{id:"Compare",icon:"⚖️",label:"Compare"},{id:"Portfolio",icon:"💼",label:"Portfolio"},{id:"Alerts",icon:"🔔",label:"Alerts"},{id:"Chat",icon:"💬",label:"AI Chat"},{id:"About",icon:"ℹ️",label:"About"}];
+  const tabs=[{id:"Market",icon:"📊",label:"Market"},{id:"Index",icon:"📈",label:"Index"},{id:"Analyzer",icon:"🔍",label:"Analyzer"},{id:"Map",icon:"🗺️",label:"Map"},{id:"Find",icon:"🔎",label:"Find"},{id:"Deals",icon:"🤝",label:"Deals"},{id:"Compare",icon:"⚖️",label:"Compare"},{id:"Portfolio",icon:"💼",label:"Portfolio"},{id:"Alerts",icon:"🔔",label:"Alerts"},{id:"Chat",icon:"💬",label:"AI Chat"},{id:"About",icon:"ℹ️",label:"About"}];
   const nav=div({background:cl.surface,borderBottom:"1px solid "+cl.border,display:"flex",overflowX:"auto",padding:"0 20px"},
     tabs.map(function(t){
       const active=currentTab===t.id;
@@ -1119,6 +1119,7 @@ function render(){
   if(window.location.hash==="#admin"&&currentTab!=="Admin")currentTab="Admin";
   
   if(currentTab==="Market")content.appendChild(renderMarket());
+  else if(currentTab==="Index")content.appendChild(renderMarketIndex());
   else if(currentTab==="Analyzer")content.appendChild(renderAnalyzer());
   else if(currentTab==="Map")content.appendChild(renderMap());
   else if(currentTab==="Find")content.appendChild(renderFind());
