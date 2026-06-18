@@ -51,7 +51,13 @@ en:{
   download_pdf:"Download PDF Report",arabic_pdf:"تقرير بالعربية",
   print_hint:"Print dialog opens → Save as PDF",
   not_advice:"Not financial advice — consult a licensed advisor for investment decisions.",
-  footer_tag:"DubAIVal · DLD · Cascade AVM · June 2026"
+  footer_tag:"DubAIVal · DLD · Cascade AVM · June 2026",
+  // Auth
+  auth_signin:"Sign In",auth_signup:"Sign Up",auth_signout:"Sign Out",
+  auth_name:"Full Name",auth_email:"Email",auth_password:"Password",
+  auth_create_account:"Create Account",auth_cloud_sync:"Cloud sync for your portfolio",
+  auth_fill_fields:"Please fill in all fields",
+  auth_disclaimer:"Your data is encrypted and stored securely via Supabase Auth."
 },
 ar:{
   tab_market:"السوق",tab_index:"المؤشر",tab_analyzer:"التقييم",tab_map:"الخريطة",tab_find:"البحث",
@@ -85,7 +91,12 @@ ar:{
   download_pdf:"تحميل تقرير PDF",arabic_pdf:"تقرير بالعربية",
   print_hint:"يفتح مربع الطباعة → حفظ كـ PDF",
   not_advice:"ليس نصيحة مالية — استشر مستشاراً مرخصاً لقرارات الاستثمار.",
-  footer_tag:"DubAIVal · دائرة الأراضي · محرك Cascade · يونيو ٢٠٢٦"
+  footer_tag:"DubAIVal · دائرة الأراضي · محرك Cascade · يونيو ٢٠٢٦",
+  auth_signin:"تسجيل الدخول",auth_signup:"إنشاء حساب",auth_signout:"خروج",
+  auth_name:"الاسم الكامل",auth_email:"البريد الإلكتروني",auth_password:"كلمة المرور",
+  auth_create_account:"إنشاء حساب",auth_cloud_sync:"مزامنة سحابية لمحفظتك",
+  auth_fill_fields:"يرجى ملء جميع الحقول",
+  auth_disclaimer:"بياناتك مشفرة ومخزنة بأمان عبر Supabase Auth."
 }
 };
 function t(key){return(LANG[dvLang]&&LANG[dvLang][key])||LANG.en[key]||key;}

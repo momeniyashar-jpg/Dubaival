@@ -432,7 +432,7 @@ function renderPortfolio(){
   var goalsGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px"});
   [{l:"Risk Appetite",k:"risk",opts:["Conservative","Moderate","Aggressive"]},{l:"Horizon",k:"horizon",opts:["1-2 years","3-5 years","5-10 years","10+ years"]},{l:"Target",k:"target",opts:["Capital Growth","Rental Income","Balanced","Quick Flip"]}].forEach(function(item){
     var g=div({});g.appendChild(lbl(item.l));
-    g.appendChild(mkSelect(Object.assign({},S(),{fontSize:"11.5px",padding:"8px 10px"}),item.opts,ps.goals[item.k],function(v){ps.goals[item.k]=v;localStorage.setItem("dubaival_portfolio_goals",JSON.stringify(ps.goals));ps.aiAnalysis="";render();}));
+    g.appendChild(mkSelect(Object.assign({},S(),{fontSize:"11.5px",padding:"8px 10px"}),item.opts,ps.goals[item.k],function(v){ps.goals[item.k]=v;localStorage.setItem("dubaival_portfolio_goals",JSON.stringify(ps.goals));portfolioChanged();ps.aiAnalysis="";render();}));
     goalsGrid.appendChild(g);
   });
   goalsCard.appendChild(goalsGrid);
@@ -600,7 +600,7 @@ function renderPortfolio(){
       trBox.appendChild(trRight);
       details.appendChild(trBox);
 
-      details.appendChild(btn({background:cl.redBg,border:"1px solid "+cl.redBo,color:cl.red,padding:"8px 16px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",fontWeight:"600"},"Remove Asset",function(e){e.stopPropagation();ps.assets=ps.assets.filter(function(x){return x.id!==a.id;});localStorage.setItem("dubaival_portfolio",JSON.stringify(ps.assets));if(ps.expandedId===a.id)ps.expandedId=null;ps.aiAnalysis="";render();}));
+      details.appendChild(btn({background:cl.redBg,border:"1px solid "+cl.redBo,color:cl.red,padding:"8px 16px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",fontWeight:"600"},"Remove Asset",function(e){e.stopPropagation();ps.assets=ps.assets.filter(function(x){return x.id!==a.id;});localStorage.setItem("dubaival_portfolio",JSON.stringify(ps.assets));portfolioChanged();if(ps.expandedId===a.id)ps.expandedId=null;ps.aiAnalysis="";render();}));
       card.appendChild(details);
     }
     wrap.appendChild(card);
@@ -677,7 +677,7 @@ function renderPortfolio(){
       if(!canAdd)return;
       var asset=Object.assign({},n,{id:Date.now().toString(36)});
       ps.assets.push(asset);
-      localStorage.setItem("dubaival_portfolio",JSON.stringify(ps.assets));
+      localStorage.setItem("dubaival_portfolio",JSON.stringify(ps.assets));portfolioChanged();
       ps._new={building:"",area:"",type:"Apartment",beds:"2 BR",floor:"",view:"Not specified",size:"",purchasePrice:"",purchaseDate:"",furnished:"Unfurnished",serviceCharge:"",parking:"1"};
       ps.showAdd=false;ps.aiAnalysis="";render();
     }));
