@@ -1241,6 +1241,114 @@ function renderAnalyzerResult(wrap){
   }
   wrap.appendChild(pdfWrap);
 
+  // --- MARKETING PITCH GENERATOR ---
+  var pitchWrap=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginTop:"14px"});
+  pitchWrap.appendChild(div({display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"14px"},[
+    div({},[
+      span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"3px"},"◆ Marketing Pitch Generator"),
+      span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"AI-generated property listing for WhatsApp & Email"),
+    ]),
+    span({fontSize:"20px"},"📝"),
+  ]));
+
+  var pitchLangRow=div({display:"flex",gap:"8px",marginBottom:"12px"});
+  var pitchLangs=[{k:"en",label:"English"},{k:"fa",label:"فارسی"},{k:"ar",label:"العربية"},{k:"ru",label:"Русский"},{k:"zh",label:"中文"}];
+  if(!window._pitchLang)window._pitchLang="en";
+  pitchLangs.forEach(function(lg){
+    var b=el("button",{style:{padding:"5px 12px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",border:"1px solid "+(window._pitchLang===lg.k?cl.gold:cl.border),background:window._pitchLang===lg.k?cl.goldFaint:"transparent",color:window._pitchLang===lg.k?cl.gold:cl.sub}});
+    b.textContent=lg.label;
+    b.addEventListener("click",function(){window._pitchLang=lg.k;render();});
+    pitchLangRow.appendChild(b);
+  });
+  pitchWrap.appendChild(pitchLangRow);
+
+  var pitchToneRow=div({display:"flex",gap:"8px",marginBottom:"14px"});
+  var pitchTones=[{k:"professional",label:"Professional",icon:"🏢"},{k:"luxury",label:"Luxury",icon:"✨"},{k:"investor",label:"Investor-focused",icon:"📊"},{k:"urgent",label:"Urgent/FOMO",icon:"⏰"}];
+  if(!window._pitchTone)window._pitchTone="professional";
+  pitchTones.forEach(function(tn){
+    var b=el("button",{style:{padding:"5px 12px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",border:"1px solid "+(window._pitchTone===tn.k?cl.gold:cl.border),background:window._pitchTone===tn.k?cl.goldFaint:"transparent",color:window._pitchTone===tn.k?cl.gold:cl.sub}});
+    b.textContent=tn.icon+" "+tn.label;
+    b.addEventListener("click",function(){window._pitchTone=tn.k;render();});
+    pitchToneRow.appendChild(b);
+  });
+  pitchWrap.appendChild(pitchToneRow);
+
+  var pitchOutput=div({id:"pitch-output",minHeight:"60px"});
+  if(window._pitchText){
+    var pitchBox=div({background:cl.raised,border:"1px solid "+cl.border,borderRadius:"10px",padding:"14px 16px",whiteSpace:"pre-wrap",color:cl.subHi,fontSize:"13px",lineHeight:"1.8",fontFamily:"'Inter',sans-serif"});
+    pitchBox.textContent=window._pitchText;
+    pitchOutput.appendChild(pitchBox);
+
+    var pitchActions=div({display:"flex",gap:"8px",marginTop:"10px"});
+    var copyPitch=el("button",{style:{flex:"1",padding:"9px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",border:"1px solid "+cl.border,background:cl.raised,color:cl.subHi}});
+    copyPitch.textContent="📋 Copy";
+    copyPitch.addEventListener("click",function(){navigator.clipboard.writeText(window._pitchText);copyPitch.textContent="✓ Copied!";setTimeout(function(){copyPitch.textContent="📋 Copy";},2000);});
+
+    var waPitch=el("button",{style:{flex:"1",padding:"9px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",border:"1px solid #25D366",background:"rgba(37,211,102,0.1)",color:"#25D366"}});
+    waPitch.textContent="💬 WhatsApp";
+    waPitch.addEventListener("click",function(){window.open("https://wa.me/?text="+encodeURIComponent(window._pitchText),"_blank");});
+
+    var emailPitch=el("button",{style:{flex:"1",padding:"9px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",border:"1px solid "+cl.gold,background:cl.goldFaint,color:cl.gold}});
+    emailPitch.textContent="✉️ Email";
+    emailPitch.addEventListener("click",function(){var subj=encodeURIComponent((f.building||f.area)+" — "+(isVilla?f.villaType:f.aptSubtype)+" | DubAIVal");window.open("mailto:?subject="+subj+"&body="+encodeURIComponent(window._pitchText));});
+
+    pitchActions.appendChild(copyPitch);pitchActions.appendChild(waPitch);pitchActions.appendChild(emailPitch);
+    pitchOutput.appendChild(pitchActions);
+  }
+  pitchWrap.appendChild(pitchOutput);
+
+  var genBtn=el("button",{style:{width:"100%",padding:"12px",borderRadius:"10px",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",border:"none",background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",color:"#fff",marginTop:window._pitchText?"10px":"0",transition:"opacity 0.2s"}});
+  genBtn.textContent=window._pitchLoading?"⏳ Generating...":window._pitchText?"🔄 Regenerate Pitch":"✨ Generate Marketing Pitch";
+  if(window._pitchLoading)genBtn.style.opacity="0.6";
+  genBtn.addEventListener("click",async function(){
+    if(window._pitchLoading)return;
+    window._pitchLoading=true;render();
+    try{
+      var langNames={en:"English",fa:"Persian/Farsi",ar:"Arabic",ru:"Russian",zh:"Chinese"};
+      var toneGuides={
+        professional:"Write in a professional, data-driven tone. Focus on market facts and investment metrics.",
+        luxury:"Write in an elegant, aspirational luxury tone. Emphasize lifestyle, exclusivity, and premium features.",
+        investor:"Write in an analytical investor-focused tone. Lead with ROI, yield, capital appreciation, and market position.",
+        urgent:"Write with urgency and scarcity. Emphasize limited opportunity, market timing, and competitive advantage."
+      };
+      var prompt="Generate a compelling property marketing pitch for a real estate agent to send to clients.\n\n"+
+        "PROPERTY DETAILS:\n"+
+        "- Location: "+f.area+(f.cluster?" ("+f.cluster+")":"")+"\n"+
+        (f.building?"- Building: "+f.building+"\n":"")+
+        "- Type: "+(isVilla?f.villaType:f.aptSubtype)+"\n"+
+        "- Bedrooms: "+f.beds+"\n"+
+        "- Size: "+(isVilla?f.buaSize:f.size)+" sqft\n"+
+        (f.floor&&!isVilla?"- Floor: "+f.floor+"\n":"")+
+        (f.view&&f.view!=="Not specified"?"- View: "+f.view+"\n":"")+
+        "- Furnished: "+f.furnished+"\n"+
+        "- Asking Price: AED "+Number(f.price).toLocaleString()+"\n"+
+        "- Price PSF: AED "+val.askPSF.toLocaleString()+"\n\n"+
+        "MARKET CONTEXT (from DubAIVal analysis):\n"+
+        "- Market PSF: AED "+val.adjPSF.toLocaleString()+"\n"+
+        "- vs Market: "+val.vsPct+"%\n"+
+        "- Verdict: "+val.verdict+"\n"+
+        "- Gross Yield: "+val.grossYield+"%\n"+
+        "- Net Yield: "+val.netYield+"%\n"+
+        "- Rent Estimate: AED "+val.rentLow.toLocaleString()+"–"+val.rentHigh.toLocaleString()+"/yr\n"+
+        "- Area Growth (1-3yr): "+((val.growth||[])[1]||"N/A")+"%\n"+
+        "- Confidence: "+val.confScore+"/100\n\n"+
+        "INSTRUCTIONS:\n"+
+        "- Language: "+langNames[window._pitchLang]+"\n"+
+        "- Tone: "+toneGuides[window._pitchTone]+"\n"+
+        "- Format: Ready to paste into WhatsApp. Use line breaks, not HTML.\n"+
+        "- Include: property highlights, price justification with market data, investment potential, call to action.\n"+
+        "- Length: 150-250 words. Concise but persuasive.\n"+
+        "- Add relevant emojis sparingly.\n"+
+        "- End with: 'Powered by DubAIVal.com — AI Property Intelligence'";
+
+      var resp=await callGroqRaw({messages:[{role:"user",content:prompt}],temperature:0.7,max_tokens:1200});
+      window._pitchText=(resp.choices&&resp.choices[0]&&resp.choices[0].message&&resp.choices[0].message.content)||"Error generating pitch.";
+    }catch(e){window._pitchText="Error: "+e.message;}
+    window._pitchLoading=false;render();
+  });
+  pitchWrap.appendChild(genBtn);
+  wrap.appendChild(pitchWrap);
+
   return wrap;
 }
 
