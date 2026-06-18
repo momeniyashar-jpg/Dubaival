@@ -301,10 +301,15 @@ function renderApiDocs(cl){
   wrap.appendChild(reqCard);
 
   // Take Tour Again
-  var tourBtn=el("button",{style:{display:"block",margin:"30px auto 0",background:"transparent",border:"2px solid "+cl.gold,color:cl.gold,padding:"12px 28px",borderRadius:"12px",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.04em"}});
-  tourBtn.textContent="🎯 Take the Tour Again";
-  tourBtn.addEventListener("click",function(){try{localStorage.removeItem("dv_tour_done");}catch(e){}startTour();});
-  wrap.appendChild(tourBtn);
+  var tourRow=div({display:"flex",gap:"10px",justifyContent:"center",marginTop:"30px",flexWrap:"wrap"});
+  var tqBtn=el("button",{style:{background:"transparent",border:"2px solid "+cl.gold,color:cl.gold,padding:"12px 22px",borderRadius:"12px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+  tqBtn.textContent="🎯 Quick Tour (8 steps)";
+  tqBtn.addEventListener("click",function(){try{localStorage.removeItem("dv_tour_done");}catch(e){}startTour("quick");});
+  var tfBtn=el("button",{style:{background:"linear-gradient(135deg,"+cl.gold+",#7A5E28)",border:"none",color:"#08090C",padding:"12px 22px",borderRadius:"12px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+  tfBtn.textContent="🚀 Full Tour (16 steps)";
+  tfBtn.addEventListener("click",function(){try{localStorage.removeItem("dv_full_tour_done");}catch(e){}startTour("full");});
+  tourRow.appendChild(tqBtn);tourRow.appendChild(tfBtn);
+  wrap.appendChild(tourRow);
 
   return wrap;
 }

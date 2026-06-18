@@ -772,9 +772,10 @@ function createVoiceMic(stateKey,onResult,opts){
   return wrap;
 }
 
-// --- INTERACTIVE TOUR ---
-var DV_TOUR={step:0,active:false};
-var TOUR_STEPS=[
+// --- INTERACTIVE TOUR (Two-Level) ---
+var DV_TOUR={step:0,active:false,level:"quick",steps:[]};
+
+var TOUR_QUICK=[
   {type:"center",title:"Welcome to DubAIVal!",text:"AI-Powered Dubai Real Estate Intelligence Platform — 6,162 buildings, 287 areas, real-time analytics.",icon:"logo"},
   {sel:function(){return document.querySelector('input[placeholder*="Describe"]')||document.querySelector('input[placeholder*="bedroom"]')||document.querySelector('input[placeholder*="describe"]');},title:"AI Smart Search",text:"Type or speak to describe any property — our AI parses it instantly and fills the form.",arrow:"bottom",needTab:"Analyzer"},
   {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){if(bs[i].textContent.indexOf("Fair Price")!==-1)return bs[i];}return null;},title:"Fair Price Checker",text:"Quick check: is your deal fair? Just enter area, building, and price for an instant verdict.",arrow:"bottom"},
@@ -782,15 +783,41 @@ var TOUR_STEPS=[
   {tab:"Index",title:"Market Index",text:"Live market dashboard — track 287 areas and 6,162 buildings with heatmaps, histograms, and rankings.",arrow:"top"},
   {tab:"Portfolio",title:"Portfolio Manager",text:"Track your investments with AI-powered analytics, health scores, projections, and opportunity alerts.",arrow:"top"},
   {tab:"Deals",title:"Deal Network",text:"Agent-to-agent deal board — post listings, find AI-matched deals, connect with verified agents.",arrow:"top"},
-  {tab:"Workspace",title:"My Workspace",text:"Customize your dashboard and build personalized reports with voice commands and smart templates.",arrow:"top"}
+  {tab:"Workspace",title:"My Workspace",text:"Customize your dashboard and build personalized reports with voice commands and smart templates.",arrow:"top",quickLast:true}
 ];
 
-function startTour(){DV_TOUR.step=0;DV_TOUR.active=true;showTourStep();}
+var TOUR_FULL=[
+  {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){if(bs[i].textContent==="🎤")return bs[i];}return null;},title:"Voice Command 🎤",text:"Tap the mic to speak — describe properties, deals, or report preferences by voice.",arrow:"bottom",needTab:"Analyzer"},
+  {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){var tx=bs[i].textContent||"";if(tx.indexOf("EN")!==-1||tx.indexOf("AR")!==-1||tx==="🌐")return bs[i];}return null;},title:"Multi-language Toggle",text:"Switch between English and العربية anytime — the entire interface adapts instantly.",arrow:"bottom"},
+  {tab:"Compare",title:"Neighborhood Comparison",text:"Compare 2–3 areas side by side with AI verdict, yield spreads, and growth trajectories.",arrow:"top"},
+  {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){if((bs[i].textContent||"").indexOf("Scenario")!==-1||(bs[i].textContent||"").indexOf("scenario")!==-1)return bs[i];}return null;},title:"Investment Calculator",text:"Plan scenarios with IRR, cash flow projections, and equity growth over 1–30 years.",arrow:"bottom",needTab:"Analyzer"},
+  {sel:function(){var es=document.querySelectorAll("[style]");for(var i=0;i<es.length;i++){if((es[i].textContent||"").indexOf("Sustainability")!==-1)return es[i];}return null;},title:"Sustainability Score",text:"See building efficiency and green ratings — make environmentally conscious investment decisions.",arrow:"bottom"},
+  {tab:"Workspace",title:"Custom Report Builder",text:"Build personalized PDF reports — click sections, type descriptions, or use voice commands.",arrow:"top"},
+  {sel:function(){var bs=document.querySelectorAll("button,div");for(var i=0;i<bs.length;i++){if((bs[i].textContent||"")==="🔔")return bs[i];}return null;},title:"Notification Bell 🔔",text:"Get alerts for new inquiries, deal matches, portfolio opportunities, and market changes.",arrow:"bottom"},
+  {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){var tx=bs[i].textContent||"";if(tx.indexOf("Save")!==-1&&tx.indexOf("Search")!==-1)return bs[i];}return null;},title:"Saved Searches & Favorites",text:"Save valuations and bookmark favorite deals and areas — access them instantly from any tab.",arrow:"bottom",needTab:"Analyzer"},
+  {sel:function(){var bs=document.querySelectorAll("a,button");for(var i=0;i<bs.length;i++){var tx=bs[i].textContent||"";if(tx.indexOf("WhatsApp")!==-1||tx.indexOf("whatsapp")!==-1)return bs[i];}return null;},title:"Social Share",text:"Share valuations on WhatsApp, LinkedIn, X, and Telegram with one tap.",arrow:"bottom"},
+  {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){var tx=bs[i].textContent||"";if(tx.indexOf("CSV")!==-1||tx.indexOf("Export")!==-1||tx.indexOf("Download")!==-1)return bs[i];}return null;},title:"Export CSV 📥",text:"Download market data, portfolio, and comparisons as CSV files for offline analysis.",arrow:"bottom"},
+  {sel:function(){var es=document.querySelectorAll("[style]");for(var i=0;i<es.length;i++){if((es[i].textContent||"").indexOf("Anomal")!==-1||(es[i].textContent||"").indexOf("anomal")!==-1)return es[i];}return null;},title:"Price Anomaly Detection",text:"AI flags suspicious pricing patterns to protect market integrity and your investments.",arrow:"bottom",needTab:"Index"},
+  {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){if((bs[i].textContent||"").indexOf("Arabic")!==-1||(bs[i].textContent||"").indexOf("عربي")!==-1)return bs[i];}return null;},title:"Arabic PDF Reports",text:"Generate professional valuation reports in Arabic with full RTL layout support.",arrow:"bottom"},
+  {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){if((bs[i].textContent||"").indexOf("Agent Hub")!==-1||(bs[i].textContent||"").indexOf("Register")!==-1)return bs[i];}return null;},title:"Agent Hub & Referral",text:"Register as an agent, receive referrals, and manage your subscription tier.",arrow:"bottom",needTab:"Deals"},
+  {sel:function(){var es=document.querySelectorAll("[style]");for(var i=0;i<es.length;i++){if((es[i].textContent||"").indexOf("RERA")!==-1||(es[i].textContent||"").indexOf("Verified")!==-1)return es[i];}return null;},title:"RERA Verification",text:"Verified badge for agents with valid RERA numbers — builds trust with buyers.",arrow:"bottom",needTab:"Deals"},
+  {sel:function(){var es=document.querySelectorAll("[style]");for(var i=0;i<es.length;i++){if((es[i].textContent||"").indexOf("Photo")!==-1||(es[i].textContent||"").indexOf("Gallery")!==-1||(es[i].textContent||"").indexOf("Media")!==-1)return es[i];}return null;},title:"Deal Media Gallery",text:"Upload photos and videos — buyers request access, owners approve for privacy control.",arrow:"bottom",needTab:"Deals"},
+  {type:"center",title:"You've seen everything!",text:"Explore DubAIVal at your own pace or revisit any tour anytime from About or Workspace.",fullLast:true}
+];
+
+function startTour(level){
+  DV_TOUR.level=level||"quick";
+  DV_TOUR.steps=DV_TOUR.level==="full"?TOUR_FULL:TOUR_QUICK;
+  DV_TOUR.step=0;DV_TOUR.active=true;showTourStep();
+}
 
 function endTour(){
   DV_TOUR.active=false;
   var old=document.getElementById("dv-tour-overlay");if(old)old.remove();
-  try{localStorage.setItem("dv_tour_done","true");}catch(e){}
+  try{
+    if(DV_TOUR.level==="full")localStorage.setItem("dv_full_tour_done","true");
+    else localStorage.setItem("dv_tour_done","true");
+  }catch(e){}
 }
 
 function _findTabBtn(tabId){
@@ -807,10 +834,12 @@ function _findTabBtn(tabId){
 function showTourStep(){
   var old=document.getElementById("dv-tour-overlay");if(old)old.remove();
   if(!DV_TOUR.active)return;
-  var s=TOUR_STEPS[DV_TOUR.step];
+  var steps=DV_TOUR.steps;
+  var s=steps[DV_TOUR.step];
   if(!s){endTour();return;}
-  var cl=C();var total=TOUR_STEPS.length;
+  var cl=C();var total=steps.length;
   var isLast=DV_TOUR.step===total-1;
+  var isQuickLast=!!s.quickLast&&DV_TOUR.level==="quick";
 
   if(s.needTab&&typeof currentTab!=="undefined"&&currentTab!==s.needTab){
     currentTab=s.needTab;render();setTimeout(showTourStep,400);return;
@@ -855,16 +884,28 @@ function showTourStep(){
     card.style.left=Math.max(8,Math.min(window.innerWidth-cw-8,r.left+(r.width/2)-(cw/2)))+"px";
   }
 
+  var lbl=DV_TOUR.level==="full"?"FULL TOUR":"QUICK TOUR";
   var h="";
   if(s.type==="center"){
-    h+='<div style="text-align:center;margin-bottom:16px"><img src="logo.png" alt="DubAIVal" style="width:64px;height:64px;border-radius:14px;margin:0 auto 12px;display:block;object-fit:contain"><div style="color:'+cl.gold+';font-size:18px;font-weight:800;font-family:Space Grotesk,monospace;margin-bottom:6px">'+s.title+'</div><div style="color:#9CA3AF;font-size:12px;font-family:Inter,sans-serif;line-height:1.6">'+s.text+'</div></div>';
+    h+='<div style="text-align:center;margin-bottom:16px">';
+    if(s.icon==="logo")h+='<img src="logo.png" alt="DubAIVal" style="width:64px;height:64px;border-radius:14px;margin:0 auto 12px;display:block;object-fit:contain">';
+    if(s.fullLast)h+='<div style="font-size:40px;margin-bottom:12px">🎯</div>';
+    h+='<div style="color:'+cl.gold+';font-size:18px;font-weight:800;font-family:Space Grotesk,monospace;margin-bottom:6px">'+s.title+'</div><div style="color:#9CA3AF;font-size:12px;font-family:Inter,sans-serif;line-height:1.6">'+s.text+'</div></div>';
   }else{
-    h+='<div style="margin-bottom:14px"><div style="color:'+cl.gold+';font-size:15px;font-weight:700;font-family:Space Grotesk,monospace;margin-bottom:8px">'+s.title+'</div><div style="color:#D1D5DB;font-size:12px;font-family:Inter,sans-serif;line-height:1.7">'+s.text+'</div></div>';
+    h+='<div style="margin-bottom:14px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="background:linear-gradient(135deg,'+cl.gold+',#7A5E28);color:#08090C;font-size:9px;font-weight:800;font-family:Space Grotesk,monospace;padding:2px 8px;border-radius:4px;letter-spacing:0.08em">'+lbl+'</span></div><div style="color:'+cl.gold+';font-size:15px;font-weight:700;font-family:Space Grotesk,monospace;margin-bottom:8px">'+s.title+'</div><div style="color:#D1D5DB;font-size:12px;font-family:Inter,sans-serif;line-height:1.7">'+s.text+'</div></div>';
   }
-  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px"><span style="color:#6B7280;font-size:11px;font-family:Space Grotesk,monospace;font-weight:600">'+(DV_TOUR.step+1)+' / '+total+'</span><div style="display:flex;gap:8px">';
-  if(!isLast)h+='<button id="dv-tour-skip" style="background:transparent;border:1px solid #374151;color:#9CA3AF;padding:8px 16px;border-radius:8px;font-size:11px;font-weight:600;font-family:Space Grotesk,monospace;cursor:pointer">Skip Tour</button>';
-  if(isLast)h+='<button id="dv-tour-finish" style="background:linear-gradient(135deg,'+cl.gold+',#7A5E28);color:#08090C;border:none;padding:8px 20px;border-radius:8px;font-size:12px;font-weight:700;font-family:Space Grotesk,monospace;cursor:pointer">Start Exploring 🎯</button>';
-  else h+='<button id="dv-tour-next" style="background:linear-gradient(135deg,'+cl.gold+',#7A5E28);color:#08090C;border:none;padding:8px 20px;border-radius:8px;font-size:12px;font-weight:700;font-family:Space Grotesk,monospace;cursor:pointer">Next →</button>';
+
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px"><span style="color:#6B7280;font-size:11px;font-family:Space Grotesk,monospace;font-weight:600">'+(DV_TOUR.step+1)+' / '+total+'</span><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">';
+
+  if(isQuickLast){
+    h+='<button id="dv-tour-finish" style="background:transparent;border:1px solid #374151;color:#9CA3AF;padding:8px 16px;border-radius:8px;font-size:11px;font-weight:600;font-family:Space Grotesk,monospace;cursor:pointer">Start Exploring</button>';
+    h+='<button id="dv-tour-full" style="background:linear-gradient(135deg,'+cl.gold+',#7A5E28);color:#08090C;border:none;padding:8px 18px;border-radius:8px;font-size:11px;font-weight:700;font-family:Space Grotesk,monospace;cursor:pointer">Show Me Everything →</button>';
+  }else if(isLast||s.fullLast){
+    h+='<button id="dv-tour-finish" style="background:linear-gradient(135deg,'+cl.gold+',#7A5E28);color:#08090C;border:none;padding:8px 20px;border-radius:8px;font-size:12px;font-weight:700;font-family:Space Grotesk,monospace;cursor:pointer">Start Exploring 🎯</button>';
+  }else{
+    h+='<button id="dv-tour-skip" style="background:transparent;border:1px solid #374151;color:#9CA3AF;padding:8px 16px;border-radius:8px;font-size:11px;font-weight:600;font-family:Space Grotesk,monospace;cursor:pointer">Skip</button>';
+    h+='<button id="dv-tour-next" style="background:linear-gradient(135deg,'+cl.gold+',#7A5E28);color:#08090C;border:none;padding:8px 20px;border-radius:8px;font-size:12px;font-weight:700;font-family:Space Grotesk,monospace;cursor:pointer">Next →</button>';
+  }
   h+='</div></div>';
   var pct=((DV_TOUR.step+1)/total*100).toFixed(0);
   h+='<div style="margin-top:12px;height:3px;background:#1F2937;border-radius:2px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,'+cl.gold+',#7A5E28);border-radius:2px;transition:width 0.4s ease"></div></div>';
@@ -873,13 +914,18 @@ function showTourStep(){
   var sk=document.getElementById("dv-tour-skip");
   var nx=document.getElementById("dv-tour-next");
   var fn=document.getElementById("dv-tour-finish");
+  var fl=document.getElementById("dv-tour-full");
   if(sk)sk.addEventListener("click",endTour);
   if(nx)nx.addEventListener("click",function(){DV_TOUR.step++;showTourStep();});
   if(fn)fn.addEventListener("click",function(){endTour();currentTab="Analyzer";render();});
+  if(fl)fl.addEventListener("click",function(){
+    try{localStorage.setItem("dv_tour_done","true");}catch(e){}
+    DV_TOUR.level="full";DV_TOUR.steps=TOUR_FULL;DV_TOUR.step=0;showTourStep();
+  });
 }
 
 function checkTourOnLoad(){
   try{if(localStorage.getItem("dv_tour_done"))return;}catch(e){return;}
-  setTimeout(startTour,800);
+  setTimeout(function(){startTour("quick");},800);
 }
 

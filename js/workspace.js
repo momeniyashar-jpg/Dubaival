@@ -149,10 +149,15 @@ function renderWorkspace(){
     wrap.appendChild(dashGrid);
   }
 
-  var tourBtn2=el("button",{style:{display:"block",margin:"24px auto 0",background:"transparent",border:"1px solid "+cl.gold,color:cl.gold,padding:"10px 22px",borderRadius:"10px",fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
-  tourBtn2.textContent="🎯 Take the Tour Again";
-  tourBtn2.addEventListener("click",function(){try{localStorage.removeItem("dv_tour_done");}catch(e){}startTour();});
-  wrap.appendChild(tourBtn2);
+  var tourRow2=div({display:"flex",gap:"8px",justifyContent:"center",marginTop:"24px",flexWrap:"wrap"});
+  var tq2=el("button",{style:{background:"transparent",border:"1px solid "+cl.gold,color:cl.gold,padding:"9px 18px",borderRadius:"10px",fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+  tq2.textContent="🎯 Quick Tour (8)";
+  tq2.addEventListener("click",function(){try{localStorage.removeItem("dv_tour_done");}catch(e){}startTour("quick");});
+  var tf2=el("button",{style:{background:"linear-gradient(135deg,"+cl.gold+",#7A5E28)",border:"none",color:"#08090C",padding:"9px 18px",borderRadius:"10px",fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+  tf2.textContent="🚀 Full Tour (16)";
+  tf2.addEventListener("click",function(){try{localStorage.removeItem("dv_full_tour_done");}catch(e){}startTour("full");});
+  tourRow2.appendChild(tq2);tourRow2.appendChild(tf2);
+  wrap.appendChild(tourRow2);
 
   return wrap;
 }
