@@ -1149,5 +1149,13 @@ function render(){
   // Auth modal overlay
   var authModal=renderAuthModal();
   if(authModal)app.appendChild(authModal);
+
+  // Auto-valuate from shared URL
+  if(window._autoValuate&&analyzerState.f.area&&analyzerState.f.price){
+    window._autoValuate=false;
+    currentTab="Analyzer";
+    try{analyzerState.val=computeValuation(analyzerState.f);analyzerState.stage=2;}catch(e){}
+    setTimeout(render,50);
+  }
 }
 

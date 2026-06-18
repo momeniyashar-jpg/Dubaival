@@ -417,6 +417,46 @@ var compareState={a1:"",a2:"",budget:"",purpose:"Investment",loading:false,resul
 var personalState={budget:"",role:"Investor",family:"Couple",children:"0",work:"",purpose:"Investment",timeline:"6 months",loading:false,result:"",err:""};
 var chatState={msgs:[{role:"assistant",text:"DubAIVal Intelligence.\n\nBuilding-level knowledge · June 2026 data · Confidence scoring.\n\nAsk me about any building, deal, or strategy."}],input:"",loading:false};
 
+// URL param auto-fill for shared valuations
+(function(){
+  try{
+    var p=new URLSearchParams(window.location.search);
+    if(p.get("area")){
+      analyzerState.f.area=p.get("area");
+      if(p.get("building"))analyzerState.f.building=p.get("building");
+      if(p.get("price"))analyzerState.f.price=p.get("price");
+      if(p.get("size")){analyzerState.f.size=p.get("size");analyzerState.f.buaSize=p.get("size");}
+      window._autoValuate=true;
+    }
+  }catch(e){}
+})();
+
+// --- SOCIAL SHARING ---
+function shareRow(cl,buttons){
+  var row=el("div",{style:{display:"flex",gap:"6px",flexWrap:"wrap",marginTop:"10px"}});
+  buttons.forEach(function(b){row.appendChild(b);});
+  return row;
+}
+function shareBtnStyle(bg,color){return{background:bg,color:color,border:"none",padding:"7px 12px",borderRadius:"8px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",display:"inline-flex",alignItems:"center",gap:"5px",transition:"opacity 0.2s"};}
+function shareWhatsApp(text){window.open("https://wa.me/?text="+encodeURIComponent(text),"_blank");}
+function shareTwitter(text){window.open("https://twitter.com/intent/tweet?text="+encodeURIComponent(text),"_blank");}
+function shareLinkedIn(url){window.open("https://linkedin.com/sharing/share-offsite/?url="+encodeURIComponent(url),"_blank");}
+function shareTelegram(text,url){window.open("https://t.me/share/url?url="+encodeURIComponent(url||"https://www.dubaival.com")+"&text="+encodeURIComponent(text),"_blank");}
+function copyAndFlash(btn,text){
+  if(navigator.clipboard)navigator.clipboard.writeText(text);else{var ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);}
+  var orig=btn.textContent;btn.textContent="Copied! ✓";btn.style.opacity="0.7";
+  setTimeout(function(){btn.textContent=orig;btn.style.opacity="1";},2000);
+}
+function buildShareButtons(cl,opts){
+  var btns=[];
+  if(opts.wa){var b=el("button",{style:shareBtnStyle("#25D366","#fff")});b.textContent="💬 WhatsApp";b.addEventListener("click",function(e){e.stopPropagation();shareWhatsApp(opts.wa);});btns.push(b);}
+  if(opts.tw){var b=el("button",{style:shareBtnStyle("#1DA1F2","#fff")});b.textContent="𝕏 Twitter";b.addEventListener("click",function(e){e.stopPropagation();shareTwitter(opts.tw);});btns.push(b);}
+  if(opts.li){var b=el("button",{style:shareBtnStyle("#0A66C2","#fff")});b.textContent="in LinkedIn";b.addEventListener("click",function(e){e.stopPropagation();shareLinkedIn(opts.li);});btns.push(b);}
+  if(opts.tg){var b=el("button",{style:shareBtnStyle("#26A5E4","#fff")});b.textContent="✈ Telegram";b.addEventListener("click",function(e){e.stopPropagation();shareTelegram(opts.tg,opts.url);});btns.push(b);}
+  if(opts.copy){var b=el("button",{style:shareBtnStyle("transparent",cl.gold)});b.style.border="1px solid "+cl.goldDim;b.textContent="🔗 Copy Link";b.addEventListener("click",function(e){e.stopPropagation();copyAndFlash(b,opts.copy);});btns.push(b);}
+  return shareRow(cl,btns);
+}
+
 // --- SAVED SEARCHES & FAVORITES ---
 var DV_SAVED={searches:[],favDeals:[],favAreas:[]};
 try{var _ss=localStorage.getItem("dv_saved_searches");if(_ss)DV_SAVED.searches=JSON.parse(_ss);}catch(e){}

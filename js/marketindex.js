@@ -291,6 +291,10 @@ function renderMarketIndex(){
       shareRow.appendChild(resetAi);
     }
     cmpCard.appendChild(shareRow);
+    // Social share
+    var cmpUrl=window.location.origin+window.location.pathname+"?compare="+encodeURIComponent(activeAreas.join(","));
+    var cmpText="Comparing "+activeAreas.join(" vs ")+" on DubaiVal — "+activeAreas.length+" areas, 14 metrics, AI verdict. Check it out:";
+    cmpCard.appendChild(buildShareButtons(cl,{wa:cmpText+" "+cmpUrl,tw:cmpText+" "+cmpUrl,tg:cmpText,url:cmpUrl,copy:cmpUrl}));
   }else if(activeAreas.length===1){
     cmpCard.appendChild(div({textAlign:"center",padding:"20px",color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Select at least 2 areas to compare"));
   }

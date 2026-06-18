@@ -786,23 +786,11 @@ function renderDeals(){
     card.appendChild(bottomRow);
 
     // Share buttons
-    var shareRow=div({display:"flex",gap:"6px",marginTop:"8px",paddingTop:"8px",borderTop:"1px solid "+cl.border});
     var shareText=(d.type==="have"?"🏠 ":"🔍 ")+d.area+(d.building?" – "+d.building:"")+" | "+(d.beds||"")+" "+d.prop_type+" | AED "+d.price.toLocaleString()+(d.dv_verdict?" | DubAIVal: "+d.dv_verdict:"")+" | dubaival.com";
-    var waShareBtn=el("button",{style:{background:"rgba(37,211,102,0.1)",border:"1px solid rgba(37,211,102,0.25)",color:"#25D366",padding:"5px 10px",borderRadius:"6px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",display:"flex",alignItems:"center",gap:"4px"},
-      onclick:(function(txt){return function(e){e.stopPropagation();window.open("https://wa.me/?text="+encodeURIComponent(txt),"_blank");};})(shareText)});
-    waShareBtn.textContent="WhatsApp";
-    shareRow.appendChild(waShareBtn);
-    var copyBtn=el("button",{style:{background:"rgba(255,255,255,0.05)",border:"1px solid "+cl.border,color:cl.sub,padding:"5px 10px",borderRadius:"6px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",display:"flex",alignItems:"center",gap:"4px"},
-      onclick:(function(txt,btn){return function(e){e.stopPropagation();navigator.clipboard.writeText(txt).then(function(){btn.textContent="✓ Copied!";btn.style.color="#10B981";setTimeout(function(){btn.textContent="📋 Copy";btn.style.color=cl.sub;},1500);});};})(shareText)});
-    copyBtn.textContent="📋 Copy";
-    shareRow.appendChild(copyBtn);
-    if(navigator.share){
-      var nativeBtn=el("button",{style:{background:"rgba(255,255,255,0.05)",border:"1px solid "+cl.border,color:cl.sub,padding:"5px 10px",borderRadius:"6px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
-        onclick:(function(txt,area,bld){return function(e){e.stopPropagation();navigator.share({title:"DubAIVal Deal – "+area+(bld?" – "+bld:""),text:txt}).catch(function(){});};})(shareText,d.area,d.building)});
-      nativeBtn.textContent="📤 Share";
-      shareRow.appendChild(nativeBtn);
-    }
-    card.appendChild(shareRow);
+    var dealShareBtns=buildShareButtons(cl,{wa:shareText,tw:shareText,tg:shareText,url:"https://www.dubaival.com",copy:shareText});
+    dealShareBtns.style.borderTop="1px solid "+cl.border;dealShareBtns.style.paddingTop="8px";
+    dealShareBtns.addEventListener("click",function(e){e.stopPropagation();});
+    card.appendChild(dealShareBtns);
 
     if(d.contact_mode==="private"&&DEAL_STATE.inquiry.dealId===d.id){
       var inqForm=div({background:cl.raised,borderRadius:"10px",padding:"12px",marginTop:"8px",border:"1px solid rgba(139,92,246,0.3)"});
