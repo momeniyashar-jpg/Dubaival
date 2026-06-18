@@ -190,9 +190,11 @@ function renderPortfolio(){
     });
     sumCard.appendChild(g1);
 
-    var g2=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px",marginBottom:"12px"});
+    var g2=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:"10px",marginBottom:"12px"});
     var pnl=totalValue-totalPurchase;
-    [{l:"Assets",v:String(ps.assets.length),c:cl.white},{l:"Annual Rent",v:"AED "+totalRent.toLocaleString(),c:cl.white},{l:"Unrealized P&L",v:(pnl>=0?"+":"")+"AED "+pnl.toLocaleString(),c:pnl>=0?cl.green:cl.red}].forEach(function(item){
+    var avgSus=Math.round(metrics.reduce(function(s,a){var bd=DB[(a.building||"").toLowerCase()]||null;var ad=AREAS[a.area]||{psf:1800,sc:15};return s+computeSustainabilityScore(a.building||"",a.area||"",bd,ad).score;},0)/Math.max(1,metrics.length));
+    var avgSusC=avgSus>=75?"#10B981":avgSus>=50?"#EAB308":avgSus>=35?"#F97316":"#EF4444";
+    [{l:"Assets",v:String(ps.assets.length),c:cl.white},{l:"Annual Rent",v:"AED "+totalRent.toLocaleString(),c:cl.white},{l:"Unrealized P&L",v:(pnl>=0?"+":"")+"AED "+pnl.toLocaleString(),c:pnl>=0?cl.green:cl.red},{l:"🌿 Sustainability",v:avgSus+"/100",c:avgSusC}].forEach(function(item){
       var box=div({background:cl.raised,borderRadius:"10px",padding:"10px 12px"});
       box.appendChild(lbl(item.l));
       box.appendChild(span({color:item.c,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},item.v));
@@ -648,6 +650,28 @@ function renderPortfolio(){
       trRight.appendChild(span({color:sigColor,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},a.m.investSignal));
       trBox.appendChild(trRight);
       details.appendChild(trBox);
+
+      // Sustainability Score
+      var susBd=DB[(a.building||"").toLowerCase()]||null;
+      var susAd=AREAS[a.area]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
+      var susS=computeSustainabilityScore(a.building||"",a.area||"",susBd,susAd);
+      var susC=susS.score>=75?"#10B981":susS.score>=50?"#EAB308":susS.score>=35?"#F97316":"#EF4444";
+      var susRow=div({background:hexAlpha(susC,0.06),border:"1px solid "+hexAlpha(susC,0.2),borderRadius:"10px",padding:"10px 12px",marginBottom:"10px"});
+      susRow.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"},[
+        div({display:"flex",alignItems:"center",gap:"6px"},[span({fontSize:"13px"},"🌿"),span({color:susC,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"Sustainability Score")]),
+        div({display:"flex",alignItems:"center",gap:"6px"},[span({color:susC,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},String(susS.score)),span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},susS.tier)])
+      ]));
+      [{l:"Age/Grade",v:susS.age},{l:"SC Efficiency",v:susS.scEff},{l:"Green Area",v:susS.green},{l:"Liquidity",v:susS.liq}].forEach(function(fc){
+        var fcc=fc.v>=75?"#10B981":fc.v>=50?"#EAB308":fc.v>=35?"#F97316":"#EF4444";
+        var fRow=div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"4px"});
+        fRow.appendChild(span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",width:"80px",flexShrink:"0"},fc.l));
+        var bWrap=div({flex:"1",height:"4px",borderRadius:"2px",background:cl.border,overflow:"hidden"});
+        bWrap.appendChild(div({height:"100%",width:fc.v+"%",borderRadius:"2px",background:fcc}));
+        fRow.appendChild(bWrap);
+        fRow.appendChild(span({color:fcc,fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",width:"24px",textAlign:"right"},String(fc.v)));
+        susRow.appendChild(fRow);
+      });
+      details.appendChild(susRow);
 
       details.appendChild(btn({background:cl.redBg,border:"1px solid "+cl.redBo,color:cl.red,padding:"8px 16px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",fontWeight:"600"},"Remove Asset",function(e){e.stopPropagation();ps.assets=ps.assets.filter(function(x){return x.id!==a.id;});localStorage.setItem("dubaival_portfolio",JSON.stringify(ps.assets));portfolioChanged();if(ps.expandedId===a.id)ps.expandedId=null;ps.aiAnalysis="";render();}));
       card.appendChild(details);

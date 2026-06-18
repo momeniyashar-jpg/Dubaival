@@ -970,6 +970,52 @@ function renderAnalyzerResult(wrap){
     wrap.appendChild(anomCard);
   }
 
+  // -- SUSTAINABILITY & EFFICIENCY SCORE --
+  (function(){
+    var bData=val.bData||null;
+    var aData=AREAS[f.area]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
+    var sus=computeSustainabilityScore(f.building||"",f.area||"",bData,aData);
+    var susColor=sus.score>=75?"#10B981":sus.score>=50?"#EAB308":sus.score>=35?"#F97316":"#EF4444";
+    var susCard=div({background:cl.surface,border:"1px solid "+hexAlpha(susColor,0.3),borderRadius:"14px",padding:"18px",marginBottom:"14px",position:"relative",overflow:"hidden"});
+    susCard.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,"+susColor+","+susColor+",transparent)",animation:"shimmer 3s ease infinite"}));
+    susCard.appendChild(div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"14px"},[
+      span({fontSize:"16px"},"🌿"),
+      span({color:susColor,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"},"Sustainability & Efficiency Score")
+    ]));
+    var susCircWrap=div({display:"flex",alignItems:"center",gap:"20px",marginBottom:"16px"});
+    var scoreAngle=Math.round(sus.score/100*360);
+    var circle=div({width:"90px",height:"90px",borderRadius:"50%",background:"conic-gradient("+susColor+" "+scoreAngle+"deg, "+cl.border+" "+scoreAngle+"deg)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 20px "+hexAlpha(susColor,0.2),flexShrink:"0"});
+    var inner=div({width:"68px",height:"68px",borderRadius:"50%",background:cl.surface,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"});
+    inner.appendChild(span({color:susColor,fontSize:"26px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",lineHeight:"1"},String(sus.score)));
+    inner.appendChild(span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"/100"));
+    circle.appendChild(inner);susCircWrap.appendChild(circle);
+    var susInfo=div({});
+    susInfo.appendChild(div({padding:"4px 14px",borderRadius:"20px",background:hexAlpha(susColor,0.12),border:"1px solid "+hexAlpha(susColor,0.3),display:"inline-block",marginBottom:"6px"},[span({color:susColor,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},sus.tier)]));
+    susInfo.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6"},sus.score>=75?"This property scores well on sustainability and efficiency metrics.":sus.score>=50?"Average sustainability profile with room for improvement.":sus.score>=35?"Below average — consider building age and efficiency factors.":"Low sustainability score — older building or high operational costs."));
+    susCircWrap.appendChild(susInfo);
+    susCard.appendChild(susCircWrap);
+    var factors=[
+      {l:"Building Age / Grade",v:sus.age,icon:"🏗️"},
+      {l:"Service Charge Efficiency",v:sus.scEff,icon:"⚡"},
+      {l:"Area Green Rating",v:sus.green,icon:"🌳"},
+      {l:"Market Liquidity Health",v:sus.liq,icon:"💧"}
+    ];
+    factors.forEach(function(fc){
+      var fcColor=fc.v>=75?"#10B981":fc.v>=50?"#EAB308":fc.v>=35?"#F97316":"#EF4444";
+      var fcRow=div({display:"flex",alignItems:"center",gap:"10px",marginBottom:"8px"});
+      fcRow.appendChild(span({fontSize:"12px",width:"20px",textAlign:"center",flexShrink:"0"},fc.icon));
+      var fcRight=div({flex:"1"});
+      var fcHead=div({display:"flex",justifyContent:"space-between",marginBottom:"3px"});
+      fcHead.appendChild(span({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},fc.l));
+      fcHead.appendChild(span({color:fcColor,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},fc.v+"/100"));
+      fcRight.appendChild(fcHead);
+      var barBg=div({height:"4px",borderRadius:"2px",background:cl.border,overflow:"hidden"});
+      barBg.appendChild(div({height:"100%",width:fc.v+"%",borderRadius:"2px",background:fcColor,transition:"width 1s ease"}));
+      fcRight.appendChild(barBg);fcRow.appendChild(fcRight);susCard.appendChild(fcRow);
+    });
+    wrap.appendChild(susCard);
+  })();
+
   // -- DEVELOPER FURNISHED NOTICE --
   if(val.isDevFurnished){
     const dfFurnLabel=analyzerState.f.furnished==="Unfurnished"?"Stripped − furniture removed (−10% applied)":analyzerState.f.furnished==="Semi-Furnished"?"Partially furnished (−5% applied)":"Included in base price — no extra premium";

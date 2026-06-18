@@ -111,6 +111,25 @@ function isRTL(){return dvLang==="ar";}
 
 // --- HELPERS -----------------------------------------------------------------
 function hexAlpha(c,a){if(c&&c.charAt(0)==="#"){var r=parseInt(c.slice(1,3),16),g=parseInt(c.slice(3,5),16),b=parseInt(c.slice(5,7),16);return"rgba("+r+","+g+","+b+","+a+")";}if(c&&c.indexOf("rgb(")===0)return c.replace("rgb(","rgba(").replace(")",","+a+")");return c||"rgba(255,255,255,0.05)";}
+
+var GREEN_AREAS={"Dubai Hills":90,"Dubai Creek Harbour":88,"Expo City":92,"Sustainable City":95,"Masdar City":95,"Town Square":80,"Tilal Al Ghaf":88,"The Valley":82,"Dubai South":78,"Emaar Beachfront":75,"Bluewaters":80,"MBR City":82,"DAMAC Hills":72,"Mudon":75,"Remraam":65};
+function computeSustainabilityScore(building,area,bData,aData){
+  var grade=bData?bData.g:"B";
+  var ageScore=grade==="Ultra"||grade==="A+"?92:grade==="A"?85:grade==="A-"?75:grade==="B+"?65:grade==="B"?55:grade==="C"?35:50;
+  var scEff=70;
+  if(bData&&bData.sc&&aData&&aData.sc&&aData.sc>0){
+    var ratio=bData.sc/aData.sc;
+    scEff=ratio<0.8?90:ratio<=1.0?70:ratio<=1.2?50:30;
+  }
+  var greenScore=GREEN_AREAS[area]||50;
+  var dom=(aData&&aData.dom)||60;
+  var liqScore=dom<30?90:dom<=60?70:dom<=90?50:30;
+  var score=Math.round(ageScore*0.30+scEff*0.25+greenScore*0.25+liqScore*0.20);
+  score=Math.max(0,Math.min(100,score));
+  var tier=score>=75?"Excellent":score>=60?"Good":score>=45?"Average":score>=35?"Below Average":"Poor";
+  return{score:score,tier:tier,age:ageScore,scEff:scEff,green:greenScore,liq:liqScore};
+}
+
 function el(tag,attrs,children){
   const e=document.createElement(tag);
   if(attrs)Object.entries(attrs).forEach(function(kv){
