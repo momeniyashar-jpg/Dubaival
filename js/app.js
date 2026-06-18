@@ -1114,7 +1114,7 @@ function render(){
   }
 
   // Nav
-  const tabs=[{id:"Market",icon:"📊",lk:"tab_market"},{id:"Index",icon:"📈",lk:"tab_index"},{id:"Analyzer",icon:"🔍",lk:"tab_analyzer"},{id:"Map",icon:"🗺️",lk:"tab_map"},{id:"Find",icon:"🔎",lk:"tab_find"},{id:"Deals",icon:"🤝",lk:"tab_deals"},{id:"Compare",icon:"⚖️",lk:"tab_compare"},{id:"Portfolio",icon:"💼",lk:"tab_portfolio"},{id:"Alerts",icon:"🔔",lk:"tab_alerts"},{id:"Chat",icon:"💬",lk:"tab_chat"},{id:"About",icon:"ℹ️",lk:"tab_about"}];
+  const tabs=[{id:"Market",icon:"📊",lk:"tab_market"},{id:"Index",icon:"📈",lk:"tab_index"},{id:"Analyzer",icon:"🔍",lk:"tab_analyzer"},{id:"Map",icon:"🗺️",lk:"tab_map"},{id:"Find",icon:"🔎",lk:"tab_find"},{id:"Deals",icon:"🤝",lk:"tab_deals"},{id:"Compare",icon:"⚖️",lk:"tab_compare"},{id:"Portfolio",icon:"💼",lk:"tab_portfolio"},{id:"Alerts",icon:"🔔",lk:"tab_alerts"},{id:"Chat",icon:"💬",lk:"tab_chat"},{id:"Workspace",icon:"🛠️",lk:"tab_workspace"},{id:"About",icon:"ℹ️",lk:"tab_about"}];
   const nav=div({background:cl.surface,borderBottom:"1px solid "+cl.border,display:"flex",overflowX:"auto",padding:"0 20px"},
     tabs.map(function(tab){
       const active=currentTab===tab.id;
@@ -1138,6 +1138,7 @@ function render(){
   else if(currentTab==="Portfolio")content.appendChild(renderPortfolio());
   else if(currentTab==="Alerts")content.appendChild(renderAlerts());
   else if(currentTab==="Chat")content.appendChild(renderChat());
+  else if(currentTab==="Workspace")content.appendChild(renderWorkspace());
   else if(currentTab==="About")content.appendChild(renderAbout());
   app.appendChild(content);
 

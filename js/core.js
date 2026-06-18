@@ -9,7 +9,7 @@ en:{
   // Tabs
   tab_market:"Market",tab_index:"Index",tab_analyzer:"Analyzer",tab_map:"Map",tab_find:"Find",
   tab_deals:"Deals",tab_compare:"Compare",tab_portfolio:"Portfolio",tab_alerts:"Alerts",
-  tab_chat:"AI Chat",tab_about:"About",
+  tab_chat:"AI Chat",tab_workspace:"Workspace",tab_about:"About",
   // Header
   hdr_subtitle:"AI Property Intelligence",hdr_live:"LIVE",hdr_profile:"Profile",
   // Analyzer
@@ -62,7 +62,7 @@ en:{
 ar:{
   tab_market:"السوق",tab_index:"المؤشر",tab_analyzer:"التقييم",tab_map:"الخريطة",tab_find:"البحث",
   tab_deals:"الصفقات",tab_compare:"المقارنة",tab_portfolio:"المحفظة",tab_alerts:"التنبيهات",
-  tab_chat:"الذكاء الاصطناعي",tab_about:"حول",
+  tab_chat:"الذكاء الاصطناعي",tab_workspace:"میز کار",tab_about:"حول",
   hdr_subtitle:"ذكاء عقاري بالذكاء الاصطناعي",hdr_live:"مباشر",hdr_profile:"الملف الشخصي",
   az_title:"تقييم العقار",az_search:"ابحث عن مبنى أو مجمع أو منطقة",
   az_search_ph:"مثال: مارينا جيت، فينيس، داماك هيلز...",
