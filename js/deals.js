@@ -867,6 +867,32 @@ function renderDealForm(wrap,cl){
   var card=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px"});
   card.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"14px"},"◆ Post a Deal"));
 
+  // AI Smart Bar for Deal Form
+  card.appendChild(renderSmartBar({
+    stateKey:"_aiDeal",histKey:"dv_smart_deals",title:"✨ AI Deal Parser",subtitle:"Describe your deal — AI fills the form automatically",
+    placeholder:"e.g. I have a 2BR in Marina, 1300sqft, selling for 2.8M, urgent, sea view",
+    examples:["I have 3BR Palm villa, 4000sqft, 8M, urgent","I need 1BR JLT under 800K"],
+    sysPrompt:'You are a Dubai real estate deal parser. Extract these fields and return ONLY a JSON object: {"type":null,"area":null,"building":null,"propType":null,"beds":null,"size_sqft":null,"floor":null,"view":null,"furnished":null,"purpose":null,"price":null,"urgency":null,"offMarket":null,"notes":null,"contactMode":null,"titleDeedNo":null}. type: have or need. propType: apartment/villa/townhouse. purpose: sale or rent. urgency: normal/urgent/hot. offMarket: true/false. contactMode: whatsapp or private. If not mentioned set to null. Parse Arabic too: عندي=have, أحتاج=need, للبيع=sale, للإيجار=rent, عاجل=urgent, غرفتين=2 BR, مارينا=Dubai Marina, شقة=apartment, فيلا=villa.',
+    fieldMap:[
+      {k:"type",target:DEAL_STATE.form,fk:"type"},
+      {k:"area",target:DEAL_STATE.form,fk:"area"},
+      {k:"building",target:DEAL_STATE.form,fk:"building"},
+      {k:"propType",target:DEAL_STATE.form,fk:"propType"},
+      {k:"beds",target:DEAL_STATE.form,fk:"beds"},
+      {k:"size_sqft",target:DEAL_STATE.form,fk:"sizeSqft"},
+      {k:"floor",target:DEAL_STATE.form,fk:"floor"},
+      {k:"view",target:DEAL_STATE.form,fk:"view"},
+      {k:"furnished",target:DEAL_STATE.form,fk:"furnished"},
+      {k:"purpose",target:DEAL_STATE.form,fk:"purpose"},
+      {k:"price",fn:function(v){DEAL_STATE.form.price=String(v).replace(/[^0-9]/g,"");}},
+      {k:"urgency",target:DEAL_STATE.form,fk:"urgency"},
+      {k:"offMarket",fn:function(v){DEAL_STATE.form.offMarket=v===true||v==="true";}},
+      {k:"notes",target:DEAL_STATE.form,fk:"notes"},
+      {k:"contactMode",target:DEAL_STATE.form,fk:"contactMode"},
+      {k:"titleDeedNo",target:DEAL_STATE.form,fk:"titleDeedNo"}
+    ]
+  }));
+
   var typeToggle=div({display:"flex",gap:"8px",marginBottom:"14px"});
   [{l:"I Have (Listing)",v:"have"},{l:"I Need (Request)",v:"need"}].forEach(function(t){
     var active=f.type===t.v;
@@ -1174,6 +1200,23 @@ function renderAgentHub(wrap,cl){
 
   if(hub.mode==="register"){
     var rf=hub.regForm;
+    // AI Smart Bar for Agent Registration
+    card.appendChild(renderSmartBar({
+      stateKey:"_aiAgent",histKey:"dv_smart_agent",title:"✨ AI Agent Profile",subtitle:"Describe yourself — AI fills the registration form",
+      placeholder:"e.g. I'm Ahmed, RERA 54321, specializing in Marina and JBR luxury apartments, 5 years experience",
+      examples:["Sara, RERA 12345, ABC Real Estate, Dubai Hills and Arabian Ranches villas"],
+      sysPrompt:'You are a real estate agent profile parser. Extract these fields and return ONLY a JSON object: {"name":null,"phone":null,"email":null,"company":null,"rera":null,"areas":null,"specialties":null,"bio":null}. areas and specialties are comma-separated strings. If not mentioned set to null.',
+      fieldMap:[
+        {k:"name",target:rf,fk:"name"},
+        {k:"phone",target:rf,fk:"phone"},
+        {k:"email",target:rf,fk:"email"},
+        {k:"company",target:rf,fk:"company"},
+        {k:"rera",target:rf,fk:"rera"},
+        {k:"areas",target:rf,fk:"areas"},
+        {k:"specialties",target:rf,fk:"specialties"},
+        {k:"bio",target:rf,fk:"bio"}
+      ]
+    }));
     function regInput(label,key,placeholder,type){
       var g=div({marginBottom:"10px"});
       g.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",marginBottom:"4px"},label));

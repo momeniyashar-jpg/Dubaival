@@ -704,6 +704,33 @@ function renderPortfolio(){
     formHeader.appendChild(el("button",{style:{background:"transparent",border:"none",color:cl.sub,cursor:"pointer",fontSize:"16px",padding:"4px 8px"},onclick:function(){ps.showAdd=false;render();}},"✕"));
     formCard.appendChild(formHeader);
 
+    // AI Smart Bar for Portfolio
+    formCard.appendChild(renderSmartBar({
+      stateKey:"_aiPortfolio",histKey:"dv_smart_portfolio",title:"✨ AI Portfolio Parser",subtitle:"Describe your investment — AI fills the form",
+      placeholder:"e.g. Bought 2BR in Downtown for 2.5M in March 2023, furnished, floor 34, Burj view",
+      examples:["Bought Studio in JLT for 650K, 2024","3BR villa DAMAC Hills, 3200sqft, 4.2M, 2022"],
+      sysPrompt:'You are a Dubai real estate portfolio parser. Extract these fields and return ONLY a JSON object: {"building":null,"area":null,"propType":null,"beds":null,"size_sqft":null,"floor":null,"view":null,"furnished":null,"purchasePrice":null,"purchaseDate":null,"parking":null,"bathrooms":null,"serviceCharge":null}. propType: Apartment/Villa/Townhouse. beds: "Studio","1 BR","2 BR" etc. purchaseDate: YYYY-MM format. If not mentioned set to null. Parse Arabic: اشتريت=bought, غرفتين=2 BR, مفروش=Furnished, فيلا=Villa, مارينا=Dubai Marina.',
+      fieldMap:[
+        {k:"building",target:n,fk:"building"},
+        {k:"area",target:n,fk:"area"},
+        {k:"propType",target:n,fk:"type"},
+        {k:"beds",target:n,fk:"beds"},
+        {k:"size_sqft",target:n,fk:"size"},
+        {k:"floor",target:n,fk:"floor"},
+        {k:"view",target:n,fk:"view"},
+        {k:"furnished",target:n,fk:"furnished"},
+        {k:"purchasePrice",fn:function(v){n.purchasePrice=String(v).replace(/[^0-9]/g,"");}},
+        {k:"purchaseDate",target:n,fk:"purchaseDate"},
+        {k:"parking",target:n,fk:"parking"},
+        {k:"serviceCharge",fn:function(v){n.serviceCharge=String(v).replace(/[^0-9.]/g,"");}},
+        {k:"bathrooms",target:n,fk:"bathrooms"}
+      ],
+      onParsed:function(j){
+        if(n.building&&n.building.length>2){var b=lookupBuilding(n.building,n.area);if(b&&b.sc)n.serviceCharge=String(b.sc);if(b&&b.a)n.area=b.a;}
+        render();
+      }
+    }));
+
     // Building name
     var bField=div({marginBottom:"12px"});
     bField.appendChild(lbl("Building Name"));

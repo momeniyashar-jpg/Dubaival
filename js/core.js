@@ -417,3 +417,97 @@ var compareState={a1:"",a2:"",budget:"",purpose:"Investment",loading:false,resul
 var personalState={budget:"",role:"Investor",family:"Couple",children:"0",work:"",purpose:"Investment",timeline:"6 months",loading:false,result:"",err:""};
 var chatState={msgs:[{role:"assistant",text:"DubAIVal Intelligence.\n\nBuilding-level knowledge · June 2026 data · Confidence scoring.\n\nAsk me about any building, deal, or strategy."}],input:"",loading:false};
 
+// --- REUSABLE AI SMART BAR ---
+function renderSmartBar(opts){
+  var cl=C();
+  var stateKey=opts.stateKey;
+  if(!window[stateKey])window[stateKey]={text:"",parsing:false,parsed:null,missing:[],filled:[]};
+  var ai=window[stateKey];
+  var histKey=opts.histKey||"dv_smart_"+stateKey;
+
+  function doAiParse(){
+    var txt=(ai.text||"").trim();if(!txt||ai.parsing)return;
+    ai.parsing=true;ai.parsed=null;ai.missing=[];ai.filled=[];render();
+    askAI([{role:"user",content:txt}],opts.sysPrompt).then(function(resp){
+      ai.parsing=false;
+      try{
+        var raw=resp.replace(/```json\s*/g,"").replace(/```/g,"").trim();
+        var j=JSON.parse(raw);ai.parsed=j;ai.filled=[];ai.missing=[];
+        opts.fieldMap.forEach(function(m){
+          var v=j[m.k];
+          if(v!==null&&v!==undefined&&v!==""){
+            if(m.fn)m.fn(v);else if(m.target)m.target[m.fk]=typeof v==="boolean"?v:String(v);
+            ai.filled.push(m.k);
+          }else{ai.missing.push(m.k);}
+        });
+        try{
+          var hist=JSON.parse(localStorage.getItem(histKey)||"[]");
+          hist=hist.filter(function(h){return h!==txt;});
+          hist.unshift(txt);if(hist.length>5)hist=hist.slice(0,5);
+          localStorage.setItem(histKey,JSON.stringify(hist));
+        }catch(e){}
+        if(opts.onParsed)opts.onParsed(j,ai);
+        else render();
+      }catch(e){ai.missing=["Parse error — try a clearer description"];ai.parsing=false;render();}
+    }).catch(function(e){ai.parsing=false;ai.missing=["AI error: "+e.message];render();});
+  }
+
+  var box=div({background:"rgba(201,168,76,0.03)",border:"2px solid transparent",borderImage:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+","+cl.gold+") 1",borderRadius:"0",padding:"20px",marginBottom:"20px",position:"relative"});
+  var inner=div({background:cl.surface,borderRadius:"16px",padding:"20px",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)"});
+  inner.appendChild(div({textAlign:"center",marginBottom:"14px"},[
+    div({fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",color:cl.gold,marginBottom:"4px"},opts.title||"✨ AI Smart Fill"),
+    div({fontSize:"11px",fontFamily:"'Inter',sans-serif",color:cl.sub},opts.subtitle||"Describe in natural language — AI fills the form")
+  ]));
+  var row=div({display:"flex",gap:"8px",marginBottom:"10px"});
+  var aiInp=el("input",{type:"text",placeholder:opts.placeholder||"Describe...",
+    style:{flex:"1",background:cl.raised,border:"2px solid "+(ai.filled.length?cl.green:cl.border),color:"#F0F2F5",padding:"13px 16px",borderRadius:"12px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",transition:"border-color 0.3s, box-shadow 0.3s"}});
+  aiInp.value=ai.text||"";
+  aiInp.addEventListener("input",function(){ai.text=this.value;ai.parsed=null;ai.missing=[];ai.filled=[];});
+  aiInp.addEventListener("focus",function(){this.style.boxShadow="0 0 20px "+hexAlpha(cl.gold,0.15);this.style.borderColor=cl.gold;});
+  aiInp.addEventListener("blur",function(){this.style.boxShadow="none";this.style.borderColor=ai.filled.length?cl.green:cl.border;});
+  aiInp.addEventListener("keydown",function(e){if(e.key==="Enter")doAiParse();});
+  row.appendChild(aiInp);
+  var aiBtn=el("button",{style:{background:ai.parsing?"#4B5563":"linear-gradient(135deg,#C9A84C,#7A5E28)",color:ai.parsing?"#9CA3AF":"#08090C",border:"none",padding:"13px 20px",borderRadius:"12px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:ai.parsing?"not-allowed":"pointer",whiteSpace:"nowrap",minWidth:"110px"}});
+  aiBtn.textContent=ai.parsing?"Parsing…":"✨ AI Fill";
+  if(!ai.parsing)aiBtn.addEventListener("click",doAiParse);
+  row.appendChild(aiBtn);inner.appendChild(row);
+
+  if(ai.missing.length>0&&ai.parsed){
+    inner.appendChild(div({background:hexAlpha("#F59E0B",0.08),border:"1px solid "+hexAlpha("#F59E0B",0.25),borderRadius:"8px",padding:"8px 12px",marginBottom:"8px",color:"#F59E0B",fontSize:"11px",fontFamily:"'Inter',sans-serif"},"⚠ Please also specify: "+ai.missing.join(", ")));
+  }else if(ai.missing.length>0){
+    inner.appendChild(div({background:hexAlpha("#EF4444",0.08),border:"1px solid "+hexAlpha("#EF4444",0.25),borderRadius:"8px",padding:"8px 12px",marginBottom:"8px",color:"#EF4444",fontSize:"11px",fontFamily:"'Inter',sans-serif"},ai.missing[0]));
+  }
+  if(ai.filled.length>0){
+    inner.appendChild(div({color:cl.green,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"✓ Auto-filled: "+ai.filled.join(", ")));
+  }
+
+  if(opts.examples&&opts.examples.length){
+    var chipRow=div({display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"8px"});
+    opts.examples.forEach(function(ex){
+      var chip=el("button",{style:{background:hexAlpha(cl.gold,0.08),border:"1px solid "+hexAlpha(cl.gold,0.2),borderRadius:"20px",padding:"5px 12px",cursor:"pointer",color:cl.gold,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",fontWeight:"600"}});
+      chip.textContent=ex;
+      chip.addEventListener("click",function(){ai.text=ex;doAiParse();});
+      chipRow.appendChild(chip);
+    });
+    inner.appendChild(chipRow);
+  }
+
+  try{
+    var hist=JSON.parse(localStorage.getItem(histKey)||"[]");
+    if(hist.length>0){
+      inner.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em",marginBottom:"4px"},"RECENT"));
+      var hRow=div({display:"flex",gap:"5px",flexWrap:"wrap"});
+      hist.forEach(function(h){
+        var hc=el("button",{style:{background:cl.raised,border:"1px solid "+cl.border,borderRadius:"16px",padding:"4px 10px",cursor:"pointer",color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif",maxWidth:"200px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}});
+        hc.textContent=h;
+        hc.addEventListener("click",function(){ai.text=h;doAiParse();});
+        hRow.appendChild(hc);
+      });
+      inner.appendChild(hRow);
+    }
+  }catch(e){}
+
+  box.appendChild(inner);
+  return box;
+}
+
