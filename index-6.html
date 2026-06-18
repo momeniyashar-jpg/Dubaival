@@ -2386,7 +2386,7 @@ function render(){
   // Header
   const header=div({background:cl.surface,borderBottom:"1px solid "+cl.border,padding:"0 20px",display:"flex",alignItems:"center",justifyContent:"space-between",height:"54px",position:"sticky",top:"0",zIndex:"100"},[
     div({display:"flex",alignItems:"center",gap:"10px"},[
-      div({width:"30px",height:"30px",borderRadius:"7px",background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"10px",fontWeight:"900",color:"#070B14",fontFamily:"'Space Grotesk',monospace",flexShrink:"0"},"DV"),
+      el("div",{style:{width:"30px",height:"30px",borderRadius:"7px",background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"900",color:"#070B14",fontFamily:"'Space Grotesk',monospace",flexShrink:"0",lineHeight:"1"},innerHTML:"<span style='font-size:8px'>d</span><span style='font-size:11px'>AI</span><span style='font-size:8px'>v</span>"}),
       div({},[el("div",{style:{fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},innerHTML:"<span style='color:#F0F2F5'>Dub</span><span style='color:"+cl.gold+"'>AI</span><span style='color:#F0F2F5'>Val</span>"}),div({color:cl.goldDim,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"AI Property Intelligence")])
     ]),
     div({display:"flex",alignItems:"center",gap:"8px"},[
@@ -5949,7 +5949,7 @@ function renderChat(){
   chatState.msgs.forEach(function(m){
     const isA=m.role==="assistant";
     const row=div({display:"flex",justifyContent:isA?"flex-start":"flex-end",gap:"8px"});
-    if(isA){row.appendChild(div({width:"28px",height:"28px",borderRadius:"7px",flexShrink:"0",background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"9px",fontWeight:"900",color:"#070B14",fontFamily:"'Space Grotesk',monospace"},"DV"));}
+    if(isA){row.appendChild(el("div",{style:{width:"28px",height:"28px",borderRadius:"7px",flexShrink:"0",background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"900",color:"#070B14",fontFamily:"'Space Grotesk',monospace",lineHeight:"1"},innerHTML:"<span style='font-size:7px'>d</span><span style='font-size:10px'>AI</span><span style='font-size:7px'>v</span>"}));}
     const bubble=div({maxWidth:"84%",background:isA?cl.surface:cl.goldFaint,border:"1px solid "+(isA?cl.border:cl.goldDim),borderRadius:isA?"14px 14px 14px 0":"14px 14px 0 14px",padding:"11px 15px",color:cl.subHi,fontSize:"13px",lineHeight:"1.8",fontFamily:"'Inter',sans-serif"});
     if(isA){var formatted=formatAIResponse(m.text,cl);if(formatted)bubble.appendChild(formatted);else{bubble.style.whiteSpace="pre-wrap";bubble.textContent=m.text;}}
     else{bubble.style.whiteSpace="pre-wrap";bubble.textContent=m.text;}
@@ -5957,7 +5957,7 @@ function renderChat(){
   });
   if(chatState.loading){
     const row=div({display:"flex",gap:"8px",alignItems:"center"});
-    row.appendChild(div({width:"28px",height:"28px",borderRadius:"7px",background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"9px",fontWeight:"900",color:"#070B14"},"DV"));
+    row.appendChild(el("div",{style:{width:"28px",height:"28px",borderRadius:"7px",background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"900",color:"#070B14",fontFamily:"'Space Grotesk',monospace",lineHeight:"1"},innerHTML:"<span style='font-size:7px'>d</span><span style='font-size:10px'>AI</span><span style='font-size:7px'>v</span>"}));
     const dots=div({display:"flex",gap:"4px"});
     [0,1,2].forEach(function(j){dots.appendChild(div({width:"7px",height:"7px",borderRadius:"50%",background:cl.gold,animation:"bounce 1.1s "+(j*0.18)+"s infinite"}))});
     row.appendChild(dots);msgsDiv.appendChild(row);
