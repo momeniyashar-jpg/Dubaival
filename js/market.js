@@ -328,6 +328,110 @@ function renderAnalyzer(){
   const f=analyzerState.f;
   const wrap=el("div",{style:{padding:"16px",maxWidth:"640px",margin:"0 auto"}});
 
+  // --- QUICK CHECK ---
+  if(analyzerState.stage===0){
+    var qc=el("div",{style:{background:"rgba(201,168,76,0.04)",border:"1px solid "+cl.goldDim,borderRadius:"16px",padding:"24px 20px",marginBottom:"20px",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)"}});
+    qc.appendChild(el("div",{style:{textAlign:"center",marginBottom:"16px"}},[
+      el("div",{style:{color:cl.gold,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"}},"Quick Check — Is Your Deal Fair?"),
+      el("div",{style:{color:cl.sub,fontSize:"11.5px",fontFamily:"'Inter',sans-serif"}},"Enter any Dubai property to get an instant AI verdict")
+    ]));
+    if(!window._qcState)window._qcState={area:"",building:"",price:"",result:null};
+    var qs=window._qcState;
+
+    // Area dropdown
+    var areaSelect=el("select",{style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",marginBottom:"10px",outline:"none",boxSizing:"border-box",appearance:"none",WebkitAppearance:"none"}});
+    var defOpt=el("option",{value:""});defOpt.textContent="Select Area";areaSelect.appendChild(defOpt);
+    AREA_NAMES.forEach(function(n){var o=el("option",{value:n});o.textContent=n;if(qs.area===n)o.selected=true;areaSelect.appendChild(o);});
+    areaSelect.addEventListener("change",function(){qs.area=this.value;qs.result=null;render();});
+    qc.appendChild(areaSelect);
+
+    // Building input with autocomplete
+    var bWrap=el("div",{style:{position:"relative",marginBottom:"10px"}});
+    var bInp=el("input",{type:"text",placeholder:"Building name (optional)",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+    bInp.value=qs.building||"";
+    bInp.addEventListener("input",function(){qs.building=this.value;qs.result=null;
+      var sg=document.getElementById("qc-bldg-sugg");if(!sg)return;sg.innerHTML="";
+      var q=this.value.toLowerCase().trim();if(q.length<2)return;
+      var hits=[];var areaFilter=qs.area?qs.area.toLowerCase():"";
+      Object.entries(DB).forEach(function(e){
+        if(e[0].indexOf(q)===0||(q.length>=3&&e[0].indexOf(q)>=0)){
+          if(!areaFilter||e[1].a&&e[1].a.toLowerCase()===areaFilter)hits.push({k:e[0],d:e[1]});
+        }
+      });
+      hits.slice(0,6).forEach(function(h){
+        var row=el("div",{style:{padding:"8px 12px",cursor:"pointer",fontSize:"12px",color:cl.text,borderBottom:"1px solid "+cl.border,fontFamily:"'Inter',sans-serif"}});
+        row.textContent=h.k.replace(/\b\w/g,function(c){return c.toUpperCase();})+(h.d.a?" · "+h.d.a:"");
+        row.addEventListener("mousedown",function(e){e.preventDefault();qs.building=h.k;if(h.d.a&&!qs.area)qs.area=h.d.a;qs.result=null;render();});
+        sg.appendChild(row);
+      });
+    });
+    bInp.addEventListener("blur",function(){setTimeout(function(){var sg=document.getElementById("qc-bldg-sugg");if(sg)sg.innerHTML="";},200);});
+    bWrap.appendChild(bInp);
+    var bSugg=el("div",{id:"qc-bldg-sugg",style:{position:"absolute",top:"100%",left:"0",right:"0",zIndex:"100",background:cl.surface,border:"1px solid "+cl.border,borderRadius:"0 0 10px 10px",maxHeight:"180px",overflowY:"auto",display:"block"}});
+    bWrap.appendChild(bSugg);
+    qc.appendChild(bWrap);
+
+    // Price input
+    var pInp=el("input",{type:"text",inputMode:"numeric",placeholder:"Asking price (AED)",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"14px"}});
+    pInp.value=qs.price||"";
+    pInp.addEventListener("input",function(){qs.price=this.value.replace(/[^0-9]/g,"");this.value=qs.price?parseInt(qs.price).toLocaleString():"";qs.result=null;});
+    qc.appendChild(pInp);
+
+    // Check button
+    var checkBtn=el("button",{style:{width:"100%",padding:"14px",borderRadius:"12px",border:"none",background:"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#08090C",fontSize:"15px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.03em"}});
+    checkBtn.textContent="Is This Price Fair?";
+    checkBtn.addEventListener("click",function(){
+      if(!qs.area){alert("Please select an area");return;}
+      var price=parseInt((qs.price||"").replace(/[^0-9]/g,""));
+      if(!price||price<50000){alert("Please enter a valid price");return;}
+      var aData=AREAS[qs.area]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
+      var estSize=Math.round(price/(aData.psf||1800));
+      if(estSize<200)estSize=800;
+      if(estSize>10000)estSize=Math.round(price/1200);
+      var fakeF={area:qs.area,building:qs.building||"",price:String(price),size:String(estSize),buaSize:"",beds:"2",propCategory:"apartment",txnType:"sale",floor:"15",view:"Not specified",furnished:"Unfurnished",condition:"Used"};
+      var result=computeValuation(fakeF);
+      if(result){qs.result=result;}else{qs.result={error:true};}
+      render();
+    });
+    qc.appendChild(checkBtn);
+
+    // Result display
+    if(qs.result&&!qs.result.error){
+      var r=qs.result;
+      var verdictMap={DISTRESS:{label:"GREAT DEAL ✓",bg:"rgba(16,185,129,0.1)",border:"#10B981",color:"#10B981"},GOOD:{label:"GOOD PRICE ✓",bg:"rgba(16,185,129,0.1)",border:"#10B981",color:"#10B981"},FAIR:{label:"FAIR PRICE",bg:"rgba(245,158,11,0.1)",border:"#F59E0B",color:"#F59E0B"},OVER:{label:"OVERPRICED ✗",bg:"rgba(239,68,68,0.1)",border:"#EF4444",color:"#EF4444"}};
+      var vm=verdictMap[r.verdict]||verdictMap.FAIR;
+      var resCard=el("div",{style:{marginTop:"16px",padding:"16px",borderRadius:"12px",border:"2px solid "+vm.border,background:vm.bg,textAlign:"center"}});
+      resCard.appendChild(el("div",{style:{fontSize:"20px",fontWeight:"900",color:vm.color,fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"}},vm.label));
+      resCard.appendChild(el("div",{style:{fontSize:"12px",color:cl.sub,lineHeight:"1.6",fontFamily:"'Inter',sans-serif"}},"Market PSF: AED "+r.adjPSF.toLocaleString()+" · Fair Value: AED "+r.fairPrice.toLocaleString()+" · "+(parseFloat(r.vsPct)>=0?"+":"")+r.vsPct+"% vs market"));
+      // Full analysis link
+      var fullLink=el("div",{style:{marginTop:"12px"}});
+      var fBtn=el("button",{style:{background:"transparent",border:"1px solid "+cl.goldDim,color:cl.gold,padding:"8px 20px",borderRadius:"8px",fontSize:"11.5px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",fontWeight:"600"}});
+      fBtn.textContent="Want full analysis? →";
+      fBtn.addEventListener("click",function(){
+        var price=parseInt((qs.price||"").replace(/[^0-9]/g,""))||0;
+        var aData=AREAS[qs.area]||{psf:1800};
+        var estSize=Math.round(price/(aData.psf||1800));
+        if(estSize<200)estSize=800;if(estSize>10000)estSize=Math.round(price/1200);
+        analyzerState.f.area=qs.area;
+        analyzerState.f.building=qs.building||"";
+        analyzerState.f.price=String(price);
+        analyzerState.f.size=String(estSize);
+        analyzerState.f.beds="2";
+        analyzerState.f.propCategory="apartment";
+        analyzerState.f.txnType="sale";
+        analyzerState.f.floor="15";
+        render();
+        setTimeout(function(){var el=document.getElementById("dv-search-input");if(el)el.scrollIntoView({behavior:"smooth",block:"center"});},100);
+      });
+      fullLink.appendChild(fBtn);
+      resCard.appendChild(fullLink);
+      qc.appendChild(resCard);
+    }else if(qs.result&&qs.result.error){
+      qc.appendChild(el("div",{style:{marginTop:"14px",padding:"12px",borderRadius:"10px",border:"1px solid "+cl.border,textAlign:"center",color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif"}},"Could not compute — try selecting a different area or entering a building name."));
+    }
+    wrap.appendChild(qc);
+  }
+
   if(analyzerState.stage===1){
     // Loading
     const loadDiv=el("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"300px",gap:"16px"}});
