@@ -44,8 +44,8 @@ The app was split from a single 1.1MB `index-6.html` into modular files:
 - **`js/data.js`** — All databases: `DB` (6,281 buildings), `BLDG_UNITS`,
   `AREAS` (287), `CLUSTER_DB`, `VIEW_P`, `AREA_ALIASES`, themes. **This is
   where building research goes.**
-- **`js/valuation.js`** — `lookupBuilding()`, `computeValuation()`, valuation
-  engine.
+- **`js/valuation.js`** — `lookupBuilding()`, `computeValuation()`,
+  `computeRentalValuation()`, valuation engine.
 - **`js/api.js`** — `getUAELocationId()`, `fetchLiveData()`, `askAI()`, API
   helpers.
 - **`js/core.js`** — `hexAlpha()`, `el()`/`div()`/`span()`, shared UI
@@ -53,7 +53,8 @@ The app was split from a single 1.1MB `index-6.html` into modular files:
 - **`js/auth.js`** — User account system with Supabase Auth.
 - **`js/app.js`** — App state, tab routing, render entry point, onboarding,
   notifications, smart bars, workspace.
-- **`js/market.js`** — `renderMarket()`, Live Dashboard, Track Record.
+- **`js/market.js`** — `renderMarket()`, `renderRentalResult()`, Live Dashboard,
+  Track Record, Quick Check (sale/rent modes).
 - **`js/marketindex.js`** — Market Index tab, area rankings, heatmap.
 - **`js/mortgage.js`** — `renderMortgage()`.
 - **`js/portfolio.js`** — `renderPortfolio()`, `computeAssetMetrics()`,
@@ -93,12 +94,12 @@ Code is now split across `js/*.js` files. To find anything, grep across `js/`:
 |---|---|---|
 | Databases (DB, BLDG_UNITS, AREAS) | `js/data.js` | `grep "var DB=" js/data.js` |
 | CLUSTER_DB, VIEW_P, AREA_ALIASES | `js/data.js` | `grep "CLUSTER_DB\|VIEW_P\|AREA_ALIASES" js/data.js` |
-| `lookupBuilding()`, `computeValuation()` | `js/valuation.js` | |
+| `lookupBuilding()`, `computeValuation()`, `computeRentalValuation()` | `js/valuation.js` | |
 | API helpers (fetchLiveData, askAI) | `js/api.js` | |
 | `hexAlpha()`, `el()`/`div()`/`span()` | `js/core.js` | |
 | App state, tabs, render, onboarding | `js/app.js` | |
 | User auth (Supabase) | `js/auth.js` | |
-| Market tab, Live Dashboard | `js/market.js` | |
+| Market tab, Live Dashboard, Rental Result | `js/market.js` | |
 | Market Index, rankings, heatmap | `js/marketindex.js` | |
 | Mortgage calculator | `js/mortgage.js` | |
 | Portfolio Manager, projections | `js/portfolio.js` | |
@@ -138,6 +139,42 @@ prRatio = 100 / grossYield
 investSignal = prRatio<15 Undervalued / <20 Fair Value / <25 Elevated / else Bubble Risk
 totalReturnAnnual = netYield + gr[1]/3
 ```
+
+## Rental Valuation Engine (`computeRentalValuation`) — added 2026-06-19
+
+Full rental analysis mode across the platform. Purple theme (#8B5CF6).
+
+### Engine (`js/valuation.js`)
+```
+baseRent = AREAS[area].r1/r2/r3 (apt) or rv3..rv7 (villa) by beds
+furnMult = Furnished +17%, Semi +9%, Unfurnished 0%
+viewAdj  = Sea +12%, Canal/Partial +7%, Golf/Lagoon +5%, Pool/Garden +3%
+floorAdj = 40+ = +5%, 25+ = +3%, 15+ = +2%
+estRent  = baseRent × furnMult × (1 + viewAdj + floorAdj)
+rentRange = estRent ± 12%
+vsPct    = (askRent - estRent) / estRent × 100
+verdict  = BELOW_MARKET(<=-12%) / COMPETITIVE(<=-3%) / MARKET_RATE(<=5%)
+           / ABOVE_MARKET(<=15%) / OVERPRICED(else)
+confBase = 82 (rental data exists) or 60, +3 beds, +2 view, +1 furnished, +5 bldg match
+```
+
+### UI touchpoints
+- **Analyzer**: Sale/Rent toggle before form; dynamic labels; purple submit button
+- **renderRentalResult()** (`js/market.js`): verdict card, monthly breakdown,
+  rent range bar, negotiation target, landlord net analysis, area benchmarks,
+  RERA/DEWA/chiller tips, share/WhatsApp
+- **Quick Check**: Sale/Rent mode toggle; rent handler uses computeRentalValuation
+- **AI Smart Search**: rental example chip; auto-routes to rental engine
+- **Live Dashboard Row 4**: Rental Market Snapshot (areas w/ data, avg 1BR/2BR)
+- **Market Index** (`js/marketindex.js`): Top 10 Highest Rent, Top 10 Best
+  Rental Value tables
+- **Deal Network** (`js/deals.js`): title deed skipped for rentals, "/yr" price
+  display, purple purpose badge, auto-valuation skipped for rent listings
+
+### State
+- `analyzerState.f.txnType` — `"sale"` (default) or `"rent"`
+- `analyzerState.rentalVal` — rental valuation result object
+- `_qcState.mode` — Quick Check sale/rent mode
 
 ## Deal Network features (added 2026-06-18)
 
@@ -235,6 +272,11 @@ project-level settings overriding it. See "Outstanding items" for next steps.
 
 ## Recent work log (most recent first)
 
+- **2026-06-19 (session 4)**: Comprehensive rental analysis feature.
+  - `a09e893` — Rental valuation engine, analyzer rent mode, rental result page,
+    Live Dashboard rental snapshot, Market Index rental tables, Deal Network
+    rental enhancements
+  - `694eb82` — Quick Check rent mode, rental example chip, polish
 - **2026-06-18 (session 3)**: `1fe67df` — Comprehensive 16-bug fix (see above).
   Also in this session:
   - `84c962d` — Added 154 new buildings across 29 areas (6,008→6,162 DB, 6,192→6,345 BLDG_UNITS)
