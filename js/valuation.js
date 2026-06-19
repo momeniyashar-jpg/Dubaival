@@ -355,7 +355,7 @@ function computeValuation(f,buildingVal,liveData){
   const priceHigh=Math.round(fairPrice*(1+confTier.spread));
   const bnMap={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5,"6 BR":6,"7 BR":7,"7+ BR":7};
   const bn=bnMap[f.beds]!=null?bnMap[f.beds]:2;
-  const rent=isVilla?(bn<=3?aData.rv3||180000:bn<=4?aData.rv4||240000:bn<=5?aData.rv5||350000:bn<=6?aData.rv6||500000:aData.rv7||650000):bn===0?(aData.r1||65000)*0.65:bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
+  const rent=isVilla?(bn<=2?aData.rv2||130000:bn<=3?aData.rv3||180000:bn<=4?aData.rv4||240000:bn<=5?aData.rv5||350000:bn<=6?aData.rv6||500000:aData.rv7||650000):bn===0?(aData.rStudio||(aData.r1||65000)*0.65):bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
   const sc=(parseFloat(f.serviceCharge)||(bData&&bData.sc)||aData.sc||15)*size;
   const grossYield=(rent/price*100).toFixed(1);
   const netYield=((rent-sc)/price*100).toFixed(1);
@@ -409,7 +409,7 @@ function computeRentalValuation(f){
   var isVilla=f.propCategory==="villa";
   var bnMap={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5,"6 BR":6,"7 BR":7,"7+ BR":7};
   var bn=bnMap[f.beds]!=null?bnMap[f.beds]:2;
-  var estRent=isVilla?(bn<=3?aData.rv3||180000:bn<=4?aData.rv4||240000:bn<=5?aData.rv5||350000:bn<=6?aData.rv6||500000:aData.rv7||650000):bn===0?(aData.r1||65000)*0.65:bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
+  var estRent=isVilla?(bn<=2?aData.rv2||130000:bn<=3?aData.rv3||180000:bn<=4?aData.rv4||240000:bn<=5?aData.rv5||350000:bn<=6?aData.rv6||500000:aData.rv7||650000):bn===0?(aData.rStudio||(aData.r1||65000)*0.65):bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
   // Furnished premium on rent: furnished +15-20%, semi +8-10%
   var furnMult=f.furnished==="Furnished"?1.17:f.furnished==="Semi-Furnished"?1.09:1.0;
   estRent=Math.round(estRent*furnMult);
@@ -439,7 +439,7 @@ function computeRentalValuation(f){
   if(verdict==="ABOVE_MARKET")suggestedRent=Math.round(estRent*1.03);
   else if(verdict==="OVERPRICED")suggestedRent=estRent;
   // Confidence
-  var hasRentalData=isVilla?(aData.rv3||aData.rv4||aData.rv5):aData.r1;
+  var hasRentalData=isVilla?(aData.rv2||aData.rv3||aData.rv4||aData.rv5):aData.r1;
   var baseConf=hasRentalData?82:60;
   var inputBonus=(f.beds?3:0)+(f.view&&f.view!=="Not specified"?2:0)+(f.furnished?1:0)+(bData?5:0);
   var confScore=Math.min(95,Math.max(40,baseConf+inputBonus));

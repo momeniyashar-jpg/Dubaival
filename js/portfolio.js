@@ -90,7 +90,7 @@ function computeAssetMetrics(asset){
   var purchasePrice=parseInt(asset.purchasePrice)||0;
   var roi=purchasePrice>0?((currentValue-purchasePrice)/purchasePrice*100):0;
   var bn={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5}[asset.beds]!=null?{"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5}[asset.beds]:2;
-  var rent=isV?(bn<=3?aData.rv3||180000:aData.rv4||240000):bn===0?(aData.r1||65000)*0.65:bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
+  var rent=isV?(bn<=2?aData.rv2||130000:bn<=3?aData.rv3||180000:bn<=4?aData.rv4||240000:bn<=5?aData.rv5||350000:bn<=6?aData.rv6||500000:aData.rv7||650000):bn===0?(aData.rStudio||(aData.r1||65000)*0.65):bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
   var sc=(parseFloat(asset.serviceCharge)||(bData&&bData.sc)||aData.sc||15)*size;
   var grossYield=currentValue>0?(rent/currentValue*100):0;
   var netYield=currentValue>0?((rent-sc)/currentValue*100):0;
@@ -307,7 +307,7 @@ function renderPortfolio(){
         // 2) Rent Optimization Alert
         var bn={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5}[a.beds]!=null?{"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5}[a.beds]:2;
         var isV=a.type==="Villa"||a.type==="Townhouse";
-        var benchRent=isV?(bn<=3?aData.rv3||180000:aData.rv4||240000):bn===0?(aData.r1||65000)*0.65:bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
+        var benchRent=isV?(bn<=2?aData.rv2||130000:bn<=3?aData.rv3||180000:bn<=4?aData.rv4||240000:bn<=5?aData.rv5||350000:bn<=6?aData.rv6||500000:aData.rv7||650000):bn===0?(aData.rStudio||(aData.r1||65000)*0.65):bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
         var actualRent=a.m.rent||0;
         if(benchRent>0&&actualRent>0){
           var rentRatio=actualRent/benchRent*100;
@@ -552,7 +552,7 @@ function renderPortfolio(){
         var buyDLD=Math.round(netProceeds/(1+0.04)*0.04);
         var buyPrice=netProceeds-buyDLD;
         var bn2={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5}[sw.buyBeds]||2;
-        var buyRent=buyIsV?(bn2<=3?buyAreaData.rv3||180000:buyAreaData.rv4||240000):bn2===0?(buyAreaData.r1||65000)*0.65:bn2===1?buyAreaData.r1||65000:bn2===2?buyAreaData.r2||100000:bn2===3?buyAreaData.r3||150000:(buyAreaData.r3||150000)*1.4;
+        var buyRent=buyIsV?(bn2<=2?buyAreaData.rv2||130000:bn2<=3?buyAreaData.rv3||180000:bn2<=4?buyAreaData.rv4||240000:bn2<=5?buyAreaData.rv5||350000:bn2<=6?buyAreaData.rv6||500000:buyAreaData.rv7||650000):bn2===0?(buyAreaData.rStudio||(buyAreaData.r1||65000)*0.65):bn2===1?buyAreaData.r1||65000:bn2===2?buyAreaData.r2||100000:bn2===3?buyAreaData.r3||150000:(buyAreaData.r3||150000)*1.4;
         var buySC=(buyAreaData.sc||15)*buySize;
         var buyGrossY=buyPrice>0?(buyRent/buyPrice*100):0;
         var buyNetY=buyPrice>0?((buyRent-buySC)/buyPrice*100):0;
