@@ -1,4 +1,4 @@
-// Copyright (c) 2024-2026 Yashar Momeni. All Rights Reserved. See LICENSE.
+// Copyright (c) 2024-2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- ABOUT TAB ---------------------------------------------------------------
 function renderAbout(){
   var cl=C();

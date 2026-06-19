@@ -1,4 +1,4 @@
-// Copyright (c) 2024-2026 Yashar Momeni. All Rights Reserved. See LICENSE.
+// Copyright (c) 2024-2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- MORTGAGE STANDALONE -----------------------------------------------------
 function renderMortgageStandalone(cl){
   if(!window.MORT_SA)window.MORT_SA={price:"",dp:25,tenure:25,type:"fixed1",nationality:"expat"};

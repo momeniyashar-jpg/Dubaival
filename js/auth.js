@@ -1,4 +1,4 @@
-// Copyright (c) 2024-2026 Yashar Momeni. All Rights Reserved. See LICENSE.
+// Copyright (c) 2024-2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- AUTH MODULE ---
 var DV_AUTH={user:null,profile:null,loading:true,showModal:false,modalTab:"signin",error:"",busy:false};
 

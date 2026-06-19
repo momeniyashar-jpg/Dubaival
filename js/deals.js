@@ -1,4 +1,4 @@
-// Copyright (c) 2024-2026 Yashar Momeni. All Rights Reserved. See LICENSE.
+// Copyright (c) 2024-2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- DEAL NETWORK TAB --------------------------------------------------------
 var DEAL_STATE={mode:"browse",filter:{type:"all",purpose:"sale",area:"",beds:"",minPrice:"",maxPrice:"",urgency:""},
   form:{type:"have",agentName:"",agentPhone:"",agentCompany:"",agentEmail:"",reraNumber:"",area:"",building:"",propType:"apartment",beds:"",sizeSqft:"",floor:"",view:"",furnished:"Unfurnished",purpose:"sale",price:"",urgency:"normal",notes:"",offMarket:false,contactMode:"whatsapp",titleDeedNo:"",titleDeedImg:null,requestReferral:false},
