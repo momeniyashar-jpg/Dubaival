@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Yashar Momeni. All Rights Reserved. See LICENSE.
 // --- API ---------------------------------------------------------------------
 var API_BASE=(location.hostname==="localhost"||location.hostname==="127.0.0.1")?"":"/api";
 const UAE_RE_KEY=localStorage.getItem("dv_rapidapi")||"";

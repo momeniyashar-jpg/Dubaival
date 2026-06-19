@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Yashar Momeni. All Rights Reserved. See LICENSE.
 // --- COMPARE TAB -------------------------------------------------------------
 function renderCompare(){
   const cl=C();const s=compareState;

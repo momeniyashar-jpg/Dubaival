@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Yashar Momeni. All Rights Reserved. See LICENSE.
 // --- MY WORKSPACE TAB ---------------------------------------------------------
 var WS_STATE={widgets:[],mode:"dashboard",reportMode:"visual",reportSections:[],reportLang:"en",reportColor:"gold",reportTitle:"",reportLogo:null,templates:[],voiceActive:false,voiceText:"",parsed:false};
 try{var _ws=localStorage.getItem("dv_workspace");if(_ws){var d=JSON.parse(_ws);WS_STATE.widgets=d.widgets||[];}}catch(e){}

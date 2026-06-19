@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Yashar Momeni. All Rights Reserved. See LICENSE.
 // --- RENDER -------------------------------------------------------------------
 const MARKET_SENTIMENT={"Downtown Dubai":{"chg":-20.1,"s":"bear"},"Dubai Marina":{"chg":-18.1,"s":"bear"},"Palm Jumeirah":{"chg":6.2,"s":"bull"},"Business Bay":{"chg":-14.1,"s":"bear"},"Dubai Hills":{"chg":-5.8,"s":"bear"},"Dubai Creek Harbour":{"chg":0.0,"s":"neutral"},"JVC":{"chg":8.6,"s":"bull"},"JLT":{"chg":-11.9,"s":"bear"},"MBR City":{"chg":-3.4,"s":"bear"},"DAMAC Hills":{"chg":59.6,"s":"bull"},"Meydan":{"chg":-36.8,"s":"bear"},"Dubai South":{"chg":5.9,"s":"bull"},"City Walk":{"chg":2.6,"s":"neutral"},"Jumeirah":{"chg":-12.3,"s":"bear"}};
 // --- DEAL ALERTS ---

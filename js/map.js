@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Yashar Momeni. All Rights Reserved. See LICENSE.
 // --- MAP TAB -----------------------------------------------------------------
 var _dvMapState={metric:"growth",map:null};
 function renderMap(){

@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Yashar Momeni. All Rights Reserved. See LICENSE.
 // --- MARKET INDEX TAB ---------------------------------------------------------
 function renderMarketIndex(){
   var cl=C();

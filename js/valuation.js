@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Yashar Momeni. All Rights Reserved. See LICENSE.
 // --- LOOKUP -------------------------------------------------------------------
 function lookupBuilding(name,areaHint){
   const filterByArea=function(results){
