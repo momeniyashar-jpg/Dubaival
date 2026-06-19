@@ -108,6 +108,91 @@ function renderAbout(){
   partnerContent.appendChild(apiBtn);
   wrap.appendChild(section("🏛️",t("abt_partners"),partnerContent));
 
+  // Organic Market Promotion Engine
+  var promoContent=div({});
+  var promoText=el("p",{style:{color:cl.text,fontSize:"12.5px",lineHeight:"1.75",margin:"0 0 18px"}});
+  promoText.innerHTML="DubAIVal's <b style='color:"+cl.gold+"'>PropTech Social Platform</b> creates a self-sustaining content ecosystem that organically promotes Dubai's real estate market at zero cost to government — powered by the professionals who know it best.";
+  promoContent.appendChild(promoText);
+
+  // Flywheel diagram
+  var fwTitle=div({color:cl.gold,fontSize:"11px",fontWeight:"700",letterSpacing:"0.06em",marginBottom:"14px"},"THE DUBAIVAL FLYWHEEL");
+  promoContent.appendChild(fwTitle);
+
+  var flywheel=[
+    {icon:"🎬",title:"Agents Create Content",desc:"RERA-verified agents produce professional walkthrough videos, market updates, and property reviews on YouTube & Instagram to build their reputation on DubaiVal."},
+    {icon:"⭐",title:"Ranking & Visibility",desc:"Higher quality content and more engagement = higher agent ranking on DubaiVal = priority access to off-market deals and buyer referrals."},
+    {icon:"💰",title:"Financial Incentive",desc:"Top-ranked agents receive direct buyer referrals through our Deal Network — creating real commission opportunities that drive continued content production."},
+    {icon:"🌍",title:"Organic Market Promotion",desc:"Hundreds of professionals producing daily content about Dubai properties creates a powerful, authentic narrative of market stability and opportunity — far more credible than traditional advertising."},
+    {icon:"📈",title:"Market Confidence",desc:"Authentic, data-driven content from verified professionals builds international investor confidence in Dubai real estate, supporting market stability and growth."},
+    {icon:"🏛️",title:"Government Value",desc:"A self-sustaining promotional engine for Dubai's property market — organic, professional, credible content at zero cost to government agencies."}
+  ];
+
+  flywheel.forEach(function(fw,i){
+    var fwCard=div({display:"flex",gap:"14px",marginBottom:"14px",alignItems:"flex-start"});
+    var iconWrap=div({minWidth:"44px",height:"44px",borderRadius:"12px",background:hexAlpha(cl.gold,0.1),border:"1px solid "+cl.goldDim,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"20px",position:"relative"});
+    iconWrap.textContent=fw.icon;
+    if(i<flywheel.length-1){
+      var arrow=div({position:"absolute",bottom:"-14px",left:"50%",transform:"translateX(-50%)",color:cl.goldDim,fontSize:"10px"});
+      arrow.textContent="▼";
+      iconWrap.appendChild(arrow);
+    }
+    fwCard.appendChild(iconWrap);
+    var textWrap=div({});
+    textWrap.appendChild(el("div",{style:{color:cl.text,fontSize:"12.5px",fontWeight:"700",marginBottom:"4px"}},fw.title));
+    textWrap.appendChild(el("div",{style:{color:cl.sub,fontSize:"11.5px",lineHeight:"1.65"}},fw.desc));
+    fwCard.appendChild(textWrap);
+    promoContent.appendChild(fwCard);
+  });
+
+  // Key metrics highlight
+  var metricsTitle=div({color:cl.gold,fontSize:"11px",fontWeight:"700",letterSpacing:"0.06em",marginTop:"24px",marginBottom:"12px"},"PROJECTED ECOSYSTEM IMPACT");
+  promoContent.appendChild(metricsTitle);
+
+  var metrics=[
+    {n:"500+",l:"Active Agent Content Creators",icon:"👤"},
+    {n:"5,000+",l:"Property Videos Monthly",icon:"🎬"},
+    {n:"50M+",l:"Monthly Views Across Platforms",icon:"👁️"},
+    {n:"$0",l:"Cost to Government",icon:"💎"}
+  ];
+  var metricGrid=div({display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:"10px",marginBottom:"20px"});
+  metrics.forEach(function(m){
+    var mCard=div({background:cl.bg,border:"1px solid "+cl.border,borderRadius:"10px",padding:"16px",textAlign:"center"});
+    mCard.appendChild(el("div",{style:{fontSize:"18px",marginBottom:"6px"}},m.icon));
+    mCard.appendChild(el("div",{style:{color:cl.gold,fontSize:"20px",fontWeight:"800",marginBottom:"2px"}},m.n));
+    mCard.appendChild(el("div",{style:{color:cl.sub,fontSize:"10px",letterSpacing:"0.04em"}},m.l));
+    metricGrid.appendChild(mCard);
+  });
+  promoContent.appendChild(metricGrid);
+
+  // Value propositions for different stakeholders
+  var stakeholders=[
+    {title:"For DLD & RERA",color:"#00C896",points:["Real-time market transparency through professional content","Verified agents promoting regulated, data-driven valuations","Content moderation ensures only licensed professionals participate","Market sentiment data aggregated from agent activity"]},
+    {title:"For DTCM & DED",color:cl.gold,points:["Organic international promotion of Dubai property market","Authentic content counters negative narratives about regional stability","Attracts foreign direct investment through credible market intelligence","Positions Dubai as a global PropTech innovation hub"]},
+    {title:"For Dubai Future Foundation",color:"#818CF8",points:["AI-driven content curation and market analysis","First vertical social platform for real estate globally","Demonstrates Dubai's leadership in PropTech innovation","Scalable model for other sectors (hospitality, retail, logistics)"]}
+  ];
+
+  stakeholders.forEach(function(sh){
+    var shCard=div({background:cl.bg,border:"1px solid "+hexAlpha(sh.color,0.3),borderRadius:"12px",padding:"18px",marginBottom:"12px"});
+    shCard.appendChild(el("div",{style:{color:sh.color,fontSize:"12px",fontWeight:"700",marginBottom:"10px",letterSpacing:"0.04em"}},sh.title));
+    sh.points.forEach(function(pt){
+      var row=div({display:"flex",gap:"8px",marginBottom:"5px",alignItems:"flex-start"});
+      row.appendChild(el("div",{style:{color:sh.color,fontSize:"8px",marginTop:"4px",flexShrink:"0"}},"◆"));
+      row.appendChild(el("div",{style:{color:cl.sub,fontSize:"11px",lineHeight:"1.6"}},pt));
+      shCard.appendChild(row);
+    });
+    promoContent.appendChild(shCard);
+  });
+
+  // Call to action
+  var promoCtaText=el("p",{style:{color:cl.text,fontSize:"12.5px",lineHeight:"1.75",margin:"16px 0",fontStyle:"italic",padding:"16px",borderLeft:"3px solid "+cl.gold,background:hexAlpha(cl.gold,0.05),borderRadius:"0 8px 8px 0"}});
+  promoCtaText.innerHTML="<b style='color:"+cl.gold+"'>\"DubaiVal doesn't just value properties — it empowers hundreds of professionals to become ambassadors for Dubai's real estate market, creating an organic promotional engine that money can't buy.\"</b>";
+  promoContent.appendChild(promoCtaText);
+
+  var promoContact=el("a",{href:"mailto:momeni.yashar@gmail.com?subject=DubAIVal%20Government%20Partnership%20—%20Market%20Promotion%20Engine",style:{display:"inline-flex",alignItems:"center",gap:"8px",marginTop:"10px",padding:"12px 28px",background:"linear-gradient(135deg,#00C896,#008060)",color:"#FFFFFF",borderRadius:"10px",fontSize:"12.5px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",textDecoration:"none",cursor:"pointer",border:"none",letterSpacing:"0.03em"}},"🏛️ Discuss Government Partnership");
+  promoContent.appendChild(promoContact);
+
+  wrap.appendChild(section("📣","Organic Market Promotion Engine",promoContent));
+
   // API Documentation (inline)
   if(window._showApiDocs){
     wrap.appendChild(renderApiDocs(cl));
