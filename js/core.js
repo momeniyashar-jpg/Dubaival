@@ -411,8 +411,9 @@ var analyzerState={
     singleRow:false,
     cornerVilla:false,
     building:"",
+    txnType:"sale", // sale | rent
   },
-  val:null,aiText:"",liveData:null,err:""
+  val:null,rentalVal:null,aiText:"",liveData:null,err:""
 };
 var compareState={a1:"",a2:"",budget:"",purpose:"Investment",loading:false,result:"",err:""};
 var personalState={budget:"",role:"Investor",family:"Couple",children:"0",work:"",purpose:"Investment",timeline:"6 months",loading:false,result:"",err:""};

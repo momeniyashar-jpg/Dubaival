@@ -131,6 +131,23 @@ function renderMarketIndex(){
     {label:"PSF",w:"0.8fr",mono:true,bold:true,align:"right",color:function(){return cl.gold;},render:function(d){return"AED "+d.psf.toLocaleString();}}
   ]));
 
+  // Top 10 Highest Rent (1BR)
+  var byRent=areaData.filter(function(a){return a.r1>0;}).sort(function(a,b){return b.r1-a.r1;}).slice(0,10);
+  wrap.appendChild(mkTable("◆ Highest Rent Areas","Top areas by 1BR annual rent",[].concat(byRent),[
+    rankCol,nameCol,
+    {label:"1BR Rent",w:"1.2fr",mono:true,bold:true,align:"right",color:function(){return"#8B5CF6";},render:function(d){return"AED "+d.r1.toLocaleString()+"/yr";}},
+    {label:"Monthly",w:"0.8fr",mono:true,align:"right",color:function(){return cl.sub;},render:function(d){return"AED "+Math.round(d.r1/12).toLocaleString();}}
+  ]));
+
+  // Top 10 Best Rental Value (highest rent-to-price ratio)
+  var byRentValue=areaData.filter(function(a){return a.r1>0&&a.psf>0;}).map(function(a){a.rentPsfRatio=a.r1/(a.psf*500)*100;return a;}).sort(function(a,b){return b.rentPsfRatio-a.rentPsfRatio;}).slice(0,10);
+  wrap.appendChild(mkTable("◆ Best Rental Value Areas","Highest rent relative to property price",[].concat(byRentValue),[
+    rankCol,nameCol,
+    {label:"Yield",w:"0.7fr",mono:true,bold:true,align:"right",color:function(){return"#10B981";},render:function(d){return d.yield.toFixed(1)+"%";}},
+    {label:"1BR Rent",w:"0.9fr",mono:true,align:"right",color:function(){return"#8B5CF6";},render:function(d){return"AED "+d.r1.toLocaleString();}},
+    {label:"PSF",w:"0.8fr",mono:true,align:"right",color:function(){return cl.sub;},render:function(d){return"AED "+d.psf.toLocaleString();}}
+  ]));
+
   // --- Advanced Area Comparison ---
   if(!window._idxCmp)window._idxCmp={areas:["","",""],aiVerdict:"",aiLoading:false};
   // URL param auto-load

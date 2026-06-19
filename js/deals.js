@@ -36,7 +36,7 @@ async function postDeal(){
   var f=DEAL_STATE.form;
   if(!f.agentName||!f.agentPhone||!f.area||!f.price){alert("Please fill required fields");return;}
   if(!f.reraNumber||f.reraNumber.trim().length<3){alert("RERA BRN is required (minimum 3 characters). Please enter your RERA number to post a deal.");return;}
-  if(f.type==="have"&&!f.titleDeedNo){alert("Title Deed number is required for listings. Please enter your Title Deed number to verify property ownership.");return;}
+  if(f.type==="have"&&f.purpose==="sale"&&!f.titleDeedNo){alert("Title Deed number is required for sale listings. Please enter your Title Deed number to verify property ownership.");return;}
   saveAgentProfile();
   DEAL_STATE.posting=true;render();
   var row={type:f.type,agent_name:f.agentName,agent_phone:f.agentPhone,agent_company:f.agentCompany||null,
@@ -46,7 +46,7 @@ async function postDeal(){
     furnished:f.furnished,purpose:f.purpose,price:parseFloat(f.price.replace(/,/g,""))||0,
     urgency:f.urgency,notes:f.notes||null,off_market:f.offMarket,contact_mode:f.contactMode||"whatsapp",
     title_deed_no:f.titleDeedNo||null,title_deed_img:f.titleDeedImg||null};
-  if(f.type==="have"&&row.size_sqft&&row.price){
+  if(f.type==="have"&&row.size_sqft&&row.price&&f.purpose!=="rent"){
     try{
       var valInput={area:f.area,building:f.building||"",buaSize:String(row.size_sqft),price:String(row.price),
         propCategory:f.propType==="villa"||f.propType==="townhouse"?"villa":"apartment",
@@ -409,9 +409,9 @@ function renderDeals(){
     fBar.appendChild(el("button",{style:{background:active?cl.gold:"transparent",color:active?"#070B14":cl.sub,border:"1px solid "+(active?cl.gold:cl.border),padding:"6px 12px",borderRadius:"16px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",fontWeight:active?"700":"400"},
       onclick:function(){DEAL_STATE.filter.type=t.v;fetchDeals();}},t.l));
   });
-  [{l:"Sale",v:"sale"},{l:"Rent",v:"rent"}].forEach(function(p){
+  [{l:"Sale",v:"sale",ac:"rgba(0,200,150,0.15)",bc:"rgba(0,200,150,0.3)",tc:cl.green},{l:"Rent",v:"rent",ac:"rgba(139,92,246,0.15)",bc:"rgba(139,92,246,0.3)",tc:"#8B5CF6"}].forEach(function(p){
     var active=DEAL_STATE.filter.purpose===p.v;
-    fBar.appendChild(el("button",{style:{background:active?"rgba(0,200,150,0.15)":"transparent",color:active?cl.green:cl.sub,border:"1px solid "+(active?"rgba(0,200,150,0.3)":cl.border),padding:"6px 12px",borderRadius:"16px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
+    fBar.appendChild(el("button",{style:{background:active?p.ac:"transparent",color:active?p.tc:cl.sub,border:"1px solid "+(active?p.bc:cl.border),padding:"6px 12px",borderRadius:"16px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
       onclick:function(){DEAL_STATE.filter.purpose=p.v;fetchDeals();}},p.l));
   });
   wrap.appendChild(fBar);
@@ -673,7 +673,7 @@ function renderDeals(){
     if(d.off_market){var omBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:"rgba(201,168,76,0.12)",color:cl.gold}});omBadge.textContent="OFF-MARKET";leftTop.appendChild(omBadge);}
     topRow.appendChild(leftTop);
     var rightTop=el("div",{style:{display:"flex",alignItems:"center",gap:"8px"}});
-    var purposeBadge=el("span",{style:{fontSize:"10px",color:d.purpose==="sale"?cl.gold:"#60A5FA",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"}});
+    var purposeBadge=el("span",{style:{fontSize:"10px",color:d.purpose==="sale"?cl.gold:"#8B5CF6",fontFamily:"'Space Grotesk',monospace",fontWeight:"700",padding:"2px 8px",borderRadius:"8px",background:d.purpose==="sale"?"rgba(201,168,76,0.12)":"rgba(139,92,246,0.12)"}});
     purposeBadge.textContent=d.purpose==="sale"?"FOR SALE":"FOR RENT";
     rightTop.appendChild(purposeBadge);
     var isFav=isFavDeal(d.id);
@@ -719,9 +719,17 @@ function renderDeals(){
     card.appendChild(detailRow);
 
     var priceRow=div({display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderTop:"1px solid "+cl.border,borderBottom:"1px solid "+cl.border,marginBottom:"8px"});
-    priceRow.appendChild(div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},isHave?"Asking Price":"Budget"),
-      div({color:cl.gold,fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"AED "+d.price.toLocaleString()+(d.price_negotiable?" ±":""))]));
-    if(d.dv_fair_price&&isHave){
+    var isRentalDeal=d.purpose==="rent";
+    var priceLbl=isRentalDeal?(isHave?"Asking Rent /yr":"Rent Budget /yr"):(isHave?"Asking Price":"Budget");
+    priceRow.appendChild(div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},priceLbl),
+      div({color:isRentalDeal?"#8B5CF6":cl.gold,fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"AED "+d.price.toLocaleString()+(d.price_negotiable?" ±":"")+(isRentalDeal?"/yr":""))]));
+    if(isRentalDeal&&d.price){
+      priceRow.appendChild(div({textAlign:"right"},[
+        div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Monthly"),
+        div({color:"#8B5CF6",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+Math.round(d.price/12).toLocaleString()+"/mo"),
+      ]));
+    }
+    if(d.dv_fair_price&&isHave&&!isRentalDeal){
       var verdictColors={DISTRESS:cl.green,GOOD:cl.green,FAIR:"#F59E0B",OVER:"#EF4444"};
       var verdictLabels={DISTRESS:"DISTRESS DEAL",GOOD:"GOOD PRICE",FAIR:"FAIR",OVER:"OVERPRICED"};
       priceRow.appendChild(div({textAlign:"right"},[
@@ -1154,7 +1162,9 @@ function renderDealForm(wrap,cl){
   card.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",marginTop:"8px"},"Pricing & Priority"));
   var priceRow=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"});
   priceRow.appendChild(makeSelect("Purpose","purpose",[{l:"For Sale",v:"sale"},{l:"For Rent",v:"rent"}]));
-  priceRow.appendChild(makeInput(f.type==="have"?"Asking Price (AED) *":"Budget (AED) *","price","e.g. 2,500,000"));
+  var priceLabel=f.purpose==="rent"?(f.type==="have"?"Asking Rent (AED/yr) *":"Rent Budget (AED/yr) *"):(f.type==="have"?"Asking Price (AED) *":"Budget (AED) *");
+  var pricePlaceholder=f.purpose==="rent"?"e.g. 95,000":"e.g. 2,500,000";
+  priceRow.appendChild(makeInput(priceLabel,"price",pricePlaceholder));
   card.appendChild(priceRow);
 
   var urgRow=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"});
@@ -1232,10 +1242,11 @@ function renderDealForm(wrap,cl){
     mediaSection.appendChild(vidG);
     card.appendChild(mediaSection);
 
+    if(f.purpose==="sale"){
     var tdSection=div({background:cl.raised,border:"1px solid rgba(234,179,8,0.25)",borderRadius:"10px",padding:"12px",marginBottom:"14px"});
     tdSection.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"},[
       div({},[span({color:"#EAB308",fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"},"Title Deed Verification"),
-        span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginLeft:"8px"},"Required for listings")])
+        span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginLeft:"8px"},"Required for sale listings")])
     ]));
     var tdRow=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"8px"});
     tdRow.appendChild(makeInput("Title Deed Number *","titleDeedNo","e.g. 123-456-7890"));
@@ -1272,6 +1283,7 @@ function renderDealForm(wrap,cl){
       tdSection.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",fontStyle:"italic"},"Enter your Title Deed number to verify ownership and build buyer trust"));
     }
     card.appendChild(tdSection);
+    } // end if purpose==="sale"
   }
 
   if(f.type==="need"){

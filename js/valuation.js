@@ -398,3 +398,78 @@ function computeValuation(f,buildingVal,liveData){
   return{askPSF,adjPSF,psfLo,psfHi,fairPrice,distressPrice,goodPrice,overpricedAt,verdict,vsPct:vsPct.toFixed(1),suggestedOffer,dataSource,dataLayer,confScore,confTier,priceLow,priceHigh,inDB:!!bData,bData,isDevFurnished,vP:Math.round(vP*100),fP:Math.round(fP*100),furnP:Math.round(furnP*100),loftP:Math.round(loftP*100),penthP:Math.round(penthP*100),maidP:Math.round(maidP*100),privatePoolP:Math.round(privatePoolP*100),singleRowP:Math.round(singleRowP*100),cornerVillaP:Math.round(cornerVillaP*100),locP:Math.round(locP*100),geo:Math.round(geoAdj*100),rent,sc,grossYield,netYield,g0:gr[0],g1:gr[1],g2:gr[2],prRatio:prRatio?prRatio.toFixed(1):null,investSignal,totalReturnAnnual,domEst,txVol,liqScore,liqTier,txLabel,turnoverRate,turnoverTier,bldgUnits,bldgAnnualTx,mosScore,mosTier,priceGapScore,timeDecayScore,marketDepthScore,compData:compData,hasDynamic:!!dynBench,calFactor:calFactor,geoScore:geoScore};
 }
 
+function computeRentalValuation(f){
+  var buildingVal=(f.building||"").toLowerCase().trim();
+  var bData=lookupBuilding(buildingVal,f.area);
+  var aData=AREAS[f.area]||null;
+  if(!aData)return null;
+  var askRent=parseInt((f.price||"").replace(/[^0-9]/g,""));
+  if(!askRent||askRent<5000)return null;
+  var size=parseInt(f.size)||parseInt(f.buaSize)||0;
+  var isVilla=f.propCategory==="villa";
+  var bnMap={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5,"6 BR":6,"7 BR":7,"7+ BR":7};
+  var bn=bnMap[f.beds]!=null?bnMap[f.beds]:2;
+  var estRent=isVilla?(bn<=3?aData.rv3||180000:bn<=4?aData.rv4||240000:bn<=5?aData.rv5||350000:bn<=6?aData.rv6||500000:aData.rv7||650000):bn===0?(aData.r1||65000)*0.65:bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
+  // Furnished premium on rent: furnished +15-20%, semi +8-10%
+  var furnMult=f.furnished==="Furnished"?1.17:f.furnished==="Semi-Furnished"?1.09:1.0;
+  estRent=Math.round(estRent*furnMult);
+  // View premium on rent
+  var viewAdj=1.0;
+  if(f.view&&f.view!=="Not specified"){
+    var vl=f.view.toLowerCase();
+    if(vl.indexOf("full sea")>=0||vl.indexOf("burj khalifa")>=0||vl.indexOf("beach access")>=0)viewAdj=1.12;
+    else if(vl.indexOf("partial sea")>=0||vl.indexOf("partial burj")>=0||vl.indexOf("canal")>=0)viewAdj=1.07;
+    else if(vl.indexOf("golf")>=0||vl.indexOf("lagoon")>=0||vl.indexOf("skyline")>=0)viewAdj=1.05;
+    else if(vl.indexOf("pool")>=0||vl.indexOf("garden")>=0||vl.indexOf("park")>=0)viewAdj=1.03;
+  }
+  estRent=Math.round(estRent*viewAdj);
+  // Floor premium for apartments (higher floors get ~2-5% more rent)
+  if(!isVilla&&f.floor){
+    var fl=parseInt(f.floor)||0;
+    if(fl>=40)estRent=Math.round(estRent*1.05);
+    else if(fl>=25)estRent=Math.round(estRent*1.03);
+    else if(fl>=15)estRent=Math.round(estRent*1.02);
+  }
+  // Rent range: ±12% for market variability
+  var rentLow=Math.round(estRent*0.88);
+  var rentHigh=Math.round(estRent*1.12);
+  var vsPct=((askRent-estRent)/estRent*100);
+  var verdict=vsPct<=-12?"BELOW_MARKET":vsPct<=-3?"COMPETITIVE":vsPct<=5?"MARKET_RATE":vsPct<=15?"ABOVE_MARKET":"OVERPRICED";
+  var suggestedRent=null;
+  if(verdict==="ABOVE_MARKET")suggestedRent=Math.round(estRent*1.03);
+  else if(verdict==="OVERPRICED")suggestedRent=estRent;
+  // Confidence
+  var hasRentalData=isVilla?(aData.rv3||aData.rv4||aData.rv5):aData.r1;
+  var baseConf=hasRentalData?82:60;
+  var inputBonus=(f.beds?3:0)+(f.view&&f.view!=="Not specified"?2:0)+(f.furnished?1:0)+(bData?5:0);
+  var confScore=Math.min(95,Math.max(40,baseConf+inputBonus));
+  var confTier=confScore>=90?{label:"Very High",range:"±3–5%",c:"green"}:confScore>=80?{label:"High",range:"±5–8%",c:"green"}:confScore>=68?{label:"Medium",range:"±8–12%",c:"yellow"}:confScore>=55?{label:"Low",range:"±12–18%",c:"yellow"}:{label:"Indicative",range:"±18–25%",c:"red"};
+  // Rent PSF
+  var askRentPSF=size>0?Math.round(askRent/size):0;
+  var estRentPSF=size>0?Math.round(estRent/size):0;
+  // Service charge and net rent
+  var sc=(parseFloat(f.serviceCharge)||(bData&&bData.sc)||aData.sc||15)*(size||0);
+  var netRent=askRent-sc;
+  // Area rental benchmarks for comparison
+  var areaRents=[];
+  if(!isVilla){
+    if(aData.r1)areaRents.push({beds:"Studio",rent:Math.round(aData.r1*0.65)});
+    if(aData.r1)areaRents.push({beds:"1 BR",rent:aData.r1});
+    if(aData.r2)areaRents.push({beds:"2 BR",rent:aData.r2});
+    if(aData.r3)areaRents.push({beds:"3 BR",rent:aData.r3});
+    if(aData.r3)areaRents.push({beds:"4 BR+",rent:Math.round(aData.r3*1.4)});
+  }else{
+    if(aData.rv3)areaRents.push({beds:"3 BR",rent:aData.rv3});
+    if(aData.rv4)areaRents.push({beds:"4 BR",rent:aData.rv4});
+    if(aData.rv5)areaRents.push({beds:"5 BR",rent:aData.rv5});
+    if(aData.rv6)areaRents.push({beds:"6 BR",rent:aData.rv6});
+    if(aData.rv7)areaRents.push({beds:"7 BR",rent:aData.rv7});
+  }
+  // Growth forecast
+  var gr=aData.g||[10,18,28];
+  // Liquidity
+  var domEst=aData.dom||60;
+  var txVol=aData.txVol||100;
+  return{askRent:askRent,estRent:estRent,rentLow:rentLow,rentHigh:rentHigh,vsPct:vsPct.toFixed(1),verdict:verdict,suggestedRent:suggestedRent,confScore:confScore,confTier:confTier,askRentPSF:askRentPSF,estRentPSF:estRentPSF,monthly:Math.round(askRent/12),estMonthly:Math.round(estRent/12),sc:Math.round(sc),netRent:netRent,areaRents:areaRents,inDB:!!bData,bData:bData,dataSource:bData?"Building Database":"Area Benchmark",area:f.area,beds:f.beds||"2 BR",isVilla:isVilla,furnished:f.furnished||"Unfurnished",furnMult:furnMult,viewAdj:viewAdj,gr:gr,domEst:domEst,txVol:txVol,size:size};
+}
+
