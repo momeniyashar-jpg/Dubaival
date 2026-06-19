@@ -696,7 +696,7 @@ function renderAnalyzer(){
         var estSize=Math.round(price/(aData.psf||1800));
         if(estSize<200)estSize=800;
         if(estSize>10000)estSize=Math.round(price/1200);
-        var fakeF={area:qs.area,building:qs.building||"",price:String(price),size:String(estSize),buaSize:"",beds:"2",propCategory:"apartment",txnType:"sale",floor:"15",view:"Not specified",furnished:"Unfurnished",condition:"Used"};
+        var fakeF={area:qs.area,building:qs.building||"",price:String(price),size:String(estSize),buaSize:"",beds:"2 BR",propCategory:"apartment",txnType:"sale",floor:"15",view:"Not specified",furnished:"Unfurnished",condition:"Used"};
         var result=computeValuation(fakeF);
         if(result){qs.result=result;}else{qs.result={error:true};}
       }
@@ -1408,7 +1408,7 @@ function renderAnalyzerResult(wrap){
       {l:"Auto-Calibration",v:val.calFactor!==1.0?"×"+val.calFactor.toFixed(2):"Pending",ok:val.calFactor!==1.0},
       {l:"Developer Furnished",v:val.isDevFurnished?"Yes — "+furnLabel:"No — "+furnLabel,ok:true},
       {l:"View Specified",v:analyzerState.f.view!=="Not specified"?analyzerState.f.view:"Not specified",ok:analyzerState.f.view!=="Not specified"},
-      {l:"Floor Specified",v:analyzerState.f.floor?"Floor "+analyzerState.f.floor:"Not provided",ok:!!analyzerState.f.floor||analyzerState.investorProfile==="villa"},
+      {l:"Floor Specified",v:analyzerState.f.floor?"Floor "+analyzerState.f.floor:"Not provided",ok:!!analyzerState.f.floor||analyzerState.f.propCategory==="villa"},
     ];
     const bWrap=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px 14px",marginTop:"12px"}});
     bWrap.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Confidence Factors"));
@@ -1868,7 +1868,7 @@ function renderAnalyzerResult(wrap){
     var IC=window.INV_CALC;
     var aData=AREAS[analyzerState.f.area]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
     var annualRent=val.rent||0;
-    var scTotal=val.sc*parseInt(analyzerState.f.size||analyzerState.f.buaSize||0)||0;
+    var scTotal=val.sc||0;
     var gr0=(aData.g&&aData.g[0])||10;
 
     var sec=el('div',{style:{background:cl.surface,border:'1px solid '+cl.goldDim,borderRadius:'14px',padding:'18px',marginTop:'14px'}});
@@ -2052,6 +2052,7 @@ function renderAnalyzerResult(wrap){
     dlBtn.textContent='📋 Download Investment Report';
     dlBtn.addEventListener('click',function(){
       var w=window.open('','_blank');
+      if(!w){alert("Please allow popups to download the report.");return;}
       var h='<html><head><title>Investment Report - DubaiVal</title><style>body{font-family:Arial,sans-serif;max-width:700px;margin:0 auto;padding:20px;color:#333}h1{color:#C9A84C;font-size:22px}h2{color:#555;font-size:16px;border-bottom:1px solid #ddd;padding-bottom:6px}table{width:100%;border-collapse:collapse;margin:10px 0}td,th{padding:6px 10px;border:1px solid #ddd;font-size:12px;text-align:left}th{background:#f5f5f5}.green{color:#22c55e}.red{color:#ef4444}.gold{color:#C9A84C}@media print{body{padding:0}}</style></head><body>';
       h+='<h1>📊 DubaiVal Investment Report</h1>';
       h+='<p><strong>Property:</strong> '+(analyzerState.f.building||'')+(analyzerState.f.building?' · ':'')+analyzerState.f.area+'</p>';
@@ -2251,8 +2252,8 @@ function renderAnalyzerResult(wrap){
         "- Verdict: "+val.verdict+"\n"+
         "- Gross Yield: "+val.grossYield+"%\n"+
         "- Net Yield: "+val.netYield+"%\n"+
-        "- Rent Estimate: AED "+val.rentLow.toLocaleString()+"–"+val.rentHigh.toLocaleString()+"/yr\n"+
-        "- Area Growth (1-3yr): "+((val.growth||[])[1]||"N/A")+"%\n"+
+        "- Rent Estimate: AED "+Math.round((val.rent||0)*0.88).toLocaleString()+"–"+Math.round((val.rent||0)*1.12).toLocaleString()+"/yr\n"+
+        "- Area Growth (1-3yr): "+(val.g1||"N/A")+"%\n"+
         "- Confidence: "+val.confScore+"/100\n\n"+
         "INSTRUCTIONS:\n"+
         "- Language: "+langNames[window._pitchLang]+"\n"+
@@ -2263,8 +2264,9 @@ function renderAnalyzerResult(wrap){
         "- Add relevant emojis sparingly.\n"+
         "- End with: 'Powered by DubAIVal.com — AI Property Intelligence'";
 
-      var resp=await callGroqRaw({messages:[{role:"user",content:prompt}],temperature:0.7,max_tokens:1200});
-      window._pitchText=(resp.choices&&resp.choices[0]&&resp.choices[0].message&&resp.choices[0].message.content)||"Error generating pitch.";
+      var resp=await callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:prompt}],temperature:0.7,max_tokens:1200});
+      var data=await resp.json();
+      window._pitchText=(data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content)||"Error generating pitch.";
     }catch(e){window._pitchText="Error: "+e.message;}
     window._pitchLoading=false;render();
   });

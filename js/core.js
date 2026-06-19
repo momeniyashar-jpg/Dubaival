@@ -113,7 +113,7 @@ function isRTL(){return dvLang==="ar";}
 // --- HELPERS -----------------------------------------------------------------
 function hexAlpha(c,a){if(c&&c.charAt(0)==="#"){var r=parseInt(c.slice(1,3),16),g=parseInt(c.slice(3,5),16),b=parseInt(c.slice(5,7),16);return"rgba("+r+","+g+","+b+","+a+")";}if(c&&c.indexOf("rgb(")===0)return c.replace("rgb(","rgba(").replace(")",","+a+")");return c||"rgba(255,255,255,0.05)";}
 
-var GREEN_AREAS={"Dubai Hills":90,"Dubai Creek Harbour":88,"Expo City":92,"Sustainable City":95,"Masdar City":95,"Town Square":80,"Tilal Al Ghaf":88,"The Valley":82,"Dubai South":78,"Emaar Beachfront":75,"Bluewaters":80,"MBR City":82,"DAMAC Hills":72,"Mudon":75,"Remraam":65};
+var GREEN_AREAS={"Dubai Hills Estate":90,"Dubai Creek Harbour":88,"Expo City":92,"Sustainable City":95,"Town Square":80,"Tilal Al Ghaf":88,"The Valley":82,"Dubai South":78,"Emaar Beachfront":75,"Bluewaters Island":80,"MBR City":82,"DAMAC Hills":72,"Mudon":75,"Remraam":65};
 function computeSustainabilityScore(building,area,bData,aData){
   var grade=bData?bData.g:"B";
   var ageScore=grade==="Ultra"||grade==="A+"?92:grade==="A"?85:grade==="A-"?75:grade==="B+"?65:grade==="B"?55:grade==="C"?35:50;
@@ -587,7 +587,7 @@ function renderNotifBell(){
       var item=el("div",{style:{display:"flex",gap:"10px",padding:"10px 14px",borderBottom:"1px solid "+cl.border,background:n.read?"transparent":"rgba(201,168,76,0.04)",cursor:"pointer",transition:"background 0.2s"}});
       item.addEventListener("mouseenter",function(){this.style.background="rgba(255,255,255,0.03)";});
       item.addEventListener("mouseleave",function(){this.style.background=n.read?"transparent":"rgba(201,168,76,0.04)";});
-      item.addEventListener("click",function(e){e.stopPropagation();n.read=true;try{localStorage.setItem("dv_notifications",JSON.stringify(DV_NOTIF.items));}catch(e){}if(n.tab){activeTab=n.tab;DV_NOTIF.showPanel=false;render();}});
+      item.addEventListener("click",function(e){e.stopPropagation();n.read=true;try{localStorage.setItem("dv_notifications",JSON.stringify(DV_NOTIF.items));}catch(e){}if(n.tab){currentTab=n.tab;DV_NOTIF.showPanel=false;render();}});
       item.appendChild(span({fontSize:"16px",flexShrink:"0"},n.icon));
       var right=el("div",{style:{flex:"1",minWidth:"0"}});
       right.appendChild(div({color:n.read?cl.sub:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.4",wordBreak:"break-word"},n.text));

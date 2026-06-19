@@ -316,7 +316,7 @@ function computeValuation(f,buildingVal,liveData){
   }else{
     furnP=f.furnished==="Furnished"?0.15:f.furnished==="Semi-Furnished"?0.07:0;
   }
-  const geoAdj=-0.06; // Regional discount Jun 2026 — reflected in prime area market data
+  const geoAdj=getAreaGeoAdj(f.area)||0;
   // Location Intelligence: metro/amenity proximity premium
   const geoScore=computeGeoScore(f.area);
   const locP=geoScore?geoScore.locationPremium:0;
@@ -331,7 +331,7 @@ function computeValuation(f,buildingVal,liveData){
   var distressFloor=areaSens==="high"?0.78:areaSens==="med"?0.82:0.85;
   var goodFloor=areaSens==="high"?0.90:areaSens==="med"?0.92:0.93;
   var overCeil=areaSens==="high"?1.10:areaSens==="med"?1.12:1.14;
-  distressPrice=Math.round(adjPSF*distressFloor*size);
+  const distressPrice=Math.round(adjPSF*distressFloor*size);
   const goodPrice=Math.round(adjPSF*goodFloor*size);
   const overpricedAt=Math.round(adjPSF*overCeil*size);
   const vsPct=((askPSF-adjPSF)/adjPSF)*100;
@@ -403,9 +403,9 @@ function computeRentalValuation(f){
   var bData=lookupBuilding(buildingVal,f.area);
   var aData=AREAS[f.area]||null;
   if(!aData)return null;
-  var askRent=parseInt((f.price||"").replace(/[^0-9]/g,""));
+  var askRent=parseInt(String(f.price||"").replace(/[^0-9]/g,""));
   if(!askRent||askRent<5000)return null;
-  var size=parseInt(f.size)||parseInt(f.buaSize)||0;
+  var size=parseFloat(String(f.size||f.buaSize||"").replace(/,/g,""))||0;
   var isVilla=f.propCategory==="villa";
   var bnMap={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5,"6 BR":6,"7 BR":7,"7+ BR":7};
   var bn=bnMap[f.beds]!=null?bnMap[f.beds]:2;

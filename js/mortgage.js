@@ -94,7 +94,7 @@ function renderMortgage(price, cl){
   slider.addEventListener("input",function(){M.dp=parseInt(this.value);render();});
   dpRow.appendChild(slider);
   const dpHint=el("div",{style:{display:"flex",justifyContent:"space-between"}});
-  dpHint.appendChild(span({color:cl.sub,fontSize:"8px",fontFamily:"'Space Grotesk',monospace"},"Min "+minDP+"% (Expat)"));
+  dpHint.appendChild(span({color:cl.sub,fontSize:"8px",fontFamily:"'Space Grotesk',monospace"},"Min "+minDP+"% ("+(M.nationality==="uae"?"UAE National":"Expat")+")"));
   dpHint.appendChild(span({color:cl.sub,fontSize:"8px",fontFamily:"'Space Grotesk',monospace"},"Loan: AED "+loanAmt.toLocaleString()));
   dpRow.appendChild(dpHint);
   wrap.appendChild(dpRow);

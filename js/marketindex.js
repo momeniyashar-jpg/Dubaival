@@ -15,9 +15,9 @@ function renderMarketIndex(){
 
   // Full Market Data CSV Export
   wrap.appendChild(el("div",{style:{textAlign:"center",marginBottom:"16px"}},[csvExportBtn("Download Full Market Data (CSV)",cl,function(){
-    var hdrs=["area_name","avg_psf","service_charge","studio_rent","1br_rent","2br_rent","3br_rent","yield_low","yield_high","growth_1y","growth_3y","growth_5y","dom","tx_volume"];
+    var hdrs=["area_name","avg_psf","service_charge","1br_rent","2br_rent","3br_rent","yield_low","yield_high","growth_1y","growth_3y","growth_5y","dom","tx_volume"];
     var rows=[];AREA_NAMES.forEach(function(n){var a=AREAS[n];if(!a)return;var y=a.y||[0,0];var g=a.g||[0,0,0];
-      rows.push([n,a.psf||0,a.sc||0,a.r1||0,a.r2||0,a.r3||0,a.rv2||0,y[0],y[1],g[0],g[1],g[2],a.dom||0,a.txVol||0]);});
+      rows.push([n,a.psf||0,a.sc||0,a.r1||0,a.r2||0,a.r3||0,y[0],y[1],g[0],g[1],g[2],a.dom||0,a.txVol||0]);});
     exportCSV("DubaiVal_Market_Data_"+csvDate()+".csv",hdrs,rows);
   })]));
 

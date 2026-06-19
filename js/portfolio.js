@@ -77,12 +77,13 @@ function computeAssetMetrics(asset){
   var bData=lookupBuilding(asset.building,asset.area);
   var basePSF=bData?bData.p:aData.psf;
   var vP=VIEW_P[asset.view]||0;
-  var floorN=parseInt(asset.floor)||20;
+  var floorN=parseInt(asset.floor)||0;
   var fP=floorN>10?(floorN-10)*0.005:0;
-  var furnP=asset.furnished==="Furnished"?0.15:asset.furnished==="Semi-Furnished"?0.07:0;
   var isV=asset.type==="Villa"||asset.type==="Townhouse";
-  var geoAdj=getAreaGeoAdj(asset.area);
-  var typeAdj=isV?MACRO_VARS.villaAdj:MACRO_VARS.aptAdj;
+  var isDevFurnished=!!(bData&&bData.df);
+  var furnP=isDevFurnished?(asset.furnished==="Unfurnished"?-0.10:asset.furnished==="Semi-Furnished"?-0.05:0):(asset.furnished==="Furnished"?0.15:asset.furnished==="Semi-Furnished"?0.07:0);
+  var geoAdj=getAreaGeoAdj(asset.area)||0;
+  var typeAdj=isV?(MACRO_VARS.villaAdj||0):(MACRO_VARS.aptAdj||0);
   var hedonicMult=(1+vP)*(1+fP)*(1+furnP)*(1+geoAdj+typeAdj);
   var adjPSF=Math.round(basePSF*hedonicMult);
   var size=parseInt(asset.size)||0;
@@ -379,7 +380,7 @@ function renderPortfolio(){
               var avgValPct=(lv.valLo+lv.valHi)/2*gradeMulti;
               var valAdd=Math.round(cv*avgValPct/100);
               var roi=Math.round(valAdd/avgCost*100);
-              if(roi>bestRoi){bestRoi=roi;bestLvl={name:lv.l,cost:avgCost,valAdd:valAdd,roi:roi,pct:avgValPct,payback:avgCost>0?Math.round(avgCost/(valAdd/12))+"mo":"—"};}
+              if(roi>bestRoi){bestRoi=roi;bestLvl={name:lv.l,cost:avgCost,valAdd:valAdd,roi:roi,pct:avgValPct,payback:(avgCost>0&&valAdd>0)?Math.round(avgCost/(valAdd/12))+"mo":"—"};}
             });
             if(bestLvl){
               var renoType=bestRoi>=200?"good":bestRoi>=120?"neutral":"warn";
@@ -504,7 +505,7 @@ function renderPortfolio(){
   var goalsGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px"});
   [{l:"Risk Appetite",k:"risk",opts:["Conservative","Moderate","Aggressive"]},{l:"Horizon",k:"horizon",opts:["1-2 years","3-5 years","5-10 years","10+ years"]},{l:"Target",k:"target",opts:["Capital Growth","Rental Income","Balanced","Quick Flip"]}].forEach(function(item){
     var g=div({});g.appendChild(lbl(item.l));
-    g.appendChild(mkSelect(Object.assign({},S(),{fontSize:"11.5px",padding:"8px 10px"}),item.opts,ps.goals[item.k],function(v){ps.goals[item.k]=v;localStorage.setItem("dubaival_portfolio_goals",JSON.stringify(ps.goals));portfolioChanged();ps.aiAnalysis="";render();}));
+    g.appendChild(mkSelect(Object.assign({},S(),{fontSize:"11.5px",padding:"8px 10px"}),item.opts,ps.goals[item.k],function(v){ps.goals[item.k]=v;try{localStorage.setItem("dubaival_portfolio_goals",JSON.stringify(ps.goals));}catch(e){}portfolioChanged();ps.aiAnalysis="";render();}));
     goalsGrid.appendChild(g);
   });
   goalsCard.appendChild(goalsGrid);
@@ -694,7 +695,7 @@ function renderPortfolio(){
       });
       details.appendChild(susRow);
 
-      details.appendChild(btn({background:cl.redBg,border:"1px solid "+cl.redBo,color:cl.red,padding:"8px 16px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",fontWeight:"600"},"Remove Asset",function(e){e.stopPropagation();ps.assets=ps.assets.filter(function(x){return x.id!==a.id;});localStorage.setItem("dubaival_portfolio",JSON.stringify(ps.assets));portfolioChanged();if(ps.expandedId===a.id)ps.expandedId=null;ps.aiAnalysis="";render();}));
+      details.appendChild(btn({background:cl.redBg,border:"1px solid "+cl.redBo,color:cl.red,padding:"8px 16px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",fontWeight:"600"},"Remove Asset",function(e){e.stopPropagation();ps.assets=ps.assets.filter(function(x){return x.id!==a.id;});try{localStorage.setItem("dubaival_portfolio",JSON.stringify(ps.assets));}catch(e){}portfolioChanged();if(ps.expandedId===a.id)ps.expandedId=null;ps.aiAnalysis="";render();}));
       card.appendChild(details);
     }
     wrap.appendChild(card);
@@ -798,7 +799,7 @@ function renderPortfolio(){
       if(!canAdd)return;
       var asset=Object.assign({},n,{id:Date.now().toString(36)});
       ps.assets.push(asset);
-      localStorage.setItem("dubaival_portfolio",JSON.stringify(ps.assets));portfolioChanged();
+      try{localStorage.setItem("dubaival_portfolio",JSON.stringify(ps.assets));}catch(e){}portfolioChanged();
       ps._new={building:"",area:"",type:"Apartment",beds:"2 BR",floor:"",view:"Not specified",size:"",purchasePrice:"",purchaseDate:"",furnished:"Unfurnished",serviceCharge:"",parking:"1"};
       ps.showAdd=false;ps.aiAnalysis="";render();
     }));

@@ -43,7 +43,7 @@ async function postDeal(){
     agent_email:f.agentEmail||null,rera_number:f.reraNumber||null,
     area:f.area,building:f.building||null,prop_type:f.propType,beds:f.beds||null,
     size_sqft:parseFloat(f.sizeSqft)||null,floor_num:f.floor||null,view_type:f.view||null,
-    furnished:f.furnished,purpose:f.purpose,price:parseFloat(f.price.replace(/,/g,""))||0,
+    furnished:f.furnished,purpose:f.purpose,price:parseFloat(String(f.price||"").replace(/,/g,""))||0,
     urgency:f.urgency,notes:f.notes||null,off_market:f.offMarket,contact_mode:f.contactMode||"whatsapp",
     title_deed_no:f.titleDeedNo||null,title_deed_img:f.titleDeedImg||null};
   if(f.type==="have"&&row.size_sqft&&row.price&&f.purpose!=="rent"){
@@ -73,7 +73,7 @@ async function postDeal(){
           try{await uploadDealMedia(created[0].id,DEAL_STATE.mediaPhotos,DEAL_STATE.videoUrl);}catch(e){console.warn("Media upload failed:",e);}
         }
         if(f.type==="need"&&f.requestReferral){
-          try{await createReferral(created[0].id,f.agentName,f.agentPhone,f.area,parseFloat(f.price.replace(/,/g,""))||null,f.propType);}catch(e){console.warn("Referral creation failed:",e);}
+          try{await createReferral(created[0].id,f.agentName,f.agentPhone,f.area,parseFloat(String(f.price||"").replace(/,/g,""))||null,f.propType);}catch(e){console.warn("Referral creation failed:",e);}
         }
       }
       DEAL_STATE.mediaPhotos=[];DEAL_STATE.videoUrl="";
@@ -226,7 +226,7 @@ async function sendInquiry(dealId){
       alert("Interest sent! The owner will review your request and share property media if approved.");}
     else{alert("Failed to send");}
   }catch(e){alert("Error: "+e.message);}
-  inq.sending=false;render();
+  DEAL_STATE.inquiry.sending=false;render();
 }
 
 async function registerAgent(formData){
@@ -286,18 +286,20 @@ async function updateReferralStatus(referralId,status,dealValue){
     var patch={status:status,updated_at:new Date().toISOString()};
     if(dealValue)patch.deal_value=dealValue;
     if(status==="closed"&&dealValue){patch.commission_earned=dealValue*0.02;}
-    await fetch(SUPABASE_URL+"/rest/v1/dv_referrals?id=eq."+referralId,{method:"PATCH",
+    var resp=await fetch(SUPABASE_URL+"/rest/v1/dv_referrals?id=eq."+referralId,{method:"PATCH",
       headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
       body:JSON.stringify(patch)});
+    if(!resp.ok){alert("Failed to update referral ("+resp.status+")");return;}
     fetchReferrals().then(function(){render();});
   }catch(e){alert("Failed: "+e.message);}
 }
 
 async function updateAgentSubscription(agentId,subscription){
   try{
-    await fetch(SUPABASE_URL+"/rest/v1/dv_agents?id=eq."+agentId,{method:"PATCH",
+    var resp=await fetch(SUPABASE_URL+"/rest/v1/dv_agents?id=eq."+agentId,{method:"PATCH",
       headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
       body:JSON.stringify({subscription:subscription,updated_at:new Date().toISOString()})});
+    if(!resp.ok){alert("Failed to update subscription ("+resp.status+")");return;}
     fetchAgents();
   }catch(e){alert("Failed: "+e.message);}
 }
@@ -325,9 +327,10 @@ async function postVideoAnalysis(data){
 }
 async function updateVideoStatus(videoId,status){
   try{
-    await fetch(SUPABASE_URL+"/rest/v1/agent_video_analyses?id=eq."+videoId,{method:"PATCH",
+    var resp=await fetch(SUPABASE_URL+"/rest/v1/agent_video_analyses?id=eq."+videoId,{method:"PATCH",
       headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
-      body:JSON.stringify({status:status})});
+      body:JSON.stringify({status:status}));
+    if(!resp.ok){alert("Failed to update video status ("+resp.status+")");return;}
     if(status==="approved"){
       var vids=await fetchVideoAnalyses("approved");
       var agentCounts={};
@@ -340,10 +343,14 @@ async function updateVideoStatus(videoId,status){
     }
   }catch(e){alert("Failed: "+e.message);}
 }
+var _approvedVidsCache=null;var _approvedVidsCacheTs=0;
 async function fetchDealVideoAnalyses(dealId){
   if(DEAL_STATE.videoViewDeal[dealId])return DEAL_STATE.videoViewDeal[dealId];
-  var vids=await fetchVideoAnalyses("approved");
-  var dealVids=vids.filter(function(v){return v.deal_id===dealId;});
+  if(!_approvedVidsCache||Date.now()-_approvedVidsCacheTs>300000){
+    _approvedVidsCache=await fetchVideoAnalyses("approved");
+    _approvedVidsCacheTs=Date.now();
+  }
+  var dealVids=_approvedVidsCache.filter(function(v){return v.deal_id===dealId;});
   if(dealVids.length)DEAL_STATE.videoViewDeal[dealId]=dealVids;
   return dealVids;
 }
@@ -355,7 +362,7 @@ async function fetchMyInquiries(){
     for(var i=0;i<myDeals.length;i++){dealIds.push(myDeals[i].id);}
   }
   var sentKeys=Object.keys(DEAL_STATE.sentInquiries);
-  for(var j=0;j<sentKeys.length;j++){var sid=parseInt(sentKeys[j]);if(dealIds.indexOf(sid)===-1)dealIds.push(sid);}
+  for(var j=0;j<sentKeys.length;j++){var sid=sentKeys[j];if(dealIds.indexOf(sid)===-1)dealIds.push(sid);}
   if(!dealIds.length)return;
   try{
     var resp=await fetch(SUPABASE_URL+"/rest/v1/deal_inquiries?deal_id=in.("+dealIds.join(",")+")&order=created_at.desc",
@@ -464,7 +471,6 @@ function renderDeals(){
   var haveCount=allDeals.filter(function(d){return d.type==="have";}).length;
   var needCount=allDeals.filter(function(d){return d.type==="need";}).length;
   var hotCount=allDeals.filter(function(d){return d.urgency==="hot";}).length;
-  var nowISO=new Date().toISOString();
   var expiringCount=allDeals.filter(function(d){if(!d.expires_at)return false;var ms=new Date(d.expires_at).getTime()-Date.now();return ms>0&&ms<3*86400000;}).length;
 
   // Row 1: core stats

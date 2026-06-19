@@ -1,9 +1,9 @@
 // Copyright (c) 2024-2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- API ---------------------------------------------------------------------
 var API_BASE=(location.hostname==="localhost"||location.hostname==="127.0.0.1")?"":"/api";
-const UAE_RE_KEY=localStorage.getItem("dv_rapidapi")||"";
+var UAE_RE_KEY="";try{UAE_RE_KEY=localStorage.getItem("dv_rapidapi")||"";}catch(e){}
 const UAE_RE_HOST="uae-real-estate2.p.rapidapi.com";
-const GROQ_KEY=localStorage.getItem("dv_groq")||"";
+var GROQ_KEY="";try{GROQ_KEY=localStorage.getItem("dv_groq")||"";}catch(e){}
 
 async function getUAELocationId(query){
   try{

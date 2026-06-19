@@ -281,7 +281,7 @@ function renderFind(){
         var areaName=r.area||"";
         analyzerState.f.building=name.toLowerCase();
         analyzerState.f.area=areaName;
-        analyzerState.f.beds=r.beds?(r.beds+" BR"):(FS.beds||"2 BR");
+        analyzerState.f.beds=r.beds===0?"Studio":r.beds?(r.beds+" BR"):(FS.beds||"2 BR");
         analyzerState.f.size=r.size?String(Math.round(r.size*10.764)):"";
         analyzerState.f.price=r.price?String(r.price):"";
         analyzerState.f.furnished=r.furnished||"Unfurnished";
@@ -774,7 +774,6 @@ function updateSearchSuggestions(query){
   var scored=[];
   Object.entries(DB).forEach(function(e){
     var key=e[0],val=e[1];
-    var key=e[0],val=e[1];
     var score=0;
     var keyWords=key.split(" ");
     if(key.startsWith(q))score=100;
@@ -910,8 +909,8 @@ function renderAdmin(){
     // Save to localStorage
     try{localStorage.setItem("dv_macro",JSON.stringify({aptAdj:MACRO_VARS.aptAdj,villaAdj:MACRO_VARS.villaAdj}));}catch(e){}
     // Save to Supabase
-    var label=(MACRO_VARS.aptAdj<-0.03?"Cautious":"MACRO_VARS.aptAdj"<0?"Stable":"Bullish")+" · "+new Date().toLocaleDateString("en-GB");
-    var ok=await saveSupabaseConfig(MACRO_VARS.aptAdj,MACRO_VARS.villaAdj,MACRO_VARS.label||"Market Update");
+    var label=(MACRO_VARS.aptAdj<-0.03?"Cautious":MACRO_VARS.aptAdj<0?"Stable":"Bullish")+" · "+new Date().toLocaleDateString("en-GB");
+    var ok=await saveSupabaseConfig(MACRO_VARS.aptAdj,MACRO_VARS.villaAdj,label);
     if(ok){
       saveBtn.textContent="✓ Saved to Cloud!";
       saveBtn.style.background="#10B981";
@@ -1126,7 +1125,7 @@ function render(){
 
   const content=div({className:"tab-content"});
   // Check URL for admin access
-  if(window.location.hash==="#admin"&&currentTab!=="Admin")currentTab="Admin";
+  if(!window._adminHashChecked&&window.location.hash==="#admin"&&currentTab!=="Admin"){currentTab="Admin";window._adminHashChecked=true;}
   
   if(currentTab==="Market")content.appendChild(renderMarket());
   else if(currentTab==="Index")content.appendChild(renderMarketIndex());
