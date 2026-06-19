@@ -1,6 +1,13 @@
 // Copyright (c) 2024-2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- LOOKUP -------------------------------------------------------------------
+function resolveDLDArea(area){
+  if(!area)return area;
+  if(typeof DLD_AREA_MAP!=="undefined"&&DLD_AREA_MAP[area])return DLD_AREA_MAP[area];
+  return area;
+}
+
 function lookupBuilding(name,areaHint){
+  areaHint=resolveDLDArea(areaHint);
   const filterByArea=function(results){
     if(!areaHint||!results||results.length===0)return results;
     const areaFiltered=results.filter(function(e){return !e[1].a||e[1].a===areaHint;});
@@ -199,6 +206,7 @@ function getConfidenceGuidance(val,f){
 
 // --- VALUATION ENGINE ---------------------------------------------------------
 function computeValuation(f,buildingVal,liveData){
+  f.area=resolveDLDArea(f.area);
   const bData=lookupBuilding(buildingVal||f.building||"",f.area);
   const staticArea=AREAS[f.area]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
   if(!AREAS[f.area])dvLog("no_area","computeValuation","Area not in AREAS: "+f.area+" — using generic defaults");
@@ -399,6 +407,7 @@ function computeValuation(f,buildingVal,liveData){
 }
 
 function computeRentalValuation(f){
+  f.area=resolveDLDArea(f.area);
   var buildingVal=(f.building||"").toLowerCase().trim();
   var bData=lookupBuilding(buildingVal,f.area);
   var aData=AREAS[f.area]||null;
