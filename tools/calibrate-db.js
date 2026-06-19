@@ -2,9 +2,10 @@
 /**
  * DubaiVal DB Calibrator
  * Reads DLD transaction Excel file, calculates real PSF per building/area,
- * outputs a small JSON file for DB calibration.
+ * outputs a small JSON file for DB calibration + new building discovery.
  *
  * Covers ALL property types: Residential, Commercial, Land
+ * Compares against existing DB to flag NEW buildings for coverage expansion.
  *
  * Usage:
  *   npm install exceljs
@@ -16,6 +17,29 @@
 const ExcelJS = require('exceljs');
 const fs = require('fs');
 const path = require('path');
+
+// --- Load existing DB keys from js/data.js ---
+let existingDB = {};
+let existingAreas = {};
+try {
+  const dataPath = path.join(__dirname, '..', 'js', 'data.js');
+  const dataContent = fs.readFileSync(dataPath, 'utf8');
+  const dbMatch = dataContent.match(/var DB\s*=\s*(\{[\s\S]*?\});/);
+  if (dbMatch) {
+    existingDB = JSON.parse(dbMatch[1]);
+    console.log('Loaded existing DB:', Object.keys(existingDB).length, 'buildings');
+  } else {
+    console.warn('WARNING: Could not parse DB from js/data.js — all buildings will show as "new"');
+  }
+  const areasMatch = dataContent.match(/const AREAS\s*=\s*(\{[\s\S]*?\});/);
+  if (areasMatch) {
+    existingAreas = JSON.parse(areasMatch[1]);
+    console.log('Loaded existing AREAS:', Object.keys(existingAreas).length, 'areas');
+  }
+} catch (e) {
+  console.warn('WARNING: Could not load js/data.js:', e.message);
+  console.warn('All buildings will be marked as "new"');
+}
 
 const inputFile = process.argv[2];
 if (!inputFile) {
@@ -238,9 +262,12 @@ async function run() {
   Object.entries(transStats).sort((a,b) => b[1]-a[1]).forEach(([k,v]) => console.log('  '+k+': '+v.toLocaleString()));
 
   // --- Build output ---
+  console.log('\n--- Building Discovery ---');
   const output = {
     generated: new Date().toISOString(),
     source: path.basename(inputFile),
+    existingDBSize: Object.keys(existingDB).length,
+    existingAreasSize: Object.keys(existingAreas).length,
     stats: {
       totalRows, salesRows, rentRows,
       usageTypes: usageStats,
@@ -251,32 +278,93 @@ async function run() {
     land: processCategory(data.land, 'land'),
   };
 
+  // Discovery summary
+  let totalNew = 0, totalExisting = 0, totalNewAreas = 0;
+  const newByArea = {};
+  ['residential', 'commercial', 'land'].forEach(cat => {
+    Object.entries(output[cat].buildings).forEach(([k, v]) => {
+      if (v.isNew) {
+        totalNew++;
+        const area = v.a || 'Unknown';
+        if (!newByArea[area]) newByArea[area] = [];
+        newByArea[area].push({ key: k, name: v.name, psf: v.p, n: v.n, cat: cat });
+      } else {
+        totalExisting++;
+      }
+    });
+    Object.values(output[cat].areas).forEach(v => { if (v.isNew) totalNewAreas++; });
+  });
+
+  output.discovery = {
+    existingBuildings: totalExisting,
+    newBuildings: totalNew,
+    newAreas: totalNewAreas,
+    newBuildingsByArea: Object.fromEntries(
+      Object.entries(newByArea)
+        .sort((a, b) => b[1].length - a[1].length)
+        .map(([area, bldgs]) => [area, bldgs.length])
+    ),
+  };
+
   const outPath = path.join(__dirname, 'calibration-output.json');
   fs.writeFileSync(outPath, JSON.stringify(output, null, 2));
   console.log('\nOutput written to:', outPath);
   console.log('File size:', (fs.statSync(outPath).size / 1024).toFixed(0), 'KB');
 
   // Print summaries
+  console.log('\n========== DISCOVERY SUMMARY ==========');
+  console.log('Existing DB buildings:', Object.keys(existingDB).length);
+  console.log('DLD buildings matched to DB:', totalExisting);
+  console.log('NEW buildings from DLD:', totalNew);
+  console.log('NEW areas from DLD:', totalNewAreas);
+  console.log('\nTop 30 areas by NEW building count:');
+  Object.entries(newByArea)
+    .sort((a, b) => b[1].length - a[1].length)
+    .slice(0, 30)
+    .forEach(([area, bldgs]) => {
+      console.log('  ' + area + ': +' + bldgs.length + ' new (' + bldgs.slice(0,3).map(b => b.name).join(', ') + (bldgs.length > 3 ? '...' : '') + ')');
+    });
+
   ['residential', 'commercial', 'land'].forEach(cat => {
     const c = output[cat];
     console.log('\n=== ' + cat.toUpperCase() + ' ===');
     console.log('Buildings:', Object.keys(c.buildings).length, '| Areas:', Object.keys(c.areas).length);
 
-    console.log('Top 15 Buildings:');
+    console.log('Top 15 Buildings (by txn count):');
     Object.entries(c.buildings).sort((a,b) => b[1].n - a[1].n).slice(0,15).forEach(([k,v]) => {
-      console.log('  ' + v.name + ' (' + v.a + '): PSF ' + v.p + ' [' + v.lo + '-' + v.hi + '] — ' + v.n + ' txns, avg price AED ' + v.avgPrice.toLocaleString());
+      const tag = v.isNew ? ' [NEW]' : ' [drift: ' + (v.drift > 0 ? '+' : '') + v.drift + '%]';
+      console.log('  ' + v.name + ' (' + v.a + '): PSF ' + v.p + ' [' + v.lo + '-' + v.hi + '] — ' + v.n + ' txns' + tag);
     });
+
+    const newInCat = Object.entries(c.buildings).filter(([,v]) => v.isNew).sort((a,b) => b[1].n - a[1].n);
+    if (newInCat.length > 0) {
+      console.log('Top 15 NEW Buildings:');
+      newInCat.slice(0, 15).forEach(([k, v]) => {
+        console.log('  ' + v.name + ' (' + v.a + '): PSF ' + v.p + ' — ' + v.n + ' txns, avg AED ' + v.avgPrice.toLocaleString());
+      });
+    }
+
+    // Biggest drift (existing buildings where DLD price differs most)
+    const driftList = Object.entries(c.buildings).filter(([,v]) => !v.isNew && v.drift !== undefined).sort((a,b) => Math.abs(b[1].drift) - Math.abs(a[1].drift));
+    if (driftList.length > 0) {
+      console.log('Top 10 Biggest PSF Drift (need calibration):');
+      driftList.slice(0, 10).forEach(([k, v]) => {
+        console.log('  ' + v.name + ': DB=' + v.oldP + ' → DLD=' + v.p + ' (' + (v.drift > 0 ? '+' : '') + v.drift + '%) — ' + v.n + ' txns');
+      });
+    }
 
     console.log('Top 15 Areas:');
     Object.entries(c.areas).sort((a,b) => b[1].n - a[1].n).slice(0,15).forEach(([k,v]) => {
-      const rentStr = Object.entries(v).filter(([rk]) => rk.startsWith('r') && !rk.endsWith('_n') && rk !== 'n').map(([rk,rv]) => rk+':'+rv.toLocaleString()).join(', ');
-      console.log('  ' + k + ': PSF ' + v.psf + ' (' + v.n + ' sales) — Rents: ' + (rentStr || 'none'));
+      const aTag = v.isNew ? ' [NEW]' : (v.drift !== undefined ? ' [drift: ' + (v.drift > 0 ? '+' : '') + v.drift + '%]' : '');
+      const rentStr = Object.entries(v).filter(([rk]) => rk.startsWith('r_') && !rk.endsWith('_n')).map(([rk,rv]) => rk.replace('r_','')+':'+rv.toLocaleString()).join(', ');
+      console.log('  ' + k + ': PSF ' + v.psf + ' (' + v.n + ' sales)' + aTag + ' — Rents: ' + (rentStr || 'none'));
     });
   });
 }
 
 function processCategory(store, category) {
   const buildingOutput = {};
+  let existingCount = 0, newCount = 0;
   for (const [key, b] of Object.entries(store.buildings)) {
     if (b.psfs.length < 2) continue;
     const sorted = b.psfs.slice().sort((a, c) => a - c);
@@ -287,6 +375,9 @@ function processCategory(store, category) {
     const priceSorted = b.prices.slice().sort((a,c) => a-c);
     const sizeSorted = b.sizes.slice().sort((a,c) => a-c);
 
+    const isExisting = !!existingDB[key];
+    if (isExisting) existingCount++; else newCount++;
+
     buildingOutput[key] = {
       name: b.name,
       a: b.area,
@@ -296,10 +387,20 @@ function processCategory(store, category) {
       n: sorted.length,
       avgPrice: Math.round(median(priceSorted)),
       avgSize: Math.round(median(sizeSorted)),
+      isNew: !isExisting,
+      category: category,
+      propType: b.propType || '',
+      subType: b.subType || '',
     };
 
-    // Room-level PSF breakdown (residential only)
-    if (category === 'residential') {
+    if (isExisting) {
+      const old = existingDB[key];
+      buildingOutput[key].oldP = old.p;
+      buildingOutput[key].drift = Math.round(((p - old.p) / old.p) * 100);
+    }
+
+    // Room-level PSF breakdown (residential & commercial)
+    if (category !== 'land') {
       const roomBreakdown = {};
       for (const [room, psfs] of Object.entries(b.rooms)) {
         if (psfs.length < 2) continue;
@@ -310,16 +411,28 @@ function processCategory(store, category) {
     }
   }
 
+  console.log('  ' + category + ': ' + existingCount + ' existing, ' + newCount + ' NEW buildings from DLD');
+
   const areaOutput = {};
+  let existingAreaCount = 0, newAreaCount = 0;
   for (const [key, a] of Object.entries(store.areas)) {
     if (a.psfs.length < 3) continue;
     const sorted = a.psfs.slice().sort((x, y) => x - y);
+    const isExistingArea = !!existingAreas[key];
+    if (isExistingArea) existingAreaCount++; else newAreaCount++;
+
     const entry = {
       psf: Math.round(median(sorted)),
       n: sorted.length,
       avgPrice: Math.round(median(a.prices.slice().sort((x,y) => x-y))),
       avgSize: Math.round(median(a.sizes.slice().sort((x,y) => x-y))),
+      isNew: !isExistingArea,
     };
+
+    if (isExistingArea) {
+      entry.oldPsf = existingAreas[key].psf;
+      entry.drift = Math.round(((entry.psf - existingAreas[key].psf) / existingAreas[key].psf) * 100);
+    }
 
     for (const [room, rents] of Object.entries(a.rents)) {
       if (rents.length < 2) continue;
@@ -329,6 +442,8 @@ function processCategory(store, category) {
     }
     areaOutput[key] = entry;
   }
+
+  console.log('  ' + category + ': ' + existingAreaCount + ' existing, ' + newAreaCount + ' NEW areas from DLD');
 
   return { buildings: buildingOutput, areas: areaOutput };
 }
