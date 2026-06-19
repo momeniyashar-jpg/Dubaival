@@ -51,6 +51,123 @@ function lookupBuilding(name,areaHint){
   return null;
 }
 
+function lookupCommercial(name,areaHint){
+  if(typeof DB_COM==="undefined"||!name||name.length<2)return null;
+  areaHint=resolveDLDArea(areaHint);
+  var k=name.toLowerCase().trim();
+  if(DB_COM[k])return DB_COM[k];
+  var norm=k.replace(/\btower\s+([0-9]+)/g,"t$1");
+  if(DB_COM[norm])return DB_COM[norm];
+  if(k.length>6){
+    var hit=Object.entries(DB_COM).find(function(e){return e[0].startsWith(k)||k.startsWith(e[0]);});
+    if(hit)return hit[1];
+  }
+  var all=Object.entries(DB_COM).filter(function(e){return k.includes(e[0])||e[0].includes(k);});
+  if(all.length>0){
+    if(areaHint){var am=all.filter(function(e){return e[1].a===areaHint;});if(am.length)all=am;}
+    return all.sort(function(a,b){return b[0].length-a[0].length;})[0][1];
+  }
+  return null;
+}
+
+function lookupLand(name,areaHint){
+  if(typeof DB_LAND==="undefined"||!name||name.length<2)return null;
+  areaHint=resolveDLDArea(areaHint);
+  var k=name.toLowerCase().trim();
+  if(DB_LAND[k])return DB_LAND[k];
+  if(k.length>6){
+    var hit=Object.entries(DB_LAND).find(function(e){return e[0].startsWith(k)||k.startsWith(e[0]);});
+    if(hit)return hit[1];
+  }
+  var all=Object.entries(DB_LAND).filter(function(e){return k.includes(e[0])||e[0].includes(k);});
+  if(all.length>0){
+    if(areaHint){var am=all.filter(function(e){return e[1].a===areaHint;});if(am.length)all=am;}
+    return all.sort(function(a,b){return b[0].length-a[0].length;})[0][1];
+  }
+  return null;
+}
+
+function computeCommercialValuation(f){
+  f.area=resolveDLDArea(f.area);
+  var bData=lookupCommercial(f.building||"",f.area);
+  var aData=(typeof AREAS_COM!=="undefined"?AREAS_COM[f.area]:null)||null;
+  var size=parseFloat((f.buaSize||f.size||"").toString().replace(/,/g,""))||0;
+  var price=parseFloat((f.price||"").toString().replace(/,/g,""))||0;
+  var askPSF=size>0&&price>0?Math.round(price/size):0;
+  if(!askPSF||!f.area)return null;
+  var basePSF,psfLo,psfHi,dataSource,confScore;
+  if(bData){
+    basePSF=bData.p;psfLo=bData.lo;psfHi=bData.hi;
+    dataSource=(f.building||"")+" · Commercial DB";confScore=82;
+  }else if(aData){
+    basePSF=aData.psf;psfLo=Math.round(basePSF*0.80);psfHi=Math.round(basePSF*1.20);
+    dataSource="Commercial area benchmark · "+f.area;confScore=65;
+  }else{
+    var resArea=AREAS[f.area];
+    if(resArea){basePSF=Math.round(resArea.psf*0.75);psfLo=Math.round(basePSF*0.75);psfHi=Math.round(basePSF*1.25);}
+    else{basePSF=1000;psfLo=750;psfHi=1250;}
+    dataSource="Estimated from residential · "+f.area;confScore=50;
+  }
+  var adjPSF=basePSF;
+  var subType=(f.subType||"office").toLowerCase();
+  if(subType==="retail"||subType==="shop")adjPSF=Math.round(adjPSF*1.15);
+  else if(subType==="warehouse")adjPSF=Math.round(adjPSF*0.60);
+  var fairPrice=Math.round(adjPSF*size);
+  var deviation=Math.round((askPSF-adjPSF)/adjPSF*100);
+  var verdict=deviation<=-15?"UNDERVALUED":deviation<=-5?"BELOW_MARKET":deviation<=5?"FAIR_VALUE":deviation<=15?"ABOVE_MARKET":"OVERPRICED";
+  var grossYield=aData?Math.round(aData.psf>0?(aData.avgP>0?800/aData.psf:7):7):7;
+  if(grossYield<4)grossYield=4;if(grossYield>12)grossYield=12;
+  var netYield=Math.round((grossYield-1.5)*10)/10;
+  return{
+    askPSF:askPSF,adjPSF:adjPSF,psfLo:psfLo,psfHi:psfHi,
+    fairPrice:fairPrice,deviation:deviation,verdict:verdict,
+    grossYield:grossYield,netYield:netYield,
+    confScore:confScore,dataSource:dataSource,
+    inDB:!!bData,propType:"commercial",subType:subType,
+    areaAvgPrice:aData?aData.avgP:null,areaAvgSize:aData?aData.avgSz:null,
+    areaTxns:aData?aData.n:null
+  };
+}
+
+function computeLandValuation(f){
+  f.area=resolveDLDArea(f.area);
+  var bData=lookupLand(f.building||f.project||"",f.area);
+  var aData=(typeof AREAS_LAND!=="undefined"?AREAS_LAND[f.area]:null)||null;
+  var size=parseFloat((f.plotSize||f.size||"").toString().replace(/,/g,""))||0;
+  var price=parseFloat((f.price||"").toString().replace(/,/g,""))||0;
+  var askPSF=size>0&&price>0?Math.round(price/size):0;
+  if(!askPSF||!f.area)return null;
+  var basePSF,psfLo,psfHi,dataSource,confScore;
+  if(bData){
+    basePSF=bData.p;psfLo=bData.lo;psfHi=bData.hi;
+    dataSource=(f.building||f.project||"")+" · Land DB";confScore=80;
+  }else if(aData){
+    basePSF=aData.psf;psfLo=Math.round(basePSF*0.75);psfHi=Math.round(basePSF*1.25);
+    dataSource="Land area benchmark · "+f.area;confScore=62;
+  }else{
+    basePSF=500;psfLo=350;psfHi=650;
+    dataSource="Generic land estimate";confScore=40;
+  }
+  var adjPSF=basePSF;
+  var zoning=(f.zoning||"residential").toLowerCase();
+  if(zoning==="commercial")adjPSF=Math.round(adjPSF*1.3);
+  else if(zoning==="mixed")adjPSF=Math.round(adjPSF*1.15);
+  else if(zoning==="industrial")adjPSF=Math.round(adjPSF*0.5);
+  var fairPrice=Math.round(adjPSF*size);
+  var deviation=Math.round((askPSF-adjPSF)/adjPSF*100);
+  var verdict=deviation<=-15?"UNDERVALUED":deviation<=-5?"BELOW_MARKET":deviation<=5?"FAIR_VALUE":deviation<=15?"ABOVE_MARKET":"OVERPRICED";
+  var devPotential=zoning==="residential"?Math.round(adjPSF*3.5):zoning==="commercial"?Math.round(adjPSF*4):Math.round(adjPSF*2.5);
+  return{
+    askPSF:askPSF,adjPSF:adjPSF,psfLo:psfLo,psfHi:psfHi,
+    fairPrice:fairPrice,deviation:deviation,verdict:verdict,
+    confScore:confScore,dataSource:dataSource,
+    inDB:!!bData,propType:"land",zoning:zoning,
+    devPotentialPSF:devPotential,devPotentialTotal:Math.round(devPotential*size),
+    areaAvgPrice:aData?aData.avgP:null,areaAvgSize:aData?aData.avgSz:null,
+    areaTxns:aData?aData.n:null
+  };
+}
+
 // --- STATISTICAL AVM ENGINE ---------------------------------------------------
 // Phase 3: Comparable Sales Method + Auto-Calibration
 var DYNAMIC_BENCHMARKS={};

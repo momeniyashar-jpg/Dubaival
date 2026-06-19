@@ -133,8 +133,22 @@ function renderMarket(){
     });
     dSec.appendChild(r4);
 
+    // Row 5: Commercial & Land Snapshot
+    var comCnt=typeof DB_COM!=="undefined"?Object.keys(DB_COM).length:0;
+    var landCnt=typeof DB_LAND!=="undefined"?Object.keys(DB_LAND).length:0;
+    var comAreaCnt=typeof AREAS_COM!=="undefined"?Object.keys(AREAS_COM).length:0;
+    var landAreaCnt=typeof AREAS_LAND!=="undefined"?Object.keys(AREAS_LAND).length:0;
+    var r5=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:'8px',marginBottom:'12px'}});
+    [{l:'Commercial Properties',v:String(comCnt),c:'#3B82F6'},{l:'Commercial Areas',v:String(comAreaCnt),c:'#3B82F6'},{l:'Land Plots',v:String(landCnt),c:'#10B981'},{l:'Land Areas',v:String(landAreaCnt),c:'#10B981'}].forEach(function(s){
+      var card=el('div',{style:{background:s.c==='#3B82F6'?'rgba(59,130,246,0.04)':'rgba(16,185,129,0.04)',border:'1px solid '+(s.c==='#3B82F6'?'rgba(59,130,246,0.15)':'rgba(16,185,129,0.15)'),borderRadius:'10px',padding:'10px 8px',textAlign:'center'}});
+      card.appendChild(div({color:cl.sub,fontSize:'7.5px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'4px'},s.l));
+      card.appendChild(el('div',{style:{color:s.c,fontSize:'14px',fontWeight:'800',fontFamily:"'Space Grotesk',monospace"}},s.v));
+      r5.appendChild(card);
+    });
+    dSec.appendChild(r5);
+
     // Footer
-    dSec.appendChild(div({color:cl.sub,fontSize:'8px',fontFamily:"'Inter',sans-serif",textAlign:'center',opacity:'0.6'},'Data from '+bCnt.toLocaleString()+' buildings across '+aCnt+' areas · Updated daily · Powered by DubaiVal AI'));
+    dSec.appendChild(div({color:cl.sub,fontSize:'8px',fontFamily:"'Inter',sans-serif",textAlign:'center',opacity:'0.6'},'Data from '+bCnt.toLocaleString()+' residential + '+comCnt+' commercial + '+landCnt+' land across '+aCnt+'+ areas · Updated daily · Powered by DubaiVal AI'));
     wrap.appendChild(dSec);
   })();
 
@@ -767,6 +781,12 @@ function renderAnalyzer(){
   if(analyzerState.stage===2&&analyzerState.f.txnType==="rent"&&analyzerState.rentalVal){
     return renderRentalResult(wrap);
   }
+  if(analyzerState.stage===2&&analyzerState.comVal){
+    return renderCommercialResult(wrap);
+  }
+  if(analyzerState.stage===2&&analyzerState.landVal){
+    return renderLandResult(wrap);
+  }
   if(analyzerState.stage===2&&analyzerState.val){
     return renderAnalyzerResult(wrap);
   }
@@ -915,8 +935,22 @@ function renderAnalyzer(){
     wrap.appendChild(selectedBar);
   }
 
-  // -- SALE / RENT TOGGLE --
+  // -- SECTOR TOGGLE (Residential / Commercial / Land) --
   if(f.building&&f.propCategory){
+    var secRow=el("div",{style:{display:"flex",gap:"0",marginBottom:"10px",background:cl.raised,borderRadius:"10px",overflow:"hidden",border:"1px solid "+cl.border}});
+    [["residential","RESIDENTIAL","#C9A84C"],["commercial","COMMERCIAL","#3B82F6"],["land","LAND","#10B981"]].forEach(function(s){
+      var mode=s[0],label=s[1],color=s[2];
+      var active=(f.sector||"residential")===mode;
+      var btn=el("button",{style:{flex:"1",padding:"10px 6px",border:"none",background:active?"linear-gradient(135deg,"+color+","+color+"99)":"transparent",color:active?"#fff":cl.sub,fontSize:"11px",fontWeight:active?"800":"600",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.08em",transition:"all 0.2s"}});
+      btn.textContent=label;
+      btn.addEventListener("click",function(){analyzerState.f.sector=mode;analyzerState.f.price="";analyzerState.f.size="";analyzerState.f.buaSize="";analyzerState.f.plotSize="";analyzerState.val=null;analyzerState.rentalVal=null;analyzerState.comVal=null;analyzerState.landVal=null;analyzerState.stage=0;render();});
+      secRow.appendChild(btn);
+    });
+    wrap.appendChild(secRow);
+  }
+
+  // -- SALE / RENT TOGGLE --
+  if(f.building&&f.propCategory&&(f.sector||"residential")==="residential"){
     var txnRow=el("div",{style:{display:"flex",gap:"0",marginBottom:"16px",background:cl.raised,borderRadius:"10px",overflow:"hidden",border:"1px solid "+cl.border}});
     ["sale","rent"].forEach(function(mode){
       var active=f.txnType===mode;
@@ -952,6 +986,89 @@ function renderAnalyzer(){
     });
     chipWrap.appendChild(chips);
     wrap.appendChild(chipWrap);
+    return wrap;
+  }
+
+  // -- COMMERCIAL FORM --
+  if((f.sector||"residential")==="commercial"&&f.building&&f.propCategory){
+    var comCard=el("div",{style:{background:cl.surface,border:"1px solid rgba(59,130,246,0.3)",borderRadius:"14px",padding:"20px"}});
+    comCard.appendChild(div({color:"#3B82F6",fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"14px"},"COMMERCIAL PROPERTY ANALYSIS"));
+    var stRow=el("div",{style:{marginBottom:"14px"}});
+    stRow.appendChild(lbl("Property Sub-Type"));
+    var stGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"5px"}});
+    ["Office","Retail","Warehouse","Shop"].forEach(function(st){
+      var active=(f.subType||"Office")===st;
+      var b=el("button",{style:{padding:"8px 4px",borderRadius:"8px",fontSize:"11px",border:"1px solid "+(active?"#3B82F6":cl.border),background:active?"rgba(59,130,246,0.1)":"transparent",color:active?"#93C5FD":cl.sub,fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+      b.textContent=st;b.addEventListener("click",function(){analyzerState.f.subType=st;render();});
+      stGrid.appendChild(b);
+    });
+    stRow.appendChild(stGrid);comCard.appendChild(stRow);
+    var cspRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"}});
+    var cszBox=el("div",{});cszBox.appendChild(lbl("Size (sqft) *"));cszBox.appendChild(inp(I(),"e.g. 1200","number",f.size,function(v){analyzerState.f.size=v;}));cspRow.appendChild(cszBox);
+    var cprBox=el("div",{});cprBox.appendChild(lbl("Asking Price (AED) *"));cprBox.appendChild(inp(I(),"e.g. 1,500,000","number",f.price,function(v){analyzerState.f.price=v;}));cspRow.appendChild(cprBox);
+    comCard.appendChild(cspRow);
+    if(f.size&&f.price){
+      var cpsf=Math.round(parseInt(f.price)/parseInt(f.size));
+      comCard.appendChild(div({background:"rgba(59,130,246,0.05)",border:"1px solid rgba(59,130,246,0.2)",borderRadius:"8px",padding:"10px 14px",display:"flex",justifyContent:"space-between",marginBottom:"12px"},[
+        span({color:cl.sub,fontSize:"12px",fontFamily:"'Space Grotesk',monospace"},"Implied PSF"),
+        span({color:"#3B82F6",fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+cpsf.toLocaleString()),
+      ]));
+    }
+    var comSubmit=el("button",{style:{marginTop:"10px",width:"100%",padding:"14px",borderRadius:"10px",border:"none",background:"linear-gradient(135deg,#3B82F6,#1D4ED8)",color:"#fff",fontSize:"14px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+    comSubmit.textContent="ANALYZE COMMERCIAL DEAL ->";
+    comSubmit.addEventListener("click",function(){
+      analyzerState.stage=1;render();
+      setTimeout(function(){
+        try{analyzerState.comVal=computeCommercialValuation(analyzerState.f);}catch(e){analyzerState.err="Commercial valuation error: "+e.message;analyzerState.stage=0;render();return;}
+        if(!analyzerState.comVal){analyzerState.err="Could not compute commercial valuation";analyzerState.stage=0;render();return;}
+        analyzerState.stage=2;render();
+      },50);
+    });
+    comCard.appendChild(comSubmit);
+    if(analyzerState.err)comCard.appendChild(div({color:"#EF4444",fontSize:"11px",marginTop:"8px",fontFamily:"'Space Grotesk',monospace"},analyzerState.err));
+    wrap.appendChild(comCard);
+    return wrap;
+  }
+
+  // -- LAND FORM --
+  if((f.sector||"residential")==="land"&&f.building&&f.propCategory){
+    var landCard=el("div",{style:{background:cl.surface,border:"1px solid rgba(16,185,129,0.3)",borderRadius:"14px",padding:"20px"}});
+    landCard.appendChild(div({color:"#10B981",fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"14px"},"LAND / PLOT ANALYSIS"));
+    var zRow=el("div",{style:{marginBottom:"14px"}});
+    zRow.appendChild(lbl("Zoning"));
+    var zGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"5px"}});
+    ["Residential","Commercial","Mixed Use","Industrial"].forEach(function(z){
+      var zVal=z.toLowerCase().replace(" use","");
+      var active=(f.zoning||"residential")===zVal;
+      var b=el("button",{style:{padding:"8px 4px",borderRadius:"8px",fontSize:"11px",border:"1px solid "+(active?"#10B981":cl.border),background:active?"rgba(16,185,129,0.1)":"transparent",color:active?"#6EE7B7":cl.sub,fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+      b.textContent=z;b.addEventListener("click",function(){analyzerState.f.zoning=zVal;render();});
+      zGrid.appendChild(b);
+    });
+    zRow.appendChild(zGrid);landCard.appendChild(zRow);
+    var lspRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"}});
+    var lszBox=el("div",{});lszBox.appendChild(lbl("Plot Size (sqft) *"));lszBox.appendChild(inp(I(),"e.g. 5000","number",f.plotSize||f.size,function(v){analyzerState.f.plotSize=v;analyzerState.f.size=v;}));lspRow.appendChild(lszBox);
+    var lprBox=el("div",{});lprBox.appendChild(lbl("Asking Price (AED) *"));lprBox.appendChild(inp(I(),"e.g. 3,000,000","number",f.price,function(v){analyzerState.f.price=v;}));lspRow.appendChild(lprBox);
+    landCard.appendChild(lspRow);
+    if((f.plotSize||f.size)&&f.price){
+      var lpsf=Math.round(parseInt(f.price)/parseInt(f.plotSize||f.size));
+      landCard.appendChild(div({background:"rgba(16,185,129,0.05)",border:"1px solid rgba(16,185,129,0.2)",borderRadius:"8px",padding:"10px 14px",display:"flex",justifyContent:"space-between",marginBottom:"12px"},[
+        span({color:cl.sub,fontSize:"12px",fontFamily:"'Space Grotesk',monospace"},"Implied PSF"),
+        span({color:"#10B981",fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+lpsf.toLocaleString()),
+      ]));
+    }
+    var landSubmit=el("button",{style:{marginTop:"10px",width:"100%",padding:"14px",borderRadius:"10px",border:"none",background:"linear-gradient(135deg,#10B981,#059669)",color:"#fff",fontSize:"14px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+    landSubmit.textContent="ANALYZE LAND DEAL ->";
+    landSubmit.addEventListener("click",function(){
+      analyzerState.stage=1;render();
+      setTimeout(function(){
+        try{analyzerState.landVal=computeLandValuation(analyzerState.f);}catch(e){analyzerState.err="Land valuation error: "+e.message;analyzerState.stage=0;render();return;}
+        if(!analyzerState.landVal){analyzerState.err="Could not compute land valuation";analyzerState.stage=0;render();return;}
+        analyzerState.stage=2;render();
+      },50);
+    });
+    landCard.appendChild(landSubmit);
+    if(analyzerState.err)landCard.appendChild(div({color:"#EF4444",fontSize:"11px",marginTop:"8px",fontFamily:"'Space Grotesk',monospace"},analyzerState.err));
+    wrap.appendChild(landCard);
     return wrap;
   }
 
@@ -1231,6 +1348,114 @@ function renderAnalyzer(){
 }
 
 
+function renderCommercialResult(wrap){
+  var cl=C();var v=analyzerState.comVal;var f=analyzerState.f;
+  window.scrollTo({top:0,behavior:"smooth"});
+  var accent="#3B82F6";
+  wrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"16px"},[
+    div({},[
+      span({color:accent,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block"},"COMMERCIAL ANALYSIS COMPLETE"),
+      span({color:cl.subHi,fontSize:"13px",fontFamily:"'Inter',sans-serif"},(f.building?f.building+" · ":"")+(v.subType||"Office").toUpperCase()+" · "+f.area),
+    ]),
+    el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 14px",borderRadius:"8px",cursor:"pointer",fontSize:"12px"},onclick:function(){analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"sale",sector:"commercial",subType:"",zoning:""},val:null,rentalVal:null,comVal:null,landVal:null,aiText:"",liveData:null,err:""};render();}},"← New"),
+  ]));
+  var vcfg={UNDERVALUED:{bg:"linear-gradient(135deg,rgba(34,197,94,0.08),transparent)",bo:"rgba(34,197,94,0.3)",tx:"#22C55E",icon:"🟢",label:"UNDERVALUED",sub:"Significantly below market"},BELOW_MARKET:{bg:"linear-gradient(135deg,rgba(34,197,94,0.05),transparent)",bo:"rgba(34,197,94,0.2)",tx:"#22C55E",icon:"✅",label:"BELOW MARKET",sub:"Below market — opportunity"},FAIR_VALUE:{bg:"linear-gradient(135deg,rgba(234,179,8,0.08),transparent)",bo:"rgba(234,179,8,0.3)",tx:"#EAB308",icon:"🟡",label:"FAIR VALUE",sub:"At market rate"},ABOVE_MARKET:{bg:"linear-gradient(135deg,rgba(239,68,68,0.05),transparent)",bo:"rgba(239,68,68,0.2)",tx:"#EF4444",icon:"🔶",label:"ABOVE MARKET",sub:"Above market"},OVERPRICED:{bg:"linear-gradient(135deg,rgba(239,68,68,0.08),transparent)",bo:"rgba(239,68,68,0.3)",tx:"#EF4444",icon:"🔴",label:"OVERPRICED",sub:"Well above market"}}[v.verdict]||{bg:cl.surface,bo:cl.border,tx:cl.sub,icon:"·",label:v.verdict,sub:""};
+  wrap.appendChild(div({background:vcfg.bg,border:"2px solid "+vcfg.bo,borderRadius:"16px",overflow:"hidden",marginBottom:"14px"},[
+    div({padding:"20px",textAlign:"center",borderBottom:"1px solid "+cl.border},[
+      div({fontSize:"32px",marginBottom:"8px"},vcfg.icon),
+      div({fontSize:"18px",fontWeight:"800",color:vcfg.tx,fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},vcfg.label),
+      div({fontSize:"11px",color:cl.sub,fontFamily:"'Inter',sans-serif"},vcfg.sub),
+    ]),
+    div({padding:"16px",display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px",textAlign:"center"},[
+      div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"ASKING PSF"),div({color:"#F0F2F5",fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.askPSF.toLocaleString())]),
+      div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"MARKET PSF"),div({color:accent,fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.adjPSF.toLocaleString())]),
+      div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"DEVIATION"),div({color:v.deviation>0?"#EF4444":"#22C55E",fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.deviation>0?"+":"")+v.deviation+"%")]),
+    ]),
+  ]));
+  wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginBottom:"14px"},[
+    div({color:accent,fontSize:"10px",letterSpacing:"0.1em",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"COMMERCIAL METRICS"),
+    div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"},[
+      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"FAIR VALUE"),div({color:"#F0F2F5",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.fairPrice.toLocaleString())]),
+      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"CONFIDENCE"),div({color:v.confScore>=75?accent:v.confScore>=60?"#EAB308":"#EF4444",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},v.confScore+"%")]),
+      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"EST. GROSS YIELD"),div({color:"#F0F2F5",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},v.grossYield+"%")]),
+      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"EST. NET YIELD"),div({color:"#F0F2F5",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},v.netYield+"%")]),
+    ]),
+  ]));
+  if(v.areaTxns){
+    wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginBottom:"14px"},[
+      div({color:accent,fontSize:"10px",letterSpacing:"0.1em",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"AREA COMMERCIAL DATA · "+f.area),
+      div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px"},[
+        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"AVG PRICE"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+(v.areaAvgPrice||0).toLocaleString())]),
+        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"AVG SIZE"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.areaAvgSize||0).toLocaleString()+" sqft")]),
+        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"TRANSACTIONS"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.areaTxns||0).toLocaleString())]),
+      ]),
+    ]));
+  }
+  wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginBottom:"14px"},[
+    div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"DATA SOURCE"),
+    div({color:"#93C5FD",fontSize:"12px",fontFamily:"'Inter',sans-serif"},v.dataSource),
+  ]));
+  return wrap;
+}
+
+function renderLandResult(wrap){
+  var cl=C();var v=analyzerState.landVal;var f=analyzerState.f;
+  window.scrollTo({top:0,behavior:"smooth"});
+  var accent="#10B981";
+  wrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"16px"},[
+    div({},[
+      span({color:accent,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block"},"LAND ANALYSIS COMPLETE"),
+      span({color:cl.subHi,fontSize:"13px",fontFamily:"'Inter',sans-serif"},(f.building||f.project?((f.building||f.project)+" · "):"")+(v.zoning||"Residential").toUpperCase()+" · "+f.area),
+    ]),
+    el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 14px",borderRadius:"8px",cursor:"pointer",fontSize:"12px"},onclick:function(){analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"sale",sector:"land",subType:"",zoning:""},val:null,rentalVal:null,comVal:null,landVal:null,aiText:"",liveData:null,err:""};render();}},"← New"),
+  ]));
+  var vcfg={UNDERVALUED:{bg:"linear-gradient(135deg,rgba(34,197,94,0.08),transparent)",bo:"rgba(34,197,94,0.3)",tx:"#22C55E",icon:"🟢",label:"UNDERVALUED",sub:"Below market — strong opportunity"},BELOW_MARKET:{bg:"linear-gradient(135deg,rgba(34,197,94,0.05),transparent)",bo:"rgba(34,197,94,0.2)",tx:"#22C55E",icon:"✅",label:"BELOW MARKET",sub:"Under market value"},FAIR_VALUE:{bg:"linear-gradient(135deg,rgba(234,179,8,0.08),transparent)",bo:"rgba(234,179,8,0.3)",tx:"#EAB308",icon:"🟡",label:"FAIR VALUE",sub:"At market rate"},ABOVE_MARKET:{bg:"linear-gradient(135deg,rgba(239,68,68,0.05),transparent)",bo:"rgba(239,68,68,0.2)",tx:"#EF4444",icon:"🔶",label:"ABOVE MARKET",sub:"Above market"},OVERPRICED:{bg:"linear-gradient(135deg,rgba(239,68,68,0.08),transparent)",bo:"rgba(239,68,68,0.3)",tx:"#EF4444",icon:"🔴",label:"OVERPRICED",sub:"Well above market"}}[v.verdict]||{bg:cl.surface,bo:cl.border,tx:cl.sub,icon:"·",label:v.verdict,sub:""};
+  wrap.appendChild(div({background:vcfg.bg,border:"2px solid "+vcfg.bo,borderRadius:"16px",overflow:"hidden",marginBottom:"14px"},[
+    div({padding:"20px",textAlign:"center",borderBottom:"1px solid "+cl.border},[
+      div({fontSize:"32px",marginBottom:"8px"},vcfg.icon),
+      div({fontSize:"18px",fontWeight:"800",color:vcfg.tx,fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},vcfg.label),
+      div({fontSize:"11px",color:cl.sub,fontFamily:"'Inter',sans-serif"},vcfg.sub),
+    ]),
+    div({padding:"16px",display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px",textAlign:"center"},[
+      div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"ASKING PSF"),div({color:"#F0F2F5",fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.askPSF.toLocaleString())]),
+      div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"MARKET PSF"),div({color:accent,fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.adjPSF.toLocaleString())]),
+      div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"DEVIATION"),div({color:v.deviation>0?"#EF4444":"#22C55E",fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.deviation>0?"+":"")+v.deviation+"%")]),
+    ]),
+  ]));
+  wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginBottom:"14px"},[
+    div({color:accent,fontSize:"10px",letterSpacing:"0.1em",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"LAND VALUATION METRICS"),
+    div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"},[
+      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"FAIR VALUE"),div({color:"#F0F2F5",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.fairPrice.toLocaleString())]),
+      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"CONFIDENCE"),div({color:v.confScore>=70?accent:v.confScore>=55?"#EAB308":"#EF4444",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},v.confScore+"%")]),
+      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"PSF RANGE"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.psfLo.toLocaleString()+" — "+v.psfHi.toLocaleString())]),
+      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"ZONING"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.zoning||"Residential").charAt(0).toUpperCase()+(v.zoning||"residential").slice(1))]),
+    ]),
+  ]));
+  wrap.appendChild(div({background:"rgba(16,185,129,0.04)",border:"1px solid rgba(16,185,129,0.2)",borderRadius:"14px",padding:"16px",marginBottom:"14px"},[
+    div({color:accent,fontSize:"10px",letterSpacing:"0.1em",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"DEVELOPMENT POTENTIAL"),
+    div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"},[
+      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"BUILT-UP VALUE PSF"),div({color:accent,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.devPotentialPSF.toLocaleString())]),
+      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"BUILT-UP TOTAL"),div({color:accent,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.devPotentialTotal.toLocaleString())]),
+    ]),
+    div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginTop:"10px",lineHeight:"1.5"},"Development potential estimates the value after construction based on area benchmarks and zoning. Actual returns depend on construction costs, approvals, and market conditions."),
+  ]));
+  if(v.areaTxns){
+    wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginBottom:"14px"},[
+      div({color:accent,fontSize:"10px",letterSpacing:"0.1em",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"AREA LAND DATA · "+f.area),
+      div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px"},[
+        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"AVG PLOT PRICE"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+(v.areaAvgPrice||0).toLocaleString())]),
+        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"AVG PLOT SIZE"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.areaAvgSize||0).toLocaleString()+" sqft")]),
+        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"TRANSACTIONS"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.areaTxns||0).toLocaleString())]),
+      ]),
+    ]));
+  }
+  wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginBottom:"14px"},[
+    div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"DATA SOURCE"),
+    div({color:"#6EE7B7",fontSize:"12px",fontFamily:"'Inter',sans-serif"},v.dataSource),
+  ]));
+  return wrap;
+}
+
 function renderAnalyzerResult(wrap){
   const cl=C();
   const val=analyzerState.val;
@@ -1245,7 +1470,7 @@ function renderAnalyzerResult(wrap){
       span({color:cl.subHi,fontSize:"13px",fontFamily:"'Inter',sans-serif"},(f.building?f.building+" · ":"")+(isVilla?f.villaType:f.aptSubtype)+" · "+f.area+(f.cluster?" · "+f.cluster:"")),
     ]),
     el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 14px",borderRadius:"8px",cursor:"pointer",fontSize:"12px"},onclick:function(){
-  analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"sale"},val:null,rentalVal:null,aiText:"",liveData:null,err:""};
+  analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"sale",sector:"residential",subType:"",zoning:""},val:null,rentalVal:null,comVal:null,landVal:null,aiText:"",liveData:null,err:""};
   window.scrollTo({top:0,behavior:"smooth"});
   render();
 }},"← New"),

@@ -148,6 +148,30 @@ function renderMarketIndex(){
     {label:"PSF",w:"0.8fr",mono:true,align:"right",color:function(){return cl.sub;},render:function(d){return"AED "+d.psf.toLocaleString();}}
   ]));
 
+  // Top Commercial Areas
+  if(typeof AREAS_COM!=="undefined"){
+    var comData=Object.entries(AREAS_COM).map(function(e){return{name:e[0],psf:e[1].psf,avgP:e[1].avgP,n:e[1].n};}).sort(function(a,b){return b.n-a.n;}).slice(0,10);
+    wrap.appendChild(mkTable("◆ Top Commercial Areas","By DLD transaction volume",[].concat(comData),[
+      {label:"#",w:"0.3fr",mono:true,align:"center",render:function(d,i){return String(i+1);}},
+      {label:"Area",w:"1.5fr",bold:true,render:function(d){return d.name;}},
+      {label:"PSF",w:"0.8fr",mono:true,align:"right",color:function(){return"#3B82F6";},render:function(d){return"AED "+d.psf.toLocaleString();}},
+      {label:"Avg Price",w:"1fr",mono:true,align:"right",color:function(){return cl.sub;},render:function(d){return"AED "+(d.avgP/1000).toFixed(0)+"K";}},
+      {label:"Txns",w:"0.6fr",mono:true,align:"right",color:function(){return"#3B82F6";},render:function(d){return d.n.toLocaleString();}}
+    ]));
+  }
+
+  // Top Land Areas
+  if(typeof AREAS_LAND!=="undefined"){
+    var landData=Object.entries(AREAS_LAND).map(function(e){return{name:e[0],psf:e[1].psf,avgP:e[1].avgP,avgSz:e[1].avgSz,n:e[1].n};}).sort(function(a,b){return b.n-a.n;}).slice(0,10);
+    wrap.appendChild(mkTable("◆ Top Land Areas","By DLD transaction volume",[].concat(landData),[
+      {label:"#",w:"0.3fr",mono:true,align:"center",render:function(d,i){return String(i+1);}},
+      {label:"Area",w:"1.5fr",bold:true,render:function(d){return d.name;}},
+      {label:"PSF",w:"0.8fr",mono:true,align:"right",color:function(){return"#10B981";},render:function(d){return"AED "+d.psf.toLocaleString();}},
+      {label:"Avg Size",w:"0.8fr",mono:true,align:"right",color:function(){return cl.sub;},render:function(d){return d.avgSz.toLocaleString()+" sqft";}},
+      {label:"Txns",w:"0.6fr",mono:true,align:"right",color:function(){return"#10B981";},render:function(d){return d.n.toLocaleString();}}
+    ]));
+  }
+
   // --- Advanced Area Comparison ---
   if(!window._idxCmp)window._idxCmp={areas:["","",""],aiVerdict:"",aiLoading:false};
   // URL param auto-load

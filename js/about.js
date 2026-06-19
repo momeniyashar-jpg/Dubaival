@@ -206,9 +206,9 @@ function renderAbout(){
   roadmapContent.appendChild(roadmapIntro);
 
   var phases=[
-    {phase:"Phase 1",status:"✅ Live",title:"Residential Valuation",color:"#00C896",items:["6,800+ building database with DLD-verified data","Cascade AVM engine with hedonic pricing","287 area benchmarks with yield, growth & liquidity","Portfolio Manager with health score & projections","Deal Network with agent marketplace","Interactive map, market index & live dashboard","PWA with offline support"]},
-    {phase:"Phase 2",status:"🔧 In Development",title:"Commercial Property Valuation",color:cl.gold,items:["Office space valuation (shell & core, fitted, furnished)","Retail unit valuation with footfall & visibility scoring","Warehouse & logistics facility assessment","Commercial yield models (net vs gross, triple net)","Tenant quality scoring & lease analysis","EJARI commercial rent benchmarks","Occupancy rate tracking by district","Commercial deal network for brokers"]},
-    {phase:"Phase 3",status:"🔧 In Development",title:"Land & Plot Valuation",color:"#818CF8",items:["Freehold & leasehold plot valuation","Zoning classification & permitted use analysis","FAR (Floor Area Ratio) & plot ratio calculations","Development feasibility & highest-best-use analysis","Infrastructure proximity scoring (roads, utilities, metro)","Comparable land transaction database","Master plan overlay & future development impact","Government land auction tracking"]},
+    {phase:"Phase 1",status:"✅ Live",title:"Residential Valuation",color:"#00C896",items:["8,500+ building database with DLD-verified data","Cascade AVM engine with hedonic pricing","348 area benchmarks with yield, growth & liquidity","Portfolio Manager with health score & projections","Deal Network with agent marketplace","Interactive map, market index & live dashboard","PWA with offline support"]},
+    {phase:"Phase 2",status:"✅ Live",title:"Commercial Property Valuation",color:"#3B82F6",items:["1,930 commercial properties (Office, Retail, Warehouse, Shop)","49 commercial area benchmarks from DLD data","Commercial yield models (gross & net)","Sub-type specific valuation (retail premium, warehouse discount)","Area transaction volume & average pricing","Confidence scoring based on data depth","Commercial deal network for brokers"]},
+    {phase:"Phase 3",status:"✅ Live",title:"Land & Plot Valuation",color:"#10B981",items:["428 land plots with DLD transaction data","111 land area benchmarks","Zoning-based valuation (residential, commercial, mixed, industrial)","Development potential calculator","Plot price range analysis","Comparable land transaction database","Area average size & pricing benchmarks"]},
     {phase:"Phase 4",status:"📋 Planned",title:"Enterprise & Government Solutions",color:"#F0A030",items:["White-label valuation API for government platforms","Bulk AVM reports for institutional portfolios","Market transparency dashboards for DLD & RERA","Anti-money laundering (AML) property screening","Automated mortgage valuation for banks","Real-time market surveillance & anomaly detection"]}
   ];
 
@@ -255,7 +255,7 @@ function renderAbout(){
   commContent.appendChild(commGrid);
 
   var commBadge=div({display:"inline-flex",alignItems:"center",gap:"6px",marginTop:"16px",padding:"8px 16px",borderRadius:"8px",background:hexAlpha(cl.gold,0.1),border:"1px solid "+cl.goldDim});
-  commBadge.appendChild(span({color:cl.gold,fontSize:"11px",fontWeight:"700"},"🔧 In Development — Launching Q4 2026"));
+  commBadge.appendChild(span({color:"#3B82F6",fontSize:"11px",fontWeight:"700"},"✅ Live — 1,930 Commercial Properties"));
   commContent.appendChild(commBadge);
 
   wrap.appendChild(section("🏢","Commercial Property Valuation",commContent));
@@ -283,7 +283,7 @@ function renderAbout(){
   landContent.appendChild(landGrid);
 
   var landBadge=div({display:"inline-flex",alignItems:"center",gap:"6px",marginTop:"16px",padding:"8px 16px",borderRadius:"8px",background:hexAlpha("#818CF8",0.1),border:"1px solid "+"#818CF840"});
-  landBadge.appendChild(span({color:"#818CF8",fontSize:"11px",fontWeight:"700"},"🔧 In Development — Launching Q1 2027"));
+  landBadge.appendChild(span({color:"#10B981",fontSize:"11px",fontWeight:"700"},"✅ Live — 428 Land Plots, 111 Areas"));
   landContent.appendChild(landBadge);
 
   wrap.appendChild(section("🌍","Land & Plot Valuation",landContent));
