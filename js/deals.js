@@ -113,7 +113,7 @@ async function findAIMatches(deal){
   var candidates=ruleMatches.map(function(m){return{id:m.deal.id,type:m.deal.type,area:m.deal.area,building:m.deal.building,prop_type:m.deal.prop_type,beds:m.deal.beds,size_sqft:m.deal.size_sqft,price:m.deal.price,purpose:m.deal.purpose,urgency:m.deal.urgency,notes:m.deal.notes,agent_name:m.deal.agent_name,ruleScore:m.score};});
   var prompt="You are a Dubai real estate deal matching AI. Given a source deal and potential matches, rank them by compatibility. Consider: price proximity, area desirability match, property type fit, urgency alignment, and any notes context. Return a JSON array: [{\"id\", \"score\" (1-100), \"reason\" (1 sentence why this is a good match)}]. Be specific in reasons.\n\nSource deal:\n"+JSON.stringify(src)+"\n\nCandidates:\n"+JSON.stringify(candidates);
   try{
-    var resp=await askAI(prompt,"deal-match");
+    var resp=await askAI([{role:"user",content:prompt}],"deal-match");
     if(!resp)throw new Error("empty");
     var jsonStr=resp.replace(/```json?\s*/g,"").replace(/```/g,"").trim();
     var match=jsonStr.match(/\[[\s\S]*\]/);
@@ -351,7 +351,7 @@ async function fetchDealVideoAnalyses(dealId){
     _approvedVidsCacheTs=Date.now();
   }
   var dealVids=_approvedVidsCache.filter(function(v){return v.deal_id===dealId;});
-  if(dealVids.length)DEAL_STATE.videoViewDeal[dealId]=dealVids;
+  DEAL_STATE.videoViewDeal[dealId]=dealVids;
   return dealVids;
 }
 
@@ -433,12 +433,12 @@ function renderDeals(){
   filterRow.appendChild(areaSelect);
   var bedsSelect=el("select",{style:{background:cl.surface,border:"1px solid "+cl.border,color:cl.subHi,padding:"8px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Inter',sans-serif"}});
   bedsSelect.appendChild(el("option",{value:""},"All Beds"));
-  ["Studio","1 BR","2 BR","3 BR","4 BR","5 BR","5+ BR"].forEach(function(b){var o=el("option",{value:b});o.textContent=b;bedsSelect.appendChild(o);});
+  ["Studio","1 BR","2 BR","3 BR","4 BR","5 BR","5+ BR"].forEach(function(b){var o=el("option",{value:b});o.textContent=b;if(DEAL_STATE.filter.beds===b)o.selected=true;bedsSelect.appendChild(o);});
   bedsSelect.onchange=function(){DEAL_STATE.filter.beds=this.value;fetchDeals();};
   filterRow.appendChild(bedsSelect);
   var urgSelect=el("select",{style:{background:cl.surface,border:"1px solid "+cl.border,color:cl.subHi,padding:"8px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Inter',sans-serif"}});
   [{l:"All Priority",v:"all"},{l:"🔥 Hot",v:"hot"},{l:"⚡ Urgent",v:"urgent"},{l:"Normal",v:"normal"}].forEach(function(u){
-    var o=el("option",{value:u.v});o.textContent=u.l;urgSelect.appendChild(o);});
+    var o=el("option",{value:u.v});o.textContent=u.l;if(DEAL_STATE.filter.urgency===u.v)o.selected=true;urgSelect.appendChild(o);});
   urgSelect.onchange=function(){DEAL_STATE.filter.urgency=this.value;fetchDeals();};
   filterRow.appendChild(urgSelect);
   wrap.appendChild(filterRow);
@@ -1485,7 +1485,7 @@ function renderAgentHub(wrap,cl){
             // Deal select
             var dSel=el("select",{style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:cl.subHi,padding:"9px 10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",marginBottom:"8px",boxSizing:"border-box"}});
             dSel.appendChild(el("option",{value:""},"Select Deal (optional)"));
-            DEAL_STATE.deals.forEach(function(dd){var o=el("option",{value:dd.id});o.textContent=(dd.building||dd.area||"Unknown")+" — "+(dd.beds||"")+" "+(dd.prop_type||"")+" (AED "+(dd.price?dd.price.toLocaleString():"?")+")";if(DEAL_STATE.videoForm.dealId===dd.id)o.selected=true;dSel.appendChild(o);});
+            DEAL_STATE.deals.forEach(function(dd){var o=el("option",{value:dd.id});o.textContent=(dd.building||dd.area||"Unknown")+" — "+(dd.beds||"")+" "+(dd.prop_type||"")+" (AED "+(dd.price?dd.price.toLocaleString():"?")+")";if(String(DEAL_STATE.videoForm.dealId)===String(dd.id))o.selected=true;dSel.appendChild(o);});
             dSel.onchange=function(){DEAL_STATE.videoForm.dealId=this.value;};
             vaForm.appendChild(dSel);
             // Video URL
@@ -1633,7 +1633,7 @@ function renderAdminDashboard(wrap,cl){
         var vCard=div({background:cl.raised,borderRadius:"8px",padding:"10px",marginBottom:"6px",border:"1px solid "+hexAlpha("#A78BFA",0.2)});
         vCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"6px"},[
           div({},[div({color:cl.subHi,fontSize:"12px",fontWeight:"700",fontFamily:"'Inter',sans-serif"},vid.title),
-            div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},"Agent #"+vid.agent_id+(vid.deal_id?" · Deal: "+vid.deal_id.substring(0,8)+"…":""))]),
+            div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},"Agent #"+vid.agent_id+(vid.deal_id?" · Deal: "+String(vid.deal_id).substring(0,8)+"…":""))]),
           span({color:"#F59E0B",fontSize:"8px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",background:"rgba(245,158,11,0.12)",padding:"2px 6px",borderRadius:"6px"},"PENDING")
         ]));
         if(vid.summary)vCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5",marginBottom:"6px"},vid.summary));
