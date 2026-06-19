@@ -63,6 +63,10 @@ const data = {
   land:        { buildings: {}, areas: {} },
 };
 
+// Community/cluster discovery
+const communityMap = {};  // area → { master_projects: { name → { projects: { name → { buildings: Set } } } } }
+const areaTransCount = {}; // area → total transaction count
+
 let totalRows = 0;
 let salesRows = 0;
 let rentRows = 0;
@@ -196,6 +200,29 @@ async function run() {
       const bKey = effectiveName ? effectiveName.toLowerCase().replace(/\s+/g, ' ').trim() : '';
       const roomsNorm = normalizeRooms(rooms, subType);
 
+      // --- COMMUNITY / CLUSTER TRACKING ---
+      areaTransCount[aKey] = (areaTransCount[aKey] || 0) + 1;
+      if (aKey) {
+        if (!communityMap[aKey]) communityMap[aKey] = {};
+        const mp = masterProject.trim();
+        const pj = project.trim();
+        const bn = buildingName.trim();
+        if (mp) {
+          if (!communityMap[aKey][mp]) communityMap[aKey][mp] = {};
+          if (pj) {
+            if (!communityMap[aKey][mp][pj]) communityMap[aKey][mp][pj] = new Set();
+            if (bn) communityMap[aKey][mp][pj].add(bn);
+          } else if (bn) {
+            if (!communityMap[aKey][mp]['_direct']) communityMap[aKey][mp]['_direct'] = new Set();
+            communityMap[aKey][mp]['_direct'].add(bn);
+          }
+        } else if (pj) {
+          if (!communityMap[aKey]['_no_master']) communityMap[aKey]['_no_master'] = {};
+          if (!communityMap[aKey]['_no_master'][pj]) communityMap[aKey]['_no_master'][pj] = new Set();
+          if (bn) communityMap[aKey]['_no_master'][pj].add(bn);
+        }
+      }
+
       // --- SALES ---
       const tg = transGroup.toLowerCase();
       if (tg.includes('sale') || tg.includes('sell')) {
@@ -295,6 +322,44 @@ async function run() {
     Object.values(output[cat].areas).forEach(v => { if (v.isNew) totalNewAreas++; });
   });
 
+  // --- Build community hierarchy (serializable) ---
+  const existingClusters = {};
+  try {
+    const dataPath = path.join(__dirname, '..', 'js', 'data.js');
+    const dataContent = fs.readFileSync(dataPath, 'utf8');
+    const clMatch = dataContent.match(/const CLUSTERS\s*=\s*(\{[\s\S]*?\n\};)/);
+    if (clMatch) {
+      const clStr = clMatch[1].replace(/\/\/[^\n]*/g, '');
+      const clObj = eval('(' + clStr + ')');
+      Object.keys(clObj).forEach(k => { existingClusters[k] = true; });
+      console.log('Loaded existing CLUSTERS:', Object.keys(existingClusters).length);
+    }
+  } catch(e) { console.warn('Could not parse CLUSTERS:', e.message); }
+
+  const communities = {};
+  const newClusters = {};
+  for (const [area, masters] of Object.entries(communityMap)) {
+    communities[area] = { txnCount: areaTransCount[area] || 0, masterProjects: {} };
+    for (const [mp, projects] of Object.entries(masters)) {
+      if (mp === '_no_master') {
+        communities[area].standaloneProjects = {};
+        for (const [pj, bldgs] of Object.entries(projects)) {
+          communities[area].standaloneProjects[pj] = Array.from(bldgs);
+        }
+        continue;
+      }
+      communities[area].masterProjects[mp] = {};
+      for (const [pj, bldgs] of Object.entries(projects)) {
+        communities[area].masterProjects[mp][pj === '_direct' ? '_buildings' : pj] = Array.from(bldgs);
+      }
+      if (!existingClusters[mp] && !existingClusters[area]) {
+        if (!newClusters[area]) newClusters[area] = {};
+        const subs = Object.keys(projects).filter(p => p !== '_direct');
+        if (subs.length > 0) newClusters[area][mp] = subs;
+      }
+    }
+  }
+
   output.discovery = {
     existingBuildings: totalExisting,
     newBuildings: totalNew,
@@ -304,7 +369,10 @@ async function run() {
         .sort((a, b) => b[1].length - a[1].length)
         .map(([area, bldgs]) => [area, bldgs.length])
     ),
+    newClusters: newClusters,
   };
+
+  output.communities = communities;
 
   const outPath = path.join(__dirname, 'calibration-output.json');
   fs.writeFileSync(outPath, JSON.stringify(output, null, 2));
@@ -317,6 +385,38 @@ async function run() {
   console.log('DLD buildings matched to DB:', totalExisting);
   console.log('NEW buildings from DLD:', totalNew);
   console.log('NEW areas from DLD:', totalNewAreas);
+  console.log('Unique DLD areas:', Object.keys(communityMap).length);
+  console.log('Existing CLUSTERS:', Object.keys(existingClusters).length);
+  console.log('NEW cluster parents:', Object.values(newClusters).reduce((s, v) => s + Object.keys(v).length, 0));
+
+  // Community hierarchy summary
+  console.log('\n--- Top 30 Communities (by txn volume) ---');
+  Object.entries(communities)
+    .sort((a, b) => b[1].txnCount - a[1].txnCount)
+    .slice(0, 30)
+    .forEach(([area, c]) => {
+      const mpNames = Object.keys(c.masterProjects);
+      const spNames = Object.keys(c.standaloneProjects || {});
+      console.log('  ' + area + ' (' + c.txnCount.toLocaleString() + ' txns): ' +
+        mpNames.length + ' master projects, ' + spNames.length + ' standalone projects');
+      mpNames.slice(0, 5).forEach(mp => {
+        const subs = Object.keys(c.masterProjects[mp]).filter(k => k !== '_buildings');
+        const direct = (c.masterProjects[mp]._buildings || []).length;
+        console.log('    ► ' + mp + ': ' + subs.length + ' sub-projects' + (direct ? ', ' + direct + ' direct buildings' : ''));
+      });
+    });
+
+  // New clusters
+  const ncEntries = Object.entries(newClusters).filter(([,v]) => Object.keys(v).length > 0);
+  if (ncEntries.length > 0) {
+    console.log('\n--- NEW Clusters for CLUSTERS{} (not in existing DB) ---');
+    ncEntries.sort((a,b) => Object.keys(b[1]).length - Object.keys(a[1]).length).slice(0, 20).forEach(([area, masters]) => {
+      console.log('  ' + area + ':');
+      Object.entries(masters).slice(0, 5).forEach(([mp, subs]) => {
+        console.log('    "' + mp + '": ' + JSON.stringify(subs.slice(0, 8)) + (subs.length > 8 ? ' + ' + (subs.length - 8) + ' more' : ''));
+      });
+    });
+  }
   console.log('\nTop 30 areas by NEW building count:');
   Object.entries(newByArea)
     .sort((a, b) => b[1].length - a[1].length)
