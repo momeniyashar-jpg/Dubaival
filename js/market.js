@@ -2003,7 +2003,7 @@ function renderAnalyzerResult(wrap){
   var shareUrl="https://www.dubaival.com/?area="+encodeURIComponent(f.area)+(f.building?"&building="+encodeURIComponent(f.building):"")+"&price="+(f.price||"")+"&size="+(f.size||f.buaSize||"");
   var waText="DubaiVal AI Valuation: "+bldgLabel+" in "+f.area+" — Fair Price: AED "+val.fairPrice.toLocaleString()+" ("+val.verdict+") — Confidence: "+val.confScore+"% — Check yours at www.dubaival.com";
   var twText=bldgLabel+" in "+f.area+": "+val.verdict+" at AED "+val.fairPrice.toLocaleString()+" ("+val.confScore+"% conf) via @DubaiVal www.dubaival.com";
-  var liText="Just valued a property in "+f.area+" using DubaiVal AI — "+val.verdict+" at AED "+val.fairPrice.toLocaleString()+". The platform tracks 6,162 buildings across 287 areas. #DubaiRealEstate #PropTech";
+  var liText="Just valued a property in "+f.area+" using DubaiVal AI — "+val.verdict+" at AED "+val.fairPrice.toLocaleString()+". The platform tracks 6,800+ buildings across 287 areas. #DubaiRealEstate #PropTech";
   wrap.appendChild(div({marginTop:"6px"},[
     span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"Share This Valuation"),
     buildShareButtons(cl,{wa:waText,tw:twText,li:shareUrl,tg:liText,url:shareUrl,copy:shareUrl})

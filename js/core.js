@@ -371,7 +371,7 @@ function getChatSys(){
   }catch(x){}
   var profile="Investor:"+(USER_PROFILE.investorType||"general")+"|Risk:"+(USER_PROFILE.risk||"moderate")+(USER_PROFILE.budgetMax?"|Budget:AED"+(USER_PROFILE.budgetMax/1e6).toFixed(1)+"M":"");
   return "You are DubAIVal AI - Dubai property intelligence. June 2026.\n"+
-    "DB:6162 buildings DLD-verified. "+areaSummary+"\n"+
+    "DB:6800+ buildings DLD-verified. "+areaSummary+"\n"+
     "Market:Post-geo correction. Buyer leverage. Cash 87%. Off-plan 78%.\n"+
     "User:"+profile+"\n"+
     "Rules: Give specific AED numbers. If building in DB use exact PSF. For yield: Gross=(rent/price)*100. Net=Gross minus SC minus 7% costs. Be concise. Verdict first.";
@@ -776,11 +776,11 @@ function createVoiceMic(stateKey,onResult,opts){
 var DV_TOUR={step:0,active:false,level:"quick",steps:[]};
 
 var TOUR_QUICK=[
-  {type:"center",title:"Welcome to DubAIVal!",text:"AI-Powered Dubai Real Estate Intelligence Platform — 6,162 buildings, 287 areas, real-time analytics.",icon:"logo"},
+  {type:"center",title:"Welcome to DubAIVal!",text:"AI-Powered Dubai Real Estate Intelligence Platform — 6,800+ buildings, 287 areas, real-time analytics.",icon:"logo"},
   {sel:function(){return document.querySelector('input[placeholder*="Describe"]')||document.querySelector('input[placeholder*="bedroom"]')||document.querySelector('input[placeholder*="describe"]');},title:"AI Smart Search",text:"Type or speak to describe any property — our AI parses it instantly and fills the form.",arrow:"bottom",needTab:"Analyzer"},
   {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){if(bs[i].textContent.indexOf("Fair Price")!==-1)return bs[i];}return null;},title:"Fair Price Checker",text:"Quick check: is your deal fair? Just enter area, building, and price for an instant verdict.",arrow:"bottom"},
   {tab:"Analyzer",title:"AI Valuation Engine",text:"Full AI valuation with confidence score, yield analysis, investment signal, and scenario planner.",arrow:"top"},
-  {tab:"Index",title:"Market Index",text:"Live market dashboard — track 287 areas and 6,162 buildings with heatmaps, histograms, and rankings.",arrow:"top"},
+  {tab:"Index",title:"Market Index",text:"Live market dashboard — track 287 areas and 6,800+ buildings with heatmaps, histograms, and rankings.",arrow:"top"},
   {tab:"Portfolio",title:"Portfolio Manager",text:"Track your investments with AI-powered analytics, health scores, projections, and opportunity alerts.",arrow:"top"},
   {tab:"Deals",title:"Deal Network",text:"Agent-to-agent deal board — post listings, find AI-matched deals, connect with verified agents.",arrow:"top"},
   {tab:"Workspace",title:"My Workspace",text:"Customize your dashboard and build personalized reports with voice commands and smart templates.",arrow:"top",quickLast:true}

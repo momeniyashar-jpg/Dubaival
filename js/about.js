@@ -12,10 +12,10 @@ function renderAbout(){
 
   // Stats row
   var stats=[
-    {n:"6,162",l:"Buildings Tracked"},
+    {n:"6,800+",l:"Buildings Tracked"},
     {n:"287",l:"Areas Covered"},
-    {n:"Cascade AVM",l:"AI Valuation Engine"},
-    {n:"24/7",l:"Real-Time Data"}
+    {n:"3 Sectors",l:"Residential · Commercial · Land"},
+    {n:"Cascade AVM",l:"AI Valuation Engine"}
   ];
   var statsRow=div({display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:"14px",marginBottom:"40px"});
   stats.forEach(function(s){
@@ -47,7 +47,9 @@ function renderAbout(){
     {icon:"💼",title:"Portfolio Manager",desc:"Track your assets, monitor ROI, run what-if simulations, and get AI-powered portfolio health analysis."},
     {icon:"🗺️",title:"Interactive Map",desc:"Explore 287 areas with growth, yield, price, liquidity, and location intelligence metrics on a live map."},
     {icon:"📈",title:"Market Intelligence",desc:"Real-time market data, comparable analysis, rental benchmarks, and investment signals for every area."},
-    {icon:"📍",title:"Location Intelligence",desc:"Metro proximity, amenity scoring, and geographic premiums powered by 56 metro stations and 30+ key POIs."}
+    {icon:"📍",title:"Location Intelligence",desc:"Metro proximity, amenity scoring, and geographic premiums powered by 56 metro stations and 30+ key POIs."},
+    {icon:"🏢",title:"Commercial Valuation",desc:"Office, retail, and warehouse valuation with commercial yield models, tenant analysis, and occupancy benchmarks across Dubai's business districts."},
+    {icon:"🌍",title:"Land Valuation",desc:"Plot and land valuation with zoning analysis, FAR/plot ratio calculations, development feasibility, and comparable land transaction data."}
   ];
   var featGrid=div({display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"12px"});
   features.forEach(function(f){
@@ -62,7 +64,7 @@ function renderAbout(){
   // Technology
   var techItems=[
     "<b style='color:"+cl.gold+"'>Cascade AVM Engine</b> — Multi-layer valuation: building database → area benchmarks → hedonic adjustments → comparable analysis → live market enrichment.",
-    "<b style='color:"+cl.gold+"'>6,162 Building Database</b> — DLD-verified transaction data covering apartments, villas, townhouses, and penthouses across Dubai.",
+    "<b style='color:"+cl.gold+"'>6,800+ Building Database</b> — DLD-verified transaction data covering apartments, villas, townhouses, penthouses, offices, retail spaces, and land plots across Dubai.",
     "<b style='color:"+cl.gold+"'>Hedonic Pricing Model</b> — 10+ adjustment factors: view premium, floor level, loft, penthouse, maid’s room, furnishing, private pool, location score, and more.",
     "<b style='color:"+cl.gold+"'>Location Intelligence</b> — Haversine-based proximity scoring for 56 metro stations, 11 tram stops, 30+ POIs. Geographic premium from -3% to +8%.",
     "<b style='color:"+cl.gold+"'>Real-Time Market Data</b> — Live listings integration via UAE property APIs for price validation and comparable analysis."
@@ -110,6 +112,95 @@ function renderAbout(){
   if(window._showApiDocs){
     wrap.appendChild(renderApiDocs(cl));
   }
+
+  // Platform Roadmap
+  var roadmapContent=div({});
+  var roadmapIntro=el("p",{style:{color:cl.text,fontSize:"12.5px",lineHeight:"1.75",margin:"0 0 20px"}});
+  roadmapIntro.innerHTML="DubAIVal is expanding from residential into <b style='color:"+cl.gold+"'>commercial real estate</b> and <b style='color:"+cl.gold+"'>land valuation</b> — building the most comprehensive AI-powered property intelligence platform in the UAE.";
+  roadmapContent.appendChild(roadmapIntro);
+
+  var phases=[
+    {phase:"Phase 1",status:"✅ Live",title:"Residential Valuation",color:"#00C896",items:["6,800+ building database with DLD-verified data","Cascade AVM engine with hedonic pricing","287 area benchmarks with yield, growth & liquidity","Portfolio Manager with health score & projections","Deal Network with agent marketplace","Interactive map, market index & live dashboard","PWA with offline support"]},
+    {phase:"Phase 2",status:"🔧 In Development",title:"Commercial Property Valuation",color:cl.gold,items:["Office space valuation (shell & core, fitted, furnished)","Retail unit valuation with footfall & visibility scoring","Warehouse & logistics facility assessment","Commercial yield models (net vs gross, triple net)","Tenant quality scoring & lease analysis","EJARI commercial rent benchmarks","Occupancy rate tracking by district","Commercial deal network for brokers"]},
+    {phase:"Phase 3",status:"🔧 In Development",title:"Land & Plot Valuation",color:"#818CF8",items:["Freehold & leasehold plot valuation","Zoning classification & permitted use analysis","FAR (Floor Area Ratio) & plot ratio calculations","Development feasibility & highest-best-use analysis","Infrastructure proximity scoring (roads, utilities, metro)","Comparable land transaction database","Master plan overlay & future development impact","Government land auction tracking"]},
+    {phase:"Phase 4",status:"📋 Planned",title:"Enterprise & Government Solutions",color:"#F0A030",items:["White-label valuation API for government platforms","Bulk AVM reports for institutional portfolios","Market transparency dashboards for DLD & RERA","Anti-money laundering (AML) property screening","Automated mortgage valuation for banks","Real-time market surveillance & anomaly detection"]}
+  ];
+
+  phases.forEach(function(ph){
+    var phCard=div({background:cl.bg,border:"1px solid "+cl.border,borderRadius:"12px",padding:"18px",marginBottom:"14px"});
+    var phHead=div({display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",flexWrap:"wrap"});
+    phHead.appendChild(span({color:ph.color,fontSize:"10px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",padding:"3px 10px",borderRadius:"6px",background:hexAlpha(ph.color,0.12),letterSpacing:"0.06em"},ph.phase));
+    phHead.appendChild(span({color:cl.text,fontSize:"13px",fontWeight:"700"},ph.title));
+    phHead.appendChild(span({color:ph.color,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},ph.status));
+    phCard.appendChild(phHead);
+    var phGrid=div({display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:"4px"});
+    ph.items.forEach(function(item){
+      var row=div({display:"flex",gap:"8px",alignItems:"center"});
+      row.appendChild(span({color:ph.color,fontSize:"8px"},"◆"));
+      row.appendChild(span({color:cl.sub,fontSize:"11px",lineHeight:"1.6"},item));
+      phGrid.appendChild(row);
+    });
+    phCard.appendChild(phGrid);
+    roadmapContent.appendChild(phCard);
+  });
+
+  wrap.appendChild(section("🗺️","Platform Roadmap",roadmapContent));
+
+  // Commercial Valuation Detail
+  var commContent=div({});
+  var commIntro=el("p",{style:{color:cl.text,fontSize:"12.5px",lineHeight:"1.75",margin:"0 0 16px"}});
+  commIntro.innerHTML="Our commercial valuation engine is designed for <b style='color:"+cl.gold+"'>offices, retail spaces, warehouses, and mixed-use properties</b> across Dubai's major business districts — DIFC, Business Bay, DMCC, DAFZ, Dubai South, and more.";
+  commContent.appendChild(commIntro);
+
+  var commFeatures=[
+    {icon:"🏛️",t:"Office Valuation",d:"Shell & core, fitted, and furnished office valuations with per-sqft benchmarks, view premiums, and building grade analysis."},
+    {icon:"🛍️",t:"Retail Valuation",d:"Ground floor vs upper floor pricing, footfall analysis, street visibility scoring, and mall vs high-street benchmarks."},
+    {icon:"🏭",t:"Industrial & Logistics",d:"Warehouse, cold storage, and logistics facility assessments with loading capacity, height clearance, and location scoring."},
+    {icon:"📊",t:"Commercial Yield Analysis",d:"Net yield, gross yield, triple-net calculations, CAP rate benchmarks, and lease-adjusted valuations."}
+  ];
+  var commGrid=div({display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:"12px"});
+  commFeatures.forEach(function(cf){
+    var cCard=div({background:cl.bg,border:"1px solid "+cl.border,borderRadius:"10px",padding:"16px"});
+    cCard.appendChild(el("div",{style:{fontSize:"20px",marginBottom:"8px"}},cf.icon));
+    cCard.appendChild(el("div",{style:{color:cl.text,fontSize:"12px",fontWeight:"700",marginBottom:"6px"}},cf.t));
+    cCard.appendChild(el("div",{style:{color:cl.sub,fontSize:"11px",lineHeight:"1.65"}},cf.d));
+    commGrid.appendChild(cCard);
+  });
+  commContent.appendChild(commGrid);
+
+  var commBadge=div({display:"inline-flex",alignItems:"center",gap:"6px",marginTop:"16px",padding:"8px 16px",borderRadius:"8px",background:hexAlpha(cl.gold,0.1),border:"1px solid "+cl.goldDim});
+  commBadge.appendChild(span({color:cl.gold,fontSize:"11px",fontWeight:"700"},"🔧 In Development — Launching Q4 2026"));
+  commContent.appendChild(commBadge);
+
+  wrap.appendChild(section("🏢","Commercial Property Valuation",commContent));
+
+  // Land Valuation Detail
+  var landContent=div({});
+  var landIntro=el("p",{style:{color:cl.text,fontSize:"12.5px",lineHeight:"1.75",margin:"0 0 16px"}});
+  landIntro.innerHTML="Comprehensive <b style='color:"+cl.gold+"'>land and plot valuation</b> covering freehold plots, leasehold land, mixed-use parcels, and development sites across all designated freehold areas in Dubai.";
+  landContent.appendChild(landIntro);
+
+  var landFeatures=[
+    {icon:"📐",t:"Plot Analysis",d:"Size, shape factor, corner premium, road frontage, setback compliance, and buildable area calculations."},
+    {icon:"🏗️",t:"Development Feasibility",d:"FAR analysis, permitted floors, GFA calculations, estimated construction cost, and projected GDV (Gross Development Value)."},
+    {icon:"📋",t:"Zoning & Permits",d:"Land use classification, permitted activities, height restrictions, and master plan compliance verification."},
+    {icon:"📈",t:"Land Market Intelligence",d:"Comparable land transactions, price per sqft trends, absorption rates, and upcoming infrastructure impact analysis."}
+  ];
+  var landGrid=div({display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:"12px"});
+  landFeatures.forEach(function(lf){
+    var lCard=div({background:cl.bg,border:"1px solid "+cl.border,borderRadius:"10px",padding:"16px"});
+    lCard.appendChild(el("div",{style:{fontSize:"20px",marginBottom:"8px"}},lf.icon));
+    lCard.appendChild(el("div",{style:{color:cl.text,fontSize:"12px",fontWeight:"700",marginBottom:"6px"}},lf.t));
+    lCard.appendChild(el("div",{style:{color:cl.sub,fontSize:"11px",lineHeight:"1.65"}},lf.d));
+    landGrid.appendChild(lCard);
+  });
+  landContent.appendChild(landGrid);
+
+  var landBadge=div({display:"inline-flex",alignItems:"center",gap:"6px",marginTop:"16px",padding:"8px 16px",borderRadius:"8px",background:hexAlpha("#818CF8",0.1),border:"1px solid "+"#818CF840"});
+  landBadge.appendChild(span({color:"#818CF8",fontSize:"11px",fontWeight:"700"},"🔧 In Development — Launching Q1 2027"));
+  landContent.appendChild(landBadge);
+
+  wrap.appendChild(section("🌍","Land & Plot Valuation",landContent));
 
   // Footer note
   var footer=div({textAlign:"center",marginTop:"30px",padding:"20px",borderTop:"1px solid "+cl.border});
@@ -180,7 +271,7 @@ function renderApiDocs(cl){
     },
     {
       method:"GET",path:"/api/building-lookup",
-      desc:"Look up building data from our 6,162-building DLD-verified database.",
+      desc:"Look up building data from our 6,800+ building DLD-verified database.",
       params:[{n:"name",t:"string",r:true,d:"Building name (fuzzy matching)"}],
       response:'{\n  "name": "Marina Gate 1",\n  "area": "Dubai Marina",\n  "psf": 1850,\n  "low_psf": 1650,\n  "high_psf": 2100,\n  "grade": "A",\n  "service_charge": 18\n}',
       curl:'curl "https://api.dubaival.com/v1/building-lookup?name=marina+gate+1" \\\n  -H "Authorization: Bearer YOUR_API_KEY"',

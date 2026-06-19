@@ -419,7 +419,7 @@ function renderAlerts(){
   // Header
   const hdr=el("div",{style:{marginBottom:"16px"}});
   hdr.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Deal Alerts"));
-  hdr.appendChild(div({color:cl.sub,fontSize:"12px",marginTop:"4px",fontFamily:"'Inter',sans-serif"},"Set your criteria. DubAIVal scans 6,162 buildings instantly."));
+  hdr.appendChild(div({color:cl.sub,fontSize:"12px",marginTop:"4px",fontFamily:"'Inter',sans-serif"},"Set your criteria. DubAIVal scans 6,800+ buildings instantly."));
   wrap.appendChild(hdr);
 
   // Load saved alerts

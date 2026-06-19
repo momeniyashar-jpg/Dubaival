@@ -40,7 +40,7 @@ function renderMarketIndex(){
     {n:avgYield+"%",l:"Avg Yield",icon:"◈"},
     {n:"+"+avgG0+"%",l:"Avg 1yr Growth",icon:"▲"},
     {n:String(cnt),l:"Areas",icon:"◇"},
-    {n:"6,162",l:"Buildings",icon:"◆"}
+    {n:"6,800+",l:"Buildings",icon:"◆"}
   ];
   var sumRow=div({display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:"10px",marginBottom:"20px"});
   stats.forEach(function(s){
