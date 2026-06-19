@@ -18,84 +18,96 @@ Hosted on Vercel, Hobby plan, team "Dubaival's projects", project name
 ## Repo / deploy mechanics
 
 - GitHub: `momeniyashar-jpg/dubaival`.
-- Working branch for Claude sessions: `claude/dubaival-portfolio-manager-5bgbjk`
-  (NOT `main` — pushes here do not auto-deploy to Production; Vercel's
-  Production Deployment is tied to the `main` branch / manual `vercel --prod`
-  from the user's machine). If a change needs to go live, the user must merge
-  to `main` or run `vercel --prod` locally after pulling this branch.
+- Working branches for Claude sessions:
+  - **`claude/amazing-mccarthy-kl83jb`** — current active branch with split
+    file structure (see below). All new work goes here.
+  - `claude/dubaival-portfolio-manager-5bgbjk` — older branch, monolithic
+    `index-6.html`. Superseded by `amazing-mccarthy`.
+  - `claude/happy-cray-6q6eid` — building research branch (119 buildings).
+    Already merged into `amazing-mccarthy` via `data.js`. Do NOT use.
+  - Pushes to these branches do NOT auto-deploy to Production; Vercel's
+    Production Deployment is tied to the `main` branch / manual `vercel --prod`
+    from the user's machine.
 - `vercel.json`: static build of `index-6.html` (served for all non-`/api`
   routes) **plus** a `@vercel/node` build of `api/*.js` (added 2026-06-16 for
   the Price Alert feature — see below) and a daily `crons` entry. There is
   still no build step for the HTML itself (`package.json` build script is a
   no-op echo) — the `/api` functions are plain Node, no bundler/deps needed
   (native `fetch` only).
-- **The main app is one file: `index-6.html`** (~5500+ lines, ~1.1MB). Other
-  files in the repo (`dubaival.jsx`, `index-3.html`) are old/unused — do not
-  edit them, they are not deployed. `src/` and `public/` are empty/unused.
-  `api/` (new) holds small serverless functions — see "Price Alert" below.
 
-## Database sizes (as of commit `1fe67df`, 2026-06-18)
+### File structure (split architecture — since branch `amazing-mccarthy`)
 
-- **`var DB={...}`**: **6,162 buildings** (single massive line). Schema:
+The app was split from a single 1.1MB `index-6.html` into modular files:
+
+- **`index-6.html`** — ~5KB shell: `<head>`, meta tags, styles, `<body>`,
+  and `<script src="js/...">` tags. NO inline JS anymore.
+- **`js/data.js`** — All databases: `DB` (6,281 buildings), `BLDG_UNITS`,
+  `AREAS` (287), `CLUSTER_DB`, `VIEW_P`, `AREA_ALIASES`, themes. **This is
+  where building research goes.**
+- **`js/valuation.js`** — `lookupBuilding()`, `computeValuation()`,
+  `computeRentalValuation()`, valuation engine.
+- **`js/api.js`** — `getUAELocationId()`, `fetchLiveData()`, `askAI()`, API
+  helpers.
+- **`js/core.js`** — `hexAlpha()`, `el()`/`div()`/`span()`, shared UI
+  utilities, `fetchLiveMarket()`.
+- **`js/auth.js`** — User account system with Supabase Auth.
+- **`js/app.js`** — App state, tab routing, render entry point, onboarding,
+  notifications, smart bars, workspace.
+- **`js/market.js`** — `renderMarket()`, `renderRentalResult()`, Live Dashboard,
+  Track Record, Quick Check (sale/rent modes).
+- **`js/marketindex.js`** — Market Index tab, area rankings, heatmap.
+- **`js/mortgage.js`** — `renderMortgage()`.
+- **`js/portfolio.js`** — `renderPortfolio()`, `computeAssetMetrics()`,
+  `computePortfolioHealth()`, projections, what-if.
+- **`js/map.js`** — Interactive Map tab (Leaflet).
+- **`js/deals.js`** — Deal Network, `renderDeals()`, `renderDealForm()`,
+  `renderAgentHub()`, `renderAdminDashboard()`, media, inquiries, referrals.
+- **`js/chat.js`** — `renderChat()`.
+- **`js/about.js`** — About/Mission tab.
+- **`js/workspace.js`** — My Workspace tab, custom report builder.
+- **`api/proxy-groq.js`** — Vercel serverless proxy for Groq API.
+- **`api/proxy-rapidapi.js`** — Vercel serverless proxy for RapidAPI.
+- **`sw.js`** — Service worker for PWA.
+- **`manifest.json`** — PWA manifest.
+
+Other files (`dubaival.jsx`, `index-3.html`) are old/unused — do not edit.
+
+## Database sizes (as of 2026-06-18, branch `amazing-mccarthy`)
+
+All databases live in **`js/data.js`**.
+
+- **`var DB={...}`**: **6,281 buildings** (single massive line). Schema:
   `{"p":psf,"lo":lowPsf,"hi":highPsf,"sc":serviceCharge,"a":"Area Name","g":"Grade","df":1(optional)}`.
   Keyed by lowercase building name.
-- **`BLDG_UNITS={...}`**: **6,345 entries** (building unit counts for turnover
+- **`BLDG_UNITS={...}`**: **~6,454 entries** (building unit counts for turnover
   rate calculation).
 - **`const AREAS={...}`**: **287 keys** (area benchmark database). Schema:
   `{psf, sc, r1/r2/r3, rv2..rv7, y:[yieldLow,yieldHigh], g:[growth0-1yr%,growth1-3yr%,growth2-5yr%], dom, txVol}`.
-- **Building research is STOPPED** per user instruction. Do NOT resume until
-  user explicitly says so.
+- **Building research ACTIVE** — user wants more buildings added, especially
+  in luxury/high-transaction areas (see "Building research gaps" below).
 
-## `index-6.html` map
+## Code map (split file structure)
 
-Section markers are literal `// --- NAME ---` comments in the file — grep for
-`^// ---` to re-orient if lines shift after edits. When in doubt, re-grep for
-`^function ` / `^const AREAS=` / `^var DB=` rather than trusting this table
-blindly — it drifts every time AREAS/DB/render functions grow.
+Code is now split across `js/*.js` files. To find anything, grep across `js/`:
 
-Key sections (approximate — re-grep to confirm):
-
-| Section | How to find |
-|---|---|
-| Cluster database | grep `CLUSTER_DB` |
-| Market data / view premiums | grep `VIEW_P=` |
-| Building database | grep `^var DB=` (single massive line) |
-| BLDG_UNITS | grep `BLDG_UNITS=` |
-| AREA_GRADE_PSF (dead/unused) | grep `AREA_GRADE_PSF` |
-| AREAS benchmark database | grep `^const AREAS=` |
-| Alias map | grep `AREA_ALIASES` |
-| `lookupBuilding()` | grep `function lookupBuilding` |
-| `computeValuation()` | grep `function computeValuation` |
-| API helpers | grep `function getUAELocationId\|function fetchLiveData\|function askAI` |
-| `hexAlpha()` | grep `function hexAlpha` — converts hex/rgb to rgba with alpha |
-| `el()`/`div()`/`span()` | grep `^function el\|^function div\|^function span` |
-| App state / fetchLiveMarket | grep `function fetchLiveMarket` |
-| Render layer / PDF | grep `function renderAnalyzerResult` |
-| Market tab | grep `function renderMarket` |
-| Track Record (case study) | inside `renderMarket()`, near end |
-| Analyzer form | grep `function renderAnalyzer` |
-| Mortgage | grep `function renderMortgage` |
-| Portfolio Manager | grep `function renderPortfolio` |
-| `computeAssetMetrics()` | grep `function computeAssetMetrics` |
-| `computePortfolioHealth()` | grep `function computePortfolioHealth` |
-| Deal Network tab | grep `// --- DEAL NETWORK` |
-| DEAL_STATE init | grep `^var DEAL_STATE=` |
-| `fetchDeals()` | grep `function fetchDeals` |
-| `postDeal()` | grep `function postDeal` |
-| `compressPhoto()` | grep `function compressPhoto` |
-| `uploadDealMedia()` | grep `function uploadDealMedia` |
-| `fetchDealMedia()` | grep `function fetchDealMedia` |
-| `updateInquiryStatus()` | grep `function updateInquiryStatus` |
-| `deleteDealMedia()` | grep `function deleteDealMedia` |
-| `sendInquiry()` | grep `function sendInquiry` |
-| Agent/Referral functions | grep `function registerAgent\|function fetchAgents\|function createReferral\|function assignReferral\|function updateReferralStatus\|function updateAgentSubscription` |
-| `fetchMyInquiries()` | grep `function fetchMyInquiries` |
-| `renderDeals()` | grep `function renderDeals` |
-| `renderDealForm()` | grep `function renderDealForm` |
-| `renderAgentHub()` | grep `function renderAgentHub` |
-| `renderAdminDashboard()` | grep `function renderAdminDashboard` |
-| `timeAgo()` | grep `function timeAgo` |
-| Chat tab | grep `function renderChat` |
+| What | File | How to find |
+|---|---|---|
+| Databases (DB, BLDG_UNITS, AREAS) | `js/data.js` | `grep "var DB=" js/data.js` |
+| CLUSTER_DB, VIEW_P, AREA_ALIASES | `js/data.js` | `grep "CLUSTER_DB\|VIEW_P\|AREA_ALIASES" js/data.js` |
+| `lookupBuilding()`, `computeValuation()`, `computeRentalValuation()` | `js/valuation.js` | |
+| API helpers (fetchLiveData, askAI) | `js/api.js` | |
+| `hexAlpha()`, `el()`/`div()`/`span()` | `js/core.js` | |
+| App state, tabs, render, onboarding | `js/app.js` | |
+| User auth (Supabase) | `js/auth.js` | |
+| Market tab, Live Dashboard, Rental Result | `js/market.js` | |
+| Market Index, rankings, heatmap | `js/marketindex.js` | |
+| Mortgage calculator | `js/mortgage.js` | |
+| Portfolio Manager, projections | `js/portfolio.js` | |
+| Interactive Map (Leaflet) | `js/map.js` | |
+| Deal Network, agents, referrals | `js/deals.js` | |
+| Chat tab | `js/chat.js` | |
+| About/Mission | `js/about.js` | |
+| Workspace, report builder | `js/workspace.js` | |
 
 ## Supabase tables (all created, all SQL files executed as of 2026-06-18)
 
@@ -127,6 +139,42 @@ prRatio = 100 / grossYield
 investSignal = prRatio<15 Undervalued / <20 Fair Value / <25 Elevated / else Bubble Risk
 totalReturnAnnual = netYield + gr[1]/3
 ```
+
+## Rental Valuation Engine (`computeRentalValuation`) — added 2026-06-19
+
+Full rental analysis mode across the platform. Purple theme (#8B5CF6).
+
+### Engine (`js/valuation.js`)
+```
+baseRent = AREAS[area].r1/r2/r3 (apt) or rv3..rv7 (villa) by beds
+furnMult = Furnished +17%, Semi +9%, Unfurnished 0%
+viewAdj  = Sea +12%, Canal/Partial +7%, Golf/Lagoon +5%, Pool/Garden +3%
+floorAdj = 40+ = +5%, 25+ = +3%, 15+ = +2%
+estRent  = baseRent × furnMult × (1 + viewAdj + floorAdj)
+rentRange = estRent ± 12%
+vsPct    = (askRent - estRent) / estRent × 100
+verdict  = BELOW_MARKET(<=-12%) / COMPETITIVE(<=-3%) / MARKET_RATE(<=5%)
+           / ABOVE_MARKET(<=15%) / OVERPRICED(else)
+confBase = 82 (rental data exists) or 60, +3 beds, +2 view, +1 furnished, +5 bldg match
+```
+
+### UI touchpoints
+- **Analyzer**: Sale/Rent toggle before form; dynamic labels; purple submit button
+- **renderRentalResult()** (`js/market.js`): verdict card, monthly breakdown,
+  rent range bar, negotiation target, landlord net analysis, area benchmarks,
+  RERA/DEWA/chiller tips, share/WhatsApp
+- **Quick Check**: Sale/Rent mode toggle; rent handler uses computeRentalValuation
+- **AI Smart Search**: rental example chip; auto-routes to rental engine
+- **Live Dashboard Row 4**: Rental Market Snapshot (areas w/ data, avg 1BR/2BR)
+- **Market Index** (`js/marketindex.js`): Top 10 Highest Rent, Top 10 Best
+  Rental Value tables
+- **Deal Network** (`js/deals.js`): title deed skipped for rentals, "/yr" price
+  display, purple purpose badge, auto-valuation skipped for rent listings
+
+### State
+- `analyzerState.f.txnType` — `"sale"` (default) or `"rent"`
+- `analyzerState.rentalVal` — rental valuation result object
+- `_qcState.mode` — Quick Check sale/rent mode
 
 ## Deal Network features (added 2026-06-18)
 
@@ -224,6 +272,11 @@ project-level settings overriding it. See "Outstanding items" for next steps.
 
 ## Recent work log (most recent first)
 
+- **2026-06-19 (session 4)**: Comprehensive rental analysis feature.
+  - `a09e893` — Rental valuation engine, analyzer rent mode, rental result page,
+    Live Dashboard rental snapshot, Market Index rental tables, Deal Network
+    rental enhancements
+  - `694eb82` — Quick Check rent mode, rental example chip, polish
 - **2026-06-18 (session 3)**: `1fe67df` — Comprehensive 16-bug fix (see above).
   Also in this session:
   - `84c962d` — Added 154 new buildings across 29 areas (6,008→6,162 DB, 6,192→6,345 BLDG_UNITS)
@@ -251,30 +304,52 @@ project-level settings overriding it. See "Outstanding items" for next steps.
   May be fully verified by now — check Resend dashboard.
 - **Security note**: RESEND_API_KEY and SUPABASE_SERVICE_ROLE_KEY were shared in
   chat. User was advised to regenerate both. Do NOT echo these keys.
-- **PENDING: Opportunity Alerts (هشدار فرصت‌های پنهان)** — deferred from
-  2026-06-17. Two phases:
-  **Phase 1 (no research needed):** DLD Fee Recovery Timer, Rent Optimization
-  Alert, Optimal Exit Window, Equity Release Calculator.
-  **Phase 2 (needs web research):** Airbnb vs Long-term Rent Comparison
-  (need `str`/`occ` data for 287 areas), Renovation ROI Estimator.
-  To resume: «فرصت‌های پنهان رو انجام بده — فاز ۱ و ۲»
+- **PENDING: Opportunity Alerts (هشدار فرصت‌های پنهان)** — ~~deferred from
+  2026-06-17~~ **COMPLETED** (both phases). All 6 alerts live in
+  `js/portfolio.js` (lines ~275-430):
+  **Phase 1:** DLD Fee Recovery Timer, Rent Optimization Alert, Optimal Exit
+  Window, Equity Release Calculator.
+  **Phase 2:** Airbnb vs Long-term Rent Comparison (STR_DATA covers all 287
+  areas with nightly rates + occupancy), Renovation ROI Estimator.
 - **AVM accuracy improvement**: Track Record shows median ~20% error on 18 real
   transactions. DB "p" (psf) may reflect asking prices not closed DLD prices
   for some buildings — potential lead for accuracy improvement.
-- **Building research**: STOPPED per user instruction. 154 buildings were added
-  in last session. Do NOT resume until user explicitly says so.
+- **Building research ACTIVE**: User wants more buildings, targeting 500+.
+  Current: 6,281. Target areas listed in "Building research gaps" below.
+  **IMPORTANT**: Buildings go in `js/data.js`, NOT in `index-6.html`.
 - **Agent video analysis & upload**: not built yet, deferred to future.
 - **Deploy reminder**: this branch does NOT auto-deploy. User must merge to
   `main` or run `vercel --prod` to go live.
 
+## Building research gaps (priority areas)
+
+When adding buildings, edit **`js/data.js`** only. Add to `var DB={...}` and
+`const BLDG_UNITS={...}` on the same file.
+
+| Area | Have | Estimated Real | Gap |
+|---|---|---|---|
+| DIFC | 15 | 80+ | **65+** |
+| Palm Jebel Ali | 1 | 50+ | **49+** |
+| Palm Jumeirah | 134 | 400+ | **266+** |
+| Business Bay | 212 | 500+ | **288+** |
+| Dubai Marina | 210 | 500+ | **290+** |
+| MBR City | 72 | 150+ | **78+** |
+| Dubai Hills Estate | 153 | 300+ | **147+** |
+| Downtown Dubai | 202 | 400+ | **198+** |
+| Dubai Creek Harbour | 147 | 200+ | **53+** |
+| Meydan | 176 | 250+ | **74+** |
+| Emaar Beachfront | 21 | 40+ | **19+** |
+| Tilal Al Ghaf | 11 | 30+ | **19+** |
+| District One | 12 | 30+ | **18+** |
+| Sobha Hartland | 37 | 60+ | **23+** |
+| Za'Abeel | 11 | 25+ | **14+** |
+| JBR | 22 | 40+ | **18+** |
+
 ## Testing technique (no build/test infra)
 
-To test `computeValuation`/`AREAS`/`DB` in isolation without a browser, use a
-Node `eval` harness: stub `window`/`document`/`localStorage`/`navigator`/
-`fetch`/`requestAnimationFrame`/`setTimeout`/`setInterval` as no-ops, slice the
-`<script>` body out of the HTML dynamically, strip trailing `render();` by
-popping lines, append `global.__AREAS=AREAS;` etc. into the same `eval()` call.
-`computeValuation` requires `f.price` and `f.size`/`f.buaSize` set or returns null.
+To test valuation/DB in isolation, load `js/data.js` + `js/valuation.js` in
+Node with stubs for `window`/`document`/`localStorage`/`navigator`/`fetch` as
+no-ops. `computeValuation` requires `f.price` and `f.size`/`f.buaSize` set.
 
 ## User preferences
 
