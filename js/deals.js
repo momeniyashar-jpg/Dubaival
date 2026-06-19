@@ -36,7 +36,7 @@ async function postDeal(){
   var f=DEAL_STATE.form;
   if(!f.agentName||!f.agentPhone||!f.area||!f.price){alert("Please fill required fields");return;}
   if(!f.reraNumber||f.reraNumber.trim().length<3){alert("RERA BRN is required (minimum 3 characters). Please enter your RERA number to post a deal.");return;}
-  if(f.type==="have"&&f.purpose==="sale"&&!f.titleDeedNo){alert("Title Deed number is required for sale listings. Please enter your Title Deed number to verify property ownership.");return;}
+  if(f.type==="have"&&!f.titleDeedNo){alert("Title Deed number is required. Please enter your Title Deed number to verify property ownership.");return;}
   saveAgentProfile();
   DEAL_STATE.posting=true;render();
   var row={type:f.type,agent_name:f.agentName,agent_phone:f.agentPhone,agent_company:f.agentCompany||null,
@@ -1242,11 +1242,10 @@ function renderDealForm(wrap,cl){
     mediaSection.appendChild(vidG);
     card.appendChild(mediaSection);
 
-    if(f.purpose==="sale"){
     var tdSection=div({background:cl.raised,border:"1px solid rgba(234,179,8,0.25)",borderRadius:"10px",padding:"12px",marginBottom:"14px"});
     tdSection.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"},[
       div({},[span({color:"#EAB308",fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"},"Title Deed Verification"),
-        span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginLeft:"8px"},"Required for sale listings")])
+        span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginLeft:"8px"},"Required to verify ownership")])
     ]));
     var tdRow=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"8px"});
     tdRow.appendChild(makeInput("Title Deed Number *","titleDeedNo","e.g. 123-456-7890"));
@@ -1283,7 +1282,6 @@ function renderDealForm(wrap,cl){
       tdSection.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",fontStyle:"italic"},"Enter your Title Deed number to verify ownership and build buyer trust"));
     }
     card.appendChild(tdSection);
-    } // end if purpose==="sale"
   }
 
   if(f.type==="need"){
