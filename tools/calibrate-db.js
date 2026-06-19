@@ -1,22 +1,21 @@
 #!/usr/bin/env node
 /**
  * DubaiVal DB Calibrator
- * Reads DLD transaction Excel file, calculates real PSF per building/area,
+ * Reads DLD transaction CSV file, calculates real PSF per building/area,
  * outputs a small JSON file for DB calibration + new building discovery.
  *
  * Covers ALL property types: Residential, Commercial, Land
  * Compares against existing DB to flag NEW buildings for coverage expansion.
  *
- * Usage:
- *   npm install exceljs
- *   node tools/calibrate-db.js ~/Downloads/transactions_2026_05_26.xlsx
+ * Usage (NO npm install needed):
+ *   node tools/calibrate-db.cjs C:\Users\momen\Downloads\transactions_2026-05-26_02-03-11_2.csv
  *
  * Output: tools/calibration-output.json
  */
 
-const ExcelJS = require('exceljs');
 const fs = require('fs');
 const path = require('path');
+const readline = require('readline');
 
 // --- Load existing DB keys from js/data.js ---
 let existingDB = {};
@@ -103,81 +102,99 @@ function classifyUsage(usage, propType, subType) {
   return 'residential'; // default
 }
 
+function parseCSVLine(line) {
+  const fields = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
+      else if (ch === '"') { inQuotes = false; }
+      else { current += ch; }
+    } else {
+      if (ch === '"') { inQuotes = true; }
+      else if (ch === ',') { fields.push(current.trim()); current = ''; }
+      else { current += ch; }
+    }
+  }
+  fields.push(current.trim());
+  return fields;
+}
+
 async function run() {
-  const workbook = new ExcelJS.stream.xlsx.WorkbookReader(inputFile, {
-    sharedStrings: 'cache',
-    hyperlinks: 'cache',
-    worksheets: 'emit',
-    entries: 'emit',
+  const rl = readline.createInterface({
+    input: fs.createReadStream(inputFile, { encoding: 'utf8' }),
+    crlfDelay: Infinity,
   });
 
-  for await (const worksheet of workbook) {
-    let headerFound = false;
+  let headerFound = false;
 
-    for await (const row of worksheet) {
-      totalRows++;
+  for await (const line of rl) {
+    if (!line.trim()) continue;
+    totalRows++;
 
-      if (totalRows % 100000 === 0) {
-        process.stdout.write('\rProcessed: ' + totalRows.toLocaleString() + ' rows | Sales: ' + salesRows.toLocaleString() + ' | Rent: ' + rentRows.toLocaleString());
+    if (totalRows % 100000 === 0) {
+      process.stdout.write('\rProcessed: ' + totalRows.toLocaleString() + ' rows | Sales: ' + salesRows.toLocaleString() + ' | Rent: ' + rentRows.toLocaleString());
+    }
+
+    const fields = parseCSVLine(line);
+
+    if (!headerFound) {
+      fields.forEach((name, idx) => {
+        const n = name.toLowerCase();
+        if (n === 'trans_group_en') COL.transGroup = idx;
+        if (n === 'procedure_name_en') COL.procName = idx;
+        if (n === 'instance_date') COL.date = idx;
+        if (n === 'property_type_en') COL.propType = idx;
+        if (n === 'property_sub_type_en') COL.subType = idx;
+        if (n === 'property_usage_en') COL.usage = idx;
+        if (n === 'area_name_en') COL.area = idx;
+        if (n === 'building_name_en') COL.building = idx;
+        if (n === 'project_name_en') COL.project = idx;
+        if (n === 'master_project_en') COL.masterProject = idx;
+        if (n === 'rooms_en') COL.rooms = idx;
+        if (n === 'procedure_area') COL.areaSqm = idx;
+        if (n === 'actual_worth') COL.price = idx;
+        if (n === 'meter_sale_price') COL.meterPrice = idx;
+        if (n === 'rent_value') COL.rent = idx;
+        if (n === 'meter_rent_price') COL.meterRent = idx;
+      });
+      headerFound = true;
+      console.log('Columns mapped:', JSON.stringify(COL, null, 2));
+      console.log('Header fields:', fields.length);
+      if (COL.price === undefined || COL.areaSqm === undefined) {
+        console.error('ERROR: Could not find price/area columns');
+        console.error('Available columns:', fields.join(', '));
+        process.exit(1);
       }
+      continue;
+    }
 
-      if (!headerFound) {
-        const vals = [];
-        row.eachCell({ includeEmpty: true }, (cell, colNum) => {
-          vals[colNum - 1] = String(cell.value || '').trim().toLowerCase();
-        });
-        vals.forEach((name, idx) => {
-          if (name === 'trans_group_en') COL.transGroup = idx;
-          if (name === 'procedure_name_en') COL.procName = idx;
-          if (name === 'instance_date') COL.date = idx;
-          if (name === 'property_type_en') COL.propType = idx;
-          if (name === 'property_sub_type_en') COL.subType = idx;
-          if (name === 'property_usage_en') COL.usage = idx;
-          if (name === 'area_name_en') COL.area = idx;
-          if (name === 'building_name_en') COL.building = idx;
-          if (name === 'project_name_en') COL.project = idx;
-          if (name === 'master_project_en') COL.masterProject = idx;
-          if (name === 'rooms_en') COL.rooms = idx;
-          if (name === 'procedure_area') COL.areaSqm = idx;
-          if (name === 'actual_worth') COL.price = idx;
-          if (name === 'meter_sale_price') COL.meterPrice = idx;
-          if (name === 'rent_value') COL.rent = idx;
-          if (name === 'meter_rent_price') COL.meterRent = idx;
-        });
-        headerFound = true;
-        console.log('Columns mapped:', JSON.stringify(COL, null, 2));
-        if (COL.price === undefined || COL.areaSqm === undefined) {
-          console.error('ERROR: Could not find price/area columns');
-          process.exit(1);
-        }
-        continue;
-      }
+    const getVal = (idx) => {
+      if (idx === undefined) return '';
+      return (fields[idx] || '').trim();
+    };
+    const getNum = (idx) => {
+      if (idx === undefined) return 0;
+      const raw = (fields[idx] || '').trim();
+      if (!raw) return 0;
+      const v = parseFloat(raw.replace(/,/g, ''));
+      return isNaN(v) ? 0 : v;
+    };
 
-      const getVal = (idx) => {
-        if (idx === undefined) return '';
-        const cell = row.getCell(idx + 1);
-        return cell ? String(cell.value || '').trim() : '';
-      };
-      const getNum = (idx) => {
-        if (idx === undefined) return 0;
-        const cell = row.getCell(idx + 1);
-        if (!cell || cell.value === null || cell.value === undefined) return 0;
-        const v = typeof cell.value === 'number' ? cell.value : parseFloat(String(cell.value).replace(/,/g, ''));
-        return isNaN(v) ? 0 : v;
-      };
-
-      const transGroup = getVal(COL.transGroup);
-      const usage = getVal(COL.usage);
-      const areaName = getVal(COL.area);
-      const buildingName = getVal(COL.building);
-      const project = getVal(COL.project);
-      const masterProject = getVal(COL.masterProject);
-      const rooms = getVal(COL.rooms).toLowerCase();
-      const areaSqm = getNum(COL.areaSqm);
-      const price = getNum(COL.price);
-      const rent = getNum(COL.rent);
-      const propType = getVal(COL.propType);
-      const subType = getVal(COL.subType);
+    const transGroup = getVal(COL.transGroup);
+    const usage = getVal(COL.usage);
+    const areaName = getVal(COL.area);
+    const buildingName = getVal(COL.building);
+    const project = getVal(COL.project);
+    const masterProject = getVal(COL.masterProject);
+    const rooms = getVal(COL.rooms).toLowerCase();
+    const areaSqm = getNum(COL.areaSqm);
+    const price = getNum(COL.price);
+    const rent = getNum(COL.rent);
+    const propType = getVal(COL.propType);
+    const subType = getVal(COL.subType);
 
       // Track stats
       const uKey = usage || 'unknown';
@@ -273,7 +290,6 @@ async function run() {
         if (!store.areas[aKey].rents[rentKey]) store.areas[aKey].rents[rentKey] = [];
         store.areas[aKey].rents[rentKey].push(rent);
       }
-    }
   }
 
   console.log('\n\nDone reading!');
