@@ -71,14 +71,14 @@ The app was split from a single 1.1MB `index-6.html` into modular files:
 
 Other files (`dubaival.jsx`, `index-3.html`) are old/unused — do not edit.
 
-## Database sizes (as of 2026-06-18, branch `amazing-mccarthy`)
+## Database sizes (as of 2026-06-19, branch `confident-goldberg`)
 
 All databases live in **`js/data.js`**.
 
-- **`var DB={...}`**: **6,281 buildings** (single massive line). Schema:
+- **`var DB={...}`**: **6,815 buildings** (single massive line). Schema:
   `{"p":psf,"lo":lowPsf,"hi":highPsf,"sc":serviceCharge,"a":"Area Name","g":"Grade","df":1(optional)}`.
   Keyed by lowercase building name.
-- **`BLDG_UNITS={...}`**: **~6,454 entries** (building unit counts for turnover
+- **`BLDG_UNITS={...}`**: **~6,975 entries** (building unit counts for turnover
   rate calculation).
 - **`const AREAS={...}`**: **287 keys** (area benchmark database). Schema:
   `{psf, sc, r1/r2/r3, rv2..rv7, y:[yieldLow,yieldHigh], g:[growth0-1yr%,growth1-3yr%,growth2-5yr%], dom, txVol}`.
@@ -176,7 +176,7 @@ totalReturnAnnual = netYield + gr[1]/3
 AI-powered asset management tab. All data in `localStorage`.
 
 **Core features:**
-- Asset tracking with building auto-lookup from 6,162-entry DB
+- Asset tracking with building auto-lookup from 6,815-entry DB
 - Real-time valuations via `computeAssetMetrics()`
 - Portfolio overview: total value, ROI, yield, P&L, area allocation chart
 - **Portfolio Health Score**: composite 1-100 (`computePortfolioHealth()`)
@@ -235,6 +235,14 @@ project-level settings overriding it. See "Outstanding items" for next steps.
 
 ## Recent work log (most recent first)
 
+- **2026-06-19 (session 4)**: Building research — added 534 new buildings
+  across 13 priority areas (6,281→6,815 DB, 6,454→6,975 BLDG_UNITS).
+  Two commits: `4df5505` (+365 buildings), `aed4d59` (+169 buildings).
+  Major expansions: Dubai Marina 230→315, Business Bay 220→303,
+  Downtown Dubai 221→294, Palm Jumeirah 140→201, Dubai Hills 155→201,
+  JBR 22→58, DIFC 16→55, Palm Jebel Ali 1→38.
+  Research incomplete for BB/Marina/Palm (~900 buildings still needed).
+  Branch: `claude/confident-goldberg-u85gey`.
 - **2026-06-18 (session 3)**: `1fe67df` — Comprehensive 16-bug fix (see above).
   Also in this session:
   - `84c962d` — Added 154 new buildings across 29 areas (6,008→6,162 DB, 6,192→6,345 BLDG_UNITS)
@@ -272,9 +280,10 @@ project-level settings overriding it. See "Outstanding items" for next steps.
 - **AVM accuracy improvement**: Track Record shows median ~20% error on 18 real
   transactions. DB "p" (psf) may reflect asking prices not closed DLD prices
   for some buildings — potential lead for accuracy improvement.
-- **Building research ACTIVE**: User wants more buildings, targeting 500+.
-  Current: 6,281. Target areas listed in "Building research gaps" below.
+- **Building research ACTIVE**: User wants more buildings.
+  Current: 6,815. Target areas listed in "Building research gaps" below.
   **IMPORTANT**: Buildings go in `js/data.js`, NOT in `index-6.html`.
+  To resume: «ادامه ریسرچ ساختمان‌ها»
 - **Agent video analysis & upload**: not built yet, deferred to future.
 - **Deploy reminder**: this branch does NOT auto-deploy. User must merge to
   `main` or run `vercel --prod` to go live.
@@ -286,22 +295,22 @@ When adding buildings, edit **`js/data.js`** only. Add to `var DB={...}` and
 
 | Area | Have | Estimated Real | Gap |
 |---|---|---|---|
-| DIFC | 15 | 80+ | **65+** |
-| Palm Jebel Ali | 1 | 50+ | **49+** |
-| Palm Jumeirah | 134 | 400+ | **266+** |
-| Business Bay | 212 | 500+ | **288+** |
-| Dubai Marina | 210 | 500+ | **290+** |
-| MBR City | 72 | 150+ | **78+** |
-| Dubai Hills Estate | 153 | 300+ | **147+** |
-| Downtown Dubai | 202 | 400+ | **198+** |
+| Business Bay | 303 | 500+ | **~200** |
+| Dubai Marina | 315 | 500+ | **~185** |
+| Palm Jumeirah | 201 | 400+ | **~200** |
+| Downtown Dubai | 294 | 400+ | **~106** |
+| Dubai Hills Estate | 201 | 300+ | **~99** |
+| MBR City | 93 | 150+ | **~57** |
 | Dubai Creek Harbour | 147 | 200+ | **53+** |
 | Meydan | 176 | 250+ | **74+** |
-| Emaar Beachfront | 21 | 40+ | **19+** |
-| Tilal Al Ghaf | 11 | 30+ | **19+** |
-| District One | 12 | 30+ | **18+** |
-| Sobha Hartland | 37 | 60+ | **23+** |
+| DIFC | 55 | 80+ | **~25** |
+| Palm Jebel Ali | 38 | 50+ | **~12** |
+| Emaar Beachfront | 33 | 40+ | **~7** |
+| District One | 22 | 30+ | **~8** |
 | Za'Abeel | 11 | 25+ | **14+** |
-| JBR | 22 | 40+ | **18+** |
+| Sobha Hartland | 57 | 60+ | **~3** |
+| Tilal Al Ghaf | 31 | 30+ | ✅ |
+| JBR | 58 | 40+ | ✅ |
 
 ## Testing technique (no build/test infra)
 
