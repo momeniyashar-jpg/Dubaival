@@ -304,13 +304,13 @@ project-level settings overriding it. See "Outstanding items" for next steps.
   May be fully verified by now — check Resend dashboard.
 - **Security note**: RESEND_API_KEY and SUPABASE_SERVICE_ROLE_KEY were shared in
   chat. User was advised to regenerate both. Do NOT echo these keys.
-- **PENDING: Opportunity Alerts (هشدار فرصت‌های پنهان)** — deferred from
-  2026-06-17. Two phases:
-  **Phase 1 (no research needed):** DLD Fee Recovery Timer, Rent Optimization
-  Alert, Optimal Exit Window, Equity Release Calculator.
-  **Phase 2 (needs web research):** Airbnb vs Long-term Rent Comparison
-  (need `str`/`occ` data for 287 areas), Renovation ROI Estimator.
-  To resume: «فرصت‌های پنهان رو انجام بده — فاز ۱ و ۲»
+- **PENDING: Opportunity Alerts (هشدار فرصت‌های پنهان)** — ~~deferred from
+  2026-06-17~~ **COMPLETED** (both phases). All 6 alerts live in
+  `js/portfolio.js` (lines ~275-430):
+  **Phase 1:** DLD Fee Recovery Timer, Rent Optimization Alert, Optimal Exit
+  Window, Equity Release Calculator.
+  **Phase 2:** Airbnb vs Long-term Rent Comparison (STR_DATA covers all 287
+  areas with nightly rates + occupancy), Renovation ROI Estimator.
 - **AVM accuracy improvement**: Track Record shows median ~20% error on 18 real
   transactions. DB "p" (psf) may reflect asking prices not closed DLD prices
   for some buildings — potential lead for accuracy improvement.
