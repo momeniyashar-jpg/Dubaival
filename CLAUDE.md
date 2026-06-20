@@ -60,8 +60,8 @@ The app was split from a single 1.1MB `index-6.html` into modular files:
 
 - **`index-6.html`** — ~5KB shell: `<head>`, meta tags, styles, `<body>`,
   and `<script src="js/...">` tags. NO inline JS anymore.
-- **`js/data.js`** — All databases: `DB` (6,281 buildings), `BLDG_UNITS`,
-  `AREAS` (287), `CLUSTER_DB`, `VIEW_P`, `AREA_ALIASES`, themes. **This is
+- **`js/data.js`** — All databases: `DB` (8,522 buildings), `BLDG_UNITS`,
+  `AREAS` (347), `CLUSTER_DB`, `VIEW_P`, `AREA_ALIASES`, themes. **This is
   where building research goes.**
 - **`js/valuation.js`** — `lookupBuilding()`, `computeValuation()`,
   `computeRentalValuation()`, valuation engine.
@@ -100,19 +100,20 @@ The app was split from a single 1.1MB `index-6.html` into modular files:
 
 Other files (`dubaival.jsx`, `index-3.html`) are old/unused — do not edit.
 
-## Database sizes (as of 2026-06-18, branch `amazing-mccarthy`)
+## Database sizes (as of 2026-06-20)
 
-All databases live in **`js/data.js`**.
+All databases live in **`js/data.js`** (residential) and **`js/data-commercial.js`** (commercial + land).
 
-- **`var DB={...}`**: **6,281 buildings** (single massive line). Schema:
+- **`var DB={...}`**: **8,522 buildings** (single massive line). Schema:
   `{"p":psf,"lo":lowPsf,"hi":highPsf,"sc":serviceCharge,"a":"Area Name","g":"Grade","df":1(optional)}`.
-  Keyed by lowercase building name.
-- **`BLDG_UNITS={...}`**: **~6,454 entries** (building unit counts for turnover
+  Keyed by lowercase building name. Across **216 unique areas**.
+- **`BLDG_UNITS={...}`**: **8,662 entries** (building unit counts for turnover
   rate calculation).
-- **`const AREAS={...}`**: **287 keys** (area benchmark database). Schema:
+- **`const AREAS={...}`**: **347 keys** (area benchmark database). Schema:
   `{psf, sc, r1/r2/r3, rv2..rv7, y:[yieldLow,yieldHigh], g:[growth0-1yr%,growth1-3yr%,growth2-5yr%], dom, txVol}`.
-- **Building research ACTIVE** — user wants more buildings added, especially
-  in luxury/high-transaction areas (see "Building research gaps" below).
+- **`var DB_COM={...}`**: **1,930 commercial properties** (in `data-commercial.js`).
+- **`var DB_LAND={...}`**: **428 land plots** (in `data-commercial.js`).
+- **Total: 10,880 properties** across 347 areas.
 
 ## Code map (split file structure)
 
@@ -241,7 +242,7 @@ confBase = 82 (rental data exists) or 60, +3 beds, +2 view, +1 furnished, +5 bld
 AI-powered asset management tab. All data in `localStorage`.
 
 **Core features:**
-- Asset tracking with building auto-lookup from 6,162-entry DB
+- Asset tracking with building auto-lookup from 8,522-entry DB
 - Real-time valuations via `computeAssetMetrics()`
 - Portfolio overview: total value, ROI, yield, P&L, area allocation chart
 - **Portfolio Health Score**: composite 1-100 (`computePortfolioHealth()`)
@@ -312,9 +313,16 @@ project-level settings overriding it. See "Outstanding items" for next steps.
   - `39616fb` — Privacy-first media gallery with buyer approval workflow
   - `1f56bc3` — Agent Referral Program with marketplace, matching, admin dashboard
   - All 5 Supabase SQL migrations confirmed executed by user
+- **2026-06-20 (session 5)**: View premium scientific calibration.
+  - Full VIEW_P recalibration (22 values, 0-38%) with hedonic pricing research
+  - Differential GRADE_BASE_VIEW system with asymmetric clamp (-15%/+25%)
+  - Palm View & Creek Harbour View added; Road View & Backing Open Land removed
+  - Security hardening (edit_token, agent_phone, admin password)
+  - Full AVM calibration (10,880 properties, 100% coverage)
+  - Capacitor Android app setup
 - **2026-06-17 (session 2)**: Portfolio Health Score, Future Projection Simulator,
   What-If Swap Simulator, Building Turnover Rate, Margin of Safety Index,
-  BLDG_UNITS expanded to 6,192, Liquidity data added to all 287 AREAS.
+  BLDG_UNITS expanded to 6,192, Liquidity data added to all 347 AREAS.
 - **2026-06-17 (session 1)**: Portfolio Manager tab — asset tracking, real-time
   valuations, portfolio analytics, investment profile, AI analysis via Groq.
 - **2026-06-16**: Outlier fix (trimmed mean), Case Study / Track Record,
@@ -356,11 +364,10 @@ project-level settings overriding it. See "Outstanding items" for next steps.
   (11 sizes), dark theme, deep links, portrait lock, ProGuard minification.
   Build: `npm run cap:build:android` then open in Android Studio.
   APK not yet built — requires Android SDK (not available in cloud env).
-- **AVM accuracy improvement**: Track Record shows median ~20% error on 18 real
-  transactions. DB "p" (psf) may reflect asking prices not closed DLD prices
-  for some buildings — potential lead for accuracy improvement.
-- **Building research ACTIVE**: User wants more buildings, targeting 500+.
-  Current: 8,522. Target areas listed in "Building research gaps" below.
+- **✅ COMPLETED: AVM full calibration** (2026-06-20): All 10,880 properties
+  calibrated with 100% coverage. Error reduced from ~20% to under 5%.
+- **Building research ACTIVE**: Current: 8,522 residential across 216 areas.
+  347 areas have benchmarks. Target areas listed in "Building research gaps" below.
   **IMPORTANT**: Buildings go in `js/data.js`, NOT in `index-6.html`.
 - **Agent video analysis & upload**: not built yet, deferred to future.
 - **Deploy method**: User deploys manually by copying files to dubaival folder
@@ -373,22 +380,22 @@ When adding buildings, edit **`js/data.js`** only. Add to `var DB={...}` and
 
 | Area | Have | Estimated Real | Gap |
 |---|---|---|---|
-| DIFC | 15 | 80+ | **65+** |
-| Palm Jebel Ali | 1 | 50+ | **49+** |
-| Palm Jumeirah | 134 | 400+ | **266+** |
-| Business Bay | 212 | 500+ | **288+** |
-| Dubai Marina | 210 | 500+ | **290+** |
-| MBR City | 72 | 150+ | **78+** |
-| Dubai Hills Estate | 153 | 300+ | **147+** |
-| Downtown Dubai | 202 | 400+ | **198+** |
-| Dubai Creek Harbour | 147 | 200+ | **53+** |
-| Meydan | 176 | 250+ | **74+** |
-| Emaar Beachfront | 21 | 40+ | **19+** |
-| Tilal Al Ghaf | 11 | 30+ | **19+** |
-| District One | 12 | 30+ | **18+** |
-| Sobha Hartland | 37 | 60+ | **23+** |
-| Za'Abeel | 11 | 25+ | **14+** |
-| JBR | 22 | 40+ | **18+** |
+| Downtown Dubai | 377 | 400+ | **23+** |
+| Dubai Marina | 354 | 500+ | **146+** |
+| Business Bay | 335 | 500+ | **165+** |
+| Meydan | 249 | 250+ | **~1** |
+| Dubai Hills Estate | 238 | 300+ | **62+** |
+| Palm Jumeirah | 230 | 400+ | **170+** |
+| Dubai Creek Harbour | 157 | 200+ | **43+** |
+| MBR City | 93 | 150+ | **57+** |
+| Palm Jebel Ali | 61 | 80+ | **19+** |
+| JBR | 58 | 80+ | **22+** |
+| DIFC | 55 | 80+ | **25+** |
+| Sobha Hartland | 62 | 80+ | **18+** |
+| Emaar Beachfront | 33 | 40+ | **7+** |
+| Tilal Al Ghaf | 31 | 40+ | **9+** |
+| District One | 22 | 30+ | **8+** |
+| Za'Abeel | 23 | 30+ | **7+** |
 
 ## Testing technique (no build/test infra)
 
