@@ -162,7 +162,7 @@ const MARKET_STATS=[
 ];
 
 // --- VIEW PREMIUMS ------------------------------------------------------------
-const VIEW_P={"Full Sea View":0.28,"Partial Sea View":0.14,"Burj Khalifa View":0.32,"Partial Burj View":0.16,"Full Canal View":0.19,"Partial Canal View":0.09,"Beach Access View":0.22,"Sheikh Zayed Road View":0.12,"Golf View":0.14,"Lagoon View":0.13,"Pool View":0.09,"Garden/Park View":0.06,"Lake View":0.08,"Community View":0.03,"Backing Open Land":0.02,"Skyline View":0.12,"City Skyline":0.12,"City View":0.10,"Road View":0.00,"Not specified":0.00,"Beach Access View":0.22};
+const VIEW_P={"Burj Khalifa + Fountain":0.38,"Fountain View":0.30,"Burj Khalifa View":0.28,"Full Sea View":0.25,"Beach Access View":0.20,"Marina View":0.16,"Full Canal View":0.15,"Partial Burj View":0.15,"Partial Sea View":0.14,"Golf View":0.13,"Boulevard View":0.12,"Lagoon View":0.12,"Lake View":0.10,"Skyline View":0.10,"Partial Canal View":0.08,"Garden/Park View":0.07,"Sheikh Zayed Road View":0.07,"Pool View":0.06,"Community View":0.01,"Not specified":0.00,"Road View":-0.02,"Backing Open Land":-0.03};
 
 // --- BUILDING DATABASE --------------------------------------------------------
 // VERSION: 5.1 | DATE: June 2026 | ENTRIES: 8,522 residential | See data-commercial.js for commercial (1,930) & land (428)

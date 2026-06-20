@@ -404,7 +404,7 @@ function computeValuation(f,buildingVal,liveData){
       vP=0;
     } else {
       vP=rawVP-GRADE_BASE_VIEW[bData.g];
-      vP=Math.max(-0.12,Math.min(0.15,vP));
+      vP=Math.max(-0.15,Math.min(0.15,vP));
     }
   } else {
     vP=rawVP;
@@ -485,7 +485,7 @@ function computeValuation(f,buildingVal,liveData){
   if(bData&&bData.g){var _grm=bData.g==="Ultra"?1.80:bData.g==="A+"?1.35:bData.g==="A"?1.10:bData.g==="A-"?1.0:bData.g==="B+"?0.92:bData.g==="B"?0.85:bData.g==="C"?0.78:1.0;if(_grm!==1.0)rent=Math.round(rent*_grm);}
   var _furnRentM=f.furnished==="Furnished"?1.17:f.furnished==="Semi-Furnished"?1.09:1.0;
   rent=Math.round(rent*_furnRentM);
-  if(f.view&&f.view!=="Not specified"){var _vl=f.view.toLowerCase();var _vrm=_vl.indexOf("full sea")>=0||_vl.indexOf("burj khalifa")>=0||_vl.indexOf("beach access")>=0?1.12:_vl.indexOf("partial sea")>=0||_vl.indexOf("partial burj")>=0||_vl.indexOf("canal")>=0?1.07:_vl.indexOf("golf")>=0||_vl.indexOf("lagoon")>=0||_vl.indexOf("skyline")>=0?1.05:_vl.indexOf("pool")>=0||_vl.indexOf("garden")>=0||_vl.indexOf("park")>=0?1.03:1.0;rent=Math.round(rent*_vrm);}
+  if(f.view&&f.view!=="Not specified"){var _vl=f.view.toLowerCase();var _vrm=_vl==="burj khalifa + fountain"?1.18:_vl.indexOf("fountain")>=0?1.15:_vl.indexOf("full sea")>=0||_vl.indexOf("burj khalifa")>=0?1.12:_vl.indexOf("beach access")>=0?1.10:_vl.indexOf("marina")>=0||_vl.indexOf("full canal")>=0||_vl.indexOf("partial burj")>=0?1.08:_vl.indexOf("partial sea")>=0?1.07:_vl.indexOf("golf")>=0||_vl.indexOf("boulevard")>=0?1.06:_vl.indexOf("lagoon")>=0||_vl.indexOf("lake")>=0?1.05:_vl.indexOf("skyline")>=0?1.04:_vl.indexOf("partial canal")>=0||_vl.indexOf("garden")>=0||_vl.indexOf("park")>=0?1.03:_vl.indexOf("pool")>=0||_vl.indexOf("sheikh zayed")>=0?1.02:_vl.indexOf("community")>=0?1.0:_vl.indexOf("road")>=0?0.98:_vl.indexOf("open land")>=0||_vl.indexOf("backing")>=0?0.97:1.0;rent=Math.round(rent*_vrm);}
   if(!isVilla&&f.floor){var _fl=parseInt(f.floor)||0;if(_fl>=40)rent=Math.round(rent*1.05);else if(_fl>=25)rent=Math.round(rent*1.03);else if(_fl>=15)rent=Math.round(rent*1.02);}
   const sc=(parseFloat(f.serviceCharge)||(bData&&bData.sc)||aData.sc||15)*size;
   const grossYield=(rent/price*100).toFixed(1);
@@ -548,7 +548,7 @@ function computeSmartRent(f,liveRentals){
   if(bData&&bData.g){var _grm=bData.g==="Ultra"?1.80:bData.g==="A+"?1.35:bData.g==="A"?1.10:bData.g==="A-"?1.0:bData.g==="B+"?0.92:bData.g==="B"?0.85:bData.g==="C"?0.78:1.0;if(_grm!==1.0)staticRent=Math.round(staticRent*_grm);}
   var _fM=f.furnished==="Furnished"?1.17:f.furnished==="Semi-Furnished"?1.09:1.0;
   staticRent=Math.round(staticRent*_fM);
-  if(f.view&&f.view!=="Not specified"){var _vl=f.view.toLowerCase();var _vrm=_vl.indexOf("full sea")>=0||_vl.indexOf("burj khalifa")>=0||_vl.indexOf("beach access")>=0?1.12:_vl.indexOf("partial sea")>=0||_vl.indexOf("partial burj")>=0||_vl.indexOf("canal")>=0?1.07:_vl.indexOf("golf")>=0||_vl.indexOf("lagoon")>=0||_vl.indexOf("skyline")>=0?1.05:_vl.indexOf("pool")>=0||_vl.indexOf("garden")>=0||_vl.indexOf("park")>=0?1.03:1.0;staticRent=Math.round(staticRent*_vrm);}
+  if(f.view&&f.view!=="Not specified"){var _vl=f.view.toLowerCase();var _vrm=_vl==="burj khalifa + fountain"?1.18:_vl.indexOf("fountain")>=0?1.15:_vl.indexOf("full sea")>=0||_vl.indexOf("burj khalifa")>=0?1.12:_vl.indexOf("beach access")>=0?1.10:_vl.indexOf("marina")>=0||_vl.indexOf("full canal")>=0||_vl.indexOf("partial burj")>=0?1.08:_vl.indexOf("partial sea")>=0?1.07:_vl.indexOf("golf")>=0||_vl.indexOf("boulevard")>=0?1.06:_vl.indexOf("lagoon")>=0||_vl.indexOf("lake")>=0?1.05:_vl.indexOf("skyline")>=0?1.04:_vl.indexOf("partial canal")>=0||_vl.indexOf("garden")>=0||_vl.indexOf("park")>=0?1.03:_vl.indexOf("pool")>=0||_vl.indexOf("sheikh zayed")>=0?1.02:_vl.indexOf("community")>=0?1.0:_vl.indexOf("road")>=0?0.98:_vl.indexOf("open land")>=0||_vl.indexOf("backing")>=0?0.97:1.0;staticRent=Math.round(staticRent*_vrm);}
   if(!isVilla&&f.floor){var _fl=parseInt(f.floor)||0;if(_fl>=40)staticRent=Math.round(staticRent*1.05);else if(_fl>=25)staticRent=Math.round(staticRent*1.03);else if(_fl>=15)staticRent=Math.round(staticRent*1.02);}
   // --- Layer 2: Live market calibration ---
   var liveRent=null,liveSource=null,liveCount=0,liveMedian=null,liveLow=null,liveHigh=null,liveListings=[];
@@ -633,10 +633,20 @@ function computeRentalValuation(f){
   var viewAdj=1.0;
   if(f.view&&f.view!=="Not specified"){
     var vl=f.view.toLowerCase();
-    if(vl.indexOf("full sea")>=0||vl.indexOf("burj khalifa")>=0||vl.indexOf("beach access")>=0)viewAdj=1.12;
-    else if(vl.indexOf("partial sea")>=0||vl.indexOf("partial burj")>=0||vl.indexOf("canal")>=0)viewAdj=1.07;
-    else if(vl.indexOf("golf")>=0||vl.indexOf("lagoon")>=0||vl.indexOf("skyline")>=0)viewAdj=1.05;
-    else if(vl.indexOf("pool")>=0||vl.indexOf("garden")>=0||vl.indexOf("park")>=0)viewAdj=1.03;
+    if(vl==="burj khalifa + fountain")viewAdj=1.18;
+    else if(vl.indexOf("fountain")>=0)viewAdj=1.15;
+    else if(vl.indexOf("full sea")>=0||vl.indexOf("burj khalifa")>=0)viewAdj=1.12;
+    else if(vl.indexOf("beach access")>=0)viewAdj=1.10;
+    else if(vl.indexOf("marina")>=0||vl.indexOf("full canal")>=0||vl.indexOf("partial burj")>=0)viewAdj=1.08;
+    else if(vl.indexOf("partial sea")>=0)viewAdj=1.07;
+    else if(vl.indexOf("golf")>=0||vl.indexOf("boulevard")>=0)viewAdj=1.06;
+    else if(vl.indexOf("lagoon")>=0||vl.indexOf("lake")>=0)viewAdj=1.05;
+    else if(vl.indexOf("skyline")>=0)viewAdj=1.04;
+    else if(vl.indexOf("partial canal")>=0||vl.indexOf("garden")>=0||vl.indexOf("park")>=0)viewAdj=1.03;
+    else if(vl.indexOf("pool")>=0||vl.indexOf("sheikh zayed")>=0)viewAdj=1.02;
+    else if(vl.indexOf("community")>=0)viewAdj=1.0;
+    else if(vl.indexOf("road")>=0)viewAdj=0.98;
+    else if(vl.indexOf("open land")>=0||vl.indexOf("backing")>=0)viewAdj=0.97;
   }
   estRent=Math.round(estRent*viewAdj);
   // Floor premium for apartments (higher floors get ~2-5% more rent)
