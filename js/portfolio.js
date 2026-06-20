@@ -768,8 +768,8 @@ function renderPortfolio(){
     formCard.appendChild(bField);
 
     var isVilla=n.type==="Villa"||n.type==="Townhouse";
-    var aptViews=["Burj Khalifa View","Partial Burj View","Full Sea View","Partial Sea View","Full Canal View","Partial Canal View","Pool View","Garden/Park View","City Skyline","Road View","Not specified"];
-    var villaViews=["Beach Access View","Full Sea View","Lagoon View","Golf View","Garden/Park View","Pool View","City Skyline","Road View","Not specified"];
+    var aptViews=["Burj Khalifa + Fountain","Fountain View","Burj Khalifa View","Partial Burj View","Full Sea View","Partial Sea View","Palm View","Marina View","Full Canal View","Partial Canal View","Boulevard View","Creek Harbour View","Skyline View","Sheikh Zayed Road View","Pool View","Garden/Park View","Community View","Not specified"];
+    var villaViews=["Beach Access View","Full Sea View","Palm View","Lagoon View","Golf View","Creek Harbour View","Lake View","Garden/Park View","Pool View","Skyline View","Community View","Not specified"];
     var viewOpts=isVilla?villaViews:aptViews;
 
     var fg1=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"});

@@ -1180,7 +1180,7 @@ function renderAnalyzer(){
     formCard.appendChild(floorRow);
 
     // View
-    formCard.appendChild(fld("View",mkSelect(S(),["Not specified","Full Sea View","Beach Access View","Partial Sea View","Golf View","Lagoon View","Lake View","Garden/Park View","Pool View","Skyline View","Boulevard View","Community View","Road View","Backing Open Land"],f.view||"Not specified",function(v){analyzerState.f.view=v;})));
+    formCard.appendChild(fld("View",mkSelect(S(),["Not specified","Full Sea View","Beach Access View","Palm View","Partial Sea View","Golf View","Lagoon View","Creek Harbour View","Lake View","Garden/Park View","Pool View","Skyline View","Boulevard View","Community View"],f.view||"Not specified",function(v){analyzerState.f.view=v;})));
 
         // Private Pool + Single Row + Parking
     var ppRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"}});
@@ -1373,7 +1373,7 @@ function renderAnalyzer(){
     // Floor + View
     const fvRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"}});
     const flBox=el("div",{}); flBox.appendChild(lbl("Floor Number")); flBox.appendChild(inp(I(),"e.g. 19","number",f.floor,function(v){analyzerState.f.floor=v;})); fvRow.appendChild(flBox);
-    const vwBox=el("div",{}); vwBox.appendChild(lbl("View")); vwBox.appendChild(mkSelect(S(),["Not specified","Burj Khalifa + Fountain","Fountain View","Burj Khalifa View","Full Sea View","Beach Access View","Marina View","Full Canal View","Partial Burj View","Partial Sea View","Golf View","Boulevard View","Lagoon View","Lake View","Skyline View","Partial Canal View","Garden/Park View","Sheikh Zayed Road View","Pool View","Community View","Road View","Backing Open Land"],f.view||"Not specified",function(v){analyzerState.f.view=v;})); fvRow.appendChild(vwBox);
+    const vwBox=el("div",{}); vwBox.appendChild(lbl("View")); vwBox.appendChild(mkSelect(S(),["Not specified","Burj Khalifa + Fountain","Fountain View","Burj Khalifa View","Full Sea View","Beach Access View","Palm View","Marina View","Full Canal View","Partial Burj View","Partial Sea View","Golf View","Boulevard View","Lagoon View","Creek Harbour View","Lake View","Skyline View","Partial Canal View","Sheikh Zayed Road View","Garden/Park View","Pool View","Community View"],f.view||"Not specified",function(v){analyzerState.f.view=v;})); fvRow.appendChild(vwBox);
     formCard.appendChild(fvRow);
     // Bathrooms
     const bathRow=el("div",{style:{marginBottom:"12px"}});
