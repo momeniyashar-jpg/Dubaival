@@ -35,7 +35,7 @@ html = html.replace(
 html = html.replace(
   '</head>',
   `<style>
-html,body{overflow-x:hidden!important;overscroll-behavior:none!important;touch-action:pan-y!important;-webkit-text-size-adjust:100%!important;}
+html,body{overflow-x:hidden!important;overscroll-behavior-x:none!important;-webkit-text-size-adjust:100%!important;}
 *{-webkit-user-drag:none;-webkit-touch-callout:none;}
 #app{overflow-x:hidden!important;max-width:100vw!important;}
 </style>
