@@ -295,31 +295,42 @@ project-level settings overriding it. See "Outstanding items" for next steps.
 
 ## Outstanding / open items
 
-- **Price Alert deployment blocker**: `/api/*.js` return 404. Next steps:
+- **🔴 Email sending (Resend) — NOT WORKING**: Price Alert emails cannot send.
+  `/api/*.js` serverless functions return 404 on Vercel. Next steps:
   1. Check if local `package.json` has extra deps triggering Vercel auto-detection
   2. Try deploying via git push to `main` instead of `npx vercel --prod`
   3. Check Vercel deployment "Source" tab for uploaded files
   4. Fallback: move API functions to Supabase Edge Functions
-- **Resend domain `dubaival.com`**: was "Partially Verified" as of 2026-06-17.
-  May be fully verified by now — check Resend dashboard.
+  - **Resend domain `dubaival.com`**: was "Partially Verified" as of 2026-06-17.
+    May be fully verified by now — check Resend dashboard.
+- **🔴 Live Market Finder — broken**: Multiple issues:
+  1. **Only Bayut listings show** — Property Finder listings are missing.
+     Likely the RapidAPI endpoint or parser only handles Bayut responses.
+  2. **No listing photos** — Bayut listings appear without property images.
+     The API response may include image URLs but they're not being rendered.
+  3. **Hard limit of 12 listings** — Even when more results exist, only 12
+     are shown. Need pagination or "load more" or increase the API limit param.
+  - Files to investigate: `js/api.js` (fetchLiveData), `js/market.js`
+    (Live Dashboard / listing rendering), `api/proxy-rapidapi.js`
 - **Security note**: RESEND_API_KEY and SUPABASE_SERVICE_ROLE_KEY were shared in
   chat. User was advised to regenerate both. Do NOT echo these keys.
-- **PENDING: Opportunity Alerts (هشدار فرصت‌های پنهان)** — ~~deferred from
-  2026-06-17~~ **COMPLETED** (both phases). All 6 alerts live in
-  `js/portfolio.js` (lines ~275-430):
-  **Phase 1:** DLD Fee Recovery Timer, Rent Optimization Alert, Optimal Exit
-  Window, Equity Release Calculator.
-  **Phase 2:** Airbnb vs Long-term Rent Comparison (STR_DATA covers all 287
-  areas with nightly rates + occupancy), Renovation ROI Estimator.
+- **✅ COMPLETED: Security hardening** (2026-06-20): 3 critical vulnerabilities
+  fixed (edit_token exposure, agent_phone leak, hardcoded admin password).
+  Supabase RLS hardening SQL executed. Client-side fixes deployed.
+- **✅ COMPLETED: Full calibration** (2026-06-20): All 10,880 properties
+  (8,522 res + 1,930 com + 428 land) calibrated with 100% coverage.
+  data.js split into data.js + data-commercial.js for performance.
+- **✅ COMPLETED: Opportunity Alerts** (both phases). All 6 alerts live in
+  `js/portfolio.js`.
 - **AVM accuracy improvement**: Track Record shows median ~20% error on 18 real
   transactions. DB "p" (psf) may reflect asking prices not closed DLD prices
   for some buildings — potential lead for accuracy improvement.
 - **Building research ACTIVE**: User wants more buildings, targeting 500+.
-  Current: 6,281. Target areas listed in "Building research gaps" below.
+  Current: 8,522. Target areas listed in "Building research gaps" below.
   **IMPORTANT**: Buildings go in `js/data.js`, NOT in `index-6.html`.
 - **Agent video analysis & upload**: not built yet, deferred to future.
-- **Deploy reminder**: this branch does NOT auto-deploy. User must merge to
-  `main` or run `vercel --prod` to go live.
+- **Deploy method**: User deploys manually by copying files to dubaival folder
+  and deploying via Node.js/Vercel CLI. NOT via git merge to main.
 
 ## Building research gaps (priority areas)
 
