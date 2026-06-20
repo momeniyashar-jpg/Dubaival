@@ -1146,7 +1146,10 @@ function renderAnalyzer(){
   if(f.propCategory==="villa"){
     // Villa/Townhouse form
     const formCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px"}});
-    
+
+    // Report Type Selector (top of form)
+    buildReportTypeSelector(cl,formCard);
+
     // Type selector
     formCard.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Property Type"));
     const typeRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"6px",marginBottom:"16px"}});
@@ -1256,9 +1259,6 @@ function renderAnalyzer(){
       ]));
     }
 
-    // Report Type Selector
-    buildReportTypeSelector(cl,formCard);
-
     // Submit
     const canSubmit=true;
     var isAgentModeV=analyzerState.reportMode==="agent";
@@ -1328,7 +1328,10 @@ function renderAnalyzer(){
   } else {
     // APARTMENT FORM (existing logic, cleaned up)
     const formCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px"}});
-    
+
+    // Report Type Selector (top of form)
+    buildReportTypeSelector(cl,formCard);
+
     // Apt subtype
     const APTYPES=["Studio","1 BR","2 BR","3 BR","4 BR","Penthouse","Duplex","Loft"];
     formCard.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Apartment Type"));
@@ -1388,9 +1391,6 @@ function renderAnalyzer(){
         span({color:cl.gold,fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+psf.toLocaleString()+(isRentalA?"/yr":"")),
       ]));
     }
-
-    // Report Type Selector
-    buildReportTypeSelector(cl,formCard);
 
     // Submit
     const canSubmit=true;
