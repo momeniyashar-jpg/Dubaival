@@ -1,4 +1,4 @@
-// Copyright (c) 2024-2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
+// Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- API ---------------------------------------------------------------------
 var API_BASE=(location.hostname==="localhost"||location.hostname==="127.0.0.1")?"":"/api";
 var UAE_RE_KEY="";try{UAE_RE_KEY=localStorage.getItem("dv_rapidapi")||"";}catch(e){}

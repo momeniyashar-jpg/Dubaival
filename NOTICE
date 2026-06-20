@@ -1,5 +1,5 @@
 DubAIVal — Dubai Real Estate AI Valuation Platform
-Copyright (c) 2024-2026 Mohammad Akbar Momenian
+Copyright (c) 2026 Mohammad Akbar Momenian
 
 This product includes proprietary software developed by Mohammad Akbar Momenian.
 
@@ -16,7 +16,9 @@ The following components are proprietary and protected:
    - Future projection simulator
 
 2. DATABASES
-   - Building database (6,800+ Dubai properties)
+   - Residential building database (8,500+ Dubai properties)
+   - Commercial property database (1,900+ properties)
+   - Land parcel database
    - Area benchmark database (287 areas)
    - Cluster analysis data
    - View premium matrices
@@ -34,7 +36,7 @@ The following components are proprietary and protected:
    - "dubaival.com" domain
    - All associated branding and marketing materials
 
-First publication date: 2024
+First publication date: June 2026
 Jurisdiction: United Arab Emirates
 
 Contact: momeni.yashar@gmail.com

@@ -1,4 +1,4 @@
-// Copyright (c) 2024-2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
+// Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- PROPTECH VIDEO PLATFORM (SOCIAL TAB) ------------------------------------
 
 // --- State -------------------------------------------------------------------

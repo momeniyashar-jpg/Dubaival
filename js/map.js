@@ -1,4 +1,4 @@
-// Copyright (c) 2024-2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
+// Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- MAP TAB -----------------------------------------------------------------
 var _dvMapState={metric:"growth",map:null};
 function renderMap(){
