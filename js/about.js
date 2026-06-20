@@ -120,8 +120,8 @@ function renderAbout(){
   promoContent.appendChild(fwTitle);
 
   var flywheel=[
-    {icon:"🎬",title:"Agents Create Content",desc:"RERA-verified agents produce professional walkthrough videos, market updates, and property reviews on YouTube & Instagram to build their reputation on DubaiVal."},
-    {icon:"⭐",title:"Ranking & Visibility",desc:"Higher quality content and more engagement = higher agent ranking on DubaiVal = priority access to off-market deals and buyer referrals."},
+    {icon:"🎬",title:"Agents Create Content",desc:"RERA-verified agents produce professional walkthrough videos, market updates, and property reviews on YouTube & Instagram to build their reputation on DubAIVal."},
+    {icon:"⭐",title:"Ranking & Visibility",desc:"Higher quality content and more engagement = higher agent ranking on DubAIVal = priority access to off-market deals and buyer referrals."},
     {icon:"💰",title:"Financial Incentive",desc:"Top-ranked agents receive direct buyer referrals through our Deal Network — creating real commission opportunities that drive continued content production."},
     {icon:"🌍",title:"Organic Market Promotion",desc:"Hundreds of professionals producing daily content about Dubai properties creates a powerful, authentic narrative of market stability and opportunity — far more credible than traditional advertising."},
     {icon:"📈",title:"Market Confidence",desc:"Authentic, data-driven content from verified professionals builds international investor confidence in Dubai real estate, supporting market stability and growth."},
@@ -186,7 +186,7 @@ function renderAbout(){
 
   // Call to action
   var promoCtaText=el("p",{style:{color:cl.text,fontSize:"12.5px",lineHeight:"1.75",margin:"16px 0",fontStyle:"italic",padding:"16px",borderLeft:"3px solid "+cl.gold,background:hexAlpha(cl.gold,0.05),borderRadius:"0 8px 8px 0"}});
-  promoCtaText.innerHTML="<b style='color:"+cl.gold+"'>\"DubaiVal doesn't just value properties — it empowers hundreds of professionals to become ambassadors for Dubai's real estate market, creating an organic promotional engine that money can't buy.\"</b>";
+  promoCtaText.innerHTML="<b style='color:"+cl.gold+"'>\"DubAIVal doesn't just value properties — it empowers hundreds of professionals to become ambassadors for Dubai's real estate market, creating an organic promotional engine that money can't buy.\"</b>";
   promoContent.appendChild(promoCtaText);
 
   var promoContact=el("a",{href:"mailto:momeni.yashar@gmail.com?subject=DubAIVal%20Government%20Partnership%20—%20Market%20Promotion%20Engine",style:{display:"inline-flex",alignItems:"center",gap:"8px",marginTop:"10px",padding:"12px 28px",background:"linear-gradient(135deg,#00C896,#008060)",color:"#FFFFFF",borderRadius:"10px",fontSize:"12.5px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",textDecoration:"none",cursor:"pointer",border:"none",letterSpacing:"0.03em"}},"🏛️ Discuss Government Partnership");
@@ -327,7 +327,7 @@ function renderApiDocs(cl){
   // API Header
   var apiHeader=div({textAlign:"center",marginBottom:"24px",paddingTop:"10px"});
   apiHeader.appendChild(el("div",{style:{fontSize:"28px",marginBottom:"8px"}},"📡"));
-  apiHeader.appendChild(el("h2",{style:{color:cl.gold,fontSize:"18px",fontWeight:"800",margin:"0 0 4px",fontFamily:"'Space Grotesk',monospace"}},"DubaiVal API"));
+  apiHeader.appendChild(el("h2",{style:{color:cl.gold,fontSize:"18px",fontWeight:"800",margin:"0 0 4px",fontFamily:"'Space Grotesk',monospace"}},"DubAIVal API"));
   apiHeader.appendChild(el("div",{style:{color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif"}},"Real Estate Intelligence for Developers"));
   wrap.appendChild(apiHeader);
 
@@ -469,7 +469,7 @@ function renderApiDocs(cl){
   submitBtn.addEventListener("click",function(e){
     e.preventDefault();
     if(!rq.name||!rq.email){alert("Please fill name and email");return;}
-    var subject=encodeURIComponent("DubaiVal API Access Request — "+rq.company);
+    var subject=encodeURIComponent("DubAIVal API Access Request — "+rq.company);
     var body=encodeURIComponent("Name: "+rq.name+"\nEmail: "+rq.email+"\nCompany: "+rq.company+"\nUse Case: "+rq.useCase);
     window.open("mailto:momeni.yashar@gmail.com?subject="+subject+"&body="+body,"_self");
   });

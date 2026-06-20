@@ -1,7 +1,7 @@
 {
   "name": "dubaival",
   "version": "2.0.0",
-  "description": "DubaiVal — AI Property Valuation Dubai",
+  "description": "DubAIVal — AI Property Valuation Dubai",
   "scripts": {
     "build": "node scripts/build-www.js",
     "cap:sync": "npx cap sync",

@@ -56,7 +56,7 @@ html = html.replace(
     }
     if(window.Capacitor.Plugins.Share){
       window.nativeShare=function(o){
-        window.Capacitor.Plugins.Share.share({title:o.title||'DubaiVal',text:o.text||'',url:o.url||'https://www.dubaival.com',dialogTitle:'Share via'}).catch(function(){});
+        window.Capacitor.Plugins.Share.share({title:o.title||'DubAIVal',text:o.text||'',url:o.url||'https://www.dubaival.com',dialogTitle:'Share via'}).catch(function(){});
       };
     }
     document.addEventListener('backbutton',function(e){

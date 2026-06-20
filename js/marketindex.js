@@ -18,7 +18,7 @@ function renderMarketIndex(){
     var hdrs=["area_name","avg_psf","service_charge","1br_rent","2br_rent","3br_rent","yield_low","yield_high","growth_1y","growth_3y","growth_5y","dom","tx_volume"];
     var rows=[];AREA_NAMES.forEach(function(n){var a=AREAS[n];if(!a)return;var y=a.y||[0,0];var g=a.g||[0,0,0];
       rows.push([n,a.psf||0,a.sc||0,a.r1||0,a.r2||0,a.r3||0,y[0],y[1],g[0],g[1],g[2],a.dom||0,a.txVol||0]);});
-    exportCSV("DubaiVal_Market_Data_"+csvDate()+".csv",hdrs,rows);
+    exportCSV("DubAIVal_Market_Data_"+csvDate()+".csv",hdrs,rows);
   })]));
 
   // Compute aggregates
@@ -322,7 +322,7 @@ function renderMarketIndex(){
       var expBtn=csvExportBtn("Export Comparison (CSV)",cl,function(){
         var hdrs=["metric"].concat(aa);
         var rows=ms.map(function(m){var r=[m.l];ds.forEach(function(dd){r.push(m.fn(dd.d,dd.name));});return r;});
-        exportCSV("DubaiVal_Comparison_"+csvDate()+".csv",hdrs,rows);
+        exportCSV("DubAIVal_Comparison_"+csvDate()+".csv",hdrs,rows);
       });
       expBtn.style.flex="1";shareRow.appendChild(expBtn);
     })(activeAreas,datas,metrics);
@@ -335,7 +335,7 @@ function renderMarketIndex(){
     cmpCard.appendChild(shareRow);
     // Social share
     var cmpUrl=window.location.origin+window.location.pathname+"?compare="+encodeURIComponent(activeAreas.join(","));
-    var cmpText="Comparing "+activeAreas.join(" vs ")+" on DubaiVal — "+activeAreas.length+" areas, 14 metrics, AI verdict. Check it out:";
+    var cmpText="Comparing "+activeAreas.join(" vs ")+" on DubAIVal — "+activeAreas.length+" areas, 14 metrics, AI verdict. Check it out:";
     cmpCard.appendChild(buildShareButtons(cl,{wa:cmpText+" "+cmpUrl,tw:cmpText+" "+cmpUrl,tg:cmpText,url:cmpUrl,copy:cmpUrl}));
   }else if(activeAreas.length===1){
     cmpCard.appendChild(div({textAlign:"center",padding:"20px",color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Select at least 2 areas to compare"));

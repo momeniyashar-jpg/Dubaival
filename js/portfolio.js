@@ -230,7 +230,7 @@ function renderPortfolio(){
       var hdrs=["building","area","type","beds","size_sqft","purchase_price","purchase_date","current_value","roi_pct","gross_yield","net_yield","growth_1y","sustainability_score"];
       var rows=metrics.map(function(a){var ss=typeof computeSustainabilityScore==="function"?computeSustainabilityScore(a.building,a.area,null,AREAS[a.area]):null;
         return[a.building||"",a.area,a.type||"Apartment",a.beds,a.size,a.purchasePrice||a.m.purchasePrice,a.purchaseDate||"",a.m.currentValue,a.m.roi.toFixed(1),a.m.grossYield.toFixed(1),a.m.netYield.toFixed(1),(AREAS[a.area]&&AREAS[a.area].g?AREAS[a.area].g[0]:0),ss?ss.score:""];});
-      exportCSV("DubaiVal_Portfolio_"+csvDate()+".csv",hdrs,rows);
+      exportCSV("DubAIVal_Portfolio_"+csvDate()+".csv",hdrs,rows);
     })]));
 
     // Portfolio Health Score

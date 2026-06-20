@@ -85,7 +85,7 @@ module.exports = async function handler(req, res) {
                 "<h2 style=\"color:#C9A84C\">Price moved " + dir + "</h2>" +
                 "<p><b>" + w.target_name + "</b> is now averaging AED " + psf.toLocaleString() + "/sqft (" +
                 (pctChange > 0 ? "+" : "") + pctChange.toFixed(1) + "% since your last alert).</p>" +
-                "<p><a href=\"https://www.dubaival.com\" style=\"color:#C9A84C\">Check it on DubaiVal</a></p>" +
+                "<p><a href=\"https://www.dubaival.com\" style=\"color:#C9A84C\">Check it on DubAIVal</a></p>" +
                 "<p style=\"font-size:12px;color:#888\"><a href=\"" + unsubUrl + "\">Unsubscribe</a></p>" +
                 "</div>"
             );

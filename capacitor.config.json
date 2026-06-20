@@ -1,6 +1,6 @@
 {
   "appId": "com.dubaival.app",
-  "appName": "DubaiVal",
+  "appName": "DubAIVal",
   "webDir": "www",
   "server": {
     "androidScheme": "https",

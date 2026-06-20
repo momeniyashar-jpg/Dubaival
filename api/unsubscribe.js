@@ -21,7 +21,7 @@ module.exports = async function handler(req, res) {
     "<!doctype html><html><body style=\"font-family:Arial,sans-serif;text-align:center;padding:60px;background:#08090C;color:#F0F2F5\">" +
       "<h2 style=\"color:#C9A84C\">Unsubscribed</h2>" +
       "<p>You won't receive any more price alerts for this watch.</p>" +
-      "<a href=\"https://www.dubaival.com\" style=\"color:#C9A84C\">Back to DubaiVal</a>" +
+      "<a href=\"https://www.dubaival.com\" style=\"color:#C9A84C\">Back to DubAIVal</a>" +
       "</body></html>"
   );
 };

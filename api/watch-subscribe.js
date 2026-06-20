@@ -36,7 +36,7 @@ module.exports = async function handler(req, res) {
       const unsubUrl = "https://www.dubaival.com/api/unsubscribe?token=" + row.unsubscribe_token;
       await sendEmail(
         email,
-        "You're watching " + targetName + " on DubaiVal",
+        "You're watching " + targetName + " on DubAIVal",
         "<div style=\"font-family:Arial,sans-serif;color:#111\">" +
           "<h2 style=\"color:#C9A84C\">Price alert set up</h2>" +
           "<p>We'll email you if pricing for <b>" + targetName + "</b> moves 5% or more.</p>" +
