@@ -13,8 +13,8 @@ function renderAbout(){
 
   // Stats row
   var stats=[
-    {n:"6,800+",l:"Buildings Tracked"},
-    {n:"287",l:"Areas Covered"},
+    {n:"10,800+",l:"Properties Tracked"},
+    {n:"348",l:"Areas Covered"},
     {n:"3 Sectors",l:"Residential · Commercial · Land"},
     {n:"Cascade AVM",l:"AI Valuation Engine"}
   ];
@@ -46,7 +46,7 @@ function renderAbout(){
     {icon:"🔍",title:"AI Property Valuation",desc:"Cascade AVM engine with hedonic pricing model — building-level data, view premiums, floor adjustments, location intelligence, and confidence scoring."},
     {icon:"🤝",title:"Deal Network",desc:"Agent-to-agent marketplace with title deed verification, privacy-first media gallery, and buyer approval workflow."},
     {icon:"💼",title:"Portfolio Manager",desc:"Track your assets, monitor ROI, run what-if simulations, and get AI-powered portfolio health analysis."},
-    {icon:"🗺️",title:"Interactive Map",desc:"Explore 287 areas with growth, yield, price, liquidity, and location intelligence metrics on a live map."},
+    {icon:"🗺️",title:"Interactive Map",desc:"Explore 348 areas with growth, yield, price, liquidity, and location intelligence metrics on a live map."},
     {icon:"📈",title:"Market Intelligence",desc:"Real-time market data, comparable analysis, rental benchmarks, and investment signals for every area."},
     {icon:"📍",title:"Location Intelligence",desc:"Metro proximity, amenity scoring, and geographic premiums powered by 56 metro stations and 30+ key POIs."},
     {icon:"🏢",title:"Commercial Valuation",desc:"Office, retail, and warehouse valuation with commercial yield models, tenant analysis, and occupancy benchmarks across Dubai's business districts."},
@@ -65,7 +65,7 @@ function renderAbout(){
   // Technology
   var techItems=[
     "<b style='color:"+cl.gold+"'>Cascade AVM Engine</b> — Multi-layer valuation: building database → area benchmarks → hedonic adjustments → comparable analysis → live market enrichment.",
-    "<b style='color:"+cl.gold+"'>6,800+ Building Database</b> — DLD-verified transaction data covering apartments, villas, townhouses, penthouses, offices, retail spaces, and land plots across Dubai.",
+    "<b style='color:"+cl.gold+"'>10,800+ Property Database</b> — DLD-verified transaction data: 8,500+ residential buildings, 1,930 commercial properties, and 428 land plots across Dubai.",
     "<b style='color:"+cl.gold+"'>Hedonic Pricing Model</b> — 10+ adjustment factors: view premium, floor level, loft, penthouse, maid’s room, furnishing, private pool, location score, and more.",
     "<b style='color:"+cl.gold+"'>Location Intelligence</b> — Haversine-based proximity scoring for 56 metro stations, 11 tram stops, 30+ POIs. Geographic premium from -3% to +8%.",
     "<b style='color:"+cl.gold+"'>Real-Time Market Data</b> — Live listings integration via UAE property APIs for price validation and comparable analysis."
@@ -206,7 +206,7 @@ function renderAbout(){
   roadmapContent.appendChild(roadmapIntro);
 
   var phases=[
-    {phase:"Phase 1",status:"✅ Live",title:"Residential Valuation",color:"#00C896",items:["8,500+ building database with DLD-verified data","Cascade AVM engine with hedonic pricing","348 area benchmarks with yield, growth & liquidity","Portfolio Manager with health score & projections","Deal Network with agent marketplace","Interactive map, market index & live dashboard","PWA with offline support"]},
+    {phase:"Phase 1",status:"✅ Live",title:"Residential Valuation",color:"#00C896",items:["8,500+ residential buildings with DLD-verified data","Cascade AVM engine with hedonic pricing","348 area benchmarks with yield, growth & liquidity data","Portfolio Manager with health score & projections","Deal Network with agent marketplace","Interactive map, market index & live dashboard","PWA with offline support"]},
     {phase:"Phase 2",status:"✅ Live",title:"Commercial Property Valuation",color:"#3B82F6",items:["1,930 commercial properties (Office, Retail, Warehouse, Shop)","49 commercial area benchmarks from DLD data","Commercial yield models (gross & net)","Sub-type specific valuation (retail premium, warehouse discount)","Area transaction volume & average pricing","Confidence scoring based on data depth","Commercial deal network for brokers"]},
     {phase:"Phase 3",status:"✅ Live",title:"Land & Plot Valuation",color:"#10B981",items:["428 land plots with DLD transaction data","111 land area benchmarks","Zoning-based valuation (residential, commercial, mixed, industrial)","Development potential calculator","Plot price range analysis","Comparable land transaction database","Area average size & pricing benchmarks"]},
     {phase:"Phase 4",status:"📋 Planned",title:"Enterprise & Government Solutions",color:"#F0A030",items:["White-label valuation API for government platforms","Bulk AVM reports for institutional portfolios","Market transparency dashboards for DLD & RERA","Anti-money laundering (AML) property screening","Automated mortgage valuation for banks","Real-time market surveillance & anomaly detection"]}
@@ -351,13 +351,13 @@ function renderApiDocs(cl){
       method:"GET",path:"/api/market-index",
       desc:"Get market overview with area rankings, average metrics, and top performers.",
       params:[{n:"area",t:"string",r:false,d:"Filter by area (omit for city-wide)"}],
-      response:'{\n  "avg_psf": 1680,\n  "avg_yield": 6.2,\n  "avg_growth_1yr": 12.4,\n  "avg_dom": 52,\n  "total_areas": 287,\n  "top_yield": ["International City", ...],\n  "top_growth": ["Dubai Hills Estate", ...]\n}',
+      response:'{\n  "avg_psf": 1680,\n  "avg_yield": 6.2,\n  "avg_growth_1yr": 12.4,\n  "avg_dom": 52,\n  "total_areas": 348,\n  "top_yield": ["International City", ...],\n  "top_growth": ["Dubai Hills Estate", ...]\n}',
       curl:'curl "https://api.dubaival.com/v1/market-index" \\\n  -H "Authorization: Bearer YOUR_API_KEY"',
       js:'const res = await fetch(\n  "https://api.dubaival.com/v1/market-index",\n  { headers: { Authorization: "Bearer YOUR_API_KEY" } }\n);\nconst data = await res.json();'
     },
     {
       method:"GET",path:"/api/building-lookup",
-      desc:"Look up building data from our 6,800+ building DLD-verified database.",
+      desc:"Look up building data from our 10,800+ property DLD-verified database.",
       params:[{n:"name",t:"string",r:true,d:"Building name (fuzzy matching)"}],
       response:'{\n  "name": "Marina Gate 1",\n  "area": "Dubai Marina",\n  "psf": 1850,\n  "low_psf": 1650,\n  "high_psf": 2100,\n  "grade": "A",\n  "service_charge": 18\n}',
       curl:'curl "https://api.dubaival.com/v1/building-lookup?name=marina+gate+1" \\\n  -H "Authorization: Bearer YOUR_API_KEY"',

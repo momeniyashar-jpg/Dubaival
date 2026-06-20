@@ -10,7 +10,7 @@ var WS_TOOLS=[
   {id:"portfolio",icon:"💼",label:"Portfolio Manager",desc:"Track assets, ROI & yield"},
   {id:"alerts",icon:"🔔",label:"Opportunity Alerts",desc:"Hidden investment opportunities"},
   {id:"calculator",icon:"📊",label:"Investment Calculator",desc:"IRR, cash flow & scenarios"},
-  {id:"market",icon:"📈",label:"Market Index",desc:"287 areas, PSF & yield data"},
+  {id:"market",icon:"📈",label:"Market Index",desc:"348 areas, PSF & yield data"},
   {id:"dashboard",icon:"📡",label:"Live Dashboard",desc:"Real-time market stats"},
   {id:"comparison",icon:"⚖️",label:"Neighborhood Comparison",desc:"Compare 2-3 areas"},
   {id:"analyzer",icon:"🔍",label:"Valuation Analyzer",desc:"AI-powered property valuation"},

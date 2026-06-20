@@ -838,7 +838,7 @@ function renderPortfolio(){
 
   // Disclaimer
   var disc=div({background:cl.goldFaint,border:"1px solid "+cl.goldDim,borderRadius:"8px",padding:"10px 14px",fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6",color:cl.subHi});
-  disc.innerHTML="<strong style='color:"+cl.gold+"'>Note:</strong> Valuations use DubAIVal's Cascade AVM with hedonic pricing (6,800+ buildings · 287 areas). Portfolio data is stored locally on your device. Not financial advice — consult a licensed advisor for investment decisions.";
+  disc.innerHTML="<strong style='color:"+cl.gold+"'>Note:</strong> Valuations use DubAIVal's Cascade AVM with hedonic pricing (10,800+ properties · 348 areas). Portfolio data is stored locally on your device. Not financial advice — consult a licensed advisor for investment decisions.";
   wrap.appendChild(disc);
   return wrap;
 }
