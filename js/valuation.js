@@ -480,7 +480,9 @@ function computeValuation(f,buildingVal,liveData){
   const priceHigh=Math.round(fairPrice*(1+confTier.spread));
   const bnMap={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5,"6 BR":6,"7 BR":7,"7+ BR":7};
   const bn=bnMap[f.beds]!=null?bnMap[f.beds]:2;
-  const rent=isVilla?(bn<=2?aData.rv2||130000:bn<=3?aData.rv3||180000:bn<=4?aData.rv4||240000:bn<=5?aData.rv5||350000:bn<=6?aData.rv6||500000:aData.rv7||650000):bn===0?(aData.rStudio||(aData.r1||65000)*0.65):bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
+  let rent=isVilla?(bn<=2?aData.rv2||130000:bn<=3?aData.rv3||180000:bn<=4?aData.rv4||240000:bn<=5?aData.rv5||350000:bn<=6?aData.rv6||500000:aData.rv7||650000):bn===0?(aData.rStudio||(aData.r1||65000)*0.65):bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
+  // Grade/brand premium on rent: branded residences command higher rents
+  if(bData&&bData.g){var _grm=bData.g==="Ultra"?1.20:bData.g==="A+"?1.12:bData.g==="A"?1.05:1.0;if(_grm>1.0)rent=Math.round(rent*_grm);}
   const sc=(parseFloat(f.serviceCharge)||(bData&&bData.sc)||aData.sc||15)*size;
   const grossYield=(rent/price*100).toFixed(1);
   const netYield=((rent-sc)/price*100).toFixed(1);
@@ -555,6 +557,12 @@ function computeRentalValuation(f){
     if(fl>=40)estRent=Math.round(estRent*1.05);
     else if(fl>=25)estRent=Math.round(estRent*1.03);
     else if(fl>=15)estRent=Math.round(estRent*1.02);
+  }
+  // Grade/brand premium: branded residences (Address, Vida, Palace, Armani, etc.)
+  // command higher rents due to hotel services, concierge, premium amenities
+  if(bData&&bData.g){
+    var gradeRentP=bData.g==="Ultra"?1.20:bData.g==="A+"?1.12:bData.g==="A"?1.05:1.0;
+    if(gradeRentP>1.0)estRent=Math.round(estRent*gradeRentP);
   }
   // Rent range: ±12% for market variability
   var rentLow=Math.round(estRent*0.88);
