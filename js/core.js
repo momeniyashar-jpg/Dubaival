@@ -119,8 +119,14 @@ function computeSustainabilityScore(building,area,bData,aData){
   var ageScore=grade==="Ultra"||grade==="A+"?92:grade==="A"?85:grade==="A-"?75:grade==="B+"?65:grade==="B"?55:grade==="C"?35:50;
   var scEff=70;
   if(bData&&bData.sc&&aData&&aData.sc&&aData.sc>0){
-    var ratio=bData.sc/aData.sc;
-    scEff=ratio<0.8?90:ratio<=1.0?70:ratio<=1.2?50:30;
+    // Branded residences (Ultra/A+) have higher SC for premium services (concierge, hotel amenities, spa)
+    // Compare against grade-appropriate benchmark instead of raw area average
+    var scBench=aData.sc;
+    if(grade==="Ultra")scBench=aData.sc*1.25;
+    else if(grade==="A+")scBench=aData.sc*1.15;
+    else if(grade==="A")scBench=aData.sc*1.08;
+    var ratio=bData.sc/scBench;
+    scEff=ratio<0.8?90:ratio<=1.0?78:ratio<=1.2?55:30;
   }
   var greenScore=GREEN_AREAS[area]||50;
   var dom=(aData&&aData.dom)||60;
