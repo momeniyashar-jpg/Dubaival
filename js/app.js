@@ -858,9 +858,11 @@ function renderAdmin(){
     var pwInp=el("input",{type:"password",placeholder:"Enter admin password",style:{width:"100%",background:"rgba(240,242,245,0.05)",border:"1px solid "+cl.border,color:"#F0F2F5",padding:"12px",borderRadius:"8px",fontSize:"14px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"}});
     var pwBtn=el("button",{style:{width:"100%",padding:"12px",background:"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#08090C",border:"none",borderRadius:"8px",fontSize:"14px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
     pwBtn.textContent="Login";
-    pwBtn.addEventListener("click",function(){
-      if(pwInp.value==="dubaival2026"){window.ADMIN_UNLOCKED=true;render();}
-      else{pwInp.style.borderColor="#EF4444";pwInp.value="";}
+    pwBtn.addEventListener("click",async function(){
+      try{var enc=new TextEncoder();var buf=await crypto.subtle.digest("SHA-256",enc.encode(pwInp.value));
+        var hash=Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");
+        if(hash==="67ed667fed4620ba36c09d97b542b81c39a5f63bcbdfe8d1931c234748498fc1"){window.ADMIN_UNLOCKED=true;render();}
+        else{pwInp.style.borderColor="#EF4444";pwInp.value="";}}catch(e){pwInp.style.borderColor="#EF4444";pwInp.value="";}
     });
     pwWrap.appendChild(pwInp);
     pwWrap.appendChild(pwBtn);

@@ -2,21 +2,38 @@
 // --- DEAL NETWORK TAB --------------------------------------------------------
 var DEAL_STATE={mode:"browse",filter:{type:"all",purpose:"sale",area:"",beds:"",minPrice:"",maxPrice:"",urgency:""},
   form:{type:"have",agentName:"",agentPhone:"",agentCompany:"",agentEmail:"",reraNumber:"",area:"",building:"",propType:"apartment",beds:"",sizeSqft:"",floor:"",view:"",furnished:"Unfurnished",purpose:"sale",price:"",urgency:"normal",notes:"",offMarket:false,contactMode:"whatsapp",titleDeedNo:"",titleDeedImg:null,requestReferral:false},
-  deals:[],loading:false,posting:false,myTokens:[],matches:{},_matchLoading:false,waParser:{text:"",parsing:false,parsed:null},
+  deals:[],loading:false,posting:false,myTokens:{},matches:{},_matchLoading:false,waParser:{text:"",parsing:false,parsed:null},
   inquiry:{dealId:null,name:"",phone:"",email:"",message:"",sending:false},myInquiries:{},
   mediaPhotos:[],videoUrl:"",mediaUploading:false,mediaView:null,sentInquiries:{},dealMediaCache:{},
   requestReferral:false,agentHub:{mode:"list",agents:[],referrals:[],regForm:{name:"",phone:"",email:"",company:"",rera:"",areas:"",specialties:"",bio:""},loading:false},adminToken:null,
   videoAnalyses:[],videoForm:{dealId:"",videoUrl:"",title:"",summary:"",agentId:null},videoUploading:false,videoViewDeal:{}};
-try{var dt=localStorage.getItem("dv_deal_tokens");if(dt)DEAL_STATE.myTokens=JSON.parse(dt);}catch(e){}
+try{var dt=localStorage.getItem("dv_deal_tokens");if(dt){var parsed=JSON.parse(dt);if(Array.isArray(parsed)){var migrated={};parsed.forEach(function(t){migrated[t]=t;});DEAL_STATE.myTokens=migrated;localStorage.setItem("dv_deal_tokens",JSON.stringify(migrated));}else{DEAL_STATE.myTokens=parsed;}}}catch(e){}
 try{var si=localStorage.getItem("dv_sent_inquiries");if(si)DEAL_STATE.sentInquiries=JSON.parse(si);}catch(e){}
-try{var at=localStorage.getItem("dv_admin_token");if(at)DEAL_STATE.adminToken=at;}catch(e){}
+try{var at=localStorage.getItem("dv_admin_token");if(at==="67ed667fed4620ba36c09d97b542b81c39a5f63bcbdfe8d1931c234748498fc1")DEAL_STATE.adminToken=at;}catch(e){}
 try{var ap=localStorage.getItem("dv_agent_profile");if(ap){var p=JSON.parse(ap);DEAL_STATE.form.agentName=p.name||"";DEAL_STATE.form.agentPhone=p.phone||"";DEAL_STATE.form.agentCompany=p.company||"";DEAL_STATE.form.agentEmail=p.email||"";DEAL_STATE.form.reraNumber=p.rera||"";}}catch(e){}
 function saveAgentProfile(){try{localStorage.setItem("dv_agent_profile",JSON.stringify({name:DEAL_STATE.form.agentName,phone:DEAL_STATE.form.agentPhone,company:DEAL_STATE.form.agentCompany,email:DEAL_STATE.form.agentEmail,rera:DEAL_STATE.form.reraNumber}));}catch(e){}}
+
+async function fetchDealPhone(dealId){
+  try{
+    var resp=await fetch(SUPABASE_URL+"/rest/v1/deal_board?select=agent_phone&id=eq."+dealId+"&contact_mode=eq.whatsapp&active=eq.true",
+      {headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY}});
+    if(resp.ok){var data=await resp.json();if(data&&data[0])return data[0].agent_phone;}
+  }catch(e){}
+  return null;
+}
+
+async function openWhatsApp(deal){
+  var phone=await fetchDealPhone(deal.id);
+  if(!phone){alert("Contact info not available");return;}
+  phone=phone.replace(/[^0-9+]/g,"");
+  var msg=encodeURIComponent("Hi "+deal.agent_name+", I'm interested in your "+deal.type+" listing: "+deal.area+(deal.building?" - "+deal.building:"")+" at AED "+deal.price.toLocaleString()+" (via DubAIVal Deal Network)");
+  window.open("https://wa.me/"+phone+"?text="+msg,"_blank");
+}
 
 async function fetchDeals(){
   DEAL_STATE.loading=true;render();
   try{
-    var q=SUPABASE_URL+"/rest/v1/deal_board?select=id,type,agent_name,agent_phone,agent_company,agent_email,rera_number,area,building,prop_type,beds,size_sqft,floor_num,view_type,furnished,purpose,price,price_negotiable,dv_fair_price,dv_psf,dv_verdict,dv_confidence,dv_yield,dv_signal,title_deed_no,urgency,notes,off_market,active,edit_token,contact_count,contact_mode,created_at,expires_at,updated_at&active=eq.true&order=created_at.desc&limit=100";
+    var q=SUPABASE_URL+"/rest/v1/deal_board?select=id,type,agent_name,agent_company,agent_email,rera_number,area,building,prop_type,beds,size_sqft,floor_num,view_type,furnished,purpose,price,price_negotiable,dv_fair_price,dv_psf,dv_verdict,dv_confidence,dv_yield,dv_signal,title_deed_no,urgency,notes,off_market,active,contact_count,contact_mode,created_at,expires_at,updated_at&active=eq.true&order=created_at.desc&limit=100";
     var f=DEAL_STATE.filter;
     if(f.type&&f.type!=="all")q+="&type=eq."+f.type;
     if(f.purpose)q+="&purpose=eq."+f.purpose;
@@ -66,7 +83,7 @@ async function postDeal(){
       var created=await resp.json();
       if(created&&created[0]){
         if(created[0].edit_token){
-          DEAL_STATE.myTokens.push(created[0].edit_token);
+          DEAL_STATE.myTokens[created[0].id]=created[0].edit_token;
           try{localStorage.setItem("dv_deal_tokens",JSON.stringify(DEAL_STATE.myTokens));}catch(e){}
         }
         if(DEAL_STATE.mediaPhotos.length||DEAL_STATE.videoUrl){
@@ -127,7 +144,7 @@ async function findAIMatches(deal){
     });
     merged.sort(function(a,b){return b.aiScore-a.aiScore;});
     DEAL_STATE.matches[cacheKey]={data:merged,ts:Date.now()};
-    var myDeal=DEAL_STATE.deals.find(function(d){return d.id===deal.id&&DEAL_STATE.myTokens.indexOf(d.edit_token)!==-1;});
+    var myDeal=DEAL_STATE.deals.find(function(d){return d.id===deal.id&&!!DEAL_STATE.myTokens[d.id];});
     if(myDeal)checkMatchNotifications(deal.id,merged);
     return merged;
   }catch(e){
@@ -139,8 +156,8 @@ async function findAIMatches(deal){
 }
 
 async function computeMyDealMatches(){
-  if(!DEAL_STATE.myTokens.length||!DEAL_STATE.deals.length)return;
-  var myDeals=DEAL_STATE.deals.filter(function(d){return DEAL_STATE.myTokens.indexOf(d.edit_token)!==-1;});
+  if(!Object.keys(DEAL_STATE.myTokens).length||!DEAL_STATE.deals.length)return;
+  var myDeals=DEAL_STATE.deals.filter(function(d){return !!DEAL_STATE.myTokens[d.id];});
   for(var i=0;i<myDeals.length;i++){await findAIMatches(myDeals[i]);}
   render();
 }
@@ -329,7 +346,7 @@ async function updateVideoStatus(videoId,status){
   try{
     var resp=await fetch(SUPABASE_URL+"/rest/v1/agent_video_analyses?id=eq."+videoId,{method:"PATCH",
       headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
-      body:JSON.stringify({status:status}));
+      body:JSON.stringify({status:status})});
     if(!resp.ok){alert("Failed to update video status ("+resp.status+")");return;}
     if(status==="approved"){
       var vids=await fetchVideoAnalyses("approved");
@@ -357,8 +374,8 @@ async function fetchDealVideoAnalyses(dealId){
 
 async function fetchMyInquiries(){
   var dealIds=[];
-  if(DEAL_STATE.myTokens.length){
-    var myDeals=DEAL_STATE.deals.filter(function(d){return DEAL_STATE.myTokens.indexOf(d.edit_token)!==-1;});
+  if(Object.keys(DEAL_STATE.myTokens).length){
+    var myDeals=DEAL_STATE.deals.filter(function(d){return !!DEAL_STATE.myTokens[d.id];});
     for(var i=0;i<myDeals.length;i++){dealIds.push(myDeals[i].id);}
   }
   var sentKeys=Object.keys(DEAL_STATE.sentInquiries);
@@ -401,7 +418,7 @@ function renderDeals(){
   if(!DEAL_STATE.adminToken){
     var adminLink=el("button",{style:{padding:"6px 10px",borderRadius:"8px",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",
       background:"transparent",color:cl.sub,border:"1px solid "+cl.border,marginLeft:"auto"},
-      onclick:function(){var token=prompt("Enter DubAIVal Admin Token:");if(token&&token.trim()){DEAL_STATE.adminToken=token.trim();try{localStorage.setItem("dv_admin_token",token.trim());}catch(e){}DEAL_STATE.mode="admin";fetchAgents();fetchReferrals().then(function(){render();});render();}}});
+      onclick:async function(){var token=prompt("Enter DubAIVal Admin Token:");if(token&&token.trim()){try{var enc=new TextEncoder();var buf=await crypto.subtle.digest("SHA-256",enc.encode(token.trim()));var hash=Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");if(hash==="67ed667fed4620ba36c09d97b542b81c39a5f63bcbdfe8d1931c234748498fc1"){DEAL_STATE.adminToken=token.trim();try{localStorage.setItem("dv_admin_token",hash);}catch(e){}DEAL_STATE.mode="admin";fetchAgents();fetchReferrals().then(function(){render();});render();}else{alert("Invalid admin token");}}catch(e){alert("Authentication failed");}}}});
     adminLink.textContent="Admin Login";modeBar.appendChild(adminLink);
   }
   wrap.appendChild(modeBar);
@@ -601,7 +618,7 @@ function renderDeals(){
   }
 
   // --- DEALS MATCHING YOUR POSTS ---
-  var myDeals=DEAL_STATE.deals.filter(function(d){return DEAL_STATE.myTokens.indexOf(d.edit_token)!==-1;});
+  var myDeals=DEAL_STATE.deals.filter(function(d){return !!DEAL_STATE.myTokens[d.id];});
   if(myDeals.length>0){
     var hasAny=false;
     myDeals.forEach(function(md){var ck="aim_"+md.id;if(DEAL_STATE.matches[ck]&&DEAL_STATE.matches[ck].data.length)hasAny=true;});
@@ -633,7 +650,7 @@ function renderDeals(){
           if(m.reason&&m.reason!=="Rule-based match")mCard.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif",fontStyle:"italic",marginBottom:"6px"},"\""+m.reason+"\""));
           var cBtn=el("button",{style:{padding:"5px 12px",borderRadius:"6px",fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",background:"linear-gradient(135deg,#25D366,#128C7E)",color:"#fff",border:"none"}});
           cBtn.textContent="💬 Contact";
-          (function(deal){cBtn.addEventListener("click",function(e){e.stopPropagation();if(deal.contact_mode==="whatsapp"&&deal.agent_phone){window.open("https://wa.me/"+deal.agent_phone.replace(/[^0-9]/g,"")+"?text=Hi, I found your deal on DubaiVal Deal Network.","_blank");}else{DEAL_STATE.inquiry.dealId=deal.id;render();}});})(m.deal);
+          (function(deal){cBtn.addEventListener("click",function(e){e.stopPropagation();if(deal.contact_mode==="whatsapp"){openWhatsApp(deal);}else{DEAL_STATE.inquiry.dealId=deal.id;render();}});})(m.deal);
           mCard.appendChild(cBtn);
           myMatchPanel.appendChild(mCard);
         });
@@ -793,9 +810,7 @@ function renderDeals(){
     }else{
       var contactBtn=el("button",{style:{background:"linear-gradient(135deg,#10B981,#059669)",color:"#fff",border:"none",padding:"7px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
       contactBtn.textContent="WhatsApp";
-      contactBtn.onclick=function(e){e.stopPropagation();var phone=d.agent_phone.replace(/[^0-9+]/g,"");
-        var msg=encodeURIComponent("Hi "+d.agent_name+", I'm interested in your "+d.type+" listing: "+d.area+(d.building?" - "+d.building:"")+" at AED "+d.price.toLocaleString()+" (via DubAIVal Deal Network)");
-        window.open("https://wa.me/"+phone+"?text="+msg,"_blank");};
+      contactBtn.onclick=(function(deal){return function(e){e.stopPropagation();openWhatsApp(deal);};})(d);
       bottomRow.appendChild(contactBtn);
     }
     card.appendChild(bottomRow);
@@ -836,7 +851,7 @@ function renderDeals(){
       card.appendChild(inqForm);
     }
 
-    var isOwner=DEAL_STATE.myTokens.indexOf(d.edit_token)!==-1;
+    var isOwner=!!DEAL_STATE.myTokens[d.id];
     var myInqs=DEAL_STATE.myInquiries[d.id];
     if(myInqs&&myInqs.length&&isOwner){
       var inqWrap=div({background:cl.raised,borderRadius:"8px",padding:"8px 10px",marginTop:"8px",border:"1px solid rgba(139,92,246,0.2)"});
@@ -992,7 +1007,7 @@ function renderDeals(){
             span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginLeft:"6px"},m.deal.area+" · AED "+(m.deal.price/1000).toFixed(0)+"K")])]));
         var cBtn=el("button",{style:{padding:"3px 8px",borderRadius:"5px",fontSize:"8px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",background:"linear-gradient(135deg,#25D366,#128C7E)",color:"#fff",border:"none",flexShrink:"0"}});
         cBtn.textContent="Contact";
-        (function(deal){cBtn.addEventListener("click",function(e){e.stopPropagation();if(deal.contact_mode==="whatsapp"&&deal.agent_phone){window.open("https://wa.me/"+deal.agent_phone.replace(/[^0-9]/g,"")+"?text=Hi, I found your deal on DubaiVal Deal Network.","_blank");}else{DEAL_STATE.inquiry.dealId=deal.id;render();}});})(m.deal);
+        (function(deal){cBtn.addEventListener("click",function(e){e.stopPropagation();if(deal.contact_mode==="whatsapp"){openWhatsApp(deal);}else{DEAL_STATE.inquiry.dealId=deal.id;render();}});})(m.deal);
         mRow.appendChild(cBtn);
         mWrap.appendChild(mRow);
         if(m.reason&&m.reason!=="Rule-based match"){mWrap.appendChild(div({color:cl.sub,fontSize:"8px",fontStyle:"italic",fontFamily:"'Inter',sans-serif",padding:"2px 0 2px 28px"},"\""+m.reason+"\""));}

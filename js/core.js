@@ -521,7 +521,7 @@ function markAllNotifRead(){
 }
 function getUnreadCount(){return DV_NOTIF.items.filter(function(n){return!n.read;}).length;}
 function checkDealNotifications(oldInquiries,newInquiries,deals,myTokens){
-  var myDeals=deals.filter(function(d){return myTokens.indexOf(d.edit_token)!==-1;});
+  var myDeals=deals.filter(function(d){return !!myTokens[d.id];});
   var myDealIds=myDeals.map(function(d){return d.id;});
   var oldIds={};
   Object.keys(oldInquiries).forEach(function(did){
