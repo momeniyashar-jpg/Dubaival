@@ -1259,6 +1259,18 @@ function renderAnalyzer(){
       ]));
     }
 
+    // Purchase history (seller/agent mode)
+    if(!isRental&&(analyzerState.reportFor==="seller"||analyzerState.reportFor==="both")){
+      var ppSec=el("div",{style:{background:hexAlpha("#F87171",0.06),border:"1px solid "+hexAlpha("#F87171",0.2),borderRadius:"10px",padding:"14px",marginTop:"12px"}});
+      ppSec.appendChild(div({color:"#F87171",fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"◆ Seller Purchase History (Optional)"));
+      var ppRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}});
+      var ppBox=el("div",{});ppBox.appendChild(lbl("Purchase Price (AED)"));ppBox.appendChild(inp(I(),"e.g. 3,200,000","number",f.purchasePrice||"",function(v){analyzerState.f.purchasePrice=v;}));ppRow.appendChild(ppBox);
+      var pdBox=el("div",{});pdBox.appendChild(lbl("Purchase Date"));var pdInp=el("input",{style:I(),type:"date",value:f.purchaseDate||""});pdInp.addEventListener("change",function(e){analyzerState.f.purchaseDate=e.target.value;});pdBox.appendChild(pdInp);ppRow.appendChild(pdBox);
+      ppSec.appendChild(ppRow);
+      ppSec.appendChild(div({color:hexAlpha("#F87171",0.6),fontSize:"9.5px",fontFamily:"'Inter',sans-serif",marginTop:"8px"},"Enables capital gain analysis, hold vs sell comparison & sell price recommendation"));
+      formCard.appendChild(ppSec);
+    }
+
     // Submit
     const canSubmit=true;
     var isAgentModeV=analyzerState.reportMode==="agent";
@@ -1405,6 +1417,18 @@ function renderAnalyzer(){
       ]));
     }
 
+    // Purchase history (seller/agent mode)
+    if(!isRentalA&&(analyzerState.reportFor==="seller"||analyzerState.reportFor==="both")){
+      var ppSecA=el("div",{style:{background:hexAlpha("#F87171",0.06),border:"1px solid "+hexAlpha("#F87171",0.2),borderRadius:"10px",padding:"14px",marginTop:"12px"}});
+      ppSecA.appendChild(div({color:"#F87171",fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"◆ Seller Purchase History (Optional)"));
+      var ppRowA=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}});
+      var ppBoxA=el("div",{});ppBoxA.appendChild(lbl("Purchase Price (AED)"));ppBoxA.appendChild(inp(I(),"e.g. 2,000,000","number",f.purchasePrice||"",function(v){analyzerState.f.purchasePrice=v;}));ppRowA.appendChild(ppBoxA);
+      var pdBoxA=el("div",{});pdBoxA.appendChild(lbl("Purchase Date"));var pdInpA=el("input",{style:I(),type:"date",value:f.purchaseDate||""});pdInpA.addEventListener("change",function(e){analyzerState.f.purchaseDate=e.target.value;});pdBoxA.appendChild(pdInpA);ppRowA.appendChild(pdBoxA);
+      ppSecA.appendChild(ppRowA);
+      ppSecA.appendChild(div({color:hexAlpha("#F87171",0.6),fontSize:"9.5px",fontFamily:"'Inter',sans-serif",marginTop:"8px"},"Enables capital gain analysis, hold vs sell comparison & sell price recommendation"));
+      formCard.appendChild(ppSecA);
+    }
+
     // Submit
     const canSubmit=true;
     var isAgentMode=analyzerState.reportMode==="agent";
@@ -1502,7 +1526,7 @@ function renderCommercialResult(wrap){
       span({color:accent,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block"},"COMMERCIAL ANALYSIS COMPLETE"),
       span({color:cl.subHi,fontSize:"13px",fontFamily:"'Inter',sans-serif"},(f.building?f.building+" · ":"")+(v.subType||"Office").toUpperCase()+" · "+f.area),
     ]),
-    el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 14px",borderRadius:"8px",cursor:"pointer",fontSize:"12px"},onclick:function(){analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"sale",sector:"commercial",subType:"",zoning:""},val:null,rentalVal:null,comVal:null,landVal:null,aiText:"",aiTextSeller:"",liveData:null,err:"",reportMode:"personal",reportFor:"buyer",smartRent:null};render();}},"← New"),
+    el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 14px",borderRadius:"8px",cursor:"pointer",fontSize:"12px"},onclick:function(){analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"sale",sector:"commercial",subType:"",zoning:"",purchasePrice:"",purchaseDate:""},val:null,rentalVal:null,comVal:null,landVal:null,aiText:"",aiTextSeller:"",liveData:null,err:"",reportMode:"personal",reportFor:"buyer",smartRent:null};render();}},"← New"),
   ]));
   var vcfg={UNDERVALUED:{bg:"linear-gradient(135deg,rgba(34,197,94,0.08),transparent)",bo:"rgba(34,197,94,0.3)",tx:"#22C55E",icon:"🟢",label:"UNDERVALUED",sub:"Significantly below market"},BELOW_MARKET:{bg:"linear-gradient(135deg,rgba(34,197,94,0.05),transparent)",bo:"rgba(34,197,94,0.2)",tx:"#22C55E",icon:"✅",label:"BELOW MARKET",sub:"Below market — opportunity"},FAIR_VALUE:{bg:"linear-gradient(135deg,rgba(234,179,8,0.08),transparent)",bo:"rgba(234,179,8,0.3)",tx:"#EAB308",icon:"🟡",label:"FAIR VALUE",sub:"At market rate"},ABOVE_MARKET:{bg:"linear-gradient(135deg,rgba(239,68,68,0.05),transparent)",bo:"rgba(239,68,68,0.2)",tx:"#EF4444",icon:"🔶",label:"ABOVE MARKET",sub:"Above market"},OVERPRICED:{bg:"linear-gradient(135deg,rgba(239,68,68,0.08),transparent)",bo:"rgba(239,68,68,0.3)",tx:"#EF4444",icon:"🔴",label:"OVERPRICED",sub:"Well above market"}}[v.verdict]||{bg:cl.surface,bo:cl.border,tx:cl.sub,icon:"·",label:v.verdict,sub:""};
   wrap.appendChild(div({background:vcfg.bg,border:"2px solid "+vcfg.bo,borderRadius:"16px",overflow:"hidden",marginBottom:"14px"},[
@@ -1552,7 +1576,7 @@ function renderLandResult(wrap){
       span({color:accent,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block"},"LAND ANALYSIS COMPLETE"),
       span({color:cl.subHi,fontSize:"13px",fontFamily:"'Inter',sans-serif"},(f.building||f.project?((f.building||f.project)+" · "):"")+(v.zoning||"Residential").toUpperCase()+" · "+f.area),
     ]),
-    el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 14px",borderRadius:"8px",cursor:"pointer",fontSize:"12px"},onclick:function(){analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"sale",sector:"land",subType:"",zoning:""},val:null,rentalVal:null,comVal:null,landVal:null,aiText:"",liveData:null,err:""};render();}},"← New"),
+    el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 14px",borderRadius:"8px",cursor:"pointer",fontSize:"12px"},onclick:function(){analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"sale",sector:"land",subType:"",zoning:"",purchasePrice:"",purchaseDate:""},val:null,rentalVal:null,comVal:null,landVal:null,aiText:"",liveData:null,err:""};render();}},"← New"),
   ]));
   var vcfg={UNDERVALUED:{bg:"linear-gradient(135deg,rgba(34,197,94,0.08),transparent)",bo:"rgba(34,197,94,0.3)",tx:"#22C55E",icon:"🟢",label:"UNDERVALUED",sub:"Below market — strong opportunity"},BELOW_MARKET:{bg:"linear-gradient(135deg,rgba(34,197,94,0.05),transparent)",bo:"rgba(34,197,94,0.2)",tx:"#22C55E",icon:"✅",label:"BELOW MARKET",sub:"Under market value"},FAIR_VALUE:{bg:"linear-gradient(135deg,rgba(234,179,8,0.08),transparent)",bo:"rgba(234,179,8,0.3)",tx:"#EAB308",icon:"🟡",label:"FAIR VALUE",sub:"At market rate"},ABOVE_MARKET:{bg:"linear-gradient(135deg,rgba(239,68,68,0.05),transparent)",bo:"rgba(239,68,68,0.2)",tx:"#EF4444",icon:"🔶",label:"ABOVE MARKET",sub:"Above market"},OVERPRICED:{bg:"linear-gradient(135deg,rgba(239,68,68,0.08),transparent)",bo:"rgba(239,68,68,0.3)",tx:"#EF4444",icon:"🔴",label:"OVERPRICED",sub:"Well above market"}}[v.verdict]||{bg:cl.surface,bo:cl.border,tx:cl.sub,icon:"·",label:v.verdict,sub:""};
   wrap.appendChild(div({background:vcfg.bg,border:"2px solid "+vcfg.bo,borderRadius:"16px",overflow:"hidden",marginBottom:"14px"},[
@@ -1615,7 +1639,7 @@ function renderAnalyzerResult(wrap){
       span({color:cl.subHi,fontSize:"13px",fontFamily:"'Inter',sans-serif"},(f.building?f.building+" · ":"")+(isVilla?f.villaType:f.aptSubtype)+" · "+f.area+(f.cluster?" · "+f.cluster:"")),
     ]),
     el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 14px",borderRadius:"8px",cursor:"pointer",fontSize:"12px"},onclick:function(){
-  analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"sale",sector:"residential",subType:"",zoning:""},val:null,rentalVal:null,comVal:null,landVal:null,aiText:"",aiTextSeller:"",liveData:null,err:"",reportMode:"personal",reportFor:"buyer",smartRent:null};
+  analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"sale",sector:"residential",subType:"",zoning:"",purchasePrice:"",purchaseDate:""},val:null,rentalVal:null,comVal:null,landVal:null,aiText:"",aiTextSeller:"",liveData:null,err:"",reportMode:"personal",reportFor:"buyer",smartRent:null};
   window.scrollTo({top:0,behavior:"smooth"});
   render();
 }},"← New"),
@@ -1950,6 +1974,312 @@ function renderAnalyzerResult(wrap){
     else ecSCard.appendChild(div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.85",fontFamily:"'Inter',sans-serif"},analyzerState.aiTextSeller));
     wrap.appendChild(ecSCard);
   }
+
+  // =====================================================
+  // PERSONALIZED ADVISORY SYSTEM (Seller / Buyer / Agent)
+  // =====================================================
+  (function(){
+    var rMode=analyzerState.reportMode;
+    var rFor=analyzerState.reportFor;
+    var price=parseInt(String(f.price||"").replace(/,/g,""))||0;
+    var size=parseFloat(String(f.size||f.buaSize||"").replace(/,/g,""))||0;
+    var purchPrice=parseInt(String(f.purchasePrice||"").replace(/,/g,""))||0;
+    var purchDateStr=f.purchaseDate||"";
+    var gr=val.g1||18;
+    var gr0=val.g0||10;
+    var gr2=val.g2||28;
+    var rent=val.rent||0;
+    var sc=val.sc||0;
+    var netYield=parseFloat(val.netYield)||0;
+    var fair=val.fairPrice||0;
+    var isSeller=rFor==="seller"||rFor==="both";
+    var isBuyer=rFor==="buyer"||rFor==="both";
+    var isAgent=rMode==="agent";
+
+    // --- SELLER ADVISORY ---
+    if(isSeller&&f.txnType==="sale"){
+      var sellerCard=el("div",{style:{background:cl.surface,border:"1px solid rgba(239,68,68,0.25)",borderRadius:"14px",padding:"18px",marginBottom:"14px"}});
+      sellerCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
+        span({color:"#F87171",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ Seller Advisory"),
+        span({color:hexAlpha("#F87171",0.6),fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},purchPrice?"Based on purchase history":"Market-based analysis"),
+      ]));
+
+      if(purchPrice&&purchDateStr){
+        var purchDate=new Date(purchDateStr);
+        var now=new Date();
+        var yearsHeld=Math.max(0.1,(now-purchDate)/(365.25*24*60*60*1000));
+        var capitalGain=price-purchPrice;
+        var capitalGainPct=((price-purchPrice)/purchPrice*100).toFixed(1);
+        var annualizedROI=(capitalGainPct/yearsHeld).toFixed(1);
+        var totalCostsBuy=Math.round(purchPrice*0.065);
+        var totalCostsSell=Math.round(price*0.02);
+        var netProfit=capitalGain-totalCostsBuy-totalCostsSell;
+        var netProfitPct=((netProfit/purchPrice)*100).toFixed(1);
+        var breakEvenPrice=Math.round(purchPrice+totalCostsBuy+totalCostsSell);
+        var rentCollected=Math.round(rent*yearsHeld);
+        var totalReturn=netProfit+rentCollected;
+        var totalReturnPct=((totalReturn/(purchPrice+totalCostsBuy))*100).toFixed(1);
+
+        // Capital gain summary
+        sellerCard.appendChild(div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"},[
+          div({background:cl.raised,borderRadius:"10px",padding:"12px 14px"},[lbl("Purchase Price"),div({color:cl.subHi,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+purchPrice.toLocaleString())]),
+          div({background:cl.raised,borderRadius:"10px",padding:"12px 14px"},[lbl("Years Held"),div({color:cl.subHi,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},yearsHeld.toFixed(1)+" yrs")]),
+          div({background:capitalGain>=0?cl.greenBg:hexAlpha("#EF4444",0.1),border:"1px solid "+(capitalGain>=0?cl.greenBo:hexAlpha("#EF4444",0.3)),borderRadius:"10px",padding:"12px 14px"},[lbl("Capital Gain"),div({color:capitalGain>=0?cl.green:"#EF4444",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(capitalGain>=0?"+":"")+capitalGainPct+"% · AED "+(capitalGain>=0?"+":"")+capitalGain.toLocaleString())]),
+          div({background:cl.raised,borderRadius:"10px",padding:"12px 14px"},[lbl("Annualized ROI"),div({color:parseFloat(annualizedROI)>=10?cl.green:parseFloat(annualizedROI)>=5?cl.yellow:"#EF4444",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},annualizedROI+"%/yr")]),
+        ]));
+
+        // Net profit after costs
+        sellerCard.appendChild(div({background:cl.raised,borderRadius:"10px",padding:"14px",marginBottom:"12px"},[
+          div({color:cl.sub,fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"Net Profit After Costs"),
+          div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"8px"},[
+            div({textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"Buy Costs (6.5%)"),div({color:"#EF4444",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"-AED "+totalCostsBuy.toLocaleString())]),
+            div({textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"Sell Costs (2%)"),div({color:"#EF4444",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"-AED "+totalCostsSell.toLocaleString())]),
+            div({textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"Rent Collected"),div({color:cl.green,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"+AED "+rentCollected.toLocaleString())]),
+          ]),
+          div({borderTop:"1px solid "+cl.border,paddingTop:"10px",display:"flex",justifyContent:"space-between",alignItems:"center"},[
+            span({color:cl.subHi,fontSize:"12px",fontWeight:"700",fontFamily:"'Inter',sans-serif"},"Total Net Return"),
+            div({textAlign:"right"},[
+              div({color:totalReturn>=0?cl.green:"#EF4444",fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"AED "+(totalReturn>=0?"+":"")+totalReturn.toLocaleString()),
+              span({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},totalReturnPct+"% total · "+annualizedROI+"%/yr"),
+            ]),
+          ]),
+        ]));
+
+        // Hold vs Sell analysis
+        var projValue1yr=Math.round(fair*(1+gr0/100));
+        var addGain1yr=projValue1yr-price;
+        var rentIncome1yr=rent;
+        var holdBenefit=addGain1yr+rentIncome1yr;
+        var projValue3yr=Math.round(fair*(1+gr/100));
+        sellerCard.appendChild(div({background:hexAlpha("#F59E0B",0.06),border:"1px solid "+hexAlpha("#F59E0B",0.2),borderRadius:"10px",padding:"14px",marginBottom:"12px"},[
+          div({color:"#F59E0B",fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"Hold vs Sell Analysis"),
+          div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"},[
+            div({background:hexAlpha("#EF4444",0.08),borderRadius:"8px",padding:"12px",textAlign:"center"},[
+              div({color:"#F87171",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"SELL NOW"),
+              div({color:"#F87171",fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"AED "+netProfit.toLocaleString()),
+              div({color:hexAlpha("#F87171",0.7),fontSize:"9px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},"Net profit realized today"),
+            ]),
+            div({background:hexAlpha("#22C55E",0.08),borderRadius:"8px",padding:"12px",textAlign:"center"},[
+              div({color:cl.green,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"HOLD 1 MORE YEAR"),
+              div({color:cl.green,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"AED +"+(addGain1yr+rentIncome1yr).toLocaleString()),
+              div({color:hexAlpha(cl.green,0.7),fontSize:"9px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},"Growth +"+addGain1yr.toLocaleString()+" · Rent +"+rentIncome1yr.toLocaleString()),
+            ]),
+          ]),
+          div({color:cl.sub,fontSize:"10.5px",fontFamily:"'Inter',sans-serif",marginTop:"10px",lineHeight:"1.6"},
+            holdBenefit>0?
+            "Holding for 1 year could add AED "+holdBenefit.toLocaleString()+" (capital growth + rental income). If you sell now at AED "+price.toLocaleString()+", you've already secured "+annualizedROI+"%/yr annualized return on your investment.":
+            "Market outlook suggests limited upside. Selling now locks in your profit of AED "+netProfit.toLocaleString()+" and frees capital for reinvestment."
+          ),
+        ]));
+
+        // Sell price recommendation
+        var minSellPrice=breakEvenPrice;
+        var optimalSell=Math.round(fair*1.02);
+        sellerCard.appendChild(div({background:hexAlpha("#22C55E",0.06),border:"1px solid "+hexAlpha("#22C55E",0.2),borderRadius:"10px",padding:"14px"},[
+          div({color:cl.green,fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"Sell Price Recommendation"),
+          div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px"},[
+            div({background:hexAlpha("#EF4444",0.1),borderRadius:"8px",padding:"10px",textAlign:"center"},[
+              div({color:"#EF4444",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"DON'T SELL BELOW"),
+              div({color:"#F87171",fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"AED "+minSellPrice.toLocaleString()),
+              div({color:hexAlpha("#EF4444",0.6),fontSize:"8px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},"Break-even price"),
+            ]),
+            div({background:hexAlpha("#22C55E",0.1),border:"1px solid "+hexAlpha("#22C55E",0.3),borderRadius:"8px",padding:"10px",textAlign:"center"},[
+              div({color:cl.green,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"OPTIMAL SELL"),
+              div({color:cl.green,fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"AED "+optimalSell.toLocaleString()),
+              div({color:hexAlpha(cl.green,0.6),fontSize:"8px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},"Fair value + 2% premium"),
+            ]),
+            div({background:hexAlpha("#F59E0B",0.1),borderRadius:"8px",padding:"10px",textAlign:"center"},[
+              div({color:"#F59E0B",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"WAIT FOR BEST"),
+              div({color:"#FBBF24",fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"AED "+projValue1yr.toLocaleString()),
+              div({color:hexAlpha("#F59E0B",0.6),fontSize:"8px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},"1-year projected value"),
+            ]),
+          ]),
+        ]));
+      } else {
+        // No purchase data — market-based seller advice
+        var optSell=Math.round(fair*1.02);
+        var minSell=Math.round(fair*0.95);
+        var proj1=Math.round(fair*(1+gr0/100));
+        sellerCard.appendChild(div({background:cl.raised,borderRadius:"10px",padding:"14px",marginBottom:"10px"},[
+          div({color:cl.sub,fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"Market-Based Sell Guidance"),
+          div({color:cl.subHi,fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.7",marginBottom:"10px"},
+            "Based on current market conditions in "+f.area+", fair value is AED "+fair.toLocaleString()+". Your asking price of AED "+price.toLocaleString()+" is "+(price>fair?"above":"below")+" market by "+Math.abs(parseFloat(val.vsPct)).toFixed(1)+"%."),
+          div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px"},[
+            div({textAlign:"center",padding:"8px"},[div({color:"#EF4444",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"Floor Price"),div({color:"#F87171",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+minSell.toLocaleString())]),
+            div({textAlign:"center",padding:"8px",background:hexAlpha(cl.green,0.08),borderRadius:"8px"},[div({color:cl.green,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"Optimal Sell"),div({color:cl.green,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+optSell.toLocaleString())]),
+            div({textAlign:"center",padding:"8px"},[div({color:"#F59E0B",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"1-Year Value"),div({color:"#FBBF24",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+proj1.toLocaleString())]),
+          ]),
+        ]));
+        sellerCard.appendChild(div({color:hexAlpha("#F87171",0.5),fontSize:"9.5px",fontFamily:"'Inter',sans-serif",fontStyle:"italic"},"Enter purchase price & date above for detailed capital gain analysis and hold vs sell comparison."));
+      }
+      wrap.appendChild(sellerCard);
+    }
+
+    // --- BUYER ADVISORY ---
+    if(isBuyer&&f.txnType==="sale"){
+      var buyerCard=el("div",{style:{background:cl.surface,border:"1px solid "+hexAlpha("#22C55E",0.25),borderRadius:"14px",padding:"18px",marginBottom:"14px"}});
+      buyerCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
+        span({color:cl.green,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ Buyer Advisory"),
+        span({color:hexAlpha(cl.green,0.6),fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Investment Projection"),
+      ]));
+
+      var totalBuyCosts=Math.round(price*0.065);
+      var totalInvested=price+totalBuyCosts;
+
+      // Projection grid: 1yr / 3yr / 5yr
+      var proj1y=Math.round(fair*(1+gr0/100));
+      var proj3y=Math.round(fair*(1+gr/100));
+      var proj5y=Math.round(fair*(1+gr2/100));
+      var rent1=rent;var rent3=rent*3;var rent5=rent*5;
+      var sc1=Math.round(sc);var sc3=Math.round(sc*3);var sc5=Math.round(sc*5);
+      var totalR1=proj1y-price+rent1-sc1;
+      var totalR3=proj3y-price+rent3-sc3;
+      var totalR5=proj5y-price+rent5-sc5;
+      var roi1=((totalR1/totalInvested)*100).toFixed(1);
+      var roi3=((totalR3/totalInvested)*100).toFixed(1);
+      var roi5=((totalR5/totalInvested)*100).toFixed(1);
+
+      buyerCard.appendChild(div({background:cl.raised,borderRadius:"10px",padding:"14px",marginBottom:"12px"},[
+        div({color:cl.sub,fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"Profit Projection If You Buy at AED "+price.toLocaleString()),
+        div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px"},[
+          div({background:hexAlpha(cl.yellow,0.08),border:"1px solid "+hexAlpha(cl.yellow,0.2),borderRadius:"10px",padding:"12px",textAlign:"center"},[
+            div({color:cl.yellow,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"1 YEAR"),
+            div({color:cl.subHi,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},"Value: AED "+proj1y.toLocaleString()),
+            div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif"},"Rent: +"+rent1.toLocaleString()),
+            div({borderTop:"1px solid "+cl.border,marginTop:"6px",paddingTop:"6px"},[
+              div({color:totalR1>=0?cl.green:"#EF4444",fontSize:"15px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},(totalR1>=0?"+":"")+totalR1.toLocaleString()),
+              div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"ROI: "+roi1+"%"),
+            ]),
+          ]),
+          div({background:hexAlpha(cl.green,0.08),border:"1px solid "+hexAlpha(cl.green,0.3),borderRadius:"10px",padding:"12px",textAlign:"center"},[
+            div({color:cl.green,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"3 YEARS"),
+            div({color:cl.subHi,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},"Value: AED "+proj3y.toLocaleString()),
+            div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif"},"Rent: +"+rent3.toLocaleString()),
+            div({borderTop:"1px solid "+cl.border,marginTop:"6px",paddingTop:"6px"},[
+              div({color:totalR3>=0?cl.green:"#EF4444",fontSize:"15px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},(totalR3>=0?"+":"")+totalR3.toLocaleString()),
+              div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"ROI: "+roi3+"%"),
+            ]),
+          ]),
+          div({background:hexAlpha(cl.gold,0.08),border:"1px solid "+hexAlpha(cl.gold,0.2),borderRadius:"10px",padding:"12px",textAlign:"center"},[
+            div({color:cl.gold,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"5 YEARS"),
+            div({color:cl.subHi,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},"Value: AED "+proj5y.toLocaleString()),
+            div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif"},"Rent: +"+rent5.toLocaleString()),
+            div({borderTop:"1px solid "+cl.border,marginTop:"6px",paddingTop:"6px"},[
+              div({color:totalR5>=0?cl.green:"#EF4444",fontSize:"15px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},(totalR5>=0?"+":"")+totalR5.toLocaleString()),
+              div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"ROI: "+roi5+"%"),
+            ]),
+          ]),
+        ]),
+      ]));
+
+      // Total investment breakdown
+      buyerCard.appendChild(div({background:cl.raised,borderRadius:"10px",padding:"14px",marginBottom:"12px"},[
+        div({color:cl.sub,fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"Total Cash Required"),
+        div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"8px"},[
+          div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Property Price"),div({color:cl.subHi,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+price.toLocaleString())]),
+          div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"DLD Fee (4%)"),div({color:"#EF4444",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"+AED "+Math.round(price*0.04).toLocaleString())]),
+          div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Agent Fee (2%)"),div({color:"#EF4444",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"+AED "+Math.round(price*0.02).toLocaleString())]),
+          div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Processing (0.5%)"),div({color:"#EF4444",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"+AED "+Math.round(price*0.005).toLocaleString())]),
+        ]),
+        div({borderTop:"1px solid "+cl.border,paddingTop:"10px",display:"flex",justifyContent:"space-between",alignItems:"center"},[
+          span({color:cl.subHi,fontSize:"12px",fontWeight:"700",fontFamily:"'Inter',sans-serif"},"Total Investment"),
+          span({color:cl.gold,fontSize:"17px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"AED "+totalInvested.toLocaleString()),
+        ]),
+      ]));
+
+      // Break-even timeline
+      var annualNetIncome=rent-sc;
+      var breakEvenYears=annualNetIncome>0?(totalBuyCosts/annualNetIncome).toFixed(1):"N/A";
+      var monthlyRent=Math.round(rent/12);
+      buyerCard.appendChild(div({background:hexAlpha(cl.green,0.06),border:"1px solid "+hexAlpha(cl.green,0.2),borderRadius:"10px",padding:"14px"},[
+        div({color:cl.green,fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"Purchase Intelligence"),
+        div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"},[
+          div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Cost Recovery via Rent"),div({color:cl.green,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},breakEvenYears+" years"),div({color:cl.sub,fontSize:"8.5px",fontFamily:"'Inter',sans-serif"},"Transaction costs paid back by net rental income")]),
+          div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Monthly Rental Income"),div({color:cl.green,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+monthlyRent.toLocaleString()+"/mo"),div({color:cl.sub,fontSize:"8.5px",fontFamily:"'Inter',sans-serif"},"Estimated monthly rent if leased out")]),
+        ]),
+        div({color:cl.sub,fontSize:"10.5px",fontFamily:"'Inter',sans-serif",marginTop:"12px",lineHeight:"1.6"},
+          val.verdict==="DISTRESS"||val.verdict==="GOOD"?
+          "This is a strong entry point. At AED "+price.toLocaleString()+", you're buying "+(Math.abs(parseFloat(val.vsPct))).toFixed(1)+"% below market. With "+val.totalReturnAnnual+"% projected annual total return, this property offers excellent value.":
+          val.verdict==="FAIR"?
+          "Fair market pricing. Negotiate toward AED "+(val.suggestedOffer||fair).toLocaleString()+" for better entry. At current price, expect "+val.totalReturnAnnual+"% annual total return with "+breakEvenYears+"-year cost recovery.":
+          "Price is above market by "+Math.abs(parseFloat(val.vsPct)).toFixed(1)+"%. Negotiate down to AED "+fair.toLocaleString()+" (fair value) or below. At asking price, your returns will be compressed — consider waiting for a better deal."
+        ),
+      ]));
+      wrap.appendChild(buyerCard);
+    }
+
+    // --- AGENT DEAL INTELLIGENCE (combined view) ---
+    if(isAgent&&rFor==="both"&&f.txnType==="sale"){
+      var agentCard=el("div",{style:{background:cl.surface,border:"1px solid rgba(59,130,246,0.25)",borderRadius:"14px",padding:"18px",marginBottom:"14px"}});
+      agentCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
+        span({color:"#3B82F6",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ Agent Deal Intelligence"),
+        span({color:hexAlpha("#3B82F6",0.6),fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Negotiation & Deal Facilitation"),
+      ]));
+
+      var buyerMax=Math.round(fair*1.03);
+      var sellerMin=Math.round(fair*0.95);
+      var sweetSpot=Math.round((buyerMax+sellerMin)/2);
+      var commRate=0.02;
+      var commAmount=Math.round(sweetSpot*commRate);
+      var dealProb=val.verdict==="DISTRESS"?"Very High (90%+)":val.verdict==="GOOD"?"High (75-85%)":val.verdict==="FAIR"?"Moderate (55-70%)":"Low (30-45%)";
+      var dealProbColor=val.verdict==="DISTRESS"||val.verdict==="GOOD"?cl.green:val.verdict==="FAIR"?cl.yellow:"#EF4444";
+
+      // Negotiation range
+      agentCard.appendChild(div({background:cl.raised,borderRadius:"10px",padding:"14px",marginBottom:"12px"},[
+        div({color:cl.sub,fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"Negotiation Range"),
+        div({display:"flex",alignItems:"center",gap:"6px",marginBottom:"10px"},[
+          div({flex:"1",height:"8px",borderRadius:"4px",background:"linear-gradient(90deg, #EF4444 0%, #F59E0B 35%, #22C55E 65%, #3B82F6 100%)",position:"relative"}),
+        ]),
+        div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px"},[
+          div({textAlign:"center"},[
+            div({color:"#EF4444",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"SELLER'S FLOOR"),
+            div({color:"#F87171",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+sellerMin.toLocaleString()),
+            div({color:cl.sub,fontSize:"8px",fontFamily:"'Inter',sans-serif"},"Below this = loss for seller"),
+          ]),
+          div({textAlign:"center",background:hexAlpha("#3B82F6",0.1),borderRadius:"8px",padding:"6px"},[
+            div({color:"#3B82F6",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"SWEET SPOT"),
+            div({color:"#60A5FA",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+sweetSpot.toLocaleString()),
+            div({color:cl.sub,fontSize:"8px",fontFamily:"'Inter',sans-serif"},"Win-win for both sides"),
+          ]),
+          div({textAlign:"center"},[
+            div({color:cl.green,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"BUYER'S CAP"),
+            div({color:cl.green,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+buyerMax.toLocaleString()),
+            div({color:cl.sub,fontSize:"8px",fontFamily:"'Inter',sans-serif"},"Above this = overpaying"),
+          ]),
+        ]),
+      ]));
+
+      // Deal metrics
+      agentCard.appendChild(div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"},[
+        div({background:cl.raised,borderRadius:"10px",padding:"12px 14px"},[
+          lbl("Deal Probability"),
+          div({color:dealProbColor,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},dealProb),
+        ]),
+        div({background:cl.raised,borderRadius:"10px",padding:"12px 14px"},[
+          lbl("Est. Commission (2%)"),
+          div({color:"#3B82F6",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+commAmount.toLocaleString()),
+        ]),
+        div({background:cl.raised,borderRadius:"10px",padding:"12px 14px"},[
+          lbl("Buyer's Gross Yield"),
+          div({color:parseFloat(val.grossYield)>=6?cl.green:cl.yellow,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},val.grossYield+"% at asking"),
+        ]),
+        div({background:cl.raised,borderRadius:"10px",padding:"12px 14px"},[
+          lbl("Liquidity Score"),
+          div({color:val.liqTier&&val.liqTier.c==="green"?cl.green:val.liqTier&&val.liqTier.c==="yellow"?cl.yellow:"#EF4444",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(val.liqScore||"—")+"/100 · "+(val.liqTier?val.liqTier.label:"—")),
+        ]),
+      ]));
+
+      // Talking points
+      var proj1Agent=Math.round(fair*(1+gr0/100));
+      agentCard.appendChild(div({background:hexAlpha("#3B82F6",0.06),border:"1px solid "+hexAlpha("#3B82F6",0.2),borderRadius:"10px",padding:"14px"},[
+        div({color:"#3B82F6",fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"Talking Points"),
+        div({marginBottom:"6px"},[span({color:cl.green,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"FOR BUYER: "),span({color:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Market PSF is AED "+val.adjPSF+". Net yield "+val.netYield+"%. 3-year growth forecast +"+gr+"%. Total return "+val.totalReturnAnnual+"%/yr. "+(val.verdict==="OVER"?"Negotiate to AED "+fair.toLocaleString()+" for fair entry.":"Good entry point — act before the market moves."))]),
+        div({marginBottom:"6px"},[span({color:"#F87171",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"FOR SELLER: "),span({color:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Fair value AED "+fair.toLocaleString()+". If sold now, buyer gets "+val.grossYield+"% yield. 1-year projected value AED "+proj1Agent.toLocaleString()+". "+(val.verdict==="OVER"?"Price may deter buyers — consider adjusting to AED "+Math.round(fair*1.03).toLocaleString()+".":"Competitive pricing — expect strong buyer interest."))]),
+        div({},[span({color:"#3B82F6",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"DEAL TIP: "),span({color:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Recommend closing at AED "+sweetSpot.toLocaleString()+" — satisfies both parties. "+(val.domEst?"Average days on market: "+val.domEst+" days. ":"")+"Area liquidity: "+(val.liqTier?val.liqTier.label:"Moderate")+". Commission at this price: AED "+commAmount.toLocaleString()+".")]),
+      ]));
+      wrap.appendChild(agentCard);
+    }
+  })();
 
   wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"},[
     span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"◆ Yield & Growth"),
@@ -2807,7 +3137,7 @@ function renderRentalResult(wrap){
       span({color:cl.subHi,fontSize:"13px",fontFamily:"'Inter',sans-serif"},(f.building?f.building+" · ":"")+(rv.isVilla?f.villaType:f.aptSubtype)+" · "+f.area),
     ]),
     el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 14px",borderRadius:"8px",cursor:"pointer",fontSize:"12px"},onclick:function(){
-      analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"rent"},val:null,rentalVal:null,aiText:"",aiTextSeller:"",liveData:null,err:"",reportMode:"personal",reportFor:"buyer",smartRent:null};
+      analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"rent",purchasePrice:"",purchaseDate:""},val:null,rentalVal:null,aiText:"",aiTextSeller:"",liveData:null,err:"",reportMode:"personal",reportFor:"buyer",smartRent:null};
       window.scrollTo({top:0,behavior:"smooth"});render();
     }},"← New"),
   ]));

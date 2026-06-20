@@ -418,6 +418,8 @@ var analyzerState={
     cornerVilla:false,
     building:"",
     txnType:"sale", // sale | rent
+    purchasePrice:"",
+    purchaseDate:"",
   },
   val:null,rentalVal:null,comVal:null,landVal:null,aiText:"",aiTextSeller:"",liveData:null,err:"",reportMode:"personal",reportFor:"buyer",smartRent:null
 };
