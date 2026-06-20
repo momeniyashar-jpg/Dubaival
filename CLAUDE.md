@@ -3,6 +3,25 @@
 Read this first. It exists so a fresh session doesn't have to re-read the whole
 single-file app or re-derive line numbers/history from scratch.
 
+## 🔴 CRITICAL DIRECTIVE — Analyzer Page Accuracy
+
+The Analyzer page is the heart of DubaiVal — the business depends on it.
+**ALL numbers on this page MUST be accurate with a MAXIMUM 3% deviation.**
+Every statistic must be correct and based on live/current data. This applies to:
+- Price per sqft estimates (sale & rental)
+- Rent estimates (annual & monthly)
+- Yield calculations (gross & net)
+- Confidence scores
+- Investment signals (Undervalued / Fair Value / Elevated / Bubble Risk)
+- Total return projections
+- Area benchmarks and comparisons
+- Grade-based adjustments
+
+**Every change to the valuation engine, rental engine, or analyzer UI must be
+validated against real market data before deployment.** When in doubt, cross-check
+with Property Finder / Bayut live listings. A 20% error (like the AFV Tower 3
+incident: 198k vs 400k+ actual) is unacceptable and must never happen again.
+
 ## What this is
 
 DubaiVal is a Dubai real-estate valuation web app: user enters a building +
