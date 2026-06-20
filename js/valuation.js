@@ -481,7 +481,7 @@ function computeValuation(f,buildingVal,liveData){
   const bnMap={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5,"6 BR":6,"7 BR":7,"7+ BR":7};
   const bn=bnMap[f.beds]!=null?bnMap[f.beds]:2;
   let rent=isVilla?(bn<=2?aData.rv2||130000:bn<=3?aData.rv3||180000:bn<=4?aData.rv4||240000:bn<=5?aData.rv5||350000:bn<=6?aData.rv6||500000:aData.rv7||650000):bn===0?(aData.rStudio||(aData.r1||65000)*0.65):bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
-  if(bData&&bData.g){var _grm=bData.g==="Ultra"?1.80:bData.g==="A+"?1.35:bData.g==="A"?1.10:1.0;if(_grm>1.0)rent=Math.round(rent*_grm);}
+  if(bData&&bData.g){var _grm=bData.g==="Ultra"?1.80:bData.g==="A+"?1.35:bData.g==="A"?1.10:bData.g==="A-"?1.0:bData.g==="B+"?0.92:bData.g==="B"?0.85:bData.g==="C"?0.78:1.0;if(_grm!==1.0)rent=Math.round(rent*_grm);}
   var _furnRentM=f.furnished==="Furnished"?1.17:f.furnished==="Semi-Furnished"?1.09:1.0;
   rent=Math.round(rent*_furnRentM);
   if(f.view&&f.view!=="Not specified"){var _vl=f.view.toLowerCase();var _vrm=_vl.indexOf("full sea")>=0||_vl.indexOf("burj khalifa")>=0||_vl.indexOf("beach access")>=0?1.12:_vl.indexOf("partial sea")>=0||_vl.indexOf("partial burj")>=0||_vl.indexOf("canal")>=0?1.07:_vl.indexOf("golf")>=0||_vl.indexOf("lagoon")>=0||_vl.indexOf("skyline")>=0?1.05:_vl.indexOf("pool")>=0||_vl.indexOf("garden")>=0||_vl.indexOf("park")>=0?1.03:1.0;rent=Math.round(rent*_vrm);}
@@ -544,7 +544,7 @@ function computeSmartRent(f,liveRentals){
   var size=parseFloat(String(f.size||f.buaSize||"").replace(/,/g,""))||0;
   // --- Layer 1: Hedonic static estimate ---
   var staticRent=isVilla?(bn<=2?aData.rv2||130000:bn<=3?aData.rv3||180000:bn<=4?aData.rv4||240000:bn<=5?aData.rv5||350000:bn<=6?aData.rv6||500000:aData.rv7||650000):bn===0?(aData.rStudio||(aData.r1||65000)*0.65):bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
-  if(bData&&bData.g){var _grm=bData.g==="Ultra"?1.80:bData.g==="A+"?1.35:bData.g==="A"?1.10:1.0;if(_grm>1.0)staticRent=Math.round(staticRent*_grm);}
+  if(bData&&bData.g){var _grm=bData.g==="Ultra"?1.80:bData.g==="A+"?1.35:bData.g==="A"?1.10:bData.g==="A-"?1.0:bData.g==="B+"?0.92:bData.g==="B"?0.85:bData.g==="C"?0.78:1.0;if(_grm!==1.0)staticRent=Math.round(staticRent*_grm);}
   var _fM=f.furnished==="Furnished"?1.17:f.furnished==="Semi-Furnished"?1.09:1.0;
   staticRent=Math.round(staticRent*_fM);
   if(f.view&&f.view!=="Not specified"){var _vl=f.view.toLowerCase();var _vrm=_vl.indexOf("full sea")>=0||_vl.indexOf("burj khalifa")>=0||_vl.indexOf("beach access")>=0?1.12:_vl.indexOf("partial sea")>=0||_vl.indexOf("partial burj")>=0||_vl.indexOf("canal")>=0?1.07:_vl.indexOf("golf")>=0||_vl.indexOf("lagoon")>=0||_vl.indexOf("skyline")>=0?1.05:_vl.indexOf("pool")>=0||_vl.indexOf("garden")>=0||_vl.indexOf("park")>=0?1.03:1.0;staticRent=Math.round(staticRent*_vrm);}
@@ -648,8 +648,8 @@ function computeRentalValuation(f){
   // Grade/brand premium: branded residences (Address, Vida, Palace, Armani, etc.)
   // command higher rents due to hotel services, concierge, premium amenities
   if(bData&&bData.g){
-    var gradeRentP=bData.g==="Ultra"?1.80:bData.g==="A+"?1.35:bData.g==="A"?1.10:1.0;
-    if(gradeRentP>1.0)estRent=Math.round(estRent*gradeRentP);
+    var gradeRentP=bData.g==="Ultra"?1.80:bData.g==="A+"?1.35:bData.g==="A"?1.10:bData.g==="A-"?1.0:bData.g==="B+"?0.92:bData.g==="B"?0.85:bData.g==="C"?0.78:1.0;
+    if(gradeRentP!==1.0)estRent=Math.round(estRent*gradeRentP);
   }
   // Rent range: ±12% for market variability
   var rentLow=Math.round(estRent*0.88);
