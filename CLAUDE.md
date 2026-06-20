@@ -70,6 +70,15 @@ The app was split from a single 1.1MB `index-6.html` into modular files:
 - **`sw.js`** — Service worker for PWA.
 - **`manifest.json`** — PWA manifest.
 
+- **`capacitor.config.json`** — Capacitor project config (appId, plugins, server).
+- **`scripts/build-www.js`** — Builds `www/` from source: copies index-6.html,
+  applies Capacitor modifications (viewport-fit, native bootstrap), copies JS.
+- **`scripts/generate-icons.js`** — Generates Android icons + splash screens
+  from `logo.png` using sharp.
+- **`android/`** — Capacitor Android project. DO NOT edit generated files.
+  Key files: `app/build.gradle`, `app/src/main/AndroidManifest.xml`,
+  `app/src/main/res/values/styles.xml`, `app/src/main/res/values/colors.xml`.
+
 Other files (`dubaival.jsx`, `index-3.html`) are old/unused — do not edit.
 
 ## Database sizes (as of 2026-06-18, branch `amazing-mccarthy`)
@@ -322,6 +331,12 @@ project-level settings overriding it. See "Outstanding items" for next steps.
   data.js split into data.js + data-commercial.js for performance.
 - **✅ COMPLETED: Opportunity Alerts** (both phases). All 6 alerts live in
   `js/portfolio.js`.
+- **✅ COMPLETED: Capacitor Android App** (2026-06-20): Full native Android
+  wrapper via Capacitor 8.x. Includes 6 plugins (browser, haptics, keyboard,
+  share, splash-screen, status-bar), custom icons (5 densities), splash screens
+  (11 sizes), dark theme, deep links, portrait lock, ProGuard minification.
+  Build: `npm run cap:build:android` then open in Android Studio.
+  APK not yet built — requires Android SDK (not available in cloud env).
 - **AVM accuracy improvement**: Track Record shows median ~20% error on 18 real
   transactions. DB "p" (psf) may reflect asking prices not closed DLD prices
   for some buildings — potential lead for accuracy improvement.
