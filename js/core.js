@@ -419,7 +419,7 @@ var analyzerState={
     building:"",
     txnType:"sale", // sale | rent
   },
-  val:null,rentalVal:null,comVal:null,landVal:null,aiText:"",aiTextSeller:"",liveData:null,err:"",reportMode:"personal",reportFor:"buyer"
+  val:null,rentalVal:null,comVal:null,landVal:null,aiText:"",aiTextSeller:"",liveData:null,err:"",reportMode:"personal",reportFor:"buyer",smartRent:null
 };
 var compareState={a1:"",a2:"",budget:"",purpose:"Investment",loading:false,result:"",err:""};
 var personalState={budget:"",role:"Investor",family:"Couple",children:"0",work:"",purpose:"Investment",timeline:"6 months",loading:false,result:"",err:""};

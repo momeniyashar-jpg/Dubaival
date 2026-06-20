@@ -528,6 +528,90 @@ function computeValuation(f,buildingVal,liveData){
   return{askPSF,adjPSF,psfLo,psfHi,fairPrice,distressPrice,goodPrice,overpricedAt,verdict,vsPct:vsPct.toFixed(1),suggestedOffer,dataSource,dataLayer,confScore,confTier,priceLow,priceHigh,inDB:!!bData,bData,isDevFurnished,vP:Math.round(vP*100),fP:Math.round(fP*100),furnP:Math.round(furnP*100),loftP:Math.round(loftP*100),penthP:Math.round(penthP*100),maidP:Math.round(maidP*100),privatePoolP:Math.round(privatePoolP*100),singleRowP:Math.round(singleRowP*100),cornerVillaP:Math.round(cornerVillaP*100),locP:Math.round(locP*100),geo:Math.round(geoAdj*100),rent,sc,grossYield,netYield,g0:gr[0],g1:gr[1],g2:gr[2],prRatio:prRatio?prRatio.toFixed(1):null,investSignal,totalReturnAnnual,domEst,txVol,liqScore,liqTier,txLabel,turnoverRate,turnoverTier,bldgUnits,bldgAnnualTx,mosScore,mosTier,priceGapScore,timeDecayScore,marketDepthScore,compData:compData,hasDynamic:!!dynBench,calFactor:calFactor,geoScore:geoScore};
 }
 
+// --- SMART RENTAL INTELLIGENCE ENGINE ----------------------------------------
+var SEASONAL_FACTORS=[1.03,1.02,1.0,0.98,0.96,0.94,0.92,0.92,0.96,0.99,1.02,1.04];
+var SEASON_LABELS=["Peak Season","High Season","Normal","Cooling","Pre-Summer","Summer Dip","Off-Season","Off-Season","Recovery","Normal","High Season","Peak Season"];
+
+function computeSmartRent(f,liveRentals){
+  var buildingVal=(f.building||"").toLowerCase().trim();
+  var bData=lookupBuilding(buildingVal,f.area);
+  var aData=AREAS[f.area]||null;
+  if(!aData)return null;
+  var isVilla=f.propCategory==="villa";
+  var bnMap={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5};
+  var bn=bnMap[f.beds]!=null?bnMap[f.beds]:2;
+  var price=parseFloat(String(f.price||"").replace(/[^0-9.]/g,""))||0;
+  var size=parseFloat(String(f.size||f.buaSize||"").replace(/,/g,""))||0;
+  // --- Layer 1: Hedonic static estimate ---
+  var staticRent=isVilla?(bn<=2?aData.rv2||130000:bn<=3?aData.rv3||180000:bn<=4?aData.rv4||240000:bn<=5?aData.rv5||350000:bn<=6?aData.rv6||500000:aData.rv7||650000):bn===0?(aData.rStudio||(aData.r1||65000)*0.65):bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
+  if(bData&&bData.g){var _grm=bData.g==="Ultra"?1.80:bData.g==="A+"?1.35:bData.g==="A"?1.10:1.0;if(_grm>1.0)staticRent=Math.round(staticRent*_grm);}
+  var _fM=f.furnished==="Furnished"?1.17:f.furnished==="Semi-Furnished"?1.09:1.0;
+  staticRent=Math.round(staticRent*_fM);
+  if(f.view&&f.view!=="Not specified"){var _vl=f.view.toLowerCase();var _vrm=_vl.indexOf("full sea")>=0||_vl.indexOf("burj khalifa")>=0||_vl.indexOf("beach access")>=0?1.12:_vl.indexOf("partial sea")>=0||_vl.indexOf("partial burj")>=0||_vl.indexOf("canal")>=0?1.07:_vl.indexOf("golf")>=0||_vl.indexOf("lagoon")>=0||_vl.indexOf("skyline")>=0?1.05:_vl.indexOf("pool")>=0||_vl.indexOf("garden")>=0||_vl.indexOf("park")>=0?1.03:1.0;staticRent=Math.round(staticRent*_vrm);}
+  if(!isVilla&&f.floor){var _fl=parseInt(f.floor)||0;if(_fl>=40)staticRent=Math.round(staticRent*1.05);else if(_fl>=25)staticRent=Math.round(staticRent*1.03);else if(_fl>=15)staticRent=Math.round(staticRent*1.02);}
+  // --- Layer 2: Live market calibration ---
+  var liveRent=null,liveSource=null,liveCount=0,liveMedian=null,liveLow=null,liveHigh=null,liveListings=[];
+  if(liveRentals){
+    if(liveRentals.buildingMatches&&liveRentals.buildingMatches.length>=2){
+      var prices=liveRentals.buildingMatches.map(function(l){return l.price;}).sort(function(a,b){return a-b;});
+      liveMedian=prices[Math.floor(prices.length/2)];
+      liveLow=prices[0];liveHigh=prices[prices.length-1];
+      liveRent=liveMedian;liveSource="live_building";liveCount=prices.length;
+      liveListings=liveRentals.buildingMatches;
+    }else if(liveRentals.areaListings&&liveRentals.areaListings.length>=3){
+      var prices=liveRentals.areaListings.map(function(l){return l.price;}).sort(function(a,b){return a-b;});
+      var trimS=Math.floor(prices.length*0.1),trimE=Math.ceil(prices.length*0.9);
+      var trimmed=prices.slice(trimS,trimE);
+      var areaMedian=trimmed.length>0?trimmed[Math.floor(trimmed.length/2)]:prices[Math.floor(prices.length/2)];
+      var _grm2=bData&&bData.g==="Ultra"?1.80:bData&&bData.g==="A+"?1.35:bData&&bData.g==="A"?1.10:1.0;
+      liveRent=Math.round(areaMedian*_grm2);
+      liveSource="live_area";liveCount=prices.length;
+      liveLow=prices[0];liveHigh=prices[prices.length-1];
+      liveListings=liveRentals.areaListings;
+    }
+  }
+  // --- Layer 3: Seasonal adjustment ---
+  var month=new Date().getMonth();
+  var seasonalFactor=SEASONAL_FACTORS[month];
+  var seasonLabel=SEASON_LABELS[month];
+  // --- Blend layers ---
+  var finalRent,source,confidence,sourceLabel;
+  if(liveRent&&liveSource==="live_building"&&liveCount>=3){
+    finalRent=liveRent;source="live_building";confidence="high";
+    sourceLabel="Live Building Data ("+liveCount+" listings)";
+  }else if(liveRent&&liveSource==="live_building"){
+    finalRent=Math.round(liveRent*0.7+staticRent*seasonalFactor*0.3);
+    source="live_blended";confidence="medium-high";
+    sourceLabel="Building + Model Blend ("+liveCount+" listings)";
+  }else if(liveRent&&liveSource==="live_area"){
+    finalRent=Math.round(liveRent*0.5+staticRent*seasonalFactor*0.5);
+    source="area_blended";confidence="medium";
+    sourceLabel="Area Market + Model ("+liveCount+" listings)";
+  }else{
+    finalRent=Math.round(staticRent*seasonalFactor);
+    source="estimated";confidence="base";
+    sourceLabel="Hedonic Model Estimate";
+  }
+  // --- Yield recalculation ---
+  var sc=(parseFloat(f.serviceCharge)||(bData&&bData.sc)||(aData&&aData.sc)||15)*size;
+  var grossYield=price>0?(finalRent/price*100).toFixed(1):"0.0";
+  var netYield=price>0?((finalRent-sc)/price*100).toFixed(1):"0.0";
+  var grossYieldNum=parseFloat(grossYield);
+  var prRatio=grossYieldNum>0?100/grossYieldNum:null;
+  var investSignal=prRatio===null?null:prRatio<15?{label:"Undervalued",c:"green"}:prRatio<20?{label:"Fair Value",c:"green"}:prRatio<25?{label:"Elevated",c:"yellow"}:{label:"Bubble Risk",c:"red"};
+  var gr=aData.g||[10,18,28];
+  var totalReturnAnnual=(parseFloat(netYield)+gr[1]/3).toFixed(1);
+  return{
+    rent:finalRent,rentLow:Math.round(finalRent*0.88),rentHigh:Math.round(finalRent*1.12),
+    staticRent:staticRent,liveRent:liveRent,liveMedian:liveMedian,liveLow:liveLow,liveHigh:liveHigh,
+    source:source,sourceLabel:sourceLabel,liveCount:liveCount,liveListings:liveListings,
+    seasonalFactor:seasonalFactor,seasonLabel:seasonLabel,confidence:confidence,
+    grossYield:grossYield,netYield:netYield,prRatio:prRatio?prRatio.toFixed(1):null,
+    investSignal:investSignal,totalReturnAnnual:totalReturnAnnual,sc:sc,
+    bayutCount:liveRentals?liveRentals.bayutCount:0,pfCount:liveRentals?liveRentals.pfCount:0
+  };
+}
+
 function computeRentalValuation(f){
   f.area=resolveDLDArea(f.area);
   var buildingVal=(f.building||"").toLowerCase().trim();

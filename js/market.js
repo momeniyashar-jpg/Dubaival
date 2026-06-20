@@ -1302,8 +1302,21 @@ function renderAnalyzer(){
               render();
               return;
             }
-            analyzerState.stage=2;
+            analyzerState.stage=2;analyzerState.smartRent=null;
             try{dvTrack("analyze_property",{area:analyzerState.f.area,type:"villa"});}catch(e){}
+            fetchLiveRentals(analyzerState.f.building,analyzerState.f.area,analyzerState.f.beds).then(function(liveRentals){
+              var sr=computeSmartRent(analyzerState.f,liveRentals);
+              if(sr&&sr.source!=="estimated"){
+                analyzerState.smartRent=sr;
+                analyzerState.val.rent=sr.rent;
+                analyzerState.val.grossYield=sr.grossYield;
+                analyzerState.val.netYield=sr.netYield;
+                analyzerState.val.prRatio=sr.prRatio;
+                analyzerState.val.investSignal=sr.investSignal;
+                analyzerState.val.totalReturnAnnual=sr.totalReturnAnnual;
+                render();
+              }else{analyzerState.smartRent=computeSmartRent(analyzerState.f,null);}
+            }).catch(function(){analyzerState.smartRent=computeSmartRent(analyzerState.f,null);});
             var propDesc=analyzerState.f.building+" villa/townhouse in "+analyzerState.f.area+". BUA:"+f.size+"sqft. Asking AED "+parseInt(f.price).toLocaleString();
             if(rMode==="agent"){
               var buyerP=getAgentAIPrompt(propDesc,analyzerState.val,"buyer");
@@ -1431,8 +1444,26 @@ function renderAnalyzer(){
               analyzerState.err="Check: size="+fData.size+" price="+fData.price+" area="+fData.area;
               analyzerState.stage=0;render();return;
             }
-            analyzerState.stage=2;
+            analyzerState.stage=2;analyzerState.smartRent=null;
             try{dvTrack("analyze_property",{area:analyzerState.f.area,type:"apartment"});}catch(e){}
+            fetchLiveRentals(analyzerState.f.building,analyzerState.f.area,analyzerState.f.beds).then(function(liveRentals){
+              var sr=computeSmartRent(analyzerState.f,liveRentals);
+              if(sr&&sr.source!=="estimated"){
+                analyzerState.smartRent=sr;
+                analyzerState.val.rent=sr.rent;
+                analyzerState.val.grossYield=sr.grossYield;
+                analyzerState.val.netYield=sr.netYield;
+                analyzerState.val.prRatio=sr.prRatio;
+                analyzerState.val.investSignal=sr.investSignal;
+                analyzerState.val.totalReturnAnnual=sr.totalReturnAnnual;
+                render();
+              }else{
+                analyzerState.smartRent=computeSmartRent(analyzerState.f,null);
+                render();
+              }
+            }).catch(function(){
+              analyzerState.smartRent=computeSmartRent(analyzerState.f,null);
+            });
             var propDesc=analyzerState.f.building+" "+analyzerState.f.area+" "+(f.aptSubtype||f.beds||"")+" floor"+f.floor+" "+f.view+" "+f.size+"sqft AED "+parseInt(f.price).toLocaleString();
             if(rMode==="agent"){
               var buyerP=getAgentAIPrompt(propDesc,analyzerState.val,"buyer");
@@ -1471,7 +1502,7 @@ function renderCommercialResult(wrap){
       span({color:accent,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block"},"COMMERCIAL ANALYSIS COMPLETE"),
       span({color:cl.subHi,fontSize:"13px",fontFamily:"'Inter',sans-serif"},(f.building?f.building+" · ":"")+(v.subType||"Office").toUpperCase()+" · "+f.area),
     ]),
-    el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 14px",borderRadius:"8px",cursor:"pointer",fontSize:"12px"},onclick:function(){analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"sale",sector:"commercial",subType:"",zoning:""},val:null,rentalVal:null,comVal:null,landVal:null,aiText:"",aiTextSeller:"",liveData:null,err:"",reportMode:"personal",reportFor:"buyer"};render();}},"← New"),
+    el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 14px",borderRadius:"8px",cursor:"pointer",fontSize:"12px"},onclick:function(){analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"sale",sector:"commercial",subType:"",zoning:""},val:null,rentalVal:null,comVal:null,landVal:null,aiText:"",aiTextSeller:"",liveData:null,err:"",reportMode:"personal",reportFor:"buyer",smartRent:null};render();}},"← New"),
   ]));
   var vcfg={UNDERVALUED:{bg:"linear-gradient(135deg,rgba(34,197,94,0.08),transparent)",bo:"rgba(34,197,94,0.3)",tx:"#22C55E",icon:"🟢",label:"UNDERVALUED",sub:"Significantly below market"},BELOW_MARKET:{bg:"linear-gradient(135deg,rgba(34,197,94,0.05),transparent)",bo:"rgba(34,197,94,0.2)",tx:"#22C55E",icon:"✅",label:"BELOW MARKET",sub:"Below market — opportunity"},FAIR_VALUE:{bg:"linear-gradient(135deg,rgba(234,179,8,0.08),transparent)",bo:"rgba(234,179,8,0.3)",tx:"#EAB308",icon:"🟡",label:"FAIR VALUE",sub:"At market rate"},ABOVE_MARKET:{bg:"linear-gradient(135deg,rgba(239,68,68,0.05),transparent)",bo:"rgba(239,68,68,0.2)",tx:"#EF4444",icon:"🔶",label:"ABOVE MARKET",sub:"Above market"},OVERPRICED:{bg:"linear-gradient(135deg,rgba(239,68,68,0.08),transparent)",bo:"rgba(239,68,68,0.3)",tx:"#EF4444",icon:"🔴",label:"OVERPRICED",sub:"Well above market"}}[v.verdict]||{bg:cl.surface,bo:cl.border,tx:cl.sub,icon:"·",label:v.verdict,sub:""};
   wrap.appendChild(div({background:vcfg.bg,border:"2px solid "+vcfg.bo,borderRadius:"16px",overflow:"hidden",marginBottom:"14px"},[
@@ -1584,7 +1615,7 @@ function renderAnalyzerResult(wrap){
       span({color:cl.subHi,fontSize:"13px",fontFamily:"'Inter',sans-serif"},(f.building?f.building+" · ":"")+(isVilla?f.villaType:f.aptSubtype)+" · "+f.area+(f.cluster?" · "+f.cluster:"")),
     ]),
     el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 14px",borderRadius:"8px",cursor:"pointer",fontSize:"12px"},onclick:function(){
-  analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"sale",sector:"residential",subType:"",zoning:""},val:null,rentalVal:null,comVal:null,landVal:null,aiText:"",aiTextSeller:"",liveData:null,err:"",reportMode:"personal",reportFor:"buyer"};
+  analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"sale",sector:"residential",subType:"",zoning:""},val:null,rentalVal:null,comVal:null,landVal:null,aiText:"",aiTextSeller:"",liveData:null,err:"",reportMode:"personal",reportFor:"buyer",smartRent:null};
   window.scrollTo({top:0,behavior:"smooth"});
   render();
 }},"← New"),
@@ -1949,6 +1980,79 @@ function renderAnalyzerResult(wrap){
       span({color:val.investSignal.c==="green"?cl.green:val.investSignal.c==="yellow"?cl.yellow:cl.red,fontSize:"13px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",padding:"4px 10px",borderRadius:"8px",background:val.investSignal.c==="green"?cl.greenBg:val.investSignal.c==="yellow"?cl.yellowBg:cl.redBg},val.investSignal.label),
     ]):div({}),
   ]));
+
+  // -- RENTAL INTELLIGENCE ENGINE --
+  (function(){
+    var sr=analyzerState.smartRent;
+    var riWrap=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"}});
+    riWrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"},[
+      span({color:"#8B5CF6",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ Rental Intelligence Engine"),
+      sr&&sr.source!=="estimated"?span({color:"#10B981",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"6px",background:hexAlpha("#10B981",0.12)},"LIVE"):span({color:cl.sub,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"6px",background:hexAlpha(cl.sub,0.12)},sr?"ESTIMATED":"LOADING...")
+    ]));
+    if(!sr){
+      riWrap.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",textAlign:"center",padding:"16px 0"},"Fetching live rental data from Bayut & Property Finder..."));
+      wrap.appendChild(riWrap);return;
+    }
+    // Source badge and data points
+    var srcColor=sr.source==="live_building"?"#10B981":sr.source.indexOf("blended")>=0?"#3B82F6":"#F59E0B";
+    riWrap.appendChild(div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"10px",flexWrap:"wrap"},[
+      span({color:srcColor,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 10px",borderRadius:"8px",background:hexAlpha(srcColor,0.12)},sr.sourceLabel),
+      sr.bayutCount>0?span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Bayut: "+sr.bayutCount):span({}),
+      sr.pfCount>0?span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"PF: "+sr.pfCount):span({})
+    ]));
+    // Rent comparison grid
+    var rentGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"10px"}});
+    [{l:"Smart Rent Est.",v:"AED "+sr.rent.toLocaleString(),c:"#8B5CF6"},
+     {l:"Rent Range Low",v:"AED "+sr.rentLow.toLocaleString(),c:cl.sub},
+     {l:"Rent Range High",v:"AED "+sr.rentHigh.toLocaleString(),c:cl.sub}
+    ].forEach(function(m){
+      var box=el("div",{style:{background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"}});
+      box.appendChild(div({color:cl.sub,fontSize:"8px",letterSpacing:"0.06em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},m.l));
+      box.appendChild(div({color:m.c,fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},m.v));
+      rentGrid.appendChild(box);
+    });
+    riWrap.appendChild(rentGrid);
+    // Live vs Model comparison
+    if(sr.liveRent&&sr.staticRent){
+      var diff=Math.round((sr.liveRent-sr.staticRent)/sr.staticRent*100);
+      var diffLabel=diff>0?"Market "+diff+"% above model":diff<0?"Market "+Math.abs(diff)+"% below model":"Aligned with model";
+      var diffC=Math.abs(diff)<=5?"#10B981":Math.abs(diff)<=15?"#F59E0B":"#EF4444";
+      riWrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",background:cl.raised,borderRadius:"8px",padding:"10px 12px",marginBottom:"8px"},[
+        div({},[
+          div({color:cl.sub,fontSize:"8px",letterSpacing:"0.06em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"Live vs Model"),
+          div({color:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif"},diffLabel)
+        ]),
+        div({textAlign:"right"},[
+          div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Live: AED "+sr.liveRent.toLocaleString()),
+          div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Model: AED "+sr.staticRent.toLocaleString())
+        ])
+      ]));
+    }
+    // Building matches detail
+    if(sr.liveListings&&sr.liveListings.length>0&&sr.source==="live_building"){
+      riWrap.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.06em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px",marginTop:"4px"},"Matching Listings ("+sr.liveListings.length+")"));
+      var listWrap=el("div",{style:{maxHeight:"120px",overflow:"auto",borderRadius:"8px",border:"1px solid "+cl.border}});
+      sr.liveListings.slice(0,8).forEach(function(l,i){
+        var row=el("div",{style:{display:"flex",justifyContent:"space-between",padding:"6px 10px",borderBottom:i<Math.min(sr.liveListings.length,8)-1?"1px solid "+cl.border:"none",fontSize:"11px",fontFamily:"'Inter',sans-serif"}});
+        row.appendChild(span({color:cl.subHi,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"60%"},l.title.substring(0,50)));
+        row.appendChild(span({color:"#8B5CF6",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+l.price.toLocaleString()+"/yr"));
+        listWrap.appendChild(row);
+      });
+      riWrap.appendChild(listWrap);
+    }
+    // Seasonal indicator
+    var seasonC=sr.seasonalFactor>=1.0?"#10B981":sr.seasonalFactor>=0.96?"#F59E0B":"#EF4444";
+    var seasonPct=Math.round((sr.seasonalFactor-1)*100);
+    riWrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:"8px",padding:"8px 0",borderTop:"1px solid "+cl.border},[
+      div({display:"flex",alignItems:"center",gap:"6px"},[
+        span({color:seasonC,fontSize:"10px"},"●"),
+        span({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},sr.seasonLabel),
+        span({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif"},"("+new Date().toLocaleString("en",{month:"long"})+")")
+      ]),
+      span({color:seasonC,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(seasonPct>=0?"+":"")+seasonPct+"% seasonal adj.")
+    ]));
+    wrap.appendChild(riWrap);
+  })();
 
   // -- MARKET LIQUIDITY / DAYS ON MARKET --
   (function(){
@@ -2668,7 +2772,7 @@ function renderRentalResult(wrap){
       span({color:cl.subHi,fontSize:"13px",fontFamily:"'Inter',sans-serif"},(f.building?f.building+" · ":"")+(rv.isVilla?f.villaType:f.aptSubtype)+" · "+f.area),
     ]),
     el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 14px",borderRadius:"8px",cursor:"pointer",fontSize:"12px"},onclick:function(){
-      analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"rent"},val:null,rentalVal:null,aiText:"",aiTextSeller:"",liveData:null,err:"",reportMode:"personal",reportFor:"buyer"};
+      analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"rent"},val:null,rentalVal:null,aiText:"",aiTextSeller:"",liveData:null,err:"",reportMode:"personal",reportFor:"buyer",smartRent:null};
       window.scrollTo({top:0,behavior:"smooth"});render();
     }},"← New"),
   ]));

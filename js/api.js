@@ -96,6 +96,68 @@ async function fetchLiveData(building,area,beds){
   }catch(e){return{sales:[],txs:[]};}
 }
 
+// --- SMART RENTAL INTELLIGENCE ENGINE ----------------------------------------
+var _rentalCache={};
+async function fetchLiveRentals(building,area,beds){
+  var cacheKey=(building||"").toLowerCase().trim()+"|"+(area||"")+"|"+(beds||"2");
+  if(_rentalCache[cacheKey]&&Date.now()-_rentalCache[cacheKey].ts<1800000)return _rentalCache[cacheKey].data;
+  var bedsMap={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5};
+  var bn=bedsMap[beds]!==undefined?bedsMap[beds]:2;
+  var q=(building&&building.length>2)?building+" "+area:area;
+  try{
+    var bayutP=async function(){
+      var locId=await getUAELocationId(q)||await getUAELocationId(area);
+      if(!locId)return[];
+      var params=new URLSearchParams({locationExternalIDs:locId,purpose:"for-rent",hitsPerPage:"24",page:"0"});
+      if(bn>0){params.set("rooms_min",String(bn));params.set("rooms_max",String(bn));}
+      else{params.set("categoryExternalID","4");}
+      var r;
+      if(UAE_RE_KEY){r=await fetch("https://"+UAE_RE_HOST+"/properties/list?"+params,{headers:{"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":UAE_RE_HOST}});}
+      else{r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=properties/list&"+params);}
+      if(!r.ok)return[];
+      var d=await r.json();
+      return(d.hits||[]).filter(function(p){return p.price&&p.price>5000;}).map(function(p){
+        return{price:p.price,size:p.area||0,beds:p.rooms||0,title:(p.title||"").toLowerCase(),source:"bayut"};
+      });
+    };
+    var pfP=async function(){
+      var locId=await getPFLocationId(area+" Dubai");
+      if(!locId)return[];
+      var params=new URLSearchParams({location_id:String(locId),page:"1"});
+      if(bn!==undefined)params.set("bedrooms",String(bn));
+      var r;
+      if(UAE_RE_KEY){r=await fetch("https://"+PF_HOST+"/search-rent?"+params,{headers:{"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":PF_HOST}});}
+      else{r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=search-rent&source=pf&"+params);}
+      if(!r.ok)return[];
+      var d=await r.json();
+      var items=d.data||d.hits||d.properties||[];
+      if(!Array.isArray(items))return[];
+      return items.filter(function(p){
+        var price=p.price&&typeof p.price==="object"?p.price.value:p.price;
+        return price&&price>5000;
+      }).map(function(p){
+        return{price:p.price&&typeof p.price==="object"?p.price.value:p.price,size:p.size||p.area||0,beds:p.bedrooms||p.beds||0,title:(p.title||"").toLowerCase(),source:"pf"};
+      });
+    };
+    var[bayutRes,pfRes]=await Promise.allSettled([bayutP(),pfP()]);
+    var bayutData=bayutRes.status==="fulfilled"?bayutRes.value:[];
+    var pfData=pfRes.status==="fulfilled"?pfRes.value:[];
+    var all=bayutData.concat(pfData);
+    var buildingMatches=[];
+    if(building&&building.length>2){
+      var bWords=building.toLowerCase().split(/\s+/).filter(function(w){return w.length>2&&w!=="tower"&&w!=="the"&&w!=="residence"&&w!=="residences";});
+      buildingMatches=all.filter(function(l){
+        var matchCount=0;
+        bWords.forEach(function(w){if(l.title.indexOf(w)>=0)matchCount++;});
+        return matchCount>=Math.max(1,Math.floor(bWords.length*0.5));
+      });
+    }
+    var result={all:all,buildingMatches:buildingMatches,areaListings:all,bayutCount:bayutData.length,pfCount:pfData.length,ts:Date.now()};
+    _rentalCache[cacheKey]={data:result,ts:Date.now()};
+    return result;
+  }catch(e){return{all:[],buildingMatches:[],areaListings:[],bayutCount:0,pfCount:0,ts:Date.now()};}
+}
+
 async function askAI(messages,system){
   const groqMessages=[];
   if(system)groqMessages.push({role:"system",content:system});
