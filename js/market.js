@@ -1685,37 +1685,48 @@ function renderAnalyzerResult(wrap){
     wrap.appendChild(gCard);
   })();
 
-  // -- MARKET SENTIMENT --
+  // -- MARKET SENTIMENT (Live) --
   (function(){
-    const sent=MARKET_SENTIMENT[analyzerState.f.area];
-    if(!sent)return;
-    const sentColors={bull:cl.green,bear:cl.red,neutral:cl.yellow};
-    const sentLabels={bull:"BULLISH",bear:"BEARISH",neutral:"NEUTRAL"};
-    const sentIcons={bull:"↑",bear:"↓",neutral:"→"};
-    const color=sentColors[sent.s]||cl.sub;
-    const sWrap=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px 14px",marginTop:"10px",display:"flex",justifyContent:"space-between",alignItems:"center"}});
-    const left=el("div",{});
-    left.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"Market Sentiment · "+analyzerState.f.area));
-    left.appendChild(div({color:color,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},sentIcons[sent.s]+" "+sentLabels[sent.s]));
-    const right=el("div",{style:{textAlign:"right"}});
-    right.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"6-Month PSF Trend"));
-    right.appendChild(div({color:color,fontSize:"18px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(sent.chg>=0?"+":"")+sent.chg+"%"));
-    sWrap.appendChild(left);
-    sWrap.appendChild(right);
-    wrap.appendChild(sWrap);
-    // Strategy note based on investor profile
-    const profileNotes={
-      income:{bull:"High demand supports rental rates.",bear:"Tenant leverage rising — negotiate rent-free periods.",neutral:"Stable rental market."},
-      growth:{bull:"Momentum favors entry now.",bear:"Buyer leverage window — negotiate hard.",neutral:"Sideways market — focus on yield."},
-      flip:{bull:"Exit conditions improving.",bear:"Hold or negotiate deep discount.",neutral:"Time market carefully."},
-      enduse:{bull:"Act quickly — competition rising.",bear:"Best time to negotiate.",neutral:"Stable conditions for purchase."}
-    };
-    const note=(profileNotes[USER_PROFILE.investorType]||profileNotes.income)[sent.s];
-    if(note){
-      wrap.appendChild(div({background:"rgba(201,168,76,0.08)",border:"1px solid rgba(201,168,76,0.2)",borderRadius:"8px",padding:"10px 14px",marginTop:"8px",color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6"},
-        "◆ Strategy: "+note
-      ));
-    }
+    var sentArea=analyzerState.f.area;
+    var sentWrap=el("div",{style:{marginTop:"10px"}});
+    sentWrap.id="dv-sentiment-wrap";
+    var sentLoader=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}});
+    sentLoader.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Market Sentiment · "+sentArea));
+    sentLoader.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},"Loading..."));
+    sentWrap.appendChild(sentLoader);
+    wrap.appendChild(sentWrap);
+    fetchMarketSentiment(sentArea).then(function(sent){
+      sentWrap.innerHTML="";
+      if(!sent){sentWrap.style.display="none";return;}
+      var sentColors={bull:cl.green,bear:cl.red,neutral:cl.yellow};
+      var sentLabels={bull:"BULLISH",bear:"BEARISH",neutral:"NEUTRAL"};
+      var sentIcons={bull:"↑",bear:"↓",neutral:"→"};
+      var color=sentColors[sent.s]||cl.sub;
+      var sourceLabel=sent.source==="dld"?"DLD Data · "+sent.points+" points":"Live Listings · "+sent.points+" properties";
+      var sCard=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}});
+      var left=el("div",{});
+      left.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"Market Sentiment · "+sentArea));
+      left.appendChild(div({color:color,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},sentIcons[sent.s]+" "+sentLabels[sent.s]));
+      left.appendChild(div({color:cl.sub,fontSize:"8px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px",opacity:"0.7"},sourceLabel));
+      var right=el("div",{style:{textAlign:"right"}});
+      right.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"6-Month PSF Trend"));
+      right.appendChild(div({color:color,fontSize:"18px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(sent.chg>=0?"+":"")+sent.chg+"%"));
+      sCard.appendChild(left);
+      sCard.appendChild(right);
+      sentWrap.appendChild(sCard);
+      var profileNotes={
+        income:{bull:"High demand supports rental rates.",bear:"Tenant leverage rising — negotiate rent-free periods.",neutral:"Stable rental market."},
+        growth:{bull:"Momentum favors entry now.",bear:"Buyer leverage window — negotiate hard.",neutral:"Sideways market — focus on yield."},
+        flip:{bull:"Exit conditions improving.",bear:"Hold or negotiate deep discount.",neutral:"Time market carefully."},
+        enduse:{bull:"Act quickly — competition rising.",bear:"Best time to negotiate.",neutral:"Stable conditions for purchase."}
+      };
+      var note=(profileNotes[USER_PROFILE.investorType]||profileNotes.income)[sent.s];
+      if(note){
+        sentWrap.appendChild(div({background:"rgba(201,168,76,0.08)",border:"1px solid rgba(201,168,76,0.2)",borderRadius:"8px",padding:"10px 14px",marginTop:"8px",color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6"},
+          "◆ Strategy: "+note
+        ));
+      }
+    });
   })();
 
   // -- PRICE HISTORY CHART (Phase 2) --

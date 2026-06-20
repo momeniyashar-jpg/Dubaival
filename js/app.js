@@ -1,6 +1,38 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- RENDER -------------------------------------------------------------------
-const MARKET_SENTIMENT={"Downtown Dubai":{"chg":-20.1,"s":"bear"},"Dubai Marina":{"chg":-18.1,"s":"bear"},"Palm Jumeirah":{"chg":6.2,"s":"bull"},"Business Bay":{"chg":-14.1,"s":"bear"},"Dubai Hills":{"chg":-5.8,"s":"bear"},"Dubai Creek Harbour":{"chg":0.0,"s":"neutral"},"JVC":{"chg":8.6,"s":"bull"},"JLT":{"chg":-11.9,"s":"bear"},"MBR City":{"chg":-3.4,"s":"bear"},"DAMAC Hills":{"chg":59.6,"s":"bull"},"Meydan":{"chg":-36.8,"s":"bear"},"Dubai South":{"chg":5.9,"s":"bull"},"City Walk":{"chg":2.6,"s":"neutral"},"Jumeirah":{"chg":-12.3,"s":"bear"}};
+var _sentimentCache={};
+async function fetchMarketSentiment(area){
+  if(_sentimentCache[area]&&Date.now()-_sentimentCache[area].ts<3600000)return _sentimentCache[area].data;
+  try{
+    var rows=await fetchPriceHistory(area,180);
+    if(rows&&rows.length>=2){
+      var first=rows[0].psf,last=rows[rows.length-1].psf;
+      if(first>0){
+        var chg=parseFloat(((last-first)/first*100).toFixed(1));
+        var s=chg>3?"bull":chg<-3?"bear":"neutral";
+        var result={chg:chg,s:s,source:"dld",points:rows.length};
+        _sentimentCache[area]={data:result,ts:Date.now()};
+        return result;
+      }
+    }
+  }catch(e){}
+  try{
+    var ld=await fetchLiveData("",area,"2 BR");
+    if(ld&&ld.sales&&ld.sales.length>=3){
+      var sorted=ld.sales.slice().sort(function(a,b){return a.psf-b.psf;});
+      var mid=sorted[Math.floor(sorted.length/2)].psf;
+      var areaData=AREAS[area];
+      if(areaData&&areaData.psf>0){
+        var chg2=parseFloat(((mid-areaData.psf)/areaData.psf*100).toFixed(1));
+        var s2=chg2>5?"bull":chg2<-5?"bear":"neutral";
+        var result2={chg:chg2,s:s2,source:"live",points:ld.sales.length};
+        _sentimentCache[area]={data:result2,ts:Date.now()};
+        return result2;
+      }
+    }
+  }catch(e){}
+  return null;
+}
 // --- DEAL ALERTS ---
 function renderFind(){
   const cl=C();
