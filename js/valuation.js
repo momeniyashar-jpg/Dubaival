@@ -392,18 +392,19 @@ function computeValuation(f,buildingVal,liveData){
   if(calFactor!==1.0){basePSF=Math.round(basePSF*calFactor);psfLo=Math.round(psfLo*calFactor);psfHi=Math.round(psfHi*calFactor);}
   if(dynBench&&dynBench.psf&&dynBench.sampleSize>=5)dataSource+=" · Live";
   // Premiums
-  // For DB buildings: apply differential view premium vs the grade baseline,
-  // but never penalize — views below baseline get 0 (no negative adjustment).
-  // Rule: no punishment in pricing for any view type.
+  // For DB buildings: differential view premium vs grade baseline.
+  // DB price assumes "average view" for the building's grade.
+  // Above-baseline views get premium; below-baseline views get discount.
+  // This ensures Road View ≠ Partial Burj ≠ Full Burj for all grades.
   const GRADE_BASE_VIEW={"Ultra":0.28,"A+":0.19,"A":0.12,"A-":0.06,"B+":0.03,"B":0,"C":0};
   const rawVP=VIEW_P[f.view]||0;
   let vP;
   if(bData&&bData.g&&GRADE_BASE_VIEW[bData.g]!==undefined){
     if(f.view==="Not specified"){
-      vP=0; // assume average view already in DB price
+      vP=0;
     } else {
       vP=rawVP-GRADE_BASE_VIEW[bData.g];
-      vP=Math.max(0,Math.min(0.15,vP));
+      vP=Math.max(-0.12,Math.min(0.15,vP));
     }
   } else {
     vP=rawVP;

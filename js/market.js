@@ -1261,13 +1261,13 @@ function renderAnalyzer(){
 
     // Purchase history (seller/agent mode)
     if(!isRental&&(analyzerState.reportFor==="seller"||analyzerState.reportFor==="both")){
-      var ppSec=el("div",{style:{background:hexAlpha("#F87171",0.06),border:"1px solid "+hexAlpha("#F87171",0.2),borderRadius:"10px",padding:"14px",marginTop:"12px"}});
-      ppSec.appendChild(div({color:"#F87171",fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"◆ Seller Purchase History (Optional)"));
+      var ppSec=el("div",{style:{background:hexAlpha("#8B5CF6",0.06),border:"1px solid "+hexAlpha("#8B5CF6",0.2),borderRadius:"10px",padding:"14px",marginTop:"12px"}});
+      ppSec.appendChild(div({color:"#A78BFA",fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"◆ Seller Purchase History (Optional)"));
       var ppRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}});
       var ppBox=el("div",{});ppBox.appendChild(lbl("Purchase Price (AED)"));ppBox.appendChild(inp(I(),"e.g. 3,200,000","number",f.purchasePrice||"",function(v){analyzerState.f.purchasePrice=v;}));ppRow.appendChild(ppBox);
       var pdBox=el("div",{});pdBox.appendChild(lbl("Purchase Date"));var pdInp=el("input",{style:I(),type:"date",value:f.purchaseDate||""});pdInp.addEventListener("change",function(e){analyzerState.f.purchaseDate=e.target.value;});pdBox.appendChild(pdInp);ppRow.appendChild(pdBox);
       ppSec.appendChild(ppRow);
-      ppSec.appendChild(div({color:hexAlpha("#F87171",0.6),fontSize:"9.5px",fontFamily:"'Inter',sans-serif",marginTop:"8px"},"Enables capital gain analysis, hold vs sell comparison & sell price recommendation"));
+      ppSec.appendChild(div({color:hexAlpha("#8B5CF6",0.6),fontSize:"9.5px",fontFamily:"'Inter',sans-serif",marginTop:"8px"},"Enables capital gain analysis, hold vs sell comparison & sell price recommendation"));
       formCard.appendChild(ppSec);
     }
 
@@ -1425,7 +1425,7 @@ function renderAnalyzer(){
       var ppBoxA=el("div",{});ppBoxA.appendChild(lbl("Purchase Price (AED)"));ppBoxA.appendChild(inp(I(),"e.g. 2,000,000","number",f.purchasePrice||"",function(v){analyzerState.f.purchasePrice=v;}));ppRowA.appendChild(ppBoxA);
       var pdBoxA=el("div",{});pdBoxA.appendChild(lbl("Purchase Date"));var pdInpA=el("input",{style:I(),type:"date",value:f.purchaseDate||""});pdInpA.addEventListener("change",function(e){analyzerState.f.purchaseDate=e.target.value;});pdBoxA.appendChild(pdInpA);ppRowA.appendChild(pdBoxA);
       ppSecA.appendChild(ppRowA);
-      ppSecA.appendChild(div({color:hexAlpha("#F87171",0.6),fontSize:"9.5px",fontFamily:"'Inter',sans-serif",marginTop:"8px"},"Enables capital gain analysis, hold vs sell comparison & sell price recommendation"));
+      ppSecA.appendChild(div({color:hexAlpha("#8B5CF6",0.6),fontSize:"9.5px",fontFamily:"'Inter',sans-serif",marginTop:"8px"},"Enables capital gain analysis, hold vs sell comparison & sell price recommendation"));
       formCard.appendChild(ppSecA);
     }
 
@@ -1998,10 +1998,11 @@ function renderAnalyzerResult(wrap){
 
     // --- SELLER ADVISORY ---
     if(isSeller&&f.txnType==="sale"){
-      var sellerCard=el("div",{style:{background:cl.surface,border:"1px solid rgba(239,68,68,0.25)",borderRadius:"14px",padding:"18px",marginBottom:"14px"}});
+      var _sC="#A78BFA";var _sC2="#8B5CF6";
+      var sellerCard=el("div",{style:{background:cl.surface,border:"1px solid "+hexAlpha(_sC2,0.25),borderRadius:"14px",padding:"18px",marginBottom:"14px"}});
       sellerCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
-        span({color:"#F87171",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ Seller Advisory"),
-        span({color:hexAlpha("#F87171",0.6),fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},purchPrice?"Based on purchase history":"Market-based analysis"),
+        span({color:_sC,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ Seller Advisory"),
+        span({color:hexAlpha(_sC,0.6),fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},purchPrice?"Based on purchase history":"Market-based analysis"),
       ]));
 
       if(purchPrice&&purchDateStr){
@@ -2054,10 +2055,10 @@ function renderAnalyzerResult(wrap){
         sellerCard.appendChild(div({background:hexAlpha("#F59E0B",0.06),border:"1px solid "+hexAlpha("#F59E0B",0.2),borderRadius:"10px",padding:"14px",marginBottom:"12px"},[
           div({color:"#F59E0B",fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"Hold vs Sell Analysis"),
           div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"},[
-            div({background:hexAlpha("#EF4444",0.08),borderRadius:"8px",padding:"12px",textAlign:"center"},[
-              div({color:"#F87171",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"SELL NOW"),
-              div({color:"#F87171",fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"AED "+netProfit.toLocaleString()),
-              div({color:hexAlpha("#F87171",0.7),fontSize:"9px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},"Net profit realized today"),
+            div({background:hexAlpha(_sC2,0.08),borderRadius:"8px",padding:"12px",textAlign:"center"},[
+              div({color:_sC,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"SELL NOW"),
+              div({color:_sC,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"AED "+netProfit.toLocaleString()),
+              div({color:hexAlpha(_sC,0.7),fontSize:"9px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},"Net profit realized today"),
             ]),
             div({background:hexAlpha("#22C55E",0.08),borderRadius:"8px",padding:"12px",textAlign:"center"},[
               div({color:cl.green,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"HOLD 1 MORE YEAR"),
@@ -2075,18 +2076,18 @@ function renderAnalyzerResult(wrap){
         // Sell price recommendation
         var minSellPrice=breakEvenPrice;
         var optimalSell=Math.round(fair*1.02);
-        sellerCard.appendChild(div({background:hexAlpha("#22C55E",0.06),border:"1px solid "+hexAlpha("#22C55E",0.2),borderRadius:"10px",padding:"14px"},[
-          div({color:cl.green,fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"Sell Price Recommendation"),
+        sellerCard.appendChild(div({background:hexAlpha(_sC2,0.06),border:"1px solid "+hexAlpha(_sC2,0.2),borderRadius:"10px",padding:"14px"},[
+          div({color:_sC,fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"Sell Price Recommendation"),
           div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px"},[
             div({background:hexAlpha("#EF4444",0.1),borderRadius:"8px",padding:"10px",textAlign:"center"},[
               div({color:"#EF4444",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"DON'T SELL BELOW"),
               div({color:"#F87171",fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"AED "+minSellPrice.toLocaleString()),
               div({color:hexAlpha("#EF4444",0.6),fontSize:"8px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},"Break-even price"),
             ]),
-            div({background:hexAlpha("#22C55E",0.1),border:"1px solid "+hexAlpha("#22C55E",0.3),borderRadius:"8px",padding:"10px",textAlign:"center"},[
-              div({color:cl.green,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"OPTIMAL SELL"),
-              div({color:cl.green,fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"AED "+optimalSell.toLocaleString()),
-              div({color:hexAlpha(cl.green,0.6),fontSize:"8px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},"Fair value + 2% premium"),
+            div({background:hexAlpha(_sC2,0.1),border:"1px solid "+hexAlpha(_sC2,0.3),borderRadius:"8px",padding:"10px",textAlign:"center"},[
+              div({color:_sC,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"OPTIMAL SELL"),
+              div({color:_sC,fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"AED "+optimalSell.toLocaleString()),
+              div({color:hexAlpha(_sC,0.6),fontSize:"8px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},"Fair value + 2% premium"),
             ]),
             div({background:hexAlpha("#F59E0B",0.1),borderRadius:"8px",padding:"10px",textAlign:"center"},[
               div({color:"#F59E0B",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"WAIT FOR BEST"),
@@ -2106,21 +2107,22 @@ function renderAnalyzerResult(wrap){
             "Based on current market conditions in "+f.area+", fair value is AED "+fair.toLocaleString()+". Your asking price of AED "+price.toLocaleString()+" is "+(price>fair?"above":"below")+" market by "+Math.abs(parseFloat(val.vsPct)).toFixed(1)+"%."),
           div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px"},[
             div({textAlign:"center",padding:"8px"},[div({color:"#EF4444",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"Floor Price"),div({color:"#F87171",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+minSell.toLocaleString())]),
-            div({textAlign:"center",padding:"8px",background:hexAlpha(cl.green,0.08),borderRadius:"8px"},[div({color:cl.green,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"Optimal Sell"),div({color:cl.green,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+optSell.toLocaleString())]),
+            div({textAlign:"center",padding:"8px",background:hexAlpha(_sC2,0.08),borderRadius:"8px"},[div({color:_sC,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"Optimal Sell"),div({color:_sC,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+optSell.toLocaleString())]),
             div({textAlign:"center",padding:"8px"},[div({color:"#F59E0B",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"1-Year Value"),div({color:"#FBBF24",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+proj1.toLocaleString())]),
           ]),
         ]));
-        sellerCard.appendChild(div({color:hexAlpha("#F87171",0.5),fontSize:"9.5px",fontFamily:"'Inter',sans-serif",fontStyle:"italic"},"Enter purchase price & date above for detailed capital gain analysis and hold vs sell comparison."));
+        sellerCard.appendChild(div({color:hexAlpha(_sC,0.5),fontSize:"9.5px",fontFamily:"'Inter',sans-serif",fontStyle:"italic"},"Enter purchase price & date above for detailed capital gain analysis and hold vs sell comparison."));
       }
       wrap.appendChild(sellerCard);
     }
 
     // --- BUYER ADVISORY ---
     if(isBuyer&&f.txnType==="sale"){
-      var buyerCard=el("div",{style:{background:cl.surface,border:"1px solid "+hexAlpha("#22C55E",0.25),borderRadius:"14px",padding:"18px",marginBottom:"14px"}});
+      var _bC="#2DD4BF";var _bC2="#14B8A6";
+      var buyerCard=el("div",{style:{background:cl.surface,border:"1px solid "+hexAlpha(_bC2,0.25),borderRadius:"14px",padding:"18px",marginBottom:"14px"}});
       buyerCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
-        span({color:cl.green,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ Buyer Advisory"),
-        span({color:hexAlpha(cl.green,0.6),fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Investment Projection"),
+        span({color:_bC,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ Buyer Advisory"),
+        span({color:hexAlpha(_bC,0.6),fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Investment Projection"),
       ]));
 
       var totalBuyCosts=Math.round(price*0.065);
@@ -2151,12 +2153,12 @@ function renderAnalyzerResult(wrap){
               div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"ROI: "+roi1+"%"),
             ]),
           ]),
-          div({background:hexAlpha(cl.green,0.08),border:"1px solid "+hexAlpha(cl.green,0.3),borderRadius:"10px",padding:"12px",textAlign:"center"},[
-            div({color:cl.green,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"3 YEARS"),
+          div({background:hexAlpha(_bC2,0.08),border:"1px solid "+hexAlpha(_bC2,0.3),borderRadius:"10px",padding:"12px",textAlign:"center"},[
+            div({color:_bC,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"3 YEARS"),
             div({color:cl.subHi,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},"Value: AED "+proj3y.toLocaleString()),
             div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif"},"Rent: +"+rent3.toLocaleString()),
             div({borderTop:"1px solid "+cl.border,marginTop:"6px",paddingTop:"6px"},[
-              div({color:totalR3>=0?cl.green:"#EF4444",fontSize:"15px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},(totalR3>=0?"+":"")+totalR3.toLocaleString()),
+              div({color:totalR3>=0?_bC:"#EF4444",fontSize:"15px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},(totalR3>=0?"+":"")+totalR3.toLocaleString()),
               div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"ROI: "+roi3+"%"),
             ]),
           ]),
@@ -2183,7 +2185,7 @@ function renderAnalyzerResult(wrap){
         ]),
         div({borderTop:"1px solid "+cl.border,paddingTop:"10px",display:"flex",justifyContent:"space-between",alignItems:"center"},[
           span({color:cl.subHi,fontSize:"12px",fontWeight:"700",fontFamily:"'Inter',sans-serif"},"Total Investment"),
-          span({color:cl.gold,fontSize:"17px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"AED "+totalInvested.toLocaleString()),
+          span({color:_bC,fontSize:"17px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"AED "+totalInvested.toLocaleString()),
         ]),
       ]));
 
@@ -2191,11 +2193,11 @@ function renderAnalyzerResult(wrap){
       var annualNetIncome=rent-sc;
       var breakEvenYears=annualNetIncome>0?(totalBuyCosts/annualNetIncome).toFixed(1):"N/A";
       var monthlyRent=Math.round(rent/12);
-      buyerCard.appendChild(div({background:hexAlpha(cl.green,0.06),border:"1px solid "+hexAlpha(cl.green,0.2),borderRadius:"10px",padding:"14px"},[
-        div({color:cl.green,fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"Purchase Intelligence"),
+      buyerCard.appendChild(div({background:hexAlpha(_bC2,0.06),border:"1px solid "+hexAlpha(_bC2,0.2),borderRadius:"10px",padding:"14px"},[
+        div({color:_bC,fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"Purchase Intelligence"),
         div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"},[
-          div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Cost Recovery via Rent"),div({color:cl.green,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},breakEvenYears+" years"),div({color:cl.sub,fontSize:"8.5px",fontFamily:"'Inter',sans-serif"},"Transaction costs paid back by net rental income")]),
-          div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Monthly Rental Income"),div({color:cl.green,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+monthlyRent.toLocaleString()+"/mo"),div({color:cl.sub,fontSize:"8.5px",fontFamily:"'Inter',sans-serif"},"Estimated monthly rent if leased out")]),
+          div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Cost Recovery via Rent"),div({color:_bC,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},breakEvenYears+" years"),div({color:cl.sub,fontSize:"8.5px",fontFamily:"'Inter',sans-serif"},"Transaction costs paid back by net rental income")]),
+          div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Monthly Rental Income"),div({color:_bC,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+monthlyRent.toLocaleString()+"/mo"),div({color:cl.sub,fontSize:"8.5px",fontFamily:"'Inter',sans-serif"},"Estimated monthly rent if leased out")]),
         ]),
         div({color:cl.sub,fontSize:"10.5px",fontFamily:"'Inter',sans-serif",marginTop:"12px",lineHeight:"1.6"},
           val.verdict==="DISTRESS"||val.verdict==="GOOD"?
