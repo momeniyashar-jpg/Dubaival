@@ -505,28 +505,26 @@ function renderAnalyzer(){
     wrap.appendChild(ssWrap);
   }
 
-  // --- AI SMART SEARCH ---
+  // --- AI SMART SEARCH (compact bar) ---
   if(analyzerState.stage===0){
     if(!window._aiSearch)window._aiSearch={text:"",parsing:false,parsed:null,missing:[],filled:[]};
     var ai=window._aiSearch;
     var aiSysPrompt='You are a Dubai real estate property parser. Extract these fields from the user\'s description and return ONLY a JSON object: {"area":null,"building":null,"propType":null,"beds":null,"size_sqft":null,"floor":null,"view":null,"furnished":null,"parking":null,"bathrooms":null,"price":null,"purpose":null}. propType must be one of: apartment, villa, townhouse, penthouse, office, land. beds must be like "Studio","1 BR","2 BR" etc. furnished must be Furnished/Unfurnished/Semi-Furnished. view examples: Full Sea View, Skyline View, Golf View, etc. purpose: sale or rent. If a field is not mentioned, set it to null. Parse Arabic too: غرفتين=2 BR, غرفة=1 BR, ثلاث غرف=3 BR, مارينا=Dubai Marina, داون تاون=Downtown Dubai, شقة=apartment, فيلا=villa, تاون هاوس=townhouse, طابق=floor, إطلالة بحرية=Full Sea View, مفروش=Furnished.';
-    var aiBox=el("div",{style:{background:"rgba(201,168,76,0.03)",border:"2px solid transparent",borderImage:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+","+cl.gold+") 1",borderRadius:"0",padding:"20px",marginBottom:"20px",position:"relative"}});
-    var aiBoxInner=el("div",{style:{background:cl.surface,borderRadius:"16px",padding:"20px",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)"}});
-    aiBoxInner.appendChild(div({textAlign:"center",marginBottom:"14px"},[
-      div({fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",color:cl.gold,marginBottom:"4px"},"✨ AI Smart Search"),
-      div({fontSize:"11px",fontFamily:"'Inter',sans-serif",color:cl.sub},"Describe your property in natural language — AI fills the form automatically")
-    ]));
-    var aiRow=div({display:"flex",gap:"8px",marginBottom:"10px"});
-    var aiInp=el("input",{type:"text",placeholder:"e.g. 2BR apartment in Dubai Marina, 1200 sqft, floor 25, sea view, asking 2.1M",
-      style:{flex:"1",background:cl.raised,border:"2px solid "+(ai.filled.length?cl.green:cl.border),color:"#F0F2F5",padding:"13px 16px",borderRadius:"12px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",transition:"border-color 0.3s, box-shadow 0.3s"}});
+    var aiBar=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"10px 12px",marginBottom:"16px"}});
+    var aiLabel=div({display:"flex",alignItems:"center",gap:"6px",marginBottom:"8px"},[
+      span({color:cl.gold,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"✨ AI Smart Search"),
+      span({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif"},"— or describe your property in text/voice")
+    ]);
+    aiBar.appendChild(aiLabel);
+    var aiRow=div({display:"flex",gap:"6px",alignItems:"center"});
+    var aiInp=el("input",{type:"text",placeholder:"e.g. 2BR Marina, 1200sqft, floor 25, sea view, 2.1M",
+      style:{flex:"1",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"10px 12px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
     aiInp.value=ai.text||"";
     aiInp.addEventListener("input",function(){ai.text=this.value;ai.parsed=null;ai.missing=[];ai.filled=[];});
-    aiInp.addEventListener("focus",function(){this.style.boxShadow="0 0 20px "+hexAlpha(cl.gold,0.15);this.style.borderColor=cl.gold;});
-    aiInp.addEventListener("blur",function(){this.style.boxShadow="none";this.style.borderColor=ai.filled.length?cl.green:cl.border;});
     aiInp.addEventListener("keydown",function(e){if(e.key==="Enter")doAiParse();});
     aiRow.appendChild(aiInp);
-    var aiBtn=el("button",{style:{background:ai.parsing?"#4B5563":"linear-gradient(135deg,#C9A84C,#7A5E28)",color:ai.parsing?"#9CA3AF":"#08090C",border:"none",padding:"13px 20px",borderRadius:"12px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:ai.parsing?"not-allowed":"pointer",whiteSpace:"nowrap",minWidth:"110px"}});
-    aiBtn.textContent=ai.parsing?"Parsing…":"✨ Analyze with AI";
+    var aiBtn=el("button",{style:{background:ai.parsing?"#4B5563":"linear-gradient(135deg,#C9A84C,#7A5E28)",color:ai.parsing?"#9CA3AF":"#08090C",border:"none",padding:"10px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:ai.parsing?"not-allowed":"pointer",whiteSpace:"nowrap"}});
+    aiBtn.textContent=ai.parsing?"…":"✨ AI";
     function doAiParse(){
       var txt=(ai.text||"").trim();if(!txt||ai.parsing)return;
       ai.parsing=true;ai.parsed=null;ai.missing=[];ai.filled=[];render();
@@ -554,14 +552,12 @@ function renderAnalyzer(){
             }else{ai.missing.push(m.k);}
           });
           if(j.purpose)f.txnType=j.purpose;
-          // Save to history
           try{
             var hist=JSON.parse(localStorage.getItem("dv_smart_searches")||"[]");
             hist=hist.filter(function(h){return h!==txt;});
             hist.unshift(txt);if(hist.length>5)hist=hist.slice(0,5);
             localStorage.setItem("dv_smart_searches",JSON.stringify(hist));
           }catch(e){}
-          // Auto-run if essentials filled
           if(f.area&&f.price&&(f.size||f.buaSize)){
             analyzerState.stage=1;render();
             setTimeout(function(){
@@ -583,50 +579,18 @@ function renderAnalyzer(){
     aiRow.appendChild(createVoiceMic("_voice_analyzer",function(txt){
       ai.text=txt;doAiParse();
     },{inline:true}));
-    aiBoxInner.appendChild(aiRow);
-
-    // Missing/filled feedback
+    aiBar.appendChild(aiRow);
+    if(ai.filled.length>0){
+      aiBar.appendChild(div({color:cl.green,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginTop:"6px"},"✓ Auto-filled: "+ai.filled.join(", ")));
+    }
     if(ai.missing.length>0&&ai.parsed){
       var essentials=["area","price","size_sqft"];
       var missingEss=ai.missing.filter(function(m){return essentials.indexOf(m)!==-1;});
-      var missingOpt=ai.missing.filter(function(m){return essentials.indexOf(m)===-1;});
-      var feedMsg="";
-      if(missingEss.length)feedMsg="⚠ Required: "+missingEss.join(", ");
-      if(missingOpt.length)feedMsg+=(feedMsg?" · ":"")+"Optional: "+missingOpt.join(", ");
-      aiBoxInner.appendChild(div({background:hexAlpha("#F59E0B",0.08),border:"1px solid "+hexAlpha("#F59E0B",0.25),borderRadius:"8px",padding:"8px 12px",marginBottom:"8px",color:"#F59E0B",fontSize:"11px",fontFamily:"'Inter',sans-serif"},feedMsg));
-    }
-    if(ai.filled.length>0){
-      aiBoxInner.appendChild(div({color:cl.green,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"✓ Auto-filled: "+ai.filled.join(", ")));
-    }
-
-    // Example chips
-    var chipRow=div({display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"8px"});
-    ["2BR Marina, 1400sqft, 2.5M","Studio JLT, 500sqft, 750K","3BR Villa Arabian Ranches, 3500sqft, 5M","2BR rent Dubai Marina, 1200sqft, 120K/yr"].forEach(function(ex){
-      var chip=el("button",{style:{background:hexAlpha(cl.gold,0.08),border:"1px solid "+hexAlpha(cl.gold,0.2),borderRadius:"20px",padding:"5px 12px",cursor:"pointer",color:cl.gold,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",fontWeight:"600"}});
-      chip.textContent=ex;
-      chip.addEventListener("click",function(){ai.text=ex;doAiParse();});
-      chipRow.appendChild(chip);
-    });
-    aiBoxInner.appendChild(chipRow);
-
-    // Search history chips
-    try{
-      var hist=JSON.parse(localStorage.getItem("dv_smart_searches")||"[]");
-      if(hist.length>0){
-        aiBoxInner.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em",marginBottom:"4px"},"RECENT SEARCHES"));
-        var hRow=div({display:"flex",gap:"5px",flexWrap:"wrap"});
-        hist.forEach(function(h){
-          var hc=el("button",{style:{background:cl.raised,border:"1px solid "+cl.border,borderRadius:"16px",padding:"4px 10px",cursor:"pointer",color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif",maxWidth:"200px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}});
-          hc.textContent=h;
-          hc.addEventListener("click",function(){ai.text=h;doAiParse();});
-          hRow.appendChild(hc);
-        });
-        aiBoxInner.appendChild(hRow);
+      if(missingEss.length){
+        aiBar.appendChild(div({color:"#F59E0B",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginTop:"4px"},"⚠ Required: "+missingEss.join(", ")));
       }
-    }catch(e){}
-
-    aiBox.appendChild(aiBoxInner);
-    wrap.appendChild(aiBox);
+    }
+    wrap.appendChild(aiBar);
   }
 
   // --- QUICK CHECK ---
@@ -649,16 +613,33 @@ function renderAnalyzer(){
     });
     qc.appendChild(qcToggle);
 
-    // Area dropdown
-    var areaSelect=el("select",{style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",marginBottom:"10px",outline:"none",boxSizing:"border-box",appearance:"none",WebkitAppearance:"none"}});
-    var defOpt=el("option",{value:""});defOpt.textContent=t("qc_select_area");areaSelect.appendChild(defOpt);
-    AREA_NAMES.forEach(function(n){var o=el("option",{value:n});o.textContent=n;if(qs.area===n)o.selected=true;areaSelect.appendChild(o);});
-    areaSelect.addEventListener("change",function(){qs.area=this.value;qs.result=null;render();});
-    qc.appendChild(areaSelect);
+    // Searchable area input
+    var qcAreaWrap=el("div",{style:{position:"relative",marginBottom:"10px"}});
+    var qcAreaInp=el("input",{type:"text",placeholder:t("qc_select_area"),style:{width:"100%",background:cl.raised,border:"1px solid "+(qs.area&&AREAS[qs.area]?cl.gold:cl.border),color:"#F0F2F5",padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+    qcAreaInp.value=qs.area||"";
+    qcAreaInp.addEventListener("input",function(){
+      qs.area=this.value;qs.result=null;
+      var sg=document.getElementById("qc-area-sugg");if(!sg)return;sg.innerHTML="";
+      var q=this.value.toLowerCase().trim();if(q.length<1)return;
+      var hits=AREA_NAMES.filter(function(n){return n.toLowerCase().indexOf(q)>=0;});
+      hits.slice(0,8).forEach(function(n){
+        var row=el("div",{style:{padding:"8px 12px",cursor:"pointer",fontSize:"12px",color:"#F0F2F5",borderBottom:"1px solid "+cl.border,fontFamily:"'Inter',sans-serif"}});
+        row.textContent=n;
+        row.addEventListener("mousedown",function(e){e.preventDefault();qs.area=n;qs.result=null;render();});
+        row.addEventListener("mouseenter",function(){this.style.background=cl.raised;});
+        row.addEventListener("mouseleave",function(){this.style.background="transparent";});
+        sg.appendChild(row);
+      });
+    });
+    qcAreaInp.addEventListener("blur",function(){setTimeout(function(){var sg=document.getElementById("qc-area-sugg");if(sg)sg.innerHTML="";},200);});
+    qcAreaWrap.appendChild(qcAreaInp);
+    var qcAreaSugg=el("div",{id:"qc-area-sugg",style:{position:"absolute",top:"100%",left:"0",right:"0",zIndex:"100",background:cl.surface,border:"1px solid "+cl.border,borderRadius:"0 0 10px 10px",maxHeight:"180px",overflowY:"auto"}});
+    qcAreaWrap.appendChild(qcAreaSugg);
+    qc.appendChild(qcAreaWrap);
 
     // Building input with autocomplete
     var bWrap=el("div",{style:{position:"relative",marginBottom:"10px"}});
-    var bInp=el("input",{type:"text",placeholder:"Building name (optional)",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+    var bInp=el("input",{type:"text",placeholder:"Building name",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
     bInp.value=qs.building||"";
     bInp.addEventListener("input",function(){qs.building=this.value;qs.result=null;
       var sg=document.getElementById("qc-bldg-sugg");if(!sg)return;sg.innerHTML="";
@@ -765,7 +746,7 @@ function renderAnalyzer(){
     }else if(qs.result&&qs.result.error){
       qc.appendChild(el("div",{style:{marginTop:"14px",padding:"12px",borderRadius:"10px",border:"1px solid "+cl.border,textAlign:"center",color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif"}},"Could not compute — try selecting a different area or entering a building name."));
     }
-    wrap.appendChild(qc);
+    window._qcElement=qc;
   }
 
   if(analyzerState.stage===1){
@@ -986,6 +967,29 @@ function renderAnalyzer(){
     });
     chipWrap.appendChild(chips);
     wrap.appendChild(chipWrap);
+
+    // Quick Price Check — collapsible secondary tool
+    if(window._qcElement){
+      if(window._qcState&&window._qcState.result)window._qcExpanded=true;
+      var qcSection=el("div",{style:{marginTop:"16px"}});
+      var qcToggleBar=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:"rgba(201,168,76,0.04)",border:"1px solid "+cl.goldDim,borderRadius:window._qcExpanded?"10px 10px 0 0":"10px",cursor:"pointer"}});
+      qcToggleBar.appendChild(div({display:"flex",alignItems:"center",gap:"8px"},[
+        span({color:cl.gold,fontSize:"11px"},"⚡"),
+        span({color:cl.gold,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"Quick Price Check"),
+        span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},"— instant estimate with area & price")
+      ]));
+      qcToggleBar.appendChild(span({color:cl.sub,fontSize:"12px"},window._qcExpanded?"▾":"▸"));
+      qcToggleBar.addEventListener("click",function(){window._qcExpanded=!window._qcExpanded;render();});
+      qcSection.appendChild(qcToggleBar);
+      if(window._qcExpanded){
+        window._qcElement.style.borderRadius="0 0 16px 16px";
+        window._qcElement.style.borderTop="none";
+        window._qcElement.style.marginBottom="0";
+        qcSection.appendChild(window._qcElement);
+      }
+      wrap.appendChild(qcSection);
+    }
+
     return wrap;
   }
 
