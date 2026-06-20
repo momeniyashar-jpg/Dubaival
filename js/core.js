@@ -171,6 +171,42 @@ function mkSelect(style,options,value,onChange){
   e.addEventListener("change",function(){onChange(e.value)});
   return e;
 }
+function mkAuto(style,items,value,onChange,placeholder){
+  var cl=C();
+  var wrap=el("div",{style:{position:"relative"}});
+  var input=el("input",{type:"text",placeholder:placeholder||"Type to search...",style:Object.assign({},style,{width:"100%",boxSizing:"border-box"})});
+  input.value=value||"";
+  var dropdown=el("div",{style:{position:"absolute",top:"100%",left:"0",right:"0",maxHeight:"200px",overflowY:"auto",background:cl.surface,border:"1px solid "+cl.border,borderRadius:"0 0 10px 10px",zIndex:"999",display:"none",boxShadow:"0 8px 24px rgba(0,0,0,0.4)"}});
+  function showSuggestions(q){
+    dropdown.innerHTML="";
+    var query=q.toLowerCase().trim();
+    var matches=query?items.filter(function(it){return it.toLowerCase().indexOf(query)>=0;}).slice(0,15):items.slice(0,15);
+    if(matches.length===0){dropdown.style.display="none";return;}
+    matches.forEach(function(m){
+      var opt=el("div",{style:{padding:"8px 12px",cursor:"pointer",fontSize:"12px",fontFamily:"'Inter',sans-serif",color:cl.subHi,borderBottom:"1px solid "+cl.border,transition:"background 0.1s"}});
+      opt.textContent=m;
+      opt.addEventListener("mouseenter",function(){this.style.background="rgba(201,168,76,0.1)";});
+      opt.addEventListener("mouseleave",function(){this.style.background="transparent";});
+      opt.addEventListener("mousedown",function(e){
+        e.preventDefault();
+        input.value=m;
+        onChange(m);
+        dropdown.style.display="none";
+      });
+      dropdown.appendChild(opt);
+    });
+    dropdown.style.display="block";
+  }
+  input.addEventListener("input",function(){
+    onChange(this.value);
+    showSuggestions(this.value);
+  });
+  input.addEventListener("focus",function(){showSuggestions(this.value);});
+  input.addEventListener("blur",function(){setTimeout(function(){dropdown.style.display="none";},150);});
+  wrap.appendChild(input);
+  wrap.appendChild(dropdown);
+  return wrap;
+}
 function btn(style,text,onClick){
   const e=el("button",{style:{...style,cursor:"pointer"},onclick:onClick});
   e.textContent=text;

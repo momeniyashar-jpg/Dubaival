@@ -41,10 +41,14 @@ function renderFind(){
   wrap.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Property Search"));
   wrap.appendChild(div({color:cl.sub,fontSize:"12px",marginBottom:"16px",fontFamily:"'Inter',sans-serif"},"Tell DubAIVal what you're looking for. AI searches PropertyFinder & market data."));
 
-  if(!window.FIND_STATE)window.FIND_STATE={area:"",beds:"2 BR",maxPrice:"",minYield:"",type:"Apartment",query:"",results:[],loading:false,searched:false,
+  if(!window.FIND_STATE)window.FIND_STATE={area:"",building:"",beds:"2 BR",maxPrice:"",minYield:"",type:"Apartment",query:"",results:[],loading:false,searched:false,sort:"score",
     sf:{area:"",grade:"",minYield:"",maxPSF:"",minPSF:"",minGrowth:"",maxDOM:"",minTurnover:"",type:"Apartment",beds:"Any",sort:"yield",showResults:false,results:[]}
   };
   var FS=window.FIND_STATE;
+
+  // Build area and building name lists for autocomplete
+  var _areaNames=Object.keys(AREAS).sort();
+  var _bldgNames=Object.keys(DB).sort();
 
   // Natural language search
   const nlWrap=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginBottom:"14px"}});
@@ -66,10 +70,15 @@ function renderFind(){
   filterWrap.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"Quick Filters"));
   const filterGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"10px"}});
 
-  // Area
+  // Area — smart autocomplete
   const aBox=el("div",{}); aBox.appendChild(lbl("Area"));
-  aBox.appendChild(mkSelect(S(),["Any Area"].concat(Object.keys(AREAS)||[]),FS.area||"Any Area",function(v){FS.area=v==="Any Area"?"":v;}));
+  aBox.appendChild(mkAuto(S(),_areaNames,FS.area,function(v){FS.area=v;},"Type area name..."));
   filterGrid.appendChild(aBox);
+
+  // Building — smart autocomplete
+  const bldgBox=el("div",{}); bldgBox.appendChild(lbl("Building"));
+  bldgBox.appendChild(mkAuto(S(),_bldgNames,FS.building,function(v){FS.building=v;},"Type building name..."));
+  filterGrid.appendChild(bldgBox);
 
   // Bedrooms
   const bBox=el("div",{}); bBox.appendChild(lbl("Bedrooms"));
@@ -85,6 +94,11 @@ function renderFind(){
   const tBox=el("div",{}); tBox.appendChild(lbl("Type"));
   tBox.appendChild(mkSelect(S(),["Apartment","Villa","Townhouse","Any"],FS.type||"Apartment",function(v){FS.type=v;}));
   filterGrid.appendChild(tBox);
+
+  // Sort By
+  const sBox=el("div",{}); sBox.appendChild(lbl("Sort By"));
+  sBox.appendChild(mkSelect(S(),["Best Deal Score","Lowest PSF","Lowest Price","Highest PSF","Newest"],FS.sort==="psf_asc"?"Lowest PSF":FS.sort==="price_asc"?"Lowest Price":FS.sort==="psf_desc"?"Highest PSF":FS.sort==="newest"?"Newest":"Best Deal Score",function(v){FS.sort={"Best Deal Score":"score","Lowest PSF":"psf_asc","Lowest Price":"price_asc","Highest PSF":"psf_desc","Newest":"newest"}[v]||"score";}));
+  filterGrid.appendChild(sBox);
 
   filterWrap.appendChild(filterGrid);
 
@@ -102,7 +116,7 @@ function renderFind(){
   sfCard.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",display:"block",marginBottom:"14px"},"Filter "+Object.keys(DB).length.toLocaleString()+" buildings by yield, growth, price, liquidity & more"));
 
   var sfG1=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"10px"});
-  var sfArea=div({});sfArea.appendChild(lbl("Area"));sfArea.appendChild(mkSelect(Object.assign({},S(),{fontSize:"11px",padding:"7px 8px"}),["All Areas"].concat(AREA_NAMES),sf.area||"All Areas",function(v){sf.area=v==="All Areas"?"":v;}));sfG1.appendChild(sfArea);
+  var sfArea=div({});sfArea.appendChild(lbl("Area"));sfArea.appendChild(mkAuto(Object.assign({},S(),{fontSize:"11px",padding:"7px 8px"}),_areaNames,sf.area,function(v){sf.area=v;},"All Areas"));sfG1.appendChild(sfArea);
   var sfGrade=div({});sfGrade.appendChild(lbl("Grade"));sfGrade.appendChild(mkSelect(Object.assign({},S(),{fontSize:"11px",padding:"7px 8px"}),["Any","Ultra","A+","A","A-","B+","B","C"],sf.grade||"Any",function(v){sf.grade=v==="Any"?"":v;}));sfG1.appendChild(sfGrade);
   var sfType=div({});sfType.appendChild(lbl("Type"));sfType.appendChild(mkSelect(Object.assign({},S(),{fontSize:"11px",padding:"7px 8px"}),["Any","Apartment","Villa"],sf.type||"Any",function(v){sf.type=v==="Any"?"":v;}));sfG1.appendChild(sfType);
   sfCard.appendChild(sfG1);
@@ -260,14 +274,20 @@ function renderFind(){
       topRow.appendChild(titleBlock);
       card.appendChild(topRow);
       
-      // PSF + Permit row
-      if(r.psf||r.permit){
-        var metaRow=el("div",{style:{display:"flex",gap:"8px",flexWrap:"wrap",marginBottom:"8px"}});
-        if(r.psf)metaRow.appendChild(el("span",{style:{background:"rgba(201,168,76,0.1)",border:"1px solid "+cl.goldDim,color:cl.gold,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"PSF: AED "+r.psf.toLocaleString()));
-        if(r.permit)metaRow.appendChild(el("span",{style:{background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.4)",color:cl.green,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"Permit: "+r.permit));
-        if(r.furnished)metaRow.appendChild(el("span",{style:{background:cl.raised,border:"1px solid "+cl.border,color:cl.sub,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},r.furnished));
-        card.appendChild(metaRow);
+      // Deal Score + PSF + Permit row
+      var metaRow=el("div",{style:{display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"8px"}});
+      if(r.dealScore!==undefined){
+        var dsColor=r.dealScore>=75?"#22C55E":r.dealScore>=55?"#EAB308":"#EF4444";
+        var dsLabel=r.dealScore>=80?"Excellent":r.dealScore>=65?"Good":r.dealScore>=50?"Fair":"Below Avg";
+        metaRow.appendChild(el("span",{style:{background:hexAlpha(dsColor,0.12),border:"1px solid "+hexAlpha(dsColor,0.4),color:dsColor,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"}},r.dealScore+"/100 "+dsLabel));
       }
+      if(r.grade){
+        metaRow.appendChild(el("span",{style:{background:cl.goldFaint,border:"1px solid "+cl.goldDim,color:cl.gold,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"Grade: "+r.grade));
+      }
+      if(r.psf)metaRow.appendChild(el("span",{style:{background:"rgba(201,168,76,0.1)",border:"1px solid "+cl.goldDim,color:cl.gold,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"PSF: AED "+r.psf.toLocaleString()));
+      if(r.permit)metaRow.appendChild(el("span",{style:{background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.4)",color:cl.green,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"Permit: "+r.permit));
+      if(r.furnished)metaRow.appendChild(el("span",{style:{background:cl.raised,border:"1px solid "+cl.border,color:cl.sub,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},r.furnished));
+      card.appendChild(metaRow);
       
       // Agent info
       if(r.agentName||r.agencyName){
@@ -471,12 +491,21 @@ function renderFind(){
       pfResults=results[1].status==="fulfilled"?results[1].value:[];
 
       var combined=bayutResults.concat(pfResults);
+
+      // Building filter
+      var bldgFilter=(FS.building||"").toLowerCase().trim();
+      if(bldgFilter.length>1){
+        combined=combined.filter(function(r){return(r.title||"").toLowerCase().indexOf(bldgFilter)>=0;});
+      }
+
       if(combined.length>0){
+        combined=scoreDealQuality(combined);
         if(loadMore){
           FS.results=FS.results.concat(combined);
         }else{
           FS.results=combined;
         }
+        sortResults();
         var sources=[];
         if(bayutResults.length>0)sources.push("Bayut ("+bayutResults.length+")");
         if(pfResults.length>0)sources.push("PropertyFinder ("+pfResults.length+")");
@@ -500,6 +529,8 @@ function renderFind(){
             FS.results=parsed.map(function(p){
               return{title:p.title||"Property",area:p.area||area,price:p.price||0,size:p.size||0,psf:p.size>0?Math.round(p.price/p.size):0,beds:p.beds||0,baths:p.baths||0,floor:p.floor||"",furnished:p.furnished||"",permit:p.permit||"",agentName:p.agentName||"DubAIVal AI",agencyName:p.agencyName||"Market Estimate",agentPhone:p.agentPhone||"",agentWA:p.agentWA||"",photo:p.photo||"",listingUrl:p.listingUrl||"https://www.bayut.com",listingSource:p.source||"AI Estimate",source:p.source||"AI Estimate"};
             });
+            FS.results=scoreDealQuality(FS.results);
+            sortResults();
             FS.aiSummary="Live API unavailable — showing AI market estimates. Prices reflect typical June 2026 values for "+searchQuery;
           }
         }
@@ -517,19 +548,79 @@ function renderFind(){
     FS.searched=true;FS.loading=false;FS.loadingMore=false;
     render();
   }
+
+  function scoreDealQuality(listings){
+    return listings.map(function(r){
+      var areaKey=r.area||"";
+      var aData=AREAS[areaKey]||null;
+      var score=50;
+      if(aData){
+        // PSF vs area benchmark (lower = better deal, max 30 pts)
+        var benchPSF=aData.psf||1800;
+        var psfRatio=r.psf/benchPSF;
+        if(psfRatio<=0.85)score+=30;
+        else if(psfRatio<=0.95)score+=20;
+        else if(psfRatio<=1.05)score+=10;
+        else if(psfRatio<=1.15)score+=0;
+        else score-=10;
+        // Yield (max 25 pts)
+        var avgY=aData.y?((aData.y[0]+aData.y[1])/2):5;
+        if(avgY>=8)score+=25;
+        else if(avgY>=7)score+=20;
+        else if(avgY>=6)score+=15;
+        else if(avgY>=5)score+=10;
+        // Growth (max 15 pts)
+        var gr1=aData.g?aData.g[0]:10;
+        if(gr1>=15)score+=15;
+        else if(gr1>=10)score+=10;
+        else if(gr1>=5)score+=5;
+        // Liquidity — low DOM (max 10 pts)
+        var dom=aData.dom||60;
+        if(dom<=30)score+=10;
+        else if(dom<=45)score+=7;
+        else if(dom<=60)score+=4;
+        // Service charge efficiency (max 10 pts)
+        var sc=aData.sc||15;
+        if(sc<=12)score+=10;
+        else if(sc<=18)score+=7;
+        else if(sc<=25)score+=4;
+      }
+      // Building grade bonus (max 10 pts)
+      var bData=DB[(r.title||"").toLowerCase()];
+      if(bData){
+        var gradeScore={"Ultra":10,"A+":8,"A":6,"A-":4,"B+":2,"B":0,"C":-5};
+        score+=(gradeScore[bData.g]||0);
+        r.grade=bData.g;
+      }
+      r.dealScore=Math.max(0,Math.min(100,score));
+      return r;
+    });
+  }
+
+  function sortResults(){
+    var s=FS.sort||"score";
+    if(s==="score")FS.results.sort(function(a,b){return(b.dealScore||0)-(a.dealScore||0);});
+    else if(s==="psf_asc")FS.results.sort(function(a,b){return a.psf-b.psf;});
+    else if(s==="price_asc")FS.results.sort(function(a,b){return a.price-b.price;});
+    else if(s==="psf_desc")FS.results.sort(function(a,b){return b.psf-a.psf;});
+  }
+
   function doDBSearch(query,area,beds,maxPrice,type){
+    var bldgFilter=(FS.building||"").toLowerCase().trim();
     var dbResults=[];
     Object.entries(DB).forEach(function(e){
       var key=e[0],val=e[1];
       if(dbResults.length>=30)return;
       var areaMatch=!area||val.a===area;
+      if(bldgFilter.length>1&&key.indexOf(bldgFilter)<0)return;
       if(areaMatch){
         var estPrice=val.p*(beds==="Studio"?500:beds==="1 BR"?750:beds==="2 BR"?1100:beds==="3 BR"?1600:2200);
         if(maxPrice&&estPrice>maxPrice)return;
         dbResults.push({title:key,area:val.a,psf:val.p,price:estPrice,g:val.g,apiSource:"DubAIVal DB"});
       }
     });
-    FS.results=dbResults;
+    FS.results=scoreDealQuality(dbResults);
+    sortResults();
     FS.apiSource="DubAIVal DB";
   }
 
