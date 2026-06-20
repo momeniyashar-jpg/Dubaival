@@ -728,7 +728,7 @@ function createVoiceMic(stateKey,onResult,opts){
   // Inject keyframes once
   if(!document.getElementById("voiceWaveStyle")){
     var st=document.createElement("style");st.id="voiceWaveStyle";
-    st.textContent="@keyframes voiceWave{0%{height:8px}100%{height:28px}}@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,0.4)}70%{box-shadow:0 0 0 12px rgba(239,68,68,0)}100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}";
+    st.textContent="@keyframes voiceWave{0%{height:8px}100%{height:28px}}@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,0.4)}70%{box-shadow:0 0 0 12px rgba(239,68,68,0)}100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}@keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}";
     document.head.appendChild(st);
   }
 

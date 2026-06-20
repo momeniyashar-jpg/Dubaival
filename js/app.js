@@ -1009,7 +1009,14 @@ function render(){
   const cl=C();
   const app=document.getElementById("app");
   app.innerHTML="";
-  app.style.background=cl.bg;app.style.minHeight="100vh";app.style.color=cl.white;
+  app.style.background=cl.bg;app.style.minHeight="100vh";app.style.color=cl.white;app.style.overflowX="hidden";app.style.maxWidth="100vw";
+
+  // Inject global keyframes
+  if(!document.getElementById("dvGlobalStyles")){
+    var gs=document.createElement("style");gs.id="dvGlobalStyles";
+    gs.textContent="@keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}@keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(201,168,76,0.4)}70%{box-shadow:0 0 0 10px rgba(201,168,76,0)}100%{box-shadow:0 0 0 0 rgba(201,168,76,0)}}";
+    document.head.appendChild(gs);
+  }
 
   // Ticker
   const tickerItems=["Q1 2026: AED 252B · +31%","Villa PSF +16% YoY","Foreign Capital AED 148B","JVC Yield 9.5%","87% Cash Purchases","Off-Plan 77.8%","Buyer Window: 3-6 Months","May: AED 14B+/week","Q1 2026: AED 252B · +31%","Villa PSF +16% YoY","Foreign Capital AED 148B","JVC Yield 9.5%"];
