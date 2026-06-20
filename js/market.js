@@ -1,4 +1,70 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
+// --- REPORT MODE HELPERS ------------------------------------------------------
+function isRegisteredAgent(){try{var p=localStorage.getItem("dv_agent_profile");return p&&JSON.parse(p).rera;}catch(e){return false;}}
+
+function buildReportTypeSelector(cl,formCard){
+  var rm=analyzerState.reportMode||"personal";
+  var rf=analyzerState.reportFor||"buyer";
+  var sec=el("div",{style:{marginTop:"16px",padding:"14px",background:cl.raised,borderRadius:"12px",border:"1px solid "+cl.border}});
+  sec.appendChild(div({color:cl.gold,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"◆ Report Type"));
+  var modes=[{v:"personal",l:"Personal",d:"For your own analysis"},{v:"agent",l:"Agent Report",d:"For client presentation"}];
+  var mRow=el("div",{style:{display:"flex",gap:"8px",marginBottom:"10px"}});
+  modes.forEach(function(m){
+    var isActive=rm===m.v;
+    var isLocked=m.v==="agent"&&!isRegisteredAgent();
+    var btn=el("button",{style:{flex:"1",padding:"10px 12px",borderRadius:"8px",border:"1px solid "+(isActive?cl.gold:cl.border),background:isActive?cl.goldFaint:"transparent",color:isActive?cl.gold:isLocked?"rgba(255,255,255,0.2)":cl.sub,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:isLocked?"not-allowed":"pointer",opacity:isLocked?"0.5":"1"}});
+    btn.textContent=m.l;
+    if(!isLocked){btn.addEventListener("click",function(){analyzerState.reportMode=m.v;render();});}
+    else{btn.title="Register as agent in Deal Network to access";}
+    mRow.appendChild(btn);
+  });
+  sec.appendChild(mRow);
+  if(rm==="personal"){
+    var pModes=[{v:"investment",l:"Investment Analysis"},{v:"enduse",l:"End-Use / Personal"},{v:"rental",l:"Rental Income"}];
+    var pRow=el("div",{style:{display:"flex",gap:"6px",flexWrap:"wrap"}});
+    var curProfile=USER_PROFILE.investorType||"income";
+    pModes.forEach(function(m){
+      var isA=curProfile===(m.v==="investment"?"income":m.v==="rental"?"income":m.v);
+      var btn=el("button",{style:{padding:"6px 12px",borderRadius:"14px",border:"1px solid "+(isA?cl.gold:cl.border),background:isA?"rgba(201,168,76,0.1)":"transparent",color:isA?cl.gold:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+      btn.textContent=m.l;
+      pRow.appendChild(btn);
+    });
+    sec.appendChild(pRow);
+  }else if(rm==="agent"){
+    sec.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginBottom:"8px"},"Generate report for:"));
+    var aOpts=[{v:"buyer",l:"Buyer",d:"Convince buyer to purchase"},{v:"seller",l:"Seller",d:"Convince seller to list/accept"},{v:"both",l:"Both Reports",d:"Separate buyer & seller reports"}];
+    var aRow=el("div",{style:{display:"flex",gap:"6px"}});
+    aOpts.forEach(function(o){
+      var isA=rf===o.v;
+      var btn=el("button",{style:{flex:"1",padding:"8px 10px",borderRadius:"8px",border:"1px solid "+(isA?"#3B82F6":cl.border),background:isA?"rgba(59,130,246,0.1)":"transparent",color:isA?"#60A5FA":cl.sub,fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+      btn.textContent=o.l;
+      btn.title=o.d;
+      btn.addEventListener("click",function(){analyzerState.reportFor=o.v;render();});
+      aRow.appendChild(btn);
+    });
+    sec.appendChild(aRow);
+  }
+  formCard.appendChild(sec);
+}
+
+function getAgentAIPrompt(propDesc,val,mode){
+  var base=propDesc+". Market PSF: AED "+val.adjPSF.toLocaleString()+". Asking "+val.vsPct+"% vs market. Verdict: "+val.verdict+". Yield: "+val.grossYield+"%. Growth: "+val.g1+"% (3yr).";
+  if(mode==="buyer"){
+    return base+" You are a top-performing Dubai real estate agent writing a report to CONVINCE A BUYER to purchase this property. Use modern sales psychology, urgency triggers, and value framing. Highlight: why this is a smart entry point, rental income potential, capital appreciation outlook, lifestyle/location benefits. If overpriced, reframe as negotiation opportunity with specific target price. Write 4-5 compelling sentences. Use specific AED numbers. Professional but persuasive tone. Do NOT mention you are AI.";
+  }else{
+    return base+" You are a top-performing Dubai real estate agent writing a report to CONVINCE A SELLER to list/accept an offer on this property. Use modern sales psychology and market timing arguments. Highlight: current market momentum, buyer demand in the area, optimal pricing strategy, risk of holding too long. If underpriced, show them the strong demand justifying a quick sale. If overpriced, show realistic market position and why pricing right leads to faster sale and better net outcome. Write 4-5 compelling sentences. Use specific AED numbers. Professional but persuasive tone. Do NOT mention you are AI.";
+  }
+}
+
+function getRentalAgentAIPrompt(propDesc,rv,mode){
+  var base=propDesc+". Market rent: AED "+rv.estRent.toLocaleString()+"/yr. Asking "+rv.vsPct+"%. Verdict: "+rv.verdict+".";
+  if(mode==="buyer"){
+    return base+" You are a top-performing Dubai leasing agent writing to CONVINCE A TENANT to rent this property. Use persuasion: lifestyle benefits, location advantages, value compared to alternatives, limited availability. If above market, reframe as premium value or negotiation opportunity. Write 4-5 compelling sentences with AED numbers. Professional, persuasive. Do NOT mention you are AI.";
+  }else{
+    return base+" You are a top-performing Dubai leasing agent writing to CONVINCE A LANDLORD about optimal rental strategy. Cover: current demand in the area, how to price for fastest lease, risks of overpricing (vacancy cost), tenant quality at different price points. Write 4-5 compelling sentences with AED numbers. Professional, persuasive. Do NOT mention you are AI.";
+  }
+}
+
 // --- MARKET TAB ---------------------------------------------------------------
 function renderMarket(){
   const cl=C();
@@ -1190,15 +1256,21 @@ function renderAnalyzer(){
       ]));
     }
 
+    // Report Type Selector
+    buildReportTypeSelector(cl,formCard);
+
     // Submit
     const canSubmit=true;
-    const submitBtn=el("button",{style:{marginTop:"14px",width:"100%",padding:"14px",borderRadius:"10px",border:"none",background:isRental?"linear-gradient(135deg,#8B5CF6,#6D28D9)":"linear-gradient(135deg,#C9A84C,#7A5E28)",color:isRental?"#FFFFFF":"#08090C",fontSize:"14px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
-    submitBtn.textContent=isRental?"ANALYZE THIS RENTAL ->":"ANALYZE THIS DEAL ->";
+    var isAgentModeV=analyzerState.reportMode==="agent";
+    const submitBtn=el("button",{style:{marginTop:"14px",width:"100%",padding:"14px",borderRadius:"10px",border:"none",background:isRental?"linear-gradient(135deg,#8B5CF6,#6D28D9)":isAgentModeV?"linear-gradient(135deg,#3B82F6,#1D4ED8)":"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#FFFFFF",fontSize:"14px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+    submitBtn.textContent=isRental?"ANALYZE THIS RENTAL ->":isAgentModeV?"GENERATE AGENT REPORT ->":"ANALYZE THIS DEAL ->";
     if(true){
       submitBtn.addEventListener("click",function(){
         analyzerState.stage=1;
         render();
         setTimeout(function(){
+          var rMode=analyzerState.reportMode;
+          var rFor=analyzerState.reportFor;
           if(isRental){
             try{
               analyzerState.rentalVal=computeRentalValuation(analyzerState.f);
@@ -1207,9 +1279,18 @@ function renderAnalyzer(){
             analyzerState.stage=2;
             try{dvTrack("analyze_rental",{area:analyzerState.f.area,type:"villa"});}catch(e){}
             var rv=analyzerState.rentalVal;
-            var aiPrompt=analyzerState.f.building+" villa in "+analyzerState.f.area+". "+f.beds+". BUA:"+f.size+"sqft. Asking rent AED "+parseInt(f.price).toLocaleString()+"/yr. Market estimate AED "+rv.estRent.toLocaleString()+"/yr ("+rv.vsPct+"%). Verdict:"+rv.verdict+". 3 sentences: rental assessment, negotiation, tenant tips.";
-            var groqBody={model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4};
-            callGroqRaw(groqBody).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){analyzerState.aiText="";render();});
+            var propDesc=analyzerState.f.building+" villa in "+analyzerState.f.area+". "+f.beds+". BUA:"+f.size+"sqft. Asking rent AED "+parseInt(f.price).toLocaleString()+"/yr";
+            if(rMode==="agent"){
+              var buyerP=getRentalAgentAIPrompt(propDesc,rv,"buyer");
+              var sellerP=getRentalAgentAIPrompt(propDesc,rv,"seller");
+              if(rFor==="both"||rFor==="buyer"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:buyerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
+              if(rFor==="both"||rFor==="seller"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:sellerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiTextSeller=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
+              if(rFor==="buyer")analyzerState.aiTextSeller="";
+              if(rFor==="seller")analyzerState.aiText="";
+            }else{
+              var aiPrompt=propDesc+". Market estimate AED "+rv.estRent.toLocaleString()+"/yr ("+rv.vsPct+"%). Verdict:"+rv.verdict+". 3 sentences: rental assessment, negotiation, tenant tips.";
+              callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
+            }
             render();
           }else{
             try{
@@ -1223,9 +1304,18 @@ function renderAnalyzer(){
             }
             analyzerState.stage=2;
             try{dvTrack("analyze_property",{area:analyzerState.f.area,type:"villa"});}catch(e){}
-            const aiPrompt=analyzerState.f.building+" villa/townhouse in "+analyzerState.f.area+". BUA:"+f.size+"sqft. Asking AED "+parseInt(f.price).toLocaleString()+". Verdict:"+analyzerState.val.verdict+". PSF "+analyzerState.val.vsPct+"% vs market. Investor:"+USER_PROFILE.investorType+". 3 sentences: assessment, negotiation, risk.";
-            const groqBody={model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4};
-            callGroqRaw(groqBody).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){analyzerState.aiText="";render();});
+            var propDesc=analyzerState.f.building+" villa/townhouse in "+analyzerState.f.area+". BUA:"+f.size+"sqft. Asking AED "+parseInt(f.price).toLocaleString();
+            if(rMode==="agent"){
+              var buyerP=getAgentAIPrompt(propDesc,analyzerState.val,"buyer");
+              var sellerP=getAgentAIPrompt(propDesc,analyzerState.val,"seller");
+              if(rFor==="both"||rFor==="buyer"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:buyerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
+              if(rFor==="both"||rFor==="seller"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:sellerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiTextSeller=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
+              if(rFor==="buyer")analyzerState.aiTextSeller="";
+              if(rFor==="seller")analyzerState.aiText="";
+            }else{
+              var aiPrompt=propDesc+". Verdict:"+analyzerState.val.verdict+". PSF "+analyzerState.val.vsPct+"% vs market. Investor:"+USER_PROFILE.investorType+". 3 sentences: assessment, negotiation, risk.";
+              callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
+            }
             render();
           }
         },50);
@@ -1299,14 +1389,20 @@ function renderAnalyzer(){
       ]));
     }
 
+    // Report Type Selector
+    buildReportTypeSelector(cl,formCard);
+
     // Submit
     const canSubmit=true;
-    const submitBtn=el("button",{style:{marginTop:"14px",width:"100%",padding:"14px",borderRadius:"10px",border:"none",background:isRentalA?"linear-gradient(135deg,#8B5CF6,#6D28D9)":"linear-gradient(135deg,#C9A84C,#7A5E28)",color:isRentalA?"#FFFFFF":"#08090C",fontSize:"14px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
-    submitBtn.textContent=isRentalA?"ANALYZE THIS RENTAL ->":"ANALYZE THIS DEAL ->";
+    var isAgentMode=analyzerState.reportMode==="agent";
+    const submitBtn=el("button",{style:{marginTop:"14px",width:"100%",padding:"14px",borderRadius:"10px",border:"none",background:isRentalA?"linear-gradient(135deg,#8B5CF6,#6D28D9)":isAgentMode?"linear-gradient(135deg,#3B82F6,#1D4ED8)":"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#FFFFFF",fontSize:"14px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+    submitBtn.textContent=isRentalA?"ANALYZE THIS RENTAL ->":isAgentMode?"GENERATE AGENT REPORT ->":"ANALYZE THIS DEAL ->";
     if(true){
       submitBtn.addEventListener("click",function(){
         analyzerState.stage=1;render();
         setTimeout(function(){
+          var rMode=analyzerState.reportMode;
+          var rFor=analyzerState.reportFor;
           if(isRentalA){
             try{
               analyzerState.rentalVal=computeRentalValuation(analyzerState.f);
@@ -1316,9 +1412,17 @@ function renderAnalyzer(){
             try{dvTrack("analyze_rental",{area:analyzerState.f.area,type:"apartment"});}catch(e){}
             var rv=analyzerState.rentalVal;
             var propDesc=analyzerState.f.building+" "+analyzerState.f.area+" "+(f.aptSubtype||f.beds||"")+" floor"+(f.floor||"?")+" "+f.view+" "+(f.size||"?")+"sqft rent AED "+parseInt(f.price).toLocaleString()+"/yr";
-            var aiPrompt=propDesc+". Market estimate AED "+rv.estRent.toLocaleString()+"/yr ("+rv.vsPct+"%). Verdict:"+rv.verdict+". 3 sentences: rental assessment, negotiation tip, tenant advice.";
-            var groqBody={model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4};
-            callGroqRaw(groqBody).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){analyzerState.aiText="";render();});
+            if(rMode==="agent"){
+              var buyerP=getRentalAgentAIPrompt(propDesc,rv,"buyer");
+              var sellerP=getRentalAgentAIPrompt(propDesc,rv,"seller");
+              if(rFor==="both"||rFor==="buyer"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:buyerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
+              if(rFor==="both"||rFor==="seller"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:sellerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiTextSeller=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
+              if(rFor==="buyer")analyzerState.aiTextSeller="";
+              if(rFor==="seller")analyzerState.aiText="";
+            }else{
+              var aiPrompt=propDesc+". Market estimate AED "+rv.estRent.toLocaleString()+"/yr ("+rv.vsPct+"%). Verdict:"+rv.verdict+". 3 sentences: rental assessment, negotiation tip, tenant advice.";
+              callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
+            }
             render();
           }else{
             var fData=Object.assign({},analyzerState.f);
@@ -1329,15 +1433,21 @@ function renderAnalyzer(){
             }
             analyzerState.stage=2;
             try{dvTrack("analyze_property",{area:analyzerState.f.area,type:"apartment"});}catch(e){}
-            const sentData=MARKET_SENTIMENT[analyzerState.f.area];
-            const sentCtx=sentData?" Market:"+analyzerState.f.area+" "+(sentData.s==="bull"?"BULLISH":sentData.s==="bear"?"BEARISH":"NEUTRAL")+"("+sentData.chg+"% 6M).":"";
-            const profileLabels={income:"rental income investor",growth:"capital growth investor",flip:"flip investor",enduse:"end-use buyer"};
-            const profileCtx=profileLabels[USER_PROFILE.investorType]||"investor";
-            const riskCtx=USER_PROFILE.risk==="aggressive"?" Focus upside.":(USER_PROFILE.risk==="conservative"?" Prioritize safety.":"");
-            const propDesc=analyzerState.f.building+" "+analyzerState.f.area+" "+(f.aptSubtype||f.beds||"")+" floor"+f.floor+" "+f.view+" "+f.size+"sqft AED "+parseInt(f.price).toLocaleString();
-            const aiPrompt=propDesc+". Verdict:"+analyzerState.val.verdict+". Asking PSF "+analyzerState.val.vsPct+"% vs market("+analyzerState.val.adjPSF.toLocaleString()+")."+sentCtx+" Investor:"+profileCtx+riskCtx+" 3 sentences: assessment, negotiation target AED, key risk/opportunity.";
-            const groqBody={model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4};
-            callGroqRaw(groqBody).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){analyzerState.aiText="";render();});
+            var propDesc=analyzerState.f.building+" "+analyzerState.f.area+" "+(f.aptSubtype||f.beds||"")+" floor"+f.floor+" "+f.view+" "+f.size+"sqft AED "+parseInt(f.price).toLocaleString();
+            if(rMode==="agent"){
+              var buyerP=getAgentAIPrompt(propDesc,analyzerState.val,"buyer");
+              var sellerP=getAgentAIPrompt(propDesc,analyzerState.val,"seller");
+              if(rFor==="both"||rFor==="buyer"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:buyerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
+              if(rFor==="both"||rFor==="seller"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:sellerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiTextSeller=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
+              if(rFor==="buyer")analyzerState.aiTextSeller="";
+              if(rFor==="seller")analyzerState.aiText="";
+            }else{
+              var profileLabels={income:"rental income investor",growth:"capital growth investor",flip:"flip investor",enduse:"end-use buyer"};
+              var profileCtx=profileLabels[USER_PROFILE.investorType]||"investor";
+              var riskCtx=USER_PROFILE.risk==="aggressive"?" Focus upside.":(USER_PROFILE.risk==="conservative"?" Prioritize safety.":"");
+              var aiPrompt=propDesc+". Verdict:"+analyzerState.val.verdict+". Asking PSF "+analyzerState.val.vsPct+"% vs market("+analyzerState.val.adjPSF.toLocaleString()+"). Investor:"+profileCtx+riskCtx+" 3 sentences: assessment, negotiation target AED, key risk/opportunity.";
+              callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
+            }
             render();
           }
         },50);
@@ -1361,7 +1471,7 @@ function renderCommercialResult(wrap){
       span({color:accent,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block"},"COMMERCIAL ANALYSIS COMPLETE"),
       span({color:cl.subHi,fontSize:"13px",fontFamily:"'Inter',sans-serif"},(f.building?f.building+" · ":"")+(v.subType||"Office").toUpperCase()+" · "+f.area),
     ]),
-    el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 14px",borderRadius:"8px",cursor:"pointer",fontSize:"12px"},onclick:function(){analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"sale",sector:"commercial",subType:"",zoning:""},val:null,rentalVal:null,comVal:null,landVal:null,aiText:"",liveData:null,err:""};render();}},"← New"),
+    el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 14px",borderRadius:"8px",cursor:"pointer",fontSize:"12px"},onclick:function(){analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"sale",sector:"commercial",subType:"",zoning:""},val:null,rentalVal:null,comVal:null,landVal:null,aiText:"",aiTextSeller:"",liveData:null,err:"",reportMode:"personal",reportFor:"buyer"};render();}},"← New"),
   ]));
   var vcfg={UNDERVALUED:{bg:"linear-gradient(135deg,rgba(34,197,94,0.08),transparent)",bo:"rgba(34,197,94,0.3)",tx:"#22C55E",icon:"🟢",label:"UNDERVALUED",sub:"Significantly below market"},BELOW_MARKET:{bg:"linear-gradient(135deg,rgba(34,197,94,0.05),transparent)",bo:"rgba(34,197,94,0.2)",tx:"#22C55E",icon:"✅",label:"BELOW MARKET",sub:"Below market — opportunity"},FAIR_VALUE:{bg:"linear-gradient(135deg,rgba(234,179,8,0.08),transparent)",bo:"rgba(234,179,8,0.3)",tx:"#EAB308",icon:"🟡",label:"FAIR VALUE",sub:"At market rate"},ABOVE_MARKET:{bg:"linear-gradient(135deg,rgba(239,68,68,0.05),transparent)",bo:"rgba(239,68,68,0.2)",tx:"#EF4444",icon:"🔶",label:"ABOVE MARKET",sub:"Above market"},OVERPRICED:{bg:"linear-gradient(135deg,rgba(239,68,68,0.08),transparent)",bo:"rgba(239,68,68,0.3)",tx:"#EF4444",icon:"🔴",label:"OVERPRICED",sub:"Well above market"}}[v.verdict]||{bg:cl.surface,bo:cl.border,tx:cl.sub,icon:"·",label:v.verdict,sub:""};
   wrap.appendChild(div({background:vcfg.bg,border:"2px solid "+vcfg.bo,borderRadius:"16px",overflow:"hidden",marginBottom:"14px"},[
@@ -1474,7 +1584,7 @@ function renderAnalyzerResult(wrap){
       span({color:cl.subHi,fontSize:"13px",fontFamily:"'Inter',sans-serif"},(f.building?f.building+" · ":"")+(isVilla?f.villaType:f.aptSubtype)+" · "+f.area+(f.cluster?" · "+f.cluster:"")),
     ]),
     el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 14px",borderRadius:"8px",cursor:"pointer",fontSize:"12px"},onclick:function(){
-  analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"sale",sector:"residential",subType:"",zoning:""},val:null,rentalVal:null,comVal:null,landVal:null,aiText:"",liveData:null,err:""};
+  analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"sale",sector:"residential",subType:"",zoning:""},val:null,rentalVal:null,comVal:null,landVal:null,aiText:"",aiTextSeller:"",liveData:null,err:"",reportMode:"personal",reportFor:"buyer"};
   window.scrollTo({top:0,behavior:"smooth"});
   render();
 }},"← New"),
@@ -1714,15 +1824,32 @@ function renderAnalyzerResult(wrap){
       sCard.appendChild(left);
       sCard.appendChild(right);
       sentWrap.appendChild(sCard);
-      var profileNotes={
-        income:{bull:"High demand supports rental rates.",bear:"Tenant leverage rising — negotiate rent-free periods.",neutral:"Stable rental market."},
-        growth:{bull:"Momentum favors entry now.",bear:"Buyer leverage window — negotiate hard.",neutral:"Sideways market — focus on yield."},
-        flip:{bull:"Exit conditions improving.",bear:"Hold or negotiate deep discount.",neutral:"Time market carefully."},
-        enduse:{bull:"Act quickly — competition rising.",bear:"Best time to negotiate.",neutral:"Stable conditions for purchase."}
-      };
-      var note=(profileNotes[USER_PROFILE.investorType]||profileNotes.income)[sent.s];
+      var isAgentR=analyzerState.reportMode==="agent";
+      var rFor=analyzerState.reportFor;
+      var note="";
+      if(isAgentR){
+        var agentNotes={
+          buyer:{bull:"Strong demand confirms this as a growth area — present as a time-sensitive opportunity with clear upside potential.",bear:"Market correction creates a rare buying window — frame as a negotiation advantage with significant discount potential.",neutral:"Stable pricing provides certainty — emphasize predictable returns and low volatility as a selling point."},
+          seller:{bull:"High buyer activity means premium pricing is achievable — recommend listing now to capture peak demand.",bear:"Motivated buyers are actively seeking deals — position competitive pricing as a strategy for a fast, clean transaction.",neutral:"Balanced market supports fair pricing — advise listing at market to attract qualified buyers efficiently."}
+        };
+        if(rFor==="both"){
+          note="Buyer: "+(agentNotes.buyer[sent.s]||"")+" | Seller: "+(agentNotes.seller[sent.s]||"");
+        }else{
+          note=(agentNotes[rFor]||agentNotes.buyer)[sent.s]||"";
+        }
+      }else{
+        var profileNotes={
+          income:{bull:"High demand supports rental rates.",bear:"Tenant leverage rising — negotiate rent-free periods.",neutral:"Stable rental market."},
+          growth:{bull:"Momentum favors entry now.",bear:"Buyer leverage window — negotiate hard.",neutral:"Sideways market — focus on yield."},
+          flip:{bull:"Exit conditions improving.",bear:"Hold or negotiate deep discount.",neutral:"Time market carefully."},
+          enduse:{bull:"Act quickly — competition rising.",bear:"Best time to negotiate.",neutral:"Stable conditions for purchase."}
+        };
+        note=(profileNotes[USER_PROFILE.investorType]||profileNotes.income)[sent.s]||"";
+      }
       if(note){
-        sentWrap.appendChild(div({background:"rgba(201,168,76,0.08)",border:"1px solid rgba(201,168,76,0.2)",borderRadius:"8px",padding:"10px 14px",marginTop:"8px",color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6"},
+        var stratColor=isAgentR?"rgba(59,130,246,0.08)":"rgba(201,168,76,0.08)";
+        var stratBorder=isAgentR?"rgba(59,130,246,0.2)":"rgba(201,168,76,0.2)";
+        sentWrap.appendChild(div({background:stratColor,border:"1px solid "+stratBorder,borderRadius:"8px",padding:"10px 14px",marginTop:"8px",color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6"},
           "◆ Strategy: "+note
         ));
       }
@@ -1771,13 +1898,25 @@ function renderAnalyzerResult(wrap){
     });
   })();
 
+  var isAgentReport=analyzerState.reportMode==="agent";
   if(analyzerState.aiText){
-    var ecCard=div({background:cl.surface,border:"1px solid "+cl.goldDim,borderRadius:"14px",padding:"18px",marginBottom:"14px"});
-    ecCard.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},"◆ Expert Commentary"));
+    var ecBuyerColor=isAgentReport?"#3B82F6":cl.gold;
+    var ecBuyerBorder=isAgentReport?"rgba(59,130,246,0.3)":cl.goldDim;
+    var ecLabel=isAgentReport?(analyzerState.reportFor==="seller"?"◆ Agent Report — Seller":"◆ Agent Report — Buyer / Tenant"):"◆ Expert Commentary";
+    var ecCard=div({background:cl.surface,border:"1px solid "+ecBuyerBorder,borderRadius:"14px",padding:"18px",marginBottom:"14px"});
+    ecCard.appendChild(span({color:ecBuyerColor,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},ecLabel));
     var ecFormatted=formatAIResponse(analyzerState.aiText,cl);
     if(ecFormatted)ecCard.appendChild(ecFormatted);
     else ecCard.appendChild(div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.85",fontFamily:"'Inter',sans-serif"},analyzerState.aiText));
     wrap.appendChild(ecCard);
+  }
+  if(analyzerState.aiTextSeller){
+    var ecSCard=div({background:cl.surface,border:"1px solid rgba(239,68,68,0.3)",borderRadius:"14px",padding:"18px",marginBottom:"14px"});
+    ecSCard.appendChild(span({color:"#F87171",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},"◆ Agent Report — Seller / Landlord"));
+    var ecSFormatted=formatAIResponse(analyzerState.aiTextSeller,cl);
+    if(ecSFormatted)ecSCard.appendChild(ecSFormatted);
+    else ecSCard.appendChild(div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.85",fontFamily:"'Inter',sans-serif"},analyzerState.aiTextSeller));
+    wrap.appendChild(ecSCard);
   }
 
   wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"},[
@@ -2529,7 +2668,7 @@ function renderRentalResult(wrap){
       span({color:cl.subHi,fontSize:"13px",fontFamily:"'Inter',sans-serif"},(f.building?f.building+" · ":"")+(rv.isVilla?f.villaType:f.aptSubtype)+" · "+f.area),
     ]),
     el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 14px",borderRadius:"8px",cursor:"pointer",fontSize:"12px"},onclick:function(){
-      analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"rent"},val:null,rentalVal:null,aiText:"",liveData:null,err:""};
+      analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"rent"},val:null,rentalVal:null,aiText:"",aiTextSeller:"",liveData:null,err:"",reportMode:"personal",reportFor:"buyer"};
       window.scrollTo({top:0,behavior:"smooth"});render();
     }},"← New"),
   ]));
