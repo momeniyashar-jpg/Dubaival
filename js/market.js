@@ -1626,7 +1626,8 @@ function renderAnalyzerResult(wrap){
 
   wrap.appendChild(div({background:vcfg.bg,border:"2px solid "+vcfg.bo,borderRadius:"16px",overflow:"hidden",marginBottom:"14px",animation:"fadeUp 0.4s ease"},[
     div({padding:"20px 20px 16px",textAlign:"center",borderBottom:"1px solid "+cl.border},[
-      div({fontSize:"32px",marginBottom:"8px"},vcfg.icon),
+      div({color:vcfg.tx,fontSize:"26px",fontWeight:"900",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"AED "+(parseInt(f.price)||0).toLocaleString()),
+      div({color:vcfg.tx,fontSize:"10px",fontFamily:"'Inter',sans-serif",opacity:"0.65",marginBottom:"10px"},"Asking Price"),
       div({color:vcfg.tx,fontSize:"22px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.04em"},vcfg.label),
       div({color:vcfg.tx,opacity:"0.75",fontSize:"12px",marginTop:"3px",fontFamily:"'Inter',sans-serif"},vcfg.sub),
     ]),
@@ -2755,6 +2756,40 @@ function renderAnalyzerResult(wrap){
   });
   pitchWrap.appendChild(genBtn);
   wrap.appendChild(pitchWrap);
+
+  // -- ASKING PRICE DEPENDENCY DISCLAIMER --
+  var apDisclaim=div({background:cl.surface,border:"1px solid "+hexAlpha(cl.sub,0.15),borderRadius:"10px",padding:"14px 16px",marginTop:"14px"});
+  apDisclaim.appendChild(div({display:"flex",alignItems:"center",gap:"6px",marginBottom:"8px"},[
+    span({fontSize:"11px"},"ℹ️"),
+    span({color:cl.sub,fontSize:"9px",fontWeight:"700",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Asking Price Dependent Metrics"),
+  ]));
+  apDisclaim.appendChild(div({color:hexAlpha(cl.sub,0.75),fontSize:"10px",lineHeight:"1.6",fontFamily:"'Inter',sans-serif"},[
+    span({},"The following metrics are calculated based on the "),
+    span({fontWeight:"700",color:cl.sub},"Asking Price (AED "+(parseInt(f.price)||0).toLocaleString()+")"),
+    span({}," you entered. If the asking price changes, these values will adjust accordingly:"),
+  ]));
+  var apItems=[
+    {name:"Price per Sqft (Asking)",desc:"Asking price ÷ property size"},
+    {name:"vs Market Average %",desc:"Asking PSF vs estimated market PSF"},
+    {name:"Verdict",desc:"DISTRESS / GOOD / FAIR / OVERPRICED classification"},
+    {name:"Negotiation Target",desc:"Suggested offer based on asking vs fair value gap"},
+    {name:"Gross Yield",desc:"Annual rent ÷ asking price"},
+    {name:"Net Yield",desc:"(Annual rent − service charge) ÷ asking price"},
+    {name:"Price-to-Rent Ratio",desc:"Inverse of gross yield × 100"},
+    {name:"Investment Signal",desc:"Undervalued / Fair Value / Elevated / Bubble Risk"},
+    {name:"Total Return Est.",desc:"Net yield + annualized capital growth"},
+    {name:"Margin of Safety",desc:"Fair price vs asking price gap analysis"},
+  ];
+  var apList=el("div",{style:{marginTop:"8px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:"4px 12px"}});
+  apItems.forEach(function(it){
+    apList.appendChild(div({padding:"3px 0"},[
+      span({color:cl.sub,fontSize:"9.5px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace"},it.name),
+      span({color:hexAlpha(cl.sub,0.55),fontSize:"8.5px",fontFamily:"'Inter',sans-serif",display:"block"},it.desc),
+    ]));
+  });
+  apDisclaim.appendChild(apList);
+  apDisclaim.appendChild(div({color:hexAlpha(cl.sub,0.5),fontSize:"8.5px",fontFamily:"'Inter',sans-serif",marginTop:"8px",fontStyle:"italic",borderTop:"1px solid "+hexAlpha(cl.sub,0.1),paddingTop:"6px"},"Market-independent metrics (Market PSF, Fair Price, Rent Estimate, Confidence Score, Area Benchmarks) remain unchanged regardless of asking price."));
+  wrap.appendChild(apDisclaim);
 
   return wrap;
 }
