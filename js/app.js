@@ -94,12 +94,12 @@ function renderFind(){
   filterWrap.appendChild(filterBtn);
   wrap.appendChild(filterWrap);
 
-  // Smart Discovery Filter — searches 6,008 buildings by financial criteria
+  // Smart Discovery Filter — searches buildings by financial criteria
   var sf=FS.sf;
   var sfCard=el("div",{style:{background:cl.surface,border:"1px solid "+(sf.showResults?cl.goldDim:cl.border),borderRadius:"14px",padding:"18px",marginBottom:"14px",position:"relative",overflow:"hidden"}});
   sfCard.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,#6366F1,#6366F1,transparent)",animation:"shimmer 3s ease infinite"}));
   sfCard.appendChild(span({color:"#818CF8",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ Smart Property Discovery"));
-  sfCard.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",display:"block",marginBottom:"14px"},"Filter 6,008 buildings by yield, growth, price, liquidity & more"));
+  sfCard.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",display:"block",marginBottom:"14px"},"Filter "+Object.keys(DB).length.toLocaleString()+" buildings by yield, growth, price, liquidity & more"));
 
   var sfG1=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"10px"});
   var sfArea=div({});sfArea.appendChild(lbl("Area"));sfArea.appendChild(mkSelect(Object.assign({},S(),{fontSize:"11px",padding:"7px 8px"}),["All Areas"].concat(AREA_NAMES),sf.area||"All Areas",function(v){sf.area=v==="All Areas"?"":v;}));sfG1.appendChild(sfArea);
@@ -329,72 +329,163 @@ function renderFind(){
       card.appendChild(btnRow);
       resWrap.appendChild(card);
     });
+    // Load More button
+    if(FS.hasMore){
+      var loadMoreBtn=el("button",{style:{width:"100%",padding:"12px",borderRadius:"10px",border:"1px solid "+cl.goldDim,background:"transparent",color:cl.gold,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",marginTop:"10px",letterSpacing:"0.06em"}});
+      loadMoreBtn.textContent=FS.loadingMore?"Loading...":"Load More Listings";
+      loadMoreBtn.addEventListener("click",function(){
+        if(FS.loadingMore)return;
+        FS.page=(FS.page||0)+1;
+        doSearch(true);
+      });
+      resWrap.appendChild(loadMoreBtn);
+    }
+    // Source summary
+    var bayutCount=FS.results.filter(function(r){return r.source==="Bayut";}).length;
+    var pfCount=FS.results.filter(function(r){return r.source==="PropertyFinder";}).length;
+    var aiCount=FS.results.filter(function(r){return r.source==="AI Estimate";}).length;
+    var srcParts=[];
+    if(bayutCount>0)srcParts.push("Bayut: "+bayutCount);
+    if(pfCount>0)srcParts.push("PropertyFinder: "+pfCount);
+    if(aiCount>0)srcParts.push("AI: "+aiCount);
+    if(srcParts.length>0){
+      resWrap.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",textAlign:"center",marginTop:"8px",opacity:"0.6"},srcParts.join(" · ")));
+    }
     wrap.appendChild(resWrap);
   }
 
-  async function doSearch(){
+  async function doSearch(loadMore){
     var query=FS.query||"";
     var area=FS.area||"";
     var beds=FS.beds||"";
     var maxPrice=parseInt(FS.maxPrice)||0;
     var type=FS.type||"Apartment";
-    
-    FS.loading=true;FS.results=[];FS.searched=false;FS.aiSummary="";
+
+    if(!loadMore){
+      FS.loading=true;FS.results=[];FS.searched=false;FS.aiSummary="";FS.page=0;FS.hasMore=false;
+    }else{
+      FS.loadingMore=true;
+    }
     render();
 
     try{
-      // Step 1: Try uae-real-estate2 for real live listings
       var bedsNumMap={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5};
       var bn=bedsNumMap[beds]||2;
       var searchTerm=query||(area?area:"Dubai");
+      var pageNum=FS.page||0;
+
+      // Fetch Bayut + PropertyFinder in parallel
+      var bayutResults=[];
+      var pfResults=[];
       var locId=await getUAELocationId(searchTerm);
       if(!locId&&area)locId=await getUAELocationId(area);
 
-      if(locId){
-        var params=new URLSearchParams({locationExternalIDs:locId,purpose:"for-sale",hitsPerPage:"25",page:"0"});
+      var bayutP=async function(){
+        if(!locId)return[];
+        var params=new URLSearchParams({locationExternalIDs:locId,purpose:"for-sale",hitsPerPage:"25",page:String(pageNum)});
         if(beds){params.set("rooms_min",String(bn));params.set("rooms_max",String(bn));}
         if(maxPrice>0)params.set("priceMax",String(maxPrice));
-        var listResp;
-        if(UAE_RE_KEY){listResp=await fetch("https://"+UAE_RE_HOST+"/properties/list?"+params,{headers:{"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":UAE_RE_HOST}});}
-        else{listResp=await fetch(API_BASE+"/proxy-rapidapi?endpoint=properties/list&"+params);}
-        if(listResp.ok){
-          var listData=await listResp.json();
-          var liveHits=listData.hits||[];
-          if(liveHits.length>0){
-            FS.results=liveHits.filter(function(p){return p.price&&p.area;}).map(function(p){
-              var psf=p.area>0?Math.round(p.price/p.area):0;
-              var locName=p.location&&p.location.length>0?p.location[p.location.length-1].name:(area||"Dubai");
-              return{
-                title:p.title||(p.rooms+" BR in "+locName),
-                area:locName,
-                price:p.price||0,
-                size:p.area||0,
-                psf:psf,
-                beds:p.rooms||bn,
-                baths:p.baths||0,
-                floor:p.floor||"",
-                furnished:p.furnishingStatus||"",
-                permit:p.permitNumber||"",
-                agentName:(p.agency&&p.agency.name)||"",
-                agencyName:(p.agency&&p.agency.name)||"",
-                agentPhone:"",
-                agentWA:"",
-                photo:(p.coverPhoto&&p.coverPhoto.url)||"",
-                listingUrl:p.externalURL||"https://www.bayut.com",
-                listingSource:"Bayut",
-                source:"Bayut"
-              };
-            }).filter(function(p){return p.psf>200&&p.psf<20000;});
-            if(FS.results.length>0){
-              var prices=FS.results.map(function(r){return r.price;});
-              FS.aiSummary="Found "+FS.results.length+" live listings"+(area?" in "+area:"")+". Prices: AED "+(Math.min.apply(null,prices)/1e6).toFixed(2)+"M – AED "+(Math.max.apply(null,prices)/1e6).toFixed(2)+"M. Source: Bayut via RapidAPI.";
-            }
-          }
+        var r;
+        if(UAE_RE_KEY){r=await fetch("https://"+UAE_RE_HOST+"/properties/list?"+params,{headers:{"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":UAE_RE_HOST}});}
+        else{r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=properties/list&"+params);}
+        if(!r.ok)return[];
+        var d=await r.json();
+        var hits=d.hits||[];
+        FS.hasMore=hits.length>=25;
+        return hits.filter(function(p){return p.price&&p.area;}).map(function(p){
+          var psf=p.area>0?Math.round(p.price/p.area):0;
+          var locName=p.location&&p.location.length>0?p.location[p.location.length-1].name:(area||"Dubai");
+          var imgs=p.coverPhoto?[p.coverPhoto.url]:(p.photos||[]).map(function(ph){return ph.url||"";});
+          return{
+            title:p.title||(p.rooms+" BR in "+locName),
+            area:locName,
+            price:p.price||0,
+            size:p.area||0,
+            psf:psf,
+            beds:p.rooms||bn,
+            baths:p.baths||0,
+            floor:p.floor||"",
+            furnished:p.furnishingStatus||"",
+            permit:p.permitNumber||"",
+            agentName:(p.agency&&p.agency.name)||"",
+            agencyName:(p.agency&&p.agency.name)||"",
+            agentPhone:"",
+            agentWA:"",
+            photo:imgs[0]||"",
+            listingUrl:p.externalURL||"https://www.bayut.com",
+            listingSource:"Bayut",
+            source:"Bayut"
+          };
+        }).filter(function(p){return p.psf>200&&p.psf<20000;});
+      };
+
+      var pfP=async function(){
+        if(pageNum>0)return[];
+        try{
+          var pfLocId=await getPFLocationId((area||searchTerm)+" Dubai");
+          if(!pfLocId)return[];
+          var params=new URLSearchParams({location_id:String(pfLocId),page:"1"});
+          if(beds)params.set("bedrooms",String(bn));
+          var r;
+          if(UAE_RE_KEY){r=await fetch("https://"+PF_HOST+"/search-sale?"+params,{headers:{"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":PF_HOST}});}
+          else{r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=search-sale&source=pf&"+params);}
+          if(!r.ok)return[];
+          var d=await r.json();
+          var items=d.data||d.hits||d.properties||[];
+          if(!Array.isArray(items))return[];
+          return items.filter(function(p){
+            var price=p.price&&typeof p.price==="object"?p.price.value:p.price;
+            var size=p.size||p.area||0;
+            return price&&size&&price>0&&size>0;
+          }).map(function(p){
+            var price=p.price&&typeof p.price==="object"?p.price.value:p.price;
+            var size=p.size||p.area||p.sqft||0;
+            var imgs=p.images||p.photos||[];
+            var imgUrl=Array.isArray(imgs)&&imgs.length>0?(typeof imgs[0]==="string"?imgs[0]:imgs[0].url||imgs[0].src||""):"";
+            return{
+              title:p.title||"Property",
+              area:p.location_name||p.area_name||area||"Dubai",
+              price:price,
+              size:size,
+              psf:Math.round(price/size),
+              beds:p.bedrooms||p.beds||bn,
+              baths:p.bathrooms||p.baths||0,
+              floor:"",
+              furnished:p.furnishing||"",
+              permit:"",
+              agentName:p.agent_name||"",
+              agencyName:p.agency_name||"",
+              agentPhone:"",
+              agentWA:"",
+              photo:imgUrl||p.thumbnail||p.image||"",
+              listingUrl:p.url||p.link||"https://www.propertyfinder.ae",
+              listingSource:"PropertyFinder",
+              source:"PropertyFinder"
+            };
+          }).filter(function(p){return p.psf>200&&p.psf<20000;});
+        }catch(e){return[];}
+      };
+
+      var results=await Promise.allSettled([bayutP(),pfP()]);
+      bayutResults=results[0].status==="fulfilled"?results[0].value:[];
+      pfResults=results[1].status==="fulfilled"?results[1].value:[];
+
+      var combined=bayutResults.concat(pfResults);
+      if(combined.length>0){
+        if(loadMore){
+          FS.results=FS.results.concat(combined);
+        }else{
+          FS.results=combined;
         }
+        var sources=[];
+        if(bayutResults.length>0)sources.push("Bayut ("+bayutResults.length+")");
+        if(pfResults.length>0)sources.push("PropertyFinder ("+pfResults.length+")");
+        var prices=FS.results.map(function(r){return r.price;});
+        FS.aiSummary="Found "+FS.results.length+" live listings"+(area?" in "+area:"")+". Prices: AED "+(Math.min.apply(null,prices)/1e6).toFixed(2)+"M – AED "+(Math.max.apply(null,prices)/1e6).toFixed(2)+"M. Sources: "+sources.join(" + ")+".";
       }
 
-      // Step 2: Groq AI fallback if no live results
-      if(FS.results.length===0){
+      // Groq AI fallback if no live results
+      if(FS.results.length===0&&!loadMore){
         var searchQuery=(beds?beds+" ":"")+type+" for sale"+(area?" in "+area:"")+(maxPrice?" under AED "+(maxPrice/1e6).toFixed(1)+"M":"")+". June 2026. Dubai UAE.";
         var prompt="Provide market intelligence for: "+searchQuery+"\n\nReturn EXACTLY this JSON array (5-8 typical options based on June 2026 market data):\n[{\"title\":\"Building Name Type Beds\",\"area\":\"Area Name\",\"price\":2500000,\"size\":1200,\"beds\":2,\"baths\":2,\"floor\":15,\"furnished\":\"Unfurnished\",\"permit\":\"\",\"agentName\":\"DubAIVal AI\",\"agencyName\":\"Market Estimate\",\"agentPhone\":\"\",\"agentWA\":\"\",\"photo\":\"\",\"listingUrl\":\"https://www.bayut.com\",\"source\":\"AI Estimate\"}]\n\nUse real June 2026 market prices. Return ONLY the JSON array, no other text.";
         var resp=await callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:"You are a Dubai real estate market expert. Return ONLY valid JSON arrays based on June 2026 market data."},{role:"user",content:prompt}],max_tokens:2000,temperature:0.3});
@@ -416,21 +507,21 @@ function renderFind(){
     }catch(e){
       console.warn("Search failed:",e.message);
     }
-    
+
     // If no results, fallback to DB
-    if(FS.results.length===0){
+    if(FS.results.length===0&&!loadMore){
       doDBSearch(query,area,beds,maxPrice,type);
       FS.aiSummary="Live search unavailable. Showing DubAIVal database results.";
     }
-    
-    FS.searched=true;FS.loading=false;
+
+    FS.searched=true;FS.loading=false;FS.loadingMore=false;
     render();
   }
   function doDBSearch(query,area,beds,maxPrice,type){
     var dbResults=[];
     Object.entries(DB).forEach(function(e){
       var key=e[0],val=e[1];
-      if(dbResults.length>=12)return;
+      if(dbResults.length>=30)return;
       var areaMatch=!area||val.a===area;
       if(areaMatch){
         var estPrice=val.p*(beds==="Studio"?500:beds==="1 BR"?750:beds==="2 BR"?1100:beds==="3 BR"?1600:2200);
