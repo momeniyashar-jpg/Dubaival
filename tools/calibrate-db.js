@@ -21,14 +21,14 @@ const readline = require('readline');
 let existingDB = {};
 let existingAreas = {};
 try {
-  const dataPath = path.join(__dirname, '..', 'js', 'data.js');
+  const dataPath = path.join(__dirname, '..', 'js', 'data-residential.js');
   const dataContent = fs.readFileSync(dataPath, 'utf8');
   const dbMatch = dataContent.match(/var DB\s*=\s*(\{[\s\S]*?\});/);
   if (dbMatch) {
     existingDB = JSON.parse(dbMatch[1]);
     console.log('Loaded existing DB:', Object.keys(existingDB).length, 'buildings');
   } else {
-    console.warn('WARNING: Could not parse DB from js/data.js — all buildings will show as "new"');
+    console.warn('WARNING: Could not parse DB from js/data-residential.js — all buildings will show as "new"');
   }
   const areasMatch = dataContent.match(/const AREAS\s*=\s*(\{[\s\S]*?\});/);
   if (areasMatch) {
@@ -36,7 +36,7 @@ try {
     console.log('Loaded existing AREAS:', Object.keys(existingAreas).length, 'areas');
   }
 } catch (e) {
-  console.warn('WARNING: Could not load js/data.js:', e.message);
+  console.warn('WARNING: Could not load js/data-residential.js:', e.message);
   console.warn('All buildings will be marked as "new"');
 }
 
@@ -341,7 +341,7 @@ async function run() {
   // --- Build community hierarchy (serializable) ---
   const existingClusters = {};
   try {
-    const dataPath = path.join(__dirname, '..', 'js', 'data.js');
+    const dataPath = path.join(__dirname, '..', 'js', 'data-residential.js');
     const dataContent = fs.readFileSync(dataPath, 'utf8');
     const clMatch = dataContent.match(/const CLUSTERS\s*=\s*(\{[\s\S]*?\n\};)/);
     if (clMatch) {

@@ -60,9 +60,9 @@ The app was split from a single 1.1MB `index-6.html` into modular files:
 
 - **`index-6.html`** — ~5KB shell: `<head>`, meta tags, styles, `<body>`,
   and `<script src="js/...">` tags. NO inline JS anymore.
-- **`js/data.js`** — All databases: `DB` (8,522 buildings), `BLDG_UNITS`,
-  `AREAS` (347), `CLUSTER_DB`, `VIEW_P`, `AREA_ALIASES`, themes. **This is
-  where building research goes.**
+- **`js/data-residential.js`** — All residential databases: `DB` (8,522 buildings),
+  `BLDG_UNITS`, `AREAS` (347), `CLUSTER_DB`, `VIEW_P`, `AREA_ALIASES`, themes.
+  **This is where building research goes.**
 - **`js/valuation.js`** — `lookupBuilding()`, `computeValuation()`,
   `computeRentalValuation()`, valuation engine.
 - **`js/api.js`** — `getUAELocationId()`, `fetchLiveData()`, `askAI()`, API
@@ -102,7 +102,7 @@ Other files (`dubaival.jsx`, `index-3.html`) are old/unused — do not edit.
 
 ## Database sizes (as of 2026-06-20)
 
-All databases live in **`js/data.js`** (residential) and **`js/data-commercial.js`** (commercial + land).
+All databases live in **`js/data-residential.js`** (residential) and **`js/data-commercial.js`** (commercial + land).
 
 - **`var DB={...}`**: **8,522 buildings** (single massive line). Schema:
   `{"p":psf,"lo":lowPsf,"hi":highPsf,"sc":serviceCharge,"a":"Area Name","g":"Grade","df":1(optional)}`.
@@ -121,8 +121,8 @@ Code is now split across `js/*.js` files. To find anything, grep across `js/`:
 
 | What | File | How to find |
 |---|---|---|
-| Databases (DB, BLDG_UNITS, AREAS) | `js/data.js` | `grep "var DB=" js/data.js` |
-| CLUSTER_DB, VIEW_P, AREA_ALIASES | `js/data.js` | `grep "CLUSTER_DB\|VIEW_P\|AREA_ALIASES" js/data.js` |
+| Databases (DB, BLDG_UNITS, AREAS) | `js/data-residential.js` | `grep "var DB=" js/data-residential.js` |
+| CLUSTER_DB, VIEW_P, AREA_ALIASES | `js/data-residential.js` | `grep "CLUSTER_DB\|VIEW_P\|AREA_ALIASES" js/data-residential.js` |
 | `lookupBuilding()`, `computeValuation()`, `computeRentalValuation()` | `js/valuation.js` | |
 | API helpers (fetchLiveData, askAI) | `js/api.js` | |
 | `hexAlpha()`, `el()`/`div()`/`span()` | `js/core.js` | |
@@ -355,7 +355,7 @@ project-level settings overriding it. See "Outstanding items" for next steps.
   Supabase RLS hardening SQL executed. Client-side fixes deployed.
 - **✅ COMPLETED: Full calibration** (2026-06-20): All 10,880 properties
   (8,522 res + 1,930 com + 428 land) calibrated with 100% coverage.
-  data.js split into data.js + data-commercial.js for performance.
+  data.js split into data-residential.js + data-commercial.js for performance.
 - **✅ COMPLETED: Opportunity Alerts** (both phases). All 6 alerts live in
   `js/portfolio.js`.
 - **✅ COMPLETED: Capacitor Android App** (2026-06-20): Full native Android
@@ -368,14 +368,14 @@ project-level settings overriding it. See "Outstanding items" for next steps.
   calibrated with 100% coverage. Error reduced from ~20% to under 5%.
 - **Building research ACTIVE**: Current: 8,522 residential across 216 areas.
   347 areas have benchmarks. Target areas listed in "Building research gaps" below.
-  **IMPORTANT**: Buildings go in `js/data.js`, NOT in `index-6.html`.
+  **IMPORTANT**: Buildings go in `js/data-residential.js`, NOT in `index-6.html`.
 - **Agent video analysis & upload**: not built yet, deferred to future.
 - **Deploy method**: User deploys manually by copying files to dubaival folder
   and deploying via Node.js/Vercel CLI. NOT via git merge to main.
 
 ## Building research gaps (priority areas)
 
-When adding buildings, edit **`js/data.js`** only. Add to `var DB={...}` and
+When adding buildings, edit **`js/data-residential.js`** only. Add to `var DB={...}` and
 `const BLDG_UNITS={...}` on the same file.
 
 | Area | Have | Estimated Real | Gap |
@@ -399,7 +399,7 @@ When adding buildings, edit **`js/data.js`** only. Add to `var DB={...}` and
 
 ## Testing technique (no build/test infra)
 
-To test valuation/DB in isolation, load `js/data.js` + `js/valuation.js` in
+To test valuation/DB in isolation, load `js/data-residential.js` + `js/valuation.js` in
 Node with stubs for `window`/`document`/`localStorage`/`navigator`/`fetch` as
 no-ops. `computeValuation` requires `f.price` and `f.size`/`f.buaSize` set.
 

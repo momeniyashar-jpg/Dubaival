@@ -3,7 +3,7 @@ var PRECACHE=[
   '/',
   '/index-6.html',
   '/logo.png',
-  '/js/data.js',
+  '/js/data-residential.js',
   '/js/valuation.js',
   '/js/api.js',
   '/js/core.js',
