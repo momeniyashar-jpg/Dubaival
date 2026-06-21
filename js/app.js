@@ -1345,6 +1345,35 @@ function render(){
 
     panel.appendChild(pGrid);
 
+    // API Keys section
+    var apiSection=el("div",{style:{maxWidth:"800px",margin:"16px auto 0",padding:"14px",background:cl.raised,borderRadius:"10px",border:"1px solid "+cl.border}});
+    apiSection.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"API KEYS (for Live Market Data)"));
+    var apiGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}});
+    // RapidAPI Key
+    var raBox=el("div",{});
+    raBox.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"RapidAPI Key"));
+    raBox.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif",marginBottom:"4px",opacity:"0.6"},"Enables live Bayut + PropertyFinder data"));
+    var raInp=el("input",{type:"password",placeholder:"Enter RapidAPI key",style:{width:"100%",background:"rgba(240,242,245,0.05)",border:"1px solid "+cl.border,color:"#F0F2F5",padding:"7px 10px",borderRadius:"7px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+    raInp.value=UAE_RE_KEY||"";
+    raInp.addEventListener("change",function(){var v=this.value.trim();try{localStorage.setItem("dv_rapidapi",v);}catch(e){}UAE_RE_KEY=v;});
+    raBox.appendChild(raInp);
+    apiGrid.appendChild(raBox);
+    // Groq Key
+    var grBox=el("div",{});
+    grBox.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Groq API Key"));
+    grBox.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif",marginBottom:"4px",opacity:"0.6"},"Enables AI analysis & chat"));
+    var grInp=el("input",{type:"password",placeholder:"Enter Groq key",style:{width:"100%",background:"rgba(240,242,245,0.05)",border:"1px solid "+cl.border,color:"#F0F2F5",padding:"7px 10px",borderRadius:"7px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+    grInp.value=GROQ_KEY||"";
+    grInp.addEventListener("change",function(){var v=this.value.trim();try{localStorage.setItem("dv_groq",v);}catch(e){}GROQ_KEY=v;});
+    grBox.appendChild(grInp);
+    apiGrid.appendChild(grBox);
+    apiSection.appendChild(apiGrid);
+    var apiStatus=el("div",{style:{display:"flex",gap:"8px",marginTop:"10px",flexWrap:"wrap"}});
+    apiStatus.appendChild(el("span",{style:{fontSize:"10px",fontFamily:"'Space Grotesk',monospace",padding:"3px 10px",borderRadius:"20px",background:UAE_RE_KEY?hexAlpha("#10B981",0.12):hexAlpha("#EF4444",0.12),border:"1px solid "+(UAE_RE_KEY?"rgba(16,185,129,0.4)":"rgba(239,68,68,0.4)"),color:UAE_RE_KEY?"#10B981":"#EF4444"}},UAE_RE_KEY?"RapidAPI: Connected":"RapidAPI: Not Set"));
+    apiStatus.appendChild(el("span",{style:{fontSize:"10px",fontFamily:"'Space Grotesk',monospace",padding:"3px 10px",borderRadius:"20px",background:GROQ_KEY?hexAlpha("#10B981",0.12):hexAlpha("#EF4444",0.12),border:"1px solid "+(GROQ_KEY?"rgba(16,185,129,0.4)":"rgba(239,68,68,0.4)"),color:GROQ_KEY?"#10B981":"#EF4444"}},GROQ_KEY?"Groq AI: Connected":"Groq AI: Not Set"));
+    apiSection.appendChild(apiStatus);
+    panel.appendChild(apiSection);
+
     // Profile summary bar
     var summary=el("div",{style:{display:"flex",gap:"10px",flexWrap:"wrap",marginTop:"12px",paddingTop:"10px",borderTop:"1px solid "+cl.border,maxWidth:"800px",margin:"12px auto 0"}});
     var typeLabels={income:"Rental Income",growth:"Capital Growth",flip:"Flip / Resale",enduse:"End Use"};
