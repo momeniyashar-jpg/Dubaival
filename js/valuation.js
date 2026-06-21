@@ -17,8 +17,12 @@ function lookupBuilding(name,areaHint){
   const k=name.toLowerCase().trim();
   // 1. Exact match
   if(DB[k])return DB[k];
+  // 1b. Normalize "towerN" → "tower N" (users often omit the space)
+  const kNorm=k.replace(/\btower(\d)/g,"tower $1");
+  if(kNorm!==k&&DB[kNorm])return DB[kNorm];
   // 2. Alias map (handles "Tower 1" vs "T1" and other variants)
   if(ALIASES[k]&&DB[ALIASES[k]])return DB[ALIASES[k]];
+  if(kNorm!==k&&ALIASES[kNorm]&&DB[ALIASES[kNorm]])return DB[ALIASES[kNorm]];
   // 3. Normalize: replace "tower N" with "tN" and retry
   const norm=k.replace(/\btower\s+([0-9]+)/g,"t$1").replace(/\btower\s+([a-c])\b/g,"$1");
   if(DB[norm])return DB[norm];
@@ -43,7 +47,7 @@ function lookupBuilding(name,areaHint){
     return best[1];
   }
   // 6. Word match
-  const words=k.split(" ").filter(function(w){return w.length>2;});
+  const words=k.split(" ").filter(function(w){return w.length>2||/^\d+$/.test(w);});
   if(words.length>=2){
     const wordMatch=Object.entries(DB).find(function(e){return words.every(function(w){return e[0].includes(w);});});
     if(wordMatch)return wordMatch[1];
@@ -412,12 +416,14 @@ function computeValuation(f,buildingVal,liveData){
   const isVilla=f.propCategory==="villa";
   const floorN=parseInt(f.floor)||0;
   // Villas: always fP=0 (ground-level, no floor premium)
-  // Apartments in DB: differential vs baseline floor 15
-  // Apartments not in DB: standard +0.5% per floor above 10
+  // Apartments in DB: differential vs grade-dependent baseline floor
+  // Ultra/A+ towers are typically 40-80 floors; using floor 15 baseline overstates premium
+  const GRADE_FLOOR_BASE={"Ultra":35,"A+":25,"A":20,"A-":15,"B+":12,"B":10,"C":8};
   let fP=0;
   if(!isVilla){
     if(bData&&floorN>0){
-      const diffFloors=floorN-15;
+      const floorBase=GRADE_FLOOR_BASE[bData.g]||15;
+      const diffFloors=floorN-floorBase;
       fP=Math.max(-0.07,Math.min(0.15,diffFloors*0.005));
     } else if(!bData&&floorN>10){
       fP=(floorN-10)*0.005;
