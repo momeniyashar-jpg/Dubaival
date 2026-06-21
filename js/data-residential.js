@@ -4,12 +4,6 @@ var darkMode = true;
 const T = {
   dark:{bg:"#070B14",surface:"#0D1220",raised:"#131926",border:"#1C2540",borderHi:"#2A3660",gold:"#D4A843",goldDim:"#8A6420",goldFaint:"#D4A84310",white:"#E8EDF5",sub:"#6B7A9E",subHi:"#9BA8C8",green:"#00C896",greenBg:"#00C89612",greenBo:"#00C89640",red:"#F04060",redBg:"#F0406012",redBo:"#F0406040",yellow:"#F0A030",yellowBg:"#F0A03012",yellowBo:"#F0A03040"},
   light:{bg:"#F0F3FA",surface:"#FFFFFF",raised:"#F8FAFF",border:"#DDE3F0",borderHi:"#C0CBE8",gold:"#9A6A10",goldDim:"#C48A30",goldFaint:"#9A6A1010",white:"#1A2040",sub:"#7A88AA",subHi:"#4A5878",green:"#00A070",greenBg:"#00A07010",greenBo:"#00A07035",red:"#D03050",redBg:"#D0305010",redBo:"#D0305035",yellow:"#C07820",yellowBg:"#C0782010",yellowBo:"#C0782035"}
-  // Lookup normalization aliases
-  "address fountain views 1":"address fountain views tower 1",
-  "address fountain views 2":"address fountain views tower 2",
-  "address fountain views 3":"address fountain views tower 3",
-  "vida dubai mall tower1":"vida dubai mall tower 1",
-  "vida dubai mall tower2":"vida dubai mall tower 2",
 };
 function C(){return darkMode?T.dark:T.light}
 
@@ -802,6 +796,11 @@ const ALIASES={"address downtown hotel":"burj lake hotel - the address downtown"
   "boulevard heights":"blvd heights tower 1",
   "blvd heights t1":"blvd heights tower 1",
   "blvd heights t2":"blvd heights tower 2",
+  "address fountain views 1":"address fountain views tower 1",
+  "address fountain views 2":"address fountain views tower 2",
+  "address fountain views 3":"address fountain views tower 3",
+  "vida dubai mall tower1":"vida dubai mall tower 1",
+  "vida dubai mall tower2":"vida dubai mall tower 2",
 };
 // DLD cadastral area → marketing area mapping
 const DLD_AREA_MAP={"Al Warsan First":"International City","Madinat Al Mataar":"Dubai South","Al Barsha South Fourth":"Jumeirah Village Circle","Marsa Dubai":"Dubai Marina","Palm Deira":"Dubai Islands","Jabal Ali First":"Jebel Ali","Burj Khalifa":"Downtown Dubai","Al Thanyah Fifth":"Jumeirah Lake Towers","Al Merkadh":"Meydan","Wadi Al Safa 5":"Dubailand","Al Khairan First":"Dubai Creek Harbour","Hadaeq Sheikh Mohammed Bin Rashid":"Dubai Hills Estate","Wadi Al Safa 3":"Dubailand","Al Hebiah Fifth":"DAMAC Hills","Al Jadaf":"Al Jaddaf","Dubai Investment Park First":"Dubai Investment Park","Nad Al Shiba First":"Meydan","Wadi Al Safa 7":"Dubailand","Al Hebiah First":"Meydan","Al Barshaa South Third":"Arjan","Al Wasl":"City Walk","Wadi Al Safa 2":"Wadi Al Safa","Al Hebiah Fourth":"Dubai Sports City","Dubai Investment Park Second":"Dubai Investment Park","Al Hebiah Third":"DAMAC Hills","Nadd Hessa":"Dubai Silicon Oasis","Al Barsha South Fifth":"Jumeirah Village Triangle","Al Thanyah Third":"Jumeirah Village Circle","Wadi Al Safa 4":"Wadi Al Safa","Um Suqaim Third":"Jumeirah","Business Bay":"Business Bay","Al Yelayiss 2":"Town Square","Al Yelayiss 1":"DAMAC Islands","Al Barshaa South Second":"Dubai Science Park","Warsan Fourth":"International City","Al Hebiah Second":"Dubai Studio City","Al Thanyah First":"Barsha Heights","Madinat Hind 4":"DAMAC Hills","Al Kifaf":"Bur Dubai","Al Goze Fourth":"Al Quoz","Al Barsha First":"Al Barsha","Al Safouh Second":"Dubai Internet City","Al Safouh First":"Al Sufouh","Bukadra":"Sobha Hartland","Al Kheeran":"Dubai Festival City","Jumeirah Second":"Jumeirah","Al Thanayah Fourth":"Emirates Living","Nad Al Shiba":"Nad Al Sheba","Um Hurair Second":"Dubai Healthcare City","Al Hebiah Sixth":"Mudon","Trade Center Second":"World Trade Centre","Muhaisanah First":"Muhaisnah","Zaabeel Second":"Dubai Design District","Jumeirah First":"Jumeirah","Zaabeel First":"Za'Abeel","Trade Center First":"Sheikh Zayed Road","Al Ruwayyah":"Dubailand","Jabal Ali":"Dubai South","Palm Jumeirah":"Palm Jumeirah","Saih Shuaib 1":"Dubai South","Palm Jabal Ali":"Palm Jebel Ali","Nad Al Shiba Third":"Nad Al Sheba","World Islands":"World Islands","Island 2":"Dubai Islands","Me'Aisem First":"IMPZ","Me'Aisem Second":"The Oasis","Saih Shuaib 2":"Dubai Industrial City","Saih Shuaib 3":"Dubai Industrial City","Madinat Dubai Almelaheyah":"Dubai Maritime City","Ras Al Khor Industrial First":"Ras Al Khor","Jabal Ali Industrial First":"Jebel Ali Industrial","Jabal Ali Industrial Second":"Jebel Ali Industrial","Jabal Ali Industrial Third":"Jebel Ali Industrial","Al Yufrah 1":"Al Yufrah","Al Yufrah 2":"Al Yufrah","Saih Shuaib 4":"Dubai South","Al Qusais Industrial Fourth":"Al Qusais","Al Qusais Industrial Fifth":"Al Qusais"};
