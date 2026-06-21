@@ -439,8 +439,12 @@ function computeValuation(f,buildingVal,liveData){
   let furnP;
   if(isDevFurnished){
     furnP=f.furnished==="Unfurnished"?-0.10:f.furnished==="Semi-Furnished"?-0.05:0;
+  }else if(f.furnished==="Furnished"||f.furnished==="Semi-Furnished"){
+    var estVal=basePSF*size;
+    var fRate=estVal>=30e6?[0.015,0.01]:estVal>=15e6?[0.025,0.015]:estVal>=5e6?[0.04,0.025]:estVal>=2e6?[0.07,0.04]:[0.10,0.05];
+    furnP=f.furnished==="Furnished"?fRate[0]:fRate[1];
   }else{
-    furnP=f.furnished==="Furnished"?0.15:f.furnished==="Semi-Furnished"?0.07:0;
+    furnP=0;
   }
   const geoAdj=getAreaGeoAdj(f.area)||0;
   // Location Intelligence: metro/amenity proximity premium
@@ -453,10 +457,10 @@ function computeValuation(f,buildingVal,liveData){
   const fairPrice=Math.round(adjPSF*size+parkBonus);
   // Area-sensitive price ladder (based on DLD distress data March 2026)
   var areaSens=(["Palm Jumeirah","Dubai Marina","Downtown Dubai","DIFC","Dubai Harbour","Emaar Beachfront","Jumeirah Beach Residence","City Walk"].indexOf(f.area)>=0)?"high":(["Business Bay","Dubai Creek Harbour","MBR City","Sobha Hartland","Dubai Hills Estate","Jumeirah Lake Towers"].indexOf(f.area)>=0)?"med":"low";
-  // Distress floor: how low can motivated sellers go?
-  var distressFloor=areaSens==="high"?0.78:areaSens==="med"?0.82:0.85;
-  var goodFloor=areaSens==="high"?0.90:areaSens==="med"?0.92:0.93;
-  var overCeil=areaSens==="high"?1.10:areaSens==="med"?1.12:1.14;
+  var isUltraLux=fairPrice>=30e6;
+  var distressFloor=isUltraLux?0.72:areaSens==="high"?0.78:areaSens==="med"?0.82:0.85;
+  var goodFloor=isUltraLux?0.87:areaSens==="high"?0.90:areaSens==="med"?0.92:0.93;
+  var overCeil=isUltraLux?1.08:areaSens==="high"?1.10:areaSens==="med"?1.12:1.14;
   const distressPrice=Math.round(adjPSF*distressFloor*size);
   const goodPrice=Math.round(adjPSF*goodFloor*size);
   const overpricedAt=Math.round(adjPSF*overCeil*size);
