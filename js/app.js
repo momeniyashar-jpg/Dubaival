@@ -270,7 +270,7 @@ function renderFind(){
         srcBadge2.textContent=r.source;
         titleBlock.appendChild(srcBadge2);
       }
-      titleBlock.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},(r.area||"")+(r.size?" · "+Math.round(r.size*10.764).toLocaleString()+" sqft":"")+(r.beds?" · "+r.beds+"BR":"")));
+      titleBlock.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},(r.area||"")+(r.size?" · "+Math.round(r.size).toLocaleString()+" sqft":"")+(r.beds?" · "+r.beds+"BR":"")));
       topRow.appendChild(titleBlock);
       card.appendChild(topRow);
       
@@ -336,7 +336,7 @@ function renderFind(){
         analyzerState.f.building=name.toLowerCase();
         analyzerState.f.area=areaName;
         analyzerState.f.beds=r.beds===0?"Studio":r.beds?(r.beds+" BR"):(FS.beds||"2 BR");
-        analyzerState.f.size=r.size?String(Math.round(r.size*10.764)):"";
+        analyzerState.f.size=r.size?String(Math.round(r.size)):"";
         analyzerState.f.price=r.price?String(r.price):"";
         analyzerState.f.furnished=r.furnished||"Unfurnished";
         analyzerState.f.floor=r.floor?String(r.floor):"";
@@ -629,7 +629,7 @@ function renderFind(){
         var gr=aData&&aData.g?aData.g:[8,15,25];
         dbResults.push({
           title:key,area:val.a,psf:val.p,price:estPrice,
-          size:Math.round(sizeEst/10.764),
+          size:sizeEst,
           beds:bn,baths:bn>0?bn:1,
           grade:val.g,g:val.g,
           source:"DubAIVal DB",
