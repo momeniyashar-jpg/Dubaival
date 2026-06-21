@@ -1,22 +1,55 @@
 {
   "version": 2,
-  "framework": null,
-  "buildCommand": "",
-  "outputDirectory": ".",
-  "rewrites": [
+  "builds": [
     {
-      "source": "/((?!api/|js/|logo\\.png|manifest\\.json|sw\\.js).*)",
-      "destination": "/index-6.html"
+      "src": "index-6.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "js/**/*.js",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "logo.png",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "manifest.json",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "sw.js",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "api/*.js",
+      "use": "@vercel/node"
     }
   ],
-  "headers": [
+  "routes": [
     {
-      "source": "/api/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
-      ]
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/logo.png",
+      "dest": "/logo.png"
+    },
+    {
+      "src": "/manifest.json",
+      "dest": "/manifest.json"
+    },
+    {
+      "src": "/sw.js",
+      "dest": "/sw.js"
+    },
+    {
+      "src": "/js/(.*)",
+      "dest": "/js/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index-6.html"
     }
   ],
   "crons": [
