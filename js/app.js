@@ -39,7 +39,41 @@ function renderFind(){
   const wrap=el("div",{style:{padding:"16px",maxWidth:"640px",margin:"0 auto"}});
 
   wrap.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Property Search"));
-  wrap.appendChild(div({color:cl.sub,fontSize:"12px",marginBottom:"16px",fontFamily:"'Inter',sans-serif"},"Tell DubAIVal what you're looking for. AI searches PropertyFinder & market data."));
+  wrap.appendChild(div({color:cl.sub,fontSize:"12px",marginBottom:"16px",fontFamily:"'Inter',sans-serif"},"Tell DubAIVal what you're looking for. AI searches Bayut, PropertyFinder & market data."));
+
+  // API connection banner
+  if(!UAE_RE_KEY){
+    var apiBanner=el("div",{style:{background:hexAlpha("#F59E0B",0.08),border:"1px solid "+hexAlpha("#F59E0B",0.3),borderRadius:"12px",padding:"14px",marginBottom:"14px"}});
+    apiBanner.appendChild(div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px"},[
+      span({fontSize:"16px"},"🔑"),
+      div({},[
+        div({color:"#F59E0B",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"Live Market Connection"),
+        div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},"Enter your RapidAPI key to unlock live Bayut & PropertyFinder listings with photos, prices & agent contacts")
+      ])
+    ]));
+    var keyRow=el("div",{style:{display:"flex",gap:"8px"}});
+    var keyInp=el("input",{type:"password",placeholder:"Paste your RapidAPI key here",style:{flex:"1",background:"rgba(240,242,245,0.05)",border:"1px solid "+cl.border,color:"#F0F2F5",padding:"9px 12px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none"}});
+    keyRow.appendChild(keyInp);
+    var keyBtn=el("button",{style:{background:"linear-gradient(135deg,#F59E0B,#D97706)",color:"#000",border:"none",padding:"9px 16px",borderRadius:"8px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",whiteSpace:"nowrap"}});
+    keyBtn.textContent="Connect";
+    keyBtn.addEventListener("click",function(){
+      var v=keyInp.value.trim();
+      if(!v){alert("Please enter a valid API key");return;}
+      try{localStorage.setItem("dv_rapidapi",v);}catch(e){}
+      UAE_RE_KEY=v;
+      render();
+    });
+    keyRow.appendChild(keyBtn);
+    apiBanner.appendChild(keyRow);
+    apiBanner.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif",marginTop:"8px",lineHeight:"1.5"},"Without API key, search uses DubAIVal's 8,500+ building database (no photos/contacts). Get a free key at rapidapi.com → search \"UAE Real Estate\""));
+    wrap.appendChild(apiBanner);
+  }else{
+    wrap.appendChild(div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"14px",padding:"8px 12px",background:hexAlpha("#10B981",0.08),border:"1px solid "+hexAlpha("#10B981",0.3),borderRadius:"10px"},[
+      div({width:"6px",height:"6px",borderRadius:"50%",background:"#10B981",animation:"pulse 2s infinite",flexShrink:"0"}),
+      span({color:"#10B981",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"LIVE — Connected to Bayut + PropertyFinder"),
+      el("button",{style:{marginLeft:"auto",background:"transparent",border:"1px solid "+hexAlpha("#EF4444",0.3),color:"#EF4444",padding:"3px 8px",borderRadius:"6px",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){try{localStorage.removeItem("dv_rapidapi");}catch(e){}UAE_RE_KEY="";render();}},"Disconnect")
+    ]));
+  }
 
   if(!window.FIND_STATE)window.FIND_STATE={area:"",building:"",beds:"2 BR",maxPrice:"",minYield:"",type:"Apartment",query:"",results:[],loading:false,searched:false,sort:"score",
     sf:{area:"",grade:"",minYield:"",maxPSF:"",minPSF:"",minGrowth:"",maxDOM:"",minTurnover:"",type:"Apartment",beds:"Any",sort:"yield",showResults:false,results:[]}
