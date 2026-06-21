@@ -374,11 +374,134 @@ async function saveSupabaseConfig(aptAdj, villaAdj, label){
   }
 }
 
+// --- MARKET MOMENTUM (AI-powered trend intelligence) --------------------------
+var MARKET_MOMENTUM={};
+var MOMENTUM_LOADED=false;
+
+async function fetchMarketMomentum(){
+  try{
+    var resp=await fetch(SUPABASE_URL+"/rest/v1/market_momentum?select=area_key,trend,pct_change,confidence,updated_at",{
+      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY}
+    });
+    if(!resp.ok)return;
+    var rows=await resp.json();
+    if(!rows||!rows.length)return;
+    rows.forEach(function(r){
+      MARKET_MOMENTUM[r.area_key]={
+        trend:r.trend,pct:r.pct_change,conf:r.confidence,
+        updated:r.updated_at
+      };
+    });
+    MOMENTUM_LOADED=true;
+    console.log("[DubaiVal] Market momentum loaded:",rows.length,"areas");
+  }catch(e){console.warn("Market momentum fetch failed:",e.message);}
+}
+
+function getMomentumFactor(area){
+  var m=MARKET_MOMENTUM[area];
+  if(!m)m=MARKET_MOMENTUM["_overall"];
+  if(!m||!m.pct)return 1.0;
+  var age=m.updated?(Date.now()-new Date(m.updated).getTime())/(1000*60*60*24):999;
+  if(age>30)return 1.0;
+  var confWeight=m.conf==="high"?1.0:m.conf==="medium"?0.7:0.4;
+  var rawAdj=m.pct/100*confWeight;
+  var capped=Math.max(-0.15,Math.min(0.15,rawAdj));
+  return 1.0+capped;
+}
+
+var MI_TOP_AREAS=["Downtown Dubai","Dubai Marina","Palm Jumeirah","Business Bay",
+  "Jumeirah Village Circle","Dubai Hills Estate","Jumeirah Beach Residence (Jbr)",
+  "Dubai Creek Harbour","MBR City","Emaar Beachfront","DIFC","City Walk",
+  "Sobha Hartland","Arabian Ranches","Arabian Ranches 2","Dubai Silicon Oasis",
+  "Dubai Sports City","Jumeirah Lake Towers","Motor City","Al Furjan",
+  "Dubai South","Meydan","International City","Discovery Gardens",
+  "Jumeirah Golf Estates","The Springs","The Meadows","Damac Hills",
+  "Damac Hills 2","Town Square","Dubai Land","Jumeirah Islands",
+  "Jumeirah Park","Mudon","Nad Al Sheba","Tilal Al Ghaf",
+  "Bluewaters Island","Palm Jebel Ali","Dubai Islands","Madinat Jumeirah Living",
+  "Emirates Hills","District One","Al Barari","Za'Abeel",
+  "Dubailand","The Valley","Remraam","Arjan","Dubai Investment Park","Wadi Al Safa"];
+
+async function runMarketIntelligence(){
+  var areaList=MI_TOP_AREAS.join(", ");
+  var prompt="You are a Dubai real estate market analyst with deep knowledge of the UAE property market.\n\n"+
+    "Based on your knowledge of Dubai real estate market dynamics, macroeconomic factors, "+
+    "interest rates, supply pipeline, seasonal patterns, and global investment flows, "+
+    "estimate the current price trend for each area listed below.\n\n"+
+    "Consider: UAE Central Bank rates, new supply delivery, off-plan vs ready ratio, "+
+    "golden visa demand, expo legacy, tourism numbers, rental yield compression.\n\n"+
+    "For each area, provide:\n"+
+    "- trend: 'up', 'down', or 'stable'\n"+
+    "- pct: estimated % price change over last 6 months (e.g., -5 means 5% decline)\n"+
+    "- conf: 'high', 'medium', or 'low'\n"+
+    "- sector: 'luxury', 'mid', or 'affordable'\n\n"+
+    "Areas: "+areaList+"\n\n"+
+    "IMPORTANT: Respond ONLY with valid JSON, no markdown, no explanation:\n"+
+    '{"overall":{"trend":"...","pct":0,"note":"..."},"areas":{"Area Name":{"trend":"...","pct":0,"conf":"...","sector":"..."}}}';
+
+  try{
+    var sys="You are a structured data API. Output ONLY valid JSON. No markdown code fences. No explanatory text.";
+    var resp=await askAI([{role:"user",content:prompt}],sys);
+    resp=resp.replace(/```json\s*/g,"").replace(/```\s*/g,"").trim();
+    var data=JSON.parse(resp);
+    if(!data||!data.areas)throw new Error("Invalid AI response structure");
+
+    var rows=[];
+    if(data.overall){
+      rows.push({area_key:"_overall",trend:data.overall.trend||"stable",
+        pct_change:data.overall.pct||0,confidence:"medium",
+        sector:"mid",note:data.overall.note||"",source:"groq_ai",
+        updated_at:new Date().toISOString()});
+    }
+    Object.entries(data.areas).forEach(function(e){
+      var area=e[0],d=e[1];
+      if(!AREAS[area])return;
+      rows.push({area_key:area,trend:d.trend||"stable",
+        pct_change:typeof d.pct==="number"?d.pct:0,
+        confidence:d.conf||"medium",sector:d.sector||"mid",
+        note:"",source:"groq_ai",
+        updated_at:new Date().toISOString()});
+    });
+
+    if(rows.length===0)throw new Error("No valid areas in AI response");
+
+    var upsertResp=await fetch(SUPABASE_URL+"/rest/v1/market_momentum",{
+      method:"POST",
+      headers:{
+        "apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,
+        "Content-Type":"application/json","Prefer":"resolution=merge-duplicates"
+      },
+      body:JSON.stringify(rows)
+    });
+
+    if(!upsertResp.ok)throw new Error("Supabase upsert failed: "+upsertResp.status);
+
+    rows.forEach(function(r){
+      MARKET_MOMENTUM[r.area_key]={trend:r.trend,pct:r.pct_change,conf:r.confidence,updated:r.updated_at};
+    });
+    MOMENTUM_LOADED=true;
+
+    console.log("[DubaiVal] Market intelligence updated:",rows.length,"areas");
+    return{success:true,count:rows.length,overall:data.overall};
+  }catch(e){
+    console.error("[DubaiVal] Market intelligence failed:",e.message);
+    return{success:false,error:e.message};
+  }
+}
+
+function shouldRunIntelligence(){
+  var overall=MARKET_MOMENTUM["_overall"];
+  if(!overall||!overall.updated)return true;
+  var age=(Date.now()-new Date(overall.updated).getTime())/(1000*60*60*24);
+  return age>7;
+}
+
 if(typeof window!=="undefined"){
   setTimeout(fetchLiveMarket,1500);
   setTimeout(fetchSupabaseConfig,500);
   setTimeout(fetchDynamicBenchmarks,600);
   setTimeout(fetchCalibrationData,700);
+  setTimeout(fetchMarketMomentum,800);
 }
 
 // -- USER PROFILE (persisted) ----------------------------------------------

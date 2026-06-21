@@ -1670,6 +1670,59 @@ function renderAdminDashboard(wrap,cl){
     card.appendChild(vidSection);
   })();
 
+  // Market Intelligence Control
+  card.appendChild(div({color:"#F59E0B",fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",marginTop:"14px",fontWeight:"700"},"◆ AI MARKET INTELLIGENCE · GROQ"));
+  (function(){
+    var miCard=div({background:hexAlpha("#F59E0B",0.04),border:"1px solid "+hexAlpha("#F59E0B",0.15),borderRadius:"10px",padding:"14px",marginBottom:"14px"});
+    var overall=typeof MARKET_MOMENTUM!=="undefined"?MARKET_MOMENTUM["_overall"]:null;
+    var momKeys=typeof MARKET_MOMENTUM!=="undefined"?Object.keys(MARKET_MOMENTUM).filter(function(k){return k!=="_overall";}):[];
+    var momAge=overall&&overall.updated?Math.round((Date.now()-new Date(overall.updated).getTime())/(1000*60*60*24)):null;
+    var stale=typeof shouldRunIntelligence==="function"&&shouldRunIntelligence();
+    miCard.appendChild(div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"12px"},[
+      div({background:cl.raised,borderRadius:"8px",padding:"8px",textAlign:"center"},[
+        div({color:cl.sub,fontSize:"8px",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},"AREAS TRACKED"),
+        div({color:"#F59E0B",fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},String(momKeys.length))]),
+      div({background:cl.raised,borderRadius:"8px",padding:"8px",textAlign:"center"},[
+        div({color:cl.sub,fontSize:"8px",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},"DATA AGE"),
+        div({color:stale?"#EF4444":"#10B981",fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},momAge!==null?momAge+"d":"—")]),
+      div({background:cl.raised,borderRadius:"8px",padding:"8px",textAlign:"center"},[
+        div({color:cl.sub,fontSize:"8px",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},"STATUS"),
+        div({color:stale?"#EF4444":"#10B981",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},stale?"STALE":"FRESH")]),
+    ]));
+    if(overall&&overall.trend){
+      var trendCol=overall.trend==="up"?"#10B981":overall.trend==="down"?"#EF4444":"#F59E0B";
+      miCard.appendChild(div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"12px",padding:"8px 10px",background:cl.raised,borderRadius:"8px"},[
+        div({width:"6px",height:"6px",borderRadius:"50%",background:trendCol,flexShrink:"0"}),
+        span({color:trendCol,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"Overall Market: "+overall.trend.toUpperCase()+" "+(overall.pct>0?"+":"")+overall.pct+"%"),
+      ]));
+    }
+    var miStatusEl=div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",textAlign:"center",marginTop:"8px",display:"none"});
+    var runBtn=el("button",{style:{width:"100%",padding:"10px",background:"linear-gradient(135deg,#F59E0B,#D97706)",color:"#000",border:"none",borderRadius:"8px",fontSize:"12px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.06em"}});
+    runBtn.textContent=stale?"⚡ Run AI Market Analysis (Recommended)":"⚡ Refresh Market Intelligence";
+    runBtn.onclick=async function(){
+      runBtn.disabled=true;runBtn.style.opacity="0.5";runBtn.textContent="Analyzing 50 areas with Groq AI…";
+      miStatusEl.style.display="block";miStatusEl.textContent="Sending to Groq Llama 3.3-70b…";
+      try{
+        var result=await runMarketIntelligence();
+        if(result.success){
+          runBtn.textContent="✓ Updated "+result.count+" areas";runBtn.style.background="#10B981";
+          miStatusEl.textContent="Overall: "+((result.overall&&result.overall.trend)||"stable")+" · "+(result.overall&&result.overall.note?result.overall.note:"Analysis complete");
+          miStatusEl.style.color="#10B981";
+        }else{
+          runBtn.textContent="✗ Failed — retry";runBtn.style.background="#EF4444";runBtn.disabled=false;runBtn.style.opacity="1";
+          miStatusEl.textContent="Error: "+(result.error||"Unknown");miStatusEl.style.color="#EF4444";
+        }
+      }catch(e){
+        runBtn.textContent="✗ Error — retry";runBtn.style.background="#EF4444";runBtn.disabled=false;runBtn.style.opacity="1";
+        miStatusEl.textContent=e.message;miStatusEl.style.color="#EF4444";
+      }
+    };
+    miCard.appendChild(runBtn);
+    miCard.appendChild(miStatusEl);
+    miCard.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif",marginTop:"8px",lineHeight:"1.4",opacity:"0.7"},"Uses Groq AI (Llama 3.3-70b) to analyze market trends for 50 key Dubai areas. Results are stored in Supabase and applied as correction factors to valuations. Recommended: run weekly."));
+    card.appendChild(miCard);
+  })();
+
   card.appendChild(div({color:"#60A5FA",fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",marginTop:"14px",fontWeight:"700"},"◆ AGENT MANAGEMENT"));
   hub.agents.forEach(function(ag){
     var agRow=div({background:cl.raised,borderRadius:"8px",padding:"8px 10px",marginBottom:"4px",border:"1px solid "+cl.border,display:"flex",justifyContent:"space-between",alignItems:"center"});

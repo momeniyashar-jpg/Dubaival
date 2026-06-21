@@ -213,6 +213,37 @@ function renderMarket(){
     });
     dSec.appendChild(r5);
 
+    // Row 6: AI Market Momentum
+    (function(){
+      var momKeys=Object.keys(MARKET_MOMENTUM).filter(function(k){return k!=="_overall";});
+      var overall=MARKET_MOMENTUM["_overall"];
+      var upCnt=0,downCnt=0,stableCnt=0;
+      momKeys.forEach(function(k){var m=MARKET_MOMENTUM[k];if(m.trend==="up")upCnt++;else if(m.trend==="down")downCnt++;else stableCnt++;});
+      var momColor=overall&&overall.trend==="up"?"#10B981":overall&&overall.trend==="down"?"#EF4444":"#F59E0B";
+      var momAge=overall&&overall.updated?Math.round((Date.now()-new Date(overall.updated).getTime())/(1000*60*60*24)):null;
+      var r6=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:'8px',marginBottom:'12px'}});
+      [{l:'AI Tracked Areas',v:String(momKeys.length),c:momColor},{l:'Trending Up',v:String(upCnt),c:'#10B981'},{l:'Trending Down',v:String(downCnt),c:'#EF4444'},{l:'Data Age',v:momAge!==null?momAge+'d ago':'No data',c:momColor}].forEach(function(s){
+        var card=el('div',{style:{background:hexAlpha(momColor,0.04),border:'1px solid '+hexAlpha(momColor,0.15),borderRadius:'10px',padding:'10px 8px',textAlign:'center'}});
+        card.appendChild(div({color:cl.sub,fontSize:'7.5px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'4px'},s.l));
+        card.appendChild(el('div',{style:{color:s.c,fontSize:'14px',fontWeight:'800',fontFamily:"'Space Grotesk',monospace"}},s.v));
+        r6.appendChild(card);
+      });
+      dSec.appendChild(div({color:momColor,fontSize:'8px',letterSpacing:'0.1em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'6px',fontWeight:'700'},'◆ AI Market Intelligence · Groq'));
+      dSec.appendChild(r6);
+      if(momKeys.length>0){
+        var topMovers=momKeys.map(function(k){return{area:k,pct:MARKET_MOMENTUM[k].pct||0,trend:MARKET_MOMENTUM[k].trend};}).sort(function(a,b){return Math.abs(b.pct)-Math.abs(a.pct);}).slice(0,6);
+        var moverGrid=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'6px',marginBottom:'12px'}});
+        topMovers.forEach(function(m){
+          var mc=m.trend==='up'?'#10B981':m.trend==='down'?'#EF4444':'#F59E0B';
+          var card=el('div',{style:{background:cl.raised,borderRadius:'8px',padding:'8px',textAlign:'center'}});
+          card.appendChild(div({color:cl.sub,fontSize:'7px',fontFamily:"'Space Grotesk',monospace",marginBottom:'2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'},m.area));
+          card.appendChild(div({color:mc,fontSize:'13px',fontWeight:'700',fontFamily:"'Space Grotesk',monospace"},(m.pct>0?'+':'')+m.pct.toFixed(1)+'%'));
+          moverGrid.appendChild(card);
+        });
+        dSec.appendChild(moverGrid);
+      }
+    })();
+
     // Footer
     dSec.appendChild(div({color:cl.sub,fontSize:'8px',fontFamily:"'Inter',sans-serif",textAlign:'center',opacity:'0.6'},'Data from '+bCnt.toLocaleString()+' residential + '+comCnt+' commercial + '+landCnt+' land across '+aCnt+'+ areas · Updated daily · Powered by DubAIVal AI'));
     wrap.appendChild(dSec);
@@ -1733,6 +1764,10 @@ function renderAnalyzerResult(wrap){
         div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"},[lbl("Valuation Confidence"),span({color:confColor,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},val.confTier.label+" · "+val.confTier.range)]),
         div({height:"5px",background:cl.border,borderRadius:"3px",overflow:"hidden",marginBottom:"8px"},[div({height:"100%",width:val.confScore+"%",background:"linear-gradient(90deg,"+confColor+"90,"+confColor+")",borderRadius:"3px",transition:"width 0.8s"})]),
         span({color:cl.sub,fontSize:"10.5px",fontFamily:"'Space Grotesk',monospace"},"Score "+val.confScore+"/100 · "+val.dataSource),
+        val.hasMomentum?div({display:"flex",alignItems:"center",gap:"5px",marginTop:"6px"},[
+          div({width:"5px",height:"5px",borderRadius:"50%",background:val.momFactor>1?"#10B981":val.momFactor<1?"#EF4444":"#EAB308",flexShrink:"0"}),
+          span({color:val.momFactor>1?"#10B981":val.momFactor<1?"#EF4444":"#EAB308",fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},"AI Trend: "+(val.momFactor>1?"+":"")+((val.momFactor-1)*100).toFixed(1)+"% market adjustment"),
+        ]):div({}),
       ]),
     ]),
   ]));
@@ -1868,6 +1903,7 @@ function renderAnalyzerResult(wrap){
       {l:"Comparable Analysis",v:val.compData?val.compData.compCount+" properties":"No comps",ok:!!val.compData},
       {l:"Live Market Data",v:val.hasDynamic?"Active":"Static benchmarks",ok:val.hasDynamic},
       {l:"Auto-Calibration",v:val.calFactor!==1.0?"×"+val.calFactor.toFixed(2):"Pending",ok:val.calFactor!==1.0},
+      {l:"AI Market Trend",v:val.hasMomentum?"Active ×"+val.momFactor.toFixed(2):"No data",ok:val.hasMomentum},
       {l:"Developer Furnished",v:val.isDevFurnished?"Yes — "+furnLabel:"No — "+furnLabel,ok:true},
       {l:"View Specified",v:analyzerState.f.view!=="Not specified"?analyzerState.f.view:"Not specified",ok:analyzerState.f.view!=="Not specified"},
       {l:"Floor Specified",v:analyzerState.f.floor?"Floor "+analyzerState.f.floor:"Not provided",ok:!!analyzerState.f.floor||analyzerState.f.propCategory==="villa"},
