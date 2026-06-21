@@ -20,7 +20,7 @@ console.log('Building www/ for Capacitor...\n');
 ensureDir(WWW);
 ensureDir(path.join(WWW, 'js'));
 
-copyFile(path.join(ROOT, 'index-6.html'), path.join(WWW, 'index.html'));
+copyFile(path.join(ROOT, 'index.html'), path.join(WWW, 'index.html'));
 
 // Apply Capacitor-specific modifications to index.html
 let html = fs.readFileSync(path.join(WWW, 'index.html'), 'utf8');

@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- API ---------------------------------------------------------------------
-var API_BASE=(location.hostname==="localhost"||location.hostname==="127.0.0.1")?"":"/api";
+var API_BASE="/api";
 var UAE_RE_KEY="7da522d58fmsh161b7610dfa29acp1023adjsn4dda46dfadfc";
 const UAE_RE_HOST="uae-real-estate2.p.rapidapi.com";
 const PF_HOST="uae-real-estate-api-propertyfinder-ae-data.p.rapidapi.com";

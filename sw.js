@@ -1,7 +1,7 @@
 var CACHE_NAME='dubaival-v3';
 var PRECACHE=[
   '/',
-  '/index-6.html',
+  '/index.html',
   '/logo.png',
   '/js/data-residential.js',
   '/js/valuation.js',
