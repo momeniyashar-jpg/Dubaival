@@ -396,7 +396,7 @@ function computeValuation(f,buildingVal,liveData){
   // DB price assumes "average view" for the building's grade.
   // Above-baseline views get premium; below-baseline views get discount.
   // VIEW_P values are 0-38% (no negatives). Differential vs grade baseline creates spread. Asymmetric clamp: -15%/+25%.
-  const GRADE_BASE_VIEW={"Ultra":0.28,"A+":0.19,"A":0.12,"A-":0.06,"B+":0.03,"B":0,"C":0};
+  const GRADE_BASE_VIEW={"Ultra":0.25,"A+":0.14,"A":0.08,"A-":0.04,"B+":0.02,"B":0,"C":0};
   const rawVP=VIEW_P[f.view]||0;
   let vP;
   if(bData&&bData.g&&GRADE_BASE_VIEW[bData.g]!==undefined){
