@@ -13,7 +13,7 @@ module.exports = async function handler(req, res) {
   var source = req.query.source || "bayut";
   var host, allowed;
   if (source === "pf") {
-    host = "propertyfinder-uae-data.p.rapidapi.com";
+    host = "uae-real-estate-api-propertyfinder-ae-data.p.rapidapi.com";
     allowed = ["autocomplete-location", "search-sale", "search-rent"];
   } else {
     host = "uae-real-estate2.p.rapidapi.com";

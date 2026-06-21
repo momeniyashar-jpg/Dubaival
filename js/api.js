@@ -3,7 +3,7 @@
 var API_BASE=(location.hostname==="localhost"||location.hostname==="127.0.0.1")?"":"/api";
 var UAE_RE_KEY="7da522d58fmsh161b7610dfa29acp1023adjsn4dda46dfadfc";
 const UAE_RE_HOST="uae-real-estate2.p.rapidapi.com";
-const PF_HOST="propertyfinder-uae-data.p.rapidapi.com";
+const PF_HOST="uae-real-estate-api-propertyfinder-ae-data.p.rapidapi.com";
 var GROQ_KEY="";try{GROQ_KEY=localStorage.getItem("dv_groq")||"";}catch(e){}
 
 async function getUAELocationId(query){
