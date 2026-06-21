@@ -1708,6 +1708,20 @@ function renderAnalyzerResult(wrap){
         span({color:cl.sub,fontSize:"12px",fontFamily:"'Space Grotesk',monospace"},"vs Market Average"),
         span({color:parseFloat(val.vsPct)<0?cl.green:parseFloat(val.vsPct)>8?cl.red:cl.yellow,fontSize:"19px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},(parseFloat(val.vsPct)>0?"+":"")+val.vsPct+"%"),
       ]),
+      div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"12px"},[
+        div({background:cl.raised,borderRadius:"10px",padding:"10px 12px",textAlign:"center"},[
+          div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"GROSS YIELD"),
+          div({color:parseFloat(val.grossYield)>=7?cl.green:parseFloat(val.grossYield)>=5?cl.yellow:cl.red,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},val.grossYield+"%"),
+        ]),
+        div({background:cl.raised,borderRadius:"10px",padding:"10px 12px",textAlign:"center"},[
+          div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"NET YIELD"),
+          div({color:parseFloat(val.netYield)>=5?cl.green:parseFloat(val.netYield)>=3?cl.yellow:cl.red,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},val.netYield+"%"),
+        ]),
+        div({background:cl.raised,borderRadius:"10px",padding:"10px 12px",textAlign:"center"},[
+          div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"TOTAL RETURN"),
+          div({color:parseFloat(val.totalReturnAnnual)>=8?cl.green:parseFloat(val.totalReturnAnnual)>=5?cl.yellow:cl.red,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},val.totalReturnAnnual+"%/yr"),
+        ]),
+      ]),
       ...[{label:"🟢 Distress Deal",price:val.distressPrice,active:val.verdict==="DISTRESS"},{label:"✅ Good Price",price:val.goodPrice,active:val.verdict==="GOOD"},{label:"🟡 Fair Market",price:val.fairPrice,active:val.verdict==="FAIR"},{label:"🔴 Overpriced",price:val.overpricedAt,active:val.verdict==="OVER"}].map(function(t){
         return div({display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",marginBottom:"3px",borderRadius:"8px",background:t.active?vcfg.bg:"transparent",border:t.active?"1px solid "+vcfg.bo:"1px solid transparent"},[
           span({color:t.active?vcfg.tx:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif"},t.label),

@@ -287,8 +287,10 @@ function renderFind(){
       if(r.psf)metaRow.appendChild(el("span",{style:{background:"rgba(201,168,76,0.1)",border:"1px solid "+cl.goldDim,color:cl.gold,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"PSF: AED "+r.psf.toLocaleString()));
       if(r.permit)metaRow.appendChild(el("span",{style:{background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.4)",color:cl.green,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"Permit: "+r.permit));
       if(r.furnished)metaRow.appendChild(el("span",{style:{background:cl.raised,border:"1px solid "+cl.border,color:cl.sub,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},r.furnished));
+      if(r.estYield)metaRow.appendChild(el("span",{style:{background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.4)",color:"#10B981",padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"Yield ~"+r.estYield+"%"));
+      if(r.growth)metaRow.appendChild(el("span",{style:{background:"rgba(59,130,246,0.1)",border:"1px solid rgba(59,130,246,0.4)",color:"#3B82F6",padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"+"+r.growth+"% 1yr"));
       card.appendChild(metaRow);
-      
+
       // Agent info
       if(r.agentName||r.agencyName){
         var agentRow=el("div",{style:{display:"flex",alignItems:"center",gap:"8px",padding:"8px 10px",background:"rgba(255,255,255,0.03)",borderRadius:"8px",marginBottom:"8px"}});
@@ -317,7 +319,7 @@ function renderFind(){
       var btnRow=el("div",{style:{display:"flex",gap:"8px"}});
       
       // PropertyFinder / Bayut link
-      if(r.bayutUrl||r.pfUrl){
+      if(r.listingUrl||r.bayutUrl||r.pfUrl){
         var linkBtn=el("a",{style:{flex:"1",background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 10px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",textDecoration:"none",textAlign:"center"}});
         linkBtn.href=r.listingUrl||r.bayutUrl||r.pfUrl||"#";
         linkBtn.target="_blank";
@@ -542,7 +544,7 @@ function renderFind(){
     // If no results, fallback to DB
     if(FS.results.length===0&&!loadMore){
       doDBSearch(query,area,beds,maxPrice,type);
-      FS.aiSummary="Live search unavailable. Showing DubAIVal database results.";
+      FS.aiSummary="Live search unavailable. Showing "+FS.results.length+" buildings from DubAIVal database (8,500+ properties). Click 'Analyze Deal' for full valuation.";
     }
 
     FS.searched=true;FS.loading=false;FS.loadingMore=false;
@@ -607,16 +609,36 @@ function renderFind(){
 
   function doDBSearch(query,area,beds,maxPrice,type){
     var bldgFilter=(FS.building||"").toLowerCase().trim();
+    var queryLower=(query||"").toLowerCase().trim();
+    var bedsNumMap={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5};
+    var bn=bedsNumMap[beds]||2;
+    var sizeEst=beds==="Studio"?500:beds==="1 BR"?750:beds==="2 BR"?1100:beds==="3 BR"?1600:2200;
     var dbResults=[];
     Object.entries(DB).forEach(function(e){
       var key=e[0],val=e[1];
-      if(dbResults.length>=30)return;
+      if(dbResults.length>=50)return;
       var areaMatch=!area||val.a===area;
       if(bldgFilter.length>1&&key.indexOf(bldgFilter)<0)return;
+      if(queryLower.length>1&&!bldgFilter&&key.indexOf(queryLower)<0&&(val.a||"").toLowerCase().indexOf(queryLower)<0)return;
       if(areaMatch){
-        var estPrice=val.p*(beds==="Studio"?500:beds==="1 BR"?750:beds==="2 BR"?1100:beds==="3 BR"?1600:2200);
+        var estPrice=val.p*sizeEst;
         if(maxPrice&&estPrice>maxPrice)return;
-        dbResults.push({title:key,area:val.a,psf:val.p,price:estPrice,g:val.g,apiSource:"DubAIVal DB"});
+        var aData=AREAS[val.a];
+        var avgYield=aData&&aData.y?((aData.y[0]+aData.y[1])/2):6;
+        var estRent=Math.round(estPrice*avgYield/100);
+        var gr=aData&&aData.g?aData.g:[8,15,25];
+        dbResults.push({
+          title:key,area:val.a,psf:val.p,price:estPrice,
+          size:Math.round(sizeEst/10.764),
+          beds:bn,baths:bn>0?bn:1,
+          grade:val.g,g:val.g,
+          source:"DubAIVal DB",
+          agentName:"",agencyName:"",agentPhone:"",agentWA:"",photo:"",
+          listingUrl:"",
+          estRent:estRent,estYield:avgYield.toFixed(1),
+          growth:gr[0],
+          apiSource:"DubAIVal DB"
+        });
       }
     });
     FS.results=scoreDealQuality(dbResults);
