@@ -430,6 +430,8 @@ function computeValuation(f,buildingVal,liveData){
   const penthP=f.aptSubtype==="Penthouse"?0.15:0;
   // Maid's room premium
   const maidP=f.hasMaid?0.03:0;
+  const studyP=f.hasStudy?0.02:0;
+  const upgradeP=f.isUpgraded?0.05:0;
   const privatePoolP=isVilla&&f.privatePool?0.12:0;  // 12% - private pool premium (Dubai market)
   const singleRowP=isVilla&&f.singleRow?0.08:0;    // 8% - single row / end-unit privacy
   const cornerVillaP=isVilla&&f.cornerVilla?0.05:0; // 5% - corner plot premium
@@ -450,7 +452,7 @@ function computeValuation(f,buildingVal,liveData){
   // Location Intelligence: metro/amenity proximity premium
   const geoScore=computeGeoScore(f.area);
   const locP=geoScore?geoScore.locationPremium:0;
-  const hedonicMult=(1+vP)*(1+fP)*(1+loftP)*(1+penthP)*(1+maidP)*(1+furnP)*(1+privatePoolP)*(1+singleRowP)*(1+cornerVillaP)*(1+geoAdj)*(1+locP);
+  const hedonicMult=(1+vP)*(1+fP)*(1+loftP)*(1+penthP)*(1+maidP)*(1+studyP)*(1+upgradeP)*(1+furnP)*(1+privatePoolP)*(1+singleRowP)*(1+cornerVillaP)*(1+geoAdj)*(1+locP);
   const adjPSF=Math.round(basePSF*hedonicMult);
   psfLo=Math.round(psfLo*hedonicMult);psfHi=Math.round(psfHi*hedonicMult);
   const parkBonus=Math.max(0,(parseInt(f.parking)||1)-1)*80000;

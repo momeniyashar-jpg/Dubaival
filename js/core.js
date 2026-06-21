@@ -436,6 +436,8 @@ var analyzerState={
     beds:"",
     bathrooms:"",
     hasMaid:false,
+    hasStudy:false,
+    isUpgraded:false,
     floor:"",
     view:"Not specified",
     size:"",

@@ -1235,6 +1235,28 @@ function renderAnalyzer(){
     maidRowV.appendChild(maidLblV);
     maidRowV.addEventListener("click",function(){analyzerState.f.hasMaid=!analyzerState.f.hasMaid;render();});
     formCard.appendChild(maidRowV);
+    // Study Room toggle (villa)
+    var studyRowV=el("div",{style:{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",padding:"10px 12px",background:cl.raised,borderRadius:"8px",cursor:"pointer",border:"1px solid "+(f.hasStudy?cl.gold:cl.border)}});
+    var studyChkV=el("div",{style:{width:"18px",height:"18px",borderRadius:"4px",border:"2px solid "+(f.hasStudy?cl.gold:cl.border),background:f.hasStudy?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",color:"#08090C",fontWeight:"900"}});
+    if(f.hasStudy)studyChkV.textContent="✓";
+    var studyLblV=el("div",{});
+    studyLblV.appendChild(div({color:"#F0F2F5",fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Study Room (+2%)"));
+    studyLblV.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},"Dedicated study/office — value premium"));
+    studyRowV.appendChild(studyChkV);
+    studyRowV.appendChild(studyLblV);
+    studyRowV.addEventListener("click",function(){analyzerState.f.hasStudy=!analyzerState.f.hasStudy;render();});
+    formCard.appendChild(studyRowV);
+    // Upgraded toggle (villa)
+    var upgRowV=el("div",{style:{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",padding:"10px 12px",background:cl.raised,borderRadius:"8px",cursor:"pointer",border:"1px solid "+(f.isUpgraded?cl.gold:cl.border)}});
+    var upgChkV=el("div",{style:{width:"18px",height:"18px",borderRadius:"4px",border:"2px solid "+(f.isUpgraded?cl.gold:cl.border),background:f.isUpgraded?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",color:"#08090C",fontWeight:"900"}});
+    if(f.isUpgraded)upgChkV.textContent="✓";
+    var upgLblV=el("div",{});
+    upgLblV.appendChild(div({color:"#F0F2F5",fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Upgraded (+5%)"));
+    upgLblV.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},"Kitchen, bathrooms, flooring upgraded by owner"));
+    upgRowV.appendChild(upgChkV);
+    upgRowV.appendChild(upgLblV);
+    upgRowV.addEventListener("click",function(){analyzerState.f.isUpgraded=!analyzerState.f.isUpgraded;render();});
+    formCard.appendChild(upgRowV);
     // BUA + Plot
     const sizeRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginTop:"12px",marginBottom:"12px"}});
     const buaBox=el("div",{}); buaBox.appendChild(lbl("BUA (sqft)"));
@@ -1404,6 +1426,28 @@ function renderAnalyzer(){
     maidRow.appendChild(maidLabel);
     maidRow.addEventListener("click",function(){analyzerState.f.hasMaid=!analyzerState.f.hasMaid;render();});
     formCard.appendChild(maidRow);
+    // Study Room toggle (apartment)
+    const studyRow=el("div",{style:{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",padding:"10px 12px",background:cl.raised,borderRadius:"8px",cursor:"pointer",border:"1px solid "+(f.hasStudy?cl.gold:cl.border)}});
+    const studyChk=el("div",{style:{width:"18px",height:"18px",borderRadius:"4px",border:"2px solid "+(f.hasStudy?cl.gold:cl.border),background:f.hasStudy?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",color:"#08090C",fontWeight:"900"}});
+    if(f.hasStudy)studyChk.textContent="✓";
+    const studyLbl=el("div",{});
+    studyLbl.appendChild(div({color:"#F0F2F5",fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Study Room"));
+    studyLbl.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},isRentalA?"+AED 3-8K/yr rent premium":"+2% value premium"));
+    studyRow.appendChild(studyChk);
+    studyRow.appendChild(studyLbl);
+    studyRow.addEventListener("click",function(){analyzerState.f.hasStudy=!analyzerState.f.hasStudy;render();});
+    formCard.appendChild(studyRow);
+    // Upgraded toggle (apartment)
+    const upgRow=el("div",{style:{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",padding:"10px 12px",background:cl.raised,borderRadius:"8px",cursor:"pointer",border:"1px solid "+(f.isUpgraded?cl.gold:cl.border)}});
+    const upgChk=el("div",{style:{width:"18px",height:"18px",borderRadius:"4px",border:"2px solid "+(f.isUpgraded?cl.gold:cl.border),background:f.isUpgraded?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",color:"#08090C",fontWeight:"900"}});
+    if(f.isUpgraded)upgChk.textContent="✓";
+    const upgLbl=el("div",{});
+    upgLbl.appendChild(div({color:"#F0F2F5",fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Upgraded"));
+    upgLbl.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},isRentalA?"+5-10% rent premium":"+5% value premium"));
+    upgRow.appendChild(upgChk);
+    upgRow.appendChild(upgLbl);
+    upgRow.addEventListener("click",function(){analyzerState.f.isUpgraded=!analyzerState.f.isUpgraded;render();});
+    formCard.appendChild(upgRow);
 
     // SC
     formCard.appendChild(fld("Service Charge (AED/sqft/yr)",inp(I(),f.serviceCharge||"e.g. 18","number",f.serviceCharge,function(v){analyzerState.f.serviceCharge=v;})));
@@ -1780,21 +1824,30 @@ function renderAnalyzerResult(wrap){
     wrap.appendChild(susCard);
   })();
 
-  // -- DEVELOPER FURNISHED NOTICE --
-  if(val.isDevFurnished){
-    const dfFurnLabel=analyzerState.f.furnished==="Unfurnished"?"Stripped − furniture removed (−10% applied)":analyzerState.f.furnished==="Semi-Furnished"?"Partially furnished (−5% applied)":"Included in base price — no extra premium";
+  // -- FURNISHED NOTICE (only when furnished selected) --
+  if(analyzerState.f.furnished==="Furnished"||analyzerState.f.furnished==="Semi-Furnished"){
+    var furnNoticeTitle,furnNoticeMsg;
+    if(val.isDevFurnished){
+      furnNoticeTitle="DEVELOPER-FURNISHED BUILDING";
+      furnNoticeMsg=analyzerState.f.furnished==="Unfurnished"?"Stripped − furniture removed (−10% applied)":analyzerState.f.furnished==="Semi-Furnished"?"Partially furnished (−5% applied)":"Included in base price — no extra premium";
+    }else{
+      furnNoticeTitle="OWNER-FURNISHED UNIT";
+      var furnPctLabel=val.fairPrice>=30e6?"1.5%":val.fairPrice>=15e6?"2.5%":val.fairPrice>=5e6?"4%":val.fairPrice>=2e6?"7%":"10%";
+      furnNoticeMsg=analyzerState.f.furnished==="Furnished"?"Owner-furnished premium +"+furnPctLabel+" applied (scales by property value)":"Semi-furnished premium applied";
+    }
     wrap.appendChild(div({background:"linear-gradient(135deg,rgba(201,168,76,0.12),transparent)",border:"1px solid rgba(201,168,76,0.35)",borderRadius:"12px",padding:"12px 16px",marginBottom:"14px",display:"flex",alignItems:"flex-start",gap:"10px"},[
       span({fontSize:"18px"},"⚑"),
       div({},[
-        span({color:"#C9A84C",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",display:"block",marginBottom:"3px"},"DEVELOPER-FURNISHED BUILDING"),
-        span({color:"#aaa",fontSize:"10.5px",fontFamily:"'Inter',sans-serif"},dfFurnLabel),
+        span({color:"#C9A84C",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",display:"block",marginBottom:"3px"},furnNoticeTitle),
+        span({color:"#aaa",fontSize:"10.5px",fontFamily:"'Inter',sans-serif"},furnNoticeMsg),
       ]),
     ]));
   }
 
   // -- CONFIDENCE BREAKDOWN --
   (function(){
-    const furnLabel=val.isDevFurnished?(analyzerState.f.furnished==="Furnished"?"Incl. in base (no extra)":analyzerState.f.furnished==="Unfurnished"?"Stripped −10%":"Semi −5%"):(analyzerState.f.furnished==="Furnished"?"+15%":analyzerState.f.furnished==="Semi-Furnished"?"+7%":"0%");
+    var _furnPctLbl=val.fairPrice>=30e6?"1.5%":val.fairPrice>=15e6?"2.5%":val.fairPrice>=5e6?"4%":val.fairPrice>=2e6?"7%":"10%";
+    const furnLabel=val.isDevFurnished?(analyzerState.f.furnished==="Furnished"?"Incl. in base (no extra)":analyzerState.f.furnished==="Unfurnished"?"Stripped −10%":"Semi −5%"):(analyzerState.f.furnished==="Furnished"?"+"+_furnPctLbl:analyzerState.f.furnished==="Semi-Furnished"?"Semi":"-");
     const factors=[
       {l:"Data Source",v:val.dataLayer===1?"Verified DB":"Estimated",ok:val.dataLayer===1},
       {l:"Building Match",v:val.inDB?"Found in DB":"Area benchmark",ok:val.inDB},

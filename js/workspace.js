@@ -43,7 +43,7 @@ var WS_REPORT_SECTIONS=[
 
 function renderWorkspace(){
   var cl=C();
-  var wrap=div({padding:"16px 20px",maxWidth:"640px",margin:"0 auto",paddingBottom:"90px"});
+  var wrap=div({padding:"16px 20px",maxWidth:"640px",margin:"0 auto",paddingBottom:"90px",boxSizing:"border-box",overflowX:"hidden"});
   wrap.appendChild(div({marginBottom:"16px"},[
     span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ My Workspace"),
     span({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Your personal dashboard & custom reports")
@@ -87,10 +87,10 @@ function renderWorkspace(){
   // Tool selector (always show)
   var selCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"14px 16px",marginBottom:"14px"});
   selCard.appendChild(span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},"Available Tools"));
-  var toolGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}});
+  var toolGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",overflow:"hidden"}});
   WS_TOOLS.forEach(function(t){
     var inWS=WS_STATE.widgets.indexOf(t.id)!==-1;
-    var tc=el("div",{style:{background:inWS?hexAlpha(cl.gold,0.06):"rgba(240,242,245,0.03)",border:"1px solid "+(inWS?cl.goldDim:cl.border),borderRadius:"10px",padding:"10px",cursor:"pointer",display:"flex",alignItems:"center",gap:"8px",transition:"all 0.2s"}});
+    var tc=el("div",{style:{background:inWS?hexAlpha(cl.gold,0.06):"rgba(240,242,245,0.03)",border:"1px solid "+(inWS?cl.goldDim:cl.border),borderRadius:"10px",padding:"10px",cursor:"pointer",display:"flex",alignItems:"center",gap:"8px",transition:"all 0.2s",minWidth:"0",overflow:"hidden"}});
     tc.appendChild(span({fontSize:"16px",flexShrink:"0"},t.icon));
     var info=el("div",{style:{flex:"1",minWidth:"0"}});
     info.appendChild(div({color:inWS?cl.gold:cl.subHi,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},t.label));
@@ -128,7 +128,7 @@ function renderWorkspace(){
     wrap.appendChild(orderCard);
 
     // Mini widget dashboard
-    var dashGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}});
+    var dashGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",overflow:"hidden"}});
     WS_STATE.widgets.forEach(function(wid){
       var tool=WS_TOOLS.find(function(t){return t.id===wid;});if(!tool)return;
       var card=el("div",{style:{background:"linear-gradient(135deg,rgba(201,168,76,0.04),transparent)",border:"1px solid "+cl.border,borderRadius:"12px",padding:"14px",cursor:"pointer",transition:"border-color 0.2s"}});
