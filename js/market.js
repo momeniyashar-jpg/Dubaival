@@ -2288,8 +2288,8 @@ function renderAnalyzerResult(wrap){
       var buyerMax=Math.round(fair*1.03);
       var sellerMin=Math.round(fair*0.95);
       var sweetSpot=Math.round((buyerMax+sellerMin)/2);
-      var commRate=0.02;
-      var commAmount=Math.round(sweetSpot*commRate);
+      var annualRent=val.estRent||Math.round(sweetSpot*(parseFloat(val.grossYield)||5)/100);
+      var sweetYield=annualRent>0?((annualRent/sweetSpot)*100).toFixed(1):"—";
       var dealProb=val.verdict==="DISTRESS"?"Very High (90%+)":val.verdict==="GOOD"?"High (75-85%)":val.verdict==="FAIR"?"Moderate (55-70%)":"Low (30-45%)";
       var dealProbColor=val.verdict==="DISTRESS"||val.verdict==="GOOD"?cl.green:val.verdict==="FAIR"?cl.yellow:"#EF4444";
 
@@ -2325,8 +2325,8 @@ function renderAnalyzerResult(wrap){
           div({color:dealProbColor,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},dealProb),
         ]),
         div({background:cl.raised,borderRadius:"10px",padding:"12px 14px"},[
-          lbl("Est. Commission (2%)"),
-          div({color:"#3B82F6",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+commAmount.toLocaleString()),
+          lbl("Yield at Sweet Spot"),
+          div({color:"#3B82F6",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},sweetYield+"%"),
         ]),
         div({background:cl.raised,borderRadius:"10px",padding:"12px 14px"},[
           lbl("Buyer's Gross Yield"),
@@ -2344,7 +2344,7 @@ function renderAnalyzerResult(wrap){
         div({color:"#3B82F6",fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"Talking Points"),
         div({marginBottom:"6px"},[span({color:cl.green,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"FOR BUYER: "),span({color:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Market PSF is AED "+val.adjPSF+". Net yield "+val.netYield+"%. 3-year growth forecast +"+gr+"%. Total return "+val.totalReturnAnnual+"%/yr. "+(val.verdict==="OVER"?"Negotiate to AED "+fair.toLocaleString()+" for fair entry.":"Good entry point — act before the market moves."))]),
         div({marginBottom:"6px"},[span({color:"#F87171",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"FOR SELLER: "),span({color:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Fair value AED "+fair.toLocaleString()+". If sold now, buyer gets "+val.grossYield+"% yield. 1-year projected value AED "+proj1Agent.toLocaleString()+". "+(val.verdict==="OVER"?"Price may deter buyers — consider adjusting to AED "+Math.round(fair*1.03).toLocaleString()+".":"Competitive pricing — expect strong buyer interest."))]),
-        div({},[span({color:"#3B82F6",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"DEAL TIP: "),span({color:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Recommend closing at AED "+sweetSpot.toLocaleString()+" — satisfies both parties. "+(val.domEst?"Average days on market: "+val.domEst+" days. ":"")+"Area liquidity: "+(val.liqTier?val.liqTier.label:"Moderate")+". Commission at this price: AED "+commAmount.toLocaleString()+".")]),
+        div({},[span({color:"#3B82F6",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"DEAL TIP: "),span({color:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Recommend closing at AED "+sweetSpot.toLocaleString()+" — satisfies both parties. "+(val.domEst?"Average days on market: "+val.domEst+" days. ":"")+"Area liquidity: "+(val.liqTier?val.liqTier.label:"Moderate")+". Buyer yield at this price: "+sweetYield+"%.")]),
       ]));
       wrap.appendChild(agentCard);
     }

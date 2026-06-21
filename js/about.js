@@ -122,7 +122,7 @@ function renderAbout(){
   var flywheel=[
     {icon:"🎬",title:"Agents Create Content",desc:"RERA-verified agents produce professional walkthrough videos, market updates, and property reviews on YouTube & Instagram to build their reputation on DubAIVal."},
     {icon:"⭐",title:"Ranking & Visibility",desc:"Higher quality content and more engagement = higher agent ranking on DubAIVal = priority access to off-market deals and buyer referrals."},
-    {icon:"💰",title:"Financial Incentive",desc:"Top-ranked agents receive direct buyer referrals through our Deal Network — creating real commission opportunities that drive continued content production."},
+    {icon:"💰",title:"Premium Visibility",desc:"Top-ranked agents receive priority placement and direct buyer connections through our Deal Network — driving more leads and continued content production."},
     {icon:"🌍",title:"Organic Market Promotion",desc:"Hundreds of professionals producing daily content about Dubai properties creates a powerful, authentic narrative of market stability and opportunity — far more credible than traditional advertising."},
     {icon:"📈",title:"Market Confidence",desc:"Authentic, data-driven content from verified professionals builds international investor confidence in Dubai real estate, supporting market stability and growth."},
     {icon:"🏛️",title:"Government Value",desc:"A self-sustaining promotional engine for Dubai's property market — organic, professional, credible content at zero cost to government agencies."}

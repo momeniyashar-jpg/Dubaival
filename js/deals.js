@@ -302,7 +302,7 @@ async function updateReferralStatus(referralId,status,dealValue){
   try{
     var patch={status:status,updated_at:new Date().toISOString()};
     if(dealValue)patch.deal_value=dealValue;
-    if(status==="closed"&&dealValue){patch.commission_earned=dealValue*0.02;}
+    if(status==="closed"&&dealValue){patch.deal_value=dealValue;}
     var resp=await fetch(SUPABASE_URL+"/rest/v1/dv_referrals?id=eq."+referralId,{method:"PATCH",
       headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
       body:JSON.stringify(patch)});
@@ -1336,7 +1336,7 @@ function renderDealForm(wrap,cl){
 
   var notesG=div({marginBottom:"14px"});
   notesG.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",marginBottom:"4px"},"Notes"));
-  var notesInp=el("textarea",{placeholder:"Additional details, special conditions, commission split…",rows:"3",
+  var notesInp=el("textarea",{placeholder:"Additional details, special conditions…",rows:"3",
     style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"10px",borderRadius:"8px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",resize:"vertical"}});
   notesInp.value=f.notes||"";notesInp.oninput=function(){f.notes=this.value;};
   notesG.appendChild(notesInp);
@@ -1557,17 +1557,18 @@ function renderAdminDashboard(wrap,cl){
   var goldAgents=hub.agents.filter(function(a){return a.subscription==="gold"||a.subscription==="platinum";}).length;
   var pendingRefs=hub.referrals.filter(function(r){return r.status==="pending";}).length;
   var closedRefs=hub.referrals.filter(function(r){return r.status==="closed";}).length;
-  var totalCommission=hub.referrals.reduce(function(sum,r){return sum+(r.commission_earned||0);},0);
+  var totalDeals=hub.referrals.filter(function(r){return r.status==="closed";}).length;
   [{l:"Total Agents",v:totalAgents,c:cl.subHi},{l:"Gold/Platinum",v:goldAgents,c:"#EAB308"},{l:"Pending Referrals",v:pendingRefs,c:"#F59E0B"},{l:"Closed Deals",v:closedRefs,c:cl.green}].forEach(function(s){
     stats.appendChild(div({background:cl.raised,borderRadius:"8px",padding:"8px",textAlign:"center"},[
       div({color:s.c,fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},String(s.v)),
       div({color:cl.sub,fontSize:"8px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},s.l)]));
   });
   card.appendChild(stats);
-  if(totalCommission>0){
+  if(totalDeals>0){
+    var totalDealValue=hub.referrals.reduce(function(sum,r){return sum+(r.deal_value||0);},0);
     card.appendChild(div({background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.2)",borderRadius:"10px",padding:"10px",textAlign:"center",marginBottom:"14px"},[
-      div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"TOTAL REFERRAL COMMISSION EARNED"),
-      div({color:cl.green,fontSize:"22px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"AED "+totalCommission.toLocaleString())]));
+      div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"TOTAL CLOSED DEAL VALUE"),
+      div({color:cl.green,fontSize:"22px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"AED "+totalDealValue.toLocaleString())]));
   }
 
   card.appendChild(div({color:"#F59E0B",fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",fontWeight:"700"},"◆ PENDING REFERRAL REQUESTS"));
@@ -1620,7 +1621,7 @@ function renderAdminDashboard(wrap,cl){
         span({color:cl.subHi,fontSize:"11px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},ref.buyer_name+(ref.buyer_area?" · "+ref.buyer_area:"")),
         span({color:sc,fontSize:"8px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",background:hexAlpha(sc,0.12),padding:"2px 6px",borderRadius:"6px",textTransform:"uppercase"},ref.status)
       ]));
-      if(ref.deal_value)refInfo.appendChild(div({color:cl.green,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"Deal: AED "+ref.deal_value.toLocaleString()+(ref.commission_earned?" · Commission: AED "+ref.commission_earned.toLocaleString():"")));
+      if(ref.deal_value)refInfo.appendChild(div({color:cl.green,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"Deal Value: AED "+ref.deal_value.toLocaleString()));
       refRow.appendChild(refInfo);
       if(ref.status!=="closed"&&ref.status!=="cancelled"){
         var actionSel=el("select",{style:{background:cl.surface,border:"1px solid "+cl.border,color:cl.subHi,padding:"4px 8px",borderRadius:"6px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}});
