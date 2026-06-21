@@ -41,40 +41,6 @@ function renderFind(){
   wrap.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Property Search"));
   wrap.appendChild(div({color:cl.sub,fontSize:"12px",marginBottom:"16px",fontFamily:"'Inter',sans-serif"},"Tell DubAIVal what you're looking for. AI searches Bayut, PropertyFinder & market data."));
 
-  // API connection banner
-  if(!UAE_RE_KEY){
-    var apiBanner=el("div",{style:{background:hexAlpha("#F59E0B",0.08),border:"1px solid "+hexAlpha("#F59E0B",0.3),borderRadius:"12px",padding:"14px",marginBottom:"14px"}});
-    apiBanner.appendChild(div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px"},[
-      span({fontSize:"16px"},"🔑"),
-      div({},[
-        div({color:"#F59E0B",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"Live Market Connection"),
-        div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},"Enter your RapidAPI key to unlock live Bayut & PropertyFinder listings with photos, prices & agent contacts")
-      ])
-    ]));
-    var keyRow=el("div",{style:{display:"flex",gap:"8px"}});
-    var keyInp=el("input",{type:"password",placeholder:"Paste your RapidAPI key here",style:{flex:"1",background:"rgba(240,242,245,0.05)",border:"1px solid "+cl.border,color:"#F0F2F5",padding:"9px 12px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none"}});
-    keyRow.appendChild(keyInp);
-    var keyBtn=el("button",{style:{background:"linear-gradient(135deg,#F59E0B,#D97706)",color:"#000",border:"none",padding:"9px 16px",borderRadius:"8px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",whiteSpace:"nowrap"}});
-    keyBtn.textContent="Connect";
-    keyBtn.addEventListener("click",function(){
-      var v=keyInp.value.trim();
-      if(!v){alert("Please enter a valid API key");return;}
-      try{localStorage.setItem("dv_rapidapi",v);}catch(e){}
-      UAE_RE_KEY=v;
-      render();
-    });
-    keyRow.appendChild(keyBtn);
-    apiBanner.appendChild(keyRow);
-    apiBanner.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif",marginTop:"8px",lineHeight:"1.5"},"Without API key, search uses DubAIVal's 8,500+ building database (no photos/contacts). Get a free key at rapidapi.com → search \"UAE Real Estate\""));
-    wrap.appendChild(apiBanner);
-  }else{
-    wrap.appendChild(div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"14px",padding:"8px 12px",background:hexAlpha("#10B981",0.08),border:"1px solid "+hexAlpha("#10B981",0.3),borderRadius:"10px"},[
-      div({width:"6px",height:"6px",borderRadius:"50%",background:"#10B981",animation:"pulse 2s infinite",flexShrink:"0"}),
-      span({color:"#10B981",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"LIVE — Connected to Bayut + PropertyFinder"),
-      el("button",{style:{marginLeft:"auto",background:"transparent",border:"1px solid "+hexAlpha("#EF4444",0.3),color:"#EF4444",padding:"3px 8px",borderRadius:"6px",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){try{localStorage.removeItem("dv_rapidapi");}catch(e){}UAE_RE_KEY="";render();}},"Disconnect")
-    ]));
-  }
-
   if(!window.FIND_STATE)window.FIND_STATE={area:"",building:"",beds:"2 BR",maxPrice:"",minYield:"",type:"Apartment",query:"",results:[],loading:false,searched:false,sort:"score",
     sf:{area:"",grade:"",minYield:"",maxPSF:"",minPSF:"",minGrowth:"",maxDOM:"",minTurnover:"",type:"Apartment",beds:"Any",sort:"yield",showResults:false,results:[]}
   };
@@ -1378,35 +1344,6 @@ function render(){
     pGrid.appendChild(nameBox);
 
     panel.appendChild(pGrid);
-
-    // API Keys section
-    var apiSection=el("div",{style:{maxWidth:"800px",margin:"16px auto 0",padding:"14px",background:cl.raised,borderRadius:"10px",border:"1px solid "+cl.border}});
-    apiSection.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"API KEYS (for Live Market Data)"));
-    var apiGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px"}});
-    // RapidAPI Key
-    var raBox=el("div",{});
-    raBox.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"RapidAPI Key"));
-    raBox.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif",marginBottom:"4px",opacity:"0.6"},"Enables live Bayut + PropertyFinder data"));
-    var raInp=el("input",{type:"password",placeholder:"Enter RapidAPI key",style:{width:"100%",background:"rgba(240,242,245,0.05)",border:"1px solid "+cl.border,color:"#F0F2F5",padding:"7px 10px",borderRadius:"7px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
-    raInp.value=UAE_RE_KEY||"";
-    raInp.addEventListener("change",function(){var v=this.value.trim();try{localStorage.setItem("dv_rapidapi",v);}catch(e){}UAE_RE_KEY=v;});
-    raBox.appendChild(raInp);
-    apiGrid.appendChild(raBox);
-    // Groq Key
-    var grBox=el("div",{});
-    grBox.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Groq API Key"));
-    grBox.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif",marginBottom:"4px",opacity:"0.6"},"Enables AI analysis & chat"));
-    var grInp=el("input",{type:"password",placeholder:"Enter Groq key",style:{width:"100%",background:"rgba(240,242,245,0.05)",border:"1px solid "+cl.border,color:"#F0F2F5",padding:"7px 10px",borderRadius:"7px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
-    grInp.value=GROQ_KEY||"";
-    grInp.addEventListener("change",function(){var v=this.value.trim();try{localStorage.setItem("dv_groq",v);}catch(e){}GROQ_KEY=v;});
-    grBox.appendChild(grInp);
-    apiGrid.appendChild(grBox);
-    apiSection.appendChild(apiGrid);
-    var apiStatus=el("div",{style:{display:"flex",gap:"8px",marginTop:"10px",flexWrap:"wrap"}});
-    apiStatus.appendChild(el("span",{style:{fontSize:"10px",fontFamily:"'Space Grotesk',monospace",padding:"3px 10px",borderRadius:"20px",background:UAE_RE_KEY?hexAlpha("#10B981",0.12):hexAlpha("#EF4444",0.12),border:"1px solid "+(UAE_RE_KEY?"rgba(16,185,129,0.4)":"rgba(239,68,68,0.4)"),color:UAE_RE_KEY?"#10B981":"#EF4444"}},UAE_RE_KEY?"RapidAPI: Connected":"RapidAPI: Not Set"));
-    apiStatus.appendChild(el("span",{style:{fontSize:"10px",fontFamily:"'Space Grotesk',monospace",padding:"3px 10px",borderRadius:"20px",background:GROQ_KEY?hexAlpha("#10B981",0.12):hexAlpha("#EF4444",0.12),border:"1px solid "+(GROQ_KEY?"rgba(16,185,129,0.4)":"rgba(239,68,68,0.4)"),color:GROQ_KEY?"#10B981":"#EF4444"}},GROQ_KEY?"Groq AI: Connected":"Groq AI: Not Set"));
-    apiSection.appendChild(apiStatus);
-    panel.appendChild(apiSection);
 
     // Profile summary bar
     var summary=el("div",{style:{display:"flex",gap:"10px",flexWrap:"wrap",marginTop:"12px",paddingTop:"10px",borderTop:"1px solid "+cl.border,maxWidth:"800px",margin:"12px auto 0"}});
