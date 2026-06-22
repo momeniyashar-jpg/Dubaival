@@ -32,7 +32,7 @@ for (const filename of files) {
   let html = fs.readFileSync(filePath, 'utf8');
 
   // 1. Replace gmail with domain email
-  html = html.replace(/momeni\.yashar@gmail\.com/g, 'info@dubaival.com');
+  html = html.replace(/momeni\.yashar@gmail\.com/g, 'momeni.yashar@gmail.com');
 
   // 2. Replace old revenue table
   const oldRevenuePatterns = [
