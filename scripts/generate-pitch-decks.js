@@ -241,7 +241,7 @@ ${cards}
       </div>
       <div style="padding:12px 24px;background:var(--card);border:1px solid var(--border);border-radius:8px;">
         <span style="color:var(--t3);font-size:13px;">Email</span><br/>
-        <span style="color:var(--acc);font-weight:600;">momeni.yashar@gmail.com</span>
+        <span style="color:var(--acc);font-weight:600;">info@dubaival.com</span>
       </div>
       <div style="padding:12px 24px;background:var(--card);border:1px solid var(--border);border-radius:8px;">
         <span style="color:var(--t3);font-size:13px;">Vision</span><br/>
@@ -274,8 +274,8 @@ for (const [filename, target] of Object.entries(targets)) {
 
   // 3. Replace Ask slide — match from comment block to closing </div> before <script>
   const askSlide = buildAskSlide(target);
-  const askStart = html.indexOf('<!-- SLIDE 16: THE ASK -->');
-  const askEnd = html.indexOf('\n\n<!-- ═', askStart);
+  const askStart = html.indexOf('<!-- SLIDE 17: THE ASK -->');
+  const askEnd = html.indexOf('\n\n<!-- ═', askStart) !== -1 ? html.indexOf('\n\n<!-- ═', askStart) : html.indexOf('\n<script>', askStart);
   if (askStart !== -1 && askEnd !== -1) {
     const beforeAsk = html.slice(0, askStart);
     const afterAsk = html.slice(askEnd);
