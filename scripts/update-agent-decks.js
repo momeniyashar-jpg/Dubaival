@@ -100,7 +100,7 @@ for (const filename of files) {
   );
 
   // 9. Update founder name and bio
-  html = html.replace('Mohammad Akbar Momenian', 'Yashar Momenian');
+  html = html.replace('Mohammad Akbar Momenian', 'Mohammad Akbar');
   html = html.replace('>MA<', '>YM<');
   html = html.replace(
     /Dubai-based entrepreneur with deep domain expertise in UAE real estate markets\. Combines hands-on market knowledge with technical product development capabilities\./,
