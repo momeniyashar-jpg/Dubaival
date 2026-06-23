@@ -400,9 +400,10 @@ async function fetchMarketMomentum(){
 function getMomentumFactor(area){
   var m=MARKET_MOMENTUM[area];
   if(!m)m=MARKET_MOMENTUM["_overall"];
-  if(!m||!m.pct)return 1.0;
+  if(!m||m.pct==null)return 1.0;
   var age=m.updated?(Date.now()-new Date(m.updated).getTime())/(1000*60*60*24):999;
   if(age>30)return 1.0;
+  if(m.pct===0)return 1.0;
   var confWeight=m.conf==="high"?1.0:m.conf==="medium"?0.7:0.4;
   var rawAdj=m.pct/100*confWeight;
   var capped=Math.max(-0.15,Math.min(0.15,rawAdj));
@@ -489,6 +490,23 @@ async function runMarketIntelligence(){
   }
 }
 
+function generateFallbackMomentum(){
+  if(typeof AREAS==="undefined")return;
+  var totalG=0,cnt=0;
+  MI_TOP_AREAS.forEach(function(name){
+    var a=AREAS[name];if(!a||!a.g)return;
+    var g1yr=a.g[0]||0;
+    var trend=g1yr>=5?"up":g1yr>=2?"stable":"down";
+    var halfYearPct=Math.round(g1yr/2*10)/10;
+    MARKET_MOMENTUM[name]={trend:trend,pct:halfYearPct,conf:"medium",updated:new Date().toISOString()};
+    totalG+=g1yr;cnt++;
+  });
+  var avgG=cnt>0?totalG/cnt:3;
+  MARKET_MOMENTUM["_overall"]={trend:avgG>=4?"up":avgG>=2?"stable":"down",pct:Math.round(avgG/2*10)/10,conf:"medium",updated:new Date().toISOString()};
+  MOMENTUM_LOADED=true;
+  console.log("[DubaiVal] Fallback momentum generated for",cnt,"areas (from AREAS growth data)");
+}
+
 function shouldRunIntelligence(){
   var overall=MARKET_MOMENTUM["_overall"];
   if(!overall||!overall.updated)return true;
@@ -505,7 +523,11 @@ if(typeof window!=="undefined"){
     await fetchMarketMomentum();
     if(shouldRunIntelligence()){
       console.log("[DubaiVal] Market intelligence stale/missing — running AI update...");
-      await runMarketIntelligence();
+      var result=await runMarketIntelligence();
+      if(!result||!result.success){
+        console.log("[DubaiVal] AI intelligence failed, generating fallback from AREAS growth data...");
+        generateFallbackMomentum();
+      }
     }
   },800);
 }

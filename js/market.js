@@ -1909,7 +1909,7 @@ function renderAnalyzerResult(wrap){
       {l:"Comparable Analysis",v:val.compData?val.compData.compCount+" properties":"No comps",ok:!!val.compData},
       {l:"Live Market Data",v:val.hasDynamic?"Active":"Static benchmarks",ok:val.hasDynamic},
       {l:"Auto-Calibration",v:val.calFactor!==1.0?"×"+val.calFactor.toFixed(2):"Pending",ok:val.calFactor!==1.0},
-      {l:"AI Market Trend",v:val.hasMomentum?"Active ×"+val.momFactor.toFixed(2):"No data",ok:val.hasMomentum},
+      {l:"AI Market Trend",v:val.hasMomentum?(val.momFactor!==1.0?"Active ×"+val.momFactor.toFixed(2):"Active — Stable"):"No data",ok:val.hasMomentum},
       {l:"Developer Furnished",v:val.isDevFurnished?"Yes — "+furnLabel:"No — "+furnLabel,ok:true},
       {l:"View Specified",v:analyzerState.f.view!=="Not specified"?analyzerState.f.view:"Not specified",ok:analyzerState.f.view!=="Not specified"},
       {l:"Floor Specified",v:analyzerState.f.floor?"Floor "+analyzerState.f.floor:"Not provided",ok:!!analyzerState.f.floor||analyzerState.f.propCategory==="villa"},
