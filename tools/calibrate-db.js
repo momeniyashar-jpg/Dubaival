@@ -51,7 +51,16 @@ if (!fs.existsSync(inputFile)) {
   process.exit(1);
 }
 
+// Date filter: only include transactions from this date onwards
+// Default: 2024-01-01 (recent market data only)
+// Override with: node tools/calibrate-db.js <csv> --from=2025-01-01
+let DATE_FROM = '2024-01-01';
+const fromArg = process.argv.find(a => a.startsWith('--from='));
+if (fromArg) DATE_FROM = fromArg.split('=')[1];
+const DATE_FROM_TS = new Date(DATE_FROM).getTime();
+
 console.log('Reading:', inputFile);
+console.log('Date filter: transactions from', DATE_FROM, 'onwards');
 console.log('File size:', (fs.statSync(inputFile).size / 1e9).toFixed(2), 'GB');
 console.log('This may take 5-15 minutes for large files...\n');
 
@@ -70,8 +79,10 @@ let totalRows = 0;
 let salesRows = 0;
 let rentRows = 0;
 let skipped = 0;
+let dateFiltered = 0;
 const usageStats = {};  // count per usage type
 const transStats = {};  // count per transaction group
+const yearStats = {};   // count per year (for date distribution report)
 
 let COL = {};
 
@@ -196,6 +207,18 @@ async function run() {
     const propType = getVal(COL.propType);
     const subType = getVal(COL.subType);
 
+    // --- DATE FILTER ---
+    const dateStr = getVal(COL.date);
+    if (dateStr) {
+      const txDate = new Date(dateStr);
+      const txTs = txDate.getTime();
+      if (!isNaN(txTs)) {
+        const yr = txDate.getFullYear();
+        yearStats[yr] = (yearStats[yr] || 0) + 1;
+        if (txTs < DATE_FROM_TS) { dateFiltered++; skipped++; continue; }
+      }
+    }
+
       // Track stats
       const uKey = usage || 'unknown';
       usageStats[uKey] = (usageStats[uKey] || 0) + 1;
@@ -297,6 +320,14 @@ async function run() {
   console.log('Sales:', salesRows.toLocaleString());
   console.log('Rent:', rentRows.toLocaleString());
   console.log('Skipped:', skipped.toLocaleString());
+  console.log('Date-filtered (before ' + DATE_FROM + '):', dateFiltered.toLocaleString());
+
+  console.log('\n--- Transactions by Year ---');
+  Object.entries(yearStats).sort((a,b) => Number(a[0]) - Number(b[0])).forEach(([yr,cnt]) => {
+    const pct = ((cnt / totalRows) * 100).toFixed(1);
+    const included = Number(yr) >= new Date(DATE_FROM).getFullYear() ? ' ✓' : ' ✗';
+    console.log('  ' + yr + ': ' + cnt.toLocaleString() + ' (' + pct + '%)' + included);
+  });
 
   console.log('\n--- Usage Types ---');
   Object.entries(usageStats).sort((a,b) => b[1]-a[1]).forEach(([k,v]) => console.log('  '+k+': '+v.toLocaleString()));
@@ -309,10 +340,13 @@ async function run() {
   const output = {
     generated: new Date().toISOString(),
     source: path.basename(inputFile),
+    dateFilter: DATE_FROM,
+    dateFilteredRows: dateFiltered,
     existingDBSize: Object.keys(existingDB).length,
     existingAreasSize: Object.keys(existingAreas).length,
     stats: {
-      totalRows, salesRows, rentRows,
+      totalRows, salesRows, rentRows, dateFiltered,
+      yearDistribution: yearStats,
       usageTypes: usageStats,
       transGroups: transStats,
     },
