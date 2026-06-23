@@ -2610,9 +2610,13 @@ function renderAnalyzerResult(wrap){
     mosWrap.appendChild(scoreRow);
     // 3 component breakdown
     var compGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"12px"}});
-    [{l:"Price Gap",v:val.priceGapScore,w:"50%",icon:"📊"},
-     {l:"Age Factor",v:val.timeDecayScore,w:"20%",icon:"🏗"},
-     {l:"Market Depth",v:val.marketDepthScore,w:"30%",icon:"📈"}
+    var pgDesc=parseFloat(val.vsPct)<=0?"Asking below fair value — good deal":"Asking "+val.vsPct+"% above fair value";
+    var bqGrade=val.bData?val.bData.g:"N/A";
+    var bqDesc=val.timeDecayScore>=85?"Premium grade ("+bqGrade+"), well-maintained":val.timeDecayScore>=65?"Good condition ("+bqGrade+"), SC in line":val.timeDecayScore>=45?"Moderate — watch maintenance costs":"High SC vs expected — aging risk";
+    var mdDesc=val.marketDepthScore>=80?"Price within building's normal range":val.marketDepthScore>=60?"Price near edge of typical range":"Price outside typical range — harder to resell";
+    [{l:"Price Gap",v:val.priceGapScore,w:"50%",icon:"📊",d:pgDesc},
+     {l:"Building Quality",v:val.timeDecayScore,w:"20%",icon:"🏗",d:bqDesc},
+     {l:"Market Depth",v:val.marketDepthScore,w:"30%",icon:"📈",d:mdDesc}
     ].forEach(function(comp){
       var cBox=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"10px 8px",textAlign:"center"}});
       cBox.appendChild(div({fontSize:"14px",marginBottom:"4px"},comp.icon));
@@ -2625,6 +2629,7 @@ function renderAnalyzerResult(wrap){
       var miniInner=el("div",{style:{width:comp.v+"%",height:"100%",borderRadius:"3px",background:compC,transition:"width 0.5s ease"}});
       miniBar.appendChild(miniInner);
       cBox.appendChild(miniBar);
+      cBox.appendChild(div({color:cl.sub,fontSize:"7.5px",fontFamily:"'Inter',sans-serif",marginTop:"5px",lineHeight:"1.3",opacity:"0.85"},comp.d));
       compGrid.appendChild(cBox);
     });
     mosWrap.appendChild(compGrid);
