@@ -47,21 +47,23 @@ function buildReportTypeSelector(cl,formCard){
   formCard.appendChild(sec);
 }
 
-function getAgentAIPrompt(propDesc,val,mode){
-  var base=propDesc+". EXACT NUMBERS FROM OUR ENGINE (use these, do NOT invent your own): Market PSF: AED "+val.adjPSF.toLocaleString()+" (range: "+val.psfLo.toLocaleString()+"-"+val.psfHi.toLocaleString()+"). Asking "+val.vsPct+"% vs market. Verdict: "+val.verdict+". Fair value: AED "+val.fairPrice.toLocaleString()+". Suggested offer: AED "+val.suggestedOffer.toLocaleString()+". Est. rent: AED "+(val.rent||0).toLocaleString()+"/yr. Gross yield: "+val.grossYield+"%. Net yield: "+val.netYield+"%. Growth 3yr: "+val.g1+"%. Confidence: "+val.confScore+"% ("+val.confTier+"). Investment signal: "+val.investSignal+".";
+function getAgentAIPrompt(propDesc,val,mode,area){
+  var amenities=AREA_AMENITIES[area]?"Location amenities: "+AREA_AMENITIES[area]+".":"";
+  var base=propDesc+". EXACT NUMBERS FROM OUR ENGINE (use these, do NOT invent your own): Market PSF: AED "+val.adjPSF.toLocaleString()+" (range: "+val.psfLo.toLocaleString()+"-"+val.psfHi.toLocaleString()+"). Asking "+val.vsPct+"% vs market. Verdict: "+val.verdict+". Fair value: AED "+val.fairPrice.toLocaleString()+". Suggested offer: AED "+val.suggestedOffer.toLocaleString()+". Est. rent: AED "+(val.rent||0).toLocaleString()+"/yr. Gross yield: "+val.grossYield+"%. Net yield: "+val.netYield+"%. Growth 3yr: "+val.g1+"%. Confidence: "+val.confScore+"% ("+val.confTier+"). Investment signal: "+val.investSignal+". "+amenities;
   if(mode==="buyer"){
-    return base+" You are a top-performing Dubai real estate agent writing a report to CONVINCE A BUYER to purchase this property. Use modern sales psychology, urgency triggers, and value framing. Highlight: why this is a smart entry point, rental income potential, capital appreciation outlook, lifestyle/location benefits. If overpriced, reframe as negotiation opportunity with specific target price. Write 4-5 compelling sentences. ONLY use the AED numbers provided above — never calculate or estimate your own. Professional but persuasive tone. Do NOT mention you are AI.";
+    return base+" You are a top-performing Dubai real estate agent writing a report to CONVINCE A BUYER to purchase this property. Use modern sales psychology, urgency triggers, and value framing. Highlight: why this is a smart entry point, rental income potential, capital appreciation outlook, lifestyle/location benefits — mention specific nearby amenities from the location data above. If overpriced, reframe as negotiation opportunity with specific target price. Write 4-5 compelling sentences. ONLY use the AED numbers and amenities provided above — never calculate or estimate your own. Professional but persuasive tone. Do NOT mention you are AI.";
   }else{
-    return base+" You are a top-performing Dubai real estate agent writing a report to CONVINCE A SELLER to list/accept an offer on this property. Use modern sales psychology and market timing arguments. Highlight: current market momentum, buyer demand in the area, optimal pricing strategy, risk of holding too long. If underpriced, show them the strong demand justifying a quick sale. If overpriced, show realistic market position and why pricing right leads to faster sale and better net outcome. Write 4-5 compelling sentences. ONLY use the AED numbers provided above — never calculate or estimate your own. Professional but persuasive tone. Do NOT mention you are AI.";
+    return base+" You are a top-performing Dubai real estate agent writing a report to CONVINCE A SELLER to list/accept an offer on this property. Use modern sales psychology and market timing arguments. Highlight: current market momentum, buyer demand in the area, optimal pricing strategy, risk of holding too long, desirable location amenities from the data above. If underpriced, show them the strong demand justifying a quick sale. If overpriced, show realistic market position and why pricing right leads to faster sale and better net outcome. Write 4-5 compelling sentences. ONLY use the AED numbers and amenities provided above — never calculate or estimate your own. Professional but persuasive tone. Do NOT mention you are AI.";
   }
 }
 
-function getRentalAgentAIPrompt(propDesc,rv,mode){
-  var base=propDesc+". EXACT NUMBERS FROM OUR ENGINE (use these, do NOT invent your own): Market rent: AED "+rv.estRent.toLocaleString()+"/yr (AED "+rv.monthly.toLocaleString()+"/mo). Rent range: AED "+rv.rentLow.toLocaleString()+"-"+rv.rentHigh.toLocaleString()+"/yr. Asking "+rv.vsPct+"% vs market. Verdict: "+rv.verdict.replace(/_/g," ")+". Confidence: "+rv.confScore+"%.";
+function getRentalAgentAIPrompt(propDesc,rv,mode,area){
+  var amenities=AREA_AMENITIES[area]?"Location amenities: "+AREA_AMENITIES[area]+".":"";
+  var base=propDesc+". EXACT NUMBERS FROM OUR ENGINE (use these, do NOT invent your own): Market rent: AED "+rv.estRent.toLocaleString()+"/yr (AED "+rv.monthly.toLocaleString()+"/mo). Rent range: AED "+rv.rentLow.toLocaleString()+"-"+rv.rentHigh.toLocaleString()+"/yr. Asking "+rv.vsPct+"% vs market. Verdict: "+rv.verdict.replace(/_/g," ")+". Confidence: "+rv.confScore+"%. "+amenities;
   if(mode==="buyer"){
-    return base+" You are a top-performing Dubai leasing agent writing to CONVINCE A TENANT to rent this property. Use persuasion: lifestyle benefits, location advantages, value compared to alternatives, limited availability. If above market, reframe as premium value or negotiation opportunity. Write 4-5 compelling sentences. ONLY use the AED numbers provided above — never calculate or estimate your own. Professional, persuasive. Do NOT mention you are AI.";
+    return base+" You are a top-performing Dubai leasing agent writing to CONVINCE A TENANT to rent this property. Use persuasion: lifestyle benefits from the location amenities above, value compared to alternatives, limited availability. If above market, reframe as premium value or negotiation opportunity. Write 4-5 compelling sentences. ONLY use the AED numbers and amenities provided above — never calculate or estimate your own. Professional, persuasive. Do NOT mention you are AI.";
   }else{
-    return base+" You are a top-performing Dubai leasing agent writing to CONVINCE A LANDLORD about optimal rental strategy. Cover: current demand in the area, how to price for fastest lease, risks of overpricing (vacancy cost), tenant quality at different price points. Write 4-5 compelling sentences. ONLY use the AED numbers provided above — never calculate or estimate your own. Professional, persuasive. Do NOT mention you are AI.";
+    return base+" You are a top-performing Dubai leasing agent writing to CONVINCE A LANDLORD about optimal rental strategy. Cover: current demand in the area, how to price for fastest lease, risks of overpricing (vacancy cost), tenant quality at different price points, desirable location amenities. Write 4-5 compelling sentences. ONLY use the AED numbers and amenities provided above — never calculate or estimate your own. Professional, persuasive. Do NOT mention you are AI.";
   }
 }
 
@@ -1346,14 +1348,15 @@ function renderAnalyzer(){
             var rv=analyzerState.rentalVal;
             var propDesc=analyzerState.f.building+" villa in "+analyzerState.f.area+". "+f.beds+". BUA:"+f.size+"sqft. Asking rent AED "+parseInt(f.price).toLocaleString()+"/yr";
             if(rMode==="agent"){
-              var buyerP=getRentalAgentAIPrompt(propDesc,rv,"buyer");
-              var sellerP=getRentalAgentAIPrompt(propDesc,rv,"seller");
+              var buyerP=getRentalAgentAIPrompt(propDesc,rv,"buyer",analyzerState.f.area);
+              var sellerP=getRentalAgentAIPrompt(propDesc,rv,"seller",analyzerState.f.area);
               if(rFor==="both"||rFor==="buyer"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:buyerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
               if(rFor==="both"||rFor==="seller"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:sellerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiTextSeller=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
               if(rFor==="buyer")analyzerState.aiTextSeller="";
               if(rFor==="seller")analyzerState.aiText="";
             }else{
-              var aiPrompt=propDesc+". EXACT DATA: Market rent AED "+rv.estRent.toLocaleString()+"/yr (AED "+rv.monthly.toLocaleString()+"/mo). Range: AED "+rv.rentLow.toLocaleString()+"-"+rv.rentHigh.toLocaleString()+"/yr. Asking "+rv.vsPct+"% vs market. Verdict: "+rv.verdict.replace(/_/g," ")+". Confidence: "+rv.confScore+"%. Use ONLY these numbers. 3 sentences: rental assessment, negotiation target, tenant tips.";
+              var amenities=AREA_AMENITIES[analyzerState.f.area]?" Location amenities: "+AREA_AMENITIES[analyzerState.f.area]+".":"";
+              var aiPrompt=propDesc+". EXACT DATA: Market rent AED "+rv.estRent.toLocaleString()+"/yr (AED "+rv.monthly.toLocaleString()+"/mo). Range: AED "+rv.rentLow.toLocaleString()+"-"+rv.rentHigh.toLocaleString()+"/yr. Asking "+rv.vsPct+"% vs market. Verdict: "+rv.verdict.replace(/_/g," ")+". Confidence: "+rv.confScore+"%."+amenities+" Use ONLY these numbers and amenities. 3 sentences: rental assessment with location benefits, negotiation target, tenant tips.";
               callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
             }
             render();
@@ -1384,14 +1387,15 @@ function renderAnalyzer(){
             }).catch(function(){analyzerState.smartRent=computeSmartRent(analyzerState.f,null);});
             var propDesc=analyzerState.f.building+" villa/townhouse in "+analyzerState.f.area+". BUA:"+f.size+"sqft. Asking AED "+parseInt(f.price).toLocaleString();
             if(rMode==="agent"){
-              var buyerP=getAgentAIPrompt(propDesc,analyzerState.val,"buyer");
-              var sellerP=getAgentAIPrompt(propDesc,analyzerState.val,"seller");
+              var buyerP=getAgentAIPrompt(propDesc,analyzerState.val,"buyer",analyzerState.f.area);
+              var sellerP=getAgentAIPrompt(propDesc,analyzerState.val,"seller",analyzerState.f.area);
               if(rFor==="both"||rFor==="buyer"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:buyerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
               if(rFor==="both"||rFor==="seller"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:sellerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiTextSeller=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
               if(rFor==="buyer")analyzerState.aiTextSeller="";
               if(rFor==="seller")analyzerState.aiText="";
             }else{
-              var vv=analyzerState.val;var aiPrompt=propDesc+". EXACT DATA: Market PSF AED "+vv.adjPSF.toLocaleString()+" (range "+vv.psfLo.toLocaleString()+"-"+vv.psfHi.toLocaleString()+"). Asking "+vv.vsPct+"% vs market. Verdict: "+vv.verdict+". Fair value: AED "+vv.fairPrice.toLocaleString()+". Suggested offer: AED "+vv.suggestedOffer.toLocaleString()+". Est. rent: AED "+(vv.rent||0).toLocaleString()+"/yr. Gross yield: "+vv.grossYield+"%. Net yield: "+vv.netYield+"%. Growth 3yr: "+vv.g1+"%. Confidence: "+vv.confScore+"% ("+vv.confTier+"). Signal: "+vv.investSignal+". Investor:"+USER_PROFILE.investorType+". Use ONLY these numbers. 3 sentences: assessment, negotiation target AED, key risk/opportunity.";
+              var vv=analyzerState.val;var amenities=AREA_AMENITIES[analyzerState.f.area]?" Location amenities: "+AREA_AMENITIES[analyzerState.f.area]+".":"";
+              var aiPrompt=propDesc+". EXACT DATA: Market PSF AED "+vv.adjPSF.toLocaleString()+" (range "+vv.psfLo.toLocaleString()+"-"+vv.psfHi.toLocaleString()+"). Asking "+vv.vsPct+"% vs market. Verdict: "+vv.verdict+". Fair value: AED "+vv.fairPrice.toLocaleString()+". Suggested offer: AED "+vv.suggestedOffer.toLocaleString()+". Est. rent: AED "+(vv.rent||0).toLocaleString()+"/yr. Gross yield: "+vv.grossYield+"%. Net yield: "+vv.netYield+"%. Growth 3yr: "+vv.g1+"%. Confidence: "+vv.confScore+"% ("+vv.confTier+"). Signal: "+vv.investSignal+"."+amenities+" Investor:"+USER_PROFILE.investorType+". Use ONLY these numbers and amenities. 3 sentences: assessment with location benefits, negotiation target AED, key risk/opportunity.";
               callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
             }
             render();
@@ -1525,14 +1529,15 @@ function renderAnalyzer(){
             var rv=analyzerState.rentalVal;
             var propDesc=analyzerState.f.building+" "+analyzerState.f.area+" "+(f.aptSubtype||f.beds||"")+" floor"+(f.floor||"?")+" "+f.view+" "+(f.size||"?")+"sqft rent AED "+parseInt(f.price).toLocaleString()+"/yr";
             if(rMode==="agent"){
-              var buyerP=getRentalAgentAIPrompt(propDesc,rv,"buyer");
-              var sellerP=getRentalAgentAIPrompt(propDesc,rv,"seller");
+              var buyerP=getRentalAgentAIPrompt(propDesc,rv,"buyer",analyzerState.f.area);
+              var sellerP=getRentalAgentAIPrompt(propDesc,rv,"seller",analyzerState.f.area);
               if(rFor==="both"||rFor==="buyer"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:buyerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
               if(rFor==="both"||rFor==="seller"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:sellerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiTextSeller=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
               if(rFor==="buyer")analyzerState.aiTextSeller="";
               if(rFor==="seller")analyzerState.aiText="";
             }else{
-              var aiPrompt=propDesc+". EXACT DATA: Market rent AED "+rv.estRent.toLocaleString()+"/yr (AED "+rv.monthly.toLocaleString()+"/mo). Range: AED "+rv.rentLow.toLocaleString()+"-"+rv.rentHigh.toLocaleString()+"/yr. Asking "+rv.vsPct+"% vs market. Verdict: "+rv.verdict.replace(/_/g," ")+". Confidence: "+rv.confScore+"%. Use ONLY these numbers. 3 sentences: rental assessment, negotiation tip, tenant advice.";
+              var amenities=AREA_AMENITIES[analyzerState.f.area]?" Location amenities: "+AREA_AMENITIES[analyzerState.f.area]+".":"";
+              var aiPrompt=propDesc+". EXACT DATA: Market rent AED "+rv.estRent.toLocaleString()+"/yr (AED "+rv.monthly.toLocaleString()+"/mo). Range: AED "+rv.rentLow.toLocaleString()+"-"+rv.rentHigh.toLocaleString()+"/yr. Asking "+rv.vsPct+"% vs market. Verdict: "+rv.verdict.replace(/_/g," ")+". Confidence: "+rv.confScore+"%."+amenities+" Use ONLY these numbers and amenities. 3 sentences: rental assessment with location benefits, negotiation tip, tenant advice.";
               callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
             }
             render();
@@ -1565,8 +1570,8 @@ function renderAnalyzer(){
             });
             var propDesc=analyzerState.f.building+" "+analyzerState.f.area+" "+(f.aptSubtype||f.beds||"")+" floor"+f.floor+" "+f.view+" "+f.size+"sqft AED "+parseInt(f.price).toLocaleString();
             if(rMode==="agent"){
-              var buyerP=getAgentAIPrompt(propDesc,analyzerState.val,"buyer");
-              var sellerP=getAgentAIPrompt(propDesc,analyzerState.val,"seller");
+              var buyerP=getAgentAIPrompt(propDesc,analyzerState.val,"buyer",analyzerState.f.area);
+              var sellerP=getAgentAIPrompt(propDesc,analyzerState.val,"seller",analyzerState.f.area);
               if(rFor==="both"||rFor==="buyer"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:buyerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
               if(rFor==="both"||rFor==="seller"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:sellerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiTextSeller=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
               if(rFor==="buyer")analyzerState.aiTextSeller="";
@@ -1575,7 +1580,8 @@ function renderAnalyzer(){
               var profileLabels={income:"rental income investor",growth:"capital growth investor",flip:"flip investor",enduse:"end-use buyer"};
               var profileCtx=profileLabels[USER_PROFILE.investorType]||"investor";
               var riskCtx=USER_PROFILE.risk==="aggressive"?" Focus upside.":(USER_PROFILE.risk==="conservative"?" Prioritize safety.":"");
-              var vv=analyzerState.val;var aiPrompt=propDesc+". EXACT DATA: Market PSF AED "+vv.adjPSF.toLocaleString()+" (range "+vv.psfLo.toLocaleString()+"-"+vv.psfHi.toLocaleString()+"). Asking "+vv.vsPct+"% vs market. Verdict: "+vv.verdict+". Fair value: AED "+vv.fairPrice.toLocaleString()+". Suggested offer: AED "+vv.suggestedOffer.toLocaleString()+". Price range: AED "+vv.priceLow.toLocaleString()+"-"+vv.priceHigh.toLocaleString()+". Est. rent: AED "+(vv.rent||0).toLocaleString()+"/yr. Gross yield: "+vv.grossYield+"%. Net yield: "+vv.netYield+"%. Growth 3yr: "+vv.g1+"%. Confidence: "+vv.confScore+"% ("+vv.confTier+"). Signal: "+vv.investSignal+". Total return: "+(vv.totalReturnAnnual||0)+"%. Investor: "+profileCtx+"."+riskCtx+" Use ONLY these numbers — do NOT calculate or invent your own. 3 sentences: assessment, negotiation target AED (use suggested offer), key risk/opportunity.";
+              var vv=analyzerState.val;var amenities=AREA_AMENITIES[analyzerState.f.area]?" Location amenities: "+AREA_AMENITIES[analyzerState.f.area]+".":"";
+              var aiPrompt=propDesc+". EXACT DATA: Market PSF AED "+vv.adjPSF.toLocaleString()+" (range "+vv.psfLo.toLocaleString()+"-"+vv.psfHi.toLocaleString()+"). Asking "+vv.vsPct+"% vs market. Verdict: "+vv.verdict+". Fair value: AED "+vv.fairPrice.toLocaleString()+". Suggested offer: AED "+vv.suggestedOffer.toLocaleString()+". Price range: AED "+vv.priceLow.toLocaleString()+"-"+vv.priceHigh.toLocaleString()+". Est. rent: AED "+(vv.rent||0).toLocaleString()+"/yr. Gross yield: "+vv.grossYield+"%. Net yield: "+vv.netYield+"%. Growth 3yr: "+vv.g1+"%. Confidence: "+vv.confScore+"% ("+vv.confTier+"). Signal: "+vv.investSignal+". Total return: "+(vv.totalReturnAnnual||0)+"%."+amenities+" Investor: "+profileCtx+"."+riskCtx+" Use ONLY these numbers and amenities — do NOT calculate or invent your own. 3 sentences: assessment with location benefits, negotiation target AED (use suggested offer), key risk/opportunity.";
               callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
             }
             render();
