@@ -85,6 +85,8 @@ function computeAssetMetrics(asset){
   var geoAdj=getAreaGeoAdj(asset.area)||0;
   var typeAdj=isV?(MACRO_VARS.villaAdj||0):(MACRO_VARS.aptAdj||0);
   var hedonicMult=(1+vP)*(1+fP)*(1+furnP)*(1+geoAdj+typeAdj);
+  var hCap=bData&&bData.g==="Ultra"?1.40:bData&&bData.g==="A+"?1.45:1.50;
+  if(hedonicMult>hCap)hedonicMult=hCap;
   var adjPSF=Math.round(basePSF*hedonicMult);
   var size=parseInt(asset.size)||0;
   var currentValue=adjPSF*size;

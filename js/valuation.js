@@ -461,7 +461,9 @@ function computeValuation(f,buildingVal,liveData){
   // Location Intelligence: metro/amenity proximity premium
   const geoScore=computeGeoScore(f.area);
   const locP=geoScore?geoScore.locationPremium:0;
-  const hedonicMult=(1+vP)*(1+fP)*(1+loftP)*(1+penthP)*(1+maidP)*(1+studyP)*(1+upgradeP)*(1+furnP)*(1+privatePoolP)*(1+singleRowP)*(1+cornerVillaP)*(1+geoAdj)*(1+locP);
+  let hedonicMult=(1+vP)*(1+fP)*(1+loftP)*(1+penthP)*(1+maidP)*(1+studyP)*(1+upgradeP)*(1+furnP)*(1+privatePoolP)*(1+singleRowP)*(1+cornerVillaP)*(1+geoAdj)*(1+locP);
+  const hedonicCap=bData&&bData.g==="Ultra"?1.40:bData&&bData.g==="A+"?1.45:1.50;
+  if(hedonicMult>hedonicCap)hedonicMult=hedonicCap;
   const adjPSF=Math.round(basePSF*hedonicMult);
   psfLo=Math.round(psfLo*hedonicMult);psfHi=Math.round(psfHi*hedonicMult);
   const parkBonus=Math.max(0,(parseInt(f.parking)||1)-1)*80000;
