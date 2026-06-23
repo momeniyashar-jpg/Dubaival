@@ -501,7 +501,13 @@ if(typeof window!=="undefined"){
   setTimeout(fetchSupabaseConfig,500);
   setTimeout(fetchDynamicBenchmarks,600);
   setTimeout(fetchCalibrationData,700);
-  setTimeout(fetchMarketMomentum,800);
+  setTimeout(async function(){
+    await fetchMarketMomentum();
+    if(shouldRunIntelligence()){
+      console.log("[DubaiVal] Market intelligence stale/missing — running AI update...");
+      await runMarketIntelligence();
+    }
+  },800);
 }
 
 // -- USER PROFILE (persisted) ----------------------------------------------
