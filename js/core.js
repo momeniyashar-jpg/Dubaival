@@ -251,8 +251,8 @@ function getAreaGeoAdj(area){
   var risk=(MACRO_VARS.riskFactor-1)*sens;
   var social=(MACRO_VARS.socialIndex-1)*0.3;
   var econ=(MACRO_VARS.economicOutlook-1)*0.5;
-  // Cap tightly: max -5% to +3% - never let AI distort valuations
-  return Math.max(-0.05,Math.min(0.03,risk+social+econ));
+  // Cap: max -8% to +3% — allow meaningful correction during market downturns
+  return Math.max(-0.08,Math.min(0.03,risk+social+econ));
 }
 
 // Legacy LIVE_GEO compatibility
@@ -270,7 +270,7 @@ async function fetchLiveMarket(){
   try{
     var today=new Date();
     var dateStr=today.toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"});
-    var prompt='Dubai real estate macro risk analysis for '+dateStr+'.\n\nOFFICIAL DLD CONTEXT:\n- Q1 2026: AED 252B transactions (+31% YoY)\n- Jan 2026: 16,919 sales, avg PSF AED 1,976 (+18% YoY)\n- Feb-Mar 2026: Geo shock from US-Israel-Iran strikes, -20% DFM index\n- May 2026: Full recovery, AED 14B+/week, 87% cash purchases\n- June 2026: Volatile stabilization phase\n\nBased on latest available data, return ONLY this JSON (no other text):\n{"riskFactor":<0.90-1.05>,"socialIndex":<0.95-1.05>,"economicOutlook":<0.95-1.05>,"label":"<brief status in English>","reason":"<one sentence why>"}\n\nGuidelines:\n- riskFactor<1 = geopolitical tension reducing demand\n- socialIndex reflects DLD weekly volume trend\n- economicOutlook reflects price trend and fundamentals\n- Be conservative, not optimistic';
+    var prompt='Dubai real estate macro risk analysis for '+dateStr+'.\n\nOFFICIAL DLD CONTEXT:\n- Q1 2026: AED 252B transactions (+31% YoY)\n- Jan 2026: 16,919 sales, avg PSF AED 1,976 (+18% YoY)\n- Feb-Mar 2026: Geo shock from US-Israel-Iran strikes, -20% DFM index\n- Apr-May 2026: Partial recovery, volumes up but prices 5-10% below Jan peak\n- June 2026: Cautious stabilization, premium segment (Downtown, Palm) still 8-12% below peak\n- Secondary market correction: resale prices under pressure, new off-plan absorbing demand\n- Buyer sentiment: wait-and-see in premium; active in mid-market/affordable\n\nBased on latest available data, return ONLY this JSON (no other text):\n{"riskFactor":<0.85-1.05>,"socialIndex":<0.92-1.05>,"economicOutlook":<0.92-1.05>,"label":"<brief status in English>","reason":"<one sentence why>"}\n\nGuidelines:\n- riskFactor<1 = geopolitical tension + market correction reducing demand\n- socialIndex reflects DLD weekly volume trend vs 6-month average\n- economicOutlook reflects resale price trend and fundamentals\n- Be data-driven and conservative, not optimistic';
 
     var resp=await callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:prompt}],max_tokens:200,temperature:0.1});
     
@@ -280,9 +280,9 @@ async function fetchLiveMarket(){
     var parsed=JSON.parse(clean);
     
     if(typeof parsed.riskFactor==="number"){
-      MACRO_VARS.riskFactor=Math.max(0.95,Math.min(1.03,parsed.riskFactor));
-      MACRO_VARS.socialIndex=Math.max(0.97,Math.min(1.03,parsed.socialIndex||1.0));
-      MACRO_VARS.economicOutlook=Math.max(0.97,Math.min(1.03,parsed.economicOutlook||1.0));
+      MACRO_VARS.riskFactor=Math.max(0.90,Math.min(1.05,parsed.riskFactor));
+      MACRO_VARS.socialIndex=Math.max(0.93,Math.min(1.05,parsed.socialIndex||1.0));
+      MACRO_VARS.economicOutlook=Math.max(0.93,Math.min(1.05,parsed.economicOutlook||1.0));
       MACRO_VARS.label=parsed.label||"AI Analysis";
       MACRO_VARS.reason=parsed.reason||"";
       MACRO_VARS.lastUpdated=new Date().toISOString();
