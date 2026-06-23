@@ -117,11 +117,14 @@ function computeAssetMetrics(asset){
   var camVsPct=purchasePSF>0&&adjPSF>0?((purchasePSF-adjPSF)/adjPSF*100):0;
   var camPriceGap=camVsPct<=-20?95:camVsPct<=-12?85:camVsPct<=-5?72:camVsPct<=0?58:camVsPct<=5?42:camVsPct<=12?25:10;
   var camScPSF=parseFloat(asset.serviceCharge)||(bData&&bData.sc)||aData.sc||15;
-  var camScRatio=(aData.sc||15)>0?camScPSF/(aData.sc||15):1;
+  var camExpectedSC=bData&&bData.sc?bData.sc:aData.sc||15;
+  var camScRatio=camExpectedSC>0?camScPSF/camExpectedSC:1;
   var camTimeDecay=camScRatio<=0.75?90:camScRatio<=0.95?75:camScRatio<=1.10?60:camScRatio<=1.35?40:20;
-  var camAreaPsf=aData.psf||1500;
-  var camPsfDev=camAreaPsf>0?Math.abs(adjPSF-camAreaPsf)/camAreaPsf:0.5;
-  var camMarketDepth=camPsfDev<=0.15?90:camPsfDev<=0.30?72:camPsfDev<=0.50?50:camPsfDev<=0.75?30:15;
+  var camMdRef=bData?bData.p:aData.psf||1500;
+  var camMdRange=bData?Math.max(1,(bData.hi||camMdRef)-(bData.lo||camMdRef)):camMdRef*0.30;
+  var camMdMid=bData?(bData.lo+bData.hi)/2:camMdRef;
+  var camPsfDev=camMdRef>0?Math.abs(adjPSF-camMdMid)/(camMdRange||camMdRef*0.30):0.5;
+  var camMarketDepth=camPsfDev<=0.5?90:camPsfDev<=1.0?72:camPsfDev<=1.5?50:camPsfDev<=2.5?30:15;
   var camMosScore=Math.min(95,Math.max(5,Math.round(camPriceGap*0.50+camTimeDecay*0.20+camMarketDepth*0.30)));
   var camMosTier=camMosScore>=80?"Deep Value":camMosScore>=65?"Value Buy":camMosScore>=50?"Fair Entry":camMosScore>=35?"Thin Margin":"Speculative";
   return{currentPSF:adjPSF,currentValue:currentValue,purchasePrice:purchasePrice,roi:roi,rent:rent,sc:sc,grossYield:grossYield,netYield:netYield,holdingMonths:holdingMonths,annualizedROI:annualizedROI,g0:gr[0],g1:gr[1],g2:gr[2],inDB:!!bData,grade:bData?bData.g:"N/A",areaYield:aData.y||[5,7],investSignal:investSignal,totalReturn:totalReturn,domEst:domEst,txVol:txVol,liqScore:liqScore,liqLabel:liqLabel,turnoverRate:turnoverRate,turnoverLabel:turnoverLabel,bldgUnits:bldgUnits,bldgAnnualTx:bldgAnnualTx,mosScore:camMosScore,mosTier:camMosTier};

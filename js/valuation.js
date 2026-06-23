@@ -528,15 +528,18 @@ function computeValuation(f,buildingVal,liveData){
   // Component 1: Price Gap (50% weight) — how far below/above fair value
   const vsPctNum=parseFloat(vsPct)||0;
   const priceGapScore=vsPctNum<=-20?95:vsPctNum<=-12?85:vsPctNum<=-5?72:vsPctNum<=0?58:vsPctNum<=5?42:vsPctNum<=12?25:10;
-  // Component 2: Time Decay (20% weight) — SC vs area average as age proxy
+  // Component 2: Time Decay (20% weight) — SC vs expected SC for this building's grade
   const scPSF=parseFloat(f.serviceCharge)||(bData&&bData.sc)||aData.sc||15;
   const areaSCAvg=aData.sc||15;
-  const scRatio=areaSCAvg>0?scPSF/areaSCAvg:1;
+  const expectedSC=bData&&bData.sc?bData.sc:areaSCAvg;
+  const scRatio=expectedSC>0?scPSF/expectedSC:1;
   const timeDecayScore=scRatio<=0.75?90:scRatio<=0.95?75:scRatio<=1.10?60:scRatio<=1.35?40:20;
-  // Component 3: Market Depth (30% weight) — is this price point in the area's liquid range?
-  const areaPsfAvg=aData.psf||1500;
-  const psfDeviation=areaPsfAvg>0?Math.abs(askPSF-areaPsfAvg)/areaPsfAvg:0.5;
-  const marketDepthScore=psfDeviation<=0.15?90:psfDeviation<=0.30?72:psfDeviation<=0.50?50:psfDeviation<=0.75?30:15;
+  // Component 3: Market Depth (30% weight) — is asking PSF within the building's or area's liquid range?
+  const mdRef=bData?bData.p:aData.psf||1500;
+  const mdRange=bData?Math.max(1,(bData.hi||mdRef)-(bData.lo||mdRef)):mdRef*0.30;
+  const mdMid=bData?(bData.lo+bData.hi)/2:mdRef;
+  const psfDeviation=mdRef>0?Math.abs(askPSF-mdMid)/(mdRange||mdRef*0.30):0.5;
+  const marketDepthScore=psfDeviation<=0.5?90:psfDeviation<=1.0?72:psfDeviation<=1.5?50:psfDeviation<=2.5?30:15;
   // Composite MoS (weighted)
   const mosRaw=Math.round(priceGapScore*0.50+timeDecayScore*0.20+marketDepthScore*0.30);
   const mosScore=Math.min(95,Math.max(5,mosRaw));
