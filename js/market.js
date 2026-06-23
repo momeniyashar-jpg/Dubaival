@@ -48,20 +48,20 @@ function buildReportTypeSelector(cl,formCard){
 }
 
 function getAgentAIPrompt(propDesc,val,mode){
-  var base=propDesc+". Market PSF: AED "+val.adjPSF.toLocaleString()+". Asking "+val.vsPct+"% vs market. Verdict: "+val.verdict+". Yield: "+val.grossYield+"%. Growth: "+val.g1+"% (3yr).";
+  var base=propDesc+". EXACT NUMBERS FROM OUR ENGINE (use these, do NOT invent your own): Market PSF: AED "+val.adjPSF.toLocaleString()+" (range: "+val.psfLo.toLocaleString()+"-"+val.psfHi.toLocaleString()+"). Asking "+val.vsPct+"% vs market. Verdict: "+val.verdict+". Fair value: AED "+val.fairPrice.toLocaleString()+". Suggested offer: AED "+val.suggestedOffer.toLocaleString()+". Est. rent: AED "+(val.rent||0).toLocaleString()+"/yr. Gross yield: "+val.grossYield+"%. Net yield: "+val.netYield+"%. Growth 3yr: "+val.g1+"%. Confidence: "+val.confScore+"% ("+val.confTier+"). Investment signal: "+val.investSignal+".";
   if(mode==="buyer"){
-    return base+" You are a top-performing Dubai real estate agent writing a report to CONVINCE A BUYER to purchase this property. Use modern sales psychology, urgency triggers, and value framing. Highlight: why this is a smart entry point, rental income potential, capital appreciation outlook, lifestyle/location benefits. If overpriced, reframe as negotiation opportunity with specific target price. Write 4-5 compelling sentences. Use specific AED numbers. Professional but persuasive tone. Do NOT mention you are AI.";
+    return base+" You are a top-performing Dubai real estate agent writing a report to CONVINCE A BUYER to purchase this property. Use modern sales psychology, urgency triggers, and value framing. Highlight: why this is a smart entry point, rental income potential, capital appreciation outlook, lifestyle/location benefits. If overpriced, reframe as negotiation opportunity with specific target price. Write 4-5 compelling sentences. ONLY use the AED numbers provided above — never calculate or estimate your own. Professional but persuasive tone. Do NOT mention you are AI.";
   }else{
-    return base+" You are a top-performing Dubai real estate agent writing a report to CONVINCE A SELLER to list/accept an offer on this property. Use modern sales psychology and market timing arguments. Highlight: current market momentum, buyer demand in the area, optimal pricing strategy, risk of holding too long. If underpriced, show them the strong demand justifying a quick sale. If overpriced, show realistic market position and why pricing right leads to faster sale and better net outcome. Write 4-5 compelling sentences. Use specific AED numbers. Professional but persuasive tone. Do NOT mention you are AI.";
+    return base+" You are a top-performing Dubai real estate agent writing a report to CONVINCE A SELLER to list/accept an offer on this property. Use modern sales psychology and market timing arguments. Highlight: current market momentum, buyer demand in the area, optimal pricing strategy, risk of holding too long. If underpriced, show them the strong demand justifying a quick sale. If overpriced, show realistic market position and why pricing right leads to faster sale and better net outcome. Write 4-5 compelling sentences. ONLY use the AED numbers provided above — never calculate or estimate your own. Professional but persuasive tone. Do NOT mention you are AI.";
   }
 }
 
 function getRentalAgentAIPrompt(propDesc,rv,mode){
-  var base=propDesc+". Market rent: AED "+rv.estRent.toLocaleString()+"/yr. Asking "+rv.vsPct+"%. Verdict: "+rv.verdict+".";
+  var base=propDesc+". EXACT NUMBERS FROM OUR ENGINE (use these, do NOT invent your own): Market rent: AED "+rv.estRent.toLocaleString()+"/yr (AED "+rv.monthly.toLocaleString()+"/mo). Rent range: AED "+rv.rentLow.toLocaleString()+"-"+rv.rentHigh.toLocaleString()+"/yr. Asking "+rv.vsPct+"% vs market. Verdict: "+rv.verdict.replace(/_/g," ")+". Confidence: "+rv.confScore+"%.";
   if(mode==="buyer"){
-    return base+" You are a top-performing Dubai leasing agent writing to CONVINCE A TENANT to rent this property. Use persuasion: lifestyle benefits, location advantages, value compared to alternatives, limited availability. If above market, reframe as premium value or negotiation opportunity. Write 4-5 compelling sentences with AED numbers. Professional, persuasive. Do NOT mention you are AI.";
+    return base+" You are a top-performing Dubai leasing agent writing to CONVINCE A TENANT to rent this property. Use persuasion: lifestyle benefits, location advantages, value compared to alternatives, limited availability. If above market, reframe as premium value or negotiation opportunity. Write 4-5 compelling sentences. ONLY use the AED numbers provided above — never calculate or estimate your own. Professional, persuasive. Do NOT mention you are AI.";
   }else{
-    return base+" You are a top-performing Dubai leasing agent writing to CONVINCE A LANDLORD about optimal rental strategy. Cover: current demand in the area, how to price for fastest lease, risks of overpricing (vacancy cost), tenant quality at different price points. Write 4-5 compelling sentences with AED numbers. Professional, persuasive. Do NOT mention you are AI.";
+    return base+" You are a top-performing Dubai leasing agent writing to CONVINCE A LANDLORD about optimal rental strategy. Cover: current demand in the area, how to price for fastest lease, risks of overpricing (vacancy cost), tenant quality at different price points. Write 4-5 compelling sentences. ONLY use the AED numbers provided above — never calculate or estimate your own. Professional, persuasive. Do NOT mention you are AI.";
   }
 }
 
@@ -1353,7 +1353,7 @@ function renderAnalyzer(){
               if(rFor==="buyer")analyzerState.aiTextSeller="";
               if(rFor==="seller")analyzerState.aiText="";
             }else{
-              var aiPrompt=propDesc+". Market estimate AED "+rv.estRent.toLocaleString()+"/yr ("+rv.vsPct+"%). Verdict:"+rv.verdict+". 3 sentences: rental assessment, negotiation, tenant tips.";
+              var aiPrompt=propDesc+". EXACT DATA: Market rent AED "+rv.estRent.toLocaleString()+"/yr (AED "+rv.monthly.toLocaleString()+"/mo). Range: AED "+rv.rentLow.toLocaleString()+"-"+rv.rentHigh.toLocaleString()+"/yr. Asking "+rv.vsPct+"% vs market. Verdict: "+rv.verdict.replace(/_/g," ")+". Confidence: "+rv.confScore+"%. Use ONLY these numbers. 3 sentences: rental assessment, negotiation target, tenant tips.";
               callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
             }
             render();
@@ -1391,7 +1391,7 @@ function renderAnalyzer(){
               if(rFor==="buyer")analyzerState.aiTextSeller="";
               if(rFor==="seller")analyzerState.aiText="";
             }else{
-              var aiPrompt=propDesc+". Verdict:"+analyzerState.val.verdict+". PSF "+analyzerState.val.vsPct+"% vs market. Investor:"+USER_PROFILE.investorType+". 3 sentences: assessment, negotiation, risk.";
+              var vv=analyzerState.val;var aiPrompt=propDesc+". EXACT DATA: Market PSF AED "+vv.adjPSF.toLocaleString()+" (range "+vv.psfLo.toLocaleString()+"-"+vv.psfHi.toLocaleString()+"). Asking "+vv.vsPct+"% vs market. Verdict: "+vv.verdict+". Fair value: AED "+vv.fairPrice.toLocaleString()+". Suggested offer: AED "+vv.suggestedOffer.toLocaleString()+". Est. rent: AED "+(vv.rent||0).toLocaleString()+"/yr. Gross yield: "+vv.grossYield+"%. Net yield: "+vv.netYield+"%. Growth 3yr: "+vv.g1+"%. Confidence: "+vv.confScore+"% ("+vv.confTier+"). Signal: "+vv.investSignal+". Investor:"+USER_PROFILE.investorType+". Use ONLY these numbers. 3 sentences: assessment, negotiation target AED, key risk/opportunity.";
               callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
             }
             render();
@@ -1532,7 +1532,7 @@ function renderAnalyzer(){
               if(rFor==="buyer")analyzerState.aiTextSeller="";
               if(rFor==="seller")analyzerState.aiText="";
             }else{
-              var aiPrompt=propDesc+". Market estimate AED "+rv.estRent.toLocaleString()+"/yr ("+rv.vsPct+"%). Verdict:"+rv.verdict+". 3 sentences: rental assessment, negotiation tip, tenant advice.";
+              var aiPrompt=propDesc+". EXACT DATA: Market rent AED "+rv.estRent.toLocaleString()+"/yr (AED "+rv.monthly.toLocaleString()+"/mo). Range: AED "+rv.rentLow.toLocaleString()+"-"+rv.rentHigh.toLocaleString()+"/yr. Asking "+rv.vsPct+"% vs market. Verdict: "+rv.verdict.replace(/_/g," ")+". Confidence: "+rv.confScore+"%. Use ONLY these numbers. 3 sentences: rental assessment, negotiation tip, tenant advice.";
               callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
             }
             render();
@@ -1575,7 +1575,7 @@ function renderAnalyzer(){
               var profileLabels={income:"rental income investor",growth:"capital growth investor",flip:"flip investor",enduse:"end-use buyer"};
               var profileCtx=profileLabels[USER_PROFILE.investorType]||"investor";
               var riskCtx=USER_PROFILE.risk==="aggressive"?" Focus upside.":(USER_PROFILE.risk==="conservative"?" Prioritize safety.":"");
-              var aiPrompt=propDesc+". Verdict:"+analyzerState.val.verdict+". Asking PSF "+analyzerState.val.vsPct+"% vs market("+analyzerState.val.adjPSF.toLocaleString()+"). Investor:"+profileCtx+riskCtx+" 3 sentences: assessment, negotiation target AED, key risk/opportunity.";
+              var vv=analyzerState.val;var aiPrompt=propDesc+". EXACT DATA: Market PSF AED "+vv.adjPSF.toLocaleString()+" (range "+vv.psfLo.toLocaleString()+"-"+vv.psfHi.toLocaleString()+"). Asking "+vv.vsPct+"% vs market. Verdict: "+vv.verdict+". Fair value: AED "+vv.fairPrice.toLocaleString()+". Suggested offer: AED "+vv.suggestedOffer.toLocaleString()+". Price range: AED "+vv.priceLow.toLocaleString()+"-"+vv.priceHigh.toLocaleString()+". Est. rent: AED "+(vv.rent||0).toLocaleString()+"/yr. Gross yield: "+vv.grossYield+"%. Net yield: "+vv.netYield+"%. Growth 3yr: "+vv.g1+"%. Confidence: "+vv.confScore+"% ("+vv.confTier+"). Signal: "+vv.investSignal+". Total return: "+(vv.totalReturnAnnual||0)+"%. Investor: "+profileCtx+"."+riskCtx+" Use ONLY these numbers — do NOT calculate or invent your own. 3 sentences: assessment, negotiation target AED (use suggested offer), key risk/opportunity.";
               callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
             }
             render();
