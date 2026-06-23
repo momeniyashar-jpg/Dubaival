@@ -119,7 +119,10 @@ function computeAssetMetrics(asset){
   var camScPSF=parseFloat(asset.serviceCharge)||(bData&&bData.sc)||aData.sc||15;
   var camExpectedSC=bData&&bData.sc?bData.sc:aData.sc||15;
   var camScRatio=camExpectedSC>0?camScPSF/camExpectedSC:1;
-  var camTimeDecay=camScRatio<=0.75?90:camScRatio<=0.95?75:camScRatio<=1.10?60:camScRatio<=1.35?40:20;
+  var camScScore=camScRatio<=0.85?90:camScRatio<=1.05?80:camScRatio<=1.20?60:camScRatio<=1.50?40:20;
+  var camGrade=bData?bData.g:null;
+  var camGradeBonus=camGrade==="Ultra"?15:camGrade==="A+"?12:camGrade==="A"?8:camGrade==="A-"?5:camGrade==="B+"?2:0;
+  var camTimeDecay=Math.min(95,camScScore+camGradeBonus);
   var camMdRef=bData?bData.p:aData.psf||1500;
   var camMdRange=bData?Math.max(1,(bData.hi||camMdRef)-(bData.lo||camMdRef)):camMdRef*0.30;
   var camMdMid=bData?(bData.lo+bData.hi)/2:camMdRef;

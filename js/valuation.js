@@ -528,12 +528,15 @@ function computeValuation(f,buildingVal,liveData){
   // Component 1: Price Gap (50% weight) — how far below/above fair value
   const vsPctNum=parseFloat(vsPct)||0;
   const priceGapScore=vsPctNum<=-20?95:vsPctNum<=-12?85:vsPctNum<=-5?72:vsPctNum<=0?58:vsPctNum<=5?42:vsPctNum<=12?25:10;
-  // Component 2: Time Decay (20% weight) — SC vs expected SC for this building's grade
+  // Component 2: Building Quality & Condition (20% weight)
   const scPSF=parseFloat(f.serviceCharge)||(bData&&bData.sc)||aData.sc||15;
   const areaSCAvg=aData.sc||15;
   const expectedSC=bData&&bData.sc?bData.sc:areaSCAvg;
   const scRatio=expectedSC>0?scPSF/expectedSC:1;
-  const timeDecayScore=scRatio<=0.75?90:scRatio<=0.95?75:scRatio<=1.10?60:scRatio<=1.35?40:20;
+  const scScore=scRatio<=0.85?90:scRatio<=1.05?80:scRatio<=1.20?60:scRatio<=1.50?40:20;
+  const bGrade=bData?bData.g:null;
+  const gradeBonus=bGrade==="Ultra"?15:bGrade==="A+"?12:bGrade==="A"?8:bGrade==="A-"?5:bGrade==="B+"?2:0;
+  const timeDecayScore=Math.min(95,scScore+gradeBonus);
   // Component 3: Market Depth (30% weight) — is asking PSF within the building's or area's liquid range?
   const mdRef=bData?bData.p:aData.psf||1500;
   const mdRange=bData?Math.max(1,(bData.hi||mdRef)-(bData.lo||mdRef)):mdRef*0.30;
