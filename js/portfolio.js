@@ -103,7 +103,7 @@ function computeAssetMetrics(asset){
   var annualizedROI=holdingYears>0&&purchasePrice>0?(Math.pow(currentValue/purchasePrice,1/holdingYears)-1)*100:roi;
   var prRatio=grossYield>0?(100/grossYield):20;
   var investSignal=prRatio<15?"Undervalued":prRatio<20?"Fair Value":prRatio<25?"Elevated":"Overheated";
-  var totalReturn=netYield+(gr[1]||18)/3;
+  var totalReturn=netYield+(gr[1]||9)/3;
   var domEst=aData.dom||60;
   var txVol=aData.txVol||100;
   var liqScore=domEst<=20?95:domEst<=30?85:domEst<=45?72:domEst<=65?55:domEst<=90?40:25;
@@ -320,7 +320,7 @@ function renderPortfolio(){
         }
 
         // 3) Optimal Exit Window
-        var g0=gr[0]||10,g1=gr[1]||18,g2=gr[2]||28;
+        var g0=gr[0]||3,g1=gr[1]||9,g2=gr[2]||16;
         var ny=a.m.netYield||5;
         var tr1=ny+g0;
         var tr3=ny+g1/3;
@@ -561,7 +561,7 @@ function renderPortfolio(){
         var sellRent=sellAsset.m.rent;var sellNetY=sellAsset.m.netYield;var sellGrowth=sellAsset.m.g1||9;
         var cashFlowDiff=Math.round((buyRent-buySC)-(sellRent-sellAsset.m.sc));
         var cashFlowPct=sellRent-sellAsset.m.sc>0?(cashFlowDiff/(sellRent-sellAsset.m.sc)*100):0;
-        var growthDiff=(buyGrowth[1]||18)-(sellGrowth||18);
+        var growthDiff=(buyGrowth[1]||9)-(sellGrowth||9);
         var resCard=div({background:cl.raised,borderRadius:"10px",padding:"14px"});
         resCard.appendChild(span({color:"#818CF8",fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"SWAP ANALYSIS"));
         var resG=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"});
