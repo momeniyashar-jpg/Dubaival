@@ -75,7 +75,9 @@ if(!window.PORTFOLIO_STATE){
 function computeAssetMetrics(asset){
   var aData=AREAS[asset.area]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
   var bData=lookupBuilding(asset.building,asset.area);
-  var basePSF=bData?bData.p:aData.psf;
+  var bKey=(asset.building||"").toLowerCase().trim();
+  var vdbE=typeof VALUATION_DB!=="undefined"&&VALUATION_DB[bKey]?VALUATION_DB[bKey]:null;
+  var basePSF=vdbE?vdbE.p:(bData?bData.p:aData.psf);
   var vP=VIEW_P[asset.view]||0;
   var floorN=parseInt(asset.floor)||0;
   var fP=floorN>10?(floorN-10)*0.005:0;
@@ -125,9 +127,9 @@ function computeAssetMetrics(asset){
   var camGrade=bData?bData.g:null;
   var camGradeBonus=camGrade==="Ultra"?15:camGrade==="A+"?12:camGrade==="A"?8:camGrade==="A-"?5:camGrade==="B+"?2:0;
   var camTimeDecay=Math.min(95,camScScore+camGradeBonus);
-  var camMdRef=bData?bData.p:aData.psf||1500;
-  var camMdRange=bData?Math.max(1,(bData.hi||camMdRef)-(bData.lo||camMdRef)):camMdRef*0.30;
-  var camMdMid=bData?(bData.lo+bData.hi)/2:camMdRef;
+  var camMdRef=vdbE?vdbE.p:(bData?bData.p:aData.psf||1500);
+  var camMdRange=vdbE?Math.max(1,vdbE.hi-vdbE.lo):(bData?Math.max(1,(bData.hi||camMdRef)-(bData.lo||camMdRef)):camMdRef*0.30);
+  var camMdMid=vdbE?(vdbE.lo+vdbE.hi)/2:(bData?(bData.lo+bData.hi)/2:camMdRef);
   var camPsfDev=camMdRef>0?Math.abs(adjPSF-camMdMid)/(camMdRange||camMdRef*0.30):0.5;
   var camMarketDepth=camPsfDev<=0.5?90:camPsfDev<=1.0?72:camPsfDev<=1.5?50:camPsfDev<=2.5?30:15;
   var camMosScore=Math.min(95,Math.max(5,Math.round(camPriceGap*0.50+camTimeDecay*0.20+camMarketDepth*0.30)));

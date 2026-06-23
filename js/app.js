@@ -145,7 +145,9 @@ function renderFind(){
       if(sf.area&&bData.a!==sf.area)return;
       if(sf.grade&&bData.g!==sf.grade)return;
       var aData=AREAS[bData.a]||{psf:1800,sc:15,y:[5,7],g:[3,9,16],dom:60,txVol:100};
-      if(bData.p<minP||bData.p>maxP)return;
+      var _vdb=typeof VALUATION_DB!=="undefined"&&VALUATION_DB[key]?VALUATION_DB[key]:null;
+      var _psf=_vdb?_vdb.p:bData.p;
+      if(_psf<minP||_psf>maxP)return;
       var yi=aData.y||[5,7];var avgYield=(yi[0]+yi[1])/2;
       if(avgYield<minY)return;
       var gr=aData.g||[3,9,16];
@@ -159,11 +161,11 @@ function renderFind(){
       var bldgUnits=estimateBldgUnits(key,bData,isV);
       var bldgTx=estimateBldgTx(key,bData.a,aData,bData);
       var turnover=bldgUnits>0?Math.round(bldgTx/bldgUnits*1000)/10:0;
-      var netYield=avgYield-((bData.sc||aData.sc||15)/bData.p*100);
+      var netYield=avgYield-((bData.sc||aData.sc||15)/_psf*100);
       var totalReturn=netYield+gr[1]/3;
       var prRatio=avgYield>0?(100/avgYield):20;
       var signal=prRatio<15?"Undervalued":prRatio<20?"Fair Value":prRatio<25?"Elevated":"Overheated";
-      results.push({name:key,area:bData.a,psf:bData.p,lo:bData.lo,hi:bData.hi,sc:bData.sc||aData.sc||15,grade:bData.g||"N/A",yield:avgYield,netYield:netYield,growth3:gr[1],dom:dom,txVol:txVol,turnover:turnover,totalReturn:totalReturn,signal:signal});
+      results.push({name:key,area:bData.a,psf:_psf,lo:_vdb?_vdb.lo:bData.lo,hi:_vdb?_vdb.hi:bData.hi,sc:bData.sc||aData.sc||15,grade:bData.g||"N/A",yield:avgYield,netYield:netYield,growth3:gr[1],dom:dom,txVol:txVol,turnover:turnover,totalReturn:totalReturn,signal:signal});
     });
     if(sf.sort==="yield")results.sort(function(a,b){return b.yield-a.yield;});
     else if(sf.sort==="psfAsc")results.sort(function(a,b){return a.psf-b.psf;});

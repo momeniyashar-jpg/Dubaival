@@ -181,7 +181,10 @@ function findComparables(building,area,grade,beds,isVilla,limit){
   limit=limit||8;
   var targetPSF=0;
   var bData=DB[building?building.toLowerCase().trim():""];
-  if(bData)targetPSF=bData.p;
+  var _vk=building?building.toLowerCase().trim():"";
+  var _ve=typeof VALUATION_DB!=="undefined"&&VALUATION_DB[_vk]?VALUATION_DB[_vk]:null;
+  if(_ve)targetPSF=_ve.p;
+  else if(bData)targetPSF=bData.p;
   else if(AREAS[area])targetPSF=AREAS[area].psf;
   if(!targetPSF)return[];
   var candidates=[];
@@ -349,8 +352,13 @@ function computeValuation(f,buildingVal,liveData){
   if(!askPSF||!f.area)return null;
   const isVillaType=f.propCategory==="villa";
   let basePSF,psfLo,psfHi,dataSource,dataLayer,compData=null;
+  // DLD-calibrated PSF: VALUATION_DB (real transactions) overrides legacy DB
+  const bKey=(buildingVal||f.building||"").toLowerCase().trim();
+  const vdbEntry=typeof VALUATION_DB!=="undefined"&&VALUATION_DB[bKey]?VALUATION_DB[bKey]:null;
   if(bData){
-    basePSF=bData.p;psfLo=bData.lo;psfHi=bData.hi;dataSource=(buildingVal||f.building||"")+" · Verified DB";dataLayer=1;
+    if(vdbEntry){basePSF=vdbEntry.p;psfLo=vdbEntry.lo;psfHi=vdbEntry.hi;}
+    else{basePSF=bData.p;psfLo=bData.lo;psfHi=bData.hi;}
+    dataSource=(buildingVal||f.building||"")+" · "+(vdbEntry?"DLD Verified":"Legacy DB");dataLayer=1;
     var comps=findComparables(buildingVal||f.building,f.area,bData.g,f.beds,isVillaType,8);
     if(comps.length>=3){
       compData=computeComparableEstimate(comps,basePSF);
@@ -380,8 +388,10 @@ function computeValuation(f,buildingVal,liveData){
       // blended psf average rather than guessing a grade tier — guessing "B+"
       // by default previously caused systematic overestimation in budget areas
       // (e.g. Town Square) whenever any building name was typed but not found in DB.
-      basePSF=aData.psf;psfLo=Math.round(basePSF*0.87);psfHi=Math.round(basePSF*1.13);
-      dataSource="Area benchmark · "+f.area;dataLayer=4;
+      // Prefer DLD area benchmark over legacy AREAS data
+      var vAreaEntry=typeof VALUATION_AREAS!=="undefined"&&VALUATION_AREAS[f.area]?VALUATION_AREAS[f.area]:null;
+      basePSF=vAreaEntry?vAreaEntry.psf:aData.psf;psfLo=Math.round(basePSF*0.87);psfHi=Math.round(basePSF*1.13);
+      dataSource=(vAreaEntry?"DLD area":"Area")+" benchmark · "+f.area;dataLayer=4;
       dvLog("area_only","computeValuation","No live comps, area-only: "+(buildingVal||f.building||"")+" · "+f.area);
       var areaComps=findComparables(null,f.area,null,f.beds,isVillaType,10);
       if(areaComps.length>=3){
@@ -540,9 +550,9 @@ function computeValuation(f,buildingVal,liveData){
   const gradeBonus=bGrade==="Ultra"?15:bGrade==="A+"?12:bGrade==="A"?8:bGrade==="A-"?5:bGrade==="B+"?2:0;
   const timeDecayScore=Math.min(95,scScore+gradeBonus);
   // Component 3: Market Depth (30% weight) — is asking PSF within the building's or area's liquid range?
-  const mdRef=bData?bData.p:aData.psf||1500;
-  const mdRange=bData?Math.max(1,(bData.hi||mdRef)-(bData.lo||mdRef)):mdRef*0.30;
-  const mdMid=bData?(bData.lo+bData.hi)/2:mdRef;
+  const mdRef=vdbEntry?vdbEntry.p:(bData?bData.p:aData.psf||1500);
+  const mdRange=vdbEntry?Math.max(1,vdbEntry.hi-vdbEntry.lo):(bData?Math.max(1,(bData.hi||mdRef)-(bData.lo||mdRef)):mdRef*0.30);
+  const mdMid=vdbEntry?(vdbEntry.lo+vdbEntry.hi)/2:(bData?(bData.lo+bData.hi)/2:mdRef);
   const psfDeviation=mdRef>0?Math.abs(askPSF-mdMid)/(mdRange||mdRef*0.30):0.5;
   const marketDepthScore=psfDeviation<=0.5?90:psfDeviation<=1.0?72:psfDeviation<=1.5?50:psfDeviation<=2.5?30:15;
   // Composite MoS (weighted)
