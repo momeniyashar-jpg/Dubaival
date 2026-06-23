@@ -73,7 +73,7 @@ if(!window.PORTFOLIO_STATE){
   window.PORTFOLIO_STATE={assets:_pa,goals:_pg,showAdd:false,aiAnalysis:"",aiLoading:false,aiErr:"",expandedId:null};
 }
 function computeAssetMetrics(asset){
-  var aData=AREAS[asset.area]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
+  var aData=AREAS[asset.area]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
   var bData=lookupBuilding(asset.building,asset.area);
   var basePSF=bData?bData.p:aData.psf;
   var vP=VIEW_P[asset.view]||0;
@@ -95,7 +95,7 @@ function computeAssetMetrics(asset){
   var sc=(parseFloat(asset.serviceCharge)||(bData&&bData.sc)||aData.sc||15)*size;
   var grossYield=currentValue>0?(rent/currentValue*100):0;
   var netYield=currentValue>0?((rent-sc)/currentValue*100):0;
-  var gr=aData.g||[10,18,28];
+  var gr=aData.g||[3,9,16];
   var purchaseDate=new Date(asset.purchaseDate);
   var now=new Date();
   var holdingMonths=Math.max(1,Math.round((now-purchaseDate)/(30.44*24*60*60*1000)));
@@ -281,8 +281,8 @@ function renderPortfolio(){
       oaCard.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",display:"block",marginBottom:"16px"},"Hidden opportunities and actionable insights for your assets"));
 
       metrics.forEach(function(a){
-        var aData=AREAS[a.area]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
-        var gr=aData.g||[10,18,28];
+        var aData=AREAS[a.area]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
+        var gr=aData.g||[3,9,16];
         var alerts=[];
 
         // 1) DLD Fee Recovery Timer
@@ -546,7 +546,7 @@ function renderPortfolio(){
         var dldFee=Math.round(saleProceeds*0.04);
         var agentFee=Math.round(saleProceeds*0.02);
         var netProceeds=saleProceeds-dldFee-agentFee;
-        var buyAreaData=AREAS[sw.buyArea]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
+        var buyAreaData=AREAS[sw.buyArea]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
         var buyPSF=buyAreaData.psf;
         var buyIsV=sw.buyType==="Villa"||sw.buyType==="Townhouse";
         var buySize=Math.round(netProceeds/(buyPSF*1.04));
@@ -557,8 +557,8 @@ function renderPortfolio(){
         var buySC=(buyAreaData.sc||15)*buySize;
         var buyGrossY=buyPrice>0?(buyRent/buyPrice*100):0;
         var buyNetY=buyPrice>0?((buyRent-buySC)/buyPrice*100):0;
-        var buyGrowth=buyAreaData.g||[10,18,28];
-        var sellRent=sellAsset.m.rent;var sellNetY=sellAsset.m.netYield;var sellGrowth=sellAsset.m.g1||18;
+        var buyGrowth=buyAreaData.g||[3,9,16];
+        var sellRent=sellAsset.m.rent;var sellNetY=sellAsset.m.netYield;var sellGrowth=sellAsset.m.g1||9;
         var cashFlowDiff=Math.round((buyRent-buySC)-(sellRent-sellAsset.m.sc));
         var cashFlowPct=sellRent-sellAsset.m.sc>0?(cashFlowDiff/(sellRent-sellAsset.m.sc)*100):0;
         var growthDiff=(buyGrowth[1]||18)-(sellGrowth||18);
@@ -675,7 +675,7 @@ function renderPortfolio(){
 
       // Sustainability Score
       var susBd=DB[(a.building||"").toLowerCase()]||null;
-      var susAd=AREAS[a.area]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
+      var susAd=AREAS[a.area]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
       var susS=computeSustainabilityScore(a.building||"",a.area||"",susBd,susAd);
       var susC=susS.score>=75?"#10B981":susS.score>=50?"#EAB308":susS.score>=35?"#F97316":"#EF4444";
       var susRow=div({background:hexAlpha(susC,0.06),border:"1px solid "+hexAlpha(susC,0.2),borderRadius:"10px",padding:"10px 12px",marginBottom:"10px"});

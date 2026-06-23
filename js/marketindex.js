@@ -28,7 +28,7 @@ function renderMarketIndex(){
     var a=AREAS[n];if(!a)return;
     totalPsf+=a.psf||0;
     var y=a.y||[5,7];totalYield+=(y[0]+y[1])/2;
-    var g=a.g||[10,18,28];totalG0+=g[0]||0;
+    var g=a.g||[3,9,16];totalG0+=g[0]||0;
     cnt++;
   });
   var avgPsf=cnt?Math.round(totalPsf/cnt):0;
@@ -57,7 +57,7 @@ function renderMarketIndex(){
   var areaData=[];
   names.forEach(function(n){
     var a=AREAS[n];if(!a||!a.psf)return;
-    var y=a.y||[5,7];var g=a.g||[10,18,28];
+    var y=a.y||[5,7];var g=a.g||[3,9,16];
     var avgY=(y[0]+y[1])/2;
     var valueScore=avgY*2+(g[0]||0)*0.5-((a.psf||1500)/500);
     areaData.push({name:n,psf:a.psf,yield:avgY,g0:g[0]||0,g1:g[1]||0,dom:a.dom||60,sc:a.sc||15,r1:a.r1||0,r2:a.r2||0,txVol:a.txVol||0,valueScore:valueScore});
@@ -231,9 +231,9 @@ function renderMarketIndex(){
       {l:"2BR Rent",fn:function(d){return d.r2||0;},fmt:function(v){return v?"AED "+v.toLocaleString():"—";},hi:true},
       {l:"3BR Rent",fn:function(d){return d.r3||0;},fmt:function(v){return v?"AED "+v.toLocaleString():"—";},hi:true},
       {l:"Gross Yield",fn:function(d){var y=d.y||[5,7];return(y[0]+y[1])/2;},fmt:function(v){return v.toFixed(1)+"%";},hi:true},
-      {l:"Growth 1yr",fn:function(d){return(d.g||[10,18,28])[0]||0;},fmt:function(v){return(v>=0?"+":"")+v+"%";},hi:true},
-      {l:"Growth 3yr",fn:function(d){return(d.g||[10,18,28])[1]||0;},fmt:function(v){return(v>=0?"+":"")+v+"%";},hi:true},
-      {l:"Growth 5yr",fn:function(d){return(d.g||[10,18,28])[2]||0;},fmt:function(v){return(v>=0?"+":"")+v+"%";},hi:true},
+      {l:"Growth 1yr",fn:function(d){return(d.g||[3,9,16])[0]||0;},fmt:function(v){return(v>=0?"+":"")+v+"%";},hi:true},
+      {l:"Growth 3yr",fn:function(d){return(d.g||[3,9,16])[1]||0;},fmt:function(v){return(v>=0?"+":"")+v+"%";},hi:true},
+      {l:"Growth 5yr",fn:function(d){return(d.g||[3,9,16])[2]||0;},fmt:function(v){return(v>=0?"+":"")+v+"%";},hi:true},
       {l:"Days on Market",fn:function(d){return d.dom||0;},fmt:function(v){return v?v+"d":"—";},hi:false},
       {l:"Tx Volume",fn:function(d){return d.txVol||0;},fmt:function(v){return v?v.toLocaleString()+"/yr":"—";},hi:true},
       {l:"Sustainability",fn:function(d,n){return GREEN_AREAS[n]||50;},fmt:function(v){return v+"/100";},hi:true},
@@ -299,7 +299,7 @@ function renderMarketIndex(){
       aiBtn.textContent=cmp.aiLoading?"Analyzing…":"🤖 Get AI Verdict";
       if(!cmp.aiLoading)aiBtn.addEventListener("click",function(){
         cmp.aiLoading=true;render();
-        var summary=activeAreas.map(function(n){var d=AREAS[n]||{};var y=d.y||[5,7];var g=d.g||[10,18,28];return n+": PSF "+d.psf+", SC "+d.sc+", yield "+(y[0]+y[1])/2+"%, 1yr growth "+g[0]+"%, 3yr "+g[1]+"%, DOM "+(d.dom||"?")+"d, txVol "+(d.txVol||"?")+" , buildings "+bldgCounts[n]+", sustainability "+(GREEN_AREAS[n]||50);}).join(". ");
+        var summary=activeAreas.map(function(n){var d=AREAS[n]||{};var y=d.y||[5,7];var g=d.g||[3,9,16];return n+": PSF "+d.psf+", SC "+d.sc+", yield "+(y[0]+y[1])/2+"%, 1yr growth "+g[0]+"%, 3yr "+g[1]+"%, DOM "+(d.dom||"?")+"d, txVol "+(d.txVol||"?")+" , buildings "+bldgCounts[n]+", sustainability "+(GREEN_AREAS[n]||50);}).join(". ");
         askAI([{role:"user",content:"Compare these Dubai areas for a real estate buyer:\n"+summary+"\n\nProvide: 1) For Investment: which is best and why (yield, growth, liquidity), 2) For Living: which is best and why (community, SC, grade), 3) Value Pick: which offers best value. Be specific with numbers. 3-4 sentences each."}],
           "You are a Dubai real estate advisor. Give clear, data-backed area comparison advice. Use the numbers provided."
         ).then(function(r){cmp.aiVerdict=r;cmp.aiLoading=false;render();}).catch(function(e){cmp.aiLoading=false;cmp.aiVerdict="Error: "+e.message;render();});
@@ -351,7 +351,7 @@ function renderMarketIndex(){
     var favGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}});
     DV_SAVED.favAreas.forEach(function(aName){
       var a=AREAS[aName];if(!a)return;
-      var y=a.y||[5,7];var g=a.g||[10,18,28];
+      var y=a.y||[5,7];var g=a.g||[3,9,16];
       var fc=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"10px",padding:"10px",cursor:"pointer"}});
       fc.addEventListener("click",function(){analyzerState.f.area=aName;currentTab="Analyzer";render();});
       fc.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"4px"},[

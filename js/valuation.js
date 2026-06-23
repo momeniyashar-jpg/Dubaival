@@ -329,7 +329,7 @@ function getConfidenceGuidance(val,f){
 function computeValuation(f,buildingVal,liveData){
   f.area=resolveDLDArea(f.area);
   const bData=lookupBuilding(buildingVal||f.building||"",f.area);
-  const staticArea=AREAS[f.area]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
+  const staticArea=AREAS[f.area]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
   if(!AREAS[f.area])dvLog("no_area","computeValuation","Area not in AREAS: "+f.area+" — using generic defaults");
   const dynBench=getDynamicBenchmark(f.area);
   const aData=Object.assign({},staticArea);
@@ -505,7 +505,7 @@ function computeValuation(f,buildingVal,liveData){
   const sc=(parseFloat(f.serviceCharge)||(bData&&bData.sc)||aData.sc||15)*size;
   const grossYield=(rent/price*100).toFixed(1);
   const netYield=((rent-sc)/price*100).toFixed(1);
-  const gr=aData.g||[10,18,28];
+  const gr=aData.g||[3,9,16];
   // Price-to-Rent ratio bubble signal (NY Fed SR-218 / NBER WP-11643 / UBS GREBI thresholds)
   const grossYieldNum=parseFloat(grossYield);
   const prRatio=grossYieldNum>0?100/grossYieldNum:null;
@@ -615,7 +615,7 @@ function computeSmartRent(f,liveRentals){
   var grossYieldNum=parseFloat(grossYield);
   var prRatio=grossYieldNum>0?100/grossYieldNum:null;
   var investSignal=prRatio===null?null:prRatio<15?{label:"Undervalued",c:"green"}:prRatio<20?{label:"Fair Value",c:"green"}:prRatio<25?{label:"Elevated",c:"yellow"}:{label:"Bubble Risk",c:"red"};
-  var gr=aData.g||[10,18,28];
+  var gr=aData.g||[3,9,16];
   var totalReturnAnnual=(parseFloat(netYield)+gr[1]/3).toFixed(1);
   return{
     rent:finalRent,rentLow:Math.round(finalRent*0.88),rentHigh:Math.round(finalRent*1.12),
@@ -711,7 +711,7 @@ function computeRentalValuation(f){
     if(aData.rv7)areaRents.push({beds:"7 BR",rent:aData.rv7});
   }
   // Growth forecast
-  var gr=aData.g||[10,18,28];
+  var gr=aData.g||[3,9,16];
   // Liquidity
   var domEst=aData.dom||60;
   var txVol=aData.txVol||100;

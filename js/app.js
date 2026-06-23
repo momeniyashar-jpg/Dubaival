@@ -144,11 +144,11 @@ function renderFind(){
       var key=e[0],bData=e[1];
       if(sf.area&&bData.a!==sf.area)return;
       if(sf.grade&&bData.g!==sf.grade)return;
-      var aData=AREAS[bData.a]||{psf:1800,sc:15,y:[5,7],g:[10,18,28],dom:60,txVol:100};
+      var aData=AREAS[bData.a]||{psf:1800,sc:15,y:[5,7],g:[3,9,16],dom:60,txVol:100};
       if(bData.p<minP||bData.p>maxP)return;
       var yi=aData.y||[5,7];var avgYield=(yi[0]+yi[1])/2;
       if(avgYield<minY)return;
-      var gr=aData.g||[10,18,28];
+      var gr=aData.g||[3,9,16];
       if(gr[1]<minG)return;
       var dom=aData.dom||60;
       if(dom>maxD)return;
@@ -572,10 +572,10 @@ function renderFind(){
         else if(avgY>=6)score+=15;
         else if(avgY>=5)score+=10;
         // Growth (max 15 pts)
-        var gr1=aData.g?aData.g[0]:10;
-        if(gr1>=15)score+=15;
-        else if(gr1>=10)score+=10;
-        else if(gr1>=5)score+=5;
+        var gr1=aData.g?aData.g[0]:3;
+        if(gr1>=8)score+=15;
+        else if(gr1>=5)score+=10;
+        else if(gr1>=3)score+=5;
         // Liquidity — low DOM (max 10 pts)
         var dom=aData.dom||60;
         if(dom<=30)score+=10;

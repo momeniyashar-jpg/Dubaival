@@ -67,7 +67,7 @@ function renderMap(){
       var txVol=aData.txVol||100;
       var radius=Math.max(6,Math.min(22,Math.sqrt(txVol/10)*2.5));
       var marker=L.circleMarker(coords,{radius:radius,fillColor:color,color:color,weight:1.5,opacity:0.9,fillOpacity:0.55});
-      var gr=aData.g||[10,18,28];var yi=aData.y||[5,7];
+      var gr=aData.g||[3,9,16];var yi=aData.y||[5,7];
       var geoS=computeGeoScore(name);
       var geoLine=geoS?'<div style="margin-top:6px;padding-top:6px;border-top:1px solid #1C2540;font-size:10px;"><span style="color:#818CF8;">🚇 '+geoS.metroName+'</span> <b>'+geoS.metroDist+'km</b> · <span style="color:#D4A843;">Location '+geoS.locationScore+'/10</span></div>':'';
       var popupContent='<div style="font-family:Space Grotesk,monospace;min-width:200px;color:#E8EDF5;background:#0D1220;border-radius:8px;padding:12px;border:1px solid #1C2540;">'

@@ -786,7 +786,7 @@ function renderAnalyzer(){
         if(result){qs.result=result;qs.result._isRental=true;}else{qs.result={error:true};}
       }else{
         if(!price||price<50000){alert("Please enter a valid price");return;}
-        var aData=AREAS[qs.area]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
+        var aData=AREAS[qs.area]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
         var estSize=Math.round(price/(aData.psf||1800));
         if(estSize<200)estSize=800;
         if(estSize>10000)estSize=Math.round(price/1200);
@@ -1836,7 +1836,7 @@ function renderAnalyzerResult(wrap){
   // -- SUSTAINABILITY & EFFICIENCY SCORE --
   (function(){
     var bData=val.bData||null;
-    var aData=AREAS[f.area]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
+    var aData=AREAS[f.area]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
     var sus=computeSustainabilityScore(f.building||"",f.area||"",bData,aData);
     var susColor=sus.score>=75?"#10B981":sus.score>=50?"#EAB308":sus.score>=35?"#F97316":"#EF4444";
     var susCard=div({background:cl.surface,border:"1px solid "+hexAlpha(susColor,0.3),borderRadius:"14px",padding:"18px",marginBottom:"14px",position:"relative",overflow:"hidden"});
@@ -2094,9 +2094,9 @@ function renderAnalyzerResult(wrap){
     var size=parseFloat(String(f.size||f.buaSize||"").replace(/,/g,""))||0;
     var purchPrice=parseInt(String(f.purchasePrice||"").replace(/,/g,""))||0;
     var purchDateStr=f.purchaseDate||"";
-    var gr=val.g1||18;
-    var gr0=val.g0||10;
-    var gr2=val.g2||28;
+    var gr=val.g1||9;
+    var gr0=val.g0||3;
+    var gr2=val.g2||16;
     var rent=val.rent||0;
     var sc=val.sc||0;
     var netYield=parseFloat(val.netYield)||0;
@@ -2791,7 +2791,7 @@ function renderAnalyzerResult(wrap){
     if(!price||price<100000||!val)return;
     if(!window.INV_CALC)window.INV_CALC={dp:25,rate:4.5,hold:5,rentInc:3,vacancy:5,maint:5000,expanded:false};
     var IC=window.INV_CALC;
-    var aData=AREAS[analyzerState.f.area]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
+    var aData=AREAS[analyzerState.f.area]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
     var annualRent=val.rent||0;
     var scTotal=val.sc||0;
     var gr0=(aData.g&&aData.g[0])||10;
