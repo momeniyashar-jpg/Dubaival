@@ -2621,7 +2621,7 @@ function renderAnalyzerResult(wrap){
       var cBox=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"10px 8px",textAlign:"center"}});
       cBox.appendChild(div({fontSize:"14px",marginBottom:"4px"},comp.icon));
       cBox.appendChild(div({color:cl.sub,fontSize:"7px",letterSpacing:"0.06em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},comp.l));
-      var compC=comp.v>=70?cl.green:comp.v>=45?cl.yellow:cl.red;
+      var compC=comp.v>=70?cl.green:comp.v>=35?cl.yellow:cl.red;
       cBox.appendChild(div({color:compC,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},String(comp.v)));
       cBox.appendChild(div({color:cl.sub,fontSize:"7px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},"weight: "+comp.w));
       // Mini bar
