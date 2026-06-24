@@ -5,7 +5,7 @@
 var SOCIAL_STATE={
   tab:"explore",  // explore | agents | profile | following
   // Explore
-  videos:[],videosLoading:false,videosPage:0,videosHasMore:true,
+  videos:[],videosLoading:false,videosFetched:false,videosPage:0,videosHasMore:true,
   filter:{area:"",category:"",sort:"newest",myFeed:false},
   expandedVideo:null,
   // Agents
@@ -168,7 +168,7 @@ async function _fetchSocialVideos(reset){
       SOCIAL_STATE.videosPage++;
     }
   }catch(e){console.warn("Social video fetch failed:",e.message);}
-  SOCIAL_STATE.videosLoading=false;render();
+  SOCIAL_STATE.videosLoading=false;SOCIAL_STATE.videosFetched=true;render();
 }
 
 async function _fetchAgentList(){
@@ -1371,7 +1371,7 @@ function renderSocial(){
   }
 
   // Auto-fetch on first render
-  if(SOCIAL_STATE.tab==="explore"&&!SOCIAL_STATE.videos.length&&!SOCIAL_STATE.videosLoading){
+  if(SOCIAL_STATE.tab==="explore"&&!SOCIAL_STATE.videos.length&&!SOCIAL_STATE.videosLoading&&!SOCIAL_STATE.videosFetched){
     setTimeout(function(){_fetchSocialVideos(true);},0);
   }
 

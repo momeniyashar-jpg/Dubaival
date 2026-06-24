@@ -79,7 +79,7 @@ function renderMortgage(price, cl){
       color:active?cl.gold:cl.sub,
       fontFamily:"'Space Grotesk',monospace",cursor:"pointer",fontWeight:active?"700":"400",
       lineHeight:"1.3"
-    },onclick:function(){M.type=rt.k;render();}},rt.l);
+    },onclick:function(){M.type=rt.k;render(true);}},rt.l);
     rateRow.appendChild(btn);
   });
   wrap.appendChild(rateRow);
@@ -91,7 +91,7 @@ function renderMortgage(price, cl){
   dpLabel.appendChild(span({color:cl.gold,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},M.dp+"% · AED "+dpAmt.toLocaleString()));
   dpRow.appendChild(dpLabel);
   const slider=el("input",{type:"range",min:minDP,max:50,value:M.dp,style:{width:"100%",accentColor:cl.gold}});
-  slider.addEventListener("input",function(){M.dp=parseInt(this.value);render();});
+  slider.addEventListener("input",function(){M.dp=parseInt(this.value);render(true);});
   dpRow.appendChild(slider);
   const dpHint=el("div",{style:{display:"flex",justifyContent:"space-between"}});
   dpHint.appendChild(span({color:cl.sub,fontSize:"8px",fontFamily:"'Space Grotesk',monospace"},"Min "+minDP+"% ("+(M.nationality==="uae"?"UAE National":"Expat")+")"));
@@ -110,7 +110,7 @@ function renderMortgage(price, cl){
     if(M.tenure===y)opt.selected=true;
     tenureSel.appendChild(opt);
   });
-  tenureSel.addEventListener("change",function(){M.tenure=parseInt(this.value);render();});
+  tenureSel.addEventListener("change",function(){M.tenure=parseInt(this.value);render(true);});
   tenureBox.appendChild(tenureSel);
   optRow.appendChild(tenureBox);
 
@@ -122,7 +122,7 @@ function renderMortgage(price, cl){
     if(M.nationality===n.v)opt.selected=true;
     natSel.appendChild(opt);
   });
-  natSel.addEventListener("change",function(){M.nationality=this.value;render();});
+  natSel.addEventListener("change",function(){M.nationality=this.value;render(true);});
   natBox.appendChild(natSel);
   optRow.appendChild(natBox);
   wrap.appendChild(optRow);

@@ -1231,7 +1231,7 @@ function renderAdmin(){
   return wrap;
 }
 
-function render(){
+function render(preserveScroll){
   // Show loading if DB not ready
   if(!DB_LOADED){
     const app=document.getElementById('app');
@@ -1244,6 +1244,7 @@ function render(){
   document.documentElement.lang=isRTL()?"ar":"en";
   if(isRTL())document.body.style.fontFamily="Cairo,'Space Grotesk',monospace";
   else document.body.style.fontFamily="";
+  var _scrollY=preserveScroll?window.scrollY:0;
   const cl=C();
   const app=document.getElementById("app");
   app.innerHTML="";
@@ -1409,5 +1410,6 @@ function render(){
 
   // Interactive tour for first-time users
   checkTourOnLoad();
+  if(preserveScroll&&_scrollY)requestAnimationFrame(function(){window.scrollTo(0,_scrollY);});
 }
 
