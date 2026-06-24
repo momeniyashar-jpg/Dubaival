@@ -10,7 +10,7 @@ en:{
   // Tabs
   tab_market:"Market",tab_index:"Index",tab_analyzer:"Analyzer",tab_map:"Map",tab_find:"Find",
   tab_deals:"Deals",tab_social:"Social",tab_compare:"Compare",tab_portfolio:"Portfolio",tab_alerts:"Alerts",
-  tab_chat:"AI Chat",tab_workspace:"Workspace",tab_about:"About",
+  tab_chat:"AI Agents",tab_workspace:"Workspace",tab_about:"About",
   // Header
   hdr_subtitle:"AI Property Intelligence",hdr_live:"LIVE",hdr_profile:"Profile",
   // Analyzer
@@ -614,7 +614,7 @@ var analyzerState={
 };
 var compareState={a1:"",a2:"",budget:"",purpose:"Investment",loading:false,result:"",err:""};
 var personalState={budget:"",role:"Investor",family:"Couple",children:"0",work:"",purpose:"Investment",timeline:"6 months",loading:false,result:"",err:""};
-var chatState={msgs:[{role:"assistant",text:"DubAIVal Intelligence.\n\nBuilding-level knowledge · June 2026 data · Confidence scoring.\n\nAsk me about any building, deal, or strategy."}],input:"",loading:false};
+var chatState={msgs:[{role:"assistant",text:"DubAIVal Intelligence.\n\nBuilding-level knowledge · June 2026 data · Confidence scoring.\n\nAsk me about any building, deal, or strategy."}],input:"",loading:false,agentId:"general",agentMsgs:{}};
 
 // URL param auto-fill for shared valuations
 (function(){
