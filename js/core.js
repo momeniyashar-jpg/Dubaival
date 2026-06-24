@@ -686,18 +686,11 @@ function toggleFavArea(area){
 }
 function isFavArea(area){return DV_SAVED.favAreas.indexOf(area)!==-1;}
 
-// --- CSV EXPORT ---
-function exportCSV(filename,headers,rows){
-  function esc(v){var s=String(v==null?"":v);if(s.indexOf(",")!==-1||s.indexOf('"')!==-1||s.indexOf("\n")!==-1)return'"'+s.replace(/"/g,'""')+'"';return s;}
-  var lines=[headers.map(esc).join(",")];
-  rows.forEach(function(r){lines.push(r.map(esc).join(","));});
-  var blob=new Blob(["﻿"+lines.join("\n")],{type:"text/csv;charset=utf-8"});
-  var url=URL.createObjectURL(blob);
-  var a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
-}
+// --- CSV EXPORT (disabled) ---
+function exportCSV(filename,headers,rows){return;}
 function csvDate(){return new Date().toISOString().slice(0,10);}
 function csvExportBtn(label,cl,onclick){
-  var b=el("button",{style:{background:"transparent",border:"1px solid "+cl.goldDim,color:cl.gold,padding:"8px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",display:"inline-flex",alignItems:"center",gap:"6px"}});
+  var b=el("button",{style:{background:"transparent",border:"1px solid "+cl.goldDim,color:cl.gold,padding:"8px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",display:"none",alignItems:"center",gap:"6px"}});
   b.textContent="📥 "+label;b.addEventListener("click",onclick);return b;
 }
 
@@ -995,7 +988,7 @@ var TOUR_FULL=[
   {sel:function(){var bs=document.querySelectorAll("button,div");for(var i=0;i<bs.length;i++){if((bs[i].textContent||"")==="🔔")return bs[i];}return null;},title:"Notification Bell 🔔",text:"Get alerts for new inquiries, deal matches, portfolio opportunities, and market changes.",arrow:"bottom"},
   {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){var tx=bs[i].textContent||"";if(tx.indexOf("Save")!==-1&&tx.indexOf("Search")!==-1)return bs[i];}return null;},title:"Saved Searches & Favorites",text:"Save valuations and bookmark favorite deals and areas — access them instantly from any tab.",arrow:"bottom",needTab:"Analyzer"},
   {sel:function(){var bs=document.querySelectorAll("a,button");for(var i=0;i<bs.length;i++){var tx=bs[i].textContent||"";if(tx.indexOf("WhatsApp")!==-1||tx.indexOf("whatsapp")!==-1)return bs[i];}return null;},title:"Social Share",text:"Share valuations on WhatsApp, LinkedIn, X, and Telegram with one tap.",arrow:"bottom"},
-  {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){var tx=bs[i].textContent||"";if(tx.indexOf("CSV")!==-1||tx.indexOf("Export")!==-1||tx.indexOf("Download")!==-1)return bs[i];}return null;},title:"Export CSV 📥",text:"Download market data, portfolio, and comparisons as CSV files for offline analysis.",arrow:"bottom"},
+  {sel:function(){return null;},title:"Export CSV 📥",text:"Data export is currently disabled.",arrow:"bottom"},
   {sel:function(){var es=document.querySelectorAll("[style]");for(var i=0;i<es.length;i++){if((es[i].textContent||"").indexOf("Anomal")!==-1||(es[i].textContent||"").indexOf("anomal")!==-1)return es[i];}return null;},title:"Price Anomaly Detection",text:"AI flags suspicious pricing patterns to protect market integrity and your investments.",arrow:"bottom",needTab:"Index"},
   {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){if((bs[i].textContent||"").indexOf("Arabic")!==-1||(bs[i].textContent||"").indexOf("عربي")!==-1)return bs[i];}return null;},title:"Arabic PDF Reports",text:"Generate professional valuation reports in Arabic with full RTL layout support.",arrow:"bottom"},
   {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){if((bs[i].textContent||"").indexOf("Agent Hub")!==-1||(bs[i].textContent||"").indexOf("Register")!==-1)return bs[i];}return null;},title:"Agent Hub & Referral",text:"Register as an agent, receive referrals, and manage your subscription tier.",arrow:"bottom",needTab:"Deals"},
