@@ -202,6 +202,13 @@ async function publishToInstagram(caption,imageUrl){
     var r1=await fetch(GRAPH_BASE+c.igId+"/media",{method:"POST",body:params});
     var d1=await r1.json();
     if(d1.error)return{success:false,error:d1.error.message};
+    for(var attempt=0;attempt<10;attempt++){
+      await new Promise(function(r){setTimeout(r,3000);});
+      var sr=await fetch(GRAPH_BASE+d1.id+"?fields=status_code&access_token="+c.token);
+      var sd=await sr.json();
+      if(sd.status_code==="FINISHED")break;
+      if(sd.status_code==="ERROR")return{success:false,error:"Instagram rejected the image"};
+    }
     var params2=new URLSearchParams({creation_id:d1.id,access_token:c.token});
     var r2=await fetch(GRAPH_BASE+c.igId+"/media_publish",{method:"POST",body:params2});
     var d2=await r2.json();
