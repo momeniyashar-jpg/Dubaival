@@ -263,7 +263,7 @@ function buildPublishBar(postData,msgText,cl){
       var result=await publishToInstagram(caption);
       SOCIAL_STATE.publishing=false;
       if(result.success){this.textContent="✅ Posted!";this.style.background="#10B98133";this.style.color="#10B981";this.style.borderColor="#10B981";}
-      else{this.textContent="❌ Failed";this.style.background="#EF444433";this.style.color="#EF4444";setTimeout(function(){this.textContent="📸 Retry Instagram";this.style.background="";this.style.color="#E1306C";}.bind(this),3000);}
+      else{alert("Instagram Error: "+(result.error||"Unknown"));this.textContent="❌ Failed";this.style.background="#EF444433";this.style.color="#EF4444";setTimeout(function(){this.textContent="📸 Retry Instagram";this.style.background="";this.style.color="#E1306C";}.bind(this),3000);}
     }));
   }
 
@@ -275,7 +275,7 @@ function buildPublishBar(postData,msgText,cl){
       var result=await publishToFacebook(caption,"https://www.dubaival.com");
       SOCIAL_STATE.publishing=false;
       if(result.success){this.textContent="✅ Posted!";this.style.background="#10B98133";this.style.color="#10B981";this.style.borderColor="#10B981";}
-      else{this.textContent="❌ Failed";this.style.background="#EF444433";this.style.color="#EF4444";setTimeout(function(){this.textContent="📘 Retry Facebook";this.style.background="";this.style.color="#1877F2";}.bind(this),3000);}
+      else{alert("Facebook Error: "+(result.error||"Unknown"));this.textContent="❌ Failed";this.style.background="#EF444433";this.style.color="#EF4444";setTimeout(function(){this.textContent="📘 Retry Facebook";this.style.background="";this.style.color="#1877F2";}.bind(this),3000);}
     }));
   }
 
