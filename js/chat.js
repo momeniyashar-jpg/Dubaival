@@ -147,50 +147,137 @@ var AI_AGENTS=[
         "- End with a clear next step";
     }
   },
-  {id:"outreach",icon:"📣",name:"Outreach & Content",nameAr:"تولید محتوا",
-    desc:"Generate social posts, ad copy, cold messages, email campaigns with real data",
+  {id:"outreach",icon:"📣",name:"Social Media Manager",nameAr:"مدیر شبکه‌های اجتماعی",
+    desc:"Generate & auto-publish to Instagram, Facebook, WhatsApp — like a pro",
     color:"#F97316",
-    suggestions:["Write 5 Instagram posts about investing in JVC","Create a WhatsApp broadcast for Palm Jumeirah listings","Write Google Ads copy for Dubai property investment","Draft email campaign for Iranian investors in Dubai"],
+    suggestions:["Create an Instagram post about investing in JVC with real data","Write a Facebook post about Palm Jumeirah luxury villas","Generate WhatsApp status about Dubai Marina yields","Create a professional post about Business Bay growth for all platforms"],
     sys:function(){
       var hotAreas="";
       try{
         var ranked=Object.keys(AREAS).map(function(k){var a=AREAS[k];return{n:k,p:a.psf,y:a.y?((a.y[0]+a.y[1])/2):0,g:a.g?a.g[0]:0};}).sort(function(a,b){return(b.y+b.g)-(a.y+a.g);}).slice(0,20);
         hotAreas=ranked.map(function(a){return a.n+":PSF"+a.p+",Yield"+a.y.toFixed(1)+"%,Growth"+a.g+"%";}).join("|");
       }catch(e){}
-      return "You are a Dubai real estate OUTREACH & CONTENT SPECIALIST.\n"+
-        "You create high-converting marketing content using REAL market data.\n"+
+      return "You are a Dubai real estate SOCIAL MEDIA MANAGER & CONTENT CREATOR.\n"+
+        "You create professional, high-converting content for Instagram, Facebook, WhatsApp, LinkedIn.\n"+
         "Hot areas: "+hotAreas+"\n\n"+
-        "CONTENT TYPES YOU CREATE:\n\n"+
-        "📱 SOCIAL MEDIA (Instagram/LinkedIn/X/TikTok):\n"+
-        "- Use hooks that stop scrolling: numbers, questions, bold claims backed by data\n"+
-        "- Include specific AED figures, yield %, growth % from our database\n"+
-        "- Add relevant hashtags: #DubaiRealEstate #DubaiInvestment #PropertyDubai etc.\n"+
-        "- Format for each platform (IG: carousel slides, LinkedIn: long-form, X: thread)\n"+
-        "- Include CTA: 'Free valuation at DubaiVal.com' or 'DM for analysis'\n\n"+
-        "📧 EMAIL CAMPAIGNS:\n"+
-        "- Subject line (A/B variants)\n"+
-        "- Personalized opening\n"+
-        "- Value-first body with market data\n"+
-        "- Clear CTA button text\n"+
-        "- P.S. line with urgency\n\n"+
-        "💬 WHATSAPP/COLD MESSAGES:\n"+
-        "- Short, personal, value-led\n"+
-        "- Include one specific data point to build credibility\n"+
-        "- Soft CTA (question, not hard sell)\n\n"+
-        "🎯 AD COPY (Google/Meta):\n"+
-        "- Headline (30 chars), Description (90 chars), Display URL\n"+
-        "- Multiple variants for A/B testing\n"+
-        "- Target audience segments\n\n"+
+        "IMPORTANT: When the user asks you to create a post, you MUST respond with EXACTLY this JSON format at the END of your response (after any explanation):\n"+
+        "```json\n{\"post\":{\"caption\":\"THE FULL POST TEXT WITH EMOJIS AND HASHTAGS\",\"platform\":\"instagram\"}}\n```\n\n"+
+        "Platform options: \"instagram\", \"facebook\", \"whatsapp\", \"all\"\n"+
+        "If user says 'all platforms' or doesn't specify, use \"all\".\n\n"+
+        "CONTENT STYLE:\n"+
+        "- Instagram: Visual hooks, emojis, 5-10 hashtags, carousel-style numbered points\n"+
+        "- Facebook: Longer form, professional, CTA to DubaiVal.com\n"+
+        "- WhatsApp: Short & punchy, 3-4 lines max, perfect for status/broadcast\n"+
+        "- All: Create one master post that works across all platforms\n\n"+
         "RULES:\n"+
-        "- ALWAYS use real numbers from our database — never make up statistics\n"+
-        "- Tailor content to the specified audience (investors, end-users, expats, specific nationalities)\n"+
-        "- If asked in Farsi/Arabic, write content in that language\n"+
-        "- Include 'Powered by DubAIVal.com' or 'Source: DubAIVal Market Data' naturally\n"+
-        "- Generate multiple variants when asked\n"+
-        "- Suggest posting schedule and best times for Dubai audience";
+        "- ALWAYS use REAL numbers from our database — never fabricate\n"+
+        "- Include AED figures, yield %, growth % from database\n"+
+        "- Professional luxury tone — like a top Dubai agency\n"+
+        "- Include 'DubaiVal.com' or '@dubaiaivaluation' naturally\n"+
+        "- If user writes in Farsi/Arabic, create content in that language\n"+
+        "- Make every post look like it was created by a marketing expert\n"+
+        "- Add call-to-action: DM, link, or contact\n"+
+        "- Suggest best posting time for Dubai audience (10AM, 1PM, 7PM GST)";
     }
   }
 ];
+
+// --- SOCIAL MEDIA PUBLISHER --------------------------------------------------
+var SOCIAL_STATE={publishing:false,lastResult:null};
+
+async function publishToInstagram(caption,imageUrl){
+  try{
+    var body={action:"post",caption:caption,image_url:imageUrl||"https://i.imgur.com/8RKXAIV.jpeg"};
+    var r=await fetch(API_BASE+"/proxy-instagram",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    var d=await r.json();
+    if(d.error)return{success:false,error:d.error.message||"Instagram API error"};
+    return{success:true,media_id:d.media_id};
+  }catch(e){return{success:false,error:e.message};}
+}
+
+async function publishToFacebook(message,link){
+  try{
+    var body={action:"fb_post",message:message};
+    if(link)body.link=link;
+    var r=await fetch(API_BASE+"/proxy-instagram",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    var d=await r.json();
+    if(d.error)return{success:false,error:d.error.message||"Facebook API error"};
+    return{success:true,post_id:d.post_id};
+  }catch(e){return{success:false,error:e.message};}
+}
+
+function shareToWhatsApp(text){
+  var encoded=encodeURIComponent(text);
+  window.open("https://wa.me/?text="+encoded,"_blank");
+  return{success:true};
+}
+
+function extractPostJSON(text){
+  try{
+    var match=text.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+    if(match){var parsed=JSON.parse(match[1]);if(parsed.post)return parsed.post;}
+    var match2=text.match(/\{"post"\s*:\s*\{[\s\S]*?\}\s*\}/);
+    if(match2){var parsed2=JSON.parse(match2[0]);if(parsed2.post)return parsed2.post;}
+  }catch(e){}
+  return null;
+}
+
+function buildPublishBar(postData,msgText,cl){
+  var bar=div({display:"flex",flexWrap:"wrap",gap:"6px",marginTop:"10px",paddingTop:"10px",borderTop:"1px solid "+cl.border});
+
+  var caption=postData?postData.caption:msgText;
+  var platform=postData?postData.platform:"all";
+
+  var makeBtn=function(label,icon,color,onclick){
+    var b=el("button",{style:{
+      background:hexAlpha(color,0.12),border:"1px solid "+hexAlpha(color,0.3),
+      color:color,padding:"7px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"600",
+      fontFamily:"'Space Grotesk',monospace",cursor:"pointer",display:"flex",alignItems:"center",gap:"5px",transition:"all 0.2s"
+    },onclick:onclick});
+    b.textContent=icon+" "+label;
+    return b;
+  };
+
+  if(platform==="instagram"||platform==="all"){
+    bar.appendChild(makeBtn("Post to Instagram","📸","#E1306C",async function(){
+      if(SOCIAL_STATE.publishing)return;
+      SOCIAL_STATE.publishing=true;
+      this.textContent="⏳ Publishing...";this.style.opacity="0.6";
+      var result=await publishToInstagram(caption);
+      SOCIAL_STATE.publishing=false;
+      if(result.success){this.textContent="✅ Posted!";this.style.background="#10B98133";this.style.color="#10B981";this.style.borderColor="#10B981";}
+      else{this.textContent="❌ Failed";this.style.background="#EF444433";this.style.color="#EF4444";setTimeout(function(){this.textContent="📸 Retry Instagram";this.style.background="";this.style.color="#E1306C";}.bind(this),3000);}
+    }));
+  }
+
+  if(platform==="facebook"||platform==="all"){
+    bar.appendChild(makeBtn("Post to Facebook","📘","#1877F2",async function(){
+      if(SOCIAL_STATE.publishing)return;
+      SOCIAL_STATE.publishing=true;
+      this.textContent="⏳ Publishing...";this.style.opacity="0.6";
+      var result=await publishToFacebook(caption,"https://www.dubaival.com");
+      SOCIAL_STATE.publishing=false;
+      if(result.success){this.textContent="✅ Posted!";this.style.background="#10B98133";this.style.color="#10B981";this.style.borderColor="#10B981";}
+      else{this.textContent="❌ Failed";this.style.background="#EF444433";this.style.color="#EF4444";setTimeout(function(){this.textContent="📘 Retry Facebook";this.style.background="";this.style.color="#1877F2";}.bind(this),3000);}
+    }));
+  }
+
+  if(platform==="whatsapp"||platform==="all"){
+    bar.appendChild(makeBtn("Share WhatsApp","📲","#25D366",function(){
+      shareToWhatsApp(caption);
+      this.textContent="✅ Opened!";this.style.background="#10B98133";this.style.color="#10B981";this.style.borderColor="#10B981";
+    }));
+  }
+
+  var copyBtn=makeBtn("Copy Text","📋","#9CA3AF",function(){
+    navigator.clipboard.writeText(caption).then(function(){
+      copyBtn.textContent="✅ Copied!";setTimeout(function(){copyBtn.textContent="📋 Copy Text";},2000);
+    });
+  });
+  bar.appendChild(copyBtn);
+
+  return bar;
+}
 
 // --- CHAT STATE (agent-aware) ------------------------------------------------
 if(!chatState.agentId)chatState.agentId="general";
@@ -250,7 +337,17 @@ function renderChat(){
       row.appendChild(av);
     }
     var bubble=div({maxWidth:"84%",background:isA?cl.surface:hexAlpha(activeAgent.color,0.08),border:"1px solid "+(isA?cl.border:hexAlpha(activeAgent.color,0.2)),borderRadius:isA?"14px 14px 14px 0":"14px 14px 0 14px",padding:"11px 15px",color:cl.subHi,fontSize:"13px",lineHeight:"1.8",fontFamily:"'Inter',sans-serif"});
-    if(isA){var formatted=formatAIResponse(m.text,cl);if(formatted)bubble.appendChild(formatted);else{bubble.style.whiteSpace="pre-wrap";bubble.textContent=m.text;}}
+    if(isA){
+      var displayText=m.text.replace(/```json\s*\{[\s\S]*?\}\s*```/g,"").trim();
+      var formatted=formatAIResponse(displayText,cl);
+      if(formatted)bubble.appendChild(formatted);else{bubble.style.whiteSpace="pre-wrap";bubble.textContent=displayText;}
+      if(chatState.agentId==="outreach"){
+        var postData=extractPostJSON(m.text);
+        if(postData){
+          bubble.appendChild(buildPublishBar(postData,displayText,cl));
+        }
+      }
+    }
     else{bubble.style.whiteSpace="pre-wrap";bubble.textContent=m.text;}
     row.appendChild(bubble);msgsDiv.appendChild(row);
   });
