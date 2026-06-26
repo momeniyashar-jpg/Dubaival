@@ -1,9 +1,7 @@
 {
   "buildCommand": "",
   "installCommand": "",
-  "builds": [
-    { "src": "api/**/*.js", "use": "@vercel/node" }
-  ],
+  "outputDirectory": ".",
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [

@@ -184,25 +184,42 @@ var AI_AGENTS=[
 
 // --- SOCIAL MEDIA PUBLISHER --------------------------------------------------
 var SOCIAL_STATE={publishing:false,lastResult:null};
+var GRAPH_BASE="https://graph.facebook.com/v25.0/";
+
+function getSocialCreds(){
+  var t=localStorage.getItem("dv_ig_token");
+  var ig=localStorage.getItem("dv_ig_id");
+  var fb=localStorage.getItem("dv_fb_id");
+  if(!t||!ig)return null;
+  return{token:t,igId:ig,fbId:fb||""};
+}
 
 async function publishToInstagram(caption,imageUrl){
   try{
-    var body={action:"post",caption:caption,image_url:imageUrl||"https://i.imgur.com/8RKXAIV.jpeg"};
-    var r=await fetch(API_BASE+"/proxy-instagram",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-    var d=await r.json();
-    if(d.error)return{success:false,error:d.error.message||"Instagram API error"};
-    return{success:true,media_id:d.media_id};
+    var c=getSocialCreds();
+    if(!c)return{success:false,error:"Social media not configured. Go to Profile to set up."};
+    var params=new URLSearchParams({image_url:imageUrl||"https://i.imgur.com/8RKXAIV.jpeg",caption:caption,access_token:c.token});
+    var r1=await fetch(GRAPH_BASE+c.igId+"/media",{method:"POST",body:params});
+    var d1=await r1.json();
+    if(d1.error)return{success:false,error:d1.error.message};
+    var params2=new URLSearchParams({creation_id:d1.id,access_token:c.token});
+    var r2=await fetch(GRAPH_BASE+c.igId+"/media_publish",{method:"POST",body:params2});
+    var d2=await r2.json();
+    if(d2.error)return{success:false,error:d2.error.message};
+    return{success:true,media_id:d2.id};
   }catch(e){return{success:false,error:e.message};}
 }
 
 async function publishToFacebook(message,link){
   try{
-    var body={action:"fb_post",message:message};
-    if(link)body.link=link;
-    var r=await fetch(API_BASE+"/proxy-instagram",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    var c=getSocialCreds();
+    if(!c||!c.fbId)return{success:false,error:"Facebook Page ID not configured. Go to Profile to set up."};
+    var params=new URLSearchParams({message:message,access_token:c.token});
+    if(link)params.set("link",link);
+    var r=await fetch(GRAPH_BASE+c.fbId+"/feed",{method:"POST",body:params});
     var d=await r.json();
-    if(d.error)return{success:false,error:d.error.message||"Facebook API error"};
-    return{success:true,post_id:d.post_id};
+    if(d.error)return{success:false,error:d.error.message};
+    return{success:true,post_id:d.id};
   }catch(e){return{success:false,error:e.message};}
 }
 
@@ -276,7 +293,47 @@ function buildPublishBar(postData,msgText,cl){
   });
   bar.appendChild(copyBtn);
 
+  if(!getSocialCreds()){
+    bar.appendChild(makeBtn("Setup","⚙️","#FBBF24",function(){showSocialSetup();}));
+  }
+
   return bar;
+}
+
+function showSocialSetup(){
+  var existing=document.getElementById("social-setup-modal");
+  if(existing)existing.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.7)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center"},id:"social-setup-modal"});
+  var card=div({background:"#1A1F2E",border:"1px solid #2A3040",borderRadius:"16px",padding:"24px",width:"380px",maxWidth:"90vw"});
+  var title=el("h3",{style:{color:"#C9A84C",margin:"0 0 16px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}});
+  title.textContent="Social Media Setup";
+  card.appendChild(title);
+  var fields=[
+    {key:"dv_ig_token",label:"Page Access Token",ph:"EAATsXN..."},
+    {key:"dv_ig_id",label:"Instagram Account ID",ph:"17841416622862972"},
+    {key:"dv_fb_id",label:"Facebook Page ID (optional)",ph:"123456789"}
+  ];
+  var inputs=[];
+  fields.forEach(function(f){
+    var lbl=el("label",{style:{color:"#8899AA",fontSize:"11px",display:"block",marginBottom:"4px",fontFamily:"'Space Grotesk',monospace"}});
+    lbl.textContent=f.label;
+    var inp=el("input",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px 10px",color:"#E0E0E0",fontSize:"12px",marginBottom:"12px",fontFamily:"monospace",boxSizing:"border-box"},placeholder:f.ph,value:localStorage.getItem(f.key)||""});
+    card.appendChild(lbl);card.appendChild(inp);
+    inputs.push({key:f.key,inp:inp});
+  });
+  var btnRow=div({display:"flex",gap:"8px",marginTop:"8px"});
+  var saveBtn=el("button",{style:{flex:1,background:"#C9A84C",color:"#000",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){
+    inputs.forEach(function(i){if(i.inp.value.trim())localStorage.setItem(i.key,i.inp.value.trim());else localStorage.removeItem(i.key);});
+    overlay.remove();
+  }});
+  saveBtn.textContent="Save";
+  var cancelBtn=el("button",{style:{flex:1,background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){overlay.remove();}});
+  cancelBtn.textContent="Cancel";
+  btnRow.appendChild(saveBtn);btnRow.appendChild(cancelBtn);
+  card.appendChild(btnRow);
+  overlay.appendChild(card);
+  overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
 }
 
 // --- CHAT STATE (agent-aware) ------------------------------------------------
