@@ -19,11 +19,11 @@
     },
     {
       "path": "/api/auto-post",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 9 * * *"
     },
     {
       "path": "/api/sync-engagement",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 21 * * *"
     }
   ]
 }
