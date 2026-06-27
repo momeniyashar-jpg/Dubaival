@@ -869,6 +869,716 @@ function showVideoEditor(){
   document.body.appendChild(overlay);
 }
 
+// --- AI VIDEO GENERATOR (Text-to-Video) --------------------------------------
+var VGEN={generating:false,progress:0,W:1080,H:1920,FPS:30};
+
+function loadImg(url){
+  return new Promise(function(resolve){
+    var img=new Image();img.crossOrigin="anonymous";
+    img.onload=function(){resolve(img);};
+    img.onerror=function(){resolve(null);};
+    img.src=url;
+  });
+}
+
+function easeInOut(t){return t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;}
+function easeOut(t){return 1-Math.pow(1-t,3);}
+
+function drawRoundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
+}
+
+function drawGradBg(ctx,w,h,colors){
+  var grd=ctx.createLinearGradient(0,0,0,h);
+  grd.addColorStop(0,colors[0]||"#070B14");
+  grd.addColorStop(0.5,colors[1]||"#0D1220");
+  grd.addColorStop(1,colors[2]||"#070B14");
+  ctx.fillStyle=grd;ctx.fillRect(0,0,w,h);
+}
+
+function drawParticles(ctx,w,h,t,count){
+  for(var i=0;i<count;i++){
+    var px=(Math.sin(i*3.7+t*0.3)*0.5+0.5)*w;
+    var py=((i*97.3+t*20)%h);
+    var a=0.15+Math.sin(i*2.1+t)*0.1;
+    ctx.beginPath();ctx.arc(px,py,1.5,0,Math.PI*2);
+    ctx.fillStyle="rgba(201,168,76,"+a+")";ctx.fill();
+  }
+}
+
+function drawAnimatedBar(ctx,x,y,maxW,h,pct,progress,color,label,value){
+  var p=Math.min(progress*1.5,1);
+  var barW=maxW*pct*easeOut(p);
+  drawRoundRect(ctx,x,y,barW,h,h/2);
+  ctx.fillStyle=color;ctx.fill();
+  drawRoundRect(ctx,x,y,maxW,h,h/2);
+  ctx.strokeStyle="rgba(255,255,255,0.1)";ctx.lineWidth=1;ctx.stroke();
+  ctx.font="bold "+Math.round(h*0.7)+"px 'Space Grotesk',sans-serif";
+  ctx.fillStyle="#FFF";ctx.textAlign="left";
+  ctx.fillText(label,x,y-8);
+  ctx.textAlign="right";ctx.fillStyle=color;
+  ctx.fillText(value,x+maxW,y-8);
+}
+
+function drawLineChart(ctx,x,y,w,h,data,progress,color){
+  var p=easeOut(Math.min(progress*1.3,1));
+  var maxV=Math.max.apply(null,data.map(function(d){return d.v;}))||1;
+  var stepX=w/(data.length-1||1);
+  ctx.beginPath();
+  ctx.moveTo(x,y+h);
+  for(var i=0;i<data.length;i++){
+    var px=x+stepX*i;
+    var py=y+h-(data[i].v/maxV)*h*p;
+    if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
+  }
+  ctx.strokeStyle=color;ctx.lineWidth=3;ctx.stroke();
+  var grd=ctx.createLinearGradient(0,y,0,y+h);
+  grd.addColorStop(0,color.replace(")",",0.3)").replace("rgb","rgba"));
+  grd.addColorStop(1,color.replace(")",",0)").replace("rgb","rgba"));
+  ctx.lineTo(x+stepX*(data.length-1),y+h);ctx.lineTo(x,y+h);ctx.closePath();
+  ctx.fillStyle=grd;ctx.fill();
+  for(var j=0;j<data.length;j++){
+    var ppx=x+stepX*j;
+    var ppy=y+h-(data[j].v/maxV)*h*p;
+    ctx.beginPath();ctx.arc(ppx,ppy,5,0,Math.PI*2);
+    ctx.fillStyle=color;ctx.fill();
+    ctx.fillStyle="#FFF";ctx.font="bold 24px sans-serif";ctx.textAlign="center";
+    ctx.fillText(data[j].l||"",ppx,y+h+28);
+  }
+}
+
+function drawDonutChart(ctx,cx,cy,r,segments,progress){
+  var total=segments.reduce(function(s,seg){return s+seg.v;},0)||1;
+  var startA=-Math.PI/2;
+  var p=easeOut(Math.min(progress*1.2,1));
+  segments.forEach(function(seg){
+    var angle=(seg.v/total)*Math.PI*2*p;
+    ctx.beginPath();ctx.arc(cx,cy,r,startA,startA+angle);
+    ctx.arc(cx,cy,r*0.6,startA+angle,startA,true);ctx.closePath();
+    ctx.fillStyle=seg.c;ctx.fill();
+    if(angle>0.15){
+      var midA=startA+angle/2;
+      var lx=cx+Math.cos(midA)*(r*0.8);
+      var ly=cy+Math.sin(midA)*(r*0.8);
+      ctx.font="bold 22px sans-serif";ctx.fillStyle="#FFF";ctx.textAlign="center";
+      ctx.fillText(Math.round(seg.v/total*100)+"%",lx,ly+8);
+    }
+    startA+=angle;
+  });
+}
+
+function drawGaugeChart(ctx,cx,cy,r,value,max,progress,color,label){
+  var p=easeOut(Math.min(progress*1.3,1));
+  var pct=(value/max)*p;
+  ctx.beginPath();ctx.arc(cx,cy,r,Math.PI*0.8,Math.PI*2.2);
+  ctx.strokeStyle="rgba(255,255,255,0.1)";ctx.lineWidth=16;ctx.lineCap="round";ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,r,Math.PI*0.8,Math.PI*0.8+(Math.PI*1.4)*pct);
+  ctx.strokeStyle=color;ctx.lineWidth=16;ctx.lineCap="round";ctx.stroke();
+  ctx.font="bold 48px 'Space Grotesk',sans-serif";ctx.fillStyle="#FFF";ctx.textAlign="center";
+  ctx.fillText(Math.round(value*p),cx,cy+10);
+  ctx.font="20px sans-serif";ctx.fillStyle="#8899AA";
+  ctx.fillText(label,cx,cy+40);
+}
+
+function kenBurns(ctx,img,w,h,progress,direction){
+  var scale=1+0.08*progress;
+  var ox=direction===0?-w*0.04*progress:direction===1?w*0.04*progress:0;
+  var oy=direction===2?-h*0.04*progress:direction===3?h*0.04*progress:0;
+  var iw=img.width,ih=img.height;
+  var aspect=w/h;
+  var iAspect=iw/ih;
+  var sw,sh,sx,sy;
+  if(iAspect>aspect){sh=ih;sw=ih*aspect;sx=(iw-sw)/2;sy=0;}
+  else{sw=iw;sh=iw/aspect;sx=0;sy=(ih-sh)/2;}
+  ctx.drawImage(img,sx,sy,sw,sh,ox,oy,w*scale,h*scale);
+}
+
+function transitionFade(ctx,w,h,progress){
+  ctx.fillStyle="rgba(7,11,20,"+Math.max(0,1-progress*2)+")";
+  ctx.fillRect(0,0,w,h);
+}
+
+function drawBrandWatermark(ctx,w,h,brand,progress){
+  var a=Math.min(progress*2,1)*0.6;
+  ctx.save();ctx.globalAlpha=a;
+  ctx.font="bold 28px 'Space Grotesk',sans-serif";ctx.fillStyle="#C9A84C";ctx.textAlign="right";
+  var name=brand&&brand.name?brand.name:"DubAIVal";
+  ctx.fillText(name,w-40,h-40);
+  if(brand&&brand.igHandle){
+    ctx.font="18px sans-serif";ctx.fillStyle="#8899AA";
+    ctx.fillText("@"+brand.igHandle.replace(/^@/,""),w-40,h-70);
+  }
+  ctx.restore();
+}
+
+async function parseVideoPromptAI(userPrompt){
+  var geminiKey=localStorage.getItem("dv_gemini_key");
+  if(!geminiKey)return null;
+  var areaList=Object.keys(AREAS).slice(0,50).join(", ");
+  var prompt="You are a video planner for a Dubai real estate platform. Parse this request and create a video plan.\n\n"+
+    "User request: \""+userPrompt+"\"\n\n"+
+    "Available areas: "+areaList+"\n\n"+
+    "Respond with ONLY this JSON:\n```json\n{\n"+
+    "  \"building\": \"building name or null\",\n"+
+    "  \"area\": \"area name from available list or null\",\n"+
+    "  \"topic\": \"main topic/theme\",\n"+
+    "  \"style\": \"luxury|investment|family|lifestyle|data\",\n"+
+    "  \"duration\": 30,\n"+
+    "  \"slideCount\": 8,\n"+
+    "  \"slides\": [\n"+
+    "    {\"type\": \"intro\", \"text\": \"hook text\", \"subtext\": \"subtitle\"},\n"+
+    "    {\"type\": \"image\", \"text\": \"overlay text\", \"searchQuery\": \"image search terms\"},\n"+
+    "    {\"type\": \"stats\", \"title\": \"title\", \"items\": [{\"label\": \"PSF\", \"value\": \"AED 2,800\"}, ...]},\n"+
+    "    {\"type\": \"chart\", \"chartType\": \"bar|line|donut|gauge\", \"title\": \"title\", \"data\": [...]},\n"+
+    "    {\"type\": \"comparison\", \"title\": \"title\", \"left\": {\"label\": \"A\", \"values\": [...]}, \"right\": {\"label\": \"B\", \"values\": [...]}},\n"+
+    "    {\"type\": \"image\", \"text\": \"...\", \"searchQuery\": \"...\"},\n"+
+    "    {\"type\": \"quote\", \"text\": \"inspirational quote about the property/area\"},\n"+
+    "    {\"type\": \"cta\", \"text\": \"CTA text\", \"subtext\": \"contact info\"}\n"+
+    "  ],\n"+
+    "  \"voiceover\": [\"Script line 1\", \"Script line 2\", ...],\n"+
+    "  \"caption\": \"Instagram caption with hashtags\",\n"+
+    "  \"music\": \"upbeat|calm|luxury|dramatic\"\n"+
+    "}\n```\n\n"+
+    "RULES:\n- Use REAL data if you know it (PSF, yields, growth for Dubai areas)\n- Make slides visually diverse (mix image/stats/chart/comparison)\n- Voiceover should be 1 line per slide, professional real estate narration\n- Duration 20-60 seconds, 6-12 slides\n- searchQuery should be specific for finding relevant images";
+  try{
+    var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.4}})
+    });
+    if(!r.ok)return null;
+    var d=await r.json();
+    var txt=d.candidates[0].content.parts[0].text;
+    var jm=txt.match(/```json\s*([\s\S]*?)\s*```/);
+    return jm?JSON.parse(jm[1]):JSON.parse(txt.match(/\{[\s\S]*\}/)[0]);
+  }catch(e){return null;}
+}
+
+function enrichPlanWithDB(plan){
+  if(!plan)return plan;
+  var area=plan.area;
+  var aData=area?AREAS[area]:null;
+  var bName=plan.building;
+  var bData=bName?lookupBuilding(bName,area||""):null;
+  if(aData){
+    plan._areaData=aData;
+    plan.slides.forEach(function(s){
+      if(s.type==="stats"&&(!s.items||s.items.length<2)){
+        s.items=[
+          {label:"Price/sqft",value:"AED "+aData.psf.toLocaleString()},
+          {label:"Yield",value:aData.y?(aData.y[0]+"-"+aData.y[1]+"%"):"—"},
+          {label:"Growth (1yr)",value:aData.g?(aData.g[0]+"%"):"—"},
+          {label:"Service Charge",value:"AED "+aData.sc+"/sqft"},
+          {label:"DOM",value:aData.dom?aData.dom+" days":"—"}
+        ];
+      }
+      if(s.type==="chart"&&s.chartType==="bar"&&(!s.data||s.data.length<2)&&aData.g){
+        s.data=[{label:"1Y",value:aData.g[0]},{label:"3Y",value:aData.g[1]},{label:"5Y",value:aData.g[2]}];
+      }
+    });
+  }
+  if(bData&&bData.p){
+    plan._bldgData=bData;
+  }
+  return plan;
+}
+
+async function gatherVideoImages(plan){
+  var images=[];
+  for(var i=0;i<plan.slides.length;i++){
+    var s=plan.slides[i];
+    if(s.type==="image"||s.type==="intro"){
+      var q=s.searchQuery||plan.building||plan.area||plan.topic||"Dubai luxury real estate";
+      var imgs=await findMultipleImages(q,2);
+      s._img=imgs&&imgs[0]?imgs[0]:null;
+      if(imgs&&imgs[0])images.push(imgs[0]);
+    }
+  }
+  return images;
+}
+
+function generateTone(ctx,freq,dur,vol){
+  try{
+    var ac=new(window.AudioContext||window.webkitAudioContext)();
+    var osc=ac.createOscillator();var gain=ac.createGain();
+    osc.type="sine";osc.frequency.value=freq;
+    gain.gain.value=vol||0.03;
+    osc.connect(gain);gain.connect(ac.destination);
+    osc.start();osc.stop(ac.currentTime+dur);
+    return ac;
+  }catch(e){return null;}
+}
+
+async function renderVideoFrames(canvas,ctx,plan,progressCb,userPhotos){
+  var W=canvas.width,H=canvas.height;
+  var slides=plan.slides;
+  var totalSlides=slides.length;
+  var secPerSlide=Math.max(3,(plan.duration||30)/totalSlides);
+  var framesPerSlide=Math.round(VGEN.FPS*secPerSlide);
+  var transFrames=Math.round(VGEN.FPS*0.6);
+  var totalFrames=framesPerSlide*totalSlides;
+  var brand=getBrandProfile();
+  var colors={"luxury":["#0A0520","#1A0A3A","#0A0520"],"investment":["#070B14","#0D1830","#070B14"],
+    "data":["#070B14","#0D1220","#070B14"],"family":["#0A1020","#0D1830","#0A1020"],
+    "lifestyle":["#100818","#1A0C28","#100818"]};
+  var bgColors=colors[plan.style]||colors.investment;
+  var accentColor={"luxury":"#C9A84C","investment":"#10B981","data":"#3B82F6","family":"#F59E0B","lifestyle":"#EC4899"}[plan.style]||"#C9A84C";
+
+  var loadedImgs={};
+  for(var si=0;si<slides.length;si++){
+    if(slides[si]._img){
+      var im=await loadImg(slides[si]._img);
+      if(im)loadedImgs[si]=im;
+    }
+  }
+  if(userPhotos){
+    for(var ui=0;ui<userPhotos.length;ui++){
+      if(userPhotos[ui])loadedImgs["user_"+ui]=userPhotos[ui];
+    }
+  }
+
+  var stream=canvas.captureStream(VGEN.FPS);
+  var chunks=[];
+  var recorder=new MediaRecorder(stream,{mimeType:"video/webm;codecs=vp9",videoBitsPerSecond:6000000});
+  recorder.ondataavailable=function(ev){if(ev.data.size>0)chunks.push(ev.data);};
+  var recDone=new Promise(function(res){recorder.onstop=function(){res();};});
+  recorder.start();
+
+  var userPhotoIdx=0;
+  for(var frame=0;frame<totalFrames;frame++){
+    var slideIdx=Math.min(Math.floor(frame/framesPerSlide),totalSlides-1);
+    var localFrame=frame-slideIdx*framesPerSlide;
+    var progress=localFrame/framesPerSlide;
+    var s=slides[slideIdx];
+    var t=frame/VGEN.FPS;
+
+    drawGradBg(ctx,W,H,bgColors);
+    drawParticles(ctx,W,H,t,30);
+
+    var inTrans=localFrame<transFrames;
+    var transP=inTrans?localFrame/transFrames:1;
+
+    if(s.type==="intro"){
+      if(loadedImgs[slideIdx]){
+        ctx.save();ctx.globalAlpha=0.35;
+        kenBurns(ctx,loadedImgs[slideIdx],W,H,progress,0);
+        ctx.restore();
+        var grd=ctx.createLinearGradient(0,0,0,H);
+        grd.addColorStop(0,"rgba(7,11,20,0.6)");grd.addColorStop(1,"rgba(7,11,20,0.9)");
+        ctx.fillStyle=grd;ctx.fillRect(0,0,W,H);
+      }
+      var titleY=H*0.35+30*(1-easeOut(transP));
+      ctx.globalAlpha=easeOut(transP);
+      ctx.font="bold "+Math.round(W/12)+"px 'Space Grotesk',sans-serif";
+      ctx.fillStyle=accentColor;ctx.textAlign="center";
+      var titleLines=wrapText(ctx,s.text||plan.building||plan.area||"",W-120);
+      titleLines.forEach(function(ln,li){ctx.fillText(ln,W/2,titleY+li*Math.round(W/10));});
+      if(s.subtext){
+        ctx.font=Math.round(W/26)+"px sans-serif";ctx.fillStyle="#CCC";
+        ctx.fillText(s.subtext,W/2,titleY+titleLines.length*Math.round(W/10)+40);
+      }
+      drawDecorLine(ctx,W/2-100,titleY-50,200,accentColor,progress);
+      ctx.globalAlpha=1;
+    }
+    else if(s.type==="image"){
+      if(loadedImgs[slideIdx]){
+        kenBurns(ctx,loadedImgs[slideIdx],W,H,progress,slideIdx%4);
+        var igrd=ctx.createLinearGradient(0,H*0.5,0,H);
+        igrd.addColorStop(0,"rgba(7,11,20,0)");igrd.addColorStop(1,"rgba(7,11,20,0.85)");
+        ctx.fillStyle=igrd;ctx.fillRect(0,0,W,H);
+      }
+      if(s.text){
+        ctx.globalAlpha=easeOut(Math.min(progress*2,1));
+        ctx.font="bold "+Math.round(W/18)+"px 'Space Grotesk',sans-serif";
+        ctx.fillStyle="#FFF";ctx.textAlign="center";
+        var lines=wrapText(ctx,s.text,W-80);
+        lines.forEach(function(ln,li){ctx.fillText(ln,W/2,H*0.78+li*50);});
+        ctx.globalAlpha=1;
+      }
+      if(userPhotos&&userPhotos.length>0&&userPhotoIdx<userPhotos.length&&slideIdx%3===1){
+        var uImg=loadedImgs["user_"+userPhotoIdx];
+        if(uImg){
+          var upSize=Math.round(W*0.25);
+          var upX=W-upSize-30;
+          var upY=30;
+          ctx.save();
+          drawRoundRect(ctx,upX-4,upY-4,upSize+8,upSize+8,16);
+          ctx.fillStyle=accentColor;ctx.fill();
+          drawRoundRect(ctx,upX,upY,upSize,upSize,12);
+          ctx.clip();
+          ctx.drawImage(uImg,0,0,uImg.width,uImg.height,upX,upY,upSize,upSize);
+          ctx.restore();
+        }
+        userPhotoIdx++;
+      }
+    }
+    else if(s.type==="stats"){
+      ctx.globalAlpha=easeOut(transP);
+      ctx.font="bold "+Math.round(W/16)+"px 'Space Grotesk',sans-serif";
+      ctx.fillStyle=accentColor;ctx.textAlign="center";
+      ctx.fillText(s.title||"Key Metrics",W/2,H*0.15);
+      drawDecorLine(ctx,W/2-80,H*0.17,160,accentColor,progress);
+      var items=s.items||[];
+      var cardH=Math.round(H*0.1);
+      var startY=H*0.22;
+      items.forEach(function(item,ii){
+        var cy=startY+ii*(cardH+16);
+        var ap=easeOut(Math.min((progress-ii*0.08)*2,1));
+        if(ap<=0)return;
+        ctx.globalAlpha=ap;
+        drawRoundRect(ctx,60,cy,W-120,cardH,14);
+        ctx.fillStyle="rgba(13,18,32,0.8)";ctx.fill();
+        ctx.strokeStyle=hexAlpha(accentColor,0.2);ctx.lineWidth=1;ctx.stroke();
+        ctx.font="bold "+Math.round(W/28)+"px sans-serif";ctx.fillStyle="#FFF";ctx.textAlign="left";
+        ctx.fillText(item.label,90,cy+cardH*0.62);
+        ctx.font="bold "+Math.round(W/22)+"px 'Space Grotesk',sans-serif";
+        ctx.fillStyle=accentColor;ctx.textAlign="right";
+        ctx.fillText(item.value,W-90,cy+cardH*0.62);
+      });
+      ctx.globalAlpha=1;
+    }
+    else if(s.type==="chart"){
+      ctx.globalAlpha=easeOut(transP);
+      ctx.font="bold "+Math.round(W/18)+"px 'Space Grotesk',sans-serif";
+      ctx.fillStyle=accentColor;ctx.textAlign="center";
+      ctx.fillText(s.title||"Market Data",W/2,H*0.13);
+      drawDecorLine(ctx,W/2-80,H*0.15,160,accentColor,progress);
+      var chartP=Math.max(0,(progress-0.15)/0.85);
+      if(s.chartType==="bar"){
+        var bData=s.data||[];
+        var maxBV=Math.max.apply(null,bData.map(function(d){return d.value||0;}))||1;
+        var barColors=["#C9A84C","#10B981","#3B82F6","#F59E0B","#EC4899","#8B5CF6"];
+        bData.forEach(function(bd,bi){
+          drawAnimatedBar(ctx,100,H*0.25+bi*100,W-200,36,
+            (bd.value||0)/maxBV,chartP,barColors[bi%barColors.length],
+            bd.label||"",typeof bd.value==="number"?(bd.value>=0?"+":"")+bd.value+"%":String(bd.value));
+        });
+      }else if(s.chartType==="line"){
+        var ld=s.data||[];
+        drawLineChart(ctx,80,H*0.25,W-160,H*0.35,
+          ld.map(function(d){return{v:d.value||0,l:d.label||""};}),chartP,"rgb(201,168,76)");
+      }else if(s.chartType==="donut"){
+        var dd=s.data||[];
+        var dColors=["#C9A84C","#10B981","#3B82F6","#F59E0B","#EC4899"];
+        drawDonutChart(ctx,W/2,H*0.45,Math.round(W*0.2),
+          dd.map(function(d,di){return{v:d.value||0,c:dColors[di%dColors.length]};}),chartP);
+        dd.forEach(function(d,di){
+          ctx.font="16px sans-serif";ctx.fillStyle=dColors[di%dColors.length];ctx.textAlign="left";
+          ctx.fillText("● "+(d.label||""),W*0.15,H*0.7+di*30);
+        });
+      }else if(s.chartType==="gauge"){
+        drawGaugeChart(ctx,W/2,H*0.45,Math.round(W*0.22),
+          s.data&&s.data[0]?s.data[0].value:75,100,chartP,accentColor,
+          s.data&&s.data[0]?s.data[0].label:"Score");
+      }
+      ctx.globalAlpha=1;
+    }
+    else if(s.type==="comparison"){
+      ctx.globalAlpha=easeOut(transP);
+      ctx.font="bold "+Math.round(W/18)+"px 'Space Grotesk',sans-serif";
+      ctx.fillStyle=accentColor;ctx.textAlign="center";
+      ctx.fillText(s.title||"Comparison",W/2,H*0.12);
+      var half=W/2-20;
+      var colA="#10B981",colB="#3B82F6";
+      [s.left,s.right].forEach(function(col,ci){
+        if(!col)return;
+        var ox=ci===0?20:W/2+10;
+        drawRoundRect(ctx,ox,H*0.18,half,H*0.65,16);
+        ctx.fillStyle="rgba(13,18,32,0.7)";ctx.fill();
+        ctx.strokeStyle=ci===0?colA:colB;ctx.lineWidth=2;ctx.stroke();
+        ctx.font="bold "+Math.round(W/24)+"px sans-serif";
+        ctx.fillStyle=ci===0?colA:colB;ctx.textAlign="center";
+        ctx.fillText(col.label||"",ox+half/2,H*0.24);
+        var vals=col.values||[];
+        vals.forEach(function(v,vi){
+          var vy=H*0.3+vi*70;
+          ctx.font="14px sans-serif";ctx.fillStyle="#8899AA";ctx.textAlign="center";
+          ctx.fillText(v.label||"",ox+half/2,vy);
+          ctx.font="bold 26px 'Space Grotesk',sans-serif";ctx.fillStyle="#FFF";
+          ctx.fillText(v.value||"",ox+half/2,vy+28);
+        });
+      });
+      ctx.globalAlpha=1;
+    }
+    else if(s.type==="quote"){
+      ctx.globalAlpha=easeOut(transP);
+      ctx.font="italic "+Math.round(W/20)+"px Georgia,serif";ctx.fillStyle="#FFF";ctx.textAlign="center";
+      var qLines=wrapText(ctx,'"'+(s.text||"")+'"',W-120);
+      qLines.forEach(function(ln,li){ctx.fillText(ln,W/2,H*0.4+li*60);});
+      ctx.font="36px sans-serif";ctx.fillStyle=accentColor;
+      ctx.fillText("❝",W/2,H*0.3);
+      ctx.globalAlpha=1;
+    }
+    else if(s.type==="cta"){
+      var pulse=0.95+0.05*Math.sin(t*4);
+      ctx.save();ctx.translate(W/2,H*0.4);ctx.scale(pulse,pulse);ctx.translate(-W/2,-H*0.4);
+      drawRoundRect(ctx,60,H*0.25,W-120,H*0.35,24);
+      var cGrd=ctx.createLinearGradient(60,H*0.25,W-60,H*0.6);
+      cGrd.addColorStop(0,hexAlpha(accentColor,0.15));cGrd.addColorStop(1,hexAlpha(accentColor,0.05));
+      ctx.fillStyle=cGrd;ctx.fill();
+      ctx.strokeStyle=accentColor;ctx.lineWidth=2;ctx.stroke();
+      ctx.font="bold "+Math.round(W/14)+"px 'Space Grotesk',sans-serif";
+      ctx.fillStyle=accentColor;ctx.textAlign="center";
+      ctx.fillText(s.text||"Get In Touch",W/2,H*0.38);
+      if(s.subtext||brand){
+        ctx.font=Math.round(W/28)+"px sans-serif";ctx.fillStyle="#CCC";
+        ctx.fillText(s.subtext||(brand?brand.phone||brand.email||"":"DubAIVal.com"),W/2,H*0.44);
+      }
+      if(brand&&brand.name){
+        ctx.font="bold "+Math.round(W/22)+"px 'Space Grotesk',sans-serif";ctx.fillStyle="#FFF";
+        ctx.fillText(brand.name,W/2,H*0.52);
+      }
+      ctx.restore();
+    }
+
+    drawBrandWatermark(ctx,W,H,brand,progress);
+
+    if(progressCb)progressCb(Math.round((frame/totalFrames)*100));
+
+    await new Promise(function(r){requestAnimationFrame(r);});
+  }
+
+  recorder.stop();
+  await recDone;
+  return new Blob(chunks,{type:"video/webm"});
+}
+
+function wrapText(ctx,text,maxW){
+  var words=text.split(" ");var lines=[];var line="";
+  words.forEach(function(w){
+    var test=line?line+" "+w:w;
+    if(ctx.measureText(test).width>maxW&&line){lines.push(line);line=w;}
+    else line=test;
+  });
+  if(line)lines.push(line);
+  return lines;
+}
+
+function drawDecorLine(ctx,x,y,w,color,progress){
+  var p=easeOut(Math.min(progress*3,1));
+  ctx.beginPath();ctx.moveTo(x+w/2-w/2*p,y);ctx.lineTo(x+w/2+w/2*p,y);
+  ctx.strokeStyle=color;ctx.lineWidth=2;ctx.stroke();
+}
+
+function speakVoiceover(lines,secPerSlide){
+  return new Promise(function(resolve){
+    if(!window.speechSynthesis||!lines||lines.length===0){resolve();return;}
+    var voices=speechSynthesis.getVoices();
+    var enVoice=voices.find(function(v){return v.lang.startsWith("en")&&v.name.indexOf("Google")!==-1;})||
+      voices.find(function(v){return v.lang.startsWith("en");})||voices[0];
+    var idx=0;
+    function speakNext(){
+      if(idx>=lines.length){resolve();return;}
+      var u=new SpeechSynthesisUtterance(lines[idx]);
+      u.voice=enVoice;u.rate=0.9;u.pitch=1;u.volume=0.8;
+      u.onend=function(){idx++;setTimeout(speakNext,200);};
+      u.onerror=function(){idx++;setTimeout(speakNext,200);};
+      speechSynthesis.speak(u);
+      idx++;
+    }
+    if(voices.length===0){
+      speechSynthesis.onvoiceschanged=function(){
+        voices=speechSynthesis.getVoices();
+        enVoice=voices.find(function(v){return v.lang.startsWith("en")&&v.name.indexOf("Google")!==-1;})||voices[0];
+        speakNext();
+      };
+    }else speakNext();
+  });
+}
+
+function showVideoGenUI(initialPrompt){
+  var existing=document.getElementById("video-gen-modal");
+  if(existing)existing.remove();
+
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"video-gen-modal"});
+  var card=div({background:"#1A1F2E",border:"1px solid #C9A84C",borderRadius:"16px",padding:"20px",width:"500px",maxWidth:"95vw",maxHeight:"92vh",overflowY:"auto"});
+
+  card.appendChild(el("h3",{style:{color:"#C9A84C",margin:"0 0 4px",fontSize:"16px",fontFamily:"'Space Grotesk',monospace"}},"🎬 AI Video Generator"));
+  card.appendChild(el("p",{style:{color:"#8899AA",fontSize:"11px",margin:"0 0 14px",fontFamily:"'Inter',sans-serif"}},"Describe your video → AI creates it with images, data, charts & voiceover"));
+
+  // Prompt input
+  var promptInp=el("textarea",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"10px",padding:"12px",color:"#E0E0E0",fontSize:"13px",fontFamily:"'Inter',sans-serif",resize:"vertical",minHeight:"60px",boxSizing:"border-box"},placeholder:"e.g. Make a video about Vida Dubai Mall Tower 1 with investment data and market trends..."});
+  if(initialPrompt)promptInp.value=initialPrompt;
+  card.appendChild(promptInp);
+
+  // Options row
+  var optRow=div({display:"flex",gap:"8px",margin:"10px 0",flexWrap:"wrap"});
+  var formatSel=el("select",{style:{background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"6px 10px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace"}});
+  [["9:16 Reel/Story","1080x1920"],["1:1 Square","1080x1080"],["16:9 Landscape","1920x1080"]].forEach(function(o){
+    var opt=el("option");opt.value=o[1];opt.textContent=o[0];formatSel.appendChild(opt);
+  });
+  optRow.appendChild(el("span",{style:{color:"#8899AA",fontSize:"11px",alignSelf:"center"}},"Format:"));
+  optRow.appendChild(formatSel);
+
+  var voiceCheck=el("input",{type:"checkbox",checked:true,style:{accentColor:"#C9A84C"}});
+  optRow.appendChild(el("span",{style:{color:"#8899AA",fontSize:"11px",alignSelf:"center",marginLeft:"12px"}},"🎙 Voiceover:"));
+  optRow.appendChild(voiceCheck);
+  card.appendChild(optRow);
+
+  // User photos upload
+  var photoSection=div({margin:"8px 0"});
+  photoSection.appendChild(el("div",{style:{color:"#8899AA",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"}},"📷 Your photos (optional — blended into video):"));
+  var photoInput=el("input",{type:"file",accept:"image/*",multiple:true,style:{fontSize:"11px",color:"#8899AA"}});
+  photoSection.appendChild(photoInput);
+  var photoPreview=div({display:"flex",gap:"4px",flexWrap:"wrap",marginTop:"6px"});
+  photoSection.appendChild(photoPreview);
+  var userPhotoFiles=[];
+  photoInput.onchange=function(){
+    userPhotoFiles=Array.from(photoInput.files||[]);
+    photoPreview.innerHTML="";
+    userPhotoFiles.forEach(function(f){
+      var url=URL.createObjectURL(f);
+      var thumb=el("img",{style:{width:"60px",height:"60px",objectFit:"cover",borderRadius:"8px",border:"1px solid #C9A84C"}});
+      thumb.src=url;photoPreview.appendChild(thumb);
+    });
+  };
+  card.appendChild(photoSection);
+
+  // Progress area
+  var progressArea=div({display:"none",margin:"14px 0"});
+  var progressBar=div({width:"100%",height:"8px",background:"#0D1117",borderRadius:"4px",overflow:"hidden"});
+  var progressFill=div({width:"0%",height:"100%",background:"linear-gradient(90deg,#C9A84C,#F59E0B)",borderRadius:"4px",transition:"width 0.3s"});
+  progressBar.appendChild(progressFill);progressArea.appendChild(progressBar);
+  var progressLabel=el("div",{style:{color:"#C9A84C",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",marginTop:"6px",textAlign:"center"}});
+  progressArea.appendChild(progressLabel);
+  card.appendChild(progressArea);
+
+  // Preview canvas
+  var previewWrap=div({display:"none",margin:"10px 0",textAlign:"center"});
+  var previewCanvas=el("canvas",{style:{maxWidth:"100%",maxHeight:"360px",borderRadius:"10px",border:"1px solid #2A3040"}});
+  previewWrap.appendChild(previewCanvas);
+  card.appendChild(previewWrap);
+
+  // Result area
+  var resultArea=div({display:"none",margin:"10px 0"});
+  card.appendChild(resultArea);
+
+  // Generate button
+  var genBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#C9A84C,#F59E0B)",color:"#000",border:"none",borderRadius:"10px",padding:"14px",fontSize:"14px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",margin:"10px 0"},onclick:async function(){
+    var prompt=promptInp.value.trim();
+    if(!prompt){alert("Enter a video description");return;}
+    var geminiKey=localStorage.getItem("dv_gemini_key");
+    if(!geminiKey){alert("Add Gemini API key in Setup first");return;}
+
+    genBtn.disabled=true;genBtn.textContent="⏳ Starting...";
+    progressArea.style.display="block";resultArea.style.display="none";
+
+    try{
+      // Step 1: Parse prompt with AI
+      progressLabel.textContent="🤖 AI planning your video...";progressFill.style.width="5%";
+      var plan=await parseVideoPromptAI(prompt);
+      if(!plan||!plan.slides){throw new Error("AI could not create video plan");}
+
+      // Step 2: Enrich with DB data
+      progressLabel.textContent="📊 Loading real market data...";progressFill.style.width="10%";
+      plan=enrichPlanWithDB(plan);
+
+      // Step 3: Gather images
+      progressLabel.textContent="🖼 Finding "+plan.slides.length+" images...";progressFill.style.width="15%";
+      await gatherVideoImages(plan);
+
+      // Step 4: Load user photos
+      var userImgs=[];
+      if(userPhotoFiles.length>0){
+        progressLabel.textContent="📷 Loading your photos...";progressFill.style.width="20%";
+        for(var ui=0;ui<userPhotoFiles.length;ui++){
+          var url=URL.createObjectURL(userPhotoFiles[ui]);
+          var im=await loadImg(url);
+          if(im)userImgs.push(im);
+        }
+      }
+
+      // Step 5: Set canvas size
+      var dims=formatSel.value.split("x");
+      var cW=parseInt(dims[0]);var cH=parseInt(dims[1]);
+      previewCanvas.width=cW;previewCanvas.height=cH;
+      previewWrap.style.display="block";
+      var pCtx=previewCanvas.getContext("2d");
+
+      // Step 6: Render frames
+      progressLabel.textContent="🎬 Rendering video...";progressFill.style.width="25%";
+      var blob=await renderVideoFrames(previewCanvas,pCtx,plan,function(pct){
+        var total=25+pct*0.65;
+        progressFill.style.width=total+"%";
+        progressLabel.textContent="🎬 Rendering... "+pct+"%";
+      },userImgs);
+
+      progressFill.style.width="95%";
+      progressLabel.textContent="✅ Video ready!";
+
+      // Step 7: Voiceover (parallel, won't embed in video but plays alongside)
+      if(voiceCheck.checked&&plan.voiceover&&plan.voiceover.length>0){
+        progressLabel.textContent="🎙 Preparing voiceover...";
+      }
+
+      // Step 8: Show results
+      progressFill.style.width="100%";
+      resultArea.style.display="block";resultArea.innerHTML="";
+
+      var videoUrl=URL.createObjectURL(blob);
+      var videoEl=el("video",{style:{width:"100%",maxHeight:"300px",borderRadius:"10px",marginBottom:"10px"},controls:true,src:videoUrl});
+      resultArea.appendChild(videoEl);
+
+      // Caption display
+      if(plan.caption){
+        var capBox=div({background:"#0D1117",borderRadius:"8px",padding:"10px",marginBottom:"8px"});
+        capBox.appendChild(el("div",{style:{color:"#C9A84C",fontSize:"10px",fontWeight:"700",marginBottom:"4px"}},"📝 Caption:"));
+        var capText=el("div",{style:{color:"#E0E0E0",fontSize:"11px",fontFamily:"'Inter',sans-serif",whiteSpace:"pre-wrap"}});
+        capText.textContent=plan.caption;capBox.appendChild(capText);
+        resultArea.appendChild(capBox);
+      }
+
+      // Action buttons
+      var actRow=div({display:"flex",gap:"6px",flexWrap:"wrap"});
+      var dlBtn=el("button",{style:{flex:1,background:"#10B981",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
+        var a=document.createElement("a");a.href=videoUrl;a.download="dubaival-video.webm";a.click();
+      }});
+      dlBtn.textContent="⬇️ Download";actRow.appendChild(dlBtn);
+
+      var shareBtn=el("button",{style:{flex:1,background:"#3B82F6",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
+        try{
+          var file=new File([blob],"dubaival-video.webm",{type:"video/webm"});
+          await navigator.share({files:[file],title:"DubAIVal Video",text:plan.caption||""});
+        }catch(err){var a=document.createElement("a");a.href=videoUrl;a.download="dubaival-video.webm";a.click();}
+      }});
+      shareBtn.textContent="📤 Share";actRow.appendChild(shareBtn);
+
+      if(voiceCheck.checked&&plan.voiceover){
+        var voBtn=el("button",{style:{flex:1,background:"#8B5CF6",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
+          videoEl.currentTime=0;videoEl.play();
+          speakVoiceover(plan.voiceover,plan.duration/plan.slides.length);
+        }});
+        voBtn.textContent="🎙 Play + Voice";actRow.appendChild(voBtn);
+      }
+
+      if(plan.caption){
+        var cpBtn=el("button",{style:{flex:1,background:"#F97316",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
+          navigator.clipboard.writeText(plan.caption).then(function(){cpBtn.textContent="✅ Copied";setTimeout(function(){cpBtn.textContent="📋 Caption";},2000);});
+        }});
+        cpBtn.textContent="📋 Caption";actRow.appendChild(cpBtn);
+      }
+      resultArea.appendChild(actRow);
+
+      genBtn.textContent="🎬 Generate Another";genBtn.disabled=false;
+    }catch(err){
+      progressLabel.textContent="❌ Error: "+err.message;
+      genBtn.textContent="🎬 Generate Video";genBtn.disabled=false;
+    }
+  }});
+  genBtn.textContent="🎬 Generate Video";
+  card.appendChild(genBtn);
+
+  // Close
+  var closeBtn=el("button",{style:{width:"100%",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"10px",padding:"10px",fontSize:"12px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}});
+  closeBtn.textContent="Close";
+  card.appendChild(closeBtn);
+
+  overlay.appendChild(card);
+  overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
 // --- SMART IMAGE SEARCH ------------------------------------------------------
 var DUBAI_IMAGE_MAP={
   "palm jumeirah":"palm jumeirah dubai luxury",
@@ -1426,6 +2136,7 @@ function buildPublishBar(postData,msgText,cl){
       else{alert("IG Video Story: "+(r.error||"Error"));failBtn(this,"Video Story","#833AB4");}
     }));
 
+    igRow.appendChild(makeBtn("🎬 AI Video","#C9A84C",function(){showVideoGenUI(caption);}));
     bar.appendChild(igRow);
   }
 
@@ -1566,7 +2277,8 @@ function buildPublishBar(postData,msgText,cl){
     });
   });
   toolRow.appendChild(copyBtn);
-  toolRow.appendChild(makeBtn("🎬 Video","#EC4899",function(){showVideoEditor();}));
+  toolRow.appendChild(makeBtn("🎬 AI Video","#C9A84C",function(){showVideoGenUI(caption);}));
+  toolRow.appendChild(makeBtn("✂️ Edit Video","#EC4899",function(){showVideoEditor();}));
   toolRow.appendChild(makeBtn("🎨 Brand","#F97316",function(){showBrandingSetup();}));
   toolRow.appendChild(makeBtn("⚙️ Setup","#FBBF24",function(){showSocialSetup();}));
   bar.appendChild(toolRow);
