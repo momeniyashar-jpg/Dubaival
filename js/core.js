@@ -224,7 +224,45 @@ function pill(text,color){
 }
 
 // --- STATE --------------------------------------------------------------------
-var currentTab="Market";
+var currentTab="";
+var currentSection="Home";
+var currentSubTab="";
+var sidebarCollapsed=false;
+try{sidebarCollapsed=localStorage.getItem("dv_sidebar_collapsed")==="1";}catch(e){}
+
+var NAV_SECTIONS=[
+  {id:"Home",icon:"\u{1F3E0}",label:"Home",subs:[]},
+  {id:"Market",icon:"\u{1F4CA}",label:"Market",subs:[
+    {id:"Dashboard",label:"Dashboard"},
+    {id:"Analyzer",label:"Analyzer"},
+    {id:"Index",label:"Market Index"},
+    {id:"Compare",label:"Compare"},
+    {id:"Find",label:"Find"},
+    {id:"Map",label:"Map"},
+    {id:"Advisor",label:"Advisor"}
+  ]},
+  {id:"Portfolio",icon:"\u{1F4BC}",label:"Portfolio",subs:[
+    {id:"Assets",label:"My Assets"},
+    {id:"Alerts",label:"Alerts"}
+  ]},
+  {id:"Network",icon:"\u{1F91D}",label:"Network",subs:[
+    {id:"Deals",label:"Deals"},
+    {id:"Social",label:"PropTech Studio"},
+    {id:"Chat",label:"AI Chat"}
+  ]},
+  {id:"More",icon:"⚙️",label:"More",subs:[
+    {id:"Workspace",label:"Workspace"},
+    {id:"About",label:"About"}
+  ]}
+];
+
+function setSection(sec,sub){
+  currentSection=sec;
+  currentSubTab=sub||"";
+  var s=NAV_SECTIONS.find(function(n){return n.id===sec;});
+  if(s&&s.subs.length>0&&!sub)currentSubTab=s.subs[0].id;
+  render();
+}
 // -- Live Geopolitical Adjustment ---------------------------------------------
 // ── MACRO RISK SYSTEM ─────────────────────────────────────────────────────
 // Based on: Geopolitical × Social × Economic weighted model

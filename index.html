@@ -69,7 +69,79 @@
 <link rel="dns-prefetch" href="https://www.googletagmanager.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<style>html,body{overflow-x:hidden!important;overscroll-behavior-x:none!important;-webkit-overflow-scrolling:touch;}html{background:#070B14;}body{background:#070B14;margin:0;padding:0;min-height:100vh;-webkit-tap-highlight-color:transparent;}.dv-popup .leaflet-popup-content-wrapper{background:transparent!important;box-shadow:none!important;border-radius:8px!important;padding:0!important;}.dv-popup .leaflet-popup-content{margin:0!important;}.dv-popup .leaflet-popup-tip{background:#0D1220!important;border:1px solid #1C2540!important;}.leaflet-container{background:#070B14!important;font-family:'Space Grotesk',monospace!important;}</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow-x:hidden!important;overscroll-behavior-x:none!important;-webkit-overflow-scrolling:touch}
+html{background:#070B14}
+body{background:#070B14;color:#E8EDF5;font-family:'Inter','Space Grotesk',sans-serif;-webkit-font-smoothing:antialiased;margin:0;padding:0;min-height:100vh;-webkit-tap-highlight-color:transparent}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:#0D1220}
+::-webkit-scrollbar-thumb{background:#1C2540;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#2A3660}
+input,select,button,textarea{font-family:inherit}
+a{color:inherit;text-decoration:none}
+
+/* Keyframes */
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-8px)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* Sidebar (desktop) */
+.dv-layout{display:flex;min-height:100vh}
+.dv-sidebar{width:240px;min-height:100vh;background:#0D1220;border-right:1px solid #1C2540;padding:16px 0;position:fixed;left:0;top:0;z-index:100;transition:width 0.2s ease;display:flex;flex-direction:column;overflow-y:auto}
+.dv-sidebar.collapsed{width:64px}
+.dv-sidebar.collapsed .dv-sidebar-label,.dv-sidebar.collapsed .dv-sidebar-logo-text{display:none}
+.dv-sidebar.collapsed .dv-sidebar-item{justify-content:center;padding:12px 0}
+.dv-sidebar-logo{display:flex;align-items:center;gap:10px;padding:8px 20px 20px;border-bottom:1px solid #1C2540;margin-bottom:12px}
+.dv-sidebar-item{display:flex;align-items:center;gap:12px;padding:12px 20px;color:#8899AA;cursor:pointer;border-left:3px solid transparent;transition:all 0.15s ease;font-family:'Space Grotesk',monospace;font-size:13px;font-weight:500;user-select:none}
+.dv-sidebar-item:hover{color:#E8EDF5;background:rgba(255,255,255,0.03)}
+.dv-sidebar-item.active{color:#D4AF37;background:rgba(212,175,55,0.06);border-left-color:#D4AF37;font-weight:700}
+.dv-sidebar-toggle{margin-top:auto;padding:12px 20px;color:#556677;cursor:pointer;font-size:18px;text-align:center;border-top:1px solid #1C2540}
+.dv-sidebar-toggle:hover{color:#8899AA}
+.dv-main{flex:1;margin-left:240px;transition:margin-left 0.2s ease;min-height:100vh;display:flex;flex-direction:column}
+.dv-sidebar.collapsed~.dv-main,.dv-main.sidebar-collapsed{margin-left:64px}
+
+/* Sub-tab pills */
+.dv-subtabs{display:flex;gap:8px;padding:12px 20px;overflow-x:auto;background:#0D1220;border-bottom:1px solid #1C2540;flex-shrink:0}
+.dv-subtabs::-webkit-scrollbar{display:none}
+.dv-pill{background:transparent;border:1px solid #1C2540;border-radius:20px;padding:6px 16px;color:#8899AA;font-size:12px;font-family:'Space Grotesk',monospace;cursor:pointer;white-space:nowrap;transition:all 0.15s ease;font-weight:500}
+.dv-pill:hover{color:#E8EDF5;border-color:#2A3660}
+.dv-pill.active{background:linear-gradient(135deg,#D4AF37,#B8941F);color:#070B14;border-color:transparent;font-weight:700}
+
+/* Bottom tab bar (mobile) */
+.dv-bottom-tabs{display:none;position:fixed;bottom:0;left:0;right:0;height:56px;background:#0D1220;border-top:1px solid #1C2540;justify-content:space-around;align-items:center;padding-bottom:env(safe-area-inset-bottom);z-index:100}
+.dv-bottom-tab{display:flex;flex-direction:column;align-items:center;gap:2px;color:#556677;font-size:10px;font-family:'Space Grotesk',monospace;cursor:pointer;padding:4px 8px;transition:color 0.15s}
+.dv-bottom-tab.active{color:#D4AF37}
+.dv-bottom-tab .icon{font-size:22px}
+
+/* Cards & section headers */
+.dv-card{background:#0D1220;border:1px solid #1C2540;border-radius:12px;padding:20px;transition:all 0.2s ease}
+.dv-card:hover{border-color:#2A3660;box-shadow:0 4px 24px rgba(212,175,55,0.06)}
+.dv-section-hdr{color:#D4AF37;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-family:'Space Grotesk',monospace;font-weight:600;border-left:3px solid #D4AF37;padding-left:10px;margin-bottom:16px}
+
+/* Print */
+#print-report{display:none}
+@media print{#app{display:none!important}#print-report{display:block!important}body{background:#fff!important}}
+
+/* Leaflet */
+.dv-popup .leaflet-popup-content-wrapper{background:transparent!important;box-shadow:none!important;border-radius:8px!important;padding:0!important}
+.dv-popup .leaflet-popup-content{margin:0!important}
+.dv-popup .leaflet-popup-tip{background:#0D1220!important;border:1px solid #1C2540!important}
+.leaflet-container{background:#070B14!important;font-family:'Space Grotesk',monospace!important}
+
+/* Mobile responsive */
+@media(max-width:768px){
+  .dv-sidebar{display:none!important}
+  .dv-main{margin-left:0!important}
+  .dv-bottom-tabs{display:flex!important}
+  .dv-main{padding-bottom:60px}
+}
+</style>
 </head>
 <body>
 <!-- Google Analytics -->
