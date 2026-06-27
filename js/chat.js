@@ -3427,7 +3427,7 @@ async function publishToLinkedIn(text,imageUrl){
   try{
     var body;
     if(imageUrl){
-      var regResp=await fetch("https://api.linkedin.com/v2/assets?action=registerUpload",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},
+      var regResp=await fetch("https://api.linkedin.com/v2/assets?action=registerUpload",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json","X-Restli-Protocol-Version":"2.0.0"},
         body:JSON.stringify({registerUploadRequest:{recipes:["urn:li:digitalmediaRecipe:feedshare-image"],owner:personUrn,serviceRelationships:[{identifier:"urn:li:userGeneratedContent",relationshipType:"OWNER"}]}})});
       var regData=await regResp.json();
       var uploadUrl=regData.value.uploadMechanism["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"].uploadUrl;
@@ -3438,7 +3438,7 @@ async function publishToLinkedIn(text,imageUrl){
     }else{
       body={author:personUrn,lifecycleState:"PUBLISHED",specificContent:{"com.linkedin.ugc.ShareContent":{shareCommentary:{text:text},shareMediaCategory:"NONE"}},visibility:{memberNetworkVisibility:"PUBLIC"}};
     }
-    var r=await fetch("https://api.linkedin.com/v2/ugcPosts",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify(body)});
+    var r=await fetch("https://api.linkedin.com/v2/ugcPosts",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json","X-Restli-Protocol-Version":"2.0.0"},body:JSON.stringify(body)});
     var d=await r.json();if(d.id)return{success:true,id:d.id};return{success:false,error:d.message||JSON.stringify(d)};
   }catch(e){return{success:false,error:e.message};}
 }
