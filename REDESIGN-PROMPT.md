@@ -103,6 +103,37 @@ Style: Dark luxury fintech — think Bloomberg Terminal meets Revolut dark mode.
 Clean, spacious, professional. Gold accent (#D4AF37) on dark navy (#070B14).
 Minimal borders, generous whitespace, clear visual hierarchy.
 
+## CRITICAL: Features in unexpected files
+
+Some features do NOT live where you'd expect. If you move tabs around,
+these functions must follow:
+
+| Function | Lives in | Expected in |
+|---|---|---|
+| `renderCompare()` | `js/portfolio.js` | market.js |
+| `renderFind()` | `js/app.js` | market.js |
+| `renderAlerts()` | `js/app.js` | portfolio.js |
+| `renderPersonal()` (Advisor) | `js/portfolio.js` | market.js |
+| `renderApiDocs()` | `js/about.js` | — |
+| `generatePDF()` | `js/market.js` | — |
+| Social Media Manager | `js/chat.js` | social.js |
+| PropTech Video Platform | `js/social.js` | chat.js |
+
+## Cross-cutting components (DO NOT lose these)
+
+These shared components appear across multiple tabs:
+- **Auth Modal** (`js/auth.js`) — Sign In/Up overlay, header auth button
+- **Notification Bell** (`js/core.js` + `js/app.js`) — Bell icon, dropdown, badges
+- **Tour System** (`js/core.js`) — Quick Tour (8 steps) + Full Tour (16 steps)
+- **Smart Bar / AI Smart Fill** (`js/core.js`) — AI form fill, example chips
+- **Voice Input** (`js/core.js`) — Microphone, speech recognition, wave animation
+- **Share Buttons** (`js/core.js`) — WhatsApp, X, LinkedIn, Telegram, Copy Link
+- **PDF Generator** (`js/market.js`) — Printable valuation report
+- **Sustainability Score** (`js/core.js`) — Badge with tier + component scores
+- **Pill/Badge** (`js/core.js`) — Reusable colored badge component
+- **Language Switcher** (`js/app.js`) — EN/AR/FA
+- **Dark Mode Toggle** (`js/app.js`)
+
 ## File structure reminder
 
 All JS files are in `js/` folder. HTML shell is `index.html`.
@@ -110,21 +141,39 @@ There is NO build step — vanilla JS, no React/Vue/bundler.
 Functions are global (window scope). State is in global variables + localStorage.
 `el()`, `div()`, `span()` are DOM helper functions in `js/core.js`.
 
-## Verification checklist
+## Verification checklist (COMPLETE — 25 items)
 
-After redesign, verify:
-- [ ] All 5 sections navigate correctly
+After redesign, verify EVERY item:
+- [ ] All 5 sections navigate correctly (Home, Market, Portfolio, Network, More)
+- [ ] Sub-tab navigation works within each section
 - [ ] Analyzer works (sale + rent modes) — numbers match pre-redesign
+- [ ] Quick Check works (sale + rent)
+- [ ] Track Record table displays correctly
+- [ ] Live Dashboard renders with count-up animation
 - [ ] Portfolio loads saved assets from localStorage
+- [ ] Portfolio Health Score displays correctly
+- [ ] Future Projection Simulator sliders work
+- [ ] What-If Swap Simulator works
 - [ ] Deal Board loads from Supabase
-- [ ] AI Chat agents respond correctly
-- [ ] Social Media Manager + Video Studio works
-- [ ] Map renders with Leaflet markers
-- [ ] Market Index tables display correctly
+- [ ] Post Deal form submits correctly
+- [ ] AI Chat agents respond correctly (all 8)
+- [ ] Social Media Manager generates posts/stories/reels
+- [ ] Video Studio generates videos (all engines)
+- [ ] Video Editor uploads and trims video (500MB limit)
+- [ ] Content Calendar displays months correctly
+- [ ] Auto-Post Engine schedules posts
+- [ ] PropTech Video Platform (social.js) — explore, agents, profile, following
+- [ ] Map renders with Leaflet markers and all 6 metrics
+- [ ] Market Index tables display correctly (all 8+ tables)
 - [ ] Compare tool works with 2-3 areas
 - [ ] Live Search returns Bayut listings
 - [ ] Mortgage calculator computes correctly
-- [ ] Workspace and Report Builder function
-- [ ] Mobile responsive (bottom tab bar, stacked cards)
+- [ ] Workspace + Report Builder + PDF export work
+- [ ] Personal Advisor questionnaire works
+- [ ] Notification bell works
+- [ ] Auth modal (sign in/up) works
+- [ ] Tour system works (Quick + Full)
+- [ ] Share buttons work (WhatsApp, X, LinkedIn, Telegram)
 - [ ] Language switcher (EN/AR/FA) still works
+- [ ] Mobile responsive (bottom tab bar, stacked cards)
 - [ ] Dark theme consistent across all sections

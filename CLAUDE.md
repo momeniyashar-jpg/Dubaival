@@ -447,6 +447,38 @@ Low-frequency items in a drawer/menu.
 - **Admin** — Admin dashboard (hidden unless admin token set)
 - Priority: ★★☆☆☆
 
+#### 6. 🔧 CROSS-CUTTING COMPONENTS (shared across all sections)
+These are NOT tabs — they appear everywhere. Do NOT lose them in redesign:
+- **Auth Modal** (`js/auth.js`) — Sign In / Sign Up overlay, email+password,
+  cloud sync, header auth button with user name
+- **Notification System** (`js/core.js` + `js/app.js`) — Bell icon in header,
+  unread count badge, notification dropdown panel, mark all read
+- **Tour System** (`js/core.js`) — Quick Tour (8 steps) + Full Tour (16 steps),
+  spotlight overlay, pulsing highlight, progress bar, step counter
+- **Smart Bar / AI Smart Fill** (`js/core.js`) — AI-powered form fill component,
+  gradient border, example chips, recent history, voice input
+- **Voice Input** (`js/core.js`) — Microphone button, speech recognition,
+  wave animation bars, "Listening..." state
+- **Share Buttons** (`js/core.js`) — WhatsApp, X/Twitter, LinkedIn, Telegram,
+  Copy Link — used in analyzer result, market index, deals
+- **PDF Report Generator** (`js/market.js`) — generatePDF() exports valuation
+  results to printable PDF with logo, metrics grid, price ladder, AI commentary
+- **Sustainability Score** (`js/core.js`) — computeSustainabilityScore(), badge
+  with tier (Excellent/Good/Average/Below/Poor), component breakdown
+- **Language Switcher** (`js/app.js`) — EN/AR/FA toggle in header
+- **Dark Mode** (`js/app.js`) — Theme toggle
+- **Pill/Badge Component** (`js/core.js`) — Reusable colored badge
+
+#### 7. 📍 NOTES ON FEATURE LOCATIONS
+Some features live in unexpected files (must preserve during redesign):
+- `renderCompare()` is in **`js/portfolio.js`** (NOT market.js)
+- `renderFind()` and `renderAlerts()` are in **`js/app.js`** (NOT market.js)
+- `renderPersonal()` (Personal Advisor) is in **`js/portfolio.js`**
+- `renderApiDocs()` is inside **`js/about.js`** (launched from About page)
+- `generatePDF()` is in **`js/market.js`** (called from analyzer result)
+- Social Media Manager tools are in **`js/chat.js`** (NOT social.js)
+- PropTech Video Platform is in **`js/social.js`** (separate from chat.js)
+
 ### Navigation style
 - **Desktop**: Left sidebar with 5 icons + labels, collapsible
 - **Mobile**: Bottom tab bar with 5 icons, sub-tabs as horizontal pills
