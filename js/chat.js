@@ -191,14 +191,112 @@ function getSocialCreds(){
   var ig=localStorage.getItem("dv_ig_id");
   var fb=localStorage.getItem("dv_fb_id");
   if(!t||!ig)return null;
-  return{token:t,igId:ig,fbId:fb||""};
+  return{token:t,igId:ig,fbId:fb||"",pexels:localStorage.getItem("dv_pexels_key")||""};
+}
+
+// --- SMART IMAGE SEARCH ------------------------------------------------------
+var DUBAI_IMAGE_MAP={
+  "palm jumeirah":"palm jumeirah dubai luxury",
+  "dubai marina":"dubai marina skyline towers",
+  "downtown dubai":"downtown dubai burj khalifa",
+  "business bay":"business bay dubai towers canal",
+  "jbr":"jumeirah beach residence dubai",
+  "dubai hills":"dubai hills estate villa",
+  "creek harbour":"dubai creek harbour tower",
+  "jumeirah":"jumeirah dubai beach luxury",
+  "difc":"difc dubai financial center",
+  "dubai creek":"dubai creek harbour skyline",
+  "emaar beachfront":"emaar beachfront dubai",
+  "bluewaters":"bluewaters island dubai",
+  "sobha hartland":"sobha hartland dubai villa",
+  "meydan":"meydan dubai racecourse",
+  "mbr city":"mohammed bin rashid city dubai",
+  "jvc":"jumeirah village circle dubai",
+  "jlt":"jumeirah lake towers dubai",
+  "al barsha":"al barsha dubai",
+  "deira":"deira dubai gold souk",
+  "silicon oasis":"dubai silicon oasis",
+  "sports city":"dubai sports city",
+  "motor city":"dubai motor city",
+  "production city":"dubai production city",
+  "arabian ranches":"arabian ranches dubai villa",
+  "tilal al ghaf":"tilal al ghaf dubai lagoon",
+  "district one":"district one mbr city dubai",
+  "palm jebel ali":"palm jebel ali dubai",
+  "za'abeel":"zaabeel dubai skyline",
+  "city walk":"city walk dubai meraas",
+  "la mer":"la mer dubai beach"
+};
+
+var TOPIC_KEYWORDS={
+  "luxury":"luxury penthouse interior design",
+  "villa":"dubai luxury villa pool garden",
+  "apartment":"modern apartment interior dubai",
+  "sea view":"dubai sea view panoramic ocean",
+  "investment":"dubai real estate investment skyline",
+  "yield":"dubai property investment returns",
+  "rental":"dubai apartment rental modern",
+  "off-plan":"dubai construction new development",
+  "penthouse":"penthouse luxury rooftop dubai",
+  "beach":"dubai beach waterfront property",
+  "golf":"dubai golf course villa green",
+  "canal":"dubai water canal view",
+  "skyline":"dubai skyline night cityscape",
+  "pool":"luxury pool villa dubai",
+  "garden":"dubai garden park villa",
+  "family":"family villa dubai community",
+  "tower":"dubai tower skyscraper modern"
+};
+
+function extractImageKeywords(caption){
+  var text=caption.toLowerCase();
+  var keywords=["dubai real estate"];
+  var areaKeys=Object.keys(DUBAI_IMAGE_MAP);
+  for(var i=0;i<areaKeys.length;i++){
+    if(text.indexOf(areaKeys[i])!==-1){keywords=[DUBAI_IMAGE_MAP[areaKeys[i]]];break;}
+  }
+  var topicKeys=Object.keys(TOPIC_KEYWORDS);
+  for(var j=0;j<topicKeys.length;j++){
+    if(text.indexOf(topicKeys[j])!==-1){keywords.push(topicKeys[j]);break;}
+  }
+  if(keywords.length===1)keywords.push("luxury property");
+  return keywords.join(" ");
+}
+
+async function findSmartImage(caption){
+  var pexelsKey=localStorage.getItem("dv_pexels_key");
+  var query=extractImageKeywords(caption);
+  if(pexelsKey){
+    try{
+      var r=await fetch("https://api.pexels.com/v1/search?query="+encodeURIComponent(query)+"&per_page=5&orientation=square",{
+        headers:{"Authorization":pexelsKey}
+      });
+      var d=await r.json();
+      if(d.photos&&d.photos.length>0){
+        var idx=Math.floor(Math.random()*Math.min(d.photos.length,3));
+        return d.photos[idx].src.large2x||d.photos[idx].src.large;
+      }
+    }catch(e){}
+  }
+  var fallbacks=[
+    "https://images.pexels.com/photos/3769312/pexels-photo-3769312.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/2041556/pexels-photo-2041556.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/1486222/pexels-photo-1486222.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/2115367/pexels-photo-2115367.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/2193300/pexels-photo-2193300.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/1268871/pexels-photo-1268871.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/1838640/pexels-photo-1838640.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/3586966/pexels-photo-3586966.jpeg?auto=compress&w=1080"
+  ];
+  return fallbacks[Math.floor(Math.random()*fallbacks.length)];
 }
 
 async function publishToInstagram(caption,imageUrl){
   try{
     var c=getSocialCreds();
-    if(!c)return{success:false,error:"Social media not configured. Go to Profile to set up."};
-    var params=new URLSearchParams({image_url:imageUrl||"https://i.imgur.com/8RKXAIV.jpeg",caption:caption,access_token:c.token});
+    if(!c)return{success:false,error:"Social media not configured. Use Setup button to configure."};
+    if(!imageUrl)imageUrl=await findSmartImage(caption);
+    var params=new URLSearchParams({image_url:imageUrl,caption:caption,access_token:c.token});
     var r1=await fetch(GRAPH_BASE+c.igId+"/media",{method:"POST",body:params});
     var d1=await r1.json();
     if(d1.error)return{success:false,error:d1.error.message};
@@ -266,16 +364,21 @@ function buildPublishBar(postData,msgText,cl){
     return b;
   };
 
+  var imgPreview=null;
   if(platform==="instagram"||platform==="all"){
-    bar.appendChild(makeBtn("Post to Instagram","📸","#E1306C",async function(){
+    var igBtn=makeBtn("Post to Instagram","📸","#E1306C",async function(){
       if(SOCIAL_STATE.publishing)return;
       SOCIAL_STATE.publishing=true;
-      this.textContent="⏳ Publishing...";this.style.opacity="0.6";
-      var result=await publishToInstagram(caption);
+      this.textContent="⏳ Finding image...";this.style.opacity="0.6";
+      var smartImg=await findSmartImage(caption);
+      if(imgPreview){imgPreview.src=smartImg;imgPreview.style.display="block";}
+      this.textContent="⏳ Publishing...";
+      var result=await publishToInstagram(caption,smartImg);
       SOCIAL_STATE.publishing=false;
       if(result.success){this.textContent="✅ Posted!";this.style.background="#10B98133";this.style.color="#10B981";this.style.borderColor="#10B981";}
       else{alert("Instagram Error: "+(result.error||"Unknown"));this.textContent="❌ Failed";this.style.background="#EF444433";this.style.color="#EF4444";setTimeout(function(){this.textContent="📸 Retry Instagram";this.style.background="";this.style.color="#E1306C";}.bind(this),3000);}
-    }));
+    });
+    bar.appendChild(igBtn);
   }
 
   if(platform==="facebook"||platform==="all"){
@@ -304,9 +407,12 @@ function buildPublishBar(postData,msgText,cl){
   });
   bar.appendChild(copyBtn);
 
-  if(!getSocialCreds()){
-    bar.appendChild(makeBtn("Setup","⚙️","#FBBF24",function(){showSocialSetup();}));
-  }
+  bar.appendChild(makeBtn("Setup","⚙️","#FBBF24",function(){showSocialSetup();}));
+
+  imgPreview=el("img",{style:{width:"100%",maxHeight:"200px",objectFit:"cover",borderRadius:"8px",marginTop:"8px",display:"none",border:"1px solid "+cl.border}});
+  var previewWrap=div({width:"100%"});
+  previewWrap.appendChild(imgPreview);
+  bar.appendChild(previewWrap);
 
   return bar;
 }
@@ -322,7 +428,8 @@ function showSocialSetup(){
   var fields=[
     {key:"dv_ig_token",label:"Page Access Token",ph:"EAATsXN..."},
     {key:"dv_ig_id",label:"Instagram Account ID",ph:"17841416622862972"},
-    {key:"dv_fb_id",label:"Facebook Page ID (optional)",ph:"123456789"}
+    {key:"dv_fb_id",label:"Facebook Page ID (optional)",ph:"123456789"},
+    {key:"dv_pexels_key",label:"Pexels API Key (for smart images)",ph:"Get free key at pexels.com/api"}
   ];
   var inputs=[];
   fields.forEach(function(f){
