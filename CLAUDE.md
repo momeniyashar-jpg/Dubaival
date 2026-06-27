@@ -382,13 +382,25 @@ Default view when app loads. Shows personalized summary.
 
 #### 2. 📊 MARKET (Market Intelligence)
 All market research and analysis tools grouped together.
-- **Analyzer** (sub-tab) — Property valuation (sale + rent modes)
-- **Market Index** (sub-tab) — Area rankings, heatmaps, top lists
-- **Compare** (sub-tab) — Side-by-side area comparison
-- **Live Search** (sub-tab) — Find properties (Bayut/PF live data)
-- **Map** (sub-tab) — Interactive market map (Leaflet)
-- **Personal Advisor** (sub-tab) — AI questionnaire → recommendations
-- **Mortgage Calculator** (collapsible panel inside Analyzer, not a tab)
+- **Live Dashboard** (default view) — 5 stat cards (Buildings, Areas, Avg PSF,
+  Avg Yield, Avg Growth), PSF distribution histogram, yield vs growth scatter,
+  top movers table, rental market snapshot, AI Smart Search
+- **Analyzer** (sub-tab) — Property valuation (sale + rent modes), PDF export,
+  confidence score, investment signal, comparable analysis
+- **Quick Check** (sub-tab) — Rapid sale/rent valuation (area + beds only)
+- **Track Record** (sub-tab) — Estimate vs actual sale price case studies
+- **Market Index** (sub-tab) — Area rankings: Most Expensive, Highest Yield,
+  Fastest Growing, Best Value, Highest Rent, Best Rental Value, Top Commercial,
+  Top Land, Advanced Area Comparison with AI
+- **Compare** (sub-tab) — Side-by-side area comparison (2-3 areas)
+- **Live Search** (sub-tab) — Find properties (Bayut/PF live data), smart
+  discovery filters (yield, growth, price, liquidity), deal scoring
+- **Map** (sub-tab) — Interactive Leaflet map with 6 metric toggles (Growth,
+  Yield, Price, Liquidity, Turnover, Location), metro/tram overlay
+- **Personal Advisor** (sub-tab) — AI questionnaire (budget, role, family,
+  timeline, work location) → 3 area recommendations
+- **Mortgage Calculator** (collapsible panel inside Analyzer, not a separate tab)
+  — rate types, down payment slider, tenure, buyer type, DLD/agency fees
 - Priority: ★★★★★
 
 #### 3. 💼 PORTFOLIO (Investment Management)
@@ -404,16 +416,35 @@ Everything related to owned assets and investment tracking.
 All agent/professional features in one place.
 - **Deal Board** (sub-tab) — Browse & post deals (I Have / I Need)
 - **Agent Hub** (sub-tab) — Agent directory, referral program
-- **AI Agents** (sub-tab) — Chat with specialized AI (valuation, legal, negotiation, etc.)
-- **Social Media Manager** (sub-tab) — Content creation, auto-post, video studio, branding
+- **AI Agents** (sub-tab) — 8 specialized AI agents (General, Valuation,
+  Negotiation, Marketing, Investment, Legal, Lead Capture, Social Media Manager)
+- **Social Media Manager** (sub-tab) — ALL content creation tools:
+  - Post/Story/Reel/Carousel generator (Instagram, Facebook, LinkedIn, Twitter, TikTok, YouTube)
+  - AI Video Studio (8 engines: Runway, Kling, Minimax, Pika, Luma, HeyGen, Hedra, D-ID)
+  - AI Video Editor (upload → AI trim → subtitles → music → publish, max 500MB)
+  - Content Calendar (monthly view, scheduled posts)
+  - Auto-Post Engine (scheduled publishing to all platforms)
+  - Auto-Post Log (history, retry failed)
+  - Engagement Analytics dashboard
+  - Brand/Personal profile setup (agency name, logo, phone, tagline, colors)
+  - Behavioral Profiling (AI analysis of Instagram posts)
+- **PropTech Video Platform** (sub-tab) — `js/social.js`:
+  - Explore feed (agent video listings, filters by area/category)
+  - Agent Profiles (directory, search, follow)
+  - My Profile (agent registration, video uploads, edit)
+  - Following (followed areas & agents feed)
+  - Video modal (full-screen player, likes, comments)
 - Priority: ★★★★☆
 
 #### 5. ⚙️ MORE (Settings & Info)
 Low-frequency items in a drawer/menu.
-- **Workspace** — Custom dashboard builder, report builder
-- **About** — Mission, technology, partnerships
-- **Settings** — Language, theme, profile, API keys
-- **Admin** — Admin dashboard (hidden unless admin)
+- **Workspace** — Custom dashboard builder (14+ tools), preset templates
+  (Investor/Agent/Buyer), reorderable widgets, mini previews
+- **Report Builder** — Section selector, language (EN/AR), brand customization,
+  PDF export
+- **About** — Mission, technology, partnerships, DubAIVal Flywheel, API docs
+- **Settings** — Language (EN/AR/FA), dark mode, profile, notifications
+- **Admin** — Admin dashboard (hidden unless admin token set)
 - Priority: ★★☆☆☆
 
 ### Navigation style
@@ -458,6 +489,7 @@ These files contain critical business logic and data:
 - `js/workspace.js` — Workspace tab UI
 - `js/about.js` — About tab UI
 - `js/auth.js` — Auth UI (NOT auth logic)
+- `js/social.js` — PropTech Video Platform UI (NOT Supabase queries)
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items

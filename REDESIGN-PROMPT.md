@@ -48,11 +48,16 @@ New 5 sections:
 Each section has sub-tabs (see CLAUDE.md "Proposed navigation architecture"):
 
 - **Home**: New dashboard landing page (market pulse, portfolio summary, quick actions)
-- **Market**: Analyzer, Market Index, Compare, Live Search, Map, Personal Advisor
-  (Mortgage Calculator becomes a collapsible panel inside Analyzer, not a separate tab)
+- **Market**: Live Dashboard (current Market tab default), Analyzer, Quick Check,
+  Track Record, Market Index, Compare, Live Search, Map, Personal Advisor
+  (Mortgage Calculator becomes a collapsible panel inside Analyzer)
 - **Portfolio**: My Assets, Health Dashboard, Projections, Alerts, STR Calculator
-- **Network**: Deal Board, Agent Hub, AI Agents (current Chat tab), Social Media Manager
-- **More**: Workspace, About, Settings, Admin (hidden unless admin token set)
+- **Network**: Deal Board, Agent Hub, AI Agents (8 agents from current Chat tab),
+  Social Media Manager (from current Chat tab — post/story/reel generator,
+  AI Video Studio with 8 engines, AI Video Editor, Content Calendar, Auto-Post,
+  Engagement Analytics, Branding Setup), PropTech Video Platform (from current
+  Social tab — js/social.js — Explore feed, Agent Profiles, My Profile, Following)
+- **More**: Workspace, Report Builder, About, Settings, Admin (hidden unless admin)
 
 ### Phase 2: Visual polish (js/core.js + all UI files)
 
