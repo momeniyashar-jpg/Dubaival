@@ -4,6 +4,18 @@ Copy this entire prompt into a NEW Claude Code session for the redesign.
 
 ---
 
+## FIRST: Switch to the correct branch
+
+**BEFORE doing anything else**, run this command:
+```
+git checkout claude/dubaival-portfolio-manager-5bgbjk
+```
+All project files (data-commercial.js, valuation-db.js, social.js, etc.) are
+ONLY on this branch. The `main` branch is outdated. Do NOT work on `main`.
+Do NOT create a new branch. Work directly on `claude/dubaival-portfolio-manager-5bgbjk`.
+
+---
+
 ## Your Role
 
 You are a **world-class senior UI/UX designer**, **expert frontend developer**,
