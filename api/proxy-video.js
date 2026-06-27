@@ -160,24 +160,26 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // --- PIKA LABS ---
+    // --- PIKA LABS (via Fal.ai) ---
     if (engine === "pika") {
       var pk = process.env.PIKA_API_KEY;
       if (!pk) return res.status(500).json({ error: "PIKA_API_KEY not configured" });
 
       if (action === "generate") {
-        var pkBody = { promptText: body.prompt, style: "None", sfx: false, aspectRatio: "16:9", frameRate: 24, camera: {}, parameters: { guidanceScale: 16, motion: 2, negativePrompt: "blurry, low quality" } };
-        if (body.image_url) pkBody.image = { url: body.image_url, type: "url" };
-        var pkr = await fetch("https://api.pika.art/v1/generate", {
+        var pikaModel = body.image_url ? "fal-ai/pika/v2.2/image-to-video" : "fal-ai/pika/v2.2/text-to-video";
+        var pkBody = { prompt: body.prompt, aspect_ratio: "16:9", duration: "5s" };
+        if (body.image_url) pkBody.image_url = body.image_url;
+        var pkr = await fetch("https://queue.fal.run/" + pikaModel, {
           method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + pk },
+          headers: { "Content-Type": "application/json", "Authorization": "Key " + pk },
           body: JSON.stringify(pkBody)
         });
         return res.status(pkr.status).json(await pkr.json());
       }
       if (action === "status") {
-        var pkr2 = await fetch("https://api.pika.art/v1/generate/" + body.gen_id, {
-          headers: { "Authorization": "Bearer " + pk }
+        var pikaModel2 = body.model_path || "fal-ai/pika/v2.2/text-to-video";
+        var pkr2 = await fetch("https://queue.fal.run/" + pikaModel2 + "/requests/" + body.request_id, {
+          headers: { "Authorization": "Key " + pk }
         });
         return res.status(pkr2.status).json(await pkr2.json());
       }

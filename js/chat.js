@@ -5478,10 +5478,12 @@ async function _minimaxCheckStatus(taskId){
   return _videoProxy({engine:"minimax",action:"status",task_id:taskId});
 }
 async function _pikaGenVideo(prompt,imageUrl){
-  return _videoProxy({engine:"pika",action:"generate",prompt:prompt,image_url:imageUrl||null});
+  var r=await _videoProxy({engine:"pika",action:"generate",prompt:prompt,image_url:imageUrl||null});
+  if(r&&r.request_id)r._fal_model=imageUrl?"fal-ai/pika/v2.2/image-to-video":"fal-ai/pika/v2.2/text-to-video";
+  return r;
 }
-async function _pikaCheckStatus(genId){
-  return _videoProxy({engine:"pika",action:"status",gen_id:genId});
+async function _pikaCheckStatus(requestId,modelPath){
+  return _videoProxy({engine:"pika",action:"status",request_id:requestId,model_path:modelPath||"fal-ai/pika/v2.2/text-to-video"});
 }
 async function _didGenTalk(sourceUrl,script,voiceId){
   return _videoProxy({engine:"did",action:"generate",source_url:sourceUrl,text:script,voice_id:voiceId});
@@ -5699,16 +5701,19 @@ function showAvatarVideoGen(avatarId){
       resultArea.appendChild(el("div",{style:{color:"#A855F7",fontSize:"11px",fontFamily:"monospace"}},"⏳ Generating creative video with Pika Labs..."));
       try{
         var pkd=await _pikaGenVideo(cleanScript,av.avatarUrl||null);
-        if(pkd.id){
-          resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace"}},"✅ Generation started: "+pkd.id));
+        var pkReqId=pkd.request_id||pkd.id;
+        var pkModel=pkd._fal_model||"fal-ai/pika/v2.2/text-to-video";
+        if(pkReqId){
+          resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace"}},"✅ Generation started: "+pkReqId));
           _videoPollStatus(async function(){
-            var st=await _pikaCheckStatus(pkd.id);
-            if(st.status==="completed"&&st.videos&&st.videos.length>0){return{done:true,url:st.videos[0].url};}
-            else if(st.status==="failed"){return{error:"Pika failed: "+(st.error||"Unknown")};}
+            var st=await _pikaCheckStatus(pkReqId,pkModel);
+            if(st.status==="COMPLETED"&&st.video&&st.video.url){return{done:true,url:st.video.url};}
+            else if(st.status==="COMPLETED"&&st.videos&&st.videos.length>0){return{done:true,url:st.videos[0].url};}
+            else if(st.status==="FAILED"){return{error:"Pika failed: "+(st.error||"Unknown")};}
             return{done:false};
           },5000,60,resultArea,genVideoBtn);
         }else{
-          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Pika error: "+(pkd.error||JSON.stringify(pkd))));
+          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Pika error: "+(pkd.detail||pkd.error||JSON.stringify(pkd))));
           genVideoBtn.disabled=false;
         }
       }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
