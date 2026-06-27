@@ -2701,6 +2701,776 @@ function extractPostJSON(text){
   return null;
 }
 
+// --- BEST TIME TO POST ENGINE ---
+var DUBAI_BEST_TIMES={
+  instagram:{weekday:["07:00","10:00","13:00","19:00","21:00"],weekend:["09:00","11:00","14:00","20:00","22:00"],peak:"19:00",timezone:"GST (UTC+4)",notes:"Dubai audience most active evenings; Friday brunch posts do well at 11AM"},
+  facebook:{weekday:["08:00","12:00","17:00","20:00"],weekend:["10:00","13:00","18:00"],peak:"12:00",timezone:"GST (UTC+4)",notes:"Lunch break & evening commute. Thursday evening is premium slot"},
+  linkedin:{weekday:["08:00","10:00","12:00","17:00"],weekend:["10:00"],peak:"10:00",timezone:"GST (UTC+4)",notes:"Business hours. Tuesday-Thursday best. Avoid Friday/Saturday"},
+  twitter:{weekday:["07:00","12:00","17:00","21:00"],weekend:["09:00","15:00","21:00"],peak:"12:00",timezone:"GST (UTC+4)",notes:"News cycle peaks at noon. Real estate threads best Tuesday/Wednesday"},
+  tiktok:{weekday:["12:00","19:00","21:00","23:00"],weekend:["10:00","14:00","20:00","23:00"],peak:"21:00",timezone:"GST (UTC+4)",notes:"Evening/night peaks. Property tours at 19:00 get most views"},
+  whatsapp:{weekday:["09:00","13:00","18:00"],weekend:["10:00","16:00"],peak:"09:00",timezone:"GST (UTC+4)",notes:"Morning broadcasts convert best. Avoid late night"}
+};
+function getBestPostTime(platform){
+  var now=new Date();var isWeekend=now.getDay()===5||now.getDay()===6;
+  var p=DUBAI_BEST_TIMES[platform]||DUBAI_BEST_TIMES.instagram;
+  var times=isWeekend?p.weekend:p.weekday;
+  var hour=now.getHours();var best=null;var minDiff=999;
+  times.forEach(function(t){var h=parseInt(t);var diff=h-hour;if(diff<0)diff+=24;if(diff<minDiff){minDiff=diff;best=t;}});
+  return{next:best,all:times,peak:p.peak,isWeekend:isWeekend,notes:p.notes,timezone:p.timezone};
+}
+function showBestTimeModal(platform){
+  var m=document.getElementById("besttime-modal");if(m)m.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:"10px"},id:"besttime-modal"});
+  var card=div({background:"#1A1F2E",border:"1px solid #F59E0B",borderRadius:"16px",padding:"20px",width:"440px",maxWidth:"96vw"});
+  card.appendChild(el("h3",{style:{color:"#F59E0B",margin:"0 0 12px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"🕐 Best Time to Post — Dubai"));
+  var platforms=Object.keys(DUBAI_BEST_TIMES);
+  platforms.forEach(function(p){
+    var info=getBestPostTime(p);
+    var pCard=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"10px",padding:"10px",marginBottom:"8px"});
+    var icons={instagram:"📸",facebook:"📘",linkedin:"💼",twitter:"𝕏",tiktok:"🎵",whatsapp:"📲"};
+    pCard.appendChild(el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
+      el("span",{style:{color:"#FFF",fontSize:"12px",fontWeight:"700",fontFamily:"monospace"}},(icons[p]||"📱")+" "+p.charAt(0).toUpperCase()+p.slice(1)),
+      el("span",{style:{color:"#10B981",fontSize:"11px",fontFamily:"monospace"}},"Next: "+info.next)
+    ));
+    var timesRow=div({display:"flex",gap:"4px",marginTop:"6px",flexWrap:"wrap"});
+    info.all.forEach(function(t){
+      var chip=el("span",{style:{background:t===info.peak?"#F59E0B22":"#0D1117",border:"1px solid "+(t===info.peak?"#F59E0B":"#2A3040"),color:t===info.peak?"#F59E0B":"#8899AA",padding:"2px 8px",borderRadius:"10px",fontSize:"9px",fontFamily:"monospace"}});
+      chip.textContent=t+(t===info.peak?" ⭐":"");timesRow.appendChild(chip);
+    });pCard.appendChild(timesRow);
+    pCard.appendChild(el("div",{style:{color:"#6B7280",fontSize:"9px",marginTop:"4px",fontFamily:"monospace"}},info.notes));
+    card.appendChild(pCard);
+  });
+  card.appendChild(el("div",{style:{color:"#6B7280",fontSize:"9px",marginTop:"6px",textAlign:"center",fontFamily:"monospace"}},"All times in GST (UTC+4) · "+(getBestPostTime("instagram").isWeekend?"Weekend":"Weekday")+" schedule"));
+  card.appendChild(el("button",{style:{width:"100%",marginTop:"10px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+// --- POST PERFORMANCE ANALYTICS ---
+function getPostHistory(){try{return JSON.parse(localStorage.getItem("dv_post_history")||"[]");}catch(e){return[];}}
+function savePostToHistory(post){
+  var h=getPostHistory();
+  post.id="post_"+Date.now();post.postedAt=new Date().toISOString();
+  h.unshift(post);if(h.length>200)h=h.slice(0,200);
+  localStorage.setItem("dv_post_history",JSON.stringify(h));
+}
+function showPostAnalytics(){
+  var m=document.getElementById("analytics-modal");if(m)m.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"analytics-modal"});
+  var card=div({background:"#1A1F2E",border:"1px solid #8B5CF6",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
+  card.appendChild(el("h3",{style:{color:"#8B5CF6",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"📊 Post Performance Analytics"));
+  var history=getPostHistory();
+  if(history.length===0){card.appendChild(el("p",{style:{color:"#8899AA",fontSize:"12px",textAlign:"center"}},"No posts tracked yet. Posts will appear here after publishing."));
+  }else{
+    var stats={total:history.length,platforms:{},types:{},areas:{}};
+    history.forEach(function(p){
+      stats.platforms[p.platform]=(stats.platforms[p.platform]||0)+1;
+      stats.types[p.type||"post"]=(stats.types[p.type||"post"]||0)+1;
+      if(p.area)stats.areas[p.area]=(stats.areas[p.area]||0)+1;
+    });
+    var statGrid=div({display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px",marginBottom:"12px"});
+    [{l:"Total Posts",v:stats.total,c:"#8B5CF6"},{l:"This Week",v:history.filter(function(p){return Date.now()-new Date(p.postedAt).getTime()<7*86400000;}).length,c:"#10B981"},{l:"This Month",v:history.filter(function(p){return new Date(p.postedAt).getMonth()===new Date().getMonth();}).length,c:"#F59E0B"}].forEach(function(s){
+      var sc=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"10px",padding:"10px",textAlign:"center"});
+      sc.appendChild(el("div",{style:{color:s.c,fontSize:"20px",fontWeight:"800",fontFamily:"monospace"}},String(s.v)));
+      sc.appendChild(el("div",{style:{color:"#8899AA",fontSize:"9px",fontFamily:"monospace"}},s.l));statGrid.appendChild(sc);
+    });card.appendChild(statGrid);
+    card.appendChild(el("div",{style:{color:"#FFF",fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginBottom:"6px"}},"Platform Breakdown"));
+    var platWrap=div({display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"12px"});
+    var icons={instagram:"📸",facebook:"📘",linkedin:"💼",twitter:"𝕏",tiktok:"🎵",whatsapp:"📲"};
+    Object.keys(stats.platforms).forEach(function(p){
+      var pct=Math.round(stats.platforms[p]/stats.total*100);
+      platWrap.appendChild(el("div",{style:{background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"6px 10px",fontSize:"10px",fontFamily:"monospace",color:"#E0E0E0"}},(icons[p]||"📱")+" "+p+": "+stats.platforms[p]+" ("+pct+"%)"));
+    });card.appendChild(platWrap);
+    card.appendChild(el("div",{style:{color:"#FFF",fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginBottom:"6px"}},"Recent Posts"));
+    history.slice(0,10).forEach(function(p){
+      var pCard=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",marginBottom:"4px"});
+      var hdr=div({display:"flex",justifyContent:"space-between",alignItems:"center"});
+      hdr.appendChild(el("span",{style:{color:"#8B5CF6",fontSize:"10px",fontFamily:"monospace"}},(icons[p.platform]||"📱")+" "+new Date(p.postedAt).toLocaleDateString()));
+      hdr.appendChild(el("span",{style:{color:"#6B7280",fontSize:"9px",fontFamily:"monospace"}},p.type||"post"));
+      pCard.appendChild(hdr);
+      pCard.appendChild(el("div",{style:{color:"#CCC",fontSize:"10px",marginTop:"4px",maxHeight:"30px",overflow:"hidden"}},(p.caption||"").substring(0,100)+"..."));
+      card.appendChild(pCard);
+    });
+  }
+  card.appendChild(el("button",{style:{width:"100%",marginTop:"10px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+// --- AI CAPTION REWRITER (Platform-Optimized) ---
+async function rewriteCaptionForPlatform(caption,targetPlatform){
+  var geminiKey=localStorage.getItem("dv_gemini_key");if(!geminiKey)return null;
+  var bp=getBrandProfile();var brandCtx=bp?" Brand: "+bp.name+(bp.tone?", Tone: "+bp.tone:""):"";
+  var limits={instagram:"2200 chars, 30 hashtags max, emoji-rich, visual hooks",facebook:"63206 chars, longer form OK, link-friendly, professional",linkedin:"3000 chars, professional/corporate, no emojis overload, thought-leadership",twitter:"280 chars STRICT, punchy, thread-friendly, 2-3 hashtags max",tiktok:"2200 chars, Gen-Z friendly, trending sounds reference, casual",whatsapp:"Short & punchy, 3-4 lines, broadcast-friendly, direct CTA"};
+  try{
+    var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({contents:[{parts:[{text:"You are an expert social media copywriter for Dubai luxury real estate."+brandCtx+"\n\nOriginal caption:\n"+caption+"\n\nRewrite this caption SPECIFICALLY optimized for "+targetPlatform+".\nPlatform rules: "+limits[targetPlatform]+"\n\nDubai real estate context. Keep all data/numbers accurate. Adapt tone, length, hashtags, emojis, and CTA for "+targetPlatform+".\n\nRespond in valid JSON:\n{\"caption\":\"THE REWRITTEN CAPTION\",\"charCount\":123,\"tips\":\"Brief tip about why this version works better for "+targetPlatform+"\"}"}]}],generationConfig:{responseMimeType:"application/json"}})
+    });
+    var d=await r.json();
+    if(d.candidates&&d.candidates[0])return JSON.parse(d.candidates[0].content.parts[0].text);
+  }catch(e){}return null;
+}
+function showCaptionRewriter(caption){
+  var m=document.getElementById("rewriter-modal");if(m)m.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"rewriter-modal"});
+  var card=div({background:"#1A1F2E",border:"1px solid #EC4899",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
+  card.appendChild(el("h3",{style:{color:"#EC4899",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"✍️ AI Caption Rewriter"));
+  card.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",marginBottom:"10px",fontFamily:"monospace"}},"Select a platform to optimize your caption:"));
+  var platforms=[{k:"instagram",icon:"📸",color:"#E1306C"},{k:"facebook",icon:"📘",color:"#1877F2"},{k:"linkedin",icon:"💼",color:"#0A66C2"},{k:"twitter",icon:"𝕏",color:"#1DA1F2"},{k:"tiktok",icon:"🎵",color:"#FF0050"},{k:"whatsapp",icon:"📲",color:"#25D366"}];
+  var resultArea=div({});
+  var platRow=div({display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"12px"});
+  platforms.forEach(function(p){
+    platRow.appendChild(el("button",{style:{background:hexAlpha(p.color,0.12),border:"1px solid "+hexAlpha(p.color,0.3),color:p.color,padding:"8px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
+      this.textContent="⏳ Rewriting...";resultArea.innerHTML="";
+      var result=await rewriteCaptionForPlatform(caption,p.k);
+      this.textContent=p.icon+" "+p.k.charAt(0).toUpperCase()+p.k.slice(1);
+      if(!result){resultArea.appendChild(el("p",{style:{color:"#EF4444",fontSize:"11px"}},"❌ Check Gemini API key."));return;}
+      var rCard=div({background:"#0D1117",border:"1px solid "+hexAlpha(p.color,0.3),borderRadius:"10px",padding:"12px"});
+      rCard.appendChild(el("div",{style:{color:p.color,fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginBottom:"6px"}},p.icon+" Optimized for "+p.k.charAt(0).toUpperCase()+p.k.slice(1)+" ("+result.charCount+" chars)"));
+      var textEl=el("div",{style:{color:"#E0E0E0",fontSize:"11px",lineHeight:"1.5",whiteSpace:"pre-wrap",maxHeight:"200px",overflowY:"auto"}});textEl.textContent=result.caption;rCard.appendChild(textEl);
+      if(result.tips){rCard.appendChild(el("div",{style:{color:"#6B7280",fontSize:"9px",marginTop:"6px",fontStyle:"italic"}},"💡 "+result.tips));}
+      var copyBtn=el("button",{style:{marginTop:"8px",background:hexAlpha(p.color,0.15),border:"1px solid "+hexAlpha(p.color,0.3),color:p.color,padding:"6px 14px",borderRadius:"6px",fontSize:"10px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
+        navigator.clipboard.writeText(result.caption);copyBtn.textContent="✅ Copied!";setTimeout(function(){copyBtn.textContent="📋 Copy";},2000);
+      }});copyBtn.textContent="📋 Copy";rCard.appendChild(copyBtn);
+      resultArea.appendChild(rCard);
+    }},p.icon+" "+p.k.charAt(0).toUpperCase()+p.k.slice(1)));
+  });card.appendChild(platRow);card.appendChild(resultArea);
+  card.appendChild(el("button",{style:{width:"100%",marginTop:"10px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+// --- COMPETITOR HASHTAG SPY ---
+async function spyCompetitorHashtags(competitors){
+  var geminiKey=localStorage.getItem("dv_gemini_key");if(!geminiKey)return null;
+  try{
+    var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({contents:[{parts:[{text:"You are a Dubai real estate social media intelligence expert.\n\nAnalyze the hashtag strategies of these Dubai real estate competitors/accounts:\n"+(competitors||"@dubaiproperties, @emaborhman, @faborhman, @aboralianrealtor, @dubailuxury")+"\n\nBased on your knowledge of Dubai real estate Instagram marketing:\n1. What are their most-used hashtags?\n2. What niche hashtags do they use that have less competition?\n3. What hashtags are they missing that could boost reach?\n4. Suggest unique hashtag combinations we can own\n\nRespond in valid JSON:\n{\"competitors\":[{\"name\":\"@account\",\"top_hashtags\":[\"#tag1\"],\"strategy\":\"brief description\"}],\"niche_gems\":[{\"tag\":\"#tag\",\"why\":\"reason\"}],\"gaps\":[{\"tag\":\"#tag\",\"opportunity\":\"why\"}],\"unique_combos\":[\"#combo1 #combo2 #combo3\"],\"summary\":\"overall strategy recommendation\"}"}]}],generationConfig:{responseMimeType:"application/json"}})
+    });
+    var d=await r.json();
+    if(d.candidates&&d.candidates[0])return JSON.parse(d.candidates[0].content.parts[0].text);
+  }catch(e){}return null;
+}
+function showCompetitorSpy(){
+  var m=document.getElementById("spy-modal");if(m)m.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"spy-modal"});
+  var card=div({background:"#1A1F2E",border:"1px solid #EF4444",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
+  card.appendChild(el("h3",{style:{color:"#EF4444",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"🕵️ Competitor Hashtag Spy"));
+  var compInput=el("textarea",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",boxSizing:"border-box",minHeight:"50px",resize:"vertical"},placeholder:"Enter competitor Instagram handles (comma separated)\ne.g. @dubailuxury, @emaarproperties, @damacofficial"});
+  card.appendChild(compInput);
+  var analyzeBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"#EF4444",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
+    analyzeBtn.textContent="🔍 Analyzing competitors...";resultWrap.innerHTML="";
+    var result=await spyCompetitorHashtags(compInput.value||undefined);
+    analyzeBtn.textContent="🔍 Analyze";
+    if(!result){resultWrap.appendChild(el("p",{style:{color:"#EF4444",fontSize:"11px"}},"❌ Check Gemini API key."));return;}
+    if(result.competitors){
+      result.competitors.forEach(function(c){
+        var cCard=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",marginBottom:"6px"});
+        cCard.appendChild(el("div",{style:{color:"#E1306C",fontSize:"11px",fontWeight:"700",fontFamily:"monospace"}},c.name));
+        cCard.appendChild(el("div",{style:{color:"#8899AA",fontSize:"9px",marginTop:"2px"}},c.strategy));
+        var tagWrap=div({display:"flex",gap:"3px",flexWrap:"wrap",marginTop:"4px"});
+        (c.top_hashtags||[]).forEach(function(t){tagWrap.appendChild(el("span",{style:{background:"#E1306C18",color:"#E1306C",padding:"2px 6px",borderRadius:"8px",fontSize:"9px",fontFamily:"monospace"}},t));});
+        cCard.appendChild(tagWrap);resultWrap.appendChild(cCard);
+      });
+    }
+    if(result.niche_gems&&result.niche_gems.length){
+      resultWrap.appendChild(el("div",{style:{color:"#10B981",fontSize:"11px",fontWeight:"700",marginTop:"10px",fontFamily:"monospace"}},"💎 Niche Gems (Low Competition)"));
+      result.niche_gems.forEach(function(g){
+        resultWrap.appendChild(el("div",{style:{color:"#CCC",fontSize:"10px",marginLeft:"8px"}},"• "+g.tag+" — "+g.why));
+      });
+    }
+    if(result.unique_combos&&result.unique_combos.length){
+      resultWrap.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"11px",fontWeight:"700",marginTop:"10px",fontFamily:"monospace"}},"⚡ Unique Combos to Own"));
+      result.unique_combos.forEach(function(c){
+        var row=el("div",{style:{color:"#E0E0E0",fontSize:"10px",marginLeft:"8px",cursor:"pointer",padding:"4px",borderRadius:"4px"},onclick:function(){navigator.clipboard.writeText(c);row.style.background="#10B98122";setTimeout(function(){row.style.background="";},500);}});
+        row.textContent="📋 "+c;resultWrap.appendChild(row);
+      });
+    }
+    if(result.summary){
+      resultWrap.appendChild(el("div",{style:{background:"#1A0A1A",border:"1px solid #8B5CF6",borderRadius:"8px",padding:"8px",marginTop:"10px",color:"#CCC",fontSize:"10px",lineHeight:"1.4"}},"🧠 "+result.summary));
+    }
+  }});analyzeBtn.textContent="🔍 Analyze";card.appendChild(analyzeBtn);
+  var resultWrap=div({});card.appendChild(resultWrap);
+  card.appendChild(el("button",{style:{width:"100%",marginTop:"10px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+// --- BULK POST GENERATOR (30 posts for 1 month) ---
+async function generateBulkPosts(config){
+  var geminiKey=localStorage.getItem("dv_gemini_key");if(!geminiKey)return null;
+  var bp=getBrandProfile();var brandCtx=bp?" Agent: "+bp.name+(bp.agency?", Agency: "+bp.agency:"")+(bp.tone?", Tone: "+bp.tone:""):"";
+  var areaData="";
+  try{var top=Object.keys(AREAS).map(function(k){var a=AREAS[k];return{n:k,p:a.psf,y:a.y?((a.y[0]+a.y[1])/2):0,g:a.g?a.g[0]:0};}).sort(function(a,b){return(b.y+b.g)-(a.y+a.g);}).slice(0,15);
+    areaData=top.map(function(a){return a.n+":PSF"+a.p+",Y"+a.y.toFixed(1)+"%";}).join("|");
+  }catch(e){}
+  try{
+    var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({contents:[{parts:[{text:"You are an expert Dubai real estate social media content planner."+brandCtx+"\n\nReal market data: "+areaData+"\n\nGenerate "+(config.count||30)+" social media posts for "+(config.platform||"Instagram")+" covering the next month.\n\nContent pillars to rotate:\n1. Market Data/Insights (PSF, yields, growth)\n2. Area Spotlights (specific areas with real data)\n3. Investment Tips & Education\n4. Lifestyle/Luxury Dubai content\n5. Success Stories / Testimonials (templated)\n6. Behind the Scenes / Market Tours\n7. FAQ / Myth Busting\n8. Trending News / Market Updates\n\nEach post should have a suggested date (starting tomorrow), time, content pillar, and full caption with hashtags.\n\nRespond in valid JSON:\n{\"posts\":[{\"day\":1,\"date\":\"2026-06-28\",\"time\":\"10:00\",\"pillar\":\"Market Data\",\"caption\":\"Full post caption with emojis and hashtags\",\"type\":\"post\",\"imageHint\":\"what image to use\"}]}"}]}],generationConfig:{responseMimeType:"application/json",maxOutputTokens:8192}})
+    });
+    var d=await r.json();
+    if(d.candidates&&d.candidates[0])return JSON.parse(d.candidates[0].content.parts[0].text);
+  }catch(e){console.warn("Bulk gen error:",e);}return null;
+}
+function showBulkGenerator(){
+  var m=document.getElementById("bulk-modal");if(m)m.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"bulk-modal"});
+  var card=div({background:"#1A1F2E",border:"1px solid #10B981",borderRadius:"16px",padding:"16px",width:"560px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
+  card.appendChild(el("h3",{style:{color:"#10B981",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"📦 Bulk Post Generator — 30 Day Plan"));
+  var configRow=div({display:"flex",gap:"8px",marginBottom:"10px"});
+  var countSel=el("select",{style:{flex:1,background:"#0D1117",border:"1px solid #2A3040",borderRadius:"6px",padding:"6px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace"}});
+  [15,20,30,60].forEach(function(n){var o=el("option");o.value=n;o.textContent=n+" posts";if(n===30)o.selected=true;countSel.appendChild(o);});
+  var platSel=el("select",{style:{flex:1,background:"#0D1117",border:"1px solid #2A3040",borderRadius:"6px",padding:"6px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace"}});
+  ["Instagram","Facebook","LinkedIn","All Platforms"].forEach(function(p){var o=el("option");o.value=p.toLowerCase().replace(" ","_");o.textContent=p;platSel.appendChild(o);});
+  configRow.appendChild(countSel);configRow.appendChild(platSel);card.appendChild(configRow);
+  var resultWrap=div({});
+  var genBtn=el("button",{style:{width:"100%",background:"#10B981",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
+    genBtn.textContent="⏳ Generating "+countSel.value+" posts with AI...";resultWrap.innerHTML="";
+    var result=await generateBulkPosts({count:parseInt(countSel.value),platform:platSel.value});
+    genBtn.textContent="🚀 Generate";
+    if(!result||!result.posts){resultWrap.appendChild(el("p",{style:{color:"#EF4444",fontSize:"11px"}},"❌ Generation failed. Check Gemini API key."));return;}
+    var schedBtn=el("button",{style:{width:"100%",marginBottom:"10px",background:"#3B82F6",color:"#FFF",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
+      result.posts.forEach(function(p){saveCalendarEvent({caption:p.caption,date:p.date,time:p.time,platform:platSel.value,pillar:p.pillar,type:p.type||"post"});});
+      schedBtn.textContent="✅ "+result.posts.length+" posts scheduled!";schedBtn.style.background="#10B981";
+    }});schedBtn.textContent="📅 Schedule All "+result.posts.length+" to Calendar";resultWrap.appendChild(schedBtn);
+    var pillarColors={"Market Data":"#3B82F6","Area Spotlights":"#10B981","Investment Tips":"#F59E0B","Lifestyle":"#EC4899","Success Stories":"#8B5CF6","Behind the Scenes":"#F97316","FAQ":"#06B6D4","Trending News":"#EF4444"};
+    result.posts.forEach(function(p,i){
+      var pCard=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",marginBottom:"4px"});
+      var hdr=div({display:"flex",justifyContent:"space-between",alignItems:"center"});
+      var pColor=pillarColors[p.pillar]||"#8899AA";
+      hdr.appendChild(el("span",{style:{color:pColor,fontSize:"10px",fontWeight:"700",fontFamily:"monospace"}},"Day "+(p.day||i+1)+" · "+p.date+" "+p.time));
+      hdr.appendChild(el("span",{style:{background:hexAlpha(pColor,0.15),color:pColor,padding:"2px 6px",borderRadius:"6px",fontSize:"8px",fontFamily:"monospace"}},p.pillar||"Post"));
+      pCard.appendChild(hdr);
+      var capEl=el("div",{style:{color:"#CCC",fontSize:"10px",lineHeight:"1.4",marginTop:"4px",maxHeight:"60px",overflow:"hidden",cursor:"pointer"},onclick:function(){
+        navigator.clipboard.writeText(p.caption);capEl.style.color="#10B981";setTimeout(function(){capEl.style.color="#CCC";},1000);
+      }});capEl.textContent=p.caption.substring(0,200)+(p.caption.length>200?"...":"");pCard.appendChild(capEl);
+      if(p.imageHint)pCard.appendChild(el("div",{style:{color:"#6B7280",fontSize:"8px",marginTop:"2px"}},"📷 "+p.imageHint));
+      resultWrap.appendChild(pCard);
+    });
+  }});genBtn.textContent="🚀 Generate";card.appendChild(genBtn);card.appendChild(resultWrap);
+  card.appendChild(el("button",{style:{width:"100%",marginTop:"10px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+// --- CONTENT RECYCLER ---
+function showContentRecycler(){
+  var m=document.getElementById("recycler-modal");if(m)m.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"recycler-modal"});
+  var card=div({background:"#1A1F2E",border:"1px solid #F97316",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
+  card.appendChild(el("h3",{style:{color:"#F97316",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"♻️ Content Recycler"));
+  var history=getPostHistory();
+  if(history.length<3){card.appendChild(el("p",{style:{color:"#8899AA",fontSize:"12px"}},"Need at least 3 posts in history to recycle. Start posting!"));
+  }else{
+    card.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",marginBottom:"10px",fontFamily:"monospace"}},"AI will refresh your old posts with updated data & new angles"));
+    var older=history.filter(function(p){return Date.now()-new Date(p.postedAt).getTime()>14*86400000;});
+    if(older.length===0)older=history.slice(Math.floor(history.length/2));
+    var candidates=older.slice(0,8);
+    candidates.forEach(function(p){
+      var pCard=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",marginBottom:"6px"});
+      pCard.appendChild(el("div",{style:{color:"#F97316",fontSize:"10px",fontWeight:"700",fontFamily:"monospace"}},"📅 "+new Date(p.postedAt).toLocaleDateString()+" · "+(p.platform||"instagram")));
+      var capEl=el("div",{style:{color:"#CCC",fontSize:"10px",lineHeight:"1.4",marginTop:"4px",maxHeight:"40px",overflow:"hidden"}});capEl.textContent=(p.caption||"").substring(0,120);pCard.appendChild(capEl);
+      var recycleBtn=el("button",{style:{marginTop:"6px",background:"#F9731622",border:"1px solid #F9731644",color:"#F97316",padding:"4px 10px",borderRadius:"6px",fontSize:"10px",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
+        recycleBtn.textContent="♻️ Refreshing...";
+        var geminiKey=localStorage.getItem("dv_gemini_key");
+        if(!geminiKey){recycleBtn.textContent="❌ Need Gemini key";return;}
+        var areaData="";try{var top=Object.keys(AREAS).slice(0,20).map(function(k){return k+":PSF"+AREAS[k].psf;}).join(",");areaData=top;}catch(e){}
+        try{
+          var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+            method:"POST",headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({contents:[{parts:[{text:"Refresh this old Dubai real estate social media post with:\n1. Updated market data: "+areaData+"\n2. Fresh angle/hook\n3. New hashtags\n4. Keep the core message but make it feel NEW\n\nOriginal post:\n"+p.caption+"\n\nRespond with ONLY the refreshed caption (no JSON, no explanation)."}]}]})
+          });
+          var d=await r.json();
+          if(d.candidates&&d.candidates[0]){
+            var newCap=d.candidates[0].content.parts[0].text;
+            var resultDiv=div({background:"#1A1820",border:"1px solid #10B981",borderRadius:"8px",padding:"8px",marginTop:"6px"});
+            resultDiv.appendChild(el("div",{style:{color:"#10B981",fontSize:"9px",fontWeight:"700",fontFamily:"monospace",marginBottom:"4px"}},"✨ Refreshed Version"));
+            var newText=el("div",{style:{color:"#E0E0E0",fontSize:"10px",lineHeight:"1.4",whiteSpace:"pre-wrap",maxHeight:"100px",overflowY:"auto"}});newText.textContent=newCap;resultDiv.appendChild(newText);
+            var copyBtn=el("button",{style:{marginTop:"4px",background:"#10B98122",border:"1px solid #10B98144",color:"#10B981",padding:"3px 8px",borderRadius:"4px",fontSize:"9px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){navigator.clipboard.writeText(newCap);copyBtn.textContent="✅ Copied!";}});
+            copyBtn.textContent="📋 Copy";resultDiv.appendChild(copyBtn);pCard.appendChild(resultDiv);
+          }
+          recycleBtn.textContent="♻️ Recycle";
+        }catch(e){recycleBtn.textContent="❌ Error";}
+      }});recycleBtn.textContent="♻️ Recycle This";pCard.appendChild(recycleBtn);
+      card.appendChild(pCard);
+    });
+  }
+  card.appendChild(el("button",{style:{width:"100%",marginTop:"10px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+// --- LINK IN BIO GENERATOR ---
+function showLinkInBio(){
+  var m=document.getElementById("linkinbio-modal");if(m)m.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"linkinbio-modal"});
+  var card=div({background:"#1A1F2E",border:"1px solid #C9A84C",borderRadius:"16px",padding:"16px",width:"420px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
+  card.appendChild(el("h3",{style:{color:"#C9A84C",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"🔗 Link in Bio Generator"));
+  var bp=getBrandProfile();
+  var links;try{links=JSON.parse(localStorage.getItem("dv_linkinbio")||"[]");}catch(e){links=[];}
+  var previewWrap=div({});
+  function renderPreview(){
+    previewWrap.innerHTML="";
+    var phone=div({background:"#000",borderRadius:"24px",padding:"20px 16px",width:"280px",margin:"0 auto",border:"3px solid #333",minHeight:"400px"});
+    if(bp&&bp.name){
+      phone.appendChild(el("div",{style:{textAlign:"center",marginBottom:"4px"}},el("div",{style:{width:"60px",height:"60px",borderRadius:"50%",background:"linear-gradient(135deg,#C9A84C,#8B6914)",margin:"0 auto 8px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"24px",color:"#FFF"}},"🏠")));
+      phone.appendChild(el("div",{style:{color:"#FFF",fontSize:"14px",fontWeight:"700",textAlign:"center",fontFamily:"'Space Grotesk',sans-serif"}},bp.name));
+      if(bp.bio)phone.appendChild(el("div",{style:{color:"#999",fontSize:"10px",textAlign:"center",marginTop:"2px"}},bp.bio));
+    }else{
+      phone.appendChild(el("div",{style:{color:"#FFF",fontSize:"14px",fontWeight:"700",textAlign:"center",marginTop:"20px"}},"DubAIVal"));
+      phone.appendChild(el("div",{style:{color:"#999",fontSize:"10px",textAlign:"center",marginTop:"2px"}},"AI Property Valuation Dubai"));
+    }
+    var linkWrap=div({marginTop:"16px"});
+    links.forEach(function(l,i){
+      var lb=el("div",{style:{background:l.color||"#C9A84C",borderRadius:"10px",padding:"10px 14px",marginBottom:"8px",textAlign:"center",cursor:"pointer",transition:"transform 0.2s"}});
+      lb.appendChild(el("div",{style:{color:l.color==="transparent"||l.color==="#FFFFFF"?"#000":"#FFF",fontSize:"12px",fontWeight:"600",fontFamily:"'Space Grotesk',sans-serif"}},(l.icon||"🔗")+" "+l.title));
+      if(l.subtitle)lb.appendChild(el("div",{style:{color:"rgba(255,255,255,0.7)",fontSize:"9px",marginTop:"2px"}},l.subtitle));
+      linkWrap.appendChild(lb);
+    });
+    phone.appendChild(linkWrap);
+    phone.appendChild(el("div",{style:{textAlign:"center",marginTop:"16px",color:"#444",fontSize:"8px"}},"Powered by DubAIVal.com"));
+    previewWrap.appendChild(phone);
+  }
+  card.appendChild(previewWrap);
+  card.appendChild(el("div",{style:{color:"#FFF",fontSize:"11px",fontWeight:"700",marginTop:"12px",marginBottom:"6px",fontFamily:"monospace"}},"Add Links"));
+  var addRow=div({display:"flex",gap:"4px",marginBottom:"8px"});
+  var titleInp=el("input",{style:{flex:2,background:"#0D1117",border:"1px solid #2A3040",borderRadius:"6px",padding:"6px",color:"#E0E0E0",fontSize:"10px",fontFamily:"monospace",boxSizing:"border-box"},placeholder:"Title (e.g. WhatsApp Me)"});
+  var urlInp=el("input",{style:{flex:3,background:"#0D1117",border:"1px solid #2A3040",borderRadius:"6px",padding:"6px",color:"#E0E0E0",fontSize:"10px",fontFamily:"monospace",boxSizing:"border-box"},placeholder:"URL or wa.me/971..."});
+  var addBtn=el("button",{style:{background:"#C9A84C",color:"#000",border:"none",borderRadius:"6px",padding:"6px 10px",fontSize:"10px",fontWeight:"700",cursor:"pointer"},onclick:function(){
+    if(!titleInp.value.trim())return;
+    links.push({title:titleInp.value.trim(),url:urlInp.value.trim(),icon:"🔗",color:"#C9A84C"});
+    localStorage.setItem("dv_linkinbio",JSON.stringify(links));
+    titleInp.value="";urlInp.value="";renderPreview();renderLinkList();
+  }});addBtn.textContent="+";addRow.appendChild(titleInp);addRow.appendChild(urlInp);addRow.appendChild(addBtn);card.appendChild(addRow);
+  var quickLinks=[
+    {title:"WhatsApp Me",url:"https://wa.me/971",icon:"📲",color:"#25D366"},
+    {title:"Free Valuation",url:"https://dubaival.com",icon:"📊",color:"#3B82F6"},
+    {title:"Instagram",url:"https://instagram.com/",icon:"📸",color:"#E1306C"},
+    {title:"View Properties",url:"https://dubaival.com",icon:"🏠",color:"#10B981"}
+  ];
+  var quickRow=div({display:"flex",gap:"4px",flexWrap:"wrap",marginBottom:"8px"});
+  quickLinks.forEach(function(q){
+    quickRow.appendChild(el("button",{style:{background:"#0D1117",border:"1px solid #2A3040",borderRadius:"6px",padding:"4px 8px",color:"#8899AA",fontSize:"9px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
+      links.push(Object.assign({},q));localStorage.setItem("dv_linkinbio",JSON.stringify(links));renderPreview();renderLinkList();
+    }},q.icon+" "+q.title));
+  });card.appendChild(quickRow);
+  var linkListWrap=div({});
+  function renderLinkList(){
+    linkListWrap.innerHTML="";
+    links.forEach(function(l,i){
+      var row=div({display:"flex",gap:"4px",alignItems:"center",marginBottom:"4px"});
+      row.appendChild(el("span",{style:{color:"#CCC",fontSize:"10px",flex:1,fontFamily:"monospace"}},l.icon+" "+l.title));
+      row.appendChild(el("button",{style:{background:"none",border:"none",color:"#EF4444",fontSize:"12px",cursor:"pointer"},onclick:function(){links.splice(i,1);localStorage.setItem("dv_linkinbio",JSON.stringify(links));renderPreview();renderLinkList();}},"🗑"));
+      linkListWrap.appendChild(row);
+    });
+  }
+  card.appendChild(linkListWrap);renderLinkList();
+  var copyBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"#C9A84C",color:"#000",border:"none",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
+    var html="<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>"+(bp?bp.name:"DubAIVal")+" — Links</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#070B14;font-family:'Segoe UI',sans-serif;display:flex;justify-content:center;padding:40px 16px;min-height:100vh}.container{max-width:400px;width:100%;text-align:center}.avatar{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#C9A84C,#8B6914);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:32px;color:#fff}.name{color:#fff;font-size:18px;font-weight:700;margin-bottom:4px}.bio{color:#999;font-size:12px;margin-bottom:24px}.link{display:block;padding:14px;border-radius:12px;margin-bottom:10px;text-decoration:none;color:#fff;font-weight:600;font-size:14px;transition:transform .2s}.link:hover{transform:scale(1.03)}.footer{color:#444;font-size:10px;margin-top:24px}</style></head><body><div class='container'><div class='avatar'>🏠</div><div class='name'>"+(bp?bp.name:"DubAIVal")+"</div><div class='bio'>"+(bp?bp.bio||"":"AI Property Valuation Dubai")+"</div>";
+    links.forEach(function(l){html+="<a class='link' href='"+(l.url||"#")+"' style='background:"+(l.color||"#C9A84C")+"'>"+(l.icon||"🔗")+" "+l.title+"</a>";});
+    html+="<div class='footer'>Powered by DubAIVal.com</div></div></body></html>";
+    navigator.clipboard.writeText(html);copyBtn.textContent="✅ HTML Copied!";setTimeout(function(){copyBtn.textContent="📋 Copy HTML Page";},2000);
+  }});copyBtn.textContent="📋 Copy HTML Page";card.appendChild(copyBtn);
+  card.appendChild(el("button",{style:{width:"100%",marginTop:"6px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
+  renderPreview();
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+// --- STORY TEMPLATES (Quiz, Poll, Countdown) ---
+var STORY_TEMPLATES=[
+  {id:"quiz",name:"🧠 Quiz",color:"#8B5CF6",description:"Test your audience's Dubai market knowledge"},
+  {id:"poll",name:"📊 Poll",color:"#3B82F6",description:"Engage with binary choices about property"},
+  {id:"countdown",name:"⏰ Countdown",color:"#EF4444",description:"Build urgency for launches, deals, events"},
+  {id:"thisorthat",name:"⚡ This or That",color:"#F59E0B",description:"Compare two areas, properties, or strategies"},
+  {id:"slider",name:"🔥 Emoji Slider",color:"#EC4899",description:"Rate sentiment on market topics"},
+  {id:"ama",name:"❓ AMA",color:"#10B981",description:"Ask Me Anything about Dubai real estate"}
+];
+async function generateStoryContent(templateId){
+  var geminiKey=localStorage.getItem("dv_gemini_key");if(!geminiKey)return null;
+  var areaData="";try{var top=Object.keys(AREAS).slice(0,20).map(function(k){return k+":PSF"+AREAS[k].psf;}).join(",");areaData=top;}catch(e){}
+  var prompts={
+    quiz:"Generate an Instagram Story quiz about Dubai real estate. 1 question with 4 options (only 1 correct). Use real market data: "+areaData+"\nJSON: {\"question\":\"...\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"correct\":0,\"explanation\":\"why\"}",
+    poll:"Generate an Instagram Story poll about Dubai property. Binary choice, thought-provoking. Data: "+areaData+"\nJSON: {\"question\":\"...\",\"optionA\":\"...\",\"optionB\":\"...\",\"insight\":\"what the results might show\"}",
+    countdown:"Generate an Instagram Story countdown for a Dubai real estate event/launch. Make it exciting.\nJSON: {\"title\":\"...\",\"subtitle\":\"...\",\"date\":\"2026-07-15\",\"emoji\":\"🏗️\",\"urgency\":\"why act now\"}",
+    thisorthat:"Generate a This or That Instagram Story comparing two Dubai areas/properties. Data: "+areaData+"\nJSON: {\"title\":\"Which would you choose?\",\"optionA\":{\"name\":\"...\",\"stats\":\"PSF/Yield\"},\"optionB\":{\"name\":\"...\",\"stats\":\"PSF/Yield\"},\"insight\":\"comparison analysis\"}",
+    slider:"Generate an Instagram Story emoji slider question about Dubai market sentiment.\nJSON: {\"question\":\"...\",\"emoji\":\"🔥\",\"lowLabel\":\"Not at all\",\"highLabel\":\"Absolutely\",\"context\":\"why ask this\"}",
+    ama:"Generate 3 engaging AMA (Ask Me Anything) story prompts for a Dubai real estate agent.\nJSON: {\"prompts\":[{\"question\":\"...\",\"sampleAnswer\":\"...\"}],\"intro\":\"story intro text\"}"
+  };
+  try{
+    var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({contents:[{parts:[{text:prompts[templateId]||prompts.quiz}]}],generationConfig:{responseMimeType:"application/json"}})
+    });
+    var d=await r.json();
+    if(d.candidates&&d.candidates[0])return JSON.parse(d.candidates[0].content.parts[0].text);
+  }catch(e){}return null;
+}
+function showStoryTemplates(){
+  var m=document.getElementById("storytpl-modal");if(m)m.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"storytpl-modal"});
+  var card=div({background:"#1A1F2E",border:"1px solid #8B5CF6",borderRadius:"16px",padding:"16px",width:"480px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
+  card.appendChild(el("h3",{style:{color:"#8B5CF6",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"📱 Story Templates"));
+  var resultWrap=div({});
+  var tplGrid=div({display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"8px",marginBottom:"12px"});
+  STORY_TEMPLATES.forEach(function(t){
+    var tCard=el("div",{style:{background:"#0D1117",border:"1px solid "+hexAlpha(t.color,0.3),borderRadius:"10px",padding:"10px",cursor:"pointer",transition:"all 0.2s"},onclick:async function(){
+      tCard.style.borderColor=t.color;resultWrap.innerHTML="";
+      resultWrap.appendChild(el("div",{style:{color:"#8899AA",fontSize:"11px",textAlign:"center",padding:"10px"}},"⏳ Generating "+t.name+" content..."));
+      var content=await generateStoryContent(t.id);
+      resultWrap.innerHTML="";
+      if(!content){resultWrap.appendChild(el("p",{style:{color:"#EF4444",fontSize:"11px"}},"❌ Check Gemini API key."));return;}
+      var rCard=div({background:"#0D1117",border:"1px solid "+t.color,borderRadius:"10px",padding:"12px"});
+      rCard.appendChild(el("div",{style:{color:t.color,fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginBottom:"6px"}},t.name+" Content"));
+      var preEl=el("pre",{style:{color:"#E0E0E0",fontSize:"10px",lineHeight:"1.5",whiteSpace:"pre-wrap",background:"#0A0E18",padding:"8px",borderRadius:"6px",maxHeight:"200px",overflowY:"auto"}});
+      preEl.textContent=JSON.stringify(content,null,2);rCard.appendChild(preEl);
+      var copyBtn=el("button",{style:{marginTop:"8px",width:"100%",background:hexAlpha(t.color,0.15),border:"1px solid "+hexAlpha(t.color,0.3),color:t.color,padding:"6px",borderRadius:"6px",fontSize:"10px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
+        navigator.clipboard.writeText(JSON.stringify(content,null,2));copyBtn.textContent="✅ Copied!";setTimeout(function(){copyBtn.textContent="📋 Copy Content";},2000);
+      }});copyBtn.textContent="📋 Copy Content";rCard.appendChild(copyBtn);
+      resultWrap.appendChild(rCard);
+    }});
+    tCard.appendChild(el("div",{style:{fontSize:"20px",textAlign:"center",marginBottom:"4px"}},t.name.split(" ")[0]));
+    tCard.appendChild(el("div",{style:{color:"#FFF",fontSize:"11px",fontWeight:"600",textAlign:"center",fontFamily:"monospace"}},t.name.split(" ").slice(1).join(" ")));
+    tCard.appendChild(el("div",{style:{color:"#6B7280",fontSize:"9px",textAlign:"center",marginTop:"2px"}},t.description));
+    tplGrid.appendChild(tCard);
+  });card.appendChild(tplGrid);card.appendChild(resultWrap);
+  card.appendChild(el("button",{style:{width:"100%",marginTop:"10px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+// --- POST PREVIEW MOCKUP (Instagram/Facebook Feed Simulator) ---
+function showPostPreview(caption,imageUrl){
+  var m=document.getElementById("preview-modal");if(m)m.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.92)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"preview-modal"});
+  var card=div({background:"#000",borderRadius:"0",width:"380px",maxWidth:"96vw"});
+  var bp=getBrandProfile();
+  var igHeader=div({display:"flex",alignItems:"center",padding:"10px 12px",gap:"8px"});
+  var avatar=el("div",{style:{width:"32px",height:"32px",borderRadius:"50%",background:"linear-gradient(135deg,#C9A84C,#8B6914)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"14px",color:"#FFF",flexShrink:"0"}});avatar.textContent="🏠";
+  igHeader.appendChild(avatar);
+  var nameCol=div({flex:"1"});
+  nameCol.appendChild(el("div",{style:{color:"#FFF",fontSize:"13px",fontWeight:"600"}},bp?bp.name:"dubaival"));
+  nameCol.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px"}},"Dubai, UAE"));
+  igHeader.appendChild(nameCol);
+  igHeader.appendChild(el("span",{style:{color:"#FFF",fontSize:"16px"}},"•••"));
+  card.appendChild(igHeader);
+  if(imageUrl){
+    var img=el("img",{style:{width:"100%",aspectRatio:"1",objectFit:"cover",display:"block"}});
+    img.src=imageUrl;card.appendChild(img);
+  }else{
+    var placeholder=div({width:"100%",aspectRatio:"1",background:"linear-gradient(135deg,#1A0A3A,#0A1628)",display:"flex",alignItems:"center",justifyContent:"center"});
+    placeholder.appendChild(el("span",{style:{color:"#333",fontSize:"48px"}},"📷"));card.appendChild(placeholder);
+  }
+  var actionBar=div({display:"flex",justifyContent:"space-between",padding:"10px 12px"});
+  var leftActs=div({display:"flex",gap:"14px"});
+  ["♡","💬","✈️"].forEach(function(ic){leftActs.appendChild(el("span",{style:{color:"#FFF",fontSize:"22px",cursor:"pointer"}},ic));});
+  actionBar.appendChild(leftActs);actionBar.appendChild(el("span",{style:{color:"#FFF",fontSize:"22px"}},"🔖"));
+  card.appendChild(actionBar);
+  card.appendChild(el("div",{style:{padding:"0 12px 4px",color:"#FFF",fontSize:"13px",fontWeight:"600"}},"2,847 likes"));
+  var capWrap=div({padding:"0 12px 12px"});
+  var capText=el("div",{style:{color:"#FFF",fontSize:"12px",lineHeight:"1.5"}});
+  var shortCap=caption.length>150?caption.substring(0,150)+"...":caption;
+  capText.innerHTML="<span style='font-weight:700'>"+(bp?bp.name:"dubaival")+"</span> "+shortCap.replace(/\n/g,"<br>");
+  capWrap.appendChild(capText);
+  if(caption.length>150){
+    var moreBtn=el("span",{style:{color:"#8899AA",fontSize:"12px",cursor:"pointer"},onclick:function(){capText.innerHTML="<span style='font-weight:700'>"+(bp?bp.name:"dubaival")+"</span> "+caption.replace(/\n/g,"<br>");moreBtn.remove();}});
+    moreBtn.textContent="more";capWrap.appendChild(moreBtn);
+  }
+  card.appendChild(capWrap);
+  card.appendChild(el("div",{style:{padding:"0 12px 10px",color:"#8899AA",fontSize:"10px"}},"2 HOURS AGO"));
+  var tabRow=div({display:"flex",justifyContent:"center",gap:"16px",padding:"8px",borderTop:"1px solid #222"});
+  ["IG Feed","FB Feed","Story"].forEach(function(tab,i){
+    tabRow.appendChild(el("button",{style:{background:i===0?"#FFF":"transparent",color:i===0?"#000":"#8899AA",border:"none",borderRadius:"12px",padding:"4px 12px",fontSize:"10px",cursor:"pointer",fontFamily:"monospace",fontWeight:i===0?"700":"400"}},tab));
+  });card.appendChild(tabRow);
+  card.appendChild(el("button",{style:{width:"100%",marginTop:"4px",background:"#111",color:"#8899AA",border:"none",padding:"10px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close Preview"));
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+// --- NOTIFICATION REMINDERS ---
+function schedulePostReminder(event){
+  if(!("Notification" in window))return;
+  Notification.requestPermission().then(function(perm){
+    if(perm!=="granted")return;
+    var postDate=new Date(event.date+"T"+event.time+":00");
+    var reminderTime=postDate.getTime()-15*60*1000;
+    var delay=reminderTime-Date.now();
+    if(delay<=0)return;
+    if(delay>24*60*60*1000)return;
+    setTimeout(function(){
+      new Notification("📱 DubAIVal — Time to Post!",{body:"Scheduled post for "+(event.platform||"Instagram")+" is due in 15 minutes.\n"+(event.caption||"").substring(0,80)+"...",icon:"logo.png",badge:"logo.png",tag:"dv-post-"+event.id,requireInteraction:true});
+    },delay);
+  });
+}
+
+// --- CAPTION LENGTH OPTIMIZER ---
+var PLATFORM_LIMITS={instagram:{max:2200,ideal:{min:138,max:150},hashtags:30,note:"First 125 chars show in feed"},facebook:{max:63206,ideal:{min:40,max:80},hashtags:5,note:"Short posts get 23% more engagement"},linkedin:{max:3000,ideal:{min:100,max:200},hashtags:5,note:"First 140 chars before 'see more'"},twitter:{max:280,ideal:{min:71,max:100},hashtags:3,note:"Tweets with 100 chars get 17% more RT"},tiktok:{max:2200,ideal:{min:50,max:150},hashtags:5,note:"Short & catchy, trend references help"},whatsapp:{max:65536,ideal:{min:20,max:100},hashtags:0,note:"Keep broadcast-friendly, 3-4 lines max"}};
+function showCaptionOptimizer(caption){
+  var m=document.getElementById("optimizer-modal");if(m)m.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:"10px"},id:"optimizer-modal"});
+  var card=div({background:"#1A1F2E",border:"1px solid #06B6D4",borderRadius:"16px",padding:"16px",width:"480px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
+  card.appendChild(el("h3",{style:{color:"#06B6D4",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"📏 Caption Length Optimizer"));
+  var charCount=caption.length;var hashCount=(caption.match(/#\w+/g)||[]).length;var emojiCount=(caption.match(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu)||[]).length;
+  var statsRow=div({display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px",marginBottom:"12px"});
+  [{l:"Characters",v:charCount,c:"#06B6D4"},{l:"Hashtags",v:hashCount,c:"#10B981"},{l:"Emojis",v:emojiCount,c:"#F59E0B"}].forEach(function(s){
+    var sc=div({background:"#0D1117",borderRadius:"8px",padding:"8px",textAlign:"center"});
+    sc.appendChild(el("div",{style:{color:s.c,fontSize:"18px",fontWeight:"800",fontFamily:"monospace"}},String(s.v)));
+    sc.appendChild(el("div",{style:{color:"#8899AA",fontSize:"9px",fontFamily:"monospace"}},s.l));statsRow.appendChild(sc);
+  });card.appendChild(statsRow);
+  Object.keys(PLATFORM_LIMITS).forEach(function(p){
+    var lim=PLATFORM_LIMITS[p];var pct=Math.min(charCount/lim.max*100,100);
+    var inIdeal=charCount>=lim.ideal.min&&charCount<=lim.ideal.max;
+    var tooLong=charCount>lim.max;var hashOk=hashCount<=lim.hashtags;
+    var status=tooLong?"🔴 Over limit":inIdeal?"🟢 Ideal length":charCount<lim.ideal.min?"🟡 Too short":"🟡 Could be shorter";
+    var pCard=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",marginBottom:"6px"});
+    var icons={instagram:"📸",facebook:"📘",linkedin:"💼",twitter:"𝕏",tiktok:"🎵",whatsapp:"📲"};
+    pCard.appendChild(el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
+      el("span",{style:{color:"#FFF",fontSize:"11px",fontWeight:"600",fontFamily:"monospace"}},(icons[p]||"📱")+" "+p.charAt(0).toUpperCase()+p.slice(1)),
+      el("span",{style:{color:tooLong?"#EF4444":inIdeal?"#10B981":"#F59E0B",fontSize:"9px",fontFamily:"monospace"}},status)
+    ));
+    var barBg=div({height:"4px",background:"#2A3040",borderRadius:"2px",marginTop:"6px",overflow:"hidden"});
+    barBg.appendChild(el("div",{style:{height:"100%",width:Math.min(pct,100)+"%",background:tooLong?"#EF4444":inIdeal?"#10B981":"#F59E0B",borderRadius:"2px",transition:"width 0.3s"}}));
+    pCard.appendChild(barBg);
+    pCard.appendChild(el("div",{style:{display:"flex",justifyContent:"space-between",marginTop:"4px"}},
+      el("span",{style:{color:"#6B7280",fontSize:"8px",fontFamily:"monospace"}},charCount+"/"+lim.max+" chars · Ideal: "+lim.ideal.min+"-"+lim.ideal.max),
+      el("span",{style:{color:hashOk?"#6B7280":"#EF4444",fontSize:"8px",fontFamily:"monospace"}},"#: "+hashCount+"/"+lim.hashtags)
+    ));
+    pCard.appendChild(el("div",{style:{color:"#4B5563",fontSize:"8px",marginTop:"2px"}},"💡 "+lim.note));
+    card.appendChild(pCard);
+  });
+  card.appendChild(el("button",{style:{width:"100%",marginTop:"10px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+// --- EMOJI INTELLIGENCE ---
+async function suggestEmojis(caption){
+  var geminiKey=localStorage.getItem("dv_gemini_key");if(!geminiKey)return null;
+  try{
+    var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({contents:[{parts:[{text:"You are an emoji optimization expert for social media.\n\nCaption:\n"+caption+"\n\nSuggest the BEST emojis to enhance this Dubai real estate post:\n1. Hook emojis (first 2-3 to grab attention)\n2. Separator emojis (to break text sections)\n3. CTA emojis (to drive action)\n4. Avoid overuse — suggest optimal count\n\nRespond in valid JSON:\n{\"hook\":[\"🏠\",\"💎\"],\"separators\":[\"▪️\",\"•\"],\"cta\":[\"📲\",\"🔗\"],\"enhanced_caption\":\"The caption with emojis placed optimally\",\"total_emojis\":8,\"tip\":\"brief advice\"}"}]}],generationConfig:{responseMimeType:"application/json"}})
+    });
+    var d=await r.json();
+    if(d.candidates&&d.candidates[0])return JSON.parse(d.candidates[0].content.parts[0].text);
+  }catch(e){}return null;
+}
+function showEmojiIntelligence(caption){
+  var m=document.getElementById("emoji-modal");if(m)m.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"emoji-modal"});
+  var card=div({background:"#1A1F2E",border:"1px solid #F59E0B",borderRadius:"16px",padding:"16px",width:"480px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
+  card.appendChild(el("h3",{style:{color:"#F59E0B",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"😊 Emoji Intelligence"));
+  var loadingP=el("p",{style:{color:"#8899AA",fontSize:"12px",textAlign:"center"}},"⏳ Analyzing best emojis...");
+  card.appendChild(loadingP);
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+  suggestEmojis(caption).then(function(result){
+    loadingP.remove();
+    if(!result){card.appendChild(el("p",{style:{color:"#EF4444",fontSize:"12px"}},"❌ Check Gemini API key."));return;}
+    var cats=[{k:"hook",l:"🎯 Hook Emojis",c:"#EF4444"},{k:"separators",l:"📐 Separators",c:"#3B82F6"},{k:"cta",l:"📲 CTA Emojis",c:"#10B981"}];
+    cats.forEach(function(cat){
+      if(!result[cat.k]||!result[cat.k].length)return;
+      card.appendChild(el("div",{style:{color:cat.c,fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginTop:"8px"}},cat.l));
+      var row=div({display:"flex",gap:"6px",marginTop:"4px"});
+      result[cat.k].forEach(function(e){
+        var chip=el("span",{style:{fontSize:"24px",cursor:"pointer",padding:"4px",borderRadius:"8px",transition:"background 0.2s"},onclick:function(){
+          navigator.clipboard.writeText(e);chip.style.background="#FFF2";setTimeout(function(){chip.style.background="";},500);
+        }});chip.textContent=e;row.appendChild(chip);
+      });card.appendChild(row);
+    });
+    if(result.enhanced_caption){
+      var enhBox=div({background:"#0D1117",border:"1px solid #F59E0B",borderRadius:"8px",padding:"10px",marginTop:"12px"});
+      enhBox.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",fontWeight:"700",fontFamily:"monospace",marginBottom:"4px"}},"✨ Enhanced Caption ("+result.total_emojis+" emojis)"));
+      var enhText=el("div",{style:{color:"#E0E0E0",fontSize:"11px",lineHeight:"1.5",whiteSpace:"pre-wrap",maxHeight:"150px",overflowY:"auto"}});enhText.textContent=result.enhanced_caption;enhBox.appendChild(enhText);
+      var copyBtn=el("button",{style:{marginTop:"6px",background:"#F59E0B22",border:"1px solid #F59E0B44",color:"#F59E0B",padding:"5px 12px",borderRadius:"6px",fontSize:"10px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
+        navigator.clipboard.writeText(result.enhanced_caption);copyBtn.textContent="✅ Copied!";setTimeout(function(){copyBtn.textContent="📋 Use Enhanced";},2000);
+      }});copyBtn.textContent="📋 Use Enhanced";enhBox.appendChild(copyBtn);
+      card.appendChild(enhBox);
+    }
+    if(result.tip){card.appendChild(el("div",{style:{color:"#6B7280",fontSize:"9px",marginTop:"8px",fontStyle:"italic"}},"💡 "+result.tip));}
+    card.appendChild(el("button",{style:{width:"100%",marginTop:"10px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
+  });
+}
+
+// --- WATERMARK SYSTEM ---
+function applyWatermark(canvas,opts){
+  var ctx=canvas.getContext("2d");var w=canvas.width;var h=canvas.height;
+  var bp=getBrandProfile();var text=opts&&opts.text?opts.text:(bp?bp.name:"DubAIVal.com");
+  var position=opts&&opts.position?opts.position:"bottom-right";
+  var opacity=opts&&opts.opacity?opts.opacity:0.35;
+  var size=opts&&opts.size?opts.size:Math.round(w/28);
+  ctx.save();ctx.globalAlpha=opacity;
+  ctx.font="bold "+size+"px 'Space Grotesk',sans-serif";
+  ctx.fillStyle="#FFFFFF";ctx.strokeStyle="rgba(0,0,0,0.5)";ctx.lineWidth=2;
+  var pad=w*0.04;var x,y;
+  switch(position){
+    case"top-left":x=pad;y=pad+size;ctx.textAlign="left";break;
+    case"top-right":x=w-pad;y=pad+size;ctx.textAlign="right";break;
+    case"bottom-left":x=pad;y=h-pad;ctx.textAlign="left";break;
+    case"center":x=w/2;y=h/2;ctx.textAlign="center";break;
+    default:x=w-pad;y=h-pad;ctx.textAlign="right";
+  }
+  ctx.strokeText(text,x,y);ctx.fillText(text,x,y);
+  if(opts&&opts.showLogo){
+    ctx.font="bold "+Math.round(size*0.7)+"px sans-serif";ctx.fillStyle="rgba(255,255,255,"+opacity*0.7+")";
+    ctx.fillText("dubaival.com",x,y+size+4);
+  }
+  ctx.restore();
+}
+function getWatermarkSettings(){
+  try{return JSON.parse(localStorage.getItem("dv_watermark")||'{"enabled":true,"text":"","position":"bottom-right","opacity":0.35,"showLogo":true}');}catch(e){return{enabled:true,position:"bottom-right",opacity:0.35,showLogo:true};}
+}
+function showWatermarkSetup(){
+  var m=document.getElementById("watermark-modal");if(m)m.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:"10px"},id:"watermark-modal"});
+  var card=div({background:"#1A1F2E",border:"1px solid #C9A84C",borderRadius:"16px",padding:"16px",width:"420px",maxWidth:"96vw"});
+  card.appendChild(el("h3",{style:{color:"#C9A84C",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"💧 Watermark Settings"));
+  var settings=getWatermarkSettings();
+  var preview=document.createElement("canvas");preview.width=400;preview.height=300;
+  preview.style.cssText="width:100%;border-radius:8px;border:1px solid #2A3040;margin-bottom:10px;";
+  card.appendChild(preview);
+  function redraw(){
+    var ctx=preview.getContext("2d");
+    var grd=ctx.createLinearGradient(0,0,0,300);grd.addColorStop(0,"#1A0A3A");grd.addColorStop(1,"#0A1628");
+    ctx.fillStyle=grd;ctx.fillRect(0,0,400,300);
+    ctx.fillStyle="#333";ctx.font="48px sans-serif";ctx.textAlign="center";ctx.fillText("📷 Sample Image",200,160);
+    if(settings.enabled)applyWatermark(preview,settings);
+  }
+  var enableRow=div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px"});
+  var enableCb=el("input",{type:"checkbox",checked:settings.enabled,onchange:function(){settings.enabled=this.checked;redraw();save();}});
+  enableRow.appendChild(enableCb);enableRow.appendChild(el("span",{style:{color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace"}},"Enable Watermark"));card.appendChild(enableRow);
+  var textInp=el("input",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"6px",padding:"6px 8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",boxSizing:"border-box",marginBottom:"8px"},placeholder:"Custom text (leave blank for brand name)",value:settings.text||"",oninput:function(){settings.text=this.value;redraw();save();}});
+  card.appendChild(textInp);
+  var posRow=div({display:"flex",gap:"4px",marginBottom:"8px",flexWrap:"wrap"});
+  posRow.appendChild(el("span",{style:{color:"#8899AA",fontSize:"10px",fontFamily:"monospace",minWidth:"55px"}},"Position:"));
+  ["top-left","top-right","bottom-left","bottom-right","center"].forEach(function(p){
+    posRow.appendChild(el("button",{style:{background:p===settings.position?"#C9A84C":"#0D1117",color:p===settings.position?"#000":"#8899AA",border:"1px solid "+(p===settings.position?"#C9A84C":"#2A3040"),borderRadius:"6px",padding:"3px 6px",fontSize:"9px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){settings.position=p;redraw();save();
+      posRow.querySelectorAll("button").forEach(function(b){b.style.background="#0D1117";b.style.color="#8899AA";b.style.borderColor="#2A3040";});
+      this.style.background="#C9A84C";this.style.color="#000";this.style.borderColor="#C9A84C";
+    }},p));
+  });card.appendChild(posRow);
+  var opRow=div({display:"flex",gap:"8px",alignItems:"center",marginBottom:"8px"});
+  opRow.appendChild(el("span",{style:{color:"#8899AA",fontSize:"10px",fontFamily:"monospace"}},"Opacity:"));
+  var opSlider=el("input",{type:"range",min:"10",max:"80",value:String(Math.round(settings.opacity*100)),style:{flex:1},oninput:function(){settings.opacity=this.value/100;opVal.textContent=this.value+"%";redraw();save();}});
+  var opVal=el("span",{style:{color:"#E0E0E0",fontSize:"10px",fontFamily:"monospace"}},Math.round(settings.opacity*100)+"%");
+  opRow.appendChild(opSlider);opRow.appendChild(opVal);card.appendChild(opRow);
+  function save(){localStorage.setItem("dv_watermark",JSON.stringify(settings));}
+  redraw();
+  card.appendChild(el("button",{style:{width:"100%",marginTop:"8px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+// --- CONTENT PILLAR PLANNER ---
+var DEFAULT_PILLARS=[
+  {id:"market",name:"📊 Market Data",color:"#3B82F6",percentage:25,examples:["PSF updates","Yield comparisons","Growth trends"]},
+  {id:"area",name:"📍 Area Spotlight",color:"#10B981",percentage:20,examples:["Area guides","Neighborhood tours","Hidden gems"]},
+  {id:"education",name:"📚 Education",color:"#8B5CF6",percentage:20,examples:["Buying tips","Investment 101","Legal guide"]},
+  {id:"lifestyle",name:"✨ Lifestyle",color:"#EC4899",percentage:15,examples:["Dubai luxury","Community life","Amenities"]},
+  {id:"social_proof",name:"🏆 Social Proof",color:"#F59E0B",percentage:10,examples:["Testimonials","Deal closed","Client stories"]},
+  {id:"behind",name:"🎬 Behind Scenes",color:"#F97316",percentage:10,examples:["Market visits","Team","Day in life"]}
+];
+function getPillarSettings(){try{return JSON.parse(localStorage.getItem("dv_content_pillars")||"null")||DEFAULT_PILLARS;}catch(e){return DEFAULT_PILLARS;}}
+function showPillarPlanner(){
+  var m=document.getElementById("pillar-modal");if(m)m.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"pillar-modal"});
+  var card=div({background:"#1A1F2E",border:"1px solid #8B5CF6",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
+  card.appendChild(el("h3",{style:{color:"#8B5CF6",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"🏛️ Content Pillar Planner"));
+  var pillars=getPillarSettings();
+  var history=getPostHistory();
+  var chartCanvas=document.createElement("canvas");chartCanvas.width=280;chartCanvas.height=280;
+  chartCanvas.style.cssText="width:140px;height:140px;display:block;margin:0 auto 12px;";
+  card.appendChild(chartCanvas);
+  function drawPieChart(){
+    var ctx=chartCanvas.getContext("2d");ctx.clearRect(0,0,280,280);
+    var cx=140,cy=140,r=120;var startAngle=-Math.PI/2;
+    pillars.forEach(function(p){
+      var slice=p.percentage/100*Math.PI*2;
+      ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,startAngle,startAngle+slice);ctx.closePath();
+      ctx.fillStyle=p.color;ctx.fill();ctx.strokeStyle="#1A1F2E";ctx.lineWidth=3;ctx.stroke();
+      var midAngle=startAngle+slice/2;var lx=cx+r*0.65*Math.cos(midAngle);var ly=cy+r*0.65*Math.sin(midAngle);
+      ctx.fillStyle="#FFF";ctx.font="bold 16px monospace";ctx.textAlign="center";ctx.fillText(p.percentage+"%",lx,ly+5);
+      startAngle+=slice;
+    });
+  }
+  drawPieChart();
+  pillars.forEach(function(p,i){
+    var pCard=div({background:"#0D1117",border:"1px solid "+hexAlpha(p.color,0.3),borderRadius:"8px",padding:"8px",marginBottom:"6px"});
+    var hdr=div({display:"flex",justifyContent:"space-between",alignItems:"center"});
+    hdr.appendChild(el("span",{style:{color:p.color,fontSize:"11px",fontWeight:"700",fontFamily:"monospace"}},p.name));
+    var actual=0;if(history.length>0){actual=Math.round(history.filter(function(h){return(h.pillar||"").toLowerCase().indexOf(p.id)!==-1;}).length/history.length*100);}
+    hdr.appendChild(el("span",{style:{color:actual>0?"#10B981":"#6B7280",fontSize:"9px",fontFamily:"monospace"}},"Actual: "+actual+"% | Target: "+p.percentage+"%"));
+    pCard.appendChild(hdr);
+    var slider=el("input",{type:"range",min:"5",max:"50",value:String(p.percentage),style:{width:"100%",marginTop:"4px"},oninput:function(){
+      p.percentage=parseInt(this.value);localStorage.setItem("dv_content_pillars",JSON.stringify(pillars));drawPieChart();
+      hdr.querySelector("span:last-child").textContent="Actual: "+actual+"% | Target: "+p.percentage+"%";
+    }});pCard.appendChild(slider);
+    var exRow=div({display:"flex",gap:"4px",flexWrap:"wrap",marginTop:"4px"});
+    p.examples.forEach(function(e){exRow.appendChild(el("span",{style:{background:hexAlpha(p.color,0.1),color:hexAlpha(p.color,1),padding:"2px 6px",borderRadius:"8px",fontSize:"8px",fontFamily:"monospace"}},e));});
+    pCard.appendChild(exRow);card.appendChild(pCard);
+  });
+  var totalPct=pillars.reduce(function(s,p){return s+p.percentage;},0);
+  if(totalPct!==100)card.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",textAlign:"center",marginTop:"6px"}},"⚠️ Total: "+totalPct+"% (should be 100%)"));
+  card.appendChild(el("button",{style:{width:"100%",marginTop:"10px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+// --- LINKEDIN API ---
+async function publishToLinkedIn(text,imageUrl){
+  var token=localStorage.getItem("dv_linkedin_token");var personUrn=localStorage.getItem("dv_linkedin_urn");
+  if(!token||!personUrn)return{success:false,error:"LinkedIn token or URN not set. Go to Setup."};
+  try{
+    var body;
+    if(imageUrl){
+      var regResp=await fetch("https://api.linkedin.com/v2/assets?action=registerUpload",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},
+        body:JSON.stringify({registerUploadRequest:{recipes:["urn:li:digitalmediaRecipe:feedshare-image"],owner:personUrn,serviceRelationships:[{identifier:"urn:li:userGeneratedContent",relationshipType:"OWNER"}]}})});
+      var regData=await regResp.json();
+      var uploadUrl=regData.value.uploadMechanism["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"].uploadUrl;
+      var asset=regData.value.asset;
+      var imgResp=await fetch(imageUrl);var imgBlob=await imgResp.blob();
+      await fetch(uploadUrl,{method:"PUT",headers:{"Authorization":"Bearer "+token},body:imgBlob});
+      body={author:personUrn,lifecycleState:"PUBLISHED",specificContent:{"com.linkedin.ugc.ShareContent":{shareCommentary:{text:text},shareMediaCategory:"IMAGE",media:[{status:"READY",media:asset}]}},visibility:{memberNetworkVisibility:"PUBLIC"}};
+    }else{
+      body={author:personUrn,lifecycleState:"PUBLISHED",specificContent:{"com.linkedin.ugc.ShareContent":{shareCommentary:{text:text},shareMediaCategory:"NONE"}},visibility:{memberNetworkVisibility:"PUBLIC"}};
+    }
+    var r=await fetch("https://api.linkedin.com/v2/ugcPosts",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify(body)});
+    var d=await r.json();if(d.id)return{success:true,id:d.id};return{success:false,error:d.message||JSON.stringify(d)};
+  }catch(e){return{success:false,error:e.message};}
+}
+
+// --- X (TWITTER) API ---
+async function publishToTwitter(text,imageUrl){
+  var bearer=localStorage.getItem("dv_twitter_bearer");
+  if(!bearer)return{success:false,error:"X/Twitter bearer token not set. Go to Setup."};
+  try{
+    var mediaId=null;
+    if(imageUrl){
+      var imgResp=await fetch(imageUrl);var imgBlob=await imgResp.blob();
+      var formData=new FormData();formData.append("media",imgBlob,"image.jpg");
+      var mResp=await fetch("https://upload.twitter.com/1.1/media/upload.json",{method:"POST",headers:{"Authorization":"Bearer "+bearer},body:formData});
+      var mData=await mResp.json();mediaId=mData.media_id_string;
+    }
+    var tweetBody={text:text};if(mediaId)tweetBody.media={media_ids:[mediaId]};
+    var r=await fetch("https://api.twitter.com/2/tweets",{method:"POST",headers:{"Authorization":"Bearer "+bearer,"Content-Type":"application/json"},body:JSON.stringify(tweetBody)});
+    var d=await r.json();if(d.data&&d.data.id)return{success:true,id:d.data.id};return{success:false,error:d.detail||d.title||JSON.stringify(d)};
+  }catch(e){return{success:false,error:e.message};}
+}
+
+// --- TIKTOK API ---
+async function publishToTikTok(text,videoUrl){
+  var token=localStorage.getItem("dv_tiktok_token");
+  if(!token)return{success:false,error:"TikTok token not set. Go to Setup."};
+  try{
+    var initBody={post_info:{title:text.substring(0,150),privacy_level:"PUBLIC_TO_EVERYONE",disable_duet:false,disable_comment:false,disable_stitch:false},source_info:{source:"PULL_FROM_URL",video_url:videoUrl}};
+    var r=await fetch("https://open.tiktokapis.com/v2/post/publish/video/init/",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify(initBody)});
+    var d=await r.json();if(d.data&&d.data.publish_id)return{success:true,id:d.data.publish_id};return{success:false,error:d.error&&d.error.message?d.error.message:JSON.stringify(d)};
+  }catch(e){return{success:false,error:e.message};}
+}
+
 // --- POST DESIGNER SYSTEM (World-Class) ---
 var POST_TEMPLATES={
   luxury:{name:"Luxury Gold",bg:["#0A0520","#1A0A3A"],accent:"#C9A84C",text:"#FFF",overlay:0.6},
@@ -3077,7 +3847,7 @@ function saveCalendarEvent(evt){
   evt.createdAt=new Date().toISOString();
   if(!evt.date){var d=new Date();d.setDate(d.getDate()+1);evt.date=d.toISOString().split("T")[0];}
   if(!evt.time)evt.time="10:00";
-  cal.push(evt);localStorage.setItem("dv_content_calendar",JSON.stringify(cal));return evt;
+  cal.push(evt);localStorage.setItem("dv_content_calendar",JSON.stringify(cal));schedulePostReminder(evt);return evt;
 }
 function deleteCalendarEvent(id){
   var cal=getCalendarData().filter(function(e){return e.id!==id;});
@@ -3205,7 +3975,7 @@ function buildPublishBar(postData,msgText,cl){
       this.textContent="⏳ Publishing...";
       var r=await publishToInstagram(caption,imgs);
       SOCIAL_STATE.publishing=false;
-      if(r.success){this.textContent="✅"+(r.carousel?" Carousel":"")+" Done";successBtn(this);}
+      if(r.success){this.textContent="✅"+(r.carousel?" Carousel":"")+" Done";successBtn(this);savePostToHistory({caption:caption,platform:"instagram",type:"post"});}
       else{alert("IG: "+(r.error||"Error"));failBtn(this,igPostLabel,"#E1306C");}
     }));
 
@@ -3217,7 +3987,7 @@ function buildPublishBar(postData,msgText,cl){
       this.textContent="⏳ Posting story...";
       var r=await publishInstagramStory(caption,img);
       SOCIAL_STATE.publishing=false;
-      if(r.success){this.textContent="✅ Story Posted";successBtn(this);}
+      if(r.success){this.textContent="✅ Story Posted";successBtn(this);savePostToHistory({caption:caption,platform:"instagram",type:"story"});}
       else{alert("IG Story: "+(r.error||"Error"));failBtn(this,"Story","#C13584");}
     }));
 
@@ -3274,7 +4044,7 @@ function buildPublishBar(postData,msgText,cl){
       this.textContent="⏳ Publishing...";
       var r=await publishToFacebook(caption,imgs);
       SOCIAL_STATE.publishing=false;
-      if(r.success){this.textContent="✅"+(r.multi?" ("+r.count+" pics)":"")+" Done";successBtn(this);}
+      if(r.success){this.textContent="✅"+(r.multi?" ("+r.count+" pics)":"")+" Done";successBtn(this);savePostToHistory({caption:caption,platform:"facebook",type:"post"});}
       else{alert("FB: "+(r.error||"Error"));failBtn(this,fbPostLabel,"#1877F2");}
     }));
 
@@ -3387,23 +4157,119 @@ function buildPublishBar(postData,msgText,cl){
     bar.appendChild(waRow);
   }
 
-  // --- TOOLS ---
-  var toolRow=div({display:"flex",gap:"4px",alignItems:"center",flexWrap:"wrap"});
+  // --- LINKEDIN ---
+  if(platform==="linkedin"||platform==="all"){
+    var liRow=div({display:"flex",gap:"4px",alignItems:"center",flexWrap:"wrap"});
+    var liLabel=el("span",{style:{color:"#0A66C2",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",minWidth:"70px"}});
+    liLabel.textContent="💼 LinkedIn";liRow.appendChild(liLabel);
+    liRow.appendChild(makeBtn("Post","#0A66C2",async function(){
+      if(SOCIAL_STATE.publishing)return;SOCIAL_STATE.publishing=true;
+      this.textContent="⏳ Publishing...";
+      var r=await publishToLinkedIn(caption);SOCIAL_STATE.publishing=false;
+      if(r.success){this.textContent="✅ Posted";successBtn(this);savePostToHistory({caption:caption,platform:"linkedin",type:"post"});}
+      else{alert("LinkedIn: "+(r.error||"Error"));failBtn(this,"Post","#0A66C2");}
+    }));
+    liRow.appendChild(makeBtn("With Image","#0A66C2",async function(){
+      if(SOCIAL_STATE.publishing)return;SOCIAL_STATE.publishing=true;
+      this.textContent="⏳ Image...";var img=await findSmartImage(caption);showPreviews([img]);
+      this.textContent="⏳ Publishing...";
+      var r=await publishToLinkedIn(caption,img);SOCIAL_STATE.publishing=false;
+      if(r.success){this.textContent="✅ Posted";successBtn(this);savePostToHistory({caption:caption,platform:"linkedin",type:"image"});}
+      else{alert("LinkedIn: "+(r.error||"Error"));failBtn(this,"With Image","#0A66C2");}
+    }));
+    bar.appendChild(liRow);
+  }
+
+  // --- X (TWITTER) ---
+  if(platform==="twitter"||platform==="all"){
+    var xRow=div({display:"flex",gap:"4px",alignItems:"center",flexWrap:"wrap"});
+    var xLabel=el("span",{style:{color:"#1DA1F2",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",minWidth:"70px"}});
+    xLabel.textContent="𝕏 Twitter";xRow.appendChild(xLabel);
+    xRow.appendChild(makeBtn("Tweet","#1DA1F2",async function(){
+      if(SOCIAL_STATE.publishing)return;SOCIAL_STATE.publishing=true;
+      this.textContent="⏳ Tweeting...";
+      var tweetText=caption.length>280?caption.substring(0,277)+"...":caption;
+      var r=await publishToTwitter(tweetText);SOCIAL_STATE.publishing=false;
+      if(r.success){this.textContent="✅ Tweeted";successBtn(this);savePostToHistory({caption:tweetText,platform:"twitter",type:"tweet"});}
+      else{alert("X: "+(r.error||"Error"));failBtn(this,"Tweet","#1DA1F2");}
+    }));
+    xRow.appendChild(makeBtn("With Image","#1DA1F2",async function(){
+      if(SOCIAL_STATE.publishing)return;SOCIAL_STATE.publishing=true;
+      this.textContent="⏳ Image...";var img=await findSmartImage(caption);showPreviews([img]);
+      this.textContent="⏳ Tweeting...";
+      var tweetText=caption.length>280?caption.substring(0,277)+"...":caption;
+      var r=await publishToTwitter(tweetText,img);SOCIAL_STATE.publishing=false;
+      if(r.success){this.textContent="✅ Tweeted";successBtn(this);savePostToHistory({caption:tweetText,platform:"twitter",type:"image"});}
+      else{alert("X: "+(r.error||"Error"));failBtn(this,"With Image","#1DA1F2");}
+    }));
+    bar.appendChild(xRow);
+  }
+
+  // --- TIKTOK ---
+  if(platform==="tiktok"||platform==="all"){
+    var ttRow=div({display:"flex",gap:"4px",alignItems:"center",flexWrap:"wrap"});
+    var ttLabel=el("span",{style:{color:"#FF0050",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",minWidth:"70px"}});
+    ttLabel.textContent="🎵 TikTok";ttRow.appendChild(ttLabel);
+    ttRow.appendChild(makeBtn("Video","#FF0050",async function(){
+      var vUrl=videoUrlInput.value.trim();
+      if(!vUrl){videoUrlInput.style.display="block";videoUrlInput.focus();alert("Paste a video URL first");return;}
+      if(SOCIAL_STATE.publishing)return;SOCIAL_STATE.publishing=true;
+      this.textContent="⏳ Uploading...";
+      var r=await publishToTikTok(caption,vUrl);SOCIAL_STATE.publishing=false;
+      if(r.success){this.textContent="✅ Posted";successBtn(this);savePostToHistory({caption:caption,platform:"tiktok",type:"video"});}
+      else{alert("TikTok: "+(r.error||"Error"));failBtn(this,"Video","#FF0050");}
+    }));
+    bar.appendChild(ttRow);
+  }
+
+  // --- TOOLS ROW 1: Creation ---
+  var toolRow1=div({display:"flex",gap:"4px",alignItems:"center",flexWrap:"wrap",paddingTop:"6px",borderTop:"1px solid "+cl.border});
+  toolRow1.appendChild(el("span",{style:{color:"#6B7280",fontSize:"9px",fontFamily:"monospace",minWidth:"40px"}},"Create:"));
   var copyBtn=makeBtn("📋 Copy","#9CA3AF",function(){
     navigator.clipboard.writeText(caption).then(function(){
       copyBtn.textContent="✅ Copied";setTimeout(function(){copyBtn.textContent="📋 Copy";},2000);
     });
   });
-  toolRow.appendChild(copyBtn);
-  toolRow.appendChild(makeBtn("🎬 AI Video","#C9A84C",function(){showVideoGenUI(caption);}));
-  toolRow.appendChild(makeBtn("✂️ Edit Video","#EC4899",function(){showVideoEditor();}));
-  toolRow.appendChild(makeBtn("🎨 Design Post","#8B5CF6",function(){showPostDesigner(caption);}));
-  toolRow.appendChild(makeBtn("🧪 A/B Test","#06B6D4",function(){showABTest(caption,platform);}));
-  toolRow.appendChild(makeBtn("#️⃣ Hashtags","#10B981",function(){showHashtagIntelligence(caption);}));
-  toolRow.appendChild(makeBtn("📅 Calendar","#F59E0B",function(){showContentCalendar();}));
-  toolRow.appendChild(makeBtn("🎨 Brand","#F97316",function(){showBrandingSetup();}));
-  toolRow.appendChild(makeBtn("⚙️ Setup","#FBBF24",function(){showSocialSetup();}));
-  bar.appendChild(toolRow);
+  toolRow1.appendChild(copyBtn);
+  toolRow1.appendChild(makeBtn("🎬 AI Video","#C9A84C",function(){showVideoGenUI(caption);}));
+  toolRow1.appendChild(makeBtn("✂️ Edit Video","#EC4899",function(){showVideoEditor();}));
+  toolRow1.appendChild(makeBtn("🎨 Design Post","#8B5CF6",function(){showPostDesigner(caption);}));
+  toolRow1.appendChild(makeBtn("📱 Story","#8B5CF6",function(){showStoryTemplates();}));
+  toolRow1.appendChild(makeBtn("👁 Preview","#6B7280",async function(){
+    this.textContent="⏳...";var img=await findSmartImage(caption);showPostPreview(caption,img);this.textContent="👁 Preview";
+  }));
+  bar.appendChild(toolRow1);
+
+  // --- TOOLS ROW 2: Intelligence ---
+  var toolRow2=div({display:"flex",gap:"4px",alignItems:"center",flexWrap:"wrap"});
+  toolRow2.appendChild(el("span",{style:{color:"#6B7280",fontSize:"9px",fontFamily:"monospace",minWidth:"40px"}},"AI:"));
+  toolRow2.appendChild(makeBtn("🧪 A/B Test","#06B6D4",function(){showABTest(caption,platform);}));
+  toolRow2.appendChild(makeBtn("#️⃣ Hashtags","#10B981",function(){showHashtagIntelligence(caption);}));
+  toolRow2.appendChild(makeBtn("✍️ Rewrite","#EC4899",function(){showCaptionRewriter(caption);}));
+  toolRow2.appendChild(makeBtn("😊 Emojis","#F59E0B",function(){showEmojiIntelligence(caption);}));
+  toolRow2.appendChild(makeBtn("📏 Optimize","#06B6D4",function(){showCaptionOptimizer(caption);}));
+  toolRow2.appendChild(makeBtn("🕵️ Spy","#EF4444",function(){showCompetitorSpy();}));
+  bar.appendChild(toolRow2);
+
+  // --- TOOLS ROW 3: Planning ---
+  var toolRow3=div({display:"flex",gap:"4px",alignItems:"center",flexWrap:"wrap"});
+  toolRow3.appendChild(el("span",{style:{color:"#6B7280",fontSize:"9px",fontFamily:"monospace",minWidth:"40px"}},"Plan:"));
+  toolRow3.appendChild(makeBtn("📅 Calendar","#3B82F6",function(){showContentCalendar();}));
+  toolRow3.appendChild(makeBtn("📦 Bulk 30","#10B981",function(){showBulkGenerator();}));
+  toolRow3.appendChild(makeBtn("♻️ Recycle","#F97316",function(){showContentRecycler();}));
+  toolRow3.appendChild(makeBtn("🏛️ Pillars","#8B5CF6",function(){showPillarPlanner();}));
+  toolRow3.appendChild(makeBtn("🕐 Best Time","#F59E0B",function(){showBestTimeModal(platform);}));
+  toolRow3.appendChild(makeBtn("📊 Analytics","#8B5CF6",function(){showPostAnalytics();}));
+  toolRow3.appendChild(makeBtn("🔗 Link Bio","#C9A84C",function(){showLinkInBio();}));
+  toolRow3.appendChild(makeBtn("💧 Watermark","#C9A84C",function(){showWatermarkSetup();}));
+  bar.appendChild(toolRow3);
+
+  // --- TOOLS ROW 4: Settings ---
+  var toolRow4=div({display:"flex",gap:"4px",alignItems:"center",flexWrap:"wrap"});
+  toolRow4.appendChild(el("span",{style:{color:"#6B7280",fontSize:"9px",fontFamily:"monospace",minWidth:"40px"}},"Config:"));
+  toolRow4.appendChild(makeBtn("🎨 Brand","#F97316",function(){showBrandingSetup();}));
+  toolRow4.appendChild(makeBtn("⚙️ Setup","#FBBF24",function(){showSocialSetup();}));
+  bar.appendChild(toolRow4);
 
   bar.appendChild(videoUrlInput);
   bar.appendChild(imgPreviewWrap);
@@ -3426,7 +4292,11 @@ function showSocialSetup(){
     {key:"dv_pexels_key",label:"🥈 Pexels API Key",ph:"Free at pexels.com/api"},
     {key:"dv_gemini_key",label:"🥉 Gemini API Key (AI image gen)",ph:"Free at aistudio.google.com/apikey"},
     {key:"dv_elevenlabs_key",label:"🎙 ElevenLabs API Key (premium voiceover)",ph:"Free at elevenlabs.io/app/settings/api-keys"},
-    {key:"dv_elevenlabs_voice",label:"ElevenLabs Voice ID (optional)",ph:"Default: Rachel — or paste custom voice ID"}
+    {key:"dv_elevenlabs_voice",label:"ElevenLabs Voice ID (optional)",ph:"Default: Rachel — or paste custom voice ID"},
+    {key:"dv_linkedin_token",label:"💼 LinkedIn Access Token",ph:"OAuth2 token from linkedin.com/developers"},
+    {key:"dv_linkedin_urn",label:"LinkedIn Person URN",ph:"urn:li:person:XXXXXXXXX"},
+    {key:"dv_twitter_bearer",label:"𝕏 Twitter/X Bearer Token",ph:"From developer.twitter.com"},
+    {key:"dv_tiktok_token",label:"🎵 TikTok Access Token",ph:"From developers.tiktok.com"}
   ];
   var inputs=[];
   fields.forEach(function(f){
