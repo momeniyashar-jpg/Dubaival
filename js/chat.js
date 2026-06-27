@@ -5433,82 +5433,43 @@ function showAvatarContentGen(avatarId){
 
 // --- AVATAR VIDEO GENERATOR (AI Talking Head) ---
 // --- Cinematic Video Engine APIs ---
-async function _klingGenVideo(prompt,imageUrl,klingKey,mode){
-  var body={prompt:prompt,duration:"5",aspect_ratio:"9:16",model_name:mode||"kling-v2-master"};
-  if(imageUrl)body.image=imageUrl;
-  var r=await fetch("https://api.klingai.com/v1/videos/image2video",{
-    method:"POST",headers:{"Authorization":"Bearer "+klingKey,"Content-Type":"application/json"},
-    body:JSON.stringify(body)
-  });
-  var d=await r.json();return d;
-}
-async function _klingCheckStatus(taskId,klingKey){
-  var r=await fetch("https://api.klingai.com/v1/videos/image2video/"+taskId,{
-    headers:{"Authorization":"Bearer "+klingKey}
-  });
+var _VIDEO_PROXY="/api/proxy-video";
+async function _videoProxy(body){
+  var r=await fetch(_VIDEO_PROXY,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
   return await r.json();
 }
-async function _lumaGenVideo(prompt,imageUrl,lumaKey){
-  var body={prompt:prompt,aspect_ratio:"9:16",loop:false};
-  if(imageUrl)body.keyframes={frame0:{type:"image",url:imageUrl}};
-  var r=await fetch("https://api.lumalabs.ai/dream-machine/v1/generations",{
-    method:"POST",headers:{"Authorization":"Bearer "+lumaKey,"Content-Type":"application/json"},
-    body:JSON.stringify(body)
-  });
-  return await r.json();
+async function _klingGenVideo(prompt,imageUrl){
+  return _videoProxy({engine:"kling",action:"generate",prompt:prompt,image_url:imageUrl||null,model:"kling-v2-master"});
 }
-async function _lumaCheckStatus(genId,lumaKey){
-  var r=await fetch("https://api.lumalabs.ai/dream-machine/v1/generations/"+genId,{
-    headers:{"Authorization":"Bearer "+lumaKey}
-  });
-  return await r.json();
+async function _klingCheckStatus(taskId){
+  return _videoProxy({engine:"kling",action:"status",task_id:taskId});
 }
-async function _heygenCreateAvatar(text,avatarId,voiceId,heygenKey){
-  var body={video_inputs:[{character:{type:"avatar",avatar_id:avatarId,avatar_style:"normal"},voice:{type:"text",input_text:text,voice_id:voiceId,speed:1.0}}],dimension:{width:1080,height:1920}};
-  var r=await fetch("https://api.heygen.com/v2/video/generate",{
-    method:"POST",headers:{"X-Api-Key":heygenKey,"Content-Type":"application/json"},
-    body:JSON.stringify(body)
-  });
-  return await r.json();
+async function _lumaGenVideo(prompt,imageUrl){
+  return _videoProxy({engine:"luma",action:"generate",prompt:prompt,image_url:imageUrl||null});
 }
-async function _heygenCheckStatus(videoId,heygenKey){
-  var r=await fetch("https://api.heygen.com/v1/video_status.get?video_id="+videoId,{
-    headers:{"X-Api-Key":heygenKey}
-  });
-  return await r.json();
+async function _lumaCheckStatus(genId){
+  return _videoProxy({engine:"luma",action:"status",gen_id:genId});
 }
-async function _heygenListAvatars(heygenKey){
-  try{
-    var r=await fetch("https://api.heygen.com/v2/avatars",{headers:{"X-Api-Key":heygenKey}});
-    var d=await r.json();return d.data&&d.data.avatars?d.data.avatars:[];
-  }catch(e){return[];}
+async function _heygenCreateAvatar(text,avatarId,voiceId){
+  return _videoProxy({engine:"heygen",action:"generate",text:text,avatar_id:avatarId,voice_id:voiceId});
 }
-async function _hedraGenVideo(text,imageUrl,hedraKey,voiceId){
-  var body={text:text,voice_id:voiceId||"Sara",aspect_ratio:"16:9"};
-  if(imageUrl)body.image_url=imageUrl;
-  var r=await fetch("https://mercury.dev.dream-ai.com/api/v2/characters",{
-    method:"POST",headers:{"X-API-KEY":hedraKey,"Content-Type":"application/json"},
-    body:JSON.stringify(body)
-  });
-  return await r.json();
+async function _heygenCheckStatus(videoId){
+  return _videoProxy({engine:"heygen",action:"status",video_id:videoId});
 }
-async function _hedraCheckStatus(jobId,hedraKey){
-  var r=await fetch("https://mercury.dev.dream-ai.com/api/v2/characters/"+jobId,{
-    headers:{"X-API-KEY":hedraKey}
-  });
-  return await r.json();
+async function _heygenListAvatars(){
+  try{var d=await _videoProxy({engine:"heygen",action:"list_avatars"});return d.data&&d.data.avatars?d.data.avatars:[];}catch(e){return[];}
 }
-
-async function _didGenTalk(sourceUrl,script,voiceId,didKey){
-  var r=await fetch("https://api.d-id.com/talks",{
-    method:"POST",headers:{"Authorization":"Basic "+didKey,"Content-Type":"application/json"},
-    body:JSON.stringify({source_url:sourceUrl,script:{type:"text",input:script,provider:{type:"elevenlabs",voice_id:voiceId}},config:{fluent:true,stitch:true}})
-  });
-  return await r.json();
+async function _hedraGenVideo(text,imageUrl,voiceId){
+  return _videoProxy({engine:"hedra",action:"generate",text:text,image_url:imageUrl||null,voice_id:voiceId||"Sara"});
 }
-async function _didCheckStatus(talkId,didKey){
-  var r=await fetch("https://api.d-id.com/talks/"+talkId,{headers:{"Authorization":"Basic "+didKey}});
-  return await r.json();
+async function _hedraCheckStatus(jobId){
+  return _videoProxy({engine:"hedra",action:"status",job_id:jobId});
+}
+async function _didGenTalk(sourceUrl,script,voiceId){
+  return _videoProxy({engine:"did",action:"generate",source_url:sourceUrl,text:script,voice_id:voiceId});
+}
+async function _didCheckStatus(talkId){
+  return _videoProxy({engine:"did",action:"status",talk_id:talkId});
 }
 
 function _videoResultUI(resultArea,videoUrl,genVideoBtn){
@@ -5633,20 +5594,7 @@ function showAvatarVideoGen(avatarId){
   });
   card.appendChild(methodGrid);
 
-  var keysSection=div({marginBottom:"10px"});
-  var mkKeyField=function(label,key,ph){
-    var row=div({display:"flex",gap:"6px",alignItems:"center",marginBottom:"6px"});
-    row.appendChild(el("label",{style:{color:"#8899AA",fontSize:"9px",fontFamily:"monospace",minWidth:"80px"}},label));
-    var inp=el("input",{style:{flex:1,background:"#0D1117",border:"1px solid #2A3040",borderRadius:"6px",padding:"6px 8px",color:"#E0E0E0",fontSize:"10px",fontFamily:"monospace",boxSizing:"border-box"},placeholder:ph,value:localStorage.getItem(key)||""});
-    inp.dataset.storageKey=key;row.appendChild(inp);keysSection.appendChild(row);return inp;
-  };
-  card.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",fontWeight:"600",marginBottom:"4px",fontFamily:"monospace"}},"API Keys (saved automatically)"));
-  var klingKeyInp=mkKeyField("Kling AI","dv_kling_key","Get at klingai.com → API");
-  var lumaKeyInp=mkKeyField("Luma AI","dv_luma_key","Get at lumalabs.ai → API");
-  var heygenKeyInp=mkKeyField("HeyGen","dv_heygen_key","Get at heygen.com → API");
-  var hedraKeyInp=mkKeyField("Hedra","dv_hedra_key","Free at hedra.com → API settings");
-  var didKeyInp=mkKeyField("D-ID","dv_did_key","Get at studio.d-id.com");
-  card.appendChild(keysSection);
+  card.appendChild(el("div",{style:{color:"#10B981",fontSize:"9px",fontFamily:"monospace",marginBottom:"10px",padding:"6px 8px",background:"#10B98115",borderRadius:"6px",border:"1px solid #10B98133"}},"✅ All video engines are server-powered — no API key needed. Just click Generate!"));
 
   var heygenAvatarSection=div({display:"none",marginBottom:"10px"});
   var heygenAvatarId=localStorage.getItem("dv_heygen_avatar")||"";
@@ -5654,9 +5602,8 @@ function showAvatarVideoGen(avatarId){
   var heygenAvatarInp=el("input",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"6px",padding:"6px 8px",color:"#E0E0E0",fontSize:"10px",fontFamily:"monospace",boxSizing:"border-box",marginBottom:"4px"},placeholder:"Avatar ID from HeyGen dashboard or click Load Avatars",value:heygenAvatarId});
   heygenAvatarSection.appendChild(heygenAvatarInp);
   var loadAvatarsBtn=el("button",{style:{width:"100%",background:"#10B98122",border:"1px solid #10B981",color:"#10B981",borderRadius:"6px",padding:"6px",fontSize:"9px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
-    var hk=heygenKeyInp.value.trim();if(!hk){alert("Enter HeyGen API key first.");return;}
     loadAvatarsBtn.textContent="⏳ Loading avatars...";
-    var avatars=await _heygenListAvatars(hk);
+    var avatars=await _heygenListAvatars();
     if(avatars.length>0){
       heygenAvatarInp.value="";
       var list=div({maxHeight:"120px",overflowY:"auto",border:"1px solid #2A3040",borderRadius:"6px",marginTop:"4px"});
@@ -5679,26 +5626,20 @@ function showAvatarVideoGen(avatarId){
     var script=scriptInp.value.trim();
     if(!script){alert("Write a script or cinematic prompt first.");return;}
 
-    [klingKeyInp,lumaKeyInp,heygenKeyInp,hedraKeyInp,didKeyInp].forEach(function(inp){
-      if(inp.value.trim())localStorage.setItem(inp.dataset.storageKey,inp.value.trim());
-    });
     if(heygenAvatarInp.value.trim())localStorage.setItem("dv_heygen_avatar",heygenAvatarInp.value.trim());
 
     genVideoBtn.disabled=true;resultArea.innerHTML="";
     var cleanScript=script.replace(/\[HOOK\]|\[BODY\]|\[CTA\]|\[.*?\]/g,"").trim();
 
     if(selectedMethod==="kling"){
-      var kk=localStorage.getItem("dv_kling_key");
-      if(!kk){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Enter Kling AI API key. Get free at klingai.com"));genVideoBtn.disabled=false;return;}
       genVideoBtn.textContent="🎬 Kling AI 2.0 — Creating cinematic video...";
       resultArea.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"11px",fontFamily:"monospace"}},"⏳ Generating movie-quality video with Kling AI 2.0 Master..."));
       try{
-        var sourceImg=av.avatarUrl||null;
-        var kd=await _klingGenVideo(cleanScript,sourceImg,kk,"kling-v2-master");
+        var kd=await _klingGenVideo(cleanScript,av.avatarUrl||null);
         if(kd.data&&kd.data.task_id){
           resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace"}},"✅ Task started: "+kd.data.task_id));
           _videoPollStatus(async function(){
-            var st=await _klingCheckStatus(kd.data.task_id,kk);
+            var st=await _klingCheckStatus(kd.data.task_id);
             if(st.data&&st.data.task_status==="succeed"&&st.data.task_result&&st.data.task_result.videos){
               return{done:true,url:st.data.task_result.videos[0].url};
             }else if(st.data&&st.data.task_status==="failed"){
@@ -5707,86 +5648,78 @@ function showAvatarVideoGen(avatarId){
             return{done:false};
           },5000,60,resultArea,genVideoBtn);
         }else{
-          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Kling error: "+JSON.stringify(kd)));
+          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Kling error: "+(kd.error||JSON.stringify(kd))));
           genVideoBtn.disabled=false;
         }
       }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
     }
 
     else if(selectedMethod==="luma"){
-      var lk=localStorage.getItem("dv_luma_key");
-      if(!lk){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Enter Luma AI API key. Get free at lumalabs.ai"));genVideoBtn.disabled=false;return;}
       genVideoBtn.textContent="✨ Luma Dream Machine — Generating...";
       resultArea.appendChild(el("div",{style:{color:"#8B5CF6",fontSize:"11px",fontFamily:"monospace"}},"⏳ Creating photorealistic video with Luma Dream Machine..."));
       try{
-        var ld=await _lumaGenVideo(cleanScript,av.avatarUrl||null,lk);
+        var ld=await _lumaGenVideo(cleanScript,av.avatarUrl||null);
         if(ld.id){
           resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace"}},"✅ Generation started: "+ld.id));
           _videoPollStatus(async function(){
-            var st=await _lumaCheckStatus(ld.id,lk);
+            var st=await _lumaCheckStatus(ld.id);
             if(st.state==="completed"&&st.assets&&st.assets.video){return{done:true,url:st.assets.video};}
             else if(st.state==="failed"){return{error:"Luma generation failed: "+(st.failure_reason||"Unknown")};}
             return{done:false};
           },5000,60,resultArea,genVideoBtn);
         }else{
-          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Luma error: "+JSON.stringify(ld)));
+          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Luma error: "+(ld.error||JSON.stringify(ld))));
           genVideoBtn.disabled=false;
         }
       }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
     }
 
     else if(selectedMethod==="heygen"){
-      var hk2=localStorage.getItem("dv_heygen_key");
       var haId=localStorage.getItem("dv_heygen_avatar");
-      if(!hk2){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Enter HeyGen API key. Get at heygen.com ($24/mo)"));genVideoBtn.disabled=false;return;}
       if(!haId){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Select a HeyGen avatar first (click Load Avatars)"));genVideoBtn.disabled=false;return;}
       genVideoBtn.textContent="🧑‍💼 HeyGen — Creating ultra-realistic avatar...";
       resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"11px",fontFamily:"monospace"}},"⏳ Generating photo-realistic talking avatar with HeyGen..."));
       try{
         var voiceMap={"21m00Tcm4TlvDq8ikWAM":"1bd001e7e50f421d891986aad5158bc8","ErXwobaYiN019PkySvjV":"077ab11b14f04ce0b49b5f6e5cc20979"};
         var heyVoice=voiceMap[av.voiceId]||"1bd001e7e50f421d891986aad5158bc8";
-        var hd=await _heygenCreateAvatar(cleanScript,haId,heyVoice,hk2);
+        var hd=await _heygenCreateAvatar(cleanScript,haId,heyVoice);
         if(hd.data&&hd.data.video_id){
           resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace"}},"✅ Video ID: "+hd.data.video_id));
           _videoPollStatus(async function(){
-            var st=await _heygenCheckStatus(hd.data.video_id,hk2);
+            var st=await _heygenCheckStatus(hd.data.video_id);
             if(st.data&&st.data.status==="completed"&&st.data.video_url){return{done:true,url:st.data.video_url};}
             else if(st.data&&st.data.status==="failed"){return{error:"HeyGen failed: "+(st.data.error||"Unknown")};}
             return{done:false};
           },5000,60,resultArea,genVideoBtn);
         }else{
-          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ HeyGen error: "+JSON.stringify(hd)));
+          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ HeyGen error: "+(hd.error||JSON.stringify(hd))));
           genVideoBtn.disabled=false;
         }
       }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
     }
 
     else if(selectedMethod==="hedra"){
-      var hrk=localStorage.getItem("dv_hedra_key");
-      if(!hrk){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Enter Hedra API key. Get free at hedra.com"));genVideoBtn.disabled=false;return;}
       genVideoBtn.textContent="🌐 Hedra — Creating talking avatar...";
       resultArea.appendChild(el("div",{style:{color:"#14B8A6",fontSize:"11px",fontFamily:"monospace"}},"⏳ Generating high-quality talking avatar with Hedra..."));
       try{
         var hedraVoice=av.voiceId||"Sara";
-        var hrd=await _hedraGenVideo(cleanScript,av.avatarUrl||null,hrk,hedraVoice);
+        var hrd=await _hedraGenVideo(cleanScript,av.avatarUrl||null,hedraVoice);
         if(hrd.job_id){
           resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace"}},"✅ Job started: "+hrd.job_id));
           _videoPollStatus(async function(){
-            var st=await _hedraCheckStatus(hrd.job_id,hrk);
+            var st=await _hedraCheckStatus(hrd.job_id);
             if(st.status==="completed"&&st.video_url){return{done:true,url:st.video_url};}
             else if(st.status==="failed"){return{error:"Hedra failed: "+(st.error||"Unknown")};}
             return{done:false};
           },5000,60,resultArea,genVideoBtn);
         }else{
-          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Hedra error: "+JSON.stringify(hrd)));
+          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Hedra error: "+(hrd.error||JSON.stringify(hrd))));
           genVideoBtn.disabled=false;
         }
       }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
     }
 
     else if(selectedMethod==="did"){
-      var dk=localStorage.getItem("dv_did_key");
-      if(!dk){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Enter D-ID API key. Get free at studio.d-id.com"));genVideoBtn.disabled=false;return;}
       genVideoBtn.textContent="🎭 D-ID — Creating talking avatar...";
       try{
         var sourceUrl=av.avatarUrl;
@@ -5796,17 +5729,17 @@ function showAvatarVideoGen(avatarId){
           sourceUrl=await generateGeminiImage(style.prompt+", face portrait, looking at camera");
           if(!sourceUrl){genVideoBtn.textContent="❌ Could not generate image";genVideoBtn.disabled=false;return;}
         }
-        var dd=await _didGenTalk(sourceUrl,cleanScript,av.voiceId||"21m00Tcm4TlvDq8ikWAM",dk);
+        var dd=await _didGenTalk(sourceUrl,cleanScript,av.voiceId||"21m00Tcm4TlvDq8ikWAM");
         if(dd.id){
           resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace"}},"✅ Talk started: "+dd.id));
           _videoPollStatus(async function(){
-            var st=await _didCheckStatus(dd.id,dk);
+            var st=await _didCheckStatus(dd.id);
             if(st.status==="done"&&st.result_url){return{done:true,url:st.result_url};}
             else if(st.status==="error"){return{error:"D-ID error: "+(st.error||"Unknown")};}
             return{done:false};
           },5000,24,resultArea,genVideoBtn);
         }else{
-          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ D-ID error: "+JSON.stringify(dd)));
+          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ D-ID error: "+(dd.error||JSON.stringify(dd))));
           genVideoBtn.disabled=false;
         }
       }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
@@ -6153,11 +6086,6 @@ function showSocialSetup(){
     {key:"dv_youtube_refresh",label:"▶️ YouTube Refresh Token",ph:"1//0c... — permanent, auto-renews access token"},
     {key:"dv_youtube_client_id",label:"▶️ YouTube Client ID",ph:"916354...apps.googleusercontent.com"},
     {key:"dv_youtube_client_secret",label:"▶️ YouTube Client Secret",ph:"GOCSPX-..."},
-    {key:"dv_did_key",label:"🎭 D-ID API Key (talking avatar video)",ph:"Free at studio.d-id.com → API settings"},
-    {key:"dv_kling_key",label:"🎬 Kling AI API Key (cinematic video)",ph:"Free at klingai.com → API settings"},
-    {key:"dv_luma_key",label:"🌟 Luma Dream Machine API Key",ph:"Free at lumalabs.ai → API settings"},
-    {key:"dv_heygen_key",label:"🎥 HeyGen API Key (AI avatar video)",ph:"$24/mo at heygen.com → API settings"},
-    {key:"dv_hedra_key",label:"🌐 Hedra API Key (talking avatar)",ph:"Free at hedra.com → API settings"}
   ];
   var inputs=[];
   fields.forEach(function(f){
