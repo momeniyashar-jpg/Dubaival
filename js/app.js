@@ -1232,67 +1232,172 @@ function renderAdmin(){
 }
 
 
+
 var TAB_TO_SECTION={
   "Market":["Market","Dashboard"],"Index":["Market","Index"],"Analyzer":["Market","Analyzer"],
   "Map":["Market","Map"],"Find":["Market","Find"],"Compare":["Market","Compare"],
   "Portfolio":["Portfolio","Assets"],"Alerts":["Portfolio","Alerts"],
   "Deals":["Network","Deals"],"Social":["Network","Social"],"Chat":["Network","Chat"],
-  "Workspace":["More","Workspace"],"About":["More","About"],"Admin":["More","Admin"]
+  "Workspace":["More","Workspace"],"About":["More","About"],"Admin":["More","Admin"],
+  "MediaStudio":["Network","MediaStudio"],"Reports":["More","Reports"]
 };
 
 function renderHome(){
   var cl=C();
-  var wrap=el("div",{style:{padding:"20px",maxWidth:"900px",margin:"0 auto"}});
+  var wrap=el("div",{style:{padding:"20px",maxWidth:"960px",margin:"0 auto"}});
 
   var hero=el("div",{style:{marginBottom:"24px"}});
-  var greeting="Good "+(new Date().getHours()<12?"Morning":new Date().getHours()<18?"Afternoon":"Evening");
+  var hr=new Date().getHours();
+  var greeting="Good "+(hr<12?"Morning":hr<18?"Afternoon":"Evening");
   if(USER_PROFILE.name)greeting+=", "+USER_PROFILE.name;
   hero.appendChild(div({fontSize:"22px",fontWeight:"700",color:"#F0F2F5",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},greeting));
   hero.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Dubai Real Estate Intelligence Dashboard"));
   wrap.appendChild(hero);
 
-  var statsRow=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:"12px",marginBottom:"24px"}});
+  // --- Market Pulse Card ---
+  var pulseCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"20px",marginBottom:"16px"}});
+  pulseCard.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"600",borderLeft:"3px solid "+cl.gold,paddingLeft:"10px",marginBottom:"16px"},"Market Pulse"));
+  var areaKeys=Object.keys(AREAS);
+  var totalPSF=0,totalYield=0,psfCount=0,yieldCount=0;
+  var movers=[];
+  areaKeys.forEach(function(k){
+    var a=AREAS[k];
+    if(a.psf>0){totalPSF+=a.psf;psfCount++;}
+    if(a.y&&a.y[0]>0){totalYield+=(a.y[0]+a.y[1])/2;yieldCount++;}
+    if(a.g&&a.g[0]!==undefined)movers.push({name:k,growth:a.g[0],psf:a.psf});
+  });
+  movers.sort(function(a,b){return b.growth-a.growth;});
+  var avgPSF=psfCount>0?Math.round(totalPSF/psfCount):0;
+  var avgYield=yieldCount>0?(totalYield/yieldCount).toFixed(1):0;
   var dbCount=Object.keys(DB).length;
-  var areaCount=Object.keys(AREAS).length;
+  var comCount=typeof DB_COM!=="undefined"?Object.keys(DB_COM).length:0;
+  var landCount=typeof DB_LAND!=="undefined"?Object.keys(DB_LAND).length:0;
+
+  var statsGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:"12px",marginBottom:"16px"}});
+  [{l:"Avg PSF",v:"AED "+avgPSF.toLocaleString(),c:cl.gold},{l:"Avg Yield",v:avgYield+"%",c:"#10B981"},{l:"Residential",v:dbCount.toLocaleString(),c:"#3B82F6"},{l:"Commercial",v:comCount.toLocaleString(),c:"#8B5CF6"},{l:"Land Plots",v:landCount.toLocaleString(),c:"#F59E0B"},{l:"Areas",v:String(areaKeys.length),c:"#EF4444"}].forEach(function(s){
+    var card=el("div",{style:{background:"#131926",borderRadius:"10px",padding:"14px",textAlign:"center"}});
+    card.appendChild(div({color:s.c,fontSize:"20px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},s.v));
+    card.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",textTransform:"uppercase"},s.l));
+    statsGrid.appendChild(card);
+  });
+  pulseCard.appendChild(statsGrid);
+
+  if(movers.length>0){
+    pulseCard.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Top Movers (1-Year Growth)"));
+    var moverList=el("div",{style:{display:"flex",flexDirection:"column",gap:"6px"}});
+    movers.slice(0,5).forEach(function(m,i){
+      var row=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",background:i%2===0?"#131926":"transparent",borderRadius:"8px"}});
+      row.appendChild(span({color:"#E8EDF5",fontSize:"12px",fontFamily:"'Inter',sans-serif"},m.name));
+      var badge=el("div",{style:{display:"flex",alignItems:"center",gap:"8px"}});
+      badge.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},"PSF "+m.psf.toLocaleString()));
+      var growthColor=m.growth>0?"#10B981":"#EF4444";
+      badge.appendChild(span({color:growthColor,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(m.growth>0?"+":"")+m.growth.toFixed(1)+"%"));
+      row.appendChild(badge);
+      moverList.appendChild(row);
+    });
+    pulseCard.appendChild(moverList);
+  }
+  wrap.appendChild(pulseCard);
+
+  // --- Two-column: Portfolio + Quick Actions ---
+  var twoCol=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"16px",marginBottom:"16px"}});
+
+  // Portfolio Summary
   var portfolioAssets=[];
   try{portfolioAssets=JSON.parse(localStorage.getItem("dubaival_portfolio")||"[]");}catch(e){}
-  var commCount=typeof COMMERCIAL_DB!=="undefined"?Object.keys(COMMERCIAL_DB).length:0;
-  [{l:"Residential",v:dbCount.toLocaleString(),ic:"#D4AF37"},{l:"Commercial",v:commCount.toLocaleString(),ic:"#3B82F6"},{l:"Areas",v:String(areaCount),ic:"#8B5CF6"},{l:"My Assets",v:String(portfolioAssets.length),ic:"#10B981"}].forEach(function(s){
-    var card=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"16px",textAlign:"center"}});
-    card.appendChild(div({color:s.ic,fontSize:"22px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},s.v));
-    card.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",textTransform:"uppercase"},s.l));
-    statsRow.appendChild(card);
-  });
-  wrap.appendChild(statsRow);
+  var pfCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"20px"}});
+  pfCard.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"600",borderLeft:"3px solid "+cl.gold,paddingLeft:"10px",marginBottom:"16px"},"Your Portfolio"));
+  if(portfolioAssets.length>0){
+    var totalVal=0,totalRent=0;
+    portfolioAssets.forEach(function(a){totalVal+=(parseFloat(a.price)||0);totalRent+=(parseFloat(a.rent)||0);});
+    pfCard.appendChild(div({color:"#F0F2F5",fontSize:"18px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"AED "+(totalVal/1e6).toFixed(2)+"M"));
+    var pfStats=el("div",{style:{display:"flex",flexDirection:"column",gap:"6px"}});
+    pfStats.appendChild(div({display:"flex",justifyContent:"space-between"},[span({color:cl.sub,fontSize:"11px"},"Assets"),span({color:"#E8EDF5",fontSize:"12px",fontWeight:"600"},String(portfolioAssets.length))]));
+    if(totalRent>0)pfStats.appendChild(div({display:"flex",justifyContent:"space-between"},[span({color:cl.sub,fontSize:"11px"},"Rental Income"),span({color:"#10B981",fontSize:"12px",fontWeight:"600"},"AED "+(totalRent/12).toLocaleString(undefined,{maximumFractionDigits:0})+"/mo")]));
+    pfCard.appendChild(pfStats);
+    var pfBtn=el("button",{style:{marginTop:"14px",width:"100%",padding:"10px",background:"linear-gradient(135deg,#D4AF37,#B8941F)",color:"#070B14",border:"none",borderRadius:"8px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+    pfBtn.textContent="View Portfolio →";
+    pfBtn.addEventListener("click",function(){setSection("Portfolio","Assets");});
+    pfCard.appendChild(pfBtn);
+  } else {
+    pfCard.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",marginBottom:"12px"},"No assets tracked yet. Add your first property to start."));
+    var addBtn=el("button",{style:{padding:"10px 16px",background:"linear-gradient(135deg,#D4AF37,#B8941F)",color:"#070B14",border:"none",borderRadius:"8px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+    addBtn.textContent="+ Add Asset";
+    addBtn.addEventListener("click",function(){setSection("Portfolio","Assets");});
+    pfCard.appendChild(addBtn);
+  }
+  twoCol.appendChild(pfCard);
 
-  var actionsCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"20px",marginBottom:"20px"}});
-  actionsCard.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"600",borderLeft:"3px solid "+cl.gold,paddingLeft:"10px",marginBottom:"16px"},"Quick Actions"));
-  var actGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:"10px"}});
-  [{l:"Analyze Property",desc:"Run AVM valuation",sec:"Market",sub:"Analyzer"},{l:"Market Dashboard",desc:"Live market pulse",sec:"Market",sub:"Dashboard"},{l:"Find Properties",desc:"Search & discover",sec:"Market",sub:"Find"},{l:"My Portfolio",desc:"Asset management",sec:"Portfolio",sub:"Assets"},{l:"Deal Network",desc:"Browse deals",sec:"Network",sub:"Deals"},{l:"PropTech Studio",desc:"Video & media",sec:"Network",sub:"Social"},{l:"AI Chat",desc:"Ask anything",sec:"Network",sub:"Chat"}].forEach(function(a){
-    var ab=el("button",{style:{background:cl.raised,border:"1px solid "+cl.border,borderRadius:"10px",padding:"14px 16px",cursor:"pointer",textAlign:"left",transition:"all 0.15s ease"}});
-    ab.appendChild(div({color:"#F0F2F5",fontSize:"13px",fontWeight:"600",fontFamily:"'Inter',sans-serif",marginBottom:"3px"},a.l));
-    ab.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},a.desc));
-    ab.addEventListener("mouseenter",function(){this.style.borderColor=cl.goldDim;this.style.background=cl.goldFaint||"rgba(212,175,55,0.06)";});
-    ab.addEventListener("mouseleave",function(){this.style.borderColor=cl.border;this.style.background=cl.raised;});
+  // Quick Actions
+  var actCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"20px"}});
+  actCard.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"600",borderLeft:"3px solid "+cl.gold,paddingLeft:"10px",marginBottom:"16px"},"Quick Actions"));
+  var actGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}});
+  [{icon:"🔍",l:"Analyze",sec:"Market",sub:"Analyzer"},{icon:"🔎",l:"Search",sec:"Market",sub:"Find"},{icon:"⚖️",l:"Compare",sec:"Market",sub:"Compare"},{icon:"🤝",l:"Post Deal",sec:"Network",sub:"Deals"},{icon:"📊",l:"Market Index",sec:"Market",sub:"Index"},{icon:"📱",l:"Media Studio",sec:"Network",sub:"MediaStudio"}].forEach(function(a){
+    var ab=el("button",{style:{padding:"12px 10px",background:"#131926",border:"1px solid "+cl.border,borderRadius:"10px",cursor:"pointer",display:"flex",alignItems:"center",gap:"8px",transition:"all 0.15s ease"}});
+    ab.appendChild(span({fontSize:"16px"},a.icon));
+    ab.appendChild(span({color:"#E8EDF5",fontSize:"12px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},a.l));
+    ab.addEventListener("mouseenter",function(){this.style.borderColor=cl.gold;this.style.background="rgba(212,175,55,0.06)";});
+    ab.addEventListener("mouseleave",function(){this.style.borderColor=cl.border;this.style.background="#131926";});
     ab.addEventListener("click",function(){setSection(a.sec,a.sub);});
     actGrid.appendChild(ab);
   });
-  actionsCard.appendChild(actGrid);
-  wrap.appendChild(actionsCard);
+  actCard.appendChild(actGrid);
+  twoCol.appendChild(actCard);
+  wrap.appendChild(twoCol);
 
-  if(portfolioAssets.length>0){
-    var pfCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"20px",marginBottom:"20px"}});
-    pfCard.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"600",borderLeft:"3px solid "+cl.gold,paddingLeft:"10px",marginBottom:"16px"},"Portfolio Summary"));
-    var totalVal=0;
-    portfolioAssets.forEach(function(a){totalVal+=(parseFloat(a.price)||0);});
-    pfCard.appendChild(div({color:"#F0F2F5",fontSize:"18px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"AED "+(totalVal/1e6).toFixed(2)+"M"));
-    pfCard.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},portfolioAssets.length+" asset"+(portfolioAssets.length>1?"s":"")+" tracked"));
-    var pfBtn=el("button",{style:{marginTop:"12px",padding:"8px 16px",background:"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#08090C",border:"none",borderRadius:"8px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
-    pfBtn.textContent="View Portfolio";
-    pfBtn.addEventListener("click",function(){setSection("Portfolio","Assets");});
-    pfCard.appendChild(pfBtn);
-    wrap.appendChild(pfCard);
+  // --- Two-column: Alerts + Recent Activity ---
+  var bottomRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"16px"}});
+
+  // Active Alerts
+  var alertCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"20px"}});
+  alertCard.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"600",borderLeft:"3px solid "+cl.gold,paddingLeft:"10px",marginBottom:"14px"},"Active Alerts"));
+  var alerts=[];
+  try{alerts=JSON.parse(localStorage.getItem("dv_alerts")||"[]");}catch(e){}
+  if(alerts.length>0){
+    alerts.slice(0,4).forEach(function(al){
+      var row=el("div",{style:{padding:"8px 0",borderBottom:"1px solid "+cl.border,display:"flex",justifyContent:"space-between",alignItems:"center"}});
+      var desc=(al.beds||"Any")+" BR "+(al.area||"Any area");
+      if(al.maxPsf)desc+=" < "+al.maxPsf+" PSF";
+      if(al.minYield)desc+=" > "+al.minYield+"% yield";
+      row.appendChild(span({color:"#E8EDF5",fontSize:"11px",fontFamily:"'Inter',sans-serif"},desc));
+      var dot=el("div",{style:{width:"6px",height:"6px",borderRadius:"50%",background:"#10B981",flexShrink:"0"}});
+      row.appendChild(dot);
+      alertCard.appendChild(row);
+    });
+    var alertBtn=el("button",{style:{marginTop:"10px",padding:"6px 12px",background:"transparent",border:"1px solid "+cl.border,borderRadius:"8px",color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+    alertBtn.textContent="View All "+alerts.length+" Alerts →";
+    alertBtn.addEventListener("click",function(){setSection("Portfolio","Alerts");});
+    alertCard.appendChild(alertBtn);
+  } else {
+    alertCard.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",marginBottom:"10px"},"No alerts set. Get notified when properties match your criteria."));
+    var setAlertBtn=el("button",{style:{padding:"8px 14px",background:"transparent",border:"1px solid "+cl.gold,borderRadius:"8px",color:cl.gold,fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+    setAlertBtn.textContent="+ Set Alert";
+    setAlertBtn.addEventListener("click",function(){setSection("Portfolio","Alerts");});
+    alertCard.appendChild(setAlertBtn);
   }
+  bottomRow.appendChild(alertCard);
+
+  // Recent Activity
+  var recentCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"20px"}});
+  recentCard.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"600",borderLeft:"3px solid "+cl.gold,paddingLeft:"10px",marginBottom:"14px"},"Recent Activity"));
+  var recent=[];
+  try{recent=JSON.parse(localStorage.getItem("dubaival_recent")||"[]");}catch(e){}
+  if(recent.length>0){
+    recent.slice(0,5).forEach(function(r){
+      var row=el("div",{style:{padding:"6px 0",borderBottom:"1px solid "+cl.border}});
+      row.appendChild(div({color:"#E8EDF5",fontSize:"11px",fontFamily:"'Inter',sans-serif"},r.label||r.building||r.area||"Valuation"));
+      if(r.ts){
+        var ago=Date.now()-r.ts;
+        var agoStr=ago<3600000?Math.round(ago/60000)+"m ago":ago<86400000?Math.round(ago/3600000)+"h ago":Math.round(ago/86400000)+"d ago";
+        row.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},agoStr));
+      }
+      recentCard.appendChild(row);
+    });
+  } else {
+    recentCard.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif"},"No recent activity. Start by analyzing a property."));
+  }
+  bottomRow.appendChild(recentCard);
+  wrap.appendChild(bottomRow);
 
   return wrap;
 }
@@ -1307,7 +1412,7 @@ function renderProfilePanel(){
   var typeGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"5px"}});
   [{k:"income",l:"Rental Income",ic:"R"},{k:"growth",l:"Capital Growth",ic:"G"},{k:"flip",l:"Flip / Resale",ic:"F"},{k:"enduse",l:"End Use",ic:"E"}].forEach(function(p){
     var active=USER_PROFILE.investorType===p.k;
-    var b=el("button",{style:{padding:"7px 8px",borderRadius:"7px",fontSize:"11px",border:"1px solid "+(active?cl.gold:cl.border),background:active?cl.goldFaint:"transparent",color:active?"#F0F2F5":cl.sub,fontFamily:"'Inter',sans-serif",cursor:"pointer",textAlign:"left"}});
+    var b=el("button",{style:{padding:"7px 8px",borderRadius:"7px",fontSize:"11px",border:"1px solid "+(active?cl.gold:cl.border),background:active?(cl.goldFaint||"rgba(212,175,55,0.06)"):"transparent",color:active?"#F0F2F5":cl.sub,fontFamily:"'Inter',sans-serif",cursor:"pointer",textAlign:"left"}});
     b.textContent=p.ic+" "+p.l;
     b.addEventListener("click",function(){USER_PROFILE.investorType=p.k;saveProfile();render();});
     typeGrid.appendChild(b);
@@ -1320,7 +1425,7 @@ function renderProfilePanel(){
   var riskGrid=el("div",{style:{display:"flex",flexDirection:"column",gap:"5px"}});
   [{k:"conservative",l:"Conservative"},{k:"moderate",l:"Moderate"},{k:"aggressive",l:"Aggressive"}].forEach(function(r){
     var active=USER_PROFILE.risk===r.k;
-    var b=el("button",{style:{padding:"7px 10px",borderRadius:"7px",fontSize:"11px",border:"1px solid "+(active?cl.gold:cl.border),background:active?cl.goldFaint:"transparent",color:active?"#F0F2F5":cl.sub,fontFamily:"'Inter',sans-serif",cursor:"pointer",textAlign:"left"}});
+    var b=el("button",{style:{padding:"7px 10px",borderRadius:"7px",fontSize:"11px",border:"1px solid "+(active?cl.gold:cl.border),background:active?(cl.goldFaint||"rgba(212,175,55,0.06)"):"transparent",color:active?"#F0F2F5":cl.sub,fontFamily:"'Inter',sans-serif",cursor:"pointer",textAlign:"left"}});
     b.textContent=r.l;
     b.addEventListener("click",function(){USER_PROFILE.risk=r.k;saveProfile();render();});
     riskGrid.appendChild(b);
@@ -1338,7 +1443,7 @@ function renderProfilePanel(){
   bMax.value=USER_PROFILE.budgetMax?USER_PROFILE.budgetMax.toLocaleString():"";
   bMax.addEventListener("change",function(){USER_PROFILE.budgetMax=parseInt(this.value.replace(/,/g,""))||0;saveProfile();});
   bRow.appendChild(bMin);
-  bRow.appendChild(span({color:cl.sub,fontSize:"12px"},"--"));
+  bRow.appendChild(span({color:cl.sub,fontSize:"12px"},"—"));
   bRow.appendChild(bMax);
   budgetBox.appendChild(bRow);
   pGrid.appendChild(budgetBox);
@@ -1357,7 +1462,7 @@ function renderProfilePanel(){
   var typeLabels={income:"Rental Income",growth:"Capital Growth",flip:"Flip / Resale",enduse:"End Use"};
   var riskLabels={conservative:"Conservative",moderate:"Moderate",aggressive:"Aggressive"};
   [{l:"Type",v:typeLabels[USER_PROFILE.investorType]||"Not set"},{l:"Risk",v:riskLabels[USER_PROFILE.risk]||"Moderate"},{l:"Budget",v:USER_PROFILE.budgetMax?"Up to AED "+(USER_PROFILE.budgetMax/1000000).toFixed(1)+"M":"Not set"}].forEach(function(item){
-    var chip=el("div",{style:{background:cl.goldFaint,border:"1px solid "+cl.goldDim,borderRadius:"20px",padding:"3px 12px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",color:cl.gold}});
+    var chip=el("div",{style:{background:cl.goldFaint||"rgba(212,175,55,0.06)",border:"1px solid "+(cl.goldDim||"#8A6420"),borderRadius:"20px",padding:"3px 12px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",color:cl.gold}});
     chip.textContent=item.l+": "+item.v;
     summary.appendChild(chip);
   });
@@ -1379,7 +1484,6 @@ function render(preserveScroll){
   else document.body.style.fontFamily="";
   var _scrollY=preserveScroll?window.scrollY:0;
 
-  // Backward compat: if old code set currentTab, map to section
   if(currentTab&&TAB_TO_SECTION[currentTab]){
     var mapped=TAB_TO_SECTION[currentTab];
     currentSection=mapped[0];currentSubTab=mapped[1];
@@ -1392,14 +1496,12 @@ function render(preserveScroll){
   app.innerHTML="";
   app.style.cssText="background:"+cl.bg+";min-height:100vh;color:"+cl.white+";overflow-x:hidden;max-width:100vw;";
 
-  // Inject global keyframes
   if(!document.getElementById("dvGlobalStyles")){
     var gs=document.createElement("style");gs.id="dvGlobalStyles";
-    gs.textContent="@keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}@keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(201,168,76,0.4)}70%{box-shadow:0 0 0 10px rgba(201,168,76,0)}100%{box-shadow:0 0 0 0 rgba(201,168,76,0)}}";
+    gs.textContent="@keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}@keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(201,168,76,0.4)}70%{box-shadow:0 0 0 10px rgba(201,168,76,0)}100%{box-shadow:0 0 0 0 rgba(201,168,76,0)}}@keyframes fadeInUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}@keyframes countUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}";
     document.head.appendChild(gs);
   }
 
-  // --- LAYOUT: sidebar + main ---
   var layout=el("div",{style:{display:"flex",minHeight:"100vh"}});
 
   // --- SIDEBAR (desktop) ---
@@ -1435,22 +1537,26 @@ function render(preserveScroll){
   var sbControls=el("div",{style:{marginTop:"auto",borderTop:"1px solid #1C2540",padding:"8px 0"}});
   var themeItem=el("div",{});
   themeItem.className="dv-sidebar-item";
-  themeItem.appendChild(el("span",{style:{fontSize:"18px",flexShrink:"0"}},darkMode?"Sun":"Moon"));
+  var themeIcon=el("span",{style:{fontSize:"18px",flexShrink:"0"}});
+  themeIcon.textContent=darkMode?"☀️":"🌙";
+  themeItem.appendChild(themeIcon);
   var themeLabel=el("span",{});
   themeLabel.className="dv-sidebar-label";
-  themeLabel.textContent=darkMode?"Light":"Dark";
+  themeLabel.textContent=darkMode?"Light Mode":"Dark Mode";
   themeItem.appendChild(themeLabel);
-  themeItem.addEventListener("click",function(){darkMode=!darkMode;render();});
+  themeItem.addEventListener("click",function(){darkMode=!darkMode;try{localStorage.setItem("dv_dark",darkMode?"1":"0");}catch(e){}render();});
   sbControls.appendChild(themeItem);
 
   var langItem=el("div",{});
   langItem.className="dv-sidebar-item";
-  langItem.appendChild(el("span",{style:{fontSize:"18px",flexShrink:"0"}},"Aa"));
+  var langIcon=el("span",{style:{fontSize:"18px",flexShrink:"0"}});
+  langIcon.textContent="🌐";
+  langItem.appendChild(langIcon);
   var langLabel=el("span",{});
   langLabel.className="dv-sidebar-label";
-  langLabel.textContent=dvLang==="ar"?"English":"Arabic";
+  langLabel.textContent=dvLang==="ar"?"English":dvLang==="fa"?"English":"Arabic";
   langItem.appendChild(langLabel);
-  langItem.addEventListener("click",function(){setLang(dvLang==="ar"?"en":"ar");});
+  langItem.addEventListener("click",function(){setLang(dvLang==="en"?"ar":"en");});
   sbControls.appendChild(langItem);
   sidebar.appendChild(sbControls);
 
@@ -1478,11 +1584,11 @@ function render(preserveScroll){
   header.appendChild(secTitle);
 
   var controls=el("div",{style:{display:"flex",alignItems:"center",gap:"8px"}});
-  controls.appendChild(div({display:"flex",alignItems:"center",gap:"5px",background:cl.greenBg,border:"1px solid "+cl.greenBo,borderRadius:"20px",padding:"4px 10px"},[div({width:"5px",height:"5px",borderRadius:"50%",background:cl.green,animation:"pulse 2s infinite",flexShrink:"0"}),(function(){var lb=el("span",{style:{color:cl.green,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"}});lb.textContent=LIVE_GEO.fetched?"LIVE":"LIVE";return lb;})()]));
+  controls.appendChild(div({display:"flex",alignItems:"center",gap:"5px",background:cl.greenBg||"rgba(16,185,129,0.08)",border:"1px solid "+(cl.greenBo||"rgba(16,185,129,0.2)"),borderRadius:"20px",padding:"4px 10px"},[div({width:"5px",height:"5px",borderRadius:"50%",background:cl.green||"#10B981",animation:"pulse 2s infinite",flexShrink:"0"}),(function(){var lb=el("span",{style:{color:cl.green||"#10B981",fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"}});lb.textContent="LIVE";return lb;})()]));
   if(typeof renderNotifBell==="function")controls.appendChild(renderNotifBell());
   if(typeof renderAuthButton==="function")controls.appendChild(renderAuthButton());
-  var profileBtn=el("button",{style:{background:showProfilePanel?(cl.goldFaint||"rgba(212,175,55,0.06)"):"transparent",border:"1px solid "+(showProfilePanel?cl.gold:cl.border),borderRadius:"20px",padding:"5px 12px",cursor:"pointer",color:showProfilePanel?cl.gold:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace"}});
-  profileBtn.textContent="Profile";
+  var profileBtn=el("button",{style:{background:showProfilePanel?(cl.goldFaint||"rgba(212,175,55,0.06)"):"transparent",border:"1px solid "+(showProfilePanel?cl.gold:cl.border),borderRadius:"20px",padding:"5px 12px",cursor:"pointer",color:showProfilePanel?cl.gold:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace",transition:"all 0.15s ease"}});
+  profileBtn.textContent="☺ Profile";
   profileBtn.addEventListener("click",function(){showProfilePanel=!showProfilePanel;render();});
   controls.appendChild(profileBtn);
   header.appendChild(controls);
@@ -1513,7 +1619,7 @@ function render(preserveScroll){
   if(currentSection==="Home"){
     content.appendChild(renderHome());
   } else if(currentSection==="Market"){
-    if(currentSubTab==="Dashboard")content.appendChild(renderMarket());
+    if(currentSubTab==="Dashboard"||currentSubTab==="QuickCheck"||currentSubTab==="TrackRecord")content.appendChild(renderMarket());
     else if(currentSubTab==="Analyzer")content.appendChild(renderAnalyzer());
     else if(currentSubTab==="Index")content.appendChild(renderMarketIndex());
     else if(currentSubTab==="Compare")content.appendChild(renderCompare());
@@ -1527,11 +1633,13 @@ function render(preserveScroll){
     else content.appendChild(renderPortfolio());
   } else if(currentSection==="Network"){
     if(currentSubTab==="Deals")content.appendChild(renderDeals());
-    else if(currentSubTab==="Social")content.appendChild(renderSocial());
+    else if(currentSubTab==="MediaStudio"&&typeof renderMediaStudio==="function")content.appendChild(renderMediaStudio());
     else if(currentSubTab==="Chat")content.appendChild(renderChat());
+    else if(currentSubTab==="Social")content.appendChild(renderSocial());
     else content.appendChild(renderDeals());
   } else if(currentSection==="More"){
     if(currentSubTab==="Workspace")content.appendChild(renderWorkspace());
+    else if(currentSubTab==="Reports"&&typeof renderReportBuilder==="function")content.appendChild(renderReportBuilder(el("div",{style:{padding:"20px",maxWidth:"900px",margin:"0 auto"}}),cl));
     else if(currentSubTab==="About")content.appendChild(renderAbout());
     else if(currentSubTab==="Admin")content.appendChild(renderAdmin());
     else content.appendChild(renderWorkspace());

@@ -235,6 +235,8 @@ var NAV_SECTIONS=[
   {id:"Market",icon:"\u{1F4CA}",label:"Market",subs:[
     {id:"Dashboard",label:"Dashboard"},
     {id:"Analyzer",label:"Analyzer"},
+    {id:"QuickCheck",label:"Quick Check"},
+    {id:"TrackRecord",label:"Track Record"},
     {id:"Index",label:"Market Index"},
     {id:"Compare",label:"Compare"},
     {id:"Find",label:"Find"},
@@ -247,11 +249,13 @@ var NAV_SECTIONS=[
   ]},
   {id:"Network",icon:"\u{1F91D}",label:"Network",subs:[
     {id:"Deals",label:"Deals"},
-    {id:"Social",label:"PropTech Studio"},
-    {id:"Chat",label:"AI Chat"}
+    {id:"MediaStudio",label:"Media Studio"},
+    {id:"Chat",label:"AI Agents"},
+    {id:"Social",label:"Video Platform"}
   ]},
-  {id:"More",icon:"⚙️",label:"More",subs:[
+  {id:"More",icon:"\u{2699}\u{FE0F}",label:"More",subs:[
     {id:"Workspace",label:"Workspace"},
+    {id:"Reports",label:"Reports"},
     {id:"About",label:"About"}
   ]}
 ];

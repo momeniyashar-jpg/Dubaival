@@ -6353,3 +6353,103 @@ async function sendChat(text){
   }catch(e){msgs.push({role:"assistant",text:"Error: "+e.message});}
   chatState.loading=false;render(true);
 }
+
+// --- MEDIA STUDIO (tool grid — all 35+ tools visible immediately) -----------
+function renderMediaStudio(){
+  var cl=C();
+  var wrap=el("div",{style:{padding:"20px",maxWidth:"900px",margin:"0 auto",paddingBottom:"80px"}});
+
+  var hero=el("div",{style:{marginBottom:"24px"}});
+  hero.appendChild(div({fontSize:"20px",fontWeight:"700",color:"#F0F2F5",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Media Studio"));
+  hero.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Your complete social media command center — 35+ tools at your fingertips"));
+  wrap.appendChild(hero);
+
+  var TOOL_GROUPS=[
+    {title:"CREATE",color:"#D4AF37",tools:[
+      {icon:"🎥",label:"AI Video Studio",desc:"8 AI engines",fn:function(){showVideoGenUI("");}},
+      {icon:"✂️",label:"Edit Video",desc:"Trim, subtitles, music",fn:function(){showVideoEditor();}},
+      {icon:"🎨",label:"Design Post",desc:"Visual canvas editor",fn:function(){showPostDesigner("","");}},
+      {icon:"📱",label:"Story Templates",desc:"Ready-made formats",fn:function(){showStoryTemplates();}},
+      {icon:"👁️",label:"Post Preview",desc:"Smart preview",fn:function(){showPostPreview("","");}}
+    ]},
+    {title:"AI INTELLIGENCE",color:"#8B5CF6",tools:[
+      {icon:"🧠",label:"Neuro Hook",desc:"Hook-Story-Offer",fn:function(){showHookStoryOffer("");}},
+      {icon:"🌐",label:"Translate",desc:"Multi-language",fn:function(){showMultiLanguage("");}},
+      {icon:"⚖️",label:"A/B Test",desc:"Variant generator",fn:function(){showABTest("","");}},
+      {icon:"#️⃣",label:"Hashtags",desc:"Intelligence",fn:function(){showHashtagIntelligence("");}},
+      {icon:"✍️",label:"Rewrite",desc:"Caption rewriter",fn:function(){showCaptionRewriter("");}},
+      {icon:"😀",label:"Emojis",desc:"Emoji intelligence",fn:function(){showEmojiIntelligence("");}},
+      {icon:"📏",label:"Optimize",desc:"Caption optimizer",fn:function(){showCaptionOptimizer("");}},
+      {icon:"🕵️",label:"Spy",desc:"Competitor analysis",fn:function(){showCompetitorSpy();}}
+    ]},
+    {title:"PLANNING",color:"#3B82F6",tools:[
+      {icon:"📅",label:"Calendar",desc:"Content calendar",fn:function(){showContentCalendar();}},
+      {icon:"⏰",label:"Schedule",desc:"Schedule posts",fn:function(){showAddCalendarEvent("");}},
+      {icon:"📦",label:"Bulk 30-Day",desc:"Auto-generate month",fn:function(){showBulkGenerator();}},
+      {icon:"♻️",label:"Recycle",desc:"Repurpose content",fn:function(){showContentRecycler();}},
+      {icon:"🏛️",label:"Pillars",desc:"Content strategy",fn:function(){showPillarPlanner();}},
+      {icon:"⏱️",label:"Best Time",desc:"Optimal posting",fn:function(){showBestTimeModal("");}},
+      {icon:"📊",label:"Analytics",desc:"Post performance",fn:function(){showPostAnalytics();}},
+      {icon:"🔗",label:"Link in Bio",desc:"Bio link builder",fn:function(){showLinkInBio();}},
+      {icon:"💧",label:"Watermark",desc:"Branding overlay",fn:function(){showWatermarkSetup();}}
+    ]},
+    {title:"SETUP",color:"#10B981",tools:[
+      {icon:"🎨",label:"Branding",desc:"Brand profile",fn:function(){showBrandingSetup();}},
+      {icon:"🔧",label:"Social Setup",desc:"Platform accounts",fn:function(){showSocialSetup();}},
+      {icon:"🚀",label:"Auto-Post",desc:"Automation log",fn:function(){showAutoPostLog();}},
+      {icon:"📈",label:"Engagement",desc:"Analytics dashboard",fn:function(){showEngagementDashboard();}}
+    ]},
+    {title:"AVATAR STUDIO",color:"#F59E0B",tools:[
+      {icon:"🖼️",label:"Gallery",desc:"Avatar collection",fn:function(){showAvatarStudio();}},
+      {icon:"✨",label:"Create",desc:"Build new avatar",fn:function(){showAvatarBuilder();}},
+      {icon:"📝",label:"Generate",desc:"Content as avatar",fn:function(){showAvatarContentGen();}},
+      {icon:"🎥",label:"Video",desc:"Avatar video",fn:function(){showAvatarVideoGen();}},
+      {icon:"🤖",label:"AutoPilot",desc:"Auto content",fn:function(){showAvatarAutoPilot();}},
+      {icon:"📦",label:"Batch",desc:"Bulk generate",fn:function(){showAvatarBatchGen();}}
+    ]}
+  ];
+
+  TOOL_GROUPS.forEach(function(group){
+    var section=el("div",{style:{marginBottom:"24px"}});
+    section.appendChild(div({color:group.color,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"600",borderLeft:"3px solid "+group.color,paddingLeft:"10px",marginBottom:"14px"},group.title));
+
+    var grid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:"10px"}});
+    group.tools.forEach(function(tool){
+      var card=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"16px 12px",textAlign:"center",cursor:"pointer",transition:"all 0.2s ease",minHeight:"90px",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"6px"}});
+      card.appendChild(div({fontSize:"24px"},tool.icon));
+      card.appendChild(div({color:"#E8EDF5",fontSize:"11px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},tool.label));
+      card.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},tool.desc));
+      card.addEventListener("mouseenter",function(){this.style.borderColor=group.color;this.style.background="#131926";this.style.transform="translateY(-2px)";this.style.boxShadow="0 4px 16px "+hexAlpha(group.color,0.15);});
+      card.addEventListener("mouseleave",function(){this.style.borderColor=cl.border;this.style.background=cl.surface;this.style.transform="";this.style.boxShadow="";});
+      card.addEventListener("click",tool.fn);
+      grid.appendChild(card);
+    });
+    section.appendChild(grid);
+    wrap.appendChild(section);
+  });
+
+  var chatSection=el("div",{style:{marginTop:"16px"}});
+  var chatToggle=el("button",{style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"14px 20px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",transition:"all 0.15s ease"}});
+  chatToggle.appendChild(div({},[span({color:"#F0F2F5",fontSize:"13px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},"AI Content Assistant"),span({color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace",marginLeft:"8px"},"Chat with Social Media Manager agent")]));
+  var arrow=span({color:cl.sub,fontSize:"16px",transition:"transform 0.2s"},"▼");
+  chatToggle.appendChild(arrow);
+  var chatBody=el("div",{style:{display:"none",marginTop:"8px"}});
+  chatToggle.addEventListener("click",function(){
+    var open=chatBody.style.display!=="none";
+    chatBody.style.display=open?"none":"block";
+    arrow.textContent=open?"▼":"▲";
+    if(!open){
+      var prev=chatState.agentId;
+      chatState.agentId="outreach";
+      var chatEl=renderChat();
+      chatBody.innerHTML="";
+      chatBody.appendChild(chatEl);
+      chatState.agentId=prev==="outreach"?prev:prev;
+    }
+  });
+  chatSection.appendChild(chatToggle);
+  chatSection.appendChild(chatBody);
+  wrap.appendChild(chatSection);
+
+  return wrap;
+}
