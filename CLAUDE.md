@@ -324,6 +324,25 @@ project-level settings overriding it. See "Outstanding items" for next steps.
 
 ## Recent work log (most recent first)
 
+- **2026-06-28 (session 7)**: AI Video Studio server-side proxy + API keys.
+  - `api/proxy-video.js` — Central server-side proxy for 8 video engines
+  - All video engine API keys moved to Vercel env vars (no client-side keys)
+  - Pika Labs routed through Fal.ai gateway (free access)
+  - HeyGen routed through Fal.ai gateway (free, was $24/mo)
+  - Video upload limit increased from 100MB to 500MB
+  - Engines: Kling AI, Luma, D-ID, Runway Gen-4, Minimax Hailuo, Pika, HeyGen
+  - Hedra deferred (paid API only)
+  - Supabase auto-post tables: scheduled_posts, social_credentials, post_engagement
+  - `api/auto-post.js` + `api/sync-engagement.js` Vercel Cron endpoints
+  - Vercel env vars configured: KLING_API_KEY, LUMA_API_KEY, DID_API_KEY,
+    RUNWAY_API_KEY, MINIMAX_API_KEY, PIKA_API_KEY (also powers HeyGen via Fal.ai)
+- **2026-06-20 (session 5-6)**: View premium scientific calibration.
+  - Full VIEW_P recalibration (22 values, 0-38%) with hedonic pricing research
+  - Differential GRADE_BASE_VIEW system with asymmetric clamp (-15%/+25%)
+  - Palm View & Creek Harbour View added; Road View & Backing Open Land removed
+  - Security hardening (edit_token, agent_phone, admin password)
+  - Full AVM calibration (10,880 properties, 100% coverage)
+  - Capacitor Android app setup
 - **2026-06-19 (session 4)**: Comprehensive rental analysis feature.
   - `a09e893` — Rental valuation engine, analyzer rent mode, rental result page,
     Live Dashboard rental snapshot, Market Index rental tables, Deal Network
@@ -336,13 +355,6 @@ project-level settings overriding it. See "Outstanding items" for next steps.
   - `39616fb` — Privacy-first media gallery with buyer approval workflow
   - `1f56bc3` — Agent Referral Program with marketplace, matching, admin dashboard
   - All 5 Supabase SQL migrations confirmed executed by user
-- **2026-06-20 (session 5)**: View premium scientific calibration.
-  - Full VIEW_P recalibration (22 values, 0-38%) with hedonic pricing research
-  - Differential GRADE_BASE_VIEW system with asymmetric clamp (-15%/+25%)
-  - Palm View & Creek Harbour View added; Road View & Backing Open Land removed
-  - Security hardening (edit_token, agent_phone, admin password)
-  - Full AVM calibration (10,880 properties, 100% coverage)
-  - Capacitor Android app setup
 - **2026-06-17 (session 2)**: Portfolio Health Score, Future Projection Simulator,
   What-If Swap Simulator, Building Turnover Rate, Margin of Safety Index,
   BLDG_UNITS expanded to 6,192, Liquidity data added to all 347 AREAS.
@@ -351,6 +363,102 @@ project-level settings overriding it. See "Outstanding items" for next steps.
 - **2026-06-16**: Outlier fix (trimmed mean), Case Study / Track Record,
   71 orphan area strings resolved (81→152 AREAS), Price Alert (code-complete),
   B+ grade-guess bug fix, investSignal/totalReturn/confScore features.
+
+## 🎨 UI/UX Redesign Plan — Tab Structure & Priority Map
+
+### Current problem
+13 top-level tabs in a horizontal scroll bar — overwhelming, unorganized,
+related features scattered across different tabs. No visual hierarchy.
+
+### Proposed navigation architecture (5 primary sections)
+
+#### 1. 🏠 HOME (Landing / Dashboard)
+Default view when app loads. Shows personalized summary.
+- **Market Pulse**: key stats (avg PSF, top movers, index change)
+- **Your Portfolio Summary** (if assets exist): total value, ROI, health score
+- **Active Alerts count** + latest matches
+- **Quick Actions**: Analyze, Search, Compare buttons
+- Priority: ★★★★★
+
+#### 2. 📊 MARKET (Market Intelligence)
+All market research and analysis tools grouped together.
+- **Analyzer** (sub-tab) — Property valuation (sale + rent modes)
+- **Market Index** (sub-tab) — Area rankings, heatmaps, top lists
+- **Compare** (sub-tab) — Side-by-side area comparison
+- **Live Search** (sub-tab) — Find properties (Bayut/PF live data)
+- **Map** (sub-tab) — Interactive market map (Leaflet)
+- **Personal Advisor** (sub-tab) — AI questionnaire → recommendations
+- **Mortgage Calculator** (collapsible panel inside Analyzer, not a tab)
+- Priority: ★★★★★
+
+#### 3. 💼 PORTFOLIO (Investment Management)
+Everything related to owned assets and investment tracking.
+- **My Assets** (sub-tab) — Add/edit/view properties
+- **Health Dashboard** (sub-tab) — Portfolio health, diversification, risk
+- **Projections** (sub-tab) — Future projection simulator, what-if swap
+- **Alerts** (sub-tab) — Deal alerts, price watches
+- **STR Calculator** (collapsible panel)
+- Priority: ★★★★☆
+
+#### 4. 🤝 NETWORK (Professional Tools)
+All agent/professional features in one place.
+- **Deal Board** (sub-tab) — Browse & post deals (I Have / I Need)
+- **Agent Hub** (sub-tab) — Agent directory, referral program
+- **AI Agents** (sub-tab) — Chat with specialized AI (valuation, legal, negotiation, etc.)
+- **Social Media Manager** (sub-tab) — Content creation, auto-post, video studio, branding
+- Priority: ★★★★☆
+
+#### 5. ⚙️ MORE (Settings & Info)
+Low-frequency items in a drawer/menu.
+- **Workspace** — Custom dashboard builder, report builder
+- **About** — Mission, technology, partnerships
+- **Settings** — Language, theme, profile, API keys
+- **Admin** — Admin dashboard (hidden unless admin)
+- Priority: ★★☆☆☆
+
+### Navigation style
+- **Desktop**: Left sidebar with 5 icons + labels, collapsible
+- **Mobile**: Bottom tab bar with 5 icons, sub-tabs as horizontal pills
+- Active tab highlighted with brand color accent
+- Smooth transitions between sections
+
+### Design system tokens
+- **Background**: #070B14 (current dark), #0D1220 (surface), #1A1F2E (card)
+- **Text**: #FFFFFF (primary), #8899AA (secondary), #556677 (muted)
+- **Brand gold**: #D4AF37 (primary accent)
+- **Success**: #10B981, **Warning**: #F59E0B, **Error**: #EF4444
+- **Purple (rental)**: #8B5CF6
+- **Font**: Space Grotesk (headings), Inter (body)
+- **Border radius**: 12px (cards), 8px (buttons), 20px (pills)
+- **Spacing scale**: 4px base (4, 8, 12, 16, 20, 24, 32, 48)
+
+### Files that the redesign session MUST NOT modify
+These files contain critical business logic and data:
+- `js/data-residential.js` — 8,522 building database (DO NOT TOUCH)
+- `js/data-commercial.js` — 1,930 commercial + 428 land database (DO NOT TOUCH)
+- `js/valuation.js` — Valuation engine (DO NOT TOUCH)
+- `js/valuation-db.js` — Valuation DB helpers (DO NOT TOUCH)
+- `api/proxy-groq.js` — Groq AI proxy (DO NOT TOUCH)
+- `api/proxy-video.js` — Video engine proxy (DO NOT TOUCH)
+- `api/proxy-rapidapi.js` — RapidAPI proxy (DO NOT TOUCH)
+- `api/auto-post.js` — Auto-post cron (DO NOT TOUCH)
+- `api/sync-engagement.js` — Engagement sync cron (DO NOT TOUCH)
+- `supabase-*.sql` — Database schemas (DO NOT TOUCH)
+
+### Files the redesign session CAN modify (UI only)
+- `js/app.js` — Tab routing, navigation, header, render()
+- `js/core.js` — Shared UI utilities, theme colors, el()/div()/span()
+- `js/market.js` — Market tab UI layout (NOT valuation logic)
+- `js/marketindex.js` — Market Index tab UI
+- `js/portfolio.js` — Portfolio tab UI (NOT computeAssetMetrics/computePortfolioHealth)
+- `js/deals.js` — Deals tab UI (NOT Supabase queries)
+- `js/chat.js` — Chat/Social tab UI (NOT API proxy functions)
+- `js/map.js` — Map tab UI
+- `js/mortgage.js` — Mortgage tab UI
+- `js/workspace.js` — Workspace tab UI
+- `js/about.js` — About tab UI
+- `js/auth.js` — Auth UI (NOT auth logic)
+- `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
 
