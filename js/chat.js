@@ -161,11 +161,14 @@ var AI_AGENTS=[
         "You create professional, high-converting content for Instagram, Facebook, WhatsApp, LinkedIn.\n"+
         "Hot areas: "+hotAreas+"\n\n"+
         "IMPORTANT: When the user asks you to create a post, you MUST respond with EXACTLY this JSON format at the END of your response (after any explanation):\n"+
-        "```json\n{\"post\":{\"caption\":\"THE FULL POST TEXT WITH EMOJIS AND HASHTAGS\",\"platform\":\"instagram\",\"imageCount\":1}}\n```\n\n"+
+        "```json\n{\"post\":{\"caption\":\"THE FULL POST TEXT WITH EMOJIS AND HASHTAGS\",\"platform\":\"instagram\",\"type\":\"post\",\"imageCount\":1}}\n```\n\n"+
         "Platform options: \"instagram\", \"facebook\", \"whatsapp\", \"all\"\n"+
+        "Type options: \"post\" (default), \"story\", \"reel\"\n"+
         "If user says 'all platforms' or doesn't specify, use \"all\".\n"+
         "imageCount: number of images (1-10). If user asks for multiple images or carousel, set this. Default 1.\n"+
-        "If user says '5 images' or 'carousel' or 'multiple photos', set imageCount accordingly.\n\n"+
+        "If user says '5 images' or 'carousel' or 'multiple photos', set imageCount accordingly.\n"+
+        "If user says 'story' or 'status', set type to \"story\".\n"+
+        "If user says 'reel' or 'video', set type to \"reel\".\n\n"+
         "CONTENT STYLE:\n"+
         "- Instagram: Visual hooks, emojis, 5-10 hashtags, carousel-style numbered points\n"+
         "- Facebook: Longer form, professional, CTA to DubaiVal.com\n"+
@@ -490,26 +493,157 @@ async function publishToInstagram(caption,imageUrls){
   }catch(e){return{success:false,error:e.message};}
 }
 
-async function publishToFacebook(message,link){
+async function getPageToken(){
+  var c=getSocialCreds();
+  if(!c||!c.fbId)return null;
   try{
-    var c=getSocialCreds();
-    if(!c||!c.fbId)return{success:false,error:"Facebook Page ID not configured. Go to Profile to set up."};
     var pr=await fetch(GRAPH_BASE+"me/accounts?access_token="+c.token);
     var pd=await pr.json();
-    var pageToken=c.token;
-    if(pd.data){var pg=pd.data.find(function(p){return p.id===c.fbId;});if(pg&&pg.access_token)pageToken=pg.access_token;}
-    var params=new URLSearchParams({message:message,access_token:pageToken});
-    if(link)params.set("link",link);
-    var r=await fetch(GRAPH_BASE+c.fbId+"/feed",{method:"POST",body:params});
+    if(pd.data){var pg=pd.data.find(function(p){return p.id===c.fbId;});if(pg&&pg.access_token)return pg.access_token;}
+  }catch(e){}
+  return c.token;
+}
+
+async function waitForMedia(mediaId,token,maxAttempts){
+  for(var i=0;i<(maxAttempts||10);i++){
+    await new Promise(function(r){setTimeout(r,3000);});
+    var sr=await fetch(GRAPH_BASE+mediaId+"?fields=status_code&access_token="+token);
+    var sd=await sr.json();
+    if(sd.status_code==="FINISHED")return{ready:true};
+    if(sd.status_code==="ERROR")return{ready:false,error:"Media rejected"};
+  }
+  return{ready:true};
+}
+
+async function publishInstagramStory(caption,imageUrl){
+  try{
+    var c=getSocialCreds();
+    if(!c)return{success:false,error:"Not configured"};
+    if(!imageUrl)imageUrl=await findSmartImage(caption);
+    var params=new URLSearchParams({media_type:"STORIES",image_url:imageUrl,access_token:c.token});
+    var r1=await fetch(GRAPH_BASE+c.igId+"/media",{method:"POST",body:params});
+    var d1=await r1.json();
+    if(d1.error)return{success:false,error:d1.error.message};
+    var w=await waitForMedia(d1.id,c.token);
+    if(!w.ready)return{success:false,error:w.error};
+    var r2=await fetch(GRAPH_BASE+c.igId+"/media_publish",{method:"POST",body:new URLSearchParams({creation_id:d1.id,access_token:c.token})});
+    var d2=await r2.json();
+    if(d2.error)return{success:false,error:d2.error.message};
+    return{success:true,media_id:d2.id};
+  }catch(e){return{success:false,error:e.message};}
+}
+
+async function publishInstagramVideoStory(videoUrl){
+  try{
+    var c=getSocialCreds();
+    if(!c)return{success:false,error:"Not configured"};
+    var params=new URLSearchParams({media_type:"STORIES",video_url:videoUrl,access_token:c.token});
+    var r1=await fetch(GRAPH_BASE+c.igId+"/media",{method:"POST",body:params});
+    var d1=await r1.json();
+    if(d1.error)return{success:false,error:d1.error.message};
+    var w=await waitForMedia(d1.id,c.token,20);
+    if(!w.ready)return{success:false,error:w.error};
+    var r2=await fetch(GRAPH_BASE+c.igId+"/media_publish",{method:"POST",body:new URLSearchParams({creation_id:d1.id,access_token:c.token})});
+    var d2=await r2.json();
+    if(d2.error)return{success:false,error:d2.error.message};
+    return{success:true,media_id:d2.id};
+  }catch(e){return{success:false,error:e.message};}
+}
+
+async function publishInstagramReel(caption,videoUrl){
+  try{
+    var c=getSocialCreds();
+    if(!c)return{success:false,error:"Not configured"};
+    if(!videoUrl)return{success:false,error:"Video URL required for Reels"};
+    var params=new URLSearchParams({media_type:"REELS",video_url:videoUrl,caption:caption,share_to_feed:"true",access_token:c.token});
+    var r1=await fetch(GRAPH_BASE+c.igId+"/media",{method:"POST",body:params});
+    var d1=await r1.json();
+    if(d1.error)return{success:false,error:d1.error.message};
+    var w=await waitForMedia(d1.id,c.token,20);
+    if(!w.ready)return{success:false,error:w.error};
+    var r2=await fetch(GRAPH_BASE+c.igId+"/media_publish",{method:"POST",body:new URLSearchParams({creation_id:d1.id,access_token:c.token})});
+    var d2=await r2.json();
+    if(d2.error)return{success:false,error:d2.error.message};
+    return{success:true,media_id:d2.id};
+  }catch(e){return{success:false,error:e.message};}
+}
+
+async function publishToFacebook(message,imageUrls){
+  try{
+    var c=getSocialCreds();
+    if(!c||!c.fbId)return{success:false,error:"Facebook Page ID not configured."};
+    var pageToken=await getPageToken();
+
+    if(!imageUrls||imageUrls.length===0){
+      var params=new URLSearchParams({message:message,access_token:pageToken});
+      var r=await fetch(GRAPH_BASE+c.fbId+"/feed",{method:"POST",body:params});
+      var d=await r.json();
+      if(d.error)return{success:false,error:d.error.message};
+      return{success:true,post_id:d.id};
+    }
+
+    if(imageUrls.length===1){
+      var pp=new URLSearchParams({url:imageUrls[0],message:message,access_token:pageToken});
+      var pr=await fetch(GRAPH_BASE+c.fbId+"/photos",{method:"POST",body:pp});
+      var pd=await pr.json();
+      if(pd.error)return{success:false,error:pd.error.message};
+      return{success:true,post_id:pd.id||pd.post_id};
+    }
+
+    var photoIds=[];
+    for(var i=0;i<imageUrls.length;i++){
+      var up=new URLSearchParams({url:imageUrls[i],published:"false",access_token:pageToken});
+      var ur=await fetch(GRAPH_BASE+c.fbId+"/photos",{method:"POST",body:up});
+      var ud=await ur.json();
+      if(ud.error)return{success:false,error:"Photo "+(i+1)+": "+ud.error.message};
+      photoIds.push(ud.id);
+    }
+    var feedParams=new URLSearchParams({message:message,access_token:pageToken});
+    photoIds.forEach(function(id,idx){feedParams.append("attached_media["+idx+"]",'{"media_fbid":"'+id+'"}');});
+    var fr=await fetch(GRAPH_BASE+c.fbId+"/feed",{method:"POST",body:feedParams});
+    var fd=await fr.json();
+    if(fd.error)return{success:false,error:fd.error.message};
+    return{success:true,post_id:fd.id,multi:true,count:photoIds.length};
+  }catch(e){return{success:false,error:e.message};}
+}
+
+async function publishFacebookVideo(message,videoUrl){
+  try{
+    var c=getSocialCreds();
+    if(!c||!c.fbId)return{success:false,error:"Facebook Page ID not configured."};
+    var pageToken=await getPageToken();
+    var params=new URLSearchParams({file_url:videoUrl,description:message,access_token:pageToken});
+    var r=await fetch(GRAPH_BASE+c.fbId+"/videos",{method:"POST",body:params});
     var d=await r.json();
     if(d.error)return{success:false,error:d.error.message};
-    return{success:true,post_id:d.id};
+    return{success:true,video_id:d.id};
+  }catch(e){return{success:false,error:e.message};}
+}
+
+async function publishFacebookReel(message,videoUrl){
+  try{
+    var c=getSocialCreds();
+    if(!c||!c.fbId)return{success:false,error:"Facebook Page ID not configured."};
+    var pageToken=await getPageToken();
+    var sp=new URLSearchParams({upload_phase:"start",access_token:pageToken});
+    var sr=await fetch(GRAPH_BASE+c.fbId+"/video_reels",{method:"POST",body:sp});
+    var sd=await sr.json();
+    if(sd.error)return{success:false,error:sd.error.message};
+    var vid=sd.video_id;
+    var up=await fetch("https://rupload.facebook.com/video-upload/v21.0/"+vid,{
+      method:"POST",
+      headers:{"Authorization":"OAuth "+pageToken,"file_url":videoUrl}
+    });
+    var fp=new URLSearchParams({upload_phase:"finish",video_id:vid,description:message,access_token:pageToken});
+    var fr=await fetch(GRAPH_BASE+c.fbId+"/video_reels",{method:"POST",body:fp});
+    var frd=await fr.json();
+    if(frd.error)return{success:false,error:frd.error.message};
+    return{success:true,video_id:vid};
   }catch(e){return{success:false,error:e.message};}
 }
 
 function shareToWhatsApp(text){
-  var encoded=encodeURIComponent(text);
-  window.open("https://wa.me/?text="+encoded,"_blank");
+  window.open("https://wa.me/?text="+encodeURIComponent(text),"_blank");
   return{success:true};
 }
 
@@ -524,78 +658,183 @@ function extractPostJSON(text){
 }
 
 function buildPublishBar(postData,msgText,cl){
-  var bar=div({display:"flex",flexWrap:"wrap",gap:"6px",marginTop:"10px",paddingTop:"10px",borderTop:"1px solid "+cl.border});
-
+  var bar=div({display:"flex",flexDirection:"column",gap:"8px",marginTop:"10px",paddingTop:"10px",borderTop:"1px solid "+cl.border});
   var caption=postData?postData.caption:msgText;
   var platform=postData?postData.platform:"all";
+  var imgCount=postData&&postData.imageCount?postData.imageCount:1;
+  var postType=postData&&postData.type?postData.type:"post";
 
-  var makeBtn=function(label,icon,color,onclick){
+  var makeBtn=function(label,color,onclick){
     var b=el("button",{style:{
       background:hexAlpha(color,0.12),border:"1px solid "+hexAlpha(color,0.3),
-      color:color,padding:"7px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"600",
-      fontFamily:"'Space Grotesk',monospace",cursor:"pointer",display:"flex",alignItems:"center",gap:"5px",transition:"all 0.2s"
+      color:color,padding:"6px 10px",borderRadius:"8px",fontSize:"10px",fontWeight:"600",
+      fontFamily:"'Space Grotesk',monospace",cursor:"pointer",whiteSpace:"nowrap",transition:"all 0.2s"
     },onclick:onclick});
-    b.textContent=icon+" "+label;
-    return b;
+    b.textContent=label;return b;
+  };
+  var successBtn=function(btn){btn.style.background="#10B98133";btn.style.color="#10B981";btn.style.borderColor="#10B981";};
+  var failBtn=function(btn,origLabel,color){
+    btn.textContent="❌ Failed";btn.style.background="#EF444433";btn.style.color="#EF4444";
+    setTimeout(function(){btn.textContent=origLabel;btn.style.background="";btn.style.color=color;},3000);
   };
 
-  var imgCount=postData&&postData.imageCount?postData.imageCount:1;
-  var imgPreviewWrap=null;
-  if(platform==="instagram"||platform==="all"){
-    var igLabel=imgCount>1?"📸 Carousel ("+imgCount+" pics)":"📸 Post to Instagram";
-    var igBtn=makeBtn(igLabel,"","#E1306C",async function(){
-      if(SOCIAL_STATE.publishing)return;
-      SOCIAL_STATE.publishing=true;
-      this.textContent="⏳ Finding "+(imgCount>1?imgCount+" images":"image")+"...";this.style.opacity="0.6";
-      var smartImgs=await findMultipleImages(caption,imgCount);
-      if(imgPreviewWrap){
-        imgPreviewWrap.innerHTML="";
-        smartImgs.forEach(function(url){
-          var img=el("img",{style:{width:imgCount>1?((100/Math.min(imgCount,3))-2)+"%":"100%",maxHeight:"200px",objectFit:"cover",borderRadius:"8px",border:"1px solid "+cl.border}});
-          img.src=url;imgPreviewWrap.appendChild(img);
-        });
-        imgPreviewWrap.style.display="flex";
-      }
-      this.textContent="⏳ Publishing"+(imgCount>1?" carousel":"")+"...";
-      var result=await publishToInstagram(caption,smartImgs);
-      SOCIAL_STATE.publishing=false;
-      if(result.success){this.textContent="✅ Posted"+(result.carousel?" ("+result.count+" pics)":"")+"!";this.style.background="#10B98133";this.style.color="#10B981";this.style.borderColor="#10B981";}
-      else{alert("Instagram Error: "+(result.error||"Unknown"));this.textContent="❌ Failed";this.style.background="#EF444433";this.style.color="#EF4444";setTimeout(function(){this.textContent=igLabel;this.style.background="";this.style.color="#E1306C";}.bind(this),3000);}
+  var imgPreviewWrap=div({width:"100%",display:"none",gap:"4px",flexWrap:"wrap"});
+
+  var showPreviews=function(urls){
+    imgPreviewWrap.innerHTML="";
+    urls.forEach(function(url){
+      var img=el("img",{style:{width:urls.length>1?((100/Math.min(urls.length,3))-2)+"%":"100%",maxHeight:"160px",objectFit:"cover",borderRadius:"6px",border:"1px solid "+cl.border}});
+      img.src=url;imgPreviewWrap.appendChild(img);
     });
-    bar.appendChild(igBtn);
-  }
+    imgPreviewWrap.style.display="flex";
+  };
 
-  if(platform==="facebook"||platform==="all"){
-    bar.appendChild(makeBtn("Post to Facebook","📘","#1877F2",async function(){
-      if(SOCIAL_STATE.publishing)return;
-      SOCIAL_STATE.publishing=true;
-      this.textContent="⏳ Publishing...";this.style.opacity="0.6";
-      var result=await publishToFacebook(caption,"https://www.dubaival.com");
+  var videoUrlInput=el("input",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px 10px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",boxSizing:"border-box",display:"none"},placeholder:"Paste video URL here (mp4, public link)..."});
+
+  // --- INSTAGRAM ---
+  if(platform==="instagram"||platform==="all"){
+    var igRow=div({display:"flex",gap:"4px",alignItems:"center",flexWrap:"wrap"});
+    var igLabel=el("span",{style:{color:"#E1306C",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",minWidth:"70px"}});
+    igLabel.textContent="📸 Instagram";
+    igRow.appendChild(igLabel);
+
+    var igPostLabel=imgCount>1?"Carousel ("+imgCount+")":"Post";
+    igRow.appendChild(makeBtn(igPostLabel,"#E1306C",async function(){
+      if(SOCIAL_STATE.publishing)return;SOCIAL_STATE.publishing=true;
+      this.textContent="⏳ Images...";
+      var imgs=await findMultipleImages(caption,imgCount);
+      showPreviews(imgs);
+      this.textContent="⏳ Publishing...";
+      var r=await publishToInstagram(caption,imgs);
       SOCIAL_STATE.publishing=false;
-      if(result.success){this.textContent="✅ Posted!";this.style.background="#10B98133";this.style.color="#10B981";this.style.borderColor="#10B981";}
-      else{alert("Facebook Error: "+(result.error||"Unknown"));this.textContent="❌ Failed";this.style.background="#EF444433";this.style.color="#EF4444";setTimeout(function(){this.textContent="📘 Retry Facebook";this.style.background="";this.style.color="#1877F2";}.bind(this),3000);}
+      if(r.success){this.textContent="✅"+(r.carousel?" Carousel":"")+" Done";successBtn(this);}
+      else{alert("IG: "+(r.error||"Error"));failBtn(this,igPostLabel,"#E1306C");}
     }));
+
+    igRow.appendChild(makeBtn("Story","#C13584",async function(){
+      if(SOCIAL_STATE.publishing)return;SOCIAL_STATE.publishing=true;
+      this.textContent="⏳ Image...";
+      var img=await findSmartImage(caption);
+      showPreviews([img]);
+      this.textContent="⏳ Posting story...";
+      var r=await publishInstagramStory(caption,img);
+      SOCIAL_STATE.publishing=false;
+      if(r.success){this.textContent="✅ Story Posted";successBtn(this);}
+      else{alert("IG Story: "+(r.error||"Error"));failBtn(this,"Story","#C13584");}
+    }));
+
+    igRow.appendChild(makeBtn("Reel","#FF6B00",async function(){
+      var vUrl=videoUrlInput.value.trim();
+      if(!vUrl){videoUrlInput.style.display="block";videoUrlInput.focus();alert("Paste a video URL first");return;}
+      if(SOCIAL_STATE.publishing)return;SOCIAL_STATE.publishing=true;
+      this.textContent="⏳ Uploading reel...";
+      var r=await publishInstagramReel(caption,vUrl);
+      SOCIAL_STATE.publishing=false;
+      if(r.success){this.textContent="✅ Reel Posted";successBtn(this);}
+      else{alert("IG Reel: "+(r.error||"Error"));failBtn(this,"Reel","#FF6B00");}
+    }));
+
+    igRow.appendChild(makeBtn("Video Story","#833AB4",async function(){
+      var vUrl=videoUrlInput.value.trim();
+      if(!vUrl){videoUrlInput.style.display="block";videoUrlInput.focus();alert("Paste a video URL first");return;}
+      if(SOCIAL_STATE.publishing)return;SOCIAL_STATE.publishing=true;
+      this.textContent="⏳ Uploading...";
+      var r=await publishInstagramVideoStory(vUrl);
+      SOCIAL_STATE.publishing=false;
+      if(r.success){this.textContent="✅ Video Story Posted";successBtn(this);}
+      else{alert("IG Video Story: "+(r.error||"Error"));failBtn(this,"Video Story","#833AB4");}
+    }));
+
+    bar.appendChild(igRow);
   }
 
+  // --- FACEBOOK ---
+  if(platform==="facebook"||platform==="all"){
+    var fbRow=div({display:"flex",gap:"4px",alignItems:"center",flexWrap:"wrap"});
+    var fbLabel=el("span",{style:{color:"#1877F2",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",minWidth:"70px"}});
+    fbLabel.textContent="📘 Facebook";
+    fbRow.appendChild(fbLabel);
+
+    var fbPostLabel=imgCount>1?"Photo Post ("+imgCount+")":"Photo Post";
+    fbRow.appendChild(makeBtn(fbPostLabel,"#1877F2",async function(){
+      if(SOCIAL_STATE.publishing)return;SOCIAL_STATE.publishing=true;
+      this.textContent="⏳ Images...";
+      var imgs=await findMultipleImages(caption,imgCount);
+      showPreviews(imgs);
+      this.textContent="⏳ Publishing...";
+      var r=await publishToFacebook(caption,imgs);
+      SOCIAL_STATE.publishing=false;
+      if(r.success){this.textContent="✅"+(r.multi?" ("+r.count+" pics)":"")+" Done";successBtn(this);}
+      else{alert("FB: "+(r.error||"Error"));failBtn(this,fbPostLabel,"#1877F2");}
+    }));
+
+    fbRow.appendChild(makeBtn("Text Only","#4267B2",async function(){
+      if(SOCIAL_STATE.publishing)return;SOCIAL_STATE.publishing=true;
+      this.textContent="⏳ Posting...";
+      var r=await publishToFacebook(caption,[]);
+      SOCIAL_STATE.publishing=false;
+      if(r.success){this.textContent="✅ Posted";successBtn(this);}
+      else{alert("FB: "+(r.error||"Error"));failBtn(this,"Text Only","#4267B2");}
+    }));
+
+    fbRow.appendChild(makeBtn("Video","#1877F2",async function(){
+      var vUrl=videoUrlInput.value.trim();
+      if(!vUrl){videoUrlInput.style.display="block";videoUrlInput.focus();alert("Paste a video URL first");return;}
+      if(SOCIAL_STATE.publishing)return;SOCIAL_STATE.publishing=true;
+      this.textContent="⏳ Uploading video...";
+      var r=await publishFacebookVideo(caption,vUrl);
+      SOCIAL_STATE.publishing=false;
+      if(r.success){this.textContent="✅ Video Posted";successBtn(this);}
+      else{alert("FB Video: "+(r.error||"Error"));failBtn(this,"Video","#1877F2");}
+    }));
+
+    fbRow.appendChild(makeBtn("Reel","#1877F2",async function(){
+      var vUrl=videoUrlInput.value.trim();
+      if(!vUrl){videoUrlInput.style.display="block";videoUrlInput.focus();alert("Paste a video URL first");return;}
+      if(SOCIAL_STATE.publishing)return;SOCIAL_STATE.publishing=true;
+      this.textContent="⏳ Uploading reel...";
+      var r=await publishFacebookReel(caption,vUrl);
+      SOCIAL_STATE.publishing=false;
+      if(r.success){this.textContent="✅ Reel Posted";successBtn(this);}
+      else{alert("FB Reel: "+(r.error||"Error"));failBtn(this,"Reel","#1877F2");}
+    }));
+
+    bar.appendChild(fbRow);
+  }
+
+  // --- WHATSAPP ---
   if(platform==="whatsapp"||platform==="all"){
-    bar.appendChild(makeBtn("Share WhatsApp","📲","#25D366",function(){
-      shareToWhatsApp(caption);
-      this.textContent="✅ Opened!";this.style.background="#10B98133";this.style.color="#10B981";this.style.borderColor="#10B981";
+    var waRow=div({display:"flex",gap:"4px",alignItems:"center",flexWrap:"wrap"});
+    var waLabel=el("span",{style:{color:"#25D366",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",minWidth:"70px"}});
+    waLabel.textContent="📲 WhatsApp";
+    waRow.appendChild(waLabel);
+
+    waRow.appendChild(makeBtn("Share Text","#25D366",function(){
+      shareToWhatsApp(caption);this.textContent="✅ Opened";successBtn(this);
     }));
+
+    waRow.appendChild(makeBtn("Share + Image","#128C7E",async function(){
+      var img=await findSmartImage(caption);
+      shareToWhatsApp(caption+"\n\n"+img);
+      this.textContent="✅ Opened";successBtn(this);
+    }));
+
+    bar.appendChild(waRow);
   }
 
-  var copyBtn=makeBtn("Copy Text","📋","#9CA3AF",function(){
+  // --- TOOLS ---
+  var toolRow=div({display:"flex",gap:"4px",alignItems:"center",flexWrap:"wrap"});
+  var copyBtn=makeBtn("📋 Copy","#9CA3AF",function(){
     navigator.clipboard.writeText(caption).then(function(){
-      copyBtn.textContent="✅ Copied!";setTimeout(function(){copyBtn.textContent="📋 Copy Text";},2000);
+      copyBtn.textContent="✅ Copied";setTimeout(function(){copyBtn.textContent="📋 Copy";},2000);
     });
   });
-  bar.appendChild(copyBtn);
+  toolRow.appendChild(copyBtn);
+  toolRow.appendChild(makeBtn("⚙️ Setup","#FBBF24",function(){showSocialSetup();}));
+  bar.appendChild(toolRow);
 
-  bar.appendChild(makeBtn("Setup","⚙️","#FBBF24",function(){showSocialSetup();}));
-
-  imgPreviewWrap=div({width:"100%",display:"none",gap:"4px",marginTop:"8px",flexWrap:"wrap"});
+  bar.appendChild(videoUrlInput);
   bar.appendChild(imgPreviewWrap);
-
   return bar;
 }
 
