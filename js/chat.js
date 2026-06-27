@@ -3990,7 +3990,262 @@ function showContentCalendar(){
     card.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",marginTop:"10px",fontFamily:"monospace"}},"📊 "+cal.length+" scheduled post"+(cal.length>1?"s":"")));
   }
 
+  var addBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#3B82F6,#06B6D4)",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){showAddCalendarEvent();}});
+  addBtn.textContent="➕ Add New Post";card.appendChild(addBtn);
+
+  if(cal.length>0){
+    var upcomingHeader=el("div",{style:{color:"#3B82F6",fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginTop:"12px",marginBottom:"6px"}});
+    upcomingHeader.textContent="📋 Upcoming Posts";card.appendChild(upcomingHeader);
+    var today=new Date().toISOString().split("T")[0];
+    var upcoming=cal.filter(function(e){return e.date>=today;}).sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:0;}).slice(0,5);
+    var platIcons={instagram:"📸",facebook:"📘",linkedin:"💼",twitter:"𝕏",whatsapp:"📲",youtube:"▶️",all:"🌐"};
+    upcoming.forEach(function(evt){
+      var evCard=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",marginBottom:"4px",display:"flex",justifyContent:"space-between",alignItems:"center"});
+      var leftCol=div({flex:"1",overflow:"hidden"});
+      leftCol.appendChild(el("div",{style:{color:"#3B82F6",fontSize:"10px",fontWeight:"700",fontFamily:"monospace"}},evt.date+" "+evt.time+" "+(platIcons[evt.platform]||"📱")));
+      leftCol.appendChild(el("div",{style:{color:"#CCC",fontSize:"9px",marginTop:"2px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},(evt.caption||"").substring(0,60)));
+      evCard.appendChild(leftCol);
+      var delBtn=el("button",{style:{background:"none",border:"none",color:"#EF4444",fontSize:"12px",cursor:"pointer",flexShrink:"0",padding:"4px"},onclick:function(){deleteCalendarEvent(evt.id);evCard.remove();}});
+      delBtn.textContent="🗑";evCard.appendChild(delBtn);
+      card.appendChild(evCard);
+    });
+  }
+
   card.appendChild(el("button",{style:{width:"100%",marginTop:"10px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+// --- MULTI-LANGUAGE TRANSLATOR ---
+async function translatePost(caption,targetLang){
+  var geminiKey=localStorage.getItem("dv_gemini_key");if(!geminiKey)return null;
+  try{
+    var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({contents:[{parts:[{text:"You are a professional multilingual real estate marketing translator.\n\nOriginal post:\n"+caption+"\n\nTranslate this Dubai real estate post to "+targetLang+".\nRules:\n- Keep emojis and formatting\n- Adapt hashtags to "+targetLang+" audience (keep some English hashtags + add local ones)\n- Keep property data (AED, sqft, %) in original format\n- Adapt tone to "+targetLang+" cultural norms for luxury real estate\n- Keep brand mentions (DubAIVal, dubaival.com) unchanged\n- If Arabic/Farsi: use right-to-left friendly formatting\n\nRespond in valid JSON:\n{\"translated\":\"THE FULL TRANSLATED POST\",\"lang\":\""+targetLang+"\",\"notes\":\"Brief note on cultural adaptations made\",\"hashtags_added\":[\"#localHashtag1\"]}"}]}],generationConfig:{responseMimeType:"application/json"}})
+    });
+    var d=await r.json();
+    if(d.candidates&&d.candidates[0])return JSON.parse(d.candidates[0].content.parts[0].text);
+  }catch(e){}return null;
+}
+function showMultiLanguage(caption){
+  var m=document.getElementById("multilang-modal");if(m)m.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"multilang-modal"});
+  var card=div({background:"#1A1F2E",border:"1px solid #06B6D4",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
+  card.appendChild(el("h3",{style:{color:"#06B6D4",margin:"0 0 4px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"🌐 Multi-Language Translator"));
+  card.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",marginBottom:"12px",fontFamily:"monospace"}},"Translate your post for international Dubai audiences"));
+  var languages=[
+    {code:"ar",name:"العربية (Arabic)",flag:"🇦🇪",color:"#10B981",audience:"UAE & GCC buyers"},
+    {code:"fa",name:"فارسی (Farsi)",flag:"🇮🇷",color:"#8B5CF6",audience:"Iranian investors"},
+    {code:"ru",name:"Русский (Russian)",flag:"🇷🇺",color:"#3B82F6",audience:"Russian-speaking investors"},
+    {code:"zh",name:"中文 (Chinese)",flag:"🇨🇳",color:"#EF4444",audience:"Chinese HNW buyers"},
+    {code:"hi",name:"हिन्दी (Hindi)",flag:"🇮🇳",color:"#F59E0B",audience:"Indian investors"},
+    {code:"fr",name:"Français (French)",flag:"🇫🇷",color:"#EC4899",audience:"Francophone African & European buyers"}
+  ];
+  var resultArea=div({});
+  var langGrid=div({display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"6px",marginBottom:"12px"});
+  languages.forEach(function(lang){
+    var langBtn=el("button",{style:{background:hexAlpha(lang.color,0.08),border:"1px solid "+hexAlpha(lang.color,0.25),color:lang.color,padding:"10px 6px",borderRadius:"10px",fontSize:"10px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace",textAlign:"center",transition:"all 0.2s"},onclick:async function(){
+      langBtn.textContent="⏳ ...";
+      var result=await translatePost(caption,lang.name);
+      langBtn.textContent=lang.flag+" "+lang.code.toUpperCase();
+      if(!result){resultArea.innerHTML="";resultArea.appendChild(el("p",{style:{color:"#EF4444",fontSize:"11px"}},"❌ Check Gemini API key."));return;}
+      var rCard=div({background:"#0D1117",border:"1px solid "+hexAlpha(lang.color,0.3),borderRadius:"10px",padding:"12px",marginBottom:"8px"});
+      rCard.appendChild(el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}},
+        el("span",{style:{color:lang.color,fontSize:"11px",fontWeight:"700",fontFamily:"monospace"}},lang.flag+" "+lang.name),
+        el("span",{style:{color:"#6B7280",fontSize:"9px",fontFamily:"monospace"}},lang.audience)
+      ));
+      var textEl=el("div",{style:{color:"#E0E0E0",fontSize:"11px",lineHeight:"1.6",whiteSpace:"pre-wrap",maxHeight:"200px",overflowY:"auto",direction:lang.code==="ar"||lang.code==="fa"?"rtl":"ltr"}});
+      textEl.textContent=result.translated;rCard.appendChild(textEl);
+      if(result.notes){rCard.appendChild(el("div",{style:{color:"#6B7280",fontSize:"9px",marginTop:"6px",fontStyle:"italic"}},"💡 "+result.notes));}
+      if(result.hashtags_added&&result.hashtags_added.length>0){
+        var tagWrap=div({display:"flex",gap:"3px",flexWrap:"wrap",marginTop:"6px"});
+        result.hashtags_added.forEach(function(t){tagWrap.appendChild(el("span",{style:{background:hexAlpha(lang.color,0.12),color:lang.color,padding:"2px 6px",borderRadius:"8px",fontSize:"9px",fontFamily:"monospace"}},t));});
+        rCard.appendChild(tagWrap);
+      }
+      var btnRow=div({display:"flex",gap:"4px",marginTop:"8px"});
+      var copyBtn=el("button",{style:{background:hexAlpha(lang.color,0.15),border:"1px solid "+hexAlpha(lang.color,0.3),color:lang.color,padding:"5px 10px",borderRadius:"6px",fontSize:"10px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){navigator.clipboard.writeText(result.translated);copyBtn.textContent="✅ Copied!";setTimeout(function(){copyBtn.textContent="📋 Copy";},2000);}});
+      copyBtn.textContent="📋 Copy";btnRow.appendChild(copyBtn);
+      var schedBtn=el("button",{style:{background:hexAlpha("#3B82F6",0.15),border:"1px solid "+hexAlpha("#3B82F6",0.3),color:"#3B82F6",padding:"5px 10px",borderRadius:"6px",fontSize:"10px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){saveCalendarEvent({caption:result.translated,platform:"all",language:lang.code});schedBtn.textContent="✅ Scheduled!";setTimeout(function(){schedBtn.textContent="📅 Schedule";},2000);}});
+      schedBtn.textContent="📅 Schedule";btnRow.appendChild(schedBtn);
+      rCard.appendChild(btnRow);
+      resultArea.appendChild(rCard);
+    }});
+    langBtn.textContent=lang.flag+" "+lang.code.toUpperCase();langGrid.appendChild(langBtn);
+  });
+  var allBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#06B6D4,#8B5CF6)",color:"#FFF",border:"none",borderRadius:"10px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},onclick:async function(){
+    allBtn.textContent="⏳ Translating to all 6 languages...";resultArea.innerHTML="";
+    for(var li=0;li<languages.length;li++){
+      var lang=languages[li];
+      allBtn.textContent="⏳ "+lang.flag+" "+(li+1)+"/"+languages.length+"...";
+      var result=await translatePost(caption,lang.name);
+      if(result){
+        var rCard=div({background:"#0D1117",border:"1px solid "+hexAlpha(lang.color,0.3),borderRadius:"10px",padding:"10px",marginBottom:"6px"});
+        var hdr=div({display:"flex",justifyContent:"space-between",alignItems:"center"});
+        hdr.appendChild(el("span",{style:{color:lang.color,fontSize:"11px",fontWeight:"700",fontFamily:"monospace"}},lang.flag+" "+lang.name));
+        var cpBtn=el("button",{style:{background:hexAlpha(lang.color,0.15),border:"1px solid "+hexAlpha(lang.color,0.3),color:lang.color,padding:"3px 8px",borderRadius:"6px",fontSize:"9px",cursor:"pointer",fontFamily:"monospace"}});
+        cpBtn.textContent="📋";
+        (function(txt,b){b.onclick=function(){navigator.clipboard.writeText(txt);b.textContent="✅";setTimeout(function(){b.textContent="📋";},1500);};})(result.translated,cpBtn);
+        hdr.appendChild(cpBtn);rCard.appendChild(hdr);
+        var tx=el("div",{style:{color:"#CCC",fontSize:"10px",lineHeight:"1.5",whiteSpace:"pre-wrap",maxHeight:"80px",overflowY:"auto",marginTop:"4px",direction:lang.code==="ar"||lang.code==="fa"?"rtl":"ltr"}});
+        tx.textContent=result.translated;rCard.appendChild(tx);
+        resultArea.appendChild(rCard);
+      }
+    }
+    allBtn.textContent="🌐 Translate All (6 Languages)";
+  }});
+  allBtn.textContent="🌐 Translate All (6 Languages)";
+  card.appendChild(langGrid);card.appendChild(allBtn);card.appendChild(resultArea);
+  card.appendChild(el("button",{style:{width:"100%",marginTop:"10px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+// --- HOOK-STORY-OFFER GENERATOR (Neuromarketing) ---
+async function generateHSO(caption,framework){
+  var geminiKey=localStorage.getItem("dv_gemini_key");if(!geminiKey)return null;
+  var bp=getBrandProfile();var brandCtx=bp?" Brand: "+bp.name+(bp.tone?", Tone: "+bp.tone:""):"";
+  var frameworks={
+    "hook-story-offer":"HOOK-STORY-OFFER:\n- HOOK (1-2 lines): Pattern interrupt, bold claim, or question that stops the scroll. Use numbers, curiosity gap, or controversy.\n- STORY (3-5 lines): Personal anecdote, client success, or market insight. Create emotional connection. Use sensory language.\n- OFFER (2-3 lines): Clear CTA. What they get, how to get it, why now (urgency/scarcity).",
+    "aida":"AIDA Framework:\n- ATTENTION: Bold opening that grabs instantly\n- INTEREST: Relevant facts/data that builds curiosity\n- DESIRE: Benefits, lifestyle, FOMO\n- ACTION: Clear next step CTA",
+    "pas":"PAS Framework:\n- PROBLEM: Pain point your audience faces\n- AGITATE: Make the problem feel urgent\n- SOLUTION: Your property/service as the answer",
+    "bab":"BAB Framework:\n- BEFORE: Current situation/struggle\n- AFTER: Dream outcome with specific details\n- BRIDGE: How your property/service gets them there",
+    "fomo":"FOMO/Scarcity Framework:\n- LIMITED SUPPLY: Only X units, last chance, closing soon\n- SOCIAL PROOF: X people viewed, X inquiries this week\n- URGENCY: Price increase date, market momentum\n- EXCLUSIVITY: Pre-launch, VIP, invite-only"
+  };
+  var fwDesc=frameworks[framework]||frameworks["hook-story-offer"];
+  try{
+    var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({contents:[{parts:[{text:"You are an expert neuromarketing copywriter for Dubai luxury real estate."+brandCtx+"\n\nOriginal caption:\n"+caption+"\n\nRewrite using the "+framework.toUpperCase()+" framework:\n"+fwDesc+"\n\nNeuromarketing principles to apply:\n- Power words: exclusive, limited, premium, verified, proven, guaranteed\n- Numbers: specific AED figures, %, ROI numbers from the original\n- Sensory language: imagine waking up to, picture yourself, feel the breeze\n- Social proof: used by X investors, X properties sold, trusted by\n- Scarcity: only X available, limited time, prices rising\n- Authority: DLD-verified, RERA-approved, award-winning\n\nRespond in valid JSON:\n{\"rewritten\":\"FULL POST with framework applied\",\"framework\":\""+framework+"\",\"hook_type\":\"type of hook used\",\"psychology_used\":[\"scarcity\",\"social proof\"],\"predicted_engagement\":\"High/Medium/Low\",\"why\":\"Brief explanation of why this version converts better\"}"}]}],generationConfig:{responseMimeType:"application/json"}})
+    });
+    var d=await r.json();
+    if(d.candidates&&d.candidates[0])return JSON.parse(d.candidates[0].content.parts[0].text);
+  }catch(e){}return null;
+}
+function showHookStoryOffer(caption){
+  var m=document.getElementById("hso-modal");if(m)m.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"hso-modal"});
+  var card=div({background:"#1A1F2E",border:"1px solid #F43F5E",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
+  card.appendChild(el("h3",{style:{color:"#F43F5E",margin:"0 0 4px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"🧠 Neuromarketing Post Builder"));
+  card.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",marginBottom:"12px",fontFamily:"monospace"}},"Rewrite your post using proven psychological frameworks"));
+  var fwList=[
+    {id:"hook-story-offer",name:"Hook-Story-Offer",icon:"🪝",color:"#F43F5E",desc:"Pattern interrupt → emotional story → CTA"},
+    {id:"aida",name:"AIDA",icon:"🎯",color:"#3B82F6",desc:"Attention → Interest → Desire → Action"},
+    {id:"pas",name:"PAS",icon:"💢",color:"#F59E0B",desc:"Problem → Agitate → Solution"},
+    {id:"bab",name:"BAB",icon:"🌉",color:"#10B981",desc:"Before → After → Bridge"},
+    {id:"fomo",name:"FOMO/Scarcity",icon:"⏰",color:"#EF4444",desc:"Urgency + social proof + exclusivity"}
+  ];
+  var resultArea=div({});
+  var fwGrid=div({display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"6px",marginBottom:"12px"});
+  fwList.forEach(function(fw){
+    var fwBtn=el("button",{style:{background:hexAlpha(fw.color,0.08),border:"1px solid "+hexAlpha(fw.color,0.25),color:fw.color,padding:"10px 8px",borderRadius:"10px",fontSize:"10px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace",textAlign:"left",transition:"all 0.2s"},onclick:async function(){
+      fwBtn.textContent="⏳ Generating...";resultArea.innerHTML="";
+      var result=await generateHSO(caption,fw.id);
+      fwBtn.innerHTML="";fwBtn.appendChild(document.createTextNode(fw.icon+" "+fw.name));
+      fwBtn.appendChild(el("div",{style:{fontSize:"8px",color:"#8899AA",marginTop:"2px",fontWeight:"400"}},fw.desc));
+      if(!result){resultArea.appendChild(el("p",{style:{color:"#EF4444",fontSize:"11px"}},"❌ Check Gemini API key."));return;}
+      var rCard=div({background:"#0D1117",border:"1px solid "+hexAlpha(fw.color,0.3),borderRadius:"10px",padding:"12px"});
+      var hdr=div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"});
+      hdr.appendChild(el("span",{style:{color:fw.color,fontSize:"11px",fontWeight:"700",fontFamily:"monospace"}},fw.icon+" "+fw.name));
+      if(result.predicted_engagement){
+        var engColor=result.predicted_engagement==="High"?"#10B981":result.predicted_engagement==="Medium"?"#F59E0B":"#EF4444";
+        hdr.appendChild(el("span",{style:{background:hexAlpha(engColor,0.15),color:engColor,padding:"2px 8px",borderRadius:"8px",fontSize:"9px",fontFamily:"monospace"}},"📈 "+result.predicted_engagement));
+      }
+      rCard.appendChild(hdr);
+      var textEl=el("div",{style:{color:"#E0E0E0",fontSize:"11px",lineHeight:"1.6",whiteSpace:"pre-wrap",maxHeight:"250px",overflowY:"auto"}});
+      textEl.textContent=result.rewritten;rCard.appendChild(textEl);
+      if(result.psychology_used&&result.psychology_used.length>0){
+        var psyRow=div({display:"flex",gap:"4px",flexWrap:"wrap",marginTop:"8px"});
+        result.psychology_used.forEach(function(p){psyRow.appendChild(el("span",{style:{background:"#F43F5E18",color:"#F43F5E",padding:"2px 6px",borderRadius:"8px",fontSize:"8px",fontFamily:"monospace"}},"🧠 "+p));});
+        rCard.appendChild(psyRow);
+      }
+      if(result.why){rCard.appendChild(el("div",{style:{color:"#6B7280",fontSize:"9px",marginTop:"6px",fontStyle:"italic"}},"💡 "+result.why));}
+      var btnRow=div({display:"flex",gap:"4px",marginTop:"8px"});
+      var copyBtn=el("button",{style:{background:hexAlpha(fw.color,0.15),border:"1px solid "+hexAlpha(fw.color,0.3),color:fw.color,padding:"5px 10px",borderRadius:"6px",fontSize:"10px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){navigator.clipboard.writeText(result.rewritten);copyBtn.textContent="✅ Copied!";setTimeout(function(){copyBtn.textContent="📋 Copy";},2000);}});
+      copyBtn.textContent="📋 Copy";btnRow.appendChild(copyBtn);
+      var schedBtn=el("button",{style:{background:hexAlpha("#3B82F6",0.15),border:"1px solid "+hexAlpha("#3B82F6",0.3),color:"#3B82F6",padding:"5px 10px",borderRadius:"6px",fontSize:"10px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){saveCalendarEvent({caption:result.rewritten,platform:"all",framework:fw.id});schedBtn.textContent="✅ Scheduled!";setTimeout(function(){schedBtn.textContent="📅 Schedule";},2000);}});
+      schedBtn.textContent="📅 Schedule";btnRow.appendChild(schedBtn);
+      rCard.appendChild(btnRow);
+      resultArea.appendChild(rCard);
+    }});
+    fwBtn.appendChild(document.createTextNode(fw.icon+" "+fw.name));
+    fwBtn.appendChild(el("div",{style:{fontSize:"8px",color:"#8899AA",marginTop:"2px",fontWeight:"400"}},fw.desc));
+    fwGrid.appendChild(fwBtn);
+  });
+  var allFwBtn=el("button",{style:{gridColumn:"1/-1",background:"linear-gradient(135deg,#F43F5E,#8B5CF6)",color:"#FFF",border:"none",borderRadius:"10px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
+    allFwBtn.textContent="⏳ Generating all 5 frameworks...";resultArea.innerHTML="";
+    for(var fi=0;fi<fwList.length;fi++){
+      allFwBtn.textContent="⏳ "+fwList[fi].icon+" "+(fi+1)+"/5...";
+      var result=await generateHSO(caption,fwList[fi].id);
+      if(result){
+        var fw=fwList[fi];
+        var rCard=div({background:"#0D1117",border:"1px solid "+hexAlpha(fw.color,0.3),borderRadius:"8px",padding:"10px",marginBottom:"6px"});
+        var hdr2=div({display:"flex",justifyContent:"space-between",alignItems:"center"});
+        hdr2.appendChild(el("span",{style:{color:fw.color,fontSize:"10px",fontWeight:"700",fontFamily:"monospace"}},fw.icon+" "+fw.name));
+        var cp=el("button",{style:{background:hexAlpha(fw.color,0.15),border:"1px solid "+hexAlpha(fw.color,0.3),color:fw.color,padding:"3px 8px",borderRadius:"6px",fontSize:"9px",cursor:"pointer",fontFamily:"monospace"}});
+        cp.textContent="📋";
+        (function(txt,b){b.onclick=function(){navigator.clipboard.writeText(txt);b.textContent="✅";setTimeout(function(){b.textContent="📋";},1500);};})(result.rewritten,cp);
+        hdr2.appendChild(cp);rCard.appendChild(hdr2);
+        var tx=el("div",{style:{color:"#CCC",fontSize:"10px",lineHeight:"1.5",whiteSpace:"pre-wrap",maxHeight:"100px",overflowY:"auto",marginTop:"4px"}});
+        tx.textContent=result.rewritten;rCard.appendChild(tx);
+        if(result.psychology_used){
+          var pRow=div({display:"flex",gap:"3px",flexWrap:"wrap",marginTop:"4px"});
+          result.psychology_used.forEach(function(p){pRow.appendChild(el("span",{style:{background:"#F43F5E12",color:"#F43F5E",padding:"1px 5px",borderRadius:"6px",fontSize:"7px",fontFamily:"monospace"}},"🧠 "+p));});
+          rCard.appendChild(pRow);
+        }
+        resultArea.appendChild(rCard);
+      }
+    }
+    allFwBtn.textContent="🧠 Generate All 5 Frameworks";
+  }});
+  allFwBtn.textContent="🧠 Generate All 5 Frameworks";
+  fwGrid.appendChild(allFwBtn);
+  card.appendChild(fwGrid);card.appendChild(resultArea);
+  card.appendChild(el("button",{style:{width:"100%",marginTop:"10px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+// --- CONTENT CALENDAR ADD EVENT UI ---
+function showAddCalendarEvent(defaultCaption){
+  var m=document.getElementById("add-cal-modal");if(m)m.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"add-cal-modal"});
+  var card=div({background:"#1A1F2E",border:"1px solid #3B82F6",borderRadius:"16px",padding:"16px",width:"420px",maxWidth:"96vw"});
+  card.appendChild(el("h3",{style:{color:"#3B82F6",margin:"0 0 12px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"📅 Schedule Post"));
+  var tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+1);
+  var defDate=tomorrow.toISOString().split("T")[0];
+  var fields=[
+    {key:"date",label:"Date",type:"date",def:defDate},
+    {key:"time",label:"Time",type:"time",def:"10:00"},
+    {key:"platform",label:"Platform",type:"select",options:["instagram","facebook","linkedin","twitter","whatsapp","youtube","all"],def:"all"},
+    {key:"pillar",label:"Content Pillar",type:"select",options:["Market Data","Area Spotlight","Investment Tips","Lifestyle","Success Story","FAQ","Trending News","General"],def:"General"}
+  ];
+  var inputs={};
+  fields.forEach(function(f){
+    var lbl=el("label",{style:{color:"#8899AA",fontSize:"11px",display:"block",marginBottom:"3px",fontFamily:"monospace"}});
+    lbl.textContent=f.label;card.appendChild(lbl);
+    var inp;
+    if(f.type==="select"){
+      inp=el("select",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",color:"#E0E0E0",fontSize:"12px",fontFamily:"monospace",boxSizing:"border-box",marginBottom:"8px"}});
+      f.options.forEach(function(o){var opt=el("option");opt.value=o;opt.textContent=o.charAt(0).toUpperCase()+o.slice(1);if(o===f.def)opt.selected=true;inp.appendChild(opt);});
+    }else{
+      inp=el("input",{type:f.type,style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",color:"#E0E0E0",fontSize:"12px",fontFamily:"monospace",boxSizing:"border-box",marginBottom:"8px"},value:f.def});
+    }
+    card.appendChild(inp);inputs[f.key]=inp;
+  });
+  var capLbl=el("label",{style:{color:"#8899AA",fontSize:"11px",display:"block",marginBottom:"3px",fontFamily:"monospace"}});
+  capLbl.textContent="Caption";card.appendChild(capLbl);
+  var capInp=el("textarea",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",boxSizing:"border-box",minHeight:"80px",resize:"vertical"},placeholder:"Post caption..."});
+  capInp.value=defaultCaption||"";card.appendChild(capInp);
+  var btnRow=div({display:"flex",gap:"8px",marginTop:"12px"});
+  var saveBtn=el("button",{style:{flex:"1",background:"#3B82F6",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
+    var evt={caption:capInp.value,date:inputs.date.value,time:inputs.time.value,platform:inputs.platform.value,pillar:inputs.pillar.value};
+    saveCalendarEvent(evt);overlay.remove();
+    var existing=document.getElementById("calendar-modal");if(existing){existing.remove();showContentCalendar();}
+  }});saveBtn.textContent="📅 Schedule";btnRow.appendChild(saveBtn);
+  var cancelBtn=el("button",{style:{flex:"1",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}});
+  cancelBtn.textContent="Cancel";btnRow.appendChild(cancelBtn);
+  card.appendChild(btnRow);
   overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
   document.body.appendChild(overlay);
 }
@@ -4351,6 +4606,8 @@ function buildPublishBar(postData,msgText,cl){
   // --- TOOLS ROW 2: Intelligence ---
   var toolRow2=div({display:"flex",gap:"4px",alignItems:"center",flexWrap:"wrap"});
   toolRow2.appendChild(el("span",{style:{color:"#6B7280",fontSize:"9px",fontFamily:"monospace",minWidth:"40px"}},"AI:"));
+  toolRow2.appendChild(makeBtn("🧠 Neuro","#F43F5E",function(){showHookStoryOffer(caption);}));
+  toolRow2.appendChild(makeBtn("🌐 Translate","#06B6D4",function(){showMultiLanguage(caption);}));
   toolRow2.appendChild(makeBtn("🧪 A/B Test","#06B6D4",function(){showABTest(caption,platform);}));
   toolRow2.appendChild(makeBtn("#️⃣ Hashtags","#10B981",function(){showHashtagIntelligence(caption);}));
   toolRow2.appendChild(makeBtn("✍️ Rewrite","#EC4899",function(){showCaptionRewriter(caption);}));
@@ -4363,6 +4620,7 @@ function buildPublishBar(postData,msgText,cl){
   var toolRow3=div({display:"flex",gap:"4px",alignItems:"center",flexWrap:"wrap"});
   toolRow3.appendChild(el("span",{style:{color:"#6B7280",fontSize:"9px",fontFamily:"monospace",minWidth:"40px"}},"Plan:"));
   toolRow3.appendChild(makeBtn("📅 Calendar","#3B82F6",function(){showContentCalendar();}));
+  toolRow3.appendChild(makeBtn("➕ Schedule","#3B82F6",function(){showAddCalendarEvent(caption);}));
   toolRow3.appendChild(makeBtn("📦 Bulk 30","#10B981",function(){showBulkGenerator();}));
   toolRow3.appendChild(makeBtn("♻️ Recycle","#F97316",function(){showContentRecycler();}));
   toolRow3.appendChild(makeBtn("🏛️ Pillars","#8B5CF6",function(){showPillarPlanner();}));
