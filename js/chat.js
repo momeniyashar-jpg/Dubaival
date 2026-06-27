@@ -1110,20 +1110,30 @@ function generateTone(ctx,freq,dur,vol){
   }catch(e){return null;}
 }
 
-async function renderVideoFrames(canvas,ctx,plan,progressCb,userPhotos){
+async function renderVideoFrames(canvas,ctx,plan,progressCb,userPhotos,musicDest){
   var W=canvas.width,H=canvas.height;
   var slides=plan.slides;
   var totalSlides=slides.length;
   var secPerSlide=Math.max(3,(plan.duration||30)/totalSlides);
   var framesPerSlide=Math.round(VGEN.FPS*secPerSlide);
   var transFrames=Math.round(VGEN.FPS*0.6);
-  var totalFrames=framesPerSlide*totalSlides;
   var brand=getBrandProfile();
   var colors={"luxury":["#0A0520","#1A0A3A","#0A0520"],"investment":["#070B14","#0D1830","#070B14"],
     "data":["#070B14","#0D1220","#070B14"],"family":["#0A1020","#0D1830","#0A1020"],
     "lifestyle":["#100818","#1A0C28","#100818"]};
   var bgColors=colors[plan.style]||colors.investment;
   var accentColor={"luxury":"#C9A84C","investment":"#10B981","data":"#3B82F6","family":"#F59E0B","lifestyle":"#EC4899"}[plan.style]||"#C9A84C";
+
+  // Calculate per-slide frame counts (user_video slides get more frames)
+  var slideFrames=[];
+  slides.forEach(function(s){
+    if(s.type==="user_video"&&s._vidDur){
+      slideFrames.push(Math.round(VGEN.FPS*s._vidDur));
+    }else{
+      slideFrames.push(framesPerSlide);
+    }
+  });
+  var totalFrames=slideFrames.reduce(function(a,b){return a+b;},0);
 
   var loadedImgs={};
   for(var si=0;si<slides.length;si++){
@@ -1139,17 +1149,29 @@ async function renderVideoFrames(canvas,ctx,plan,progressCb,userPhotos){
   }
 
   var stream=canvas.captureStream(VGEN.FPS);
+  if(musicDest){
+    var mTracks=musicDest.stream.getAudioTracks();
+    mTracks.forEach(function(t){stream.addTrack(t);});
+  }
   var chunks=[];
-  var recorder=new MediaRecorder(stream,{mimeType:"video/webm;codecs=vp9",videoBitsPerSecond:6000000});
+  var mimeType="video/webm;codecs=vp9";
+  if(!MediaRecorder.isTypeSupported(mimeType))mimeType="video/webm";
+  var recorder=new MediaRecorder(stream,{mimeType:mimeType,videoBitsPerSecond:6000000});
   recorder.ondataavailable=function(ev){if(ev.data.size>0)chunks.push(ev.data);};
   var recDone=new Promise(function(res){recorder.onstop=function(){res();};});
   recorder.start();
 
   var userPhotoIdx=0;
   for(var frame=0;frame<totalFrames;frame++){
-    var slideIdx=Math.min(Math.floor(frame/framesPerSlide),totalSlides-1);
-    var localFrame=frame-slideIdx*framesPerSlide;
-    var progress=localFrame/framesPerSlide;
+    var cumFrames=0;var slideIdx=0;
+    for(var sfi=0;sfi<slideFrames.length;sfi++){
+      if(frame<cumFrames+slideFrames[sfi]){slideIdx=sfi;break;}
+      cumFrames+=slideFrames[sfi];
+      if(sfi===slideFrames.length-1)slideIdx=sfi;
+    }
+    var localFrame=frame-cumFrames;
+    var curSlideFrames=slideFrames[slideIdx]||framesPerSlide;
+    var progress=localFrame/curSlideFrames;
     var s=slides[slideIdx];
     var t=frame/VGEN.FPS;
 
@@ -1331,6 +1353,97 @@ async function renderVideoFrames(canvas,ctx,plan,progressCb,userPhotos){
       }
       ctx.restore();
     }
+    else if(s.type==="user_video"){
+      var vEl=s._vidEl;
+      if(vEl){
+        try{
+          if(localFrame===0){vEl.currentTime=0;vEl.play();}
+          ctx.drawImage(vEl,0,0,W,H);
+        }catch(e){drawGradBg(ctx,W,H,bgColors);}
+        var vGrd=ctx.createLinearGradient(0,H*0.75,0,H);
+        vGrd.addColorStop(0,"rgba(7,11,20,0)");vGrd.addColorStop(1,"rgba(7,11,20,0.7)");
+        ctx.fillStyle=vGrd;ctx.fillRect(0,0,W,H);
+        if(s.text){
+          ctx.globalAlpha=easeOut(Math.min(progress*3,1));
+          ctx.font="bold "+Math.round(W/20)+"px 'Space Grotesk',sans-serif";
+          ctx.fillStyle="#FFF";ctx.textAlign="center";
+          ctx.fillText(s.text,W/2,H*0.9);
+          ctx.globalAlpha=1;
+        }
+      }
+    }
+    else if(s.type==="floorplan"){
+      var fpImg=s._fpImg;
+      if(fpImg){
+        ctx.globalAlpha=easeOut(transP);
+        ctx.font="bold "+Math.round(W/16)+"px 'Space Grotesk',sans-serif";
+        ctx.fillStyle=accentColor;ctx.textAlign="center";
+        ctx.fillText("📐 "+( s.text||"Floor Plan"),W/2,H*0.1);
+        drawDecorLine(ctx,W/2-80,H*0.12,160,accentColor,progress);
+        var maxFW=W-100;var maxFH=H*0.7;
+        var fAspect=fpImg.width/fpImg.height;
+        var fW,fH;
+        if(fAspect>maxFW/maxFH){fW=maxFW;fH=maxFW/fAspect;}
+        else{fH=maxFH;fW=maxFH*fAspect;}
+        var fX=(W-fW)/2;var fY=H*0.15;
+        drawRoundRect(ctx,fX-6,fY-6,fW+12,fH+12,16);
+        ctx.fillStyle="rgba(255,255,255,0.95)";ctx.fill();
+        ctx.strokeStyle=accentColor;ctx.lineWidth=2;ctx.stroke();
+        drawRoundRect(ctx,fX,fY,fW,fH,12);ctx.save();ctx.clip();
+        ctx.drawImage(fpImg,0,0,fpImg.width,fpImg.height,fX,fY,fW,fH);
+        ctx.restore();
+        var scale=1+0.02*easeOut(progress);
+        ctx.save();ctx.translate(W/2,fY+fH/2);ctx.scale(scale,scale);ctx.translate(-W/2,-(fY+fH/2));
+        ctx.restore();
+        ctx.font="16px sans-serif";ctx.fillStyle="#8899AA";ctx.textAlign="center";
+        ctx.fillText("Tap to view full floor plan details",W/2,fY+fH+30);
+        ctx.globalAlpha=1;
+      }
+    }
+    else if(s.type==="map"){
+      ctx.globalAlpha=easeOut(transP);
+      ctx.font="bold "+Math.round(W/16)+"px 'Space Grotesk',sans-serif";
+      ctx.fillStyle=accentColor;ctx.textAlign="center";
+      ctx.fillText("📍 Location",W/2,H*0.1);
+      drawDecorLine(ctx,W/2-80,H*0.12,160,accentColor,progress);
+      var mW=W-80;var mH=H*0.55;var mX=40;var mY=H*0.16;
+      drawRoundRect(ctx,mX,mY,mW,mH,16);
+      ctx.fillStyle="#0A1628";ctx.fill();
+      ctx.strokeStyle="#1C2540";ctx.lineWidth=2;ctx.stroke();
+      var gridStep=mW/8;
+      ctx.strokeStyle="rgba(28,37,64,0.6)";ctx.lineWidth=0.5;
+      for(var gi=1;gi<8;gi++){
+        ctx.beginPath();ctx.moveTo(mX+gi*gridStep,mY);ctx.lineTo(mX+gi*gridStep,mY+mH);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(mX,mY+gi*gridStep);ctx.lineTo(mX+mW,mY+gi*gridStep);ctx.stroke();
+      }
+      var roadY1=mY+mH*0.35;var roadY2=mY+mH*0.65;
+      ctx.fillStyle="#1A2744";
+      ctx.fillRect(mX,roadY1,mW,12);ctx.fillRect(mX,roadY2,mW,8);
+      ctx.fillRect(mX+mW*0.3,mY,8,mH);ctx.fillRect(mX+mW*0.7,mY,6,mH);
+      for(var bi=0;bi<12;bi++){
+        var bx=mX+30+Math.abs(Math.sin(bi*2.7))*mW*0.85;
+        var by=mY+20+Math.abs(Math.cos(bi*3.1))*mH*0.85;
+        var bw=20+Math.abs(Math.sin(bi*1.3))*30;
+        var bh=15+Math.abs(Math.cos(bi*2.1))*25;
+        drawRoundRect(ctx,bx,by,bw,bh,3);
+        ctx.fillStyle=hexAlpha(["#1C2540","#1A2744","#162038"][bi%3],0.8);ctx.fill();
+      }
+      var pinX=mX+mW/2;var pinY=mY+mH*0.45;
+      var pinPulse=1+0.15*Math.sin(t*3);
+      ctx.save();ctx.translate(pinX,pinY);ctx.scale(pinPulse,pinPulse);
+      ctx.beginPath();ctx.arc(0,0,18,0,Math.PI*2);
+      ctx.fillStyle=hexAlpha(accentColor,0.3);ctx.fill();
+      ctx.beginPath();ctx.arc(0,0,10,0,Math.PI*2);
+      ctx.fillStyle=accentColor;ctx.fill();
+      ctx.fillStyle="#FFF";ctx.font="bold 12px sans-serif";ctx.textAlign="center";
+      ctx.fillText("📍",0,4);ctx.restore();
+      ctx.font="bold "+Math.round(W/24)+"px 'Space Grotesk',sans-serif";
+      ctx.fillStyle="#FFF";ctx.textAlign="center";
+      ctx.fillText(s._location||s.text||"",W/2,mY+mH+40);
+      ctx.font="14px sans-serif";ctx.fillStyle="#8899AA";
+      ctx.fillText("Dubai, United Arab Emirates",W/2,mY+mH+65);
+      ctx.globalAlpha=1;
+    }
 
     drawBrandWatermark(ctx,W,H,brand,progress);
 
@@ -1416,24 +1529,88 @@ function showVideoGenUI(initialPrompt){
   optRow.appendChild(voiceCheck);
   card.appendChild(optRow);
 
-  // User photos upload
-  var photoSection=div({margin:"8px 0"});
-  photoSection.appendChild(el("div",{style:{color:"#8899AA",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"}},"📷 Your photos (optional — blended into video):"));
-  var photoInput=el("input",{type:"file",accept:"image/*",multiple:true,style:{fontSize:"11px",color:"#8899AA"}});
-  photoSection.appendChild(photoInput);
-  var photoPreview=div({display:"flex",gap:"4px",flexWrap:"wrap",marginTop:"6px"});
-  photoSection.appendChild(photoPreview);
+  // --- MEDIA UPLOADS (collapsible sections) ---
+  var mediaWrap=div({margin:"10px 0",background:"#0D1117",borderRadius:"10px",padding:"12px"});
+  mediaWrap.appendChild(el("div",{style:{color:"#C9A84C",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"}},"📎 Add Your Media (all optional)"));
+
+  function makeMediaSection(icon,title,desc,accept,multiple,onFiles){
+    var sec=div({marginBottom:"10px",padding:"8px",background:"#1A1F2E",borderRadius:"8px",border:"1px solid #2A3040"});
+    var hdr=div({display:"flex",alignItems:"center",gap:"6px",cursor:"pointer",marginBottom:"4px"});
+    hdr.appendChild(el("span",{style:{fontSize:"14px"}},icon));
+    hdr.appendChild(el("span",{style:{color:"#E0E0E0",fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace"}},title));
+    hdr.appendChild(el("span",{style:{color:"#8899AA",fontSize:"10px",flex:"1",textAlign:"right"}},desc));
+    sec.appendChild(hdr);
+    var inp=el("input",{type:"file",accept:accept,multiple:multiple||false,style:{fontSize:"10px",color:"#8899AA",marginTop:"4px",width:"100%"}});
+    var preview=div({display:"flex",gap:"4px",flexWrap:"wrap",marginTop:"4px"});
+    inp.onchange=function(){onFiles(Array.from(inp.files||[]),preview);};
+    sec.appendChild(inp);sec.appendChild(preview);
+    return sec;
+  }
+
+  // Photos
   var userPhotoFiles=[];
-  photoInput.onchange=function(){
-    userPhotoFiles=Array.from(photoInput.files||[]);
-    photoPreview.innerHTML="";
-    userPhotoFiles.forEach(function(f){
+  mediaWrap.appendChild(makeMediaSection("📷","Photos","Blended naturally into video","image/*",true,function(files,prev){
+    userPhotoFiles=files;prev.innerHTML="";
+    files.forEach(function(f){
       var url=URL.createObjectURL(f);
-      var thumb=el("img",{style:{width:"60px",height:"60px",objectFit:"cover",borderRadius:"8px",border:"1px solid #C9A84C"}});
-      thumb.src=url;photoPreview.appendChild(thumb);
+      var thumb=el("img",{style:{width:"50px",height:"50px",objectFit:"cover",borderRadius:"6px",border:"1px solid #C9A84C"}});
+      thumb.src=url;prev.appendChild(thumb);
     });
-  };
-  card.appendChild(photoSection);
+  }));
+
+  // User Videos
+  var userVideoFiles=[];
+  mediaWrap.appendChild(makeMediaSection("🎥","Videos","Your clips merged into final video","video/*",true,function(files,prev){
+    userVideoFiles=files;prev.innerHTML="";
+    files.forEach(function(f){
+      var tag=el("div",{style:{background:"#2A3040",borderRadius:"6px",padding:"4px 8px",fontSize:"10px",color:"#E0E0E0",fontFamily:"monospace"}});
+      tag.textContent="🎥 "+f.name.substring(0,20)+" ("+(f.size/1024/1024).toFixed(1)+"MB)";
+      prev.appendChild(tag);
+    });
+  }));
+
+  // Floor Plans
+  var floorPlanFiles=[];
+  mediaWrap.appendChild(makeMediaSection("📐","Floor Plans","Shown as dedicated slide with labels","image/*",true,function(files,prev){
+    floorPlanFiles=files;prev.innerHTML="";
+    files.forEach(function(f){
+      var url=URL.createObjectURL(f);
+      var thumb=el("img",{style:{width:"50px",height:"50px",objectFit:"contain",borderRadius:"6px",border:"1px solid #10B981",background:"#FFF"}});
+      thumb.src=url;prev.appendChild(thumb);
+    });
+  }));
+
+  // Music
+  var musicFile=null;
+  var musicSec=div({marginBottom:"10px",padding:"8px",background:"#1A1F2E",borderRadius:"8px",border:"1px solid #2A3040"});
+  var musicHdr=div({display:"flex",alignItems:"center",gap:"6px",marginBottom:"6px"});
+  musicHdr.appendChild(el("span",{style:{fontSize:"14px"}},"🎵"));
+  musicHdr.appendChild(el("span",{style:{color:"#E0E0E0",fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace"}},"Background Music"));
+  musicSec.appendChild(musicHdr);
+  var musicSelect=el("select",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"6px",padding:"6px",color:"#E0E0E0",fontSize:"10px",fontFamily:"monospace",marginBottom:"6px"}});
+  [["none","No Music"],["ambient","🎹 Ambient Piano"],["upbeat","🎸 Upbeat Corporate"],["luxury","🎻 Luxury Orchestral"],["chill","🎧 Chill Lofi"],["dramatic","🥁 Dramatic Cinematic"],["custom","📂 Upload Your Music"]].forEach(function(o){
+    var opt=el("option");opt.value=o[0];opt.textContent=o[1];musicSelect.appendChild(opt);
+  });
+  musicSec.appendChild(musicSelect);
+  var musicFileInp=el("input",{type:"file",accept:"audio/*",style:{fontSize:"10px",color:"#8899AA",display:"none",marginTop:"4px",width:"100%"}});
+  musicSelect.onchange=function(){musicFileInp.style.display=musicSelect.value==="custom"?"block":"none";};
+  musicFileInp.onchange=function(){musicFile=musicFileInp.files[0]||null;};
+  musicSec.appendChild(musicFileInp);
+  mediaWrap.appendChild(musicSec);
+
+  // Location
+  var locationText="";
+  var locSec=div({marginBottom:"4px",padding:"8px",background:"#1A1F2E",borderRadius:"8px",border:"1px solid #2A3040"});
+  var locHdr=div({display:"flex",alignItems:"center",gap:"6px",marginBottom:"4px"});
+  locHdr.appendChild(el("span",{style:{fontSize:"14px"}},"📍"));
+  locHdr.appendChild(el("span",{style:{color:"#E0E0E0",fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace"}},"Location / Map"));
+  locSec.appendChild(locHdr);
+  var locInp=el("input",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"6px",padding:"6px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",boxSizing:"border-box"},placeholder:"e.g. Dubai Marina, Palm Jumeirah Tower A"});
+  locInp.oninput=function(){locationText=locInp.value.trim();};
+  locSec.appendChild(locInp);
+  mediaWrap.appendChild(locSec);
+
+  card.appendChild(mediaWrap);
 
   // Progress area
   var progressArea=div({display:"none",margin:"14px 0"});
@@ -1481,13 +1658,54 @@ function showVideoGenUI(initialPrompt){
       // Step 4: Load user photos
       var userImgs=[];
       if(userPhotoFiles.length>0){
-        progressLabel.textContent="📷 Loading your photos...";progressFill.style.width="20%";
+        progressLabel.textContent="📷 Loading your photos...";progressFill.style.width="18%";
         for(var ui=0;ui<userPhotoFiles.length;ui++){
           var url=URL.createObjectURL(userPhotoFiles[ui]);
           var im=await loadImg(url);
           if(im)userImgs.push(im);
         }
       }
+
+      // Step 4b: Load floor plans → insert as slides
+      if(floorPlanFiles.length>0){
+        progressLabel.textContent="📐 Loading floor plans...";progressFill.style.width="19%";
+        for(var fi=0;fi<floorPlanFiles.length;fi++){
+          var fpUrl=URL.createObjectURL(floorPlanFiles[fi]);
+          var fpImg=await loadImg(fpUrl);
+          if(fpImg){
+            var fpSlide={type:"floorplan",text:"Floor Plan",_fpImg:fpImg};
+            var insertAt=Math.min(plan.slides.length-1,Math.round(plan.slides.length*0.6)+fi);
+            plan.slides.splice(insertAt,0,fpSlide);
+          }
+        }
+      }
+
+      // Step 4c: Load user videos → insert as slides
+      var userVids=[];
+      if(userVideoFiles.length>0){
+        progressLabel.textContent="🎥 Loading your videos...";progressFill.style.width="20%";
+        for(var vi=0;vi<userVideoFiles.length;vi++){
+          var vUrl=URL.createObjectURL(userVideoFiles[vi]);
+          var vEl=document.createElement("video");
+          vEl.src=vUrl;vEl.muted=true;vEl.playsInline=true;
+          await new Promise(function(r){vEl.onloadedmetadata=r;vEl.onerror=r;});
+          if(vEl.duration>0){
+            userVids.push(vEl);
+            var vidSlide={type:"user_video",text:"",_vidEl:vEl,_vidDur:Math.min(vEl.duration,10)};
+            var vInsert=Math.min(plan.slides.length-1,Math.round(plan.slides.length*0.4)+vi);
+            plan.slides.splice(vInsert,0,vidSlide);
+          }
+        }
+      }
+
+      // Step 4d: Location → insert map slide
+      if(locationText){
+        var mapSlide={type:"map",text:locationText,_location:locationText};
+        plan.slides.splice(Math.max(1,plan.slides.length-2),0,mapSlide);
+      }
+
+      // Recalculate duration for new slides
+      plan.duration=Math.max(plan.duration||30,plan.slides.length*3.5);
 
       // Step 5: Set canvas size
       var dims=formatSel.value.split("x");
@@ -1496,13 +1714,45 @@ function showVideoGenUI(initialPrompt){
       previewWrap.style.display="block";
       var pCtx=previewCanvas.getContext("2d");
 
+      // Step 5b: Prepare music audio
+      var musicCtx=null;var musicSource=null;var musicDest=null;
+      var musicType=musicSelect.value;
+      if(musicType!=="none"){
+        try{
+          musicCtx=new(window.AudioContext||window.webkitAudioContext)();
+          musicDest=musicCtx.createMediaStreamDestination();
+          if(musicType==="custom"&&musicFile){
+            var abuf=await musicFile.arrayBuffer();
+            var audioBuf=await musicCtx.decodeAudioData(abuf);
+            musicSource=musicCtx.createBufferSource();
+            musicSource.buffer=audioBuf;musicSource.loop=true;
+            var gain=musicCtx.createGain();gain.gain.value=0.15;
+            musicSource.connect(gain);gain.connect(musicDest);
+            musicSource.start();
+          }else{
+            var osc=musicCtx.createOscillator();
+            var gain2=musicCtx.createGain();gain2.gain.value=0.04;
+            var freqs={ambient:262,upbeat:330,luxury:220,chill:196,dramatic:147};
+            osc.frequency.value=freqs[musicType]||262;
+            osc.type=musicType==="dramatic"?"sawtooth":musicType==="upbeat"?"square":"sine";
+            var lfo=musicCtx.createOscillator();lfo.frequency.value=0.3;
+            var lfoGain=musicCtx.createGain();lfoGain.gain.value=20;
+            lfo.connect(lfoGain);lfoGain.connect(osc.frequency);lfo.start();
+            osc.connect(gain2);gain2.connect(musicDest);osc.start();
+          }
+        }catch(me){musicCtx=null;}
+      }
+
       // Step 6: Render frames
       progressLabel.textContent="🎬 Rendering video...";progressFill.style.width="25%";
       var blob=await renderVideoFrames(previewCanvas,pCtx,plan,function(pct){
         var total=25+pct*0.65;
         progressFill.style.width=total+"%";
         progressLabel.textContent="🎬 Rendering... "+pct+"%";
-      },userImgs);
+      },userImgs,musicDest);
+
+      if(musicCtx){try{musicCtx.close();}catch(e){}}
+      userVids.forEach(function(v){try{v.pause();v.src="";}catch(e){}});
 
       progressFill.style.width="95%";
       progressLabel.textContent="✅ Video ready!";
