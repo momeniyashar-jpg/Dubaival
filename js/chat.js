@@ -221,7 +221,11 @@ async function publishToFacebook(message,link){
   try{
     var c=getSocialCreds();
     if(!c||!c.fbId)return{success:false,error:"Facebook Page ID not configured. Go to Profile to set up."};
-    var params=new URLSearchParams({message:message,access_token:c.token});
+    var pr=await fetch(GRAPH_BASE+"me/accounts?access_token="+c.token);
+    var pd=await pr.json();
+    var pageToken=c.token;
+    if(pd.data){var pg=pd.data.find(function(p){return p.id===c.fbId;});if(pg&&pg.access_token)pageToken=pg.access_token;}
+    var params=new URLSearchParams({message:message,access_token:pageToken});
     if(link)params.set("link",link);
     var r=await fetch(GRAPH_BASE+c.fbId+"/feed",{method:"POST",body:params});
     var d=await r.json();
