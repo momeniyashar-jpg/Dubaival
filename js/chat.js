@@ -533,6 +533,207 @@ async function runBehavioralProfiling(){
 var SOCIAL_STATE={publishing:false,lastResult:null};
 var GRAPH_BASE="https://graph.facebook.com/v25.0/";
 
+// --- AUTO-POST ENGINE (Professional Scheduler) ---
+var _autoPostTimer=null;
+function startAutoPostEngine(){
+  if(_autoPostTimer)return;
+  _autoPostTimer=setInterval(_checkDuePosts,60000);
+  _checkDuePosts();
+}
+async function _checkDuePosts(){
+  var cal;try{cal=JSON.parse(localStorage.getItem("dv_content_calendar")||"[]");}catch(e){return;}
+  var now=new Date();
+  var nowDate=now.toISOString().split("T")[0];
+  var nowTime=String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
+  var due=cal.filter(function(e){return e.status==="scheduled"&&e.date<=nowDate&&(e.date<nowDate||e.time<=nowTime);});
+  for(var i=0;i<due.length;i++){
+    await _autoPublish(due[i]);
+  }
+}
+async function _autoPublish(evt){
+  _updateCalStatus(evt.id,"publishing");
+  _autoPostNotify("⏳ Publishing","Posting to "+(evt.platform||"all")+"...",evt);
+  try{
+    var caption=evt.caption||"";
+    var platform=evt.platform||"all";
+    var results=[];
+    var img=null;
+    try{img=await findSmartImage(caption);}catch(e){}
+    if(platform==="instagram"||platform==="all"){
+      try{var r=await publishToInstagram(caption,img?[img]:[]);results.push({p:"instagram",ok:r.success,err:r.error,id:r.media_id});}catch(e){results.push({p:"instagram",ok:false,err:e.message});}
+    }
+    if(platform==="facebook"||platform==="all"){
+      try{var r2=await publishToFacebook(caption,img?[img]:[]);results.push({p:"facebook",ok:r2.success,err:r2.error,id:r2.id});}catch(e){results.push({p:"facebook",ok:false,err:e.message});}
+    }
+    if(platform==="linkedin"||platform==="all"){
+      try{var r3=await publishToLinkedIn(caption,img);results.push({p:"linkedin",ok:r3.success,err:r3.error,id:r3.id});}catch(e){results.push({p:"linkedin",ok:false,err:e.message});}
+    }
+    if(platform==="twitter"||platform==="all"){
+      try{var tweetText=caption.length>280?caption.substring(0,277)+"...":caption;var r4=await publishToTwitter(tweetText,img);results.push({p:"twitter",ok:r4.success,err:r4.error});}catch(e){results.push({p:"twitter",ok:false,err:e.message});}
+    }
+    if(platform==="whatsapp"){
+      shareToWhatsApp(caption);results.push({p:"whatsapp",ok:true});
+    }
+    var succeeded=results.filter(function(r){return r.ok;});
+    var failed=results.filter(function(r){return!r.ok;});
+    var status=failed.length===0?"published":succeeded.length===0?"failed":"partial";
+    _updateCalStatus(evt.id,status,results);
+    savePostToHistory({caption:caption,platform:platform,type:"auto-scheduled",results:results,scheduledDate:evt.date,scheduledTime:evt.time});
+    if(succeeded.length>0){
+      var platNames=succeeded.map(function(r){return r.p;}).join(", ");
+      _autoPostNotify("✅ Published","Posted to "+platNames+" successfully!",evt);
+    }
+    if(failed.length>0){
+      var failNames=failed.map(function(r){return r.p+": "+(r.err||"Unknown");}).join("; ");
+      _autoPostNotify("⚠️ Partial Failure",failNames,evt);
+    }
+    _trackPostIds(evt.id,results);
+  }catch(e){
+    _updateCalStatus(evt.id,"failed",[{p:evt.platform,ok:false,err:e.message}]);
+    _autoPostNotify("❌ Failed","Error: "+e.message,evt);
+  }
+}
+function _updateCalStatus(id,status,results){
+  try{
+    var cal=JSON.parse(localStorage.getItem("dv_content_calendar")||"[]");
+    cal=cal.map(function(e){if(e.id===id){e.status=status;e.publishedAt=new Date().toISOString();if(results)e.results=results;}return e;});
+    localStorage.setItem("dv_content_calendar",JSON.stringify(cal));
+  }catch(e){}
+}
+function _autoPostNotify(title,body,evt){
+  try{
+    if("Notification" in window&&Notification.permission==="granted"){
+      new Notification("📣 DubAIVal — "+title,{body:body+"\n"+(evt.caption||"").substring(0,60),icon:"logo.png",tag:"dv-autopost-"+evt.id});
+    }
+  }catch(e){}
+  try{
+    var log=JSON.parse(localStorage.getItem("dv_autopost_log")||"[]");
+    log.unshift({title:title,body:body,at:new Date().toISOString(),eventId:evt.id});
+    if(log.length>100)log=log.slice(0,100);
+    localStorage.setItem("dv_autopost_log",JSON.stringify(log));
+  }catch(e){}
+}
+function _trackPostIds(calId,results){
+  try{
+    var tracked=JSON.parse(localStorage.getItem("dv_post_tracking")||"{}");
+    tracked[calId]={results:results,publishedAt:new Date().toISOString(),checked:false};
+    localStorage.setItem("dv_post_tracking",JSON.stringify(tracked));
+  }catch(e){}
+}
+setTimeout(startAutoPostEngine,5000);
+
+// --- POST ENGAGEMENT TRACKER ---
+async function fetchPostEngagement(mediaId){
+  var c=getSocialCreds();if(!c)return null;
+  try{
+    var r=await fetch(GRAPH_BASE+mediaId+"?fields=like_count,comments_count,timestamp,media_type,permalink&access_token="+c.token);
+    var d=await r.json();if(d.error)return null;
+    var insights=null;
+    try{
+      var ir=await fetch(GRAPH_BASE+mediaId+"/insights?metric=impressions,reach,engagement,saved&access_token="+c.token);
+      var id=await ir.json();
+      if(id.data){insights={};id.data.forEach(function(m){insights[m.name]=m.values[0].value;});}
+    }catch(e){}
+    return{likes:d.like_count||0,comments:d.comments_count||0,timestamp:d.timestamp,permalink:d.permalink,type:d.media_type,insights:insights};
+  }catch(e){return null;}
+}
+async function checkAllPostEngagement(){
+  var tracked=JSON.parse(localStorage.getItem("dv_post_tracking")||"{}");
+  var keys=Object.keys(tracked);
+  var updated=0;
+  for(var i=0;i<keys.length;i++){
+    var entry=tracked[keys[i]];
+    if(!entry.results)continue;
+    for(var j=0;j<entry.results.length;j++){
+      var r=entry.results[j];
+      if(r.ok&&r.id&&r.p==="instagram"){
+        var eng=await fetchPostEngagement(r.id);
+        if(eng){r.engagement=eng;updated++;}
+      }
+    }
+    entry.lastChecked=new Date().toISOString();
+    entry.checked=true;
+  }
+  if(updated>0)localStorage.setItem("dv_post_tracking",JSON.stringify(tracked));
+  return updated;
+}
+
+// --- REAL HASHTAG DATA (Instagram Graph API) ---
+async function fetchRealHashtagData(hashtag){
+  var c=getSocialCreds();if(!c)return null;
+  try{
+    var sr=await fetch(GRAPH_BASE+"ig_hashtag_search?user_id="+c.igId+"&q="+encodeURIComponent(hashtag.replace("#",""))+"&access_token="+c.token);
+    var sd=await sr.json();
+    if(!sd.data||!sd.data[0])return null;
+    var hid=sd.data[0].id;
+    var dr=await fetch(GRAPH_BASE+hid+"?fields=id,name,media_count&access_token="+c.token);
+    var dd=await dr.json();
+    return{id:hid,name:dd.name||hashtag,mediaCount:dd.media_count||0};
+  }catch(e){return null;}
+}
+async function enrichHashtagsWithRealData(tags){
+  var enriched=[];
+  for(var i=0;i<Math.min(tags.length,15);i++){
+    var tag=typeof tags[i]==="string"?tags[i]:(tags[i].tag||tags[i]);
+    var real=await fetchRealHashtagData(tag);
+    if(real){
+      var competition="Low";
+      if(real.mediaCount>5000000)competition="Very High";
+      else if(real.mediaCount>1000000)competition="High";
+      else if(real.mediaCount>100000)competition="Medium";
+      enriched.push({tag:tag,posts:real.mediaCount,competition:competition,score:_hashtagScore(real.mediaCount)});
+    }else{
+      enriched.push({tag:tag,posts:null,competition:"Unknown",score:50});
+    }
+  }
+  return enriched;
+}
+function _hashtagScore(posts){
+  if(posts>=10000&&posts<=500000)return 90;
+  if(posts>=500000&&posts<=2000000)return 70;
+  if(posts>=2000000&&posts<=5000000)return 50;
+  if(posts>5000000)return 30;
+  if(posts<10000)return 60;
+  return 50;
+}
+function _formatPostCount(n){
+  if(!n)return"—";
+  if(n>=1000000)return(n/1000000).toFixed(1)+"M";
+  if(n>=1000)return(n/1000).toFixed(1)+"K";
+  return String(n);
+}
+
+// --- TRANSLATION MEMORY ---
+function _getTranslationMemory(){try{return JSON.parse(localStorage.getItem("dv_translation_memory")||"{}");} catch(e){return{};}}
+function _saveTranslation(originalHash,langCode,translation){
+  var mem=_getTranslationMemory();
+  if(!mem[langCode])mem[langCode]={};
+  mem[langCode][originalHash]=translation;
+  var keys=Object.keys(mem[langCode]);
+  if(keys.length>200){var oldest=keys.slice(0,keys.length-200);oldest.forEach(function(k){delete mem[langCode][k];});}
+  localStorage.setItem("dv_translation_memory",JSON.stringify(mem));
+}
+function _getCachedTranslation(originalHash,langCode){
+  var mem=_getTranslationMemory();
+  return mem[langCode]&&mem[langCode][originalHash]||null;
+}
+function _simpleHash(str){var h=0;for(var i=0;i<str.length;i++){h=((h<<5)-h)+str.charCodeAt(i);h|=0;}return"h"+Math.abs(h).toString(36);}
+
+// --- FRAMEWORK PERFORMANCE TRACKING ---
+function _getFrameworkStats(){try{return JSON.parse(localStorage.getItem("dv_framework_stats")||"{}");} catch(e){return{};}}
+function _trackFrameworkUse(framework){
+  var stats=_getFrameworkStats();
+  if(!stats[framework])stats[framework]={uses:0,published:0,engagement:0};
+  stats[framework].uses++;stats[framework].lastUsed=new Date().toISOString();
+  localStorage.setItem("dv_framework_stats",JSON.stringify(stats));
+}
+function _trackFrameworkPublish(framework){
+  var stats=_getFrameworkStats();
+  if(!stats[framework])stats[framework]={uses:0,published:0,engagement:0};
+  stats[framework].published++;
+  localStorage.setItem("dv_framework_stats",JSON.stringify(stats));
+}
+
 function getSocialCreds(){
   var t=localStorage.getItem("dv_ig_token");
   var ig=localStorage.getItem("dv_ig_id");
@@ -3876,27 +4077,74 @@ async function analyzeHashtags(text){
 function showHashtagIntelligence(caption){
   var m=document.getElementById("hashtag-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"hashtag-modal"});
-  var card=div({background:"#1A1F2E",border:"1px solid #F59E0B",borderRadius:"16px",padding:"16px",width:"480px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
-  card.appendChild(el("h3",{style:{color:"#F59E0B",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"#️⃣ Hashtag Intelligence"));
-  var loadingP=el("p",{style:{color:"#8899AA",fontSize:"12px",textAlign:"center"}},"⏳ Analyzing trending hashtags...");
+  var card=div({background:"#1A1F2E",border:"1px solid #F59E0B",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
+  card.appendChild(el("h3",{style:{color:"#F59E0B",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"#️⃣ Hashtag Intelligence Pro"));
+  var loadingP=el("p",{style:{color:"#8899AA",fontSize:"12px",textAlign:"center"}},"⏳ Analyzing hashtags with AI + Real Instagram Data...");
   card.appendChild(loadingP);
   overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
   document.body.appendChild(overlay);
-  analyzeHashtags(caption).then(function(result){
+  analyzeHashtags(caption).then(async function(result){
     loadingP.remove();
     if(!result){card.appendChild(el("p",{style:{color:"#EF4444",fontSize:"12px"}},"❌ Check Gemini API key."));return;}
+    var allTags=[];
     var cats=[{key:"trending",label:"🔥 Trending",color:"#EF4444"},{key:"location",label:"📍 Location",color:"#3B82F6"},{key:"property",label:"🏠 Property",color:"#10B981"},{key:"investment",label:"💰 Investment",color:"#F59E0B"},{key:"lifestyle",label:"✨ Lifestyle",color:"#EC4899"}];
+    cats.forEach(function(cat){var tags=result[cat.key];if(tags)tags.forEach(function(t){allTags.push(typeof t==="string"?t:t.tag);});});
+    var realDataNote=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",marginBottom:"10px"});
+    realDataNote.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",fontWeight:"700",fontFamily:"monospace"}},"📊 Fetching real Instagram post counts..."));
+    var realProgress=el("div",{style:{color:"#6B7280",fontSize:"9px",fontFamily:"monospace",marginTop:"4px"}});
+    realProgress.textContent="0/"+Math.min(allTags.length,15)+" hashtags checked";
+    realDataNote.appendChild(realProgress);card.appendChild(realDataNote);
+    var enriched=[];
+    var hasIG=!!getSocialCreds();
+    if(hasIG){
+      for(var ei=0;ei<Math.min(allTags.length,15);ei++){
+        realProgress.textContent=(ei+1)+"/"+Math.min(allTags.length,15)+" hashtags checked";
+        var rd=await fetchRealHashtagData(allTags[ei]);
+        enriched.push({tag:allTags[ei],posts:rd?rd.mediaCount:null,competition:rd?(_hashtagScore(rd.mediaCount)>=70?"Low":_hashtagScore(rd.mediaCount)>=50?"Medium":"High"):"—",score:rd?_hashtagScore(rd.mediaCount):50});
+      }
+      realDataNote.innerHTML="";
+      realDataNote.appendChild(el("div",{style:{color:"#10B981",fontSize:"10px",fontWeight:"700",fontFamily:"monospace"}},"✅ Real data loaded for "+enriched.filter(function(e){return e.posts!==null;}).length+" hashtags"));
+      var optimalTags=enriched.filter(function(e){return e.score>=70;}).sort(function(a,b){return b.score-a.score;});
+      if(optimalTags.length>0){
+        realDataNote.appendChild(el("div",{style:{color:"#8899AA",fontSize:"9px",marginTop:"4px",fontFamily:"monospace"}},"Sweet spot (10K-500K posts) = highest discoverability + low competition"));
+      }
+    }else{
+      realDataNote.innerHTML="";
+      realDataNote.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"9px",fontFamily:"monospace"}},"💡 Connect Instagram in Setup for real post counts & competition data"));
+    }
     cats.forEach(function(cat){
       var tags=result[cat.key];if(!tags||tags.length===0)return;
-      card.appendChild(el("div",{style:{color:cat.color,fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginTop:"8px",marginBottom:"4px"}},cat.label));
+      card.appendChild(el("div",{style:{color:cat.color,fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginTop:"10px",marginBottom:"4px"}},cat.label));
       var tagWrap=div({display:"flex",gap:"4px",flexWrap:"wrap"});
       tags.forEach(function(t){
-        var tag=t.tag||t;var reach=t.reach||"";
-        var chip=el("span",{style:{background:hexAlpha(cat.color,0.12),border:"1px solid "+hexAlpha(cat.color,0.3),color:cat.color,padding:"3px 8px",borderRadius:"12px",fontSize:"10px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
-          navigator.clipboard.writeText(tag);chip.style.background=hexAlpha(cat.color,0.4);setTimeout(function(){chip.style.background=hexAlpha(cat.color,0.12);},500);
-        }});chip.textContent=tag+(reach?" ("+reach+")":"");tagWrap.appendChild(chip);
+        var tag=typeof t==="string"?t:t.tag;
+        var realInfo=enriched.find(function(e){return e.tag===tag;});
+        var postStr=realInfo&&realInfo.posts!==null?" · "+_formatPostCount(realInfo.posts)+" posts":"";
+        var compStr=realInfo&&realInfo.competition!=="—"?" · "+realInfo.competition:"";
+        var scoreColor=realInfo&&realInfo.score>=70?"#10B981":realInfo&&realInfo.score>=50?"#F59E0B":"#EF4444";
+        var chip=div({display:"inline-flex",alignItems:"center",gap:"4px",background:hexAlpha(cat.color,0.08),border:"1px solid "+hexAlpha(cat.color,0.25),borderRadius:"12px",padding:"4px 8px",cursor:"pointer",transition:"all 0.2s"});
+        chip.onclick=function(){navigator.clipboard.writeText(tag);chip.style.background=hexAlpha(cat.color,0.4);setTimeout(function(){chip.style.background=hexAlpha(cat.color,0.08);},500);};
+        chip.appendChild(el("span",{style:{color:cat.color,fontSize:"10px",fontFamily:"monospace",fontWeight:"600"}},tag));
+        if(postStr){chip.appendChild(el("span",{style:{color:scoreColor,fontSize:"8px",fontFamily:"monospace"}},postStr));}
+        tagWrap.appendChild(chip);
       });card.appendChild(tagWrap);
     });
+    if(enriched.length>0){
+      var stratBox=div({background:"#0D1220",border:"1px solid #8B5CF6",borderRadius:"10px",padding:"10px",marginTop:"12px"});
+      stratBox.appendChild(el("div",{style:{color:"#8B5CF6",fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginBottom:"6px"}},"🎯 Optimal Strategy Mix"));
+      var high=enriched.filter(function(e){return e.posts&&e.posts>1000000;}).slice(0,3);
+      var mid=enriched.filter(function(e){return e.posts&&e.posts>=100000&&e.posts<=1000000;}).slice(0,4);
+      var niche=enriched.filter(function(e){return e.posts&&e.posts<100000&&e.posts>=1000;}).slice(0,3);
+      var mixParts=[];
+      if(high.length>0)mixParts.push("🔴 "+high.length+" broad ("+high.map(function(h){return h.tag;}).join(" ")+")");
+      if(mid.length>0)mixParts.push("🟡 "+mid.length+" medium ("+mid.map(function(h){return h.tag;}).join(" ")+")");
+      if(niche.length>0)mixParts.push("🟢 "+niche.length+" niche ("+niche.map(function(h){return h.tag;}).join(" ")+")");
+      if(mixParts.length>0){
+        mixParts.forEach(function(p){stratBox.appendChild(el("div",{style:{color:"#CCC",fontSize:"9px",lineHeight:"1.6",fontFamily:"monospace"}},p));});
+        stratBox.appendChild(el("div",{style:{color:"#6B7280",fontSize:"8px",marginTop:"6px",fontStyle:"italic",fontFamily:"monospace"}},"Best formula: 3 broad + 4 medium + 3 niche = maximum reach & discoverability"));
+      }
+      card.appendChild(stratBox);
+    }
     if(result.best_combo){
       var bestBox=div({background:"#1A1820",border:"1px solid #F59E0B",borderRadius:"8px",padding:"10px",marginTop:"10px"});
       bestBox.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",fontWeight:"700",fontFamily:"monospace",marginBottom:"4px"}},"⭐ Best Combination (Copy All)"));
@@ -3961,8 +4209,13 @@ function showContentCalendar(){
       var cell=el("div",{style:{background:isToday?"#3B82F622":"#0D1117",border:"1px solid "+(isToday?"#3B82F6":"#2A3040"),borderRadius:"6px",padding:"3px",textAlign:"center",minHeight:"32px",cursor:dayEvents.length?"pointer":"default",position:"relative"},onclick:dayEvents.length?function(evts){return function(){showDayEvents(evts);};}(dayEvents):null});
       cell.appendChild(el("div",{style:{color:isToday?"#3B82F6":"#8899AA",fontSize:"10px",fontWeight:isToday?"700":"400"}},String(d)));
       if(dayEvents.length>0){
-        var dot=el("div",{style:{width:"6px",height:"6px",borderRadius:"50%",background:dayEvents.length>1?"#F59E0B":"#10B981",margin:"2px auto 0"}});
+        var hasPublished=dayEvents.some(function(e){return e.status==="published";});
+        var hasFailed=dayEvents.some(function(e){return e.status==="failed";});
+        var hasScheduled=dayEvents.some(function(e){return e.status==="scheduled";});
+        var dotColor=hasFailed?"#EF4444":hasPublished?"#10B981":hasScheduled?"#3B82F6":"#F59E0B";
+        var dot=el("div",{style:{width:"6px",height:"6px",borderRadius:"50%",background:dotColor,margin:"2px auto 0"}});
         cell.appendChild(dot);
+        if(dayEvents.length>1){cell.appendChild(el("div",{style:{color:"#6B7280",fontSize:"7px",fontFamily:"monospace"}},String(dayEvents.length)));}
       }
       grid.appendChild(cell);
     }
@@ -4016,16 +4269,33 @@ function showContentCalendar(){
   document.body.appendChild(overlay);
 }
 
-// --- MULTI-LANGUAGE TRANSLATOR ---
-async function translatePost(caption,targetLang){
+// --- MULTI-LANGUAGE TRANSLATOR (with Translation Memory) ---
+var _RE_TERMS={
+  en:{"PSF":"PSF","sqft":"sqft","AED":"AED","ROI":"ROI","yield":"yield","DLD":"DLD","RERA":"RERA","off-plan":"off-plan","ready":"ready","freehold":"freehold","leasehold":"leasehold"},
+  ar:{"PSF":"سعر القدم المربع","sqft":"قدم مربع","yield":"العائد","off-plan":"على الخريطة","ready":"جاهز","freehold":"تملك حر","leasehold":"إيجار طويل"},
+  fa:{"PSF":"قیمت هر فوت مربع","sqft":"فوت مربع","yield":"بازده","off-plan":"پیش‌فروش","ready":"آماده تحویل","freehold":"مالکیت آزاد","leasehold":"اجاره بلندمدت"},
+  ru:{"PSF":"цена за кв.фут","sqft":"кв.фут","yield":"доходность","off-plan":"на этапе строительства","ready":"готовая","freehold":"свободная собственность"},
+  zh:{"PSF":"每平方英尺价格","sqft":"平方英尺","yield":"收益率","off-plan":"期房","ready":"现房","freehold":"永久产权"},
+  hi:{"PSF":"प्रति वर्ग फुट","sqft":"वर्ग फुट","yield":"उपज","off-plan":"ऑफ-प्लान","ready":"तैयार","freehold":"फ्रीहोल्ड"},
+  fr:{"PSF":"prix/pied carré","sqft":"pied carré","yield":"rendement","off-plan":"sur plan","ready":"prêt","freehold":"pleine propriété"}
+};
+async function translatePost(caption,targetLang,langCode){
+  var hash=_simpleHash(caption);
+  var cached=_getCachedTranslation(hash,langCode||"xx");
+  if(cached)return cached;
   var geminiKey=localStorage.getItem("dv_gemini_key");if(!geminiKey)return null;
+  var termGlossary=_RE_TERMS[langCode]?"\n\nUse this real estate glossary for accurate terminology:\n"+Object.keys(_RE_TERMS[langCode]).map(function(k){return k+" → "+_RE_TERMS[langCode][k];}).join(", "):"";
   try{
     var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
       method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({contents:[{parts:[{text:"You are a professional multilingual real estate marketing translator.\n\nOriginal post:\n"+caption+"\n\nTranslate this Dubai real estate post to "+targetLang+".\nRules:\n- Keep emojis and formatting\n- Adapt hashtags to "+targetLang+" audience (keep some English hashtags + add local ones)\n- Keep property data (AED, sqft, %) in original format\n- Adapt tone to "+targetLang+" cultural norms for luxury real estate\n- Keep brand mentions (DubAIVal, dubaival.com) unchanged\n- If Arabic/Farsi: use right-to-left friendly formatting\n\nRespond in valid JSON:\n{\"translated\":\"THE FULL TRANSLATED POST\",\"lang\":\""+targetLang+"\",\"notes\":\"Brief note on cultural adaptations made\",\"hashtags_added\":[\"#localHashtag1\"]}"}]}],generationConfig:{responseMimeType:"application/json"}})
+      body:JSON.stringify({contents:[{parts:[{text:"You are a professional multilingual real estate marketing translator specializing in Dubai luxury property."+termGlossary+"\n\nOriginal post:\n"+caption+"\n\nTranslate to "+targetLang+".\nRules:\n- Keep emojis and formatting intact\n- Adapt hashtags: keep top English ones + add 3-5 local language hashtags\n- Keep numbers (AED, sqft, %) in original format — NEVER convert currencies\n- Adapt cultural tone for "+targetLang+" luxury real estate audience\n- Keep brand mentions (DubAIVal, dubaival.com) unchanged\n- Arabic/Farsi: right-to-left friendly, use ، instead of , for lists\n- Chinese: use 万/亿 for large numbers if natural\n- Russian: formal Вы for addressing readers\n\nRespond in valid JSON:\n{\"translated\":\"FULL TRANSLATED POST\",\"lang\":\""+targetLang+"\",\"notes\":\"Cultural adaptations made\",\"hashtags_added\":[\"#tag\"],\"confidence\":85,\"wordCount\":0}"}]}],generationConfig:{responseMimeType:"application/json"}})
     });
     var d=await r.json();
-    if(d.candidates&&d.candidates[0])return JSON.parse(d.candidates[0].content.parts[0].text);
+    if(d.candidates&&d.candidates[0]){
+      var result=JSON.parse(d.candidates[0].content.parts[0].text);
+      _saveTranslation(hash,langCode||"xx",result);
+      return result;
+    }
   }catch(e){}return null;
 }
 function showMultiLanguage(caption){
@@ -4047,7 +4317,7 @@ function showMultiLanguage(caption){
   languages.forEach(function(lang){
     var langBtn=el("button",{style:{background:hexAlpha(lang.color,0.08),border:"1px solid "+hexAlpha(lang.color,0.25),color:lang.color,padding:"10px 6px",borderRadius:"10px",fontSize:"10px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace",textAlign:"center",transition:"all 0.2s"},onclick:async function(){
       langBtn.textContent="⏳ ...";
-      var result=await translatePost(caption,lang.name);
+      var result=await translatePost(caption,lang.name,lang.code);
       langBtn.textContent=lang.flag+" "+lang.code.toUpperCase();
       if(!result){resultArea.innerHTML="";resultArea.appendChild(el("p",{style:{color:"#EF4444",fontSize:"11px"}},"❌ Check Gemini API key."));return;}
       var rCard=div({background:"#0D1117",border:"1px solid "+hexAlpha(lang.color,0.3),borderRadius:"10px",padding:"12px",marginBottom:"8px"});
@@ -4078,7 +4348,7 @@ function showMultiLanguage(caption){
     for(var li=0;li<languages.length;li++){
       var lang=languages[li];
       allBtn.textContent="⏳ "+lang.flag+" "+(li+1)+"/"+languages.length+"...";
-      var result=await translatePost(caption,lang.name);
+      var result=await translatePost(caption,lang.name,lang.code);
       if(result){
         var rCard=div({background:"#0D1117",border:"1px solid "+hexAlpha(lang.color,0.3),borderRadius:"10px",padding:"10px",marginBottom:"6px"});
         var hdr=div({display:"flex",justifyContent:"space-between",alignItems:"center"});
@@ -4141,6 +4411,7 @@ function showHookStoryOffer(caption){
     var fwBtn=el("button",{style:{background:hexAlpha(fw.color,0.08),border:"1px solid "+hexAlpha(fw.color,0.25),color:fw.color,padding:"10px 8px",borderRadius:"10px",fontSize:"10px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace",textAlign:"left",transition:"all 0.2s"},onclick:async function(){
       fwBtn.textContent="⏳ Generating...";resultArea.innerHTML="";
       var result=await generateHSO(caption,fw.id);
+      _trackFrameworkUse(fw.id);
       fwBtn.innerHTML="";fwBtn.appendChild(document.createTextNode(fw.icon+" "+fw.name));
       fwBtn.appendChild(el("div",{style:{fontSize:"8px",color:"#8899AA",marginTop:"2px",fontWeight:"400"}},fw.desc));
       if(!result){resultArea.appendChild(el("p",{style:{color:"#EF4444",fontSize:"11px"}},"❌ Check Gemini API key."));return;}
@@ -4635,11 +4906,132 @@ function buildPublishBar(postData,msgText,cl){
   toolRow4.appendChild(el("span",{style:{color:"#6B7280",fontSize:"9px",fontFamily:"monospace",minWidth:"40px"}},"Config:"));
   toolRow4.appendChild(makeBtn("🎨 Brand","#F97316",function(){showBrandingSetup();}));
   toolRow4.appendChild(makeBtn("⚙️ Setup","#FBBF24",function(){showSocialSetup();}));
+  toolRow4.appendChild(makeBtn("📡 Auto-Post Log","#10B981",function(){showAutoPostLog();}));
+  toolRow4.appendChild(makeBtn("📈 Engagement","#8B5CF6",function(){showEngagementDashboard();}));
   bar.appendChild(toolRow4);
 
   bar.appendChild(videoUrlInput);
   bar.appendChild(imgPreviewWrap);
   return bar;
+}
+
+// --- AUTO-POST LOG ---
+function showAutoPostLog(){
+  var m=document.getElementById("autopost-log-modal");if(m)m.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"autopost-log-modal"});
+  var card=div({background:"#1A1F2E",border:"1px solid #10B981",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
+  card.appendChild(el("h3",{style:{color:"#10B981",margin:"0 0 4px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"📡 Auto-Post Engine"));
+  var engineStatus=_autoPostTimer?"🟢 Active — checking every 60s":"🔴 Inactive";
+  card.appendChild(el("div",{style:{color:_autoPostTimer?"#10B981":"#EF4444",fontSize:"10px",fontFamily:"monospace",marginBottom:"12px"}},engineStatus));
+  var cal;try{cal=JSON.parse(localStorage.getItem("dv_content_calendar")||"[]");}catch(e){cal=[];}
+  var scheduled=cal.filter(function(e){return e.status==="scheduled";}).length;
+  var published=cal.filter(function(e){return e.status==="published";}).length;
+  var failed=cal.filter(function(e){return e.status==="failed";}).length;
+  var partial=cal.filter(function(e){return e.status==="partial";}).length;
+  var statsGrid=div({display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"6px",marginBottom:"12px"});
+  [{l:"Queued",v:scheduled,c:"#3B82F6"},{l:"Published",v:published,c:"#10B981"},{l:"Failed",v:failed,c:"#EF4444"},{l:"Partial",v:partial,c:"#F59E0B"}].forEach(function(s){
+    var sc=div({background:"#0D1117",borderRadius:"8px",padding:"8px",textAlign:"center"});
+    sc.appendChild(el("div",{style:{color:s.c,fontSize:"18px",fontWeight:"800",fontFamily:"monospace"}},String(s.v)));
+    sc.appendChild(el("div",{style:{color:"#8899AA",fontSize:"8px",fontFamily:"monospace"}},s.l));statsGrid.appendChild(sc);
+  });card.appendChild(statsGrid);
+  var log;try{log=JSON.parse(localStorage.getItem("dv_autopost_log")||"[]");}catch(e){log=[];}
+  if(log.length>0){
+    card.appendChild(el("div",{style:{color:"#FFF",fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginBottom:"6px"}},"Recent Activity"));
+    log.slice(0,20).forEach(function(entry){
+      var isSuccess=entry.title.indexOf("✅")!==-1;
+      var isFail=entry.title.indexOf("❌")!==-1;
+      var logColor=isSuccess?"#10B981":isFail?"#EF4444":"#F59E0B";
+      var logCard=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"6px",padding:"6px 8px",marginBottom:"3px"});
+      var hdr=div({display:"flex",justifyContent:"space-between",alignItems:"center"});
+      hdr.appendChild(el("span",{style:{color:logColor,fontSize:"10px",fontWeight:"700",fontFamily:"monospace"}},entry.title));
+      hdr.appendChild(el("span",{style:{color:"#6B7280",fontSize:"8px",fontFamily:"monospace"}},new Date(entry.at).toLocaleString("en-AE",{hour:"2-digit",minute:"2-digit",day:"numeric",month:"short"})));
+      logCard.appendChild(hdr);
+      logCard.appendChild(el("div",{style:{color:"#8899AA",fontSize:"9px",marginTop:"2px",fontFamily:"monospace"}},entry.body.substring(0,100)));
+      card.appendChild(logCard);
+    });
+  }else{
+    card.appendChild(el("div",{style:{color:"#8899AA",fontSize:"11px",textAlign:"center",padding:"20px",fontFamily:"monospace"}},"No auto-posts yet. Schedule posts in Calendar → they auto-publish at the set time."));
+  }
+  var retryBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"#3B82F622",border:"1px solid #3B82F644",color:"#3B82F6",borderRadius:"8px",padding:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
+    retryBtn.textContent="⏳ Retrying failed posts...";
+    var cal2=JSON.parse(localStorage.getItem("dv_content_calendar")||"[]");
+    var failedPosts=cal2.filter(function(e){return e.status==="failed";});
+    for(var ri=0;ri<failedPosts.length;ri++){
+      failedPosts[ri].status="scheduled";
+    }
+    localStorage.setItem("dv_content_calendar",JSON.stringify(cal2));
+    await _checkDuePosts();
+    retryBtn.textContent="✅ Retried "+failedPosts.length+" posts";overlay.remove();showAutoPostLog();
+  }});retryBtn.textContent="🔄 Retry All Failed";card.appendChild(retryBtn);
+  card.appendChild(el("button",{style:{width:"100%",marginTop:"8px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+// --- ENGAGEMENT DASHBOARD ---
+function showEngagementDashboard(){
+  var m=document.getElementById("engagement-modal");if(m)m.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"engagement-modal"});
+  var card=div({background:"#1A1F2E",border:"1px solid #8B5CF6",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
+  card.appendChild(el("h3",{style:{color:"#8B5CF6",margin:"0 0 4px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"📈 Engagement Dashboard"));
+  card.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",marginBottom:"12px",fontFamily:"monospace"}},"Real performance data from your published posts"));
+  var tracked=JSON.parse(localStorage.getItem("dv_post_tracking")||"{}");
+  var entries=Object.keys(tracked).map(function(k){return Object.assign({calId:k},tracked[k]);}).filter(function(e){return e.results;}).sort(function(a,b){return(b.publishedAt||"")>(a.publishedAt||"")?1:-1;});
+  if(entries.length===0){
+    card.appendChild(el("div",{style:{color:"#8899AA",fontSize:"11px",textAlign:"center",padding:"30px",fontFamily:"monospace"}},"No published posts tracked yet.\nPosts from Auto-Post and manual publishing are tracked automatically."));
+  }else{
+    var totalLikes=0,totalComments=0,totalPosts=0;
+    entries.forEach(function(e){
+      if(e.results)e.results.forEach(function(r){
+        if(r.engagement){totalLikes+=r.engagement.likes||0;totalComments+=r.engagement.comments||0;totalPosts++;}
+      });
+    });
+    var statsGrid=div({display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"6px",marginBottom:"12px"});
+    [{l:"Total Likes",v:totalLikes,c:"#EF4444"},{l:"Total Comments",v:totalComments,c:"#3B82F6"},{l:"Tracked Posts",v:entries.length,c:"#10B981"}].forEach(function(s){
+      var sc=div({background:"#0D1117",borderRadius:"8px",padding:"10px",textAlign:"center"});
+      sc.appendChild(el("div",{style:{color:s.c,fontSize:"20px",fontWeight:"800",fontFamily:"monospace"}},String(s.v)));
+      sc.appendChild(el("div",{style:{color:"#8899AA",fontSize:"9px",fontFamily:"monospace"}},s.l));statsGrid.appendChild(sc);
+    });card.appendChild(statsGrid);
+    var fwStats=_getFrameworkStats();
+    var fwKeys=Object.keys(fwStats);
+    if(fwKeys.length>0){
+      card.appendChild(el("div",{style:{color:"#F43F5E",fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginBottom:"6px"}},"🧠 Framework Performance"));
+      var fwGrid=div({display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"4px",marginBottom:"12px"});
+      fwKeys.sort(function(a,b){return(fwStats[b].published||0)-(fwStats[a].published||0);}).forEach(function(k){
+        var fs=fwStats[k];
+        var fCard=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"6px",padding:"6px"});
+        fCard.appendChild(el("div",{style:{color:"#F43F5E",fontSize:"10px",fontWeight:"700",fontFamily:"monospace"}},k.toUpperCase()));
+        fCard.appendChild(el("div",{style:{color:"#8899AA",fontSize:"8px",fontFamily:"monospace"}},"Generated: "+fs.uses+" · Published: "+(fs.published||0)));
+        fwGrid.appendChild(fCard);
+      });card.appendChild(fwGrid);
+    }
+    card.appendChild(el("div",{style:{color:"#FFF",fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginBottom:"6px"}},"Recent Posts"));
+    entries.slice(0,10).forEach(function(entry){
+      var eCard=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",marginBottom:"4px"});
+      var hdr=div({display:"flex",justifyContent:"space-between",alignItems:"center"});
+      var platforms=entry.results?entry.results.map(function(r){var icons={instagram:"📸",facebook:"📘",linkedin:"💼",twitter:"𝕏"};return(icons[r.p]||"📱")+(r.ok?"✅":"❌");}).join(" "):"";
+      hdr.appendChild(el("span",{style:{fontSize:"10px",fontFamily:"monospace"}},platforms));
+      hdr.appendChild(el("span",{style:{color:"#6B7280",fontSize:"8px",fontFamily:"monospace"}},entry.publishedAt?new Date(entry.publishedAt).toLocaleDateString("en-AE"):"—"));
+      eCard.appendChild(hdr);
+      if(entry.results){
+        entry.results.forEach(function(r){
+          if(r.engagement){
+            eCard.appendChild(el("div",{style:{color:"#E0E0E0",fontSize:"9px",marginTop:"4px",fontFamily:"monospace"}},"❤️ "+r.engagement.likes+" · 💬 "+r.engagement.comments+(r.engagement.insights?" · 👁 "+_formatPostCount(r.engagement.insights.reach||0)+" reach":"")));
+          }
+        });
+      }
+      card.appendChild(eCard);
+    });
+    var refreshBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#8B5CF6,#06B6D4)",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
+      refreshBtn.textContent="⏳ Fetching engagement data from Instagram...";
+      var count=await checkAllPostEngagement();
+      refreshBtn.textContent="✅ Updated "+count+" posts";
+      setTimeout(function(){overlay.remove();showEngagementDashboard();},1500);
+    }});refreshBtn.textContent="🔄 Refresh Engagement Data";card.appendChild(refreshBtn);
+  }
+  card.appendChild(el("button",{style:{width:"100%",marginTop:"8px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
 }
 
 function showSocialSetup(){
