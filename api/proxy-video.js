@@ -114,6 +114,75 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // --- RUNWAY GEN-4 ---
+    if (engine === "runway") {
+      var rk = process.env.RUNWAY_API_KEY;
+      if (!rk) return res.status(500).json({ error: "RUNWAY_API_KEY not configured" });
+
+      if (action === "generate") {
+        var rwBody = { promptText: body.prompt, model: "gen4_turbo", duration: 5, ratio: "16:9" };
+        if (body.image_url) { rwBody.promptImage = body.image_url; }
+        var rwr = await fetch("https://api.dev.runwayml.com/v1/image_to_video", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + rk, "X-Runway-Version": "2024-11-06" },
+          body: JSON.stringify(rwBody)
+        });
+        return res.status(rwr.status).json(await rwr.json());
+      }
+      if (action === "status") {
+        var rwr2 = await fetch("https://api.dev.runwayml.com/v1/tasks/" + body.task_id, {
+          headers: { "Authorization": "Bearer " + rk, "X-Runway-Version": "2024-11-06" }
+        });
+        return res.status(rwr2.status).json(await rwr2.json());
+      }
+    }
+
+    // --- MINIMAX (HAILUO) ---
+    if (engine === "minimax") {
+      var mk = process.env.MINIMAX_API_KEY;
+      if (!mk) return res.status(500).json({ error: "MINIMAX_API_KEY not configured" });
+
+      if (action === "generate") {
+        var mmBody = { model: "T2V-01-HD", prompt: body.prompt };
+        if (body.image_url) { mmBody.model = "I2V-01-HD"; mmBody.first_frame_image = body.image_url; }
+        var mmr = await fetch("https://api.minimaxi.chat/v1/video_generation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + mk },
+          body: JSON.stringify(mmBody)
+        });
+        return res.status(mmr.status).json(await mmr.json());
+      }
+      if (action === "status") {
+        var mmr2 = await fetch("https://api.minimaxi.chat/v1/query/video_generation?task_id=" + body.task_id, {
+          headers: { "Authorization": "Bearer " + mk }
+        });
+        return res.status(mmr2.status).json(await mmr2.json());
+      }
+    }
+
+    // --- PIKA LABS ---
+    if (engine === "pika") {
+      var pk = process.env.PIKA_API_KEY;
+      if (!pk) return res.status(500).json({ error: "PIKA_API_KEY not configured" });
+
+      if (action === "generate") {
+        var pkBody = { promptText: body.prompt, style: "None", sfx: false, aspectRatio: "16:9", frameRate: 24, camera: {}, parameters: { guidanceScale: 16, motion: 2, negativePrompt: "blurry, low quality" } };
+        if (body.image_url) pkBody.image = { url: body.image_url, type: "url" };
+        var pkr = await fetch("https://api.pika.art/v1/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + pk },
+          body: JSON.stringify(pkBody)
+        });
+        return res.status(pkr.status).json(await pkr.json());
+      }
+      if (action === "status") {
+        var pkr2 = await fetch("https://api.pika.art/v1/generate/" + body.gen_id, {
+          headers: { "Authorization": "Bearer " + pk }
+        });
+        return res.status(pkr2.status).json(await pkr2.json());
+      }
+    }
+
     // --- D-ID ---
     if (engine === "did") {
       var dk = process.env.DID_API_KEY;

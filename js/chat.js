@@ -5465,6 +5465,24 @@ async function _hedraGenVideo(text,imageUrl,voiceId){
 async function _hedraCheckStatus(jobId){
   return _videoProxy({engine:"hedra",action:"status",job_id:jobId});
 }
+async function _runwayGenVideo(prompt,imageUrl){
+  return _videoProxy({engine:"runway",action:"generate",prompt:prompt,image_url:imageUrl||null});
+}
+async function _runwayCheckStatus(taskId){
+  return _videoProxy({engine:"runway",action:"status",task_id:taskId});
+}
+async function _minimaxGenVideo(prompt,imageUrl){
+  return _videoProxy({engine:"minimax",action:"generate",prompt:prompt,image_url:imageUrl||null});
+}
+async function _minimaxCheckStatus(taskId){
+  return _videoProxy({engine:"minimax",action:"status",task_id:taskId});
+}
+async function _pikaGenVideo(prompt,imageUrl){
+  return _videoProxy({engine:"pika",action:"generate",prompt:prompt,image_url:imageUrl||null});
+}
+async function _pikaCheckStatus(genId){
+  return _videoProxy({engine:"pika",action:"status",gen_id:genId});
+}
 async function _didGenTalk(sourceUrl,script,voiceId){
   return _videoProxy({engine:"did",action:"generate",source_url:sourceUrl,text:script,voice_id:voiceId});
 }
@@ -5567,11 +5585,14 @@ function showAvatarVideoGen(avatarId){
 
   card.appendChild(el("div",{style:{color:"#FFF",fontSize:"12px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"}},"Choose Video Engine"));
 
-  var selectedMethod="kling";
-  var methodGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"12px"});
+  var selectedMethod="runway";
+  var methodGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:"6px",marginBottom:"12px"});
   var methodCards=[];
   var methods=[
+    {id:"runway",icon:"🎞️",name:"Runway Gen-4",desc:"Hollywood-grade cinematic video. Best motion quality in the world.",tier:"🟢 Free trial",color:"#FF6B6B",quality:"★★★★★"},
     {id:"kling",icon:"🎬",name:"Kling AI 2.0",desc:"Cinematic video from image/text. Movie quality. 5-10s clips.",tier:"🟢 Free tier",color:"#F59E0B",quality:"★★★★★"},
+    {id:"minimax",icon:"🌊",name:"Minimax Hailuo",desc:"Ultra-realistic motion. Cinematic lighting. 6s HD clips.",tier:"🟢 Free tier",color:"#3B82F6",quality:"★★★★★"},
+    {id:"pika",icon:"⚡",name:"Pika Labs",desc:"Creative video effects. Style transfer. Fast generation.",tier:"🟢 Free tier",color:"#A855F7",quality:"★★★★☆"},
     {id:"luma",icon:"✨",name:"Luma Dream Machine",desc:"Photorealistic video generation. Smooth motion. 5s clips.",tier:"🟢 Free tier",color:"#8B5CF6",quality:"★★★★☆"},
     {id:"heygen",icon:"🧑‍💼",name:"HeyGen",desc:"Ultra-realistic talking avatar. Lip-sync. Indistinguishable from real.",tier:"🟡 $24/mo",color:"#10B981",quality:"★★★★★"},
     {id:"hedra",icon:"🌐",name:"Hedra",desc:"High-quality talking avatar from photo + text. Near HeyGen quality.",tier:"🟢 Free tier",color:"#14B8A6",quality:"★★★★☆"},
@@ -5631,7 +5652,69 @@ function showAvatarVideoGen(avatarId){
     genVideoBtn.disabled=true;resultArea.innerHTML="";
     var cleanScript=script.replace(/\[HOOK\]|\[BODY\]|\[CTA\]|\[.*?\]/g,"").trim();
 
-    if(selectedMethod==="kling"){
+    if(selectedMethod==="runway"){
+      genVideoBtn.textContent="🎞️ Runway Gen-4 — Creating Hollywood-grade video...";
+      resultArea.appendChild(el("div",{style:{color:"#FF6B6B",fontSize:"11px",fontFamily:"monospace"}},"⏳ Generating cinematic video with Runway Gen-4 Turbo..."));
+      try{
+        var rwd=await _runwayGenVideo(cleanScript,av.avatarUrl||null);
+        if(rwd.id){
+          resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace"}},"✅ Task started: "+rwd.id));
+          _videoPollStatus(async function(){
+            var st=await _runwayCheckStatus(rwd.id);
+            if(st.status==="SUCCEEDED"&&st.output&&st.output.length>0){return{done:true,url:st.output[0]};}
+            else if(st.status==="FAILED"){return{error:"Runway failed: "+(st.failure||"Unknown")};}
+            return{done:false};
+          },5000,120,resultArea,genVideoBtn);
+        }else{
+          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Runway error: "+(rwd.error||JSON.stringify(rwd))));
+          genVideoBtn.disabled=false;
+        }
+      }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
+    }
+
+    else if(selectedMethod==="minimax"){
+      genVideoBtn.textContent="🌊 Minimax Hailuo — Creating ultra-realistic video...";
+      resultArea.appendChild(el("div",{style:{color:"#3B82F6",fontSize:"11px",fontFamily:"monospace"}},"⏳ Generating HD video with Minimax Hailuo AI..."));
+      try{
+        var mmd=await _minimaxGenVideo(cleanScript,av.avatarUrl||null);
+        if(mmd.task_id){
+          resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace"}},"✅ Task started: "+mmd.task_id));
+          _videoPollStatus(async function(){
+            var st=await _minimaxCheckStatus(mmd.task_id);
+            if(st.status==="Success"&&st.file_id){
+              var vidUrl="https://api.minimaxi.chat/v1/files/retrieve?file_id="+st.file_id;
+              return{done:true,url:vidUrl};
+            }else if(st.status==="Fail"){return{error:"Minimax failed: "+(st.base_resp&&st.base_resp.status_msg||"Unknown")};}
+            return{done:false};
+          },5000,90,resultArea,genVideoBtn);
+        }else{
+          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Minimax error: "+(mmd.error||JSON.stringify(mmd))));
+          genVideoBtn.disabled=false;
+        }
+      }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
+    }
+
+    else if(selectedMethod==="pika"){
+      genVideoBtn.textContent="⚡ Pika Labs — Creating creative video...";
+      resultArea.appendChild(el("div",{style:{color:"#A855F7",fontSize:"11px",fontFamily:"monospace"}},"⏳ Generating creative video with Pika Labs..."));
+      try{
+        var pkd=await _pikaGenVideo(cleanScript,av.avatarUrl||null);
+        if(pkd.id){
+          resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace"}},"✅ Generation started: "+pkd.id));
+          _videoPollStatus(async function(){
+            var st=await _pikaCheckStatus(pkd.id);
+            if(st.status==="completed"&&st.videos&&st.videos.length>0){return{done:true,url:st.videos[0].url};}
+            else if(st.status==="failed"){return{error:"Pika failed: "+(st.error||"Unknown")};}
+            return{done:false};
+          },5000,60,resultArea,genVideoBtn);
+        }else{
+          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Pika error: "+(pkd.error||JSON.stringify(pkd))));
+          genVideoBtn.disabled=false;
+        }
+      }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
+    }
+
+    else if(selectedMethod==="kling"){
       genVideoBtn.textContent="🎬 Kling AI 2.0 — Creating cinematic video...";
       resultArea.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"11px",fontFamily:"monospace"}},"⏳ Generating movie-quality video with Kling AI 2.0 Master..."));
       try{
