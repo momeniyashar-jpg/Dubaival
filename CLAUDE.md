@@ -658,6 +658,21 @@ These files contain critical business logic and data:
 - **Agent video analysis & upload**: not built yet, deferred to future.
 - **Deploy method**: User deploys manually by copying files to dubaival folder
   and deploying via Node.js/Vercel CLI. NOT via git merge to main.
+- **🟡 Analyzer enhancements (deferred to after redesign)**:
+  1. **Price History Chart** — 1-5 year price trend graph per area/building
+     (need DLD transaction history data or Bayut historical).
+     Benchmark: Zillow, Property Finder, Bayut.
+  2. **Comparable Sales (Comps)** — Show 3-5 similar recently sold units
+     nearby with price, size, date. Benchmark: Zillow, CoreLogic.
+  3. **Walk Score / Accessibility Score** — Distance to metro, school, mall,
+     hospital, beach. Benchmark: Zillow, Redfin.
+  4. **Future Price Prediction** — 1-3 year forecast with confidence band
+     chart. Already have growth data in AREAS[].g — need visualization.
+     Benchmark: Zillow Zestimate forecast, PropTrack.
+  5. **Neighborhood Heatmap** — Mini heatmap next to result showing
+     surrounding area prices. Benchmark: Redfin, Domain.
+  6. **Nearby Amenities Score** — Schools, hospitals, parks rating.
+     Benchmark: Zillow, Redfin.
 
 ## Building research gaps (priority areas)
 
