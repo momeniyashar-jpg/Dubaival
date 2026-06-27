@@ -124,17 +124,57 @@ these functions must follow:
 ## Cross-cutting components (DO NOT lose these)
 
 These shared components appear across multiple tabs:
-- **Auth Modal** (`js/auth.js`) — Sign In/Up overlay, header auth button
-- **Notification Bell** (`js/core.js` + `js/app.js`) — Bell icon, dropdown, badges
-- **Tour System** (`js/core.js`) — Quick Tour (8 steps) + Full Tour (16 steps)
-- **Smart Bar / AI Smart Fill** (`js/core.js`) — AI form fill, example chips
+- **Auth Modal** (`js/auth.js`) — `renderAuthModal()`, `renderAuthButton()`. Sign In/Up overlay, header auth button
+- **Notification Bell** (`js/core.js` + `js/app.js`) — `renderNotifBell()`. Bell icon, dropdown, badges
+- **Tour System** (`js/core.js`) — `showTourStep()`. Quick Tour (8 steps) + Full Tour (16 steps)
+- **Smart Bar / AI Smart Fill** (`js/core.js`) — `renderSmartBar()`, `showSuggestions()`. AI form fill, example chips
 - **Voice Input** (`js/core.js`) — Microphone, speech recognition, wave animation
 - **Share Buttons** (`js/core.js`) — WhatsApp, X, LinkedIn, Telegram, Copy Link
-- **PDF Generator** (`js/market.js`) — Printable valuation report
-- **Sustainability Score** (`js/core.js`) — Badge with tier + component scores
+- **PDF Generator** (`js/market.js`) — `generatePDF()`. Printable valuation report
+- **Sustainability Score** (`js/core.js`) — `computeSustainabilityScore()`. Badge with tier + component scores
 - **Pill/Badge** (`js/core.js`) — Reusable colored badge component
 - **Language Switcher** (`js/app.js`) — EN/AR/FA
 - **Dark Mode Toggle** (`js/app.js`)
+
+## Complete render function map (all tab-level functions)
+
+| Function | File | Renders |
+|---|---|---|
+| `render()` | `js/app.js` | Main entry, header + tab routing |
+| `renderMarket()` | `js/market.js` | Live Dashboard |
+| `renderAnalyzer()` | `js/market.js` | Property Analyzer form |
+| `renderAnalyzerResult()` | `js/market.js` | Sale result page |
+| `renderRentalResult()` | `js/market.js` | Rent result page |
+| `renderCommercialResult()` | `js/market.js` | Commercial result |
+| `renderLandResult()` | `js/market.js` | Land result |
+| `renderMarketIndex()` | `js/marketindex.js` | Market Index tables |
+| `renderMap()` | `js/map.js` | Interactive Map (Leaflet) |
+| `renderMortgage()` | `js/mortgage.js` | Mortgage calculator |
+| `renderPortfolio()` | `js/portfolio.js` | Portfolio Manager |
+| `renderCompare()` | `js/portfolio.js` | Area Compare tool |
+| `renderPersonal()` | `js/portfolio.js` | Personal Advisor |
+| `renderFind()` | `js/app.js` | Smart Property Discovery |
+| `renderAlerts()` | `js/app.js` | Price Alerts |
+| `renderAdmin()` | `js/app.js` | Admin panel |
+| `renderDeals()` | `js/deals.js` | Deal Board |
+| `renderDealForm()` | `js/deals.js` | Post Deal form |
+| `renderAgentHub()` | `js/deals.js` | Agent directory |
+| `renderAdminDashboard()` | `js/deals.js` | Deal admin dashboard |
+| `renderChat()` | `js/chat.js` | AI Agents + Social Media Manager |
+| `renderSocial()` | `js/social.js` | PropTech Video Platform |
+| `renderAbout()` | `js/about.js` | About/Mission |
+| `renderWorkspace()` | `js/workspace.js` | My Workspace |
+| `renderReportBuilder()` | `js/workspace.js` | Custom Report Builder |
+
+## PropTech Video Platform internals (js/social.js)
+
+Sub-renderers inside `renderSocial()`:
+- `_renderExplore()` — Video explore feed
+- `_renderAgents()` — Agent profiles directory
+- `_renderMyProfile()` — User's own profile
+- `_renderFollowing()` — Following feed
+- `_renderVideoCard()` / `_renderVideoModal()` — Video components
+- `_renderAgentCard()` / `_renderAgentProfile()` — Agent components
 
 ## File structure reminder
 

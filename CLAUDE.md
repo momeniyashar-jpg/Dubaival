@@ -385,8 +385,11 @@ All market research and analysis tools grouped together.
 - **Live Dashboard** (default view) — 5 stat cards (Buildings, Areas, Avg PSF,
   Avg Yield, Avg Growth), PSF distribution histogram, yield vs growth scatter,
   top movers table, rental market snapshot, AI Smart Search
-- **Analyzer** (sub-tab) — Property valuation (sale + rent modes), PDF export,
-  confidence score, investment signal, comparable analysis
+- **Analyzer** (sub-tab) — `renderAnalyzer()` + `renderAnalyzerResult()` in
+  `js/market.js`. Property valuation (sale + rent modes), PDF export (`generatePDF()`),
+  confidence score, investment signal, comparable analysis.
+  Three result renderers: `renderAnalyzerResult()` (residential),
+  `renderCommercialResult()` (commercial), `renderLandResult()` (land plots)
 - **Quick Check** (sub-tab) — Rapid sale/rent valuation (area + beds only)
 - **Track Record** (sub-tab) — Estimate vs actual sale price case studies
 - **Market Index** (sub-tab) — Area rankings: Most Expensive, Highest Yield,
@@ -426,16 +429,46 @@ All agent/professional features in one place.
 - **Agent Hub** (sub-tab) — Agent directory, referral program
 - **AI Agents** (sub-tab) — 8 specialized AI agents (General, Valuation,
   Negotiation, Marketing, Investment, Legal, Lead Capture, Social Media Manager)
-- **Social Media Manager** (sub-tab) — ALL content creation tools:
-  - Post/Story/Reel/Carousel generator (Instagram, Facebook, LinkedIn, Twitter, TikTok, YouTube)
-  - AI Video Studio (8 engines: Runway, Kling, Minimax, Pika, Luma, HeyGen, Hedra, D-ID)
-  - AI Video Editor (upload → AI trim → subtitles → music → publish, max 500MB)
-  - Content Calendar (monthly view, scheduled posts)
-  - Auto-Post Engine (scheduled publishing to all platforms)
-  - Auto-Post Log (history, retry failed)
-  - Engagement Analytics dashboard
-  - Brand/Personal profile setup (agency name, logo, phone, tagline, colors)
-  - Behavioral Profiling (AI analysis of Instagram posts)
+- **Social Media Manager** (sub-tab) — ALL content creation tools in `js/chat.js`:
+  - **Content Creation Tools** (Row 1):
+    - Post/Story/Reel/Carousel generator (Instagram, Facebook, LinkedIn, Twitter, TikTok, YouTube)
+    - `showVideoGenUI()` — AI Video Studio (8 engines: Runway, Kling, Minimax, Pika, Luma, HeyGen, Hedra, D-ID)
+    - `showVideoEditor()` — AI Video Editor (upload → AI trim → subtitles → music, max 500MB)
+    - `showPostDesigner()` — Visual Post Designer (canvas-based, templates, text overlay)
+    - `showStoryTemplates()` — Story/Reel Templates
+    - `showPostPreview()` — Post Preview with smart image
+  - **AI Intelligence Tools** (Row 2):
+    - `showHookStoryOffer()` — Neuro Hook-Story-Offer framework
+    - `showMultiLanguage()` — Multi-language translator
+    - `showABTest()` — A/B Test variants
+    - `showHashtagIntelligence()` — Hashtag Intelligence
+    - `showCaptionRewriter()` — Caption Rewriter
+    - `showEmojiIntelligence()` — Emoji Intelligence
+    - `showCaptionOptimizer()` — Caption Optimizer (length, readability)
+    - `showCompetitorSpy()` — Competitor Spy
+  - **Planning Tools** (Row 3):
+    - `showContentCalendar()` — Content Calendar (monthly view)
+    - `showAddCalendarEvent()` — Schedule post to calendar
+    - `showBulkGenerator()` — Bulk 30-day content generator
+    - `showContentRecycler()` — Content Recycler (repurpose old posts)
+    - `showPillarPlanner()` — Content Pillar Planner
+    - `showBestTimeModal()` — Best Posting Time per platform
+    - `showPostAnalytics()` — Post Analytics dashboard
+    - `showLinkInBio()` — Link-in-Bio builder
+    - `showWatermarkSetup()` — Watermark/branding overlay
+  - **Config Tools** (Row 4):
+    - `showBrandingSetup()` — Brand profile (agency name, logo, phone, tagline, colors)
+    - `showSocialSetup()` — Social accounts setup (API keys, platform connections)
+    - `showAutoPostLog()` — Auto-Post Engine log (history, retry failed, sync to cloud)
+    - `showEngagementDashboard()` — Engagement Analytics dashboard
+    - Behavioral Profiling (AI analysis of Instagram posts)
+  - **Avatar Studio** (Row 5):
+    - `showAvatarStudio()` — Avatar gallery/management
+    - `showAvatarBuilder()` — Create/edit AI avatar character
+    - `showAvatarContentGen()` — Generate content as avatar
+    - `showAvatarVideoGen()` — Generate video as avatar (uses all 8 engines)
+    - `showAvatarAutoPilot()` — Avatar auto-pilot (automated content)
+    - `showAvatarBatchGen()` — Batch generate avatar content
 - **PropTech Video Platform** (sub-tab) — `js/social.js`:
   - Explore feed (agent video listings, filters by area/category)
   - Agent Profiles (directory, search, follow)
@@ -452,26 +485,33 @@ Low-frequency items in a drawer/menu.
   PDF export
 - **About** — Mission, technology, partnerships, DubAIVal Flywheel, API docs
 - **Settings** — Language (EN/AR/FA), dark mode, profile, notifications
-- **Admin** — Admin dashboard (hidden unless admin token set)
+- **Admin** — `renderAdmin()` in `js/app.js` (password protected):
+  - Market Risk Controls — Apartment/Villa adjustment sliders (-8% to +8%)
+  - Save to localStorage + Supabase `market_config`
+  - Current Effect Preview (sample property PSF impact)
+  - System Diagnostics — Error Log (No Area Match, Building Fallback, Area-Only counts)
+  - Recent error log entries (last 20)
+  - Also: `renderAdminDashboard()` in `js/deals.js` for deal/agent management
 - Priority: ★★☆☆☆
 
 #### 6. 🔧 CROSS-CUTTING COMPONENTS (shared across all sections)
 These are NOT tabs — they appear everywhere. Do NOT lose them in redesign:
-- **Auth Modal** (`js/auth.js`) — Sign In / Sign Up overlay, email+password,
-  cloud sync, header auth button with user name
-- **Notification System** (`js/core.js` + `js/app.js`) — Bell icon in header,
-  unread count badge, notification dropdown panel, mark all read
-- **Tour System** (`js/core.js`) — Quick Tour (8 steps) + Full Tour (16 steps),
-  spotlight overlay, pulsing highlight, progress bar, step counter
-- **Smart Bar / AI Smart Fill** (`js/core.js`) — AI-powered form fill component,
-  gradient border, example chips, recent history, voice input
+- **Auth Modal** (`js/auth.js`) — `renderAuthModal()`, `renderAuthButton()`.
+  Sign In / Sign Up overlay, email+password, cloud sync, header auth button
+- **Notification System** (`js/core.js` + `js/app.js`) — `renderNotifBell()`.
+  Bell icon in header, unread count badge, notification dropdown, mark all read
+- **Tour System** (`js/core.js`) — `showTourStep()`. Quick Tour (8 steps) +
+  Full Tour (16 steps), spotlight overlay, pulsing highlight, progress bar
+- **Smart Bar / AI Smart Fill** (`js/core.js`) — `renderSmartBar()`,
+  `showSuggestions()`. AI-powered form fill, gradient border, example chips,
+  recent history, voice input
 - **Voice Input** (`js/core.js`) — Microphone button, speech recognition,
   wave animation bars, "Listening..." state
 - **Share Buttons** (`js/core.js`) — WhatsApp, X/Twitter, LinkedIn, Telegram,
   Copy Link — used in analyzer result, market index, deals
-- **PDF Report Generator** (`js/market.js`) — generatePDF() exports valuation
+- **PDF Report Generator** (`js/market.js`) — `generatePDF()` exports valuation
   results to printable PDF with logo, metrics grid, price ladder, AI commentary
-- **Sustainability Score** (`js/core.js`) — computeSustainabilityScore(), badge
+- **Sustainability Score** (`js/core.js`) — `computeSustainabilityScore()`, badge
   with tier (Excellent/Good/Average/Below/Poor), component breakdown
 - **Language Switcher** (`js/app.js`) — EN/AR/FA toggle in header
 - **Dark Mode** (`js/app.js`) — Theme toggle
@@ -486,6 +526,49 @@ Some features live in unexpected files (must preserve during redesign):
 - `generatePDF()` is in **`js/market.js`** (called from analyzer result)
 - Social Media Manager tools are in **`js/chat.js`** (NOT social.js)
 - PropTech Video Platform is in **`js/social.js`** (separate from chat.js)
+
+#### 8. 📋 COMPLETE TAB-LEVEL RENDER FUNCTIONS
+Every top-level render function and its file (for routing/navigation):
+
+| Function | File | Tab/Section |
+|---|---|---|
+| `render()` | `js/app.js` | Main entry point, builds header + routes tabs |
+| `renderMarket()` | `js/market.js` | Live Dashboard |
+| `renderAnalyzer()` | `js/market.js` | Property Analyzer |
+| `renderAnalyzerResult()` | `js/market.js` | Analyzer results (sale) |
+| `renderRentalResult()` | `js/market.js` | Analyzer results (rent) |
+| `renderCommercialResult()` | `js/market.js` | Commercial result |
+| `renderLandResult()` | `js/market.js` | Land result |
+| `renderMarketIndex()` | `js/marketindex.js` | Market Index tables |
+| `renderMap()` | `js/map.js` | Interactive Map (Leaflet) |
+| `renderMortgage()` | `js/mortgage.js` | Mortgage calculator |
+| `renderMortgageStandalone()` | `js/mortgage.js` | Standalone mortgage page |
+| `renderPortfolio()` | `js/portfolio.js` | Portfolio Manager |
+| `renderCompare()` | `js/portfolio.js` | Area Compare tool |
+| `renderPersonal()` | `js/portfolio.js` | Personal Advisor |
+| `renderFind()` | `js/app.js` | Smart Property Discovery |
+| `renderAlerts()` | `js/app.js` | Price Alerts |
+| `renderAdmin()` | `js/app.js` | Admin panel |
+| `renderDeals()` | `js/deals.js` | Deal Board |
+| `renderDealForm()` | `js/deals.js` | Post Deal form |
+| `renderAgentHub()` | `js/deals.js` | Agent directory |
+| `renderAdminDashboard()` | `js/deals.js` | Deal admin dashboard |
+| `renderChat()` | `js/chat.js` | AI Agents + Social Media Manager |
+| `renderSocial()` | `js/social.js` | PropTech Video Platform |
+| `renderAbout()` | `js/about.js` | About/Mission |
+| `renderWorkspace()` | `js/workspace.js` | My Workspace |
+| `renderReportBuilder()` | `js/workspace.js` | Custom Report Builder |
+
+#### 9. 📋 SOCIAL.JS INTERNAL FUNCTIONS (PropTech Video Platform)
+These are internal sub-renderers inside `renderSocial()`:
+- `_renderExplore()` — Video explore feed
+- `_renderAgents()` — Agent profiles directory
+- `_renderMyProfile()` — User's own profile
+- `_renderFollowing()` — Following feed (areas + agents)
+- `_renderVideoCard()` — Individual video card component
+- `_renderVideoModal()` — Video playback modal
+- `_renderAgentCard()` — Agent profile card
+- `_renderAgentProfile()` — Full agent profile page
 
 ### Navigation style
 - **Desktop**: Left sidebar with 5 icons + labels, collapsible
