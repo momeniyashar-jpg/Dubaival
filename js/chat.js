@@ -820,14 +820,69 @@ function buildPublishBar(postData,msgText,cl){
     waLabel.textContent="📲 WhatsApp";
     waRow.appendChild(waLabel);
 
-    waRow.appendChild(makeBtn("Share Text","#25D366",function(){
+    waRow.appendChild(makeBtn("Text","#25D366",function(){
       shareToWhatsApp(caption);this.textContent="✅ Opened";successBtn(this);
     }));
 
-    waRow.appendChild(makeBtn("Share + Image","#128C7E",async function(){
-      var img=await findSmartImage(caption);
-      shareToWhatsApp(caption+"\n\n"+img);
-      this.textContent="✅ Opened";successBtn(this);
+    waRow.appendChild(makeBtn("Photo","#128C7E",async function(){
+      this.textContent="⏳ Finding image...";
+      var imgUrl=await findSmartImage(caption);
+      try{
+        var resp=await fetch(imgUrl);var blob=await resp.blob();
+        var file=new File([blob],"dubaival-post.jpg",{type:blob.type||"image/jpeg"});
+        if(navigator.canShare&&navigator.canShare({files:[file]})){
+          await navigator.share({text:caption,files:[file]});
+          this.textContent="✅ Shared";successBtn(this);
+        }else{
+          shareToWhatsApp(caption+"\n\n"+imgUrl);
+          this.textContent="✅ Opened";successBtn(this);
+        }
+      }catch(e){
+        shareToWhatsApp(caption+"\n\n"+imgUrl);
+        this.textContent="✅ Opened";successBtn(this);
+      }
+    }));
+
+    waRow.appendChild(makeBtn("Video","#075E54",async function(){
+      var vUrl=videoUrlInput.value.trim();
+      if(!vUrl){videoUrlInput.style.display="block";videoUrlInput.focus();alert("Paste a video URL first");return;}
+      try{
+        var resp=await fetch(vUrl);var blob=await resp.blob();
+        var file=new File([blob],"dubaival-video.mp4",{type:"video/mp4"});
+        if(navigator.canShare&&navigator.canShare({files:[file]})){
+          await navigator.share({text:caption,files:[file]});
+          this.textContent="✅ Shared";successBtn(this);
+        }else{
+          shareToWhatsApp(caption+"\n\n"+vUrl);
+          this.textContent="✅ Opened";successBtn(this);
+        }
+      }catch(e){
+        shareToWhatsApp(caption+"\n\n"+vUrl);
+        this.textContent="✅ Opened";successBtn(this);
+      }
+    }));
+
+    waRow.appendChild(makeBtn("Multi Photo","#25D366",async function(){
+      this.textContent="⏳ Finding images...";
+      var imgs=await findMultipleImages(caption,imgCount);
+      showPreviews(imgs);
+      try{
+        var files=[];
+        for(var mi=0;mi<imgs.length;mi++){
+          var resp=await fetch(imgs[mi]);var blob=await resp.blob();
+          files.push(new File([blob],"dubaival-"+(mi+1)+".jpg",{type:blob.type||"image/jpeg"}));
+        }
+        if(navigator.canShare&&navigator.canShare({files:files})){
+          await navigator.share({text:caption,files:files});
+          this.textContent="✅ Shared";successBtn(this);
+        }else{
+          shareToWhatsApp(caption+"\n\n"+imgs.join("\n"));
+          this.textContent="✅ Opened";successBtn(this);
+        }
+      }catch(e){
+        shareToWhatsApp(caption);
+        this.textContent="✅ Opened";successBtn(this);
+      }
     }));
 
     bar.appendChild(waRow);
