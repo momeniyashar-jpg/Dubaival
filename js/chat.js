@@ -182,10 +182,352 @@ var AI_AGENTS=[
         "- If user writes in Farsi/Arabic, create content in that language\n"+
         "- Make every post look like it was created by a marketing expert\n"+
         "- Add call-to-action: DM, link, or contact\n"+
-        "- Suggest best posting time for Dubai audience (10AM, 1PM, 7PM GST)";
+        "- Suggest best posting time for Dubai audience (10AM, 1PM, 7PM GST)"+
+        getBrandPrompt();
     }
   }
 ];
+
+// --- PERSONAL BRANDING -------------------------------------------------------
+function getBrandProfile(){
+  try{var d=localStorage.getItem("dv_brand_profile");return d?JSON.parse(d):null;}catch(e){return null;}
+}
+function saveBrandProfile(p){
+  localStorage.setItem("dv_brand_profile",JSON.stringify(p));
+}
+function getBrandPrompt(){
+  var p=getBrandProfile();
+  if(!p)return"";
+  var parts=["\n\n--- PERSONAL BRAND PROFILE (ALWAYS apply this to EVERY post) ---"];
+  if(p.name)parts.push("Agent Name: "+p.name);
+  if(p.agency)parts.push("Agency/Company: "+p.agency);
+  if(p.reraId)parts.push("RERA BRN: "+p.reraId);
+  if(p.phone)parts.push("Phone/WhatsApp: "+p.phone);
+  if(p.email)parts.push("Email: "+p.email);
+  if(p.website)parts.push("Website: "+p.website);
+  if(p.igHandle)parts.push("Instagram: @"+p.igHandle.replace(/^@/,""));
+  if(p.tone)parts.push("Tone of Voice: "+p.tone);
+  if(p.language)parts.push("Default Language: "+p.language);
+  if(p.targetAudience)parts.push("Target Audience: "+p.targetAudience);
+  if(p.specialties)parts.push("Specialty Areas: "+p.specialties);
+  if(p.bio)parts.push("Agent Bio/Tagline: "+p.bio);
+  if(p.signature)parts.push("Signature/Closing Line: "+p.signature);
+  if(p.hashtags)parts.push("Brand Hashtags (always include): "+p.hashtags);
+  if(p.ctaStyle)parts.push("CTA Style: "+p.ctaStyle);
+  parts.push("\nBRANDING RULES:");
+  parts.push("- ALWAYS sign posts with the agent's name and contact info");
+  parts.push("- ALWAYS use the specified tone of voice consistently");
+  parts.push("- ALWAYS include brand hashtags in addition to topic hashtags");
+  parts.push("- If a signature line is set, ALWAYS end posts with it");
+  parts.push("- If Instagram handle is set, mention it instead of @dubaiaivaluation");
+  parts.push("- Match the target audience's interests and language level");
+  parts.push("- Reflect the agent's specialty areas when relevant");
+  parts.push("--- END BRAND PROFILE ---");
+  return parts.join("\n");
+}
+
+function showBrandingSetup(){
+  var existing=document.getElementById("branding-setup-modal");
+  if(existing)existing.remove();
+  var profile=getBrandProfile()||{};
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.75)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"20px 0"},id:"branding-setup-modal"});
+  var card=div({background:"#1A1F2E",border:"1px solid #F97316",borderRadius:"16px",padding:"24px",width:"420px",maxWidth:"92vw",maxHeight:"85vh",overflowY:"auto"});
+  var title=el("h3",{style:{color:"#F97316",margin:"0 0 4px",fontSize:"16px",fontFamily:"'Space Grotesk',monospace"}});
+  title.textContent="🎨 Personal Brand Profile";
+  card.appendChild(title);
+  var subtitle=el("p",{style:{color:"#8899AA",fontSize:"11px",margin:"0 0 16px",fontFamily:"'Inter',sans-serif"}});
+  subtitle.textContent="AI will customize every post to match YOUR brand personality";
+  card.appendChild(subtitle);
+
+  var aiAutoBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#8B5CF6,#A78BFA)",color:"#FFF",border:"none",borderRadius:"10px",padding:"12px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"16px",display:"flex",alignItems:"center",justifyContent:"center",gap:"6px"},onclick:function(){overlay.remove();runBehavioralProfiling();}});
+  aiAutoBtn.textContent="🧠 AI Auto-Fill from Instagram — Analyze my posts & build profile";
+  card.appendChild(aiAutoBtn);
+
+  var sections=[
+    {header:"👤 Identity",fields:[
+      {key:"name",label:"Your Name",ph:"e.g. Sarah Al-Maktoum",type:"text"},
+      {key:"agency",label:"Agency / Company",ph:"e.g. Luxury Living Dubai",type:"text"},
+      {key:"reraId",label:"RERA BRN (optional)",ph:"e.g. 12345",type:"text"}
+    ]},
+    {header:"📱 Contact Info (shown in posts)",fields:[
+      {key:"phone",label:"Phone / WhatsApp",ph:"+971 50 xxx xxxx",type:"text"},
+      {key:"email",label:"Email",ph:"you@agency.com",type:"text"},
+      {key:"website",label:"Website",ph:"www.youragency.com",type:"text"},
+      {key:"igHandle",label:"Instagram Handle",ph:"@yourbrand",type:"text"}
+    ]},
+    {header:"🎭 Brand Personality",fields:[
+      {key:"tone",label:"Tone of Voice",ph:"",type:"select",options:["Professional & Authoritative","Friendly & Approachable","Luxury & Exclusive","Data-Driven & Analytical","Casual & Relatable","Bold & Confident","Warm & Trustworthy","Elegant & Sophisticated"]},
+      {key:"language",label:"Default Content Language",ph:"",type:"select",options:["English","فارسی (Farsi)","العربية (Arabic)","English + Arabic Mix","English + Farsi Mix","Multilingual"]},
+      {key:"targetAudience",label:"Target Audience",ph:"",type:"select",options:["International Investors","UAE Residents Upgrading","First-Time Buyers","High Net Worth Individuals","Expat Families","Golden Visa Seekers","Rental Investors","Luxury Buyers"]},
+      {key:"specialties",label:"Specialty Areas (comma separated)",ph:"e.g. Palm Jumeirah, Downtown, Off-plan",type:"text"}
+    ]},
+    {header:"✍️ Content Style",fields:[
+      {key:"bio",label:"Your Tagline / Bio",ph:"e.g. Dubai's #1 Investment Advisor | 10+ Years Experience",type:"textarea"},
+      {key:"signature",label:"Signature Closing Line",ph:"e.g. 📞 Call me for exclusive deals | +971 50 xxx xxxx",type:"textarea"},
+      {key:"hashtags",label:"Brand Hashtags (always included)",ph:"e.g. #YourBrand #DubaiLuxury #YourAgency",type:"text"},
+      {key:"ctaStyle",label:"Preferred Call-to-Action",ph:"",type:"select",options:["DM me for details 📩","Call/WhatsApp for private viewing 📞","Link in bio for more 🔗","Comment 'INFO' for exclusive access 💬","Book a free consultation today 📅","Reply to this post for pricing 💰"]}
+    ]}
+  ];
+
+  var inputs={};
+  sections.forEach(function(sec){
+    var secHeader=el("div",{style:{color:"#C9A84C",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",margin:"16px 0 8px",padding:"4px 0",borderBottom:"1px solid #2A3040"}});
+    secHeader.textContent=sec.header;
+    card.appendChild(secHeader);
+    sec.fields.forEach(function(f){
+      var lbl=el("label",{style:{color:"#8899AA",fontSize:"11px",display:"block",marginBottom:"3px",fontFamily:"'Space Grotesk',monospace"}});
+      lbl.textContent=f.label;
+      card.appendChild(lbl);
+      var inp;
+      if(f.type==="select"){
+        inp=el("select",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px 10px",color:"#E0E0E0",fontSize:"12px",marginBottom:"10px",fontFamily:"monospace",boxSizing:"border-box",appearance:"auto"}});
+        var defOpt=el("option");defOpt.value="";defOpt.textContent="— Select —";inp.appendChild(defOpt);
+        f.options.forEach(function(o){
+          var opt=el("option");opt.value=o;opt.textContent=o;
+          if(profile[f.key]===o)opt.selected=true;
+          inp.appendChild(opt);
+        });
+      }else if(f.type==="textarea"){
+        inp=el("textarea",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px 10px",color:"#E0E0E0",fontSize:"12px",marginBottom:"10px",fontFamily:"monospace",boxSizing:"border-box",resize:"vertical",minHeight:"48px"},placeholder:f.ph});
+        inp.value=profile[f.key]||"";
+      }else{
+        inp=el("input",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px 10px",color:"#E0E0E0",fontSize:"12px",marginBottom:"10px",fontFamily:"monospace",boxSizing:"border-box"},placeholder:f.ph,value:profile[f.key]||""});
+      }
+      card.appendChild(inp);
+      inputs[f.key]=inp;
+    });
+  });
+
+  var previewSection=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"10px",padding:"12px",margin:"16px 0 8px"});
+  var previewTitle=el("div",{style:{color:"#F97316",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"}});
+  previewTitle.textContent="📋 Profile Preview";
+  previewSection.appendChild(previewTitle);
+  var previewText=el("div",{style:{color:"#8899AA",fontSize:"11px",fontFamily:"monospace",lineHeight:"1.6",whiteSpace:"pre-wrap"},id:"brand-preview-text"});
+  previewText.textContent="Fill in fields above to see your brand profile...";
+  previewSection.appendChild(previewText);
+  card.appendChild(previewSection);
+
+  function updatePreview(){
+    var lines=[];
+    var n=inputs.name?inputs.name.value.trim():"";
+    var ag=inputs.agency?inputs.agency.value.trim():"";
+    if(n)lines.push("👤 "+n+(ag?" | "+ag:""));
+    var tone=inputs.tone?inputs.tone.value:"";
+    if(tone)lines.push("🎭 "+tone);
+    var lang=inputs.language?inputs.language.value:"";
+    if(lang)lines.push("🌐 "+lang);
+    var ta=inputs.targetAudience?inputs.targetAudience.value:"";
+    if(ta)lines.push("🎯 "+ta);
+    var sig=inputs.signature?inputs.signature.value.trim():"";
+    if(sig)lines.push("✍️ "+sig);
+    var ht=inputs.hashtags?inputs.hashtags.value.trim():"";
+    if(ht)lines.push("# "+ht);
+    previewText.textContent=lines.length?lines.join("\n"):"Fill in fields above...";
+  }
+  Object.keys(inputs).forEach(function(k){
+    inputs[k].addEventListener("input",updatePreview);
+    inputs[k].addEventListener("change",updatePreview);
+  });
+  updatePreview();
+
+  var btnRow=div({display:"flex",gap:"8px",marginTop:"12px"});
+  var saveBtn=el("button",{style:{flex:1,background:"linear-gradient(135deg,#F97316,#FB923C)",color:"#000",border:"none",borderRadius:"10px",padding:"12px",fontSize:"13px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){
+    var p={};
+    Object.keys(inputs).forEach(function(k){
+      var v=inputs[k].value?inputs[k].value.trim():"";
+      if(v)p[k]=v;
+    });
+    saveBrandProfile(p);
+    overlay.remove();
+    if(Object.keys(p).length>0){
+      var toast=div({position:"fixed",bottom:"80px",left:"50%",transform:"translateX(-50%)",background:"#F97316",color:"#000",padding:"10px 20px",borderRadius:"10px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",zIndex:10000,boxShadow:"0 4px 20px rgba(249,115,22,0.4)"});
+      toast.textContent="✅ Brand profile saved — AI will personalize all posts!";
+      document.body.appendChild(toast);
+      setTimeout(function(){toast.remove();},3000);
+    }
+  }});
+  saveBtn.textContent="💾 Save Brand Profile";
+  var clearBtn=el("button",{style:{background:"#EF4444",color:"#FFF",border:"none",borderRadius:"10px",padding:"12px 16px",fontSize:"12px",fontWeight:"600",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){
+    if(confirm("Clear your brand profile?")){
+      localStorage.removeItem("dv_brand_profile");
+      overlay.remove();
+    }
+  }});
+  clearBtn.textContent="🗑️";
+  var cancelBtn=el("button",{style:{background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"10px",padding:"12px 16px",fontSize:"12px",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){overlay.remove();}});
+  cancelBtn.textContent="Cancel";
+  btnRow.appendChild(saveBtn);btnRow.appendChild(clearBtn);btnRow.appendChild(cancelBtn);
+  card.appendChild(btnRow);
+  overlay.appendChild(card);
+  overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+// --- BEHAVIORAL PROFILING (AI Auto-Persona) ----------------------------------
+async function fetchIGPosts(){
+  var token=localStorage.getItem("dv_ig_token");
+  var igId=localStorage.getItem("dv_ig_id");
+  if(!token||!igId)return null;
+  try{
+    var r=await fetch("https://graph.facebook.com/v25.0/"+igId+"/media?fields=caption,timestamp,like_count,comments_count,media_type&limit=25&access_token="+token);
+    if(!r.ok)return null;
+    var d=await r.json();
+    return d.data||[];
+  }catch(e){return null;}
+}
+
+async function fetchIGProfile(){
+  var token=localStorage.getItem("dv_ig_token");
+  var igId=localStorage.getItem("dv_ig_id");
+  if(!token||!igId)return null;
+  try{
+    var r=await fetch("https://graph.facebook.com/v25.0/"+igId+"?fields=name,username,biography,followers_count,follows_count,media_count&access_token="+token);
+    if(!r.ok)return null;
+    return await r.json();
+  }catch(e){return null;}
+}
+
+async function analyzeWithGemini(profileData,posts){
+  var geminiKey=localStorage.getItem("dv_gemini_key");
+  if(!geminiKey)return null;
+  var postSummary=posts.slice(0,20).map(function(p,i){
+    return(i+1)+". "+(p.caption||"(no caption)").substring(0,200)+" [Likes:"+((p.like_count)||0)+", Comments:"+((p.comments_count)||0)+", Type:"+(p.media_type||"IMAGE")+"]";
+  }).join("\n");
+  var prompt="You are a social media behavioral analyst. Analyze this Instagram account and create a detailed persona profile.\n\n"+
+    "ACCOUNT INFO:\n"+
+    "Name: "+(profileData.name||"Unknown")+"\n"+
+    "Username: @"+(profileData.username||"unknown")+"\n"+
+    "Bio: "+(profileData.biography||"None")+"\n"+
+    "Followers: "+(profileData.followers_count||0)+"\n"+
+    "Following: "+(profileData.follows_count||0)+"\n"+
+    "Total Posts: "+(profileData.media_count||0)+"\n\n"+
+    "RECENT POSTS (last 20):\n"+postSummary+"\n\n"+
+    "Based on the captions, engagement patterns, content type, and overall presence, provide a JSON response with EXACTLY this format:\n"+
+    "```json\n{\n"+
+    "  \"tone\": \"one of: Professional & Authoritative, Friendly & Approachable, Luxury & Exclusive, Data-Driven & Analytical, Casual & Relatable, Bold & Confident, Warm & Trustworthy, Elegant & Sophisticated\",\n"+
+    "  \"language\": \"primary content language detected\",\n"+
+    "  \"targetAudience\": \"one of: International Investors, UAE Residents Upgrading, First-Time Buyers, High Net Worth Individuals, Expat Families, Golden Visa Seekers, Rental Investors, Luxury Buyers\",\n"+
+    "  \"specialties\": \"detected specialty areas/topics (comma separated)\",\n"+
+    "  \"bio\": \"suggested professional tagline based on their posting style\",\n"+
+    "  \"signature\": \"suggested signature closing line for posts\",\n"+
+    "  \"hashtags\": \"top 5 brand-relevant hashtags they use or should use\",\n"+
+    "  \"ctaStyle\": \"one of: DM me for details 📩, Call/WhatsApp for private viewing 📞, Link in bio for more 🔗, Comment 'INFO' for exclusive access 💬, Book a free consultation today 📅, Reply to this post for pricing 💰\",\n"+
+    "  \"contentStyle\": \"brief description of their content personality\",\n"+
+    "  \"postingFrequency\": \"how often they post\",\n"+
+    "  \"strongTopics\": \"their strongest content themes\",\n"+
+    "  \"engagementLevel\": \"low/medium/high based on likes/comments ratio\",\n"+
+    "  \"audienceType\": \"who seems to follow them\"\n"+
+    "}\n```\n"+
+    "Be specific and derive insights ONLY from the actual data provided. Do not fabricate.";
+
+  try{
+    var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.3}})
+    });
+    if(!r.ok)return null;
+    var d=await r.json();
+    var text=d.candidates&&d.candidates[0]&&d.candidates[0].content&&d.candidates[0].content.parts&&d.candidates[0].content.parts[0]&&d.candidates[0].content.parts[0].text;
+    if(!text)return null;
+    var jsonMatch=text.match(/```json\s*([\s\S]*?)\s*```/);
+    if(jsonMatch)return JSON.parse(jsonMatch[1]);
+    var braceMatch=text.match(/\{[\s\S]*\}/);
+    if(braceMatch)return JSON.parse(braceMatch[0]);
+    return null;
+  }catch(e){return null;}
+}
+
+async function runBehavioralProfiling(){
+  var token=localStorage.getItem("dv_ig_token");
+  var igId=localStorage.getItem("dv_ig_id");
+  var geminiKey=localStorage.getItem("dv_gemini_key");
+  if(!token||!igId){alert("⚙️ First connect your Instagram in Social Setup");return;}
+  if(!geminiKey){alert("⚙️ First add your Gemini API key in Social Setup");return;}
+
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.8)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center"},id:"profiling-modal"});
+  var card=div({background:"#1A1F2E",border:"1px solid #8B5CF6",borderRadius:"16px",padding:"32px",width:"400px",maxWidth:"90vw",textAlign:"center"});
+  var spinner=div({fontSize:"40px",marginBottom:"12px"});
+  spinner.textContent="🧠";
+  spinner.style.animation="bounce 1s infinite";
+  card.appendChild(spinner);
+  var statusText=el("div",{style:{color:"#8B5CF6",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"}});
+  statusText.textContent="Analyzing Your Instagram...";
+  card.appendChild(statusText);
+  var detailText=el("div",{style:{color:"#8899AA",fontSize:"11px",fontFamily:"'Inter',sans-serif"}});
+  detailText.textContent="Reading your posts, engagement & content style";
+  card.appendChild(detailText);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+
+  try{
+    statusText.textContent="📡 Fetching your profile...";
+    var profile=await fetchIGProfile();
+    if(!profile){statusText.textContent="❌ Could not fetch profile";detailText.textContent="Check your Page Access Token";setTimeout(function(){overlay.remove();},3000);return;}
+
+    statusText.textContent="📑 Reading your posts...";
+    detailText.textContent="Analyzing captions, engagement & media types";
+    var posts=await fetchIGPosts();
+    if(!posts||posts.length===0){statusText.textContent="❌ No posts found";detailText.textContent="Your account needs at least a few posts for analysis";setTimeout(function(){overlay.remove();},3000);return;}
+
+    statusText.textContent="🤖 AI analyzing your persona...";
+    detailText.textContent="Gemini is building your behavioral profile from "+posts.length+" posts";
+    var analysis=await analyzeWithGemini(profile,posts);
+    if(!analysis){statusText.textContent="❌ AI analysis failed";detailText.textContent="Try again or check Gemini API key";setTimeout(function(){overlay.remove();},3000);return;}
+
+    var existing=getBrandProfile()||{};
+    if(profile.name&&!existing.name)existing.name=profile.name;
+    if(profile.username)existing.igHandle=profile.username;
+    if(analysis.tone)existing.tone=analysis.tone;
+    if(analysis.language)existing.language=analysis.language;
+    if(analysis.targetAudience)existing.targetAudience=analysis.targetAudience;
+    if(analysis.specialties)existing.specialties=analysis.specialties;
+    if(analysis.bio&&!existing.bio)existing.bio=analysis.bio;
+    if(analysis.signature&&!existing.signature)existing.signature=analysis.signature;
+    if(analysis.hashtags)existing.hashtags=analysis.hashtags;
+    if(analysis.ctaStyle)existing.ctaStyle=analysis.ctaStyle;
+    saveBrandProfile(existing);
+
+    card.innerHTML="";
+    var successIcon=div({fontSize:"40px",marginBottom:"8px"});
+    successIcon.textContent="✅";
+    card.appendChild(successIcon);
+    var successTitle=el("div",{style:{color:"#10B981",fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"}});
+    successTitle.textContent="Profile Built!";
+    card.appendChild(successTitle);
+
+    var resultBox=div({background:"#0D1117",borderRadius:"10px",padding:"14px",textAlign:"left",marginBottom:"14px"});
+    var fields=[
+      ["👤 Account","@"+(profile.username||"")+" ("+((profile.followers_count)||0)+" followers)"],
+      ["📊 Posts Analyzed",""+posts.length],
+      ["🎭 Tone",analysis.tone||"—"],
+      ["🌐 Language",analysis.language||"—"],
+      ["🎯 Audience",analysis.targetAudience||"—"],
+      ["📌 Topics",analysis.strongTopics||analysis.specialties||"—"],
+      ["💡 Content Style",analysis.contentStyle||"—"],
+      ["📈 Engagement",analysis.engagementLevel||"—"],
+      ["⏰ Frequency",analysis.postingFrequency||"—"]
+    ];
+    fields.forEach(function(f){
+      var row=div({display:"flex",gap:"8px",marginBottom:"6px",fontSize:"11px",fontFamily:"'Inter',sans-serif"});
+      row.appendChild(el("span",{style:{color:"#8B5CF6",fontWeight:"600",minWidth:"110px",flexShrink:"0"}},f[0]));
+      row.appendChild(el("span",{style:{color:"#E0E0E0"}},f[1]));
+      resultBox.appendChild(row);
+    });
+    card.appendChild(resultBox);
+
+    var editBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#F97316,#FB923C)",color:"#000",border:"none",borderRadius:"10px",padding:"12px",fontSize:"13px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},onclick:function(){overlay.remove();showBrandingSetup();}});
+    editBtn.textContent="🎨 Review & Edit Profile";
+    card.appendChild(editBtn);
+
+    var closeBtn=el("button",{style:{width:"100%",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"10px",padding:"10px",fontSize:"12px",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){overlay.remove();render(true);}});
+    closeBtn.textContent="Done";
+    card.appendChild(closeBtn);
+  }catch(e){
+    statusText.textContent="❌ Error: "+e.message;
+    setTimeout(function(){overlay.remove();},4000);
+  }
+}
 
 // --- SOCIAL MEDIA PUBLISHER --------------------------------------------------
 var SOCIAL_STATE={publishing:false,lastResult:null};
@@ -197,6 +539,334 @@ function getSocialCreds(){
   var fb=localStorage.getItem("dv_fb_id");
   if(!t||!ig)return null;
   return{token:t,igId:ig,fbId:fb||"",pexels:localStorage.getItem("dv_pexels_key")||""};
+}
+
+// --- AI VIDEO EDITOR ---------------------------------------------------------
+var VIDEO_EDITOR_STATE={file:null,url:null,duration:0,trimStart:0,trimEnd:30,subtitles:[],caption:"",processing:false};
+
+function showVideoEditor(){
+  var existing=document.getElementById("video-editor-modal");
+  if(existing)existing.remove();
+  VIDEO_EDITOR_STATE={file:null,url:null,duration:0,trimStart:0,trimEnd:30,subtitles:[],caption:"",processing:false};
+
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.85)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"video-editor-modal"});
+  var card=div({background:"#1A1F2E",border:"1px solid #EC4899",borderRadius:"16px",padding:"20px",width:"480px",maxWidth:"95vw",maxHeight:"90vh",overflowY:"auto"});
+
+  var title=el("h3",{style:{color:"#EC4899",margin:"0 0 4px",fontSize:"16px",fontFamily:"'Space Grotesk',monospace"}});
+  title.textContent="🎬 AI Video Editor";
+  card.appendChild(title);
+  var subtitle=el("p",{style:{color:"#8899AA",fontSize:"11px",margin:"0 0 14px",fontFamily:"'Inter',sans-serif"}});
+  subtitle.textContent="Upload → AI trim → subtitles → music → publish";
+  card.appendChild(subtitle);
+
+  // Step 1: Upload
+  var uploadZone=div({background:"#0D1117",border:"2px dashed #EC4899",borderRadius:"12px",padding:"30px",textAlign:"center",cursor:"pointer",transition:"all 0.2s"});
+  uploadZone.innerHTML="<div style='font-size:32px;margin-bottom:8px'>📹</div><div style='color:#EC4899;font-size:13px;font-weight:700;font-family:Space Grotesk,monospace'>Drop video or click to upload</div><div style='color:#8899AA;font-size:10px;margin-top:4px'>MP4, MOV, WebM — Max 100MB</div>";
+  var fileInput=el("input",{type:"file",accept:"video/*",style:{display:"none"}});
+  uploadZone.onclick=function(){fileInput.click();};
+  card.appendChild(uploadZone);
+  card.appendChild(fileInput);
+
+  // Preview + Controls container
+  var editorUI=div({display:"none",marginTop:"14px"});
+
+  // Video Preview
+  var videoWrap=div({position:"relative",borderRadius:"10px",overflow:"hidden",background:"#000",marginBottom:"12px"});
+  var video=el("video",{style:{width:"100%",maxHeight:"260px",display:"block",borderRadius:"10px"},controls:true,playsInline:true});
+  videoWrap.appendChild(video);
+  editorUI.appendChild(videoWrap);
+
+  // Trim Controls
+  var trimSection=div({background:"#0D1117",borderRadius:"10px",padding:"12px",marginBottom:"10px"});
+  trimSection.appendChild(el("div",{style:{color:"#EC4899",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"}},"✂️ Trim"));
+  var trimRow=div({display:"flex",gap:"10px",alignItems:"center"});
+
+  var startLabel=el("span",{style:{color:"#8899AA",fontSize:"10px",fontFamily:"monospace",minWidth:"36px"}},"Start:");
+  var startInp=el("input",{type:"number",min:0,step:0.5,value:0,style:{width:"60px",background:"#1A1F2E",border:"1px solid #2A3040",borderRadius:"6px",padding:"4px 6px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",textAlign:"center"}});
+  var endLabel=el("span",{style:{color:"#8899AA",fontSize:"10px",fontFamily:"monospace",minWidth:"36px"}},"End:");
+  var endInp=el("input",{type:"number",min:1,step:0.5,value:30,style:{width:"60px",background:"#1A1F2E",border:"1px solid #2A3040",borderRadius:"6px",padding:"4px 6px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",textAlign:"center"}});
+  var durLabel=el("span",{style:{color:"#C9A84C",fontSize:"10px",fontFamily:"monospace"}});
+  durLabel.textContent="Duration: 30.0s";
+
+  trimRow.appendChild(startLabel);trimRow.appendChild(startInp);
+  trimRow.appendChild(endLabel);trimRow.appendChild(endInp);
+  trimRow.appendChild(durLabel);
+  trimSection.appendChild(trimRow);
+
+  var trimSlider=el("input",{type:"range",min:0,max:100,value:0,style:{width:"100%",marginTop:"8px",accentColor:"#EC4899"}});
+  trimSection.appendChild(trimSlider);
+  editorUI.appendChild(trimSection);
+
+  function updateDur(){
+    var s=parseFloat(startInp.value)||0;
+    var e=parseFloat(endInp.value)||30;
+    durLabel.textContent="Duration: "+(e-s).toFixed(1)+"s";
+    VIDEO_EDITOR_STATE.trimStart=s;
+    VIDEO_EDITOR_STATE.trimEnd=e;
+  }
+  startInp.oninput=updateDur;endInp.oninput=updateDur;
+  trimSlider.oninput=function(){
+    var pct=parseFloat(trimSlider.value)/100;
+    var dur=VIDEO_EDITOR_STATE.duration;
+    startInp.value=(pct*Math.max(0,dur-30)).toFixed(1);
+    endInp.value=(parseFloat(startInp.value)+Math.min(30,dur)).toFixed(1);
+    updateDur();
+    video.currentTime=parseFloat(startInp.value);
+  };
+
+  // AI Auto-Trim button
+  var aiTrimBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#8B5CF6,#A78BFA)",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},onclick:async function(){
+    var geminiKey=localStorage.getItem("dv_gemini_key");
+    if(!geminiKey){alert("Add Gemini API key in Setup first");return;}
+    aiTrimBtn.textContent="🤖 Analyzing video...";aiTrimBtn.disabled=true;
+    try{
+      var dur=VIDEO_EDITOR_STATE.duration;
+      var canvas=document.createElement("canvas");
+      var ctx=canvas.getContext("2d");
+      canvas.width=320;canvas.height=180;
+      var frames=[];
+      var frameCount=Math.min(8,Math.floor(dur));
+      for(var i=0;i<frameCount;i++){
+        var t=dur*(i/(frameCount-1||1));
+        video.currentTime=t;
+        await new Promise(function(r){video.onseeked=r;});
+        ctx.drawImage(video,0,0,320,180);
+        frames.push({time:t.toFixed(1),dataUrl:canvas.toDataURL("image/jpeg",0.5)});
+      }
+      var parts=frames.map(function(f){
+        return{inlineData:{mimeType:"image/jpeg",data:f.dataUrl.split(",")[1]}};
+      });
+      parts.push({text:"These are "+frameCount+" frames from a real estate property video (each labeled with timestamp). The video is "+dur.toFixed(1)+"s long. I want to trim it to max 30 seconds for an Instagram Reel/Story. Analyze the frames and tell me:\n1. The best start and end timestamps for a compelling 15-30 second clip\n2. Which frames show the best content (interiors, views, amenities)\n3. A short engaging caption for the reel\n\nRespond in JSON:\n```json\n{\"trimStart\":0,\"trimEnd\":30,\"caption\":\"...\",\"reason\":\"...\"}\n```"});
+      var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({contents:[{parts:parts}],generationConfig:{temperature:0.3}})
+      });
+      if(r.ok){
+        var d=await r.json();
+        var txt=d.candidates&&d.candidates[0]&&d.candidates[0].content.parts[0].text;
+        var jm=txt.match(/```json\s*([\s\S]*?)\s*```/);
+        var obj=jm?JSON.parse(jm[1]):JSON.parse(txt.match(/\{[\s\S]*\}/)[0]);
+        startInp.value=obj.trimStart||0;
+        endInp.value=Math.min(obj.trimEnd||30,dur);
+        updateDur();
+        if(obj.caption)captionInp.value=obj.caption;
+        VIDEO_EDITOR_STATE.caption=obj.caption||"";
+        video.currentTime=parseFloat(startInp.value);
+        aiTrimBtn.textContent="✅ AI suggested: "+obj.reason;
+      }else{aiTrimBtn.textContent="❌ AI failed — try manual trim";}
+    }catch(e){aiTrimBtn.textContent="❌ Error: "+e.message;}
+    setTimeout(function(){aiTrimBtn.textContent="🤖 AI Smart Trim";aiTrimBtn.disabled=false;},4000);
+  }});
+  aiTrimBtn.textContent="🤖 AI Smart Trim";
+  editorUI.appendChild(aiTrimBtn);
+
+  // Subtitles
+  var subSection=div({background:"#0D1117",borderRadius:"10px",padding:"12px",marginBottom:"10px"});
+  subSection.appendChild(el("div",{style:{color:"#EC4899",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"}},"💬 Subtitles"));
+  var subTextarea=el("textarea",{style:{width:"100%",background:"#1A1F2E",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",resize:"vertical",minHeight:"50px",boxSizing:"border-box"},placeholder:"Enter subtitles (one per line):\n0:00 Welcome to this stunning property\n0:05 Spacious living area with panoramic views"});
+  subSection.appendChild(subTextarea);
+  var aiSubBtn=el("button",{style:{width:"100%",marginTop:"6px",background:"linear-gradient(135deg,#8B5CF6,#A78BFA)",color:"#FFF",border:"none",borderRadius:"6px",padding:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
+    var geminiKey=localStorage.getItem("dv_gemini_key");
+    if(!geminiKey){alert("Add Gemini API key first");return;}
+    aiSubBtn.textContent="🤖 Generating...";aiSubBtn.disabled=true;
+    try{
+      var dur=VIDEO_EDITOR_STATE.trimEnd-VIDEO_EDITOR_STATE.trimStart;
+      var bp=getBrandProfile();
+      var prompt="Generate professional real estate video subtitles for a "+dur.toFixed(0)+"s Instagram Reel about a Dubai property."+(bp&&bp.tone?" Tone: "+bp.tone:"")+" Format: one subtitle per line with timestamp. Example:\n0:00 Discover luxury living in Dubai\n0:05 Stunning panoramic views\nGenerate 4-8 subtitles. Keep each under 8 words. Make them compelling and professional.";
+      var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.7}})
+      });
+      if(r.ok){
+        var d=await r.json();
+        var txt=d.candidates[0].content.parts[0].text;
+        var lines=txt.split("\n").filter(function(l){return l.match(/^\d+:\d+/);}).join("\n");
+        subTextarea.value=lines;
+        aiSubBtn.textContent="✅ Generated!";
+      }else{aiSubBtn.textContent="❌ Failed";}
+    }catch(e){aiSubBtn.textContent="❌ Error";}
+    setTimeout(function(){aiSubBtn.textContent="🤖 AI Generate Subtitles";aiSubBtn.disabled=false;},3000);
+  }});
+  aiSubBtn.textContent="🤖 AI Generate Subtitles";
+  subSection.appendChild(aiSubBtn);
+  editorUI.appendChild(subSection);
+
+  // Caption
+  var captionSection=div({background:"#0D1117",borderRadius:"10px",padding:"12px",marginBottom:"10px"});
+  captionSection.appendChild(el("div",{style:{color:"#EC4899",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"}},"📝 Caption"));
+  var captionInp=el("textarea",{style:{width:"100%",background:"#1A1F2E",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",resize:"vertical",minHeight:"60px",boxSizing:"border-box"},placeholder:"Post caption with hashtags..."});
+  captionSection.appendChild(captionInp);
+  var aiCapBtn=el("button",{style:{width:"100%",marginTop:"6px",background:"linear-gradient(135deg,#F97316,#FB923C)",color:"#000",border:"none",borderRadius:"6px",padding:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
+    var geminiKey=localStorage.getItem("dv_gemini_key");
+    if(!geminiKey){alert("Add Gemini API key first");return;}
+    aiCapBtn.textContent="🤖 Writing...";aiCapBtn.disabled=true;
+    try{
+      var bp=getBrandProfile();
+      var brandCtx=bp?(bp.tone?" Tone:"+bp.tone:"")+(bp.name?" Agent:"+bp.name:"")+(bp.hashtags?" Include these hashtags:"+bp.hashtags:""):"";
+      var prompt="Write a professional Instagram Reel caption for a Dubai real estate property video."+brandCtx+" Include:\n- Compelling hook\n- 2-3 key selling points\n- Call to action\n- 5-8 relevant hashtags\nKeep it under 150 words. Make it engaging and professional.";
+      var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.7}})
+      });
+      if(r.ok){
+        var d=await r.json();
+        captionInp.value=d.candidates[0].content.parts[0].text;
+        aiCapBtn.textContent="✅ Generated!";
+      }else{aiCapBtn.textContent="❌ Failed";}
+    }catch(e){aiCapBtn.textContent="❌ Error";}
+    setTimeout(function(){aiCapBtn.textContent="🤖 AI Write Caption";aiCapBtn.disabled=false;},3000);
+  }});
+  aiCapBtn.textContent="🤖 AI Write Caption";
+  captionSection.appendChild(aiCapBtn);
+  editorUI.appendChild(captionSection);
+
+  // Process & Export
+  var exportSection=div({marginBottom:"10px"});
+  var processBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#EC4899,#F472B6)",color:"#FFF",border:"none",borderRadius:"10px",padding:"14px",fontSize:"14px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},onclick:async function(){
+    if(!VIDEO_EDITOR_STATE.file){alert("Upload a video first");return;}
+    processBtn.textContent="⏳ Processing...";processBtn.disabled=true;
+    VIDEO_EDITOR_STATE.processing=true;
+    try{
+      var s=VIDEO_EDITOR_STATE.trimStart;
+      var e=VIDEO_EDITOR_STATE.trimEnd;
+      var subs=subTextarea.value.trim().split("\n").filter(Boolean).map(function(l){
+        var m=l.match(/^(\d+):(\d+)\s+(.*)/);
+        if(m)return{time:parseInt(m[1])*60+parseInt(m[2]),text:m[3]};
+        return null;
+      }).filter(Boolean);
+
+      var canvas=document.createElement("canvas");
+      var ctx=canvas.getContext("2d");
+      canvas.width=video.videoWidth||1080;
+      canvas.height=video.videoHeight||1920;
+
+      var stream=canvas.captureStream(30);
+      if(video.captureStream){
+        var audioTracks=video.captureStream().getAudioTracks();
+        audioTracks.forEach(function(t){stream.addTrack(t);});
+      }
+
+      var chunks=[];
+      var recorder=new MediaRecorder(stream,{mimeType:"video/webm;codecs=vp9",videoBitsPerSecond:4000000});
+      recorder.ondataavailable=function(ev){if(ev.data.size>0)chunks.push(ev.data);};
+
+      var done=new Promise(function(resolve){recorder.onstop=function(){resolve();};});
+      video.currentTime=s;
+      await new Promise(function(r){video.onseeked=r;});
+      video.play();
+      recorder.start();
+
+      var drawFrame=function(){
+        if(video.currentTime>=e||video.paused||video.ended){
+          video.pause();recorder.stop();return;
+        }
+        ctx.drawImage(video,0,0,canvas.width,canvas.height);
+        var elapsed=video.currentTime-s;
+        var activeSub=null;
+        for(var i=subs.length-1;i>=0;i--){
+          if(elapsed>=subs[i].time){activeSub=subs[i].text;break;}
+        }
+        if(activeSub){
+          var fSize=Math.round(canvas.width/22);
+          ctx.font="bold "+fSize+"px 'Space Grotesk', sans-serif";
+          ctx.textAlign="center";
+          var tx=canvas.width/2;
+          var ty=canvas.height-canvas.height*0.12;
+          var tw=ctx.measureText(activeSub).width;
+          ctx.fillStyle="rgba(0,0,0,0.7)";
+          ctx.roundRect(tx-tw/2-16,ty-fSize-6,tw+32,fSize+20,8);
+          ctx.fill();
+          ctx.fillStyle="#FFFFFF";
+          ctx.fillText(activeSub,tx,ty);
+        }
+        requestAnimationFrame(drawFrame);
+      };
+      requestAnimationFrame(drawFrame);
+      await done;
+
+      var blob=new Blob(chunks,{type:"video/webm"});
+      var url=URL.createObjectURL(blob);
+      VIDEO_EDITOR_STATE.processedUrl=url;
+      VIDEO_EDITOR_STATE.processedBlob=blob;
+
+      processBtn.textContent="✅ Ready!";
+
+      var dlBtn=el("button",{style:{width:"100%",background:"#10B981",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},onclick:function(){
+        var a=document.createElement("a");a.href=url;a.download="dubaival-reel.webm";a.click();
+      }});
+      dlBtn.textContent="⬇️ Download Video";
+      exportSection.appendChild(dlBtn);
+
+      var shareBtn=el("button",{style:{width:"100%",background:"#3B82F6",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},onclick:async function(){
+        try{
+          var file=new File([blob],"dubaival-reel.webm",{type:"video/webm"});
+          await navigator.share({files:[file],title:"DubAIVal Reel",text:captionInp.value||""});
+        }catch(err){
+          var a=document.createElement("a");a.href=url;a.download="dubaival-reel.webm";a.click();
+        }
+      }});
+      shareBtn.textContent="📤 Share (WhatsApp / Instagram / More)";
+      exportSection.appendChild(shareBtn);
+
+    }catch(err){
+      processBtn.textContent="❌ Error: "+err.message;
+    }
+    VIDEO_EDITOR_STATE.processing=false;
+    setTimeout(function(){processBtn.textContent="🎬 Process & Export";processBtn.disabled=false;},5000);
+  }});
+  processBtn.textContent="🎬 Process & Export";
+  exportSection.appendChild(processBtn);
+  editorUI.appendChild(exportSection);
+
+  card.appendChild(editorUI);
+
+  // Close button
+  var closeBtn=el("button",{style:{width:"100%",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"10px",padding:"10px",fontSize:"12px",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginTop:"6px"},onclick:function(){
+    if(VIDEO_EDITOR_STATE.url)URL.revokeObjectURL(VIDEO_EDITOR_STATE.url);
+    if(VIDEO_EDITOR_STATE.processedUrl)URL.revokeObjectURL(VIDEO_EDITOR_STATE.processedUrl);
+    overlay.remove();
+  }});
+  closeBtn.textContent="Close";
+  card.appendChild(closeBtn);
+
+  // File handling
+  fileInput.onchange=function(ev){
+    var f=ev.target.files[0];
+    if(!f)return;
+    if(f.size>100*1024*1024){alert("File too large (max 100MB)");return;}
+    VIDEO_EDITOR_STATE.file=f;
+    VIDEO_EDITOR_STATE.url=URL.createObjectURL(f);
+    video.src=VIDEO_EDITOR_STATE.url;
+    video.onloadedmetadata=function(){
+      VIDEO_EDITOR_STATE.duration=video.duration;
+      endInp.value=Math.min(30,video.duration).toFixed(1);
+      endInp.max=video.duration;
+      startInp.max=video.duration;
+      trimSlider.max=100;
+      updateDur();
+      uploadZone.style.display="none";
+      editorUI.style.display="block";
+    };
+  };
+  uploadZone.ondragover=function(ev){ev.preventDefault();uploadZone.style.borderColor="#F472B6";uploadZone.style.background="#1A1020";};
+  uploadZone.ondragleave=function(){uploadZone.style.borderColor="#EC4899";uploadZone.style.background="#0D1117";};
+  uploadZone.ondrop=function(ev){
+    ev.preventDefault();
+    uploadZone.style.borderColor="#EC4899";uploadZone.style.background="#0D1117";
+    var f=ev.dataTransfer.files[0];
+    if(f&&f.type.startsWith("video/")){
+      fileInput.files=ev.dataTransfer.files;
+      fileInput.onchange({target:{files:[f]}});
+    }
+  };
+
+  overlay.appendChild(card);
+  overlay.addEventListener("click",function(ev){if(ev.target===overlay){
+    if(VIDEO_EDITOR_STATE.url)URL.revokeObjectURL(VIDEO_EDITOR_STATE.url);
+    if(VIDEO_EDITOR_STATE.processedUrl)URL.revokeObjectURL(VIDEO_EDITOR_STATE.processedUrl);
+    overlay.remove();
+  }});
+  document.body.appendChild(overlay);
 }
 
 // --- SMART IMAGE SEARCH ------------------------------------------------------
@@ -896,6 +1566,8 @@ function buildPublishBar(postData,msgText,cl){
     });
   });
   toolRow.appendChild(copyBtn);
+  toolRow.appendChild(makeBtn("🎬 Video","#EC4899",function(){showVideoEditor();}));
+  toolRow.appendChild(makeBtn("🎨 Brand","#F97316",function(){showBrandingSetup();}));
   toolRow.appendChild(makeBtn("⚙️ Setup","#FBBF24",function(){showSocialSetup();}));
   bar.appendChild(toolRow);
 
@@ -999,6 +1671,18 @@ function renderChat(){
   }});
   newChatBtn.textContent="✨ New";
   hdr.appendChild(newChatBtn);
+
+  if(chatState.agentId==="outreach"){
+    var brandBtn=el("button",{style:{
+      background:hexAlpha("#F97316",0.1),border:"1px solid "+hexAlpha("#F97316",0.3),
+      color:"#F97316",padding:"6px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"600",
+      fontFamily:"'Space Grotesk',monospace",cursor:"pointer",whiteSpace:"nowrap",
+      display:"flex",alignItems:"center",gap:"4px",transition:"all 0.2s",flexShrink:"0"
+    },onclick:function(){showBrandingSetup();}});
+    var bp=getBrandProfile();
+    brandBtn.textContent=bp&&bp.name?"🎨 "+bp.name:"🎨 Brand";
+    hdr.appendChild(brandBtn);
+  }
   wrap.appendChild(hdr);
 
   // Messages
