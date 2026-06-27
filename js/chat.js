@@ -723,6 +723,17 @@ function buildPublishBar(postData,msgText,cl){
       else{alert("IG Story: "+(r.error||"Error"));failBtn(this,"Story","#C13584");}
     }));
 
+    igRow.appendChild(makeBtn("Video","#5B51D8",async function(){
+      var vUrl=videoUrlInput.value.trim();
+      if(!vUrl){videoUrlInput.style.display="block";videoUrlInput.focus();alert("Paste a video URL first");return;}
+      if(SOCIAL_STATE.publishing)return;SOCIAL_STATE.publishing=true;
+      this.textContent="⏳ Uploading video...";
+      var r=await publishInstagramReel(caption,vUrl);
+      SOCIAL_STATE.publishing=false;
+      if(r.success){this.textContent="✅ Video Posted";successBtn(this);}
+      else{alert("IG Video: "+(r.error||"Error"));failBtn(this,"Video","#5B51D8");}
+    }));
+
     igRow.appendChild(makeBtn("Reel","#FF6B00",async function(){
       var vUrl=videoUrlInput.value.trim();
       if(!vUrl){videoUrlInput.style.display="block";videoUrlInput.focus();alert("Paste a video URL first");return;}
