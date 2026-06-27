@@ -393,8 +393,16 @@ All market research and analysis tools grouped together.
   Fastest Growing, Best Value, Highest Rent, Best Rental Value, Top Commercial,
   Top Land, Advanced Area Comparison with AI
 - **Compare** (sub-tab) — Side-by-side area comparison (2-3 areas)
-- **Live Search** (sub-tab) — Find properties (Bayut/PF live data), smart
-  discovery filters (yield, growth, price, liquidity), deal scoring
+- **Find / Property Search** (sub-tab) — `renderFind()` in `js/app.js`:
+  - Natural Language Search bar (AI parses "2BR under 2M in JVC with 7%+ yield")
+  - Quick Filters (Area autocomplete, Building autocomplete, Bedrooms, Max Price,
+    Type, Sort By — Best Deal Score/Lowest PSF/Lowest Price/Highest PSF/Newest)
+  - Smart Property Discovery (`◆ Smart Property Discovery`) — searches 8,522+
+    buildings by financial criteria: Area, Grade, Type, Min Yield%, Min Growth 3yr%,
+    Max DOM, Min PSF, Max PSF, Min Turnover, Sort (Yield/PSF/Growth/Liquidity/Turnover)
+  - Discovery Results: statistics cards (Avg Yield, Growth, PSF, DOM), building cards
+    with name, grade, PSF, yield, growth, signal, turnover, area badge
+  - Live Bayut/PropertyFinder results with deal scoring
 - **Map** (sub-tab) — Interactive Leaflet map with 6 metric toggles (Growth,
   Yield, Price, Liquidity, Turnover, Location), metro/tram overlay
 - **Personal Advisor** (sub-tab) — AI questionnaire (budget, role, family,

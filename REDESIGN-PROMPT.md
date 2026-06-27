@@ -49,7 +49,9 @@ Each section has sub-tabs (see CLAUDE.md "Proposed navigation architecture"):
 
 - **Home**: New dashboard landing page (market pulse, portfolio summary, quick actions)
 - **Market**: Live Dashboard (current Market tab default), Analyzer, Quick Check,
-  Track Record, Market Index, Compare, Live Search, Map, Personal Advisor
+  Track Record, Market Index, Compare, Map, Personal Advisor,
+  Find/Property Search (Natural Language Search + Quick Filters + Smart Property
+  Discovery filter with 10+ financial criteria searching 8,522+ buildings),
   (Mortgage Calculator becomes a collapsible panel inside Analyzer)
 - **Portfolio**: My Assets, Health Dashboard, Projections, Alerts, STR Calculator
 - **Network**: Deal Board, Agent Hub, AI Agents (8 agents from current Chat tab),
