@@ -2708,7 +2708,8 @@ var DUBAI_BEST_TIMES={
   linkedin:{weekday:["08:00","10:00","12:00","17:00"],weekend:["10:00"],peak:"10:00",timezone:"GST (UTC+4)",notes:"Business hours. Tuesday-Thursday best. Avoid Friday/Saturday"},
   twitter:{weekday:["07:00","12:00","17:00","21:00"],weekend:["09:00","15:00","21:00"],peak:"12:00",timezone:"GST (UTC+4)",notes:"News cycle peaks at noon. Real estate threads best Tuesday/Wednesday"},
   tiktok:{weekday:["12:00","19:00","21:00","23:00"],weekend:["10:00","14:00","20:00","23:00"],peak:"21:00",timezone:"GST (UTC+4)",notes:"Evening/night peaks. Property tours at 19:00 get most views"},
-  whatsapp:{weekday:["09:00","13:00","18:00"],weekend:["10:00","16:00"],peak:"09:00",timezone:"GST (UTC+4)",notes:"Morning broadcasts convert best. Avoid late night"}
+  whatsapp:{weekday:["09:00","13:00","18:00"],weekend:["10:00","16:00"],peak:"09:00",timezone:"GST (UTC+4)",notes:"Morning broadcasts convert best. Avoid late night"},
+  youtube:{weekday:["12:00","15:00","17:00","20:00"],weekend:["10:00","14:00","18:00","21:00"],peak:"17:00",timezone:"GST (UTC+4)",notes:"Afternoon/evening best. Property tours at 15:00, market updates at 17:00. Shorts anytime"}
 };
 function getBestPostTime(platform){
   var now=new Date();var isWeekend=now.getDay()===5||now.getDay()===6;
@@ -3471,6 +3472,41 @@ async function publishToTikTok(text,videoUrl){
   }catch(e){return{success:false,error:e.message};}
 }
 
+// --- YOUTUBE DATA API v3 ---
+async function publishToYouTube(title,description,videoUrl,privacy){
+  var token=localStorage.getItem("dv_youtube_token");
+  if(!token)return{success:false,error:"YouTube token not set. Go to Setup."};
+  try{
+    var videoResp=await fetch(videoUrl);var videoBlob=await videoResp.blob();
+    var metadata={snippet:{title:title.substring(0,100),description:description,tags:["Dubai","Real Estate","Property","Investment","DubAIVal"],categoryId:"22",defaultLanguage:"en"},status:{privacyStatus:privacy||"public",selfDeclaredMadeForKids:false,embeddable:true}};
+    var r=await fetch("https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status",{
+      method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify(metadata)
+    });
+    if(!r.ok){var errData=await r.json();return{success:false,error:errData.error?errData.error.message:r.statusText};}
+    var uploadUrl=r.headers.get("Location");
+    if(!uploadUrl)return{success:false,error:"No upload URL returned"};
+    var uploadResp=await fetch(uploadUrl,{method:"PUT",headers:{"Authorization":"Bearer "+token,"Content-Type":videoBlob.type||"video/mp4"},body:videoBlob});
+    var uploadData=await uploadResp.json();
+    if(uploadData.id)return{success:true,id:uploadData.id,url:"https://youtube.com/watch?v="+uploadData.id};
+    return{success:false,error:uploadData.error?uploadData.error.message:JSON.stringify(uploadData)};
+  }catch(e){return{success:false,error:e.message};}
+}
+
+async function publishYouTubeShort(title,description,videoUrl){
+  var result=await publishToYouTube(title+" #Shorts",description+"\n\n#Shorts #DubaiRealEstate #DubAIVal",videoUrl,"public");
+  return result;
+}
+
+async function getYouTubeChannelStats(){
+  var token=localStorage.getItem("dv_youtube_token");
+  if(!token)return null;
+  try{
+    var r=await fetch("https://www.googleapis.com/youtube/v3/channels?part=statistics,snippet&mine=true",{headers:{"Authorization":"Bearer "+token}});
+    var d=await r.json();
+    if(d.items&&d.items[0])return{name:d.items[0].snippet.title,subscribers:d.items[0].statistics.subscriberCount,views:d.items[0].statistics.viewCount,videos:d.items[0].statistics.videoCount};
+  }catch(e){}return null;
+}
+
 // --- POST DESIGNER SYSTEM (World-Class) ---
 var POST_TEMPLATES={
   luxury:{name:"Luxury Gold",bg:["#0A0520","#1A0A3A"],accent:"#C9A84C",text:"#FFF",overlay:0.6},
@@ -4222,6 +4258,44 @@ function buildPublishBar(postData,msgText,cl){
     bar.appendChild(ttRow);
   }
 
+  // --- YOUTUBE ---
+  if(platform==="youtube"||platform==="all"){
+    var ytRow=div({display:"flex",gap:"4px",alignItems:"center",flexWrap:"wrap"});
+    var ytLabel=el("span",{style:{color:"#FF0000",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",minWidth:"70px"}});
+    ytLabel.textContent="▶️ YouTube";ytRow.appendChild(ytLabel);
+    ytRow.appendChild(makeBtn("Video","#FF0000",async function(){
+      var vUrl=videoUrlInput.value.trim();
+      if(!vUrl){videoUrlInput.style.display="block";videoUrlInput.focus();alert("Paste a video URL first");return;}
+      if(SOCIAL_STATE.publishing)return;SOCIAL_STATE.publishing=true;
+      this.textContent="⏳ Uploading...";
+      var title=caption.split("\n")[0].substring(0,100)||"Dubai Property | DubAIVal";
+      var r=await publishToYouTube(title,caption,vUrl,"public");SOCIAL_STATE.publishing=false;
+      if(r.success){this.textContent="✅ Uploaded";successBtn(this);savePostToHistory({caption:caption,platform:"youtube",type:"video"});if(r.url)alert("✅ Video live: "+r.url);}
+      else{alert("YouTube: "+(r.error||"Error"));failBtn(this,"Video","#FF0000");}
+    }));
+    ytRow.appendChild(makeBtn("Short","#FF0000",async function(){
+      var vUrl=videoUrlInput.value.trim();
+      if(!vUrl){videoUrlInput.style.display="block";videoUrlInput.focus();alert("Paste a video URL first");return;}
+      if(SOCIAL_STATE.publishing)return;SOCIAL_STATE.publishing=true;
+      this.textContent="⏳ Uploading Short...";
+      var title=caption.split("\n")[0].substring(0,80)||"Dubai Property";
+      var r=await publishYouTubeShort(title,caption,vUrl);SOCIAL_STATE.publishing=false;
+      if(r.success){this.textContent="✅ Short Up";successBtn(this);savePostToHistory({caption:caption,platform:"youtube",type:"short"});if(r.url)alert("✅ Short live: "+r.url);}
+      else{alert("YT Short: "+(r.error||"Error"));failBtn(this,"Short","#FF0000");}
+    }));
+    ytRow.appendChild(makeBtn("Unlisted","#CC0000",async function(){
+      var vUrl=videoUrlInput.value.trim();
+      if(!vUrl){videoUrlInput.style.display="block";videoUrlInput.focus();alert("Paste a video URL first");return;}
+      if(SOCIAL_STATE.publishing)return;SOCIAL_STATE.publishing=true;
+      this.textContent="⏳ Uploading...";
+      var title=caption.split("\n")[0].substring(0,100)||"Dubai Property Preview";
+      var r=await publishToYouTube(title,caption,vUrl,"unlisted");SOCIAL_STATE.publishing=false;
+      if(r.success){this.textContent="✅ Uploaded";successBtn(this);savePostToHistory({caption:caption,platform:"youtube",type:"unlisted"});if(r.url)alert("✅ Unlisted video: "+r.url);}
+      else{alert("YouTube: "+(r.error||"Error"));failBtn(this,"Unlisted","#CC0000");}
+    }));
+    bar.appendChild(ytRow);
+  }
+
   // --- TOOLS ROW 1: Creation ---
   var toolRow1=div({display:"flex",gap:"4px",alignItems:"center",flexWrap:"wrap",paddingTop:"6px",borderTop:"1px solid "+cl.border});
   toolRow1.appendChild(el("span",{style:{color:"#6B7280",fontSize:"9px",fontFamily:"monospace",minWidth:"40px"}},"Create:"));
@@ -4296,7 +4370,8 @@ function showSocialSetup(){
     {key:"dv_linkedin_token",label:"💼 LinkedIn Access Token",ph:"OAuth2 token from linkedin.com/developers"},
     {key:"dv_linkedin_urn",label:"LinkedIn Person URN",ph:"urn:li:person:XXXXXXXXX"},
     {key:"dv_twitter_bearer",label:"𝕏 Twitter/X Bearer Token",ph:"From developer.twitter.com"},
-    {key:"dv_tiktok_token",label:"🎵 TikTok Access Token",ph:"From developers.tiktok.com"}
+    {key:"dv_tiktok_token",label:"🎵 TikTok Access Token",ph:"From developers.tiktok.com"},
+    {key:"dv_youtube_token",label:"▶️ YouTube OAuth2 Token",ph:"From console.cloud.google.com — YouTube Data API v3"}
   ];
   var inputs=[];
   fields.forEach(function(f){
