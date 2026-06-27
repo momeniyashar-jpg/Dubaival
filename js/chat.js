@@ -5014,11 +5014,743 @@ function buildPublishBar(postData,msgText,cl){
   toolRow4.appendChild(makeBtn("⚙️ Setup","#FBBF24",function(){showSocialSetup();}));
   toolRow4.appendChild(makeBtn("📡 Auto-Post Log","#10B981",function(){showAutoPostLog();}));
   toolRow4.appendChild(makeBtn("📈 Engagement","#8B5CF6",function(){showEngagementDashboard();}));
+  // --- TOOLS ROW 5: Avatar ---
+  var toolRow5=div({display:"flex",gap:"4px",alignItems:"center",flexWrap:"wrap"});
+  toolRow5.appendChild(el("span",{style:{color:"#6B7280",fontSize:"9px",fontFamily:"monospace",minWidth:"40px"}},"Avatar:"));
+  toolRow5.appendChild(makeBtn("🧑‍🎨 Studio","#EC4899",function(){showAvatarStudio();}));
+  toolRow5.appendChild(makeBtn("➕ Create","#8B5CF6",function(){showAvatarBuilder();}));
+  var activeChar=_getActiveAvatar();
+  if(activeChar){
+    toolRow5.appendChild(makeBtn("✨ Generate as "+activeChar.name.substring(0,10),"#10B981",function(){showAvatarContentGen(activeChar.id);}));
+    toolRow5.appendChild(makeBtn("🎬 Video","#F59E0B",function(){showAvatarVideoGen(activeChar.id);}));
+  }
+  bar.appendChild(toolRow5);
   bar.appendChild(toolRow4);
 
   bar.appendChild(videoUrlInput);
   bar.appendChild(imgPreviewWrap);
   return bar;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ██ AI AVATAR STUDIO — Character-Based Content Creation System
+// ═══════════════════════════════════════════════════════════════════════════════
+
+var AVATAR_STYLES=[
+  {id:"professional",label:"Professional",desc:"Business attire, confident, corporate",prompt:"professional business person in modern suit, corporate headshot, studio lighting, neutral background"},
+  {id:"luxury",label:"Luxury Agent",desc:"High-end real estate agent look",prompt:"luxury real estate agent, designer outfit, Dubai Marina backdrop, golden hour, cinematic"},
+  {id:"casual",label:"Casual Expert",desc:"Approachable, smart casual",prompt:"smart casual professional, friendly smile, modern office, natural lighting"},
+  {id:"tech",label:"Tech Innovator",desc:"Modern, tech-forward, startup vibe",prompt:"tech entrepreneur, modern workspace, minimalist, blue accent lighting"},
+  {id:"arabic",label:"Emirati Style",desc:"Traditional Gulf professional",prompt:"professional in traditional Gulf attire, modern Dubai skyline, elegant, respectful"},
+  {id:"influencer",label:"Social Influencer",desc:"Trendy, camera-ready, dynamic",prompt:"social media influencer, ring light, colorful background, energetic pose"}
+];
+
+var AVATAR_VOICES=[
+  {id:"21m00Tcm4TlvDq8ikWAM",name:"Rachel",lang:"en",gender:"Female",desc:"Warm, professional"},
+  {id:"EXAVITQu4vr4xnSDxMaL",name:"Bella",lang:"en",gender:"Female",desc:"Soft, engaging"},
+  {id:"ErXwobaYiN019PkySvjV",name:"Antoni",lang:"en",gender:"Male",desc:"Deep, authoritative"},
+  {id:"VR6AewLTigWG4xSOukaG",name:"Arnold",lang:"en",gender:"Male",desc:"Confident, bold"},
+  {id:"pNInz6obpgDQGcFmaJgB",name:"Adam",lang:"en",gender:"Male",desc:"Professional, clear"},
+  {id:"onwK4e9ZLuTAKqWW03F9",name:"Daniel",lang:"en",gender:"Male",desc:"British, sophisticated"},
+  {id:"XB0fDUnXU5powFXDhCwa",name:"Charlotte",lang:"en",gender:"Female",desc:"Elegant, articulate"}
+];
+
+var AVATAR_PERSONALITIES=[
+  {id:"expert",label:"Market Expert",tone:"Data-driven, analytical, confident. Uses statistics and market data. References DLD transactions."},
+  {id:"advisor",label:"Trusted Advisor",tone:"Warm, consultative, empathetic. Focuses on client needs and goals. Asks questions."},
+  {id:"luxury",label:"Luxury Specialist",tone:"Sophisticated, exclusive, refined. Uses premium vocabulary. Highlights lifestyle."},
+  {id:"investor",label:"Investment Guru",tone:"Sharp, ROI-focused, strategic. Talks yields, cap rates, total returns. Bold predictions."},
+  {id:"educator",label:"Market Educator",tone:"Clear, informative, patient. Explains concepts simply. Uses examples and analogies."},
+  {id:"motivator",label:"Success Coach",tone:"Energetic, inspiring, action-oriented. Creates urgency. Shares success stories."},
+  {id:"custom",label:"Custom Personality",tone:""}
+];
+
+function _getAvatars(){try{return JSON.parse(localStorage.getItem("dv_avatars")||"[]");}catch(e){return[];}}
+function _saveAvatars(list){localStorage.setItem("dv_avatars",JSON.stringify(list));}
+function _getActiveAvatar(){var id=localStorage.getItem("dv_active_avatar");if(!id)return null;var list=_getAvatars();return list.find(function(a){return a.id===id;})||null;}
+function _setActiveAvatar(id){localStorage.setItem("dv_active_avatar",id);}
+
+function showAvatarStudio(){
+  var m=document.getElementById("avatar-studio-modal");if(m)m.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.92)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"avatar-studio-modal"});
+  var card=div({background:"linear-gradient(145deg,#1A1F2E,#0D1117)",border:"1px solid #EC4899",borderRadius:"20px",padding:"20px",width:"600px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
+
+  var hdr=div({display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"16px"});
+  hdr.appendChild(el("h3",{style:{color:"#EC4899",margin:0,fontSize:"16px",fontFamily:"'Space Grotesk',monospace"}},"🧑‍🎨 AI Avatar Studio"));
+  var closeBtn=el("button",{style:{background:"none",border:"none",color:"#8899AA",fontSize:"18px",cursor:"pointer"},onclick:function(){overlay.remove();}},"✕");
+  hdr.appendChild(closeBtn);
+  card.appendChild(hdr);
+  card.appendChild(el("div",{style:{color:"#8899AA",fontSize:"11px",marginBottom:"16px",fontFamily:"'Inter',sans-serif"}},"Create AI characters that generate content, videos & post to your social media — 24/7 on autopilot."));
+
+  var avatars=_getAvatars();
+  var activeId=localStorage.getItem("dv_active_avatar")||"";
+
+  if(avatars.length>0){
+    card.appendChild(el("div",{style:{color:"#FFF",fontSize:"12px",fontWeight:"700",fontFamily:"monospace",marginBottom:"8px"}},"Your Avatars ("+avatars.length+")"));
+    var grid=div({display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:"10px",marginBottom:"16px"});
+    avatars.forEach(function(av){
+      var isActive=av.id===activeId;
+      var avCard=div({background:isActive?"linear-gradient(135deg,#EC489922,#8B5CF622)":"#0D1117",border:"2px solid "+(isActive?"#EC4899":"#2A3040"),borderRadius:"14px",padding:"12px",cursor:"pointer",transition:"all 0.3s",position:"relative"});
+      avCard.onmouseenter=function(){if(!isActive)avCard.style.borderColor="#EC489966";};
+      avCard.onmouseleave=function(){if(!isActive)avCard.style.borderColor="#2A3040";};
+
+      if(isActive){
+        var badge=el("div",{style:{position:"absolute",top:"-6px",right:"-6px",background:"#EC4899",color:"#FFF",fontSize:"8px",fontWeight:"800",padding:"2px 6px",borderRadius:"10px",fontFamily:"monospace"}});
+        badge.textContent="ACTIVE";avCard.appendChild(badge);
+      }
+
+      if(av.avatarUrl){
+        var img=el("img",{style:{width:"100%",height:"100px",objectFit:"cover",borderRadius:"10px",marginBottom:"8px"}});
+        img.src=av.avatarUrl;avCard.appendChild(img);
+      }else{
+        var placeholder=div({width:"100%",height:"100px",borderRadius:"10px",marginBottom:"8px",background:"linear-gradient(135deg,#EC489922,#8B5CF622)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"36px"});
+        placeholder.textContent=av.emoji||"🧑‍💼";avCard.appendChild(placeholder);
+      }
+
+      avCard.appendChild(el("div",{style:{color:"#FFF",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"}},av.name||"Unnamed"));
+      avCard.appendChild(el("div",{style:{color:"#8899AA",fontSize:"9px",fontFamily:"monospace",marginBottom:"6px"}},av.personality||"Custom"));
+
+      var btnRow=div({display:"flex",gap:"4px"});
+      var activateBtn=el("button",{style:{flex:1,background:isActive?"#10B98133":"#EC489922",border:"1px solid "+(isActive?"#10B981":"#EC4899"),color:isActive?"#10B981":"#EC4899",padding:"4px",borderRadius:"6px",fontSize:"9px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(e){e.stopPropagation();_setActiveAvatar(av.id);overlay.remove();showAvatarStudio();}});
+      activateBtn.textContent=isActive?"✓ Active":"Set Active";btnRow.appendChild(activateBtn);
+
+      var editBtn=el("button",{style:{background:"#3B82F622",border:"1px solid #3B82F6",color:"#3B82F6",padding:"4px 6px",borderRadius:"6px",fontSize:"9px",cursor:"pointer",fontFamily:"monospace"},onclick:function(e){e.stopPropagation();overlay.remove();showAvatarBuilder(av.id);}});
+      editBtn.textContent="✏️";btnRow.appendChild(editBtn);
+
+      var delBtn=el("button",{style:{background:"#EF444422",border:"1px solid #EF4444",color:"#EF4444",padding:"4px 6px",borderRadius:"6px",fontSize:"9px",cursor:"pointer",fontFamily:"monospace"},onclick:function(e){e.stopPropagation();if(confirm("Delete avatar '"+av.name+"'?")){var list=_getAvatars().filter(function(x){return x.id!==av.id;});_saveAvatars(list);if(activeId===av.id)localStorage.removeItem("dv_active_avatar");overlay.remove();showAvatarStudio();}}});
+      delBtn.textContent="🗑";btnRow.appendChild(delBtn);
+      avCard.appendChild(btnRow);
+
+      avCard.onclick=function(){_setActiveAvatar(av.id);overlay.remove();showAvatarContentGen(av.id);};
+      grid.appendChild(avCard);
+    });
+    card.appendChild(grid);
+  }else{
+    var empty=div({background:"#0D1117",border:"1px dashed #EC489966",borderRadius:"14px",padding:"30px",textAlign:"center",marginBottom:"16px"});
+    empty.appendChild(el("div",{style:{fontSize:"48px",marginBottom:"8px"}},"🧑‍🎨"));
+    empty.appendChild(el("div",{style:{color:"#EC4899",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"}},"No Avatars Yet"));
+    empty.appendChild(el("div",{style:{color:"#8899AA",fontSize:"11px",fontFamily:"'Inter',sans-serif"}},"Create your first AI character to start generating personalized content."));
+    card.appendChild(empty);
+  }
+
+  var actionGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"12px"});
+  var createBtn=el("button",{style:{background:"linear-gradient(135deg,#EC4899,#8B5CF6)",color:"#FFF",border:"none",borderRadius:"12px",padding:"14px",fontSize:"13px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){overlay.remove();showAvatarBuilder();}});
+  createBtn.textContent="➕ Create New Avatar";actionGrid.appendChild(createBtn);
+
+  if(avatars.length>0){
+    var genBtn=el("button",{style:{background:"linear-gradient(135deg,#10B981,#06B6D4)",color:"#FFF",border:"none",borderRadius:"12px",padding:"14px",fontSize:"13px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){var ac=_getActiveAvatar();if(!ac){alert("Select an active avatar first.");return;}overlay.remove();showAvatarContentGen(ac.id);}});
+    genBtn.textContent="✨ Generate Content";actionGrid.appendChild(genBtn);
+  }else{
+    actionGrid.style.gridTemplateColumns="1fr";
+  }
+  card.appendChild(actionGrid);
+
+  if(avatars.length>0){
+    var extraGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px"});
+    var vidBtn=el("button",{style:{background:"#F59E0B22",border:"1px solid #F59E0B",color:"#F59E0B",borderRadius:"10px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){var ac=_getActiveAvatar();if(!ac){alert("Select an active avatar first.");return;}overlay.remove();showAvatarVideoGen(ac.id);}});
+    vidBtn.textContent="🎬 AI Video";extraGrid.appendChild(vidBtn);
+
+    var autoBtn=el("button",{style:{background:"#3B82F622",border:"1px solid #3B82F6",color:"#3B82F6",borderRadius:"10px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){var ac=_getActiveAvatar();if(!ac){alert("Select an active avatar first.");return;}overlay.remove();showAvatarAutoPilot(ac.id);}});
+    autoBtn.textContent="🤖 Auto-Pilot";extraGrid.appendChild(autoBtn);
+
+    var batchBtn=el("button",{style:{background:"#8B5CF622",border:"1px solid #8B5CF6",color:"#8B5CF6",borderRadius:"10px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){var ac=_getActiveAvatar();if(!ac){alert("Select an active avatar first.");return;}overlay.remove();showAvatarBatchGen(ac.id);}});
+    batchBtn.textContent="📦 Batch 30 Days";extraGrid.appendChild(batchBtn);
+    card.appendChild(extraGrid);
+  }
+
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+// --- AVATAR BUILDER (Create / Edit) ---
+function showAvatarBuilder(editId){
+  var m=document.getElementById("avatar-builder-modal");if(m)m.remove();
+  var existing=editId?_getAvatars().find(function(a){return a.id===editId;}):null;
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.92)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"avatar-builder-modal"});
+  var card=div({background:"linear-gradient(145deg,#1A1F2E,#0D1117)",border:"1px solid #8B5CF6",borderRadius:"20px",padding:"20px",width:"540px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
+
+  card.appendChild(el("h3",{style:{color:"#8B5CF6",margin:"0 0 4px",fontSize:"16px",fontFamily:"'Space Grotesk',monospace"}},existing?"✏️ Edit Avatar":"🧑‍🎨 Create New Avatar"));
+  card.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",marginBottom:"14px",fontFamily:"monospace"}},"Build a unique AI character for your brand"));
+
+  var avatarPreview=div({width:"120px",height:"120px",borderRadius:"50%",background:"linear-gradient(135deg,#EC4899,#8B5CF6)",margin:"0 auto 14px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"48px",overflow:"hidden",border:"3px solid #EC4899"});
+  if(existing&&existing.avatarUrl){
+    var prevImg=el("img",{style:{width:"100%",height:"100%",objectFit:"cover"}});
+    prevImg.src=existing.avatarUrl;avatarPreview.appendChild(prevImg);
+  }else{
+    avatarPreview.textContent=existing&&existing.emoji?existing.emoji:"🧑‍💼";
+  }
+  card.appendChild(avatarPreview);
+
+  var mkField=function(label,key,ph,val,type){
+    card.appendChild(el("label",{style:{color:"#8899AA",fontSize:"10px",display:"block",marginBottom:"3px",fontFamily:"monospace"}},label));
+    var inp;
+    if(type==="textarea"){
+      inp=el("textarea",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",boxSizing:"border-box",minHeight:"60px",resize:"vertical",marginBottom:"8px"},placeholder:ph});
+      inp.value=val||"";
+    }else{
+      inp=el("input",{type:type||"text",style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",boxSizing:"border-box",marginBottom:"8px"},placeholder:ph,value:val||""});
+    }
+    card.appendChild(inp);return inp;
+  };
+
+  var nameInp=mkField("Character Name","name","e.g. Sarah Al Dubai",existing?existing.name:"");
+  var handleInp=mkField("Social Handle","handle","@dubaipropertypro",existing?existing.handle:"");
+  var bioInp=mkField("Bio / Tagline","bio","Dubai's #1 AI-powered real estate advisor",existing?existing.bio:"","textarea");
+  var emojiInp=mkField("Avatar Emoji (fallback)","emoji","🧑‍💼",existing?existing.emoji:"🧑‍💼");
+
+  card.appendChild(el("label",{style:{color:"#EC4899",fontSize:"11px",fontWeight:"700",display:"block",marginBottom:"6px",marginTop:"6px",fontFamily:"monospace"}},"Visual Style"));
+  var styleGrid=div({display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"6px",marginBottom:"10px"});
+  var selectedStyle=existing?existing.styleId:"professional";
+  var styleButtons=[];
+  AVATAR_STYLES.forEach(function(s){
+    var sBtn=el("button",{style:{background:s.id===selectedStyle?"#EC489933":"#0D1117",border:"1px solid "+(s.id===selectedStyle?"#EC4899":"#2A3040"),color:s.id===selectedStyle?"#EC4899":"#8899AA",padding:"8px 4px",borderRadius:"8px",fontSize:"9px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace",textAlign:"center"},onclick:function(){
+      selectedStyle=s.id;
+      styleButtons.forEach(function(b){b.style.background="#0D1117";b.style.borderColor="#2A3040";b.style.color="#8899AA";});
+      sBtn.style.background="#EC489933";sBtn.style.borderColor="#EC4899";sBtn.style.color="#EC4899";
+    }});
+    sBtn.textContent=s.label;styleGrid.appendChild(sBtn);styleButtons.push(sBtn);
+  });
+  card.appendChild(styleGrid);
+
+  var customPromptInp=mkField("Custom Visual Prompt (optional)","customPrompt","Describe your character's appearance in detail...",existing?existing.customPrompt:"","textarea");
+
+  card.appendChild(el("label",{style:{color:"#8B5CF6",fontSize:"11px",fontWeight:"700",display:"block",marginBottom:"6px",marginTop:"6px",fontFamily:"monospace"}},"Personality & Tone"));
+  var persGrid=div({display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"6px",marginBottom:"10px"});
+  var selectedPers=existing?existing.personalityId:"expert";
+  var persButtons=[];
+  AVATAR_PERSONALITIES.forEach(function(p){
+    var pBtn=el("button",{style:{background:p.id===selectedPers?"#8B5CF633":"#0D1117",border:"1px solid "+(p.id===selectedPers?"#8B5CF6":"#2A3040"),color:p.id===selectedPers?"#8B5CF6":"#8899AA",padding:"6px",borderRadius:"8px",fontSize:"9px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace",textAlign:"left"},onclick:function(){
+      selectedPers=p.id;
+      persButtons.forEach(function(b){b.style.background="#0D1117";b.style.borderColor="#2A3040";b.style.color="#8899AA";});
+      pBtn.style.background="#8B5CF633";pBtn.style.borderColor="#8B5CF6";pBtn.style.color="#8B5CF6";
+      if(p.id!=="custom")customToneInp.value=p.tone;
+    }});
+    pBtn.innerHTML="<b>"+p.label+"</b><br><span style='font-size:8px;opacity:0.7'>"+p.tone.substring(0,40)+"...</span>";
+    persGrid.appendChild(pBtn);persButtons.push(pBtn);
+  });
+  card.appendChild(persGrid);
+
+  var customToneInp=mkField("Tone Description","tone","How should this character communicate?",existing?existing.tone:(AVATAR_PERSONALITIES[0].tone),"textarea");
+
+  card.appendChild(el("label",{style:{color:"#F59E0B",fontSize:"11px",fontWeight:"700",display:"block",marginBottom:"6px",marginTop:"6px",fontFamily:"monospace"}},"Voice & Language"));
+  var voiceSelect=el("select",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",boxSizing:"border-box",marginBottom:"8px"}});
+  AVATAR_VOICES.forEach(function(v){
+    var opt=el("option");opt.value=v.id;opt.textContent=v.name+" ("+v.gender+") — "+v.desc;
+    if(existing&&existing.voiceId===v.id)opt.selected=true;
+    voiceSelect.appendChild(opt);
+  });
+  card.appendChild(voiceSelect);
+
+  var langSelect=el("select",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",boxSizing:"border-box",marginBottom:"8px"}});
+  [{v:"en",l:"English"},{v:"ar",l:"Arabic"},{v:"fa",l:"Persian/Farsi"},{v:"ru",l:"Russian"},{v:"zh",l:"Chinese"},{v:"hi",l:"Hindi"},{v:"fr",l:"French"}].forEach(function(lg){
+    var opt=el("option");opt.value=lg.v;opt.textContent=lg.l;
+    if(existing&&existing.language===lg.v)opt.selected=true;
+    langSelect.appendChild(opt);
+  });
+  card.appendChild(langSelect);
+
+  card.appendChild(el("label",{style:{color:"#10B981",fontSize:"11px",fontWeight:"700",display:"block",marginBottom:"6px",marginTop:"6px",fontFamily:"monospace"}},"Content Settings"));
+  var hashtagsInp=mkField("Signature Hashtags","hashtags","#DubaiRealEstate #PropertyInvestment #DubaiLuxury",existing?existing.hashtags:"#DubaiRealEstate #DubAIVal");
+  var ctaInp=mkField("Default CTA","cta","DM for exclusive deals | Link in bio | Book a consultation",existing?existing.cta:"");
+  var pillarsInp=mkField("Content Pillars (comma-separated)","pillars","Market Data, Investment Tips, Area Spotlights, Lifestyle",existing?(existing.pillars||[]).join(", "):"Market Data, Investment Tips, Area Spotlights, Lifestyle");
+
+  var genAvatarBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#EC4899,#8B5CF6)",color:"#FFF",border:"none",borderRadius:"10px",padding:"12px",fontSize:"12px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
+    genAvatarBtn.textContent="🎨 Generating AI avatar image...";genAvatarBtn.disabled=true;
+    var style=AVATAR_STYLES.find(function(s){return s.id===selectedStyle;})||AVATAR_STYLES[0];
+    var prompt=customPromptInp.value.trim()||style.prompt;
+    var fullPrompt=prompt+", portrait headshot, high quality, 4k, face clearly visible, looking at camera, "+nameInp.value;
+    try{
+      var url=await generateGeminiImage(fullPrompt);
+      if(url){
+        avatarPreview.innerHTML="";
+        var newImg=el("img",{style:{width:"100%",height:"100%",objectFit:"cover"}});
+        newImg.src=url;avatarPreview.appendChild(newImg);
+        avatarPreview.dataset.url=url;
+        genAvatarBtn.textContent="✅ Avatar generated! Click Save to keep it.";
+      }else{
+        genAvatarBtn.textContent="❌ Failed — check Gemini API key in Setup";
+      }
+    }catch(e){genAvatarBtn.textContent="❌ Error: "+e.message;}
+    genAvatarBtn.disabled=false;
+  }});
+  genAvatarBtn.textContent="🎨 Generate AI Avatar Image";card.appendChild(genAvatarBtn);
+
+  var btnRow=div({display:"flex",gap:"8px",marginTop:"14px"});
+  var saveBtn=el("button",{style:{flex:1,background:"#10B981",color:"#FFF",border:"none",borderRadius:"10px",padding:"12px",fontSize:"13px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){
+    var avatar={
+      id:existing?existing.id:"avatar_"+Date.now(),
+      name:nameInp.value.trim()||"Unnamed Avatar",
+      handle:handleInp.value.trim(),
+      bio:bioInp.value.trim(),
+      emoji:emojiInp.value.trim()||"🧑‍💼",
+      styleId:selectedStyle,
+      customPrompt:customPromptInp.value.trim(),
+      personalityId:selectedPers,
+      tone:customToneInp.value.trim(),
+      voiceId:voiceSelect.value,
+      language:langSelect.value,
+      hashtags:hashtagsInp.value.trim(),
+      cta:ctaInp.value.trim(),
+      pillars:pillarsInp.value.split(",").map(function(s){return s.trim();}).filter(Boolean),
+      avatarUrl:avatarPreview.dataset.url||(existing?existing.avatarUrl:null),
+      createdAt:existing?existing.createdAt:new Date().toISOString(),
+      updatedAt:new Date().toISOString()
+    };
+    var list=_getAvatars();
+    if(existing){list=list.map(function(a){return a.id===avatar.id?avatar:a;});}
+    else{list.push(avatar);}
+    _saveAvatars(list);
+    _setActiveAvatar(avatar.id);
+    overlay.remove();showAvatarStudio();
+  }});
+  saveBtn.textContent=existing?"💾 Update Avatar":"💾 Create Avatar";btnRow.appendChild(saveBtn);
+
+  var cancelBtn=el("button",{style:{flex:"0 0 auto",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"10px",padding:"12px 20px",fontSize:"12px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}});
+  cancelBtn.textContent="Cancel";btnRow.appendChild(cancelBtn);
+  card.appendChild(btnRow);
+
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+// --- AVATAR CONTENT GENERATOR ---
+function showAvatarContentGen(avatarId){
+  var av=_getAvatars().find(function(a){return a.id===avatarId;});
+  if(!av){alert("Avatar not found.");return;}
+  var m=document.getElementById("avatar-content-modal");if(m)m.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.92)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"avatar-content-modal"});
+  var card=div({background:"linear-gradient(145deg,#1A1F2E,#0D1117)",border:"1px solid #10B981",borderRadius:"20px",padding:"20px",width:"560px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
+
+  var hdr=div({display:"flex",alignItems:"center",gap:"10px",marginBottom:"14px"});
+  if(av.avatarUrl){
+    var avImg=el("img",{style:{width:"40px",height:"40px",borderRadius:"50%",objectFit:"cover",border:"2px solid #EC4899"}});
+    avImg.src=av.avatarUrl;hdr.appendChild(avImg);
+  }else{
+    var avEmoji=div({width:"40px",height:"40px",borderRadius:"50%",background:"#EC489933",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"20px",border:"2px solid #EC4899"});
+    avEmoji.textContent=av.emoji||"🧑‍💼";hdr.appendChild(avEmoji);
+  }
+  var hdrText=div({});
+  hdrText.appendChild(el("div",{style:{color:"#EC4899",fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"}},av.name));
+  hdrText.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",fontFamily:"monospace"}},"Generating content as this character"));
+  hdr.appendChild(hdrText);
+  card.appendChild(hdr);
+
+  var topicLabel=el("label",{style:{color:"#8899AA",fontSize:"10px",display:"block",marginBottom:"3px",fontFamily:"monospace"}});
+  topicLabel.textContent="Topic / Theme";card.appendChild(topicLabel);
+  var topicInp=el("input",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"10px",color:"#E0E0E0",fontSize:"12px",fontFamily:"monospace",boxSizing:"border-box",marginBottom:"8px"},placeholder:"e.g. Palm Jumeirah market update, Best areas under 2M AED, Dubai Marina lifestyle..."});
+  card.appendChild(topicInp);
+
+  var typeGrid=div({display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"6px",marginBottom:"10px"});
+  var selectedType="instagram_post";
+  var typeButtons=[];
+  [{id:"instagram_post",l:"📸 IG Post"},{id:"instagram_reel",l:"🎬 Reel Script"},{id:"linkedin",l:"💼 LinkedIn"},{id:"twitter",l:"𝕏 Tweet"},{id:"facebook",l:"📘 FB Post"},{id:"youtube_short",l:"▶️ YT Short"},{id:"blog",l:"📝 Blog"},{id:"email",l:"📧 Newsletter"}].forEach(function(t){
+    var tBtn=el("button",{style:{background:t.id===selectedType?"#10B98133":"#0D1117",border:"1px solid "+(t.id===selectedType?"#10B981":"#2A3040"),color:t.id===selectedType?"#10B981":"#8899AA",padding:"6px",borderRadius:"8px",fontSize:"9px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
+      selectedType=t.id;
+      typeButtons.forEach(function(b){b.style.background="#0D1117";b.style.borderColor="#2A3040";b.style.color="#8899AA";});
+      tBtn.style.background="#10B98133";tBtn.style.borderColor="#10B981";tBtn.style.color="#10B981";
+    }});
+    tBtn.textContent=t.l;typeGrid.appendChild(tBtn);typeButtons.push(tBtn);
+  });
+  card.appendChild(typeGrid);
+
+  var resultArea=div({marginTop:"10px"});
+  card.appendChild(resultArea);
+
+  var genBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#10B981,#06B6D4)",color:"#FFF",border:"none",borderRadius:"10px",padding:"14px",fontSize:"13px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
+    if(!topicInp.value.trim()){alert("Enter a topic.");return;}
+    genBtn.textContent="✨ Generating as "+av.name+"...";genBtn.disabled=true;
+    resultArea.innerHTML="";
+    try{
+      var sys="You are '"+av.name+"', a Dubai real estate content creator.\n"+
+        "Bio: "+(av.bio||"")+"\n"+
+        "Personality & Tone: "+(av.tone||"Professional and knowledgeable")+"\n"+
+        "Language: "+(av.language||"en")+"\n"+
+        "Signature hashtags: "+(av.hashtags||"")+"\n"+
+        "CTA: "+(av.cta||"")+"\n"+
+        "Content pillars: "+(av.pillars||[]).join(", ")+"\n\n"+
+        "Generate a "+selectedType.replace(/_/g," ")+" about the given topic.\n"+
+        "Stay COMPLETELY in character. Use the specified tone and personality.\n"+
+        "Include relevant hashtags from the signature set.\n"+
+        "Include CTA if set.\n"+
+        (selectedType==="instagram_reel"||selectedType==="youtube_short"?"Format as a video script with [HOOK], [BODY], [CTA] sections and timing notes.\n":"")+
+        (selectedType==="twitter"?"Keep under 280 characters.\n":"")+
+        (selectedType==="linkedin"?"Professional tone, use line breaks for readability, include relevant data/stats.\n":"")+
+        (selectedType==="blog"?"Write a 300-500 word blog post with headings.\n":"")+
+        (selectedType==="email"?"Write a professional newsletter email with subject line.\n":"")+
+        "Write in "+(av.language==="ar"?"Arabic":av.language==="fa"?"Persian/Farsi":av.language==="ru"?"Russian":av.language==="zh"?"Chinese":av.language==="hi"?"Hindi":av.language==="fr"?"French":"English")+".";
+
+      var reply=await askAI([{role:"user",content:"Create content about: "+topicInp.value.trim()}],sys);
+
+      var resultCard=div({background:"#0D1117",border:"1px solid #10B981",borderRadius:"12px",padding:"14px",marginBottom:"10px"});
+      var resultText=el("pre",{style:{color:"#E0E0E0",fontSize:"11px",fontFamily:"'Inter',sans-serif",whiteSpace:"pre-wrap",wordBreak:"break-word",margin:0,lineHeight:"1.6"}});
+      resultText.textContent=reply;resultCard.appendChild(resultText);
+      resultArea.appendChild(resultCard);
+
+      var actionRow=div({display:"flex",gap:"6px",flexWrap:"wrap"});
+      var copyBtn2=el("button",{style:{background:"#3B82F622",border:"1px solid #3B82F6",color:"#3B82F6",padding:"6px 12px",borderRadius:"8px",fontSize:"10px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:function(){navigator.clipboard.writeText(reply);copyBtn2.textContent="✅ Copied!";}});
+      copyBtn2.textContent="📋 Copy";actionRow.appendChild(copyBtn2);
+
+      var schedBtn=el("button",{style:{background:"#8B5CF622",border:"1px solid #8B5CF6",color:"#8B5CF6",padding:"6px 12px",borderRadius:"8px",fontSize:"10px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();showAddCalendarEvent(reply);}});
+      schedBtn.textContent="📅 Schedule";actionRow.appendChild(schedBtn);
+
+      var publishBtn=el("button",{style:{background:"#10B98122",border:"1px solid #10B981",color:"#10B981",padding:"6px 12px",borderRadius:"8px",fontSize:"10px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
+        publishBtn.textContent="⏳ Publishing...";
+        try{
+          var img=await findSmartImage(reply);
+          var platform=selectedType.split("_")[0];
+          if(platform==="instagram"){var r=await publishToInstagram(reply,[img]);publishBtn.textContent=r.success?"✅ Posted!":"❌ "+r.error;}
+          else if(platform==="facebook"){var r2=await publishToFacebook(reply,[img]);publishBtn.textContent=r2.success?"✅ Posted!":"❌ "+r2.error;}
+          else if(platform==="linkedin"){var r3=await publishToLinkedIn(reply,img);publishBtn.textContent=r3.success?"✅ Posted!":"❌ "+r3.error;}
+          else if(platform==="twitter"){var r4=await publishToTwitter(reply.substring(0,280));publishBtn.textContent=r4.success?"✅ Posted!":"❌ "+r4.error;}
+          else{publishBtn.textContent="📋 Copy and post manually";navigator.clipboard.writeText(reply);}
+        }catch(e){publishBtn.textContent="❌ "+e.message;}
+      }});
+      publishBtn.textContent="🚀 Publish Now";actionRow.appendChild(publishBtn);
+
+      var imgBtn=el("button",{style:{background:"#EC489922",border:"1px solid #EC4899",color:"#EC4899",padding:"6px 12px",borderRadius:"8px",fontSize:"10px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
+        imgBtn.textContent="🎨 Generating image...";
+        var imgUrl=await generateGeminiImage(topicInp.value+" Dubai real estate, "+av.name+" character style");
+        if(imgUrl){
+          var preview=el("img",{style:{width:"100%",maxHeight:"200px",objectFit:"cover",borderRadius:"10px",marginTop:"8px",border:"1px solid #EC4899"}});
+          preview.src=imgUrl;resultArea.appendChild(preview);
+          imgBtn.textContent="✅ Image generated!";
+        }else{imgBtn.textContent="❌ Failed";}
+      }});
+      imgBtn.textContent="🎨 Generate Image";actionRow.appendChild(imgBtn);
+
+      resultArea.appendChild(actionRow);
+    }catch(e){
+      resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"11px",fontFamily:"monospace"}},"Error: "+e.message));
+    }
+    genBtn.textContent="✨ Generate Content";genBtn.disabled=false;
+  }});
+  genBtn.textContent="✨ Generate as "+av.name;card.appendChild(genBtn);
+
+  card.appendChild(el("button",{style:{width:"100%",marginTop:"8px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+// --- AVATAR VIDEO GENERATOR (AI Talking Head) ---
+function showAvatarVideoGen(avatarId){
+  var av=_getAvatars().find(function(a){return a.id===avatarId;});
+  if(!av){alert("Avatar not found.");return;}
+  var m=document.getElementById("avatar-video-modal");if(m)m.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.92)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"avatar-video-modal"});
+  var card=div({background:"linear-gradient(145deg,#1A1F2E,#0D1117)",border:"1px solid #F59E0B",borderRadius:"20px",padding:"20px",width:"560px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
+
+  var hdr=div({display:"flex",alignItems:"center",gap:"10px",marginBottom:"14px"});
+  if(av.avatarUrl){
+    var avImg=el("img",{style:{width:"40px",height:"40px",borderRadius:"50%",objectFit:"cover",border:"2px solid #F59E0B"}});
+    avImg.src=av.avatarUrl;hdr.appendChild(avImg);
+  }
+  hdr.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"}},"🎬 AI Video — "+av.name));
+  card.appendChild(hdr);
+
+  card.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",marginBottom:"12px",fontFamily:"monospace"}},"Generate a talking-head video with your avatar's voice using D-ID or ElevenLabs + image animation."));
+
+  var scriptLabel=el("label",{style:{color:"#8899AA",fontSize:"10px",display:"block",marginBottom:"3px",fontFamily:"monospace"}});
+  scriptLabel.textContent="Video Script";card.appendChild(scriptLabel);
+  var scriptInp=el("textarea",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"10px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",boxSizing:"border-box",minHeight:"100px",resize:"vertical",marginBottom:"8px"},placeholder:"Type your script or click 'AI Write Script' to generate one..."});
+  card.appendChild(scriptInp);
+
+  var aiScriptBtn=el("button",{style:{width:"100%",marginBottom:"10px",background:"#8B5CF622",border:"1px solid #8B5CF6",color:"#8B5CF6",borderRadius:"8px",padding:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
+    aiScriptBtn.textContent="🧠 Writing script...";
+    try{
+      var sys="You are "+av.name+". "+av.tone+". Write a 30-60 second video script for a talking-head social media video about Dubai real estate. Include [HOOK] (first 3 seconds), [BODY] (main points), and [CTA] (call to action). Keep it conversational and engaging. Write in "+(av.language==="ar"?"Arabic":av.language==="fa"?"Persian":"English")+".";
+      var reply=await askAI([{role:"user",content:"Write a short video script about Dubai real estate market trends in 2026"}],sys);
+      scriptInp.value=reply;
+      aiScriptBtn.textContent="✅ Script ready!";
+    }catch(e){aiScriptBtn.textContent="❌ "+e.message;}
+  }});
+  aiScriptBtn.textContent="🧠 AI Write Script";card.appendChild(aiScriptBtn);
+
+  card.appendChild(el("label",{style:{color:"#F59E0B",fontSize:"11px",fontWeight:"700",display:"block",marginBottom:"6px",fontFamily:"monospace"}},"Video Generation Method"));
+
+  var methodGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"12px"});
+
+  var method1=div({background:"#0D1117",border:"1px solid #F59E0B",borderRadius:"12px",padding:"12px",cursor:"pointer"});
+  method1.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"12px",fontWeight:"700",fontFamily:"monospace",marginBottom:"4px"}},"🎭 D-ID Talking Avatar"));
+  method1.appendChild(el("div",{style:{color:"#8899AA",fontSize:"9px",fontFamily:"monospace"}},"AI animates your avatar image to speak. Lip-sync + expressions. Needs D-ID API key."));
+  methodGrid.appendChild(method1);
+
+  var method2=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"12px",padding:"12px",cursor:"pointer"});
+  method2.appendChild(el("div",{style:{color:"#06B6D4",fontSize:"12px",fontWeight:"700",fontFamily:"monospace",marginBottom:"4px"}},"🎙 Voice + Slideshow"));
+  method2.appendChild(el("div",{style:{color:"#8899AA",fontSize:"9px",fontFamily:"monospace"}},"ElevenLabs voice + AI images + auto-subtitles. Uses existing Video Creator."));
+  methodGrid.appendChild(method2);
+  card.appendChild(methodGrid);
+
+  card.appendChild(el("label",{style:{color:"#8899AA",fontSize:"10px",display:"block",marginBottom:"3px",fontFamily:"monospace"}},"D-ID API Key (for talking avatar)"));
+  var didKeyInp=el("input",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",boxSizing:"border-box",marginBottom:"10px"},placeholder:"Get free key at studio.d-id.com",value:localStorage.getItem("dv_did_key")||""});
+  card.appendChild(didKeyInp);
+
+  var resultArea=div({marginTop:"8px"});card.appendChild(resultArea);
+
+  var genVideoBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#F59E0B,#EC4899)",color:"#FFF",border:"none",borderRadius:"10px",padding:"14px",fontSize:"13px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
+    var script=scriptInp.value.trim();
+    if(!script){alert("Write or generate a script first.");return;}
+    if(didKeyInp.value.trim())localStorage.setItem("dv_did_key",didKeyInp.value.trim());
+    var didKey=localStorage.getItem("dv_did_key");
+
+    if(didKey){
+      genVideoBtn.textContent="🎬 Creating D-ID talking avatar video...";genVideoBtn.disabled=true;
+      resultArea.innerHTML="";
+      try{
+        var sourceUrl=av.avatarUrl;
+        if(!sourceUrl){
+          resultArea.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",fontFamily:"monospace"}},"⏳ No avatar image — generating one..."));
+          var style=AVATAR_STYLES.find(function(s){return s.id===av.styleId;})||AVATAR_STYLES[0];
+          sourceUrl=await generateGeminiImage(style.prompt+", face portrait, looking at camera");
+          if(!sourceUrl){genVideoBtn.textContent="❌ Could not generate avatar image";genVideoBtn.disabled=false;return;}
+        }
+
+        var cleanScript=script.replace(/\[HOOK\]|\[BODY\]|\[CTA\]|\[.*?\]/g,"").trim();
+        var voiceId=av.voiceId||"21m00Tcm4TlvDq8ikWAM";
+
+        var talkResp=await fetch("https://api.d-id.com/talks",{
+          method:"POST",
+          headers:{"Authorization":"Basic "+didKey,"Content-Type":"application/json"},
+          body:JSON.stringify({
+            source_url:sourceUrl,
+            script:{type:"text",input:cleanScript,provider:{type:"elevenlabs",voice_id:voiceId}},
+            config:{fluent:true,stitch:true}
+          })
+        });
+        var talkData=await talkResp.json();
+        if(talkData.id){
+          resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace"}},"✅ Video creation started (ID: "+talkData.id+")"));
+          resultArea.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",fontFamily:"monospace"}},"⏳ Processing... checking status every 5s..."));
+
+          var checkCount=0;
+          var checkInterval=setInterval(async function(){
+            checkCount++;
+            try{
+              var statusResp=await fetch("https://api.d-id.com/talks/"+talkData.id,{headers:{"Authorization":"Basic "+didKey}});
+              var statusData=await statusResp.json();
+              if(statusData.status==="done"&&statusData.result_url){
+                clearInterval(checkInterval);
+                resultArea.innerHTML="";
+                resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"12px",fontWeight:"700",fontFamily:"monospace",marginBottom:"8px"}},"✅ Video Ready!"));
+                var video=el("video",{style:{width:"100%",maxHeight:"300px",borderRadius:"12px",border:"1px solid #F59E0B"},controls:true,autoplay:true});
+                video.src=statusData.result_url;resultArea.appendChild(video);
+                var dlRow=div({display:"flex",gap:"6px",marginTop:"8px"});
+                var dlBtn=el("a",{style:{flex:1,display:"block",background:"#10B981",color:"#FFF",textAlign:"center",textDecoration:"none",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",fontFamily:"monospace"},href:statusData.result_url,target:"_blank",download:"avatar-video.mp4"});
+                dlBtn.textContent="⬇️ Download Video";dlRow.appendChild(dlBtn);
+                var shareBtn=el("button",{style:{flex:1,background:"#3B82F622",border:"1px solid #3B82F6",color:"#3B82F6",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){navigator.clipboard.writeText(statusData.result_url);shareBtn.textContent="✅ URL Copied!";}});
+                shareBtn.textContent="🔗 Copy Video URL";dlRow.appendChild(shareBtn);
+                resultArea.appendChild(dlRow);
+                genVideoBtn.textContent="🎬 Generate Another Video";
+              }else if(statusData.status==="error"){
+                clearInterval(checkInterval);
+                resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ D-ID error: "+(statusData.error||"Unknown")));
+                genVideoBtn.textContent="🎬 Retry";
+              }else if(checkCount>24){
+                clearInterval(checkInterval);
+                resultArea.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",fontFamily:"monospace"}},"⏰ Timeout — video may still be processing. Check D-ID dashboard."));
+                genVideoBtn.textContent="🎬 Generate Video";
+              }
+            }catch(e){
+              clearInterval(checkInterval);
+              resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error checking status: "+e.message));
+            }
+          },5000);
+        }else{
+          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ D-ID error: "+JSON.stringify(talkData)));
+          genVideoBtn.textContent="🎬 Retry";
+        }
+      }catch(e){
+        resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));
+        genVideoBtn.textContent="🎬 Retry";
+      }
+      genVideoBtn.disabled=false;
+    }else{
+      overlay.remove();
+      showVideoGenUI(script);
+    }
+  }});
+  genVideoBtn.textContent="🎬 Generate Talking Avatar Video";card.appendChild(genVideoBtn);
+
+  card.appendChild(el("button",{style:{width:"100%",marginTop:"8px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+// --- AVATAR AUTO-PILOT (Automated Content Generation + Posting) ---
+function showAvatarAutoPilot(avatarId){
+  var av=_getAvatars().find(function(a){return a.id===avatarId;});
+  if(!av){alert("Avatar not found.");return;}
+  var m=document.getElementById("avatar-autopilot-modal");if(m)m.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.92)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"avatar-autopilot-modal"});
+  var card=div({background:"linear-gradient(145deg,#1A1F2E,#0D1117)",border:"1px solid #3B82F6",borderRadius:"20px",padding:"20px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
+
+  card.appendChild(el("h3",{style:{color:"#3B82F6",margin:"0 0 4px",fontSize:"16px",fontFamily:"'Space Grotesk',monospace"}},"🤖 Auto-Pilot — "+av.name));
+  card.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",marginBottom:"14px",fontFamily:"monospace"}},"AI generates content as "+av.name+" and auto-schedules to your calendar. Set it and forget it."));
+
+  var config=JSON.parse(localStorage.getItem("dv_autopilot_"+av.id)||"{}");
+
+  var mkField=function(label,val,ph){
+    card.appendChild(el("label",{style:{color:"#8899AA",fontSize:"10px",display:"block",marginBottom:"3px",fontFamily:"monospace"}},label));
+    var inp=el("input",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",boxSizing:"border-box",marginBottom:"8px"},placeholder:ph,value:val||""});
+    card.appendChild(inp);return inp;
+  };
+
+  var freqSelect=el("select",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",boxSizing:"border-box",marginBottom:"8px"}});
+  [{v:"1",l:"1 post/day"},{v:"2",l:"2 posts/day"},{v:"3",l:"3 posts/day"},{v:"7",l:"1 post/week"}].forEach(function(o){
+    var opt=el("option");opt.value=o.v;opt.textContent=o.l;
+    if(config.frequency===o.v)opt.selected=true;
+    freqSelect.appendChild(opt);
+  });
+  card.appendChild(el("label",{style:{color:"#8899AA",fontSize:"10px",display:"block",marginBottom:"3px",fontFamily:"monospace"}},"Posting Frequency"));
+  card.appendChild(freqSelect);
+
+  var platformSelect=el("select",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",boxSizing:"border-box",marginBottom:"8px"}});
+  [{v:"all",l:"All Platforms"},{v:"instagram",l:"Instagram Only"},{v:"linkedin",l:"LinkedIn Only"},{v:"facebook",l:"Facebook Only"},{v:"twitter",l:"X/Twitter Only"}].forEach(function(o){
+    var opt=el("option");opt.value=o.v;opt.textContent=o.l;
+    if(config.platform===o.v)opt.selected=true;
+    platformSelect.appendChild(opt);
+  });
+  card.appendChild(el("label",{style:{color:"#8899AA",fontSize:"10px",display:"block",marginBottom:"3px",fontFamily:"monospace"}},"Target Platform"));
+  card.appendChild(platformSelect);
+
+  var daysInp=mkField("Generate for how many days?",config.days||"7","7");
+  var timeInp=mkField("Preferred posting time",config.time||"10:00","10:00");
+
+  var topics=(av.pillars||["Market Data","Investment Tips","Area Spotlights","Lifestyle"]);
+  card.appendChild(el("div",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace",marginBottom:"8px"}},"Content pillars: "+topics.join(" · ")));
+
+  var resultArea=div({});card.appendChild(resultArea);
+
+  var launchBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#3B82F6,#8B5CF6)",color:"#FFF",border:"none",borderRadius:"10px",padding:"14px",fontSize:"13px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
+    var days=parseInt(daysInp.value)||7;
+    var freq=parseInt(freqSelect.value)||1;
+    var totalPosts=days*freq;
+    launchBtn.textContent="🤖 Generating "+totalPosts+" posts as "+av.name+"...";launchBtn.disabled=true;
+    resultArea.innerHTML="";
+
+    localStorage.setItem("dv_autopilot_"+av.id,JSON.stringify({frequency:freqSelect.value,platform:platformSelect.value,days:daysInp.value,time:timeInp.value}));
+
+    var progress=el("div",{style:{color:"#3B82F6",fontSize:"11px",fontFamily:"monospace",marginBottom:"8px"}});
+    resultArea.appendChild(progress);
+
+    var generated=0;
+    var startDate=new Date();
+    var sys="You are '"+av.name+"'. "+(av.tone||"")+"\nGenerate a social media post about Dubai real estate.\nTopic will be provided. Stay in character.\nInclude hashtags: "+(av.hashtags||"")+"\nCTA: "+(av.cta||"")+"\nLanguage: "+(av.language||"en")+"\nKeep it concise and engaging. Respond with ONLY the post caption, nothing else.";
+
+    for(var d=0;d<days;d++){
+      for(var p=0;p<freq;p++){
+        var postDate=new Date(startDate);
+        postDate.setDate(postDate.getDate()+d);
+        var dateStr=postDate.toISOString().split("T")[0];
+        var hour=parseInt(timeInp.value.split(":")[0])||10;
+        var adjustedHour=freq>1?hour+p*Math.floor(8/freq):hour;
+        var timeStr=String(adjustedHour).padStart(2,"0")+":"+(timeInp.value.split(":")[1]||"00");
+
+        var pillar=topics[(generated)%topics.length];
+        var topicPrompts={"Market Data":"latest market trend or price movement","Investment Tips":"investment strategy or opportunity","Area Spotlights":"spotlight on a specific Dubai area","Lifestyle":"Dubai luxury lifestyle and amenities","Success Story":"a client success story","FAQ":"common question about Dubai property","Trending News":"trending Dubai real estate news"};
+        var topicPrompt=topicPrompts[pillar]||"Dubai real estate insight";
+
+        progress.textContent="⏳ Generating post "+(generated+1)+"/"+totalPosts+" ("+pillar+")...";
+
+        try{
+          var reply=await askAI([{role:"user",content:"Write a post about: "+topicPrompt+". Pillar: "+pillar+". Post #"+(generated+1)}],sys);
+          var evt={caption:reply,date:dateStr,time:timeStr,platform:platformSelect.value,pillar:pillar};
+          saveCalendarEvent(evt);
+          generated++;
+        }catch(e){
+          progress.textContent="⚠️ Error on post "+(generated+1)+": "+e.message;
+          await new Promise(function(r){setTimeout(r,2000);});
+        }
+      }
+    }
+
+    resultArea.innerHTML="";
+    var successCard=div({background:"#10B98122",border:"1px solid #10B981",borderRadius:"12px",padding:"16px",textAlign:"center"});
+    successCard.appendChild(el("div",{style:{fontSize:"36px",marginBottom:"8px"}},"🎉"));
+    successCard.appendChild(el("div",{style:{color:"#10B981",fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"}},"Auto-Pilot Complete!"));
+    successCard.appendChild(el("div",{style:{color:"#E0E0E0",fontSize:"12px",fontFamily:"monospace",marginTop:"6px"}},generated+" posts generated and scheduled for "+days+" days"));
+    successCard.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",fontFamily:"monospace",marginTop:"4px"}},"Posts will auto-publish via client engine + server cron (24/7)"));
+    resultArea.appendChild(successCard);
+    launchBtn.textContent="🤖 Launch Auto-Pilot Again";launchBtn.disabled=false;
+  }});
+  launchBtn.textContent="🤖 Launch Auto-Pilot ("+av.name+")";card.appendChild(launchBtn);
+
+  card.appendChild(el("button",{style:{width:"100%",marginTop:"8px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+// --- AVATAR BATCH GENERATOR (30 Days of Content) ---
+function showAvatarBatchGen(avatarId){
+  var av=_getAvatars().find(function(a){return a.id===avatarId;});
+  if(!av){alert("Avatar not found.");return;}
+  var m=document.getElementById("avatar-batch-modal");if(m)m.remove();
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.92)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"avatar-batch-modal"});
+  var card=div({background:"linear-gradient(145deg,#1A1F2E,#0D1117)",border:"1px solid #8B5CF6",borderRadius:"20px",padding:"20px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
+
+  card.appendChild(el("h3",{style:{color:"#8B5CF6",margin:"0 0 4px",fontSize:"16px",fontFamily:"'Space Grotesk',monospace"}},"📦 30-Day Content Batch — "+av.name));
+  card.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",marginBottom:"14px",fontFamily:"monospace"}},"Generate a full month of content in one click. AI creates diverse posts across all your content pillars."));
+
+  var pillars=av.pillars&&av.pillars.length>0?av.pillars:["Market Data","Investment Tips","Area Spotlights","Lifestyle"];
+  var pillarList=div({display:"flex",gap:"4px",flexWrap:"wrap",marginBottom:"12px"});
+  pillars.forEach(function(p){
+    pillarList.appendChild(el("span",{style:{background:"#8B5CF622",border:"1px solid #8B5CF644",color:"#8B5CF6",padding:"3px 8px",borderRadius:"12px",fontSize:"9px",fontFamily:"monospace"}},p));
+  });
+  card.appendChild(pillarList);
+
+  var statsPreview=div({display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"6px",marginBottom:"12px"});
+  [{l:"Total Posts",v:"30",c:"#8B5CF6"},{l:"Platforms",v:"All",c:"#10B981"},{l:"Est. Time",v:"~3 min",c:"#F59E0B"}].forEach(function(s){
+    var sc=div({background:"#0D1117",borderRadius:"8px",padding:"8px",textAlign:"center"});
+    sc.appendChild(el("div",{style:{color:s.c,fontSize:"16px",fontWeight:"800",fontFamily:"monospace"}},s.v));
+    sc.appendChild(el("div",{style:{color:"#8899AA",fontSize:"8px",fontFamily:"monospace"}},s.l));
+    statsPreview.appendChild(sc);
+  });card.appendChild(statsPreview);
+
+  var resultArea=div({});card.appendChild(resultArea);
+
+  var genBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#8B5CF6,#EC4899)",color:"#FFF",border:"none",borderRadius:"10px",padding:"14px",fontSize:"13px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
+    genBtn.textContent="📦 Generating 30 days of content...";genBtn.disabled=true;
+    resultArea.innerHTML="";
+    var progress=el("div",{style:{color:"#8B5CF6",fontSize:"11px",fontFamily:"monospace"}});
+    resultArea.appendChild(progress);
+    var bar=div({width:"100%",height:"6px",background:"#2A3040",borderRadius:"3px",marginTop:"6px",marginBottom:"10px",overflow:"hidden"});
+    var fill=div({width:"0%",height:"100%",background:"linear-gradient(90deg,#8B5CF6,#EC4899)",borderRadius:"3px",transition:"width 0.3s"});
+    bar.appendChild(fill);resultArea.appendChild(bar);
+
+    var sys="You are '"+av.name+"'. "+(av.tone||"")+"\nGenerate social media content about Dubai real estate.\nInclude hashtags: "+(av.hashtags||"")+"\nCTA: "+(av.cta||"")+"\nLanguage: "+(av.language||"en")+"\nKeep it engaging. Respond with ONLY the post text.";
+
+    var generated=0;
+    var times=["09:00","12:00","17:00","10:00","14:00","18:00","11:00","15:00","20:00","08:00"];
+    for(var d=0;d<30;d++){
+      var postDate=new Date();postDate.setDate(postDate.getDate()+d+1);
+      var dateStr=postDate.toISOString().split("T")[0];
+      var pillar=pillars[d%pillars.length];
+      var timeStr=times[d%times.length];
+      progress.textContent="⏳ Day "+(d+1)+"/30 — "+pillar+"...";
+      fill.style.width=Math.round((d+1)/30*100)+"%";
+      try{
+        var reply=await askAI([{role:"user",content:"Create a "+pillar.toLowerCase()+" post about Dubai real estate. Day "+(d+1)+" of 30. Make it unique."}],sys);
+        saveCalendarEvent({caption:reply,date:dateStr,time:timeStr,platform:"all",pillar:pillar});
+        generated++;
+      }catch(e){
+        progress.textContent="⚠️ Day "+(d+1)+" failed: "+e.message;
+        await new Promise(function(r){setTimeout(r,1500);});
+      }
+    }
+
+    resultArea.innerHTML="";
+    var done=div({background:"#10B98122",border:"1px solid #10B981",borderRadius:"12px",padding:"20px",textAlign:"center"});
+    done.appendChild(el("div",{style:{fontSize:"48px",marginBottom:"8px"}},"🎉"));
+    done.appendChild(el("div",{style:{color:"#10B981",fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"}},"30 Days Scheduled!"));
+    done.appendChild(el("div",{style:{color:"#E0E0E0",fontSize:"12px",fontFamily:"monospace",marginTop:"6px"}},generated+" posts as "+av.name+" ready for auto-publishing"));
+    done.appendChild(el("div",{style:{color:"#3B82F6",fontSize:"10px",fontFamily:"monospace",marginTop:"6px"}},"☁️ Click 'Sync to Cloud' in Auto-Post Log for 24/7 server-side publishing"));
+    resultArea.appendChild(done);
+    genBtn.textContent="📦 Generate Another 30 Days";genBtn.disabled=false;
+  }});
+  genBtn.textContent="📦 Generate 30 Days as "+av.name;card.appendChild(genBtn);
+
+  card.appendChild(el("button",{style:{width:"100%",marginTop:"8px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
+  overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
 }
 
 // --- AUTO-POST LOG ---
@@ -5176,7 +5908,8 @@ function showSocialSetup(){
     {key:"dv_youtube_token",label:"▶️ YouTube Access Token",ph:"Auto-refreshed — paste initial token here"},
     {key:"dv_youtube_refresh",label:"▶️ YouTube Refresh Token",ph:"1//0c... — permanent, auto-renews access token"},
     {key:"dv_youtube_client_id",label:"▶️ YouTube Client ID",ph:"916354...apps.googleusercontent.com"},
-    {key:"dv_youtube_client_secret",label:"▶️ YouTube Client Secret",ph:"GOCSPX-..."}
+    {key:"dv_youtube_client_secret",label:"▶️ YouTube Client Secret",ph:"GOCSPX-..."},
+    {key:"dv_did_key",label:"🎭 D-ID API Key (talking avatar video)",ph:"Free at studio.d-id.com → API settings"}
   ];
   var inputs=[];
   fields.forEach(function(f){
