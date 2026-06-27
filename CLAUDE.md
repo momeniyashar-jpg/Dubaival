@@ -3,7 +3,30 @@
 Read this first. It exists so a fresh session doesn't have to re-read the whole
 single-file app or re-derive line numbers/history from scratch.
 
-## 🔴 CRITICAL DIRECTIVE — Analyzer Page Accuracy
+## 🔴 #1 CRITICAL DIRECTIVE — Full Automation, Zero User Intervention
+
+**This is the HIGHEST PRIORITY directive — execute BEFORE all others.**
+
+Every task, feature, fix, or change MUST be:
+- **Fully automated** — no manual steps required from the user
+- **Best version first** — implement the best, most complete solution on the
+  first attempt. Do NOT ship half-working code that needs multiple rounds of fixes.
+- **Self-contained** — all dependencies, configs, tokens, API calls, env vars,
+  cache busting, vercel.json changes, index.html version bumps — handle EVERYTHING
+  in one go. The user should NEVER have to debug, paste tokens in console, or
+  manually configure anything.
+- **Latest technology** — use the most current APIs, best practices, and optimal
+  architecture available.
+- **Test before shipping** — verify the solution works end-to-end before declaring
+  it done. Anticipate errors (CORS, 404, token expiry, cache) and handle them
+  proactively.
+
+If a feature needs env vars, tokens, or credentials — build a UI for it.
+If a file changes, bump the cache version in index.html automatically.
+If an API might fail, add retry logic and clear error messages.
+**The user's only job is to say what they want. Everything else is on Claude.**
+
+## 🔴 #2 CRITICAL DIRECTIVE — Analyzer Page Accuracy
 
 The Analyzer page is the heart of DubaiVal — the business depends on it.
 **ALL numbers on this page MUST be accurate with a MAXIMUM 3% deviation.**
