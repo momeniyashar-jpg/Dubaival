@@ -16,6 +16,14 @@
     {
       "path": "/api/refresh-market-data",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/auto-post",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/sync-engagement",
+      "schedule": "0 */6 * * *"
     }
   ]
 }

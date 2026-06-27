@@ -622,6 +622,109 @@ function _trackPostIds(calId,results){
 }
 setTimeout(startAutoPostEngine,5000);
 
+// --- SERVER-SIDE AUTO-POST SYNC (Supabase) ---
+function _getPostUserId(){
+  try{var u=JSON.parse(localStorage.getItem("dv_user")||"{}");return u.email||u.id||"default";}catch(e){return "default";}
+}
+
+function _syncCredsToServer(){
+  try{
+    var userId=_getPostUserId();
+    var payload={
+      user_id:userId,
+      ig_token:localStorage.getItem("dv_ig_token")||null,
+      ig_id:localStorage.getItem("dv_ig_id")||null,
+      fb_id:localStorage.getItem("dv_fb_id")||null,
+      linkedin_token:localStorage.getItem("dv_linkedin_token")||null,
+      linkedin_urn:localStorage.getItem("dv_linkedin_urn")||null,
+      twitter_consumer_key:localStorage.getItem("dv_twitter_consumer_key")||null,
+      twitter_consumer_secret:localStorage.getItem("dv_twitter_consumer_secret")||null,
+      twitter_access_token:localStorage.getItem("dv_twitter_access_token")||null,
+      twitter_access_secret:localStorage.getItem("dv_twitter_access_secret")||null,
+      youtube_refresh:localStorage.getItem("dv_youtube_refresh")||null,
+      youtube_client_id:localStorage.getItem("dv_youtube_client_id")||null,
+      youtube_client_secret:localStorage.getItem("dv_youtube_client_secret")||null,
+      pexels_key:localStorage.getItem("dv_pexels_key")||null,
+      tiktok_token:localStorage.getItem("dv_tiktok_token")||null,
+      updated_at:new Date().toISOString()
+    };
+    fetch(SUPABASE_URL+"/rest/v1/social_credentials?user_id=eq."+encodeURIComponent(userId),{
+      method:"GET",
+      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"}
+    }).then(function(r){return r.json();}).then(function(existing){
+      if(existing&&existing.length>0){
+        fetch(SUPABASE_URL+"/rest/v1/social_credentials?user_id=eq."+encodeURIComponent(userId),{
+          method:"PATCH",
+          headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},
+          body:JSON.stringify(payload)
+        });
+      }else{
+        fetch(SUPABASE_URL+"/rest/v1/social_credentials",{
+          method:"POST",
+          headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},
+          body:JSON.stringify(payload)
+        });
+      }
+    }).catch(function(){});
+  }catch(e){}
+}
+
+async function _syncCalEventToServer(evt,imageUrl){
+  try{
+    var userId=_getPostUserId();
+    var payload={
+      user_id:userId,
+      caption:evt.caption||"",
+      platform:evt.platform||"all",
+      scheduled_date:evt.date,
+      scheduled_time:evt.time+":00",
+      pillar:evt.pillar||"General",
+      status:"scheduled",
+      image_url:imageUrl||null,
+      client_id:evt.id
+    };
+    await fetch(SUPABASE_URL+"/rest/v1/scheduled_posts",{
+      method:"POST",
+      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},
+      body:JSON.stringify(payload)
+    });
+  }catch(e){}
+}
+
+async function _deleteCalEventFromServer(clientId){
+  try{
+    var userId=_getPostUserId();
+    await fetch(SUPABASE_URL+"/rest/v1/scheduled_posts?client_id=eq."+encodeURIComponent(clientId)+"&user_id=eq."+encodeURIComponent(userId),{
+      method:"PATCH",
+      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},
+      body:JSON.stringify({status:"cancelled",updated_at:new Date().toISOString()})
+    });
+  }catch(e){}
+}
+
+async function _syncAllCalendarToServer(){
+  try{
+    var cal=JSON.parse(localStorage.getItem("dv_content_calendar")||"[]");
+    var scheduled=cal.filter(function(e){return e.status==="scheduled";});
+    for(var i=0;i<scheduled.length;i++){
+      await _syncCalEventToServer(scheduled[i],null);
+    }
+  }catch(e){}
+}
+
+function _fetchServerEngagement(){
+  try{
+    var userId=_getPostUserId();
+    fetch(SUPABASE_URL+"/rest/v1/post_engagement?user_id=eq."+encodeURIComponent(userId)+"&select=*&order=checked_at.desc&limit=50",{
+      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"}
+    }).then(function(r){return r.json();}).then(function(data){
+      if(data&&data.length>0){
+        localStorage.setItem("dv_server_engagement",JSON.stringify(data));
+      }
+    }).catch(function(){});
+  }catch(e){}
+}
+
 // --- POST ENGAGEMENT TRACKER ---
 async function fetchPostEngagement(mediaId){
   var c=getSocialCreds();if(!c)return null;
@@ -4165,11 +4268,14 @@ function saveCalendarEvent(evt){
   evt.createdAt=new Date().toISOString();
   if(!evt.date){var d=new Date();d.setDate(d.getDate()+1);evt.date=d.toISOString().split("T")[0];}
   if(!evt.time)evt.time="10:00";
-  cal.push(evt);localStorage.setItem("dv_content_calendar",JSON.stringify(cal));schedulePostReminder(evt);return evt;
+  cal.push(evt);localStorage.setItem("dv_content_calendar",JSON.stringify(cal));schedulePostReminder(evt);
+  findSmartImage(evt.caption||"Dubai real estate").then(function(img){_syncCalEventToServer(evt,img);}).catch(function(){_syncCalEventToServer(evt,null);});
+  return evt;
 }
 function deleteCalendarEvent(id){
   var cal=getCalendarData().filter(function(e){return e.id!==id;});
   localStorage.setItem("dv_content_calendar",JSON.stringify(cal));
+  _deleteCalEventFromServer(id);
 }
 
 function showContentCalendar(){
@@ -4921,8 +5027,9 @@ function showAutoPostLog(){
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"autopost-log-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #10B981",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
   card.appendChild(el("h3",{style:{color:"#10B981",margin:"0 0 4px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"📡 Auto-Post Engine"));
-  var engineStatus=_autoPostTimer?"🟢 Active — checking every 60s":"🔴 Inactive";
-  card.appendChild(el("div",{style:{color:_autoPostTimer?"#10B981":"#EF4444",fontSize:"10px",fontFamily:"monospace",marginBottom:"12px"}},engineStatus));
+  var engineStatus=_autoPostTimer?"🟢 Client Active — checking every 60s":"🔴 Client Inactive";
+  card.appendChild(el("div",{style:{color:_autoPostTimer?"#10B981":"#EF4444",fontSize:"10px",fontFamily:"monospace",marginBottom:"4px"}},engineStatus));
+  card.appendChild(el("div",{style:{color:"#3B82F6",fontSize:"10px",fontFamily:"monospace",marginBottom:"12px"}},"☁️ Server Cron — every 15 min (24/7, even when browser closed)"));
   var cal;try{cal=JSON.parse(localStorage.getItem("dv_content_calendar")||"[]");}catch(e){cal=[];}
   var scheduled=cal.filter(function(e){return e.status==="scheduled";}).length;
   var published=cal.filter(function(e){return e.status==="published";}).length;
@@ -4963,6 +5070,13 @@ function showAutoPostLog(){
     await _checkDuePosts();
     retryBtn.textContent="✅ Retried "+failedPosts.length+" posts";overlay.remove();showAutoPostLog();
   }});retryBtn.textContent="🔄 Retry All Failed";card.appendChild(retryBtn);
+  var syncBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"#3B82F622",border:"1px solid #3B82F644",color:"#3B82F6",borderRadius:"8px",padding:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
+    syncBtn.textContent="⏳ Syncing to cloud...";
+    await _syncAllCalendarToServer();
+    _syncCredsToServer();
+    syncBtn.textContent="✅ Synced — server will auto-post 24/7";
+    setTimeout(function(){syncBtn.textContent="☁️ Sync All to Cloud (24/7 Auto-Post)";},3000);
+  }});syncBtn.textContent="☁️ Sync All to Cloud (24/7 Auto-Post)";card.appendChild(syncBtn);
   card.appendChild(el("button",{style:{width:"100%",marginTop:"8px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
   overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
   document.body.appendChild(overlay);
@@ -4974,7 +5088,8 @@ function showEngagementDashboard(){
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"engagement-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #8B5CF6",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
   card.appendChild(el("h3",{style:{color:"#8B5CF6",margin:"0 0 4px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"📈 Engagement Dashboard"));
-  card.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",marginBottom:"12px",fontFamily:"monospace"}},"Real performance data from your published posts"));
+  card.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",marginBottom:"4px",fontFamily:"monospace"}},"Real performance data from your published posts"));
+  card.appendChild(el("div",{style:{color:"#3B82F6",fontSize:"9px",marginBottom:"12px",fontFamily:"monospace"}},"☁️ Cloud sync: engagement auto-updates every 6 hours via server"));
   var tracked=JSON.parse(localStorage.getItem("dv_post_tracking")||"{}");
   var entries=Object.keys(tracked).map(function(k){return Object.assign({calId:k},tracked[k]);}).filter(function(e){return e.results;}).sort(function(a,b){return(b.publishedAt||"")>(a.publishedAt||"")?1:-1;});
   if(entries.length===0){
@@ -5074,6 +5189,7 @@ function showSocialSetup(){
   var btnRow=div({display:"flex",gap:"8px",marginTop:"8px"});
   var saveBtn=el("button",{style:{flex:1,background:"#C9A84C",color:"#000",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){
     inputs.forEach(function(i){if(i.inp.value.trim())localStorage.setItem(i.key,i.inp.value.trim());else localStorage.removeItem(i.key);});
+    _syncCredsToServer();
     overlay.remove();
   }});
   saveBtn.textContent="Save";
