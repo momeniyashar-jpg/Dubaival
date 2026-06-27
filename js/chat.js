@@ -865,7 +865,7 @@ function showVideoEditor(){
 
   // Step 1: Upload
   var uploadZone=div({background:"#0D1117",border:"2px dashed #EC4899",borderRadius:"12px",padding:"30px",textAlign:"center",cursor:"pointer",transition:"all 0.2s"});
-  uploadZone.innerHTML="<div style='font-size:32px;margin-bottom:8px'>📹</div><div style='color:#EC4899;font-size:13px;font-weight:700;font-family:Space Grotesk,monospace'>Drop video or click to upload</div><div style='color:#8899AA;font-size:10px;margin-top:4px'>MP4, MOV, WebM — Max 100MB</div>";
+  uploadZone.innerHTML="<div style='font-size:32px;margin-bottom:8px'>📹</div><div style='color:#EC4899;font-size:13px;font-weight:700;font-family:Space Grotesk,monospace'>Drop video or click to upload</div><div style='color:#8899AA;font-size:10px;margin-top:4px'>MP4, MOV, WebM — Max 500MB</div>";
   var fileInput=el("input",{type:"file",accept:"video/*",style:{display:"none"}});
   uploadZone.onclick=function(){fileInput.click();};
   card.appendChild(uploadZone);
@@ -1137,7 +1137,7 @@ function showVideoEditor(){
   fileInput.onchange=function(ev){
     var f=ev.target.files[0];
     if(!f)return;
-    if(f.size>100*1024*1024){alert("File too large (max 100MB)");return;}
+    if(f.size>500*1024*1024){alert("File too large (max 500MB)");return;}
     VIDEO_EDITOR_STATE.file=f;
     VIDEO_EDITOR_STATE.url=URL.createObjectURL(f);
     video.src=VIDEO_EDITOR_STATE.url;
