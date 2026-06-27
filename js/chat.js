@@ -494,10 +494,22 @@ function renderChat(){
   var iconCircle=div({width:"36px",height:"36px",borderRadius:"10px",background:hexAlpha(activeAgent.color,0.15),border:"1px solid "+hexAlpha(activeAgent.color,0.3),display:"flex",alignItems:"center",justifyContent:"center",fontSize:"18px",flexShrink:"0"});
   iconCircle.textContent=activeAgent.icon;
   hdr.appendChild(iconCircle);
-  var hdrText=div({});
+  var hdrText=div({flex:"1"});
   hdrText.appendChild(div({color:activeAgent.color,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},activeAgent.name));
   hdrText.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},activeAgent.desc));
   hdr.appendChild(hdrText);
+
+  var newChatBtn=el("button",{style:{
+    background:hexAlpha(activeAgent.color,0.1),border:"1px solid "+hexAlpha(activeAgent.color,0.3),
+    color:activeAgent.color,padding:"6px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"600",
+    fontFamily:"'Space Grotesk',monospace",cursor:"pointer",whiteSpace:"nowrap",
+    display:"flex",alignItems:"center",gap:"4px",transition:"all 0.2s",flexShrink:"0"
+  },onclick:function(){
+    chatState.agentMsgs[chatState.agentId]=null;
+    render(true);
+  }});
+  newChatBtn.textContent="✨ New";
+  hdr.appendChild(newChatBtn);
   wrap.appendChild(hdr);
 
   // Messages
