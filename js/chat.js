@@ -5432,143 +5432,346 @@ function showAvatarContentGen(avatarId){
 }
 
 // --- AVATAR VIDEO GENERATOR (AI Talking Head) ---
+// --- Cinematic Video Engine APIs ---
+async function _klingGenVideo(prompt,imageUrl,klingKey,mode){
+  var body={prompt:prompt,duration:"5",aspect_ratio:"9:16",model_name:mode||"kling-v2-master"};
+  if(imageUrl)body.image=imageUrl;
+  var r=await fetch("https://api.klingai.com/v1/videos/image2video",{
+    method:"POST",headers:{"Authorization":"Bearer "+klingKey,"Content-Type":"application/json"},
+    body:JSON.stringify(body)
+  });
+  var d=await r.json();return d;
+}
+async function _klingCheckStatus(taskId,klingKey){
+  var r=await fetch("https://api.klingai.com/v1/videos/image2video/"+taskId,{
+    headers:{"Authorization":"Bearer "+klingKey}
+  });
+  return await r.json();
+}
+async function _lumaGenVideo(prompt,imageUrl,lumaKey){
+  var body={prompt:prompt,aspect_ratio:"9:16",loop:false};
+  if(imageUrl)body.keyframes={frame0:{type:"image",url:imageUrl}};
+  var r=await fetch("https://api.lumalabs.ai/dream-machine/v1/generations",{
+    method:"POST",headers:{"Authorization":"Bearer "+lumaKey,"Content-Type":"application/json"},
+    body:JSON.stringify(body)
+  });
+  return await r.json();
+}
+async function _lumaCheckStatus(genId,lumaKey){
+  var r=await fetch("https://api.lumalabs.ai/dream-machine/v1/generations/"+genId,{
+    headers:{"Authorization":"Bearer "+lumaKey}
+  });
+  return await r.json();
+}
+async function _heygenCreateAvatar(text,avatarId,voiceId,heygenKey){
+  var body={video_inputs:[{character:{type:"avatar",avatar_id:avatarId,avatar_style:"normal"},voice:{type:"text",input_text:text,voice_id:voiceId,speed:1.0}}],dimension:{width:1080,height:1920}};
+  var r=await fetch("https://api.heygen.com/v2/video/generate",{
+    method:"POST",headers:{"X-Api-Key":heygenKey,"Content-Type":"application/json"},
+    body:JSON.stringify(body)
+  });
+  return await r.json();
+}
+async function _heygenCheckStatus(videoId,heygenKey){
+  var r=await fetch("https://api.heygen.com/v1/video_status.get?video_id="+videoId,{
+    headers:{"X-Api-Key":heygenKey}
+  });
+  return await r.json();
+}
+async function _heygenListAvatars(heygenKey){
+  try{
+    var r=await fetch("https://api.heygen.com/v2/avatars",{headers:{"X-Api-Key":heygenKey}});
+    var d=await r.json();return d.data&&d.data.avatars?d.data.avatars:[];
+  }catch(e){return[];}
+}
+async function _didGenTalk(sourceUrl,script,voiceId,didKey){
+  var r=await fetch("https://api.d-id.com/talks",{
+    method:"POST",headers:{"Authorization":"Basic "+didKey,"Content-Type":"application/json"},
+    body:JSON.stringify({source_url:sourceUrl,script:{type:"text",input:script,provider:{type:"elevenlabs",voice_id:voiceId}},config:{fluent:true,stitch:true}})
+  });
+  return await r.json();
+}
+async function _didCheckStatus(talkId,didKey){
+  var r=await fetch("https://api.d-id.com/talks/"+talkId,{headers:{"Authorization":"Basic "+didKey}});
+  return await r.json();
+}
+
+function _videoResultUI(resultArea,videoUrl,genVideoBtn){
+  resultArea.innerHTML="";
+  resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"13px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"}},"✅ Cinematic Video Ready!"));
+  var video=el("video",{style:{width:"100%",maxHeight:"340px",borderRadius:"14px",border:"2px solid #F59E0B",boxShadow:"0 0 30px rgba(245,158,11,0.3)"},controls:true,autoplay:true});
+  video.src=videoUrl;resultArea.appendChild(video);
+  var dlRow=div({display:"flex",gap:"6px",marginTop:"10px"});
+  var dlBtn=el("a",{style:{flex:1,display:"block",background:"linear-gradient(135deg,#10B981,#06B6D4)",color:"#FFF",textAlign:"center",textDecoration:"none",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",fontFamily:"monospace"},href:videoUrl,target:"_blank",download:"avatar-video.mp4"});
+  dlBtn.textContent="⬇️ Download Video";dlRow.appendChild(dlBtn);
+  var shareBtn2=el("button",{style:{flex:1,background:"#3B82F622",border:"1px solid #3B82F6",color:"#3B82F6",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){navigator.clipboard.writeText(videoUrl);shareBtn2.textContent="✅ Copied!";}});
+  shareBtn2.textContent="🔗 Copy URL";dlRow.appendChild(shareBtn2);
+  var publishBtn=el("button",{style:{flex:1,background:"#EC489922",border:"1px solid #EC4899",color:"#EC4899",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
+    publishBtn.textContent="⏳ Publishing...";
+    try{var r=await publishFacebookVideo("",videoUrl);publishBtn.textContent=r.success?"✅ Published!":"❌ "+r.error;}catch(e){publishBtn.textContent="❌ "+e.message;}
+  }});
+  publishBtn.textContent="🚀 Publish";dlRow.appendChild(publishBtn);
+  resultArea.appendChild(dlRow);
+  genVideoBtn.textContent="🎬 Generate Another";genVideoBtn.disabled=false;
+}
+
+function _videoPollStatus(checkFn,interval,maxChecks,resultArea,genVideoBtn){
+  var count=0;
+  var progressBar=div({width:"100%",height:"4px",background:"#2A3040",borderRadius:"2px",marginTop:"8px",overflow:"hidden"});
+  var progressFill=div({width:"0%",height:"100%",background:"linear-gradient(90deg,#F59E0B,#EC4899)",borderRadius:"2px",transition:"width 0.5s"});
+  progressBar.appendChild(progressFill);resultArea.appendChild(progressBar);
+  var timer=setInterval(async function(){
+    count++;
+    progressFill.style.width=Math.min(Math.round(count/maxChecks*100),95)+"%";
+    try{
+      var result=await checkFn();
+      if(result.done){
+        clearInterval(timer);progressFill.style.width="100%";
+        _videoResultUI(resultArea,result.url,genVideoBtn);
+      }else if(result.error){
+        clearInterval(timer);
+        resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ "+result.error));
+        genVideoBtn.textContent="🎬 Retry";genVideoBtn.disabled=false;
+      }else if(count>=maxChecks){
+        clearInterval(timer);
+        resultArea.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",fontFamily:"monospace"}},"⏰ Still processing — check back in a few minutes."));
+        genVideoBtn.textContent="🎬 Retry";genVideoBtn.disabled=false;
+      }
+    }catch(e){
+      clearInterval(timer);
+      resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));
+      genVideoBtn.disabled=false;
+    }
+  },interval);
+}
+
 function showAvatarVideoGen(avatarId){
   var av=_getAvatars().find(function(a){return a.id===avatarId;});
   if(!av){alert("Avatar not found.");return;}
   var m=document.getElementById("avatar-video-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.92)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"avatar-video-modal"});
-  var card=div({background:"linear-gradient(145deg,#1A1F2E,#0D1117)",border:"1px solid #F59E0B",borderRadius:"20px",padding:"20px",width:"560px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
+  var card=div({background:"linear-gradient(145deg,#1A1F2E,#0D1117)",border:"1px solid #F59E0B",borderRadius:"20px",padding:"20px",width:"600px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
 
   var hdr=div({display:"flex",alignItems:"center",gap:"10px",marginBottom:"14px"});
   if(av.avatarUrl){
-    var avImg=el("img",{style:{width:"40px",height:"40px",borderRadius:"50%",objectFit:"cover",border:"2px solid #F59E0B"}});
+    var avImg=el("img",{style:{width:"44px",height:"44px",borderRadius:"50%",objectFit:"cover",border:"2px solid #F59E0B",boxShadow:"0 0 15px rgba(245,158,11,0.3)"}});
     avImg.src=av.avatarUrl;hdr.appendChild(avImg);
   }
-  hdr.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"}},"🎬 AI Video — "+av.name));
+  var hdrTxt=div({});
+  hdrTxt.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"15px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"}},"🎬 Cinematic AI Video Studio"));
+  hdrTxt.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",fontFamily:"monospace"}},av.name+" — Movie-quality AI video generation"));
+  hdr.appendChild(hdrTxt);
   card.appendChild(hdr);
 
-  card.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",marginBottom:"12px",fontFamily:"monospace"}},"Generate a talking-head video with your avatar's voice using D-ID or ElevenLabs + image animation."));
-
-  var scriptLabel=el("label",{style:{color:"#8899AA",fontSize:"10px",display:"block",marginBottom:"3px",fontFamily:"monospace"}});
-  scriptLabel.textContent="Video Script";card.appendChild(scriptLabel);
-  var scriptInp=el("textarea",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"10px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",boxSizing:"border-box",minHeight:"100px",resize:"vertical",marginBottom:"8px"},placeholder:"Type your script or click 'AI Write Script' to generate one..."});
+  var scriptLabel=el("label",{style:{color:"#FFF",fontSize:"11px",fontWeight:"700",display:"block",marginBottom:"4px",fontFamily:"monospace"}});
+  scriptLabel.textContent="Video Script / Prompt";card.appendChild(scriptLabel);
+  var scriptInp=el("textarea",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"10px",padding:"12px",color:"#E0E0E0",fontSize:"12px",fontFamily:"monospace",boxSizing:"border-box",minHeight:"90px",resize:"vertical",marginBottom:"8px"},placeholder:"Describe the video scene or write a talking-head script..."});
   card.appendChild(scriptInp);
 
-  var aiScriptBtn=el("button",{style:{width:"100%",marginBottom:"10px",background:"#8B5CF622",border:"1px solid #8B5CF6",color:"#8B5CF6",borderRadius:"8px",padding:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
-    aiScriptBtn.textContent="🧠 Writing script...";
+  var aiRow=div({display:"flex",gap:"6px",marginBottom:"14px"});
+  var aiScriptBtn=el("button",{style:{flex:1,background:"#8B5CF622",border:"1px solid #8B5CF6",color:"#8B5CF6",borderRadius:"8px",padding:"8px",fontSize:"10px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
+    aiScriptBtn.textContent="🧠 Writing...";
     try{
-      var sys="You are "+av.name+". "+av.tone+". Write a 30-60 second video script for a talking-head social media video about Dubai real estate. Include [HOOK] (first 3 seconds), [BODY] (main points), and [CTA] (call to action). Keep it conversational and engaging. Write in "+(av.language==="ar"?"Arabic":av.language==="fa"?"Persian":"English")+".";
-      var reply=await askAI([{role:"user",content:"Write a short video script about Dubai real estate market trends in 2026"}],sys);
-      scriptInp.value=reply;
-      aiScriptBtn.textContent="✅ Script ready!";
-    }catch(e){aiScriptBtn.textContent="❌ "+e.message;}
+      var sys="You are "+av.name+". "+av.tone+". Write a 30-60 second video script for a social media video about Dubai real estate. Include [HOOK] (3 sec), [BODY], [CTA]. Conversational. Write in "+(av.language==="ar"?"Arabic":av.language==="fa"?"Persian":"English")+".";
+      scriptInp.value=await askAI([{role:"user",content:"Write a short video script about Dubai real estate market trends"}],sys);
+      aiScriptBtn.textContent="✅ Done";
+    }catch(e){aiScriptBtn.textContent="❌ Error";}
   }});
-  aiScriptBtn.textContent="🧠 AI Write Script";card.appendChild(aiScriptBtn);
+  aiScriptBtn.textContent="🧠 AI Script";aiRow.appendChild(aiScriptBtn);
 
-  card.appendChild(el("label",{style:{color:"#F59E0B",fontSize:"11px",fontWeight:"700",display:"block",marginBottom:"6px",fontFamily:"monospace"}},"Video Generation Method"));
+  var aiPromptBtn=el("button",{style:{flex:1,background:"#F59E0B22",border:"1px solid #F59E0B",color:"#F59E0B",borderRadius:"8px",padding:"8px",fontSize:"10px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
+    aiPromptBtn.textContent="🎬 Writing...";
+    try{
+      scriptInp.value=await askAI([{role:"user",content:"Write a cinematic video prompt for AI video generation about Dubai luxury real estate. Describe the scene visually: camera movements, lighting, architecture, people, mood. 2-3 sentences max. Example: 'Aerial drone shot sweeping over Palm Jumeirah at golden hour...'"}],"You write cinematic video prompts for AI video generators like Kling and Runway. Focus on visual details, camera movements, and cinematic quality. No dialogue — pure visual storytelling.");
+      aiPromptBtn.textContent="✅ Done";
+    }catch(e){aiPromptBtn.textContent="❌ Error";}
+  }});
+  aiPromptBtn.textContent="🎬 AI Cinematic Prompt";aiRow.appendChild(aiPromptBtn);
+  card.appendChild(aiRow);
 
+  card.appendChild(el("div",{style:{color:"#FFF",fontSize:"12px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"}},"Choose Video Engine"));
+
+  var selectedMethod="kling";
   var methodGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"12px"});
-
-  var method1=div({background:"#0D1117",border:"1px solid #F59E0B",borderRadius:"12px",padding:"12px",cursor:"pointer"});
-  method1.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"12px",fontWeight:"700",fontFamily:"monospace",marginBottom:"4px"}},"🎭 D-ID Talking Avatar"));
-  method1.appendChild(el("div",{style:{color:"#8899AA",fontSize:"9px",fontFamily:"monospace"}},"AI animates your avatar image to speak. Lip-sync + expressions. Needs D-ID API key."));
-  methodGrid.appendChild(method1);
-
-  var method2=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"12px",padding:"12px",cursor:"pointer"});
-  method2.appendChild(el("div",{style:{color:"#06B6D4",fontSize:"12px",fontWeight:"700",fontFamily:"monospace",marginBottom:"4px"}},"🎙 Voice + Slideshow"));
-  method2.appendChild(el("div",{style:{color:"#8899AA",fontSize:"9px",fontFamily:"monospace"}},"ElevenLabs voice + AI images + auto-subtitles. Uses existing Video Creator."));
-  methodGrid.appendChild(method2);
+  var methodCards=[];
+  var methods=[
+    {id:"kling",icon:"🎬",name:"Kling AI 2.0",desc:"Cinematic video from image/text. Movie quality. 5-10s clips.",tier:"🟢 Free tier",color:"#F59E0B",quality:"★★★★★"},
+    {id:"luma",icon:"✨",name:"Luma Dream Machine",desc:"Photorealistic video generation. Smooth motion. 5s clips.",tier:"🟢 Free tier",color:"#8B5CF6",quality:"★★★★☆"},
+    {id:"heygen",icon:"🧑‍💼",name:"HeyGen",desc:"Ultra-realistic talking avatar. Lip-sync. Indistinguishable from real.",tier:"🟡 $24/mo",color:"#10B981",quality:"★★★★★"},
+    {id:"did",icon:"🎭",name:"D-ID",desc:"Talking head from photo. Good lip-sync. Quick generation.",tier:"🟢 Free credits",color:"#06B6D4",quality:"★★★☆☆"},
+  ];
+  methods.forEach(function(mt){
+    var mc=div({background:mt.id===selectedMethod?"linear-gradient(135deg,"+mt.color+"22,"+mt.color+"11)":"#0D1117",border:"2px solid "+(mt.id===selectedMethod?mt.color:"#2A3040"),borderRadius:"12px",padding:"10px",cursor:"pointer",transition:"all 0.3s"});
+    mc.onclick=function(){
+      selectedMethod=mt.id;
+      methodCards.forEach(function(c,i){c.style.background="#0D1117";c.style.borderColor="#2A3040";});
+      mc.style.background="linear-gradient(135deg,"+mt.color+"22,"+mt.color+"11)";mc.style.borderColor=mt.color;
+    };
+    var topRow=div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"4px"});
+    topRow.appendChild(el("span",{style:{color:mt.color,fontSize:"12px",fontWeight:"800",fontFamily:"monospace"}},mt.icon+" "+mt.name));
+    topRow.appendChild(el("span",{style:{color:"#F59E0B",fontSize:"9px",fontFamily:"monospace"}},mt.quality));
+    mc.appendChild(topRow);
+    mc.appendChild(el("div",{style:{color:"#8899AA",fontSize:"9px",fontFamily:"monospace",marginBottom:"3px"}},mt.desc));
+    mc.appendChild(el("div",{style:{color:mt.tier.includes("Free")?"#10B981":"#F59E0B",fontSize:"8px",fontWeight:"700",fontFamily:"monospace"}},mt.tier));
+    methodGrid.appendChild(mc);methodCards.push(mc);
+  });
   card.appendChild(methodGrid);
 
-  card.appendChild(el("label",{style:{color:"#8899AA",fontSize:"10px",display:"block",marginBottom:"3px",fontFamily:"monospace"}},"D-ID API Key (for talking avatar)"));
-  var didKeyInp=el("input",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",boxSizing:"border-box",marginBottom:"10px"},placeholder:"Get free key at studio.d-id.com",value:localStorage.getItem("dv_did_key")||""});
-  card.appendChild(didKeyInp);
+  var keysSection=div({marginBottom:"10px"});
+  var mkKeyField=function(label,key,ph){
+    var row=div({display:"flex",gap:"6px",alignItems:"center",marginBottom:"6px"});
+    row.appendChild(el("label",{style:{color:"#8899AA",fontSize:"9px",fontFamily:"monospace",minWidth:"80px"}},label));
+    var inp=el("input",{style:{flex:1,background:"#0D1117",border:"1px solid #2A3040",borderRadius:"6px",padding:"6px 8px",color:"#E0E0E0",fontSize:"10px",fontFamily:"monospace",boxSizing:"border-box"},placeholder:ph,value:localStorage.getItem(key)||""});
+    inp.dataset.storageKey=key;row.appendChild(inp);keysSection.appendChild(row);return inp;
+  };
+  card.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",fontWeight:"600",marginBottom:"4px",fontFamily:"monospace"}},"API Keys (saved automatically)"));
+  var klingKeyInp=mkKeyField("Kling AI","dv_kling_key","Get at klingai.com → API");
+  var lumaKeyInp=mkKeyField("Luma AI","dv_luma_key","Get at lumalabs.ai → API");
+  var heygenKeyInp=mkKeyField("HeyGen","dv_heygen_key","Get at heygen.com → API");
+  var didKeyInp=mkKeyField("D-ID","dv_did_key","Get at studio.d-id.com");
+  card.appendChild(keysSection);
+
+  var heygenAvatarSection=div({display:"none",marginBottom:"10px"});
+  var heygenAvatarId=localStorage.getItem("dv_heygen_avatar")||"";
+  heygenAvatarSection.appendChild(el("label",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace",display:"block",marginBottom:"3px"}},"HeyGen Avatar ID"));
+  var heygenAvatarInp=el("input",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"6px",padding:"6px 8px",color:"#E0E0E0",fontSize:"10px",fontFamily:"monospace",boxSizing:"border-box",marginBottom:"4px"},placeholder:"Avatar ID from HeyGen dashboard or click Load Avatars",value:heygenAvatarId});
+  heygenAvatarSection.appendChild(heygenAvatarInp);
+  var loadAvatarsBtn=el("button",{style:{width:"100%",background:"#10B98122",border:"1px solid #10B981",color:"#10B981",borderRadius:"6px",padding:"6px",fontSize:"9px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
+    var hk=heygenKeyInp.value.trim();if(!hk){alert("Enter HeyGen API key first.");return;}
+    loadAvatarsBtn.textContent="⏳ Loading avatars...";
+    var avatars=await _heygenListAvatars(hk);
+    if(avatars.length>0){
+      heygenAvatarInp.value="";
+      var list=div({maxHeight:"120px",overflowY:"auto",border:"1px solid #2A3040",borderRadius:"6px",marginTop:"4px"});
+      avatars.slice(0,20).forEach(function(ha){
+        var row=el("button",{style:{width:"100%",background:"transparent",border:"none",borderBottom:"1px solid #1A1F2E",color:"#E0E0E0",padding:"6px 8px",fontSize:"10px",fontFamily:"monospace",cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:"6px"},onclick:function(){heygenAvatarInp.value=ha.avatar_id;list.remove();}});
+        if(ha.preview_image_url){var ti=el("img",{style:{width:"28px",height:"28px",borderRadius:"50%",objectFit:"cover"}});ti.src=ha.preview_image_url;row.appendChild(ti);}
+        row.appendChild(el("span",{},ha.avatar_name||ha.avatar_id));heygenAvatarSection.appendChild(row);
+        list.appendChild(row);
+      });
+      heygenAvatarSection.appendChild(list);
+      loadAvatarsBtn.textContent="✅ "+avatars.length+" avatars loaded";
+    }else{loadAvatarsBtn.textContent="❌ No avatars found";}
+  }});
+  loadAvatarsBtn.textContent="📋 Load My HeyGen Avatars";heygenAvatarSection.appendChild(loadAvatarsBtn);
+  card.appendChild(heygenAvatarSection);
 
   var resultArea=div({marginTop:"8px"});card.appendChild(resultArea);
 
-  var genVideoBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#F59E0B,#EC4899)",color:"#FFF",border:"none",borderRadius:"10px",padding:"14px",fontSize:"13px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
+  var genVideoBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#F59E0B,#EC4899,#8B5CF6)",color:"#FFF",border:"none",borderRadius:"12px",padding:"14px",fontSize:"14px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",boxShadow:"0 4px 20px rgba(245,158,11,0.3)"},onclick:async function(){
     var script=scriptInp.value.trim();
-    if(!script){alert("Write or generate a script first.");return;}
-    if(didKeyInp.value.trim())localStorage.setItem("dv_did_key",didKeyInp.value.trim());
-    var didKey=localStorage.getItem("dv_did_key");
+    if(!script){alert("Write a script or cinematic prompt first.");return;}
 
-    if(didKey){
-      genVideoBtn.textContent="🎬 Creating D-ID talking avatar video...";genVideoBtn.disabled=true;
-      resultArea.innerHTML="";
+    [klingKeyInp,lumaKeyInp,heygenKeyInp,didKeyInp].forEach(function(inp){
+      if(inp.value.trim())localStorage.setItem(inp.dataset.storageKey,inp.value.trim());
+    });
+    if(heygenAvatarInp.value.trim())localStorage.setItem("dv_heygen_avatar",heygenAvatarInp.value.trim());
+
+    genVideoBtn.disabled=true;resultArea.innerHTML="";
+    var cleanScript=script.replace(/\[HOOK\]|\[BODY\]|\[CTA\]|\[.*?\]/g,"").trim();
+
+    if(selectedMethod==="kling"){
+      var kk=localStorage.getItem("dv_kling_key");
+      if(!kk){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Enter Kling AI API key. Get free at klingai.com"));genVideoBtn.disabled=false;return;}
+      genVideoBtn.textContent="🎬 Kling AI 2.0 — Creating cinematic video...";
+      resultArea.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"11px",fontFamily:"monospace"}},"⏳ Generating movie-quality video with Kling AI 2.0 Master..."));
+      try{
+        var sourceImg=av.avatarUrl||null;
+        var kd=await _klingGenVideo(cleanScript,sourceImg,kk,"kling-v2-master");
+        if(kd.data&&kd.data.task_id){
+          resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace"}},"✅ Task started: "+kd.data.task_id));
+          _videoPollStatus(async function(){
+            var st=await _klingCheckStatus(kd.data.task_id,kk);
+            if(st.data&&st.data.task_status==="succeed"&&st.data.task_result&&st.data.task_result.videos){
+              return{done:true,url:st.data.task_result.videos[0].url};
+            }else if(st.data&&st.data.task_status==="failed"){
+              return{error:"Kling generation failed: "+(st.data.task_status_msg||"Unknown")};
+            }
+            return{done:false};
+          },5000,60,resultArea,genVideoBtn);
+        }else{
+          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Kling error: "+JSON.stringify(kd)));
+          genVideoBtn.disabled=false;
+        }
+      }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
+    }
+
+    else if(selectedMethod==="luma"){
+      var lk=localStorage.getItem("dv_luma_key");
+      if(!lk){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Enter Luma AI API key. Get free at lumalabs.ai"));genVideoBtn.disabled=false;return;}
+      genVideoBtn.textContent="✨ Luma Dream Machine — Generating...";
+      resultArea.appendChild(el("div",{style:{color:"#8B5CF6",fontSize:"11px",fontFamily:"monospace"}},"⏳ Creating photorealistic video with Luma Dream Machine..."));
+      try{
+        var ld=await _lumaGenVideo(cleanScript,av.avatarUrl||null,lk);
+        if(ld.id){
+          resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace"}},"✅ Generation started: "+ld.id));
+          _videoPollStatus(async function(){
+            var st=await _lumaCheckStatus(ld.id,lk);
+            if(st.state==="completed"&&st.assets&&st.assets.video){return{done:true,url:st.assets.video};}
+            else if(st.state==="failed"){return{error:"Luma generation failed: "+(st.failure_reason||"Unknown")};}
+            return{done:false};
+          },5000,60,resultArea,genVideoBtn);
+        }else{
+          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Luma error: "+JSON.stringify(ld)));
+          genVideoBtn.disabled=false;
+        }
+      }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
+    }
+
+    else if(selectedMethod==="heygen"){
+      var hk2=localStorage.getItem("dv_heygen_key");
+      var haId=localStorage.getItem("dv_heygen_avatar");
+      if(!hk2){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Enter HeyGen API key. Get at heygen.com ($24/mo)"));genVideoBtn.disabled=false;return;}
+      if(!haId){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Select a HeyGen avatar first (click Load Avatars)"));genVideoBtn.disabled=false;return;}
+      genVideoBtn.textContent="🧑‍💼 HeyGen — Creating ultra-realistic avatar...";
+      resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"11px",fontFamily:"monospace"}},"⏳ Generating photo-realistic talking avatar with HeyGen..."));
+      try{
+        var voiceMap={"21m00Tcm4TlvDq8ikWAM":"1bd001e7e50f421d891986aad5158bc8","ErXwobaYiN019PkySvjV":"077ab11b14f04ce0b49b5f6e5cc20979"};
+        var heyVoice=voiceMap[av.voiceId]||"1bd001e7e50f421d891986aad5158bc8";
+        var hd=await _heygenCreateAvatar(cleanScript,haId,heyVoice,hk2);
+        if(hd.data&&hd.data.video_id){
+          resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace"}},"✅ Video ID: "+hd.data.video_id));
+          _videoPollStatus(async function(){
+            var st=await _heygenCheckStatus(hd.data.video_id,hk2);
+            if(st.data&&st.data.status==="completed"&&st.data.video_url){return{done:true,url:st.data.video_url};}
+            else if(st.data&&st.data.status==="failed"){return{error:"HeyGen failed: "+(st.data.error||"Unknown")};}
+            return{done:false};
+          },5000,60,resultArea,genVideoBtn);
+        }else{
+          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ HeyGen error: "+JSON.stringify(hd)));
+          genVideoBtn.disabled=false;
+        }
+      }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
+    }
+
+    else if(selectedMethod==="did"){
+      var dk=localStorage.getItem("dv_did_key");
+      if(!dk){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Enter D-ID API key. Get free at studio.d-id.com"));genVideoBtn.disabled=false;return;}
+      genVideoBtn.textContent="🎭 D-ID — Creating talking avatar...";
       try{
         var sourceUrl=av.avatarUrl;
         if(!sourceUrl){
-          resultArea.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",fontFamily:"monospace"}},"⏳ No avatar image — generating one..."));
+          resultArea.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",fontFamily:"monospace"}},"⏳ Generating avatar image..."));
           var style=AVATAR_STYLES.find(function(s){return s.id===av.styleId;})||AVATAR_STYLES[0];
           sourceUrl=await generateGeminiImage(style.prompt+", face portrait, looking at camera");
-          if(!sourceUrl){genVideoBtn.textContent="❌ Could not generate avatar image";genVideoBtn.disabled=false;return;}
+          if(!sourceUrl){genVideoBtn.textContent="❌ Could not generate image";genVideoBtn.disabled=false;return;}
         }
-
-        var cleanScript=script.replace(/\[HOOK\]|\[BODY\]|\[CTA\]|\[.*?\]/g,"").trim();
-        var voiceId=av.voiceId||"21m00Tcm4TlvDq8ikWAM";
-
-        var talkResp=await fetch("https://api.d-id.com/talks",{
-          method:"POST",
-          headers:{"Authorization":"Basic "+didKey,"Content-Type":"application/json"},
-          body:JSON.stringify({
-            source_url:sourceUrl,
-            script:{type:"text",input:cleanScript,provider:{type:"elevenlabs",voice_id:voiceId}},
-            config:{fluent:true,stitch:true}
-          })
-        });
-        var talkData=await talkResp.json();
-        if(talkData.id){
-          resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace"}},"✅ Video creation started (ID: "+talkData.id+")"));
-          resultArea.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",fontFamily:"monospace"}},"⏳ Processing... checking status every 5s..."));
-
-          var checkCount=0;
-          var checkInterval=setInterval(async function(){
-            checkCount++;
-            try{
-              var statusResp=await fetch("https://api.d-id.com/talks/"+talkData.id,{headers:{"Authorization":"Basic "+didKey}});
-              var statusData=await statusResp.json();
-              if(statusData.status==="done"&&statusData.result_url){
-                clearInterval(checkInterval);
-                resultArea.innerHTML="";
-                resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"12px",fontWeight:"700",fontFamily:"monospace",marginBottom:"8px"}},"✅ Video Ready!"));
-                var video=el("video",{style:{width:"100%",maxHeight:"300px",borderRadius:"12px",border:"1px solid #F59E0B"},controls:true,autoplay:true});
-                video.src=statusData.result_url;resultArea.appendChild(video);
-                var dlRow=div({display:"flex",gap:"6px",marginTop:"8px"});
-                var dlBtn=el("a",{style:{flex:1,display:"block",background:"#10B981",color:"#FFF",textAlign:"center",textDecoration:"none",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",fontFamily:"monospace"},href:statusData.result_url,target:"_blank",download:"avatar-video.mp4"});
-                dlBtn.textContent="⬇️ Download Video";dlRow.appendChild(dlBtn);
-                var shareBtn=el("button",{style:{flex:1,background:"#3B82F622",border:"1px solid #3B82F6",color:"#3B82F6",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){navigator.clipboard.writeText(statusData.result_url);shareBtn.textContent="✅ URL Copied!";}});
-                shareBtn.textContent="🔗 Copy Video URL";dlRow.appendChild(shareBtn);
-                resultArea.appendChild(dlRow);
-                genVideoBtn.textContent="🎬 Generate Another Video";
-              }else if(statusData.status==="error"){
-                clearInterval(checkInterval);
-                resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ D-ID error: "+(statusData.error||"Unknown")));
-                genVideoBtn.textContent="🎬 Retry";
-              }else if(checkCount>24){
-                clearInterval(checkInterval);
-                resultArea.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",fontFamily:"monospace"}},"⏰ Timeout — video may still be processing. Check D-ID dashboard."));
-                genVideoBtn.textContent="🎬 Generate Video";
-              }
-            }catch(e){
-              clearInterval(checkInterval);
-              resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error checking status: "+e.message));
-            }
-          },5000);
+        var dd=await _didGenTalk(sourceUrl,cleanScript,av.voiceId||"21m00Tcm4TlvDq8ikWAM",dk);
+        if(dd.id){
+          resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace"}},"✅ Talk started: "+dd.id));
+          _videoPollStatus(async function(){
+            var st=await _didCheckStatus(dd.id,dk);
+            if(st.status==="done"&&st.result_url){return{done:true,url:st.result_url};}
+            else if(st.status==="error"){return{error:"D-ID error: "+(st.error||"Unknown")};}
+            return{done:false};
+          },5000,24,resultArea,genVideoBtn);
         }else{
-          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ D-ID error: "+JSON.stringify(talkData)));
-          genVideoBtn.textContent="🎬 Retry";
+          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ D-ID error: "+JSON.stringify(dd)));
+          genVideoBtn.disabled=false;
         }
-      }catch(e){
-        resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));
-        genVideoBtn.textContent="🎬 Retry";
-      }
-      genVideoBtn.disabled=false;
-    }else{
-      overlay.remove();
-      showVideoGenUI(script);
+      }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
     }
   }});
-  genVideoBtn.textContent="🎬 Generate Talking Avatar Video";card.appendChild(genVideoBtn);
+  genVideoBtn.textContent="🎬 Generate Cinematic Video";card.appendChild(genVideoBtn);
 
   card.appendChild(el("button",{style:{width:"100%",marginTop:"8px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
   overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
@@ -5909,7 +6112,10 @@ function showSocialSetup(){
     {key:"dv_youtube_refresh",label:"▶️ YouTube Refresh Token",ph:"1//0c... — permanent, auto-renews access token"},
     {key:"dv_youtube_client_id",label:"▶️ YouTube Client ID",ph:"916354...apps.googleusercontent.com"},
     {key:"dv_youtube_client_secret",label:"▶️ YouTube Client Secret",ph:"GOCSPX-..."},
-    {key:"dv_did_key",label:"🎭 D-ID API Key (talking avatar video)",ph:"Free at studio.d-id.com → API settings"}
+    {key:"dv_did_key",label:"🎭 D-ID API Key (talking avatar video)",ph:"Free at studio.d-id.com → API settings"},
+    {key:"dv_kling_key",label:"🎬 Kling AI API Key (cinematic video)",ph:"Free at klingai.com → API settings"},
+    {key:"dv_luma_key",label:"🌟 Luma Dream Machine API Key",ph:"Free at lumalabs.ai → API settings"},
+    {key:"dv_heygen_key",label:"🎥 HeyGen API Key (AI avatar video)",ph:"$24/mo at heygen.com → API settings"}
   ];
   var inputs=[];
   fields.forEach(function(f){
