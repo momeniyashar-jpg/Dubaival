@@ -252,13 +252,17 @@ function renderMarket(){
   })();
 
   // -- STATS GRID --
-  const statsGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"},MARKET_STATS.map(function(s){
-    return div({background:cl.raised,borderRadius:"10px",padding:"12px 14px"},[
+  const statsGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"});
+  MARKET_STATS.forEach(function(s){
+    var sc=div({background:cl.raised,borderRadius:"10px",padding:"12px 14px",transition:"transform 0.15s ease,box-shadow 0.15s ease",cursor:"default"},[
       div({color:cl.sub,fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:"5px",fontFamily:"'Space Grotesk',monospace"},s.label),
       div({color:cl.gold,fontSize:"17px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},s.val),
       div({color:s.up===true?cl.green:s.up===false?cl.red:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},(s.up===true?"▲ ":"")+s.note),
     ]);
-  }));
+    sc.addEventListener("mouseenter",function(){sc.style.transform="translateY(-2px)";sc.style.boxShadow="0 4px 12px rgba(0,0,0,0.2)";});
+    sc.addEventListener("mouseleave",function(){sc.style.transform="translateY(0)";sc.style.boxShadow="none";});
+    statsGrid.appendChild(sc);
+  });
   // ── MACRO RISK MONITOR ────────────────────────────────────────────────
   var riskCard=el("div",{style:{background:cl.surface,border:"1px solid "+(MACRO_VARS.riskFactor<0.97?cl.red:MACRO_VARS.riskFactor>=1.0?cl.goldDim:cl.border),borderRadius:"12px",padding:"14px",marginBottom:"14px"}});
   var riskTop=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}});

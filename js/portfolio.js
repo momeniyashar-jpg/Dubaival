@@ -195,7 +195,9 @@ function renderPortfolio(){
 
     var g1=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"});
     [{l:"Total Value",v:"AED "+totalValue.toLocaleString(),c:cl.gold},{l:"Total ROI",v:(totalROI>=0?"+":"")+totalROI.toFixed(1)+"%",c:totalROI>=0?cl.green:cl.red},{l:"Gross Yield",v:avgGrossYield.toFixed(1)+"%",c:cl.green},{l:"Net Yield",v:avgNetYield.toFixed(1)+"%",c:cl.green}].forEach(function(item){
-      var box=div({background:cl.raised,borderRadius:"10px",padding:"12px 14px"});
+      var box=div({background:cl.raised,borderRadius:"10px",padding:"12px 14px",transition:"transform 0.15s ease,box-shadow 0.15s ease",cursor:"default"});
+      box.addEventListener("mouseenter",function(){box.style.transform="translateY(-2px)";box.style.boxShadow="0 4px 12px rgba(0,0,0,0.2)";});
+      box.addEventListener("mouseleave",function(){box.style.transform="translateY(0)";box.style.boxShadow="none";});
       box.appendChild(lbl(item.l));
       box.appendChild(span({color:item.c,fontSize:"17px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},item.v));
       g1.appendChild(box);
@@ -612,6 +614,8 @@ function renderPortfolio(){
     var roiColor=a.m.roi>=15?cl.green:a.m.roi>=0?cl.yellow:cl.red;
     var sigColor=a.m.investSignal==="Undervalued"||a.m.investSignal==="Fair Value"?cl.green:a.m.investSignal==="Elevated"?cl.yellow:cl.red;
     var card=el("div",{style:{background:cl.surface,border:"1px solid "+(expanded?cl.goldDim:cl.border),borderRadius:"14px",padding:"16px",marginBottom:"10px",cursor:"pointer",transition:"all 0.2s"},onclick:function(){ps.expandedId=expanded?null:a.id;render();}});
+    card.addEventListener("mouseenter",function(){if(!expanded){card.style.borderColor=cl.goldDim;card.style.transform="translateY(-2px)";card.style.boxShadow="0 4px 20px rgba(212,175,55,0.08)";}});
+    card.addEventListener("mouseleave",function(){if(!expanded){card.style.borderColor=cl.border;card.style.transform="translateY(0)";card.style.boxShadow="none";}});
 
     var header=div({display:"flex",justifyContent:"space-between",alignItems:"flex-start"});
     var left=div({flex:"1"});

@@ -199,12 +199,12 @@ function renderFind(){
     sfResCard.appendChild(sfStats);
     sf.results.forEach(function(r,idx){
       var sigColor=r.signal==="Undervalued"||r.signal==="Fair Value"?cl.green:r.signal==="Elevated"?cl.yellow:cl.red;
-      var row=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px 14px",marginBottom:"6px",cursor:"pointer",border:"1px solid "+cl.border,transition:"border 0.2s"},onclick:function(){
+      var row=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px 14px",marginBottom:"6px",cursor:"pointer",border:"1px solid "+cl.border,transition:"border-color 0.2s ease,transform 0.2s ease,box-shadow 0.2s ease"},onclick:function(){
         if(window.analyzerState){analyzerState.f.building=r.name;analyzerState.f.area=r.area;analyzerState.stage=0;}
-        currentTab="Analyzer";render();
+        setSection("Market","Analyzer");
       }});
-      row.addEventListener("mouseenter",function(){this.style.borderColor=cl.goldDim;});
-      row.addEventListener("mouseleave",function(){this.style.borderColor=cl.border;});
+      row.addEventListener("mouseenter",function(){this.style.borderColor=cl.goldDim;this.style.transform="translateX(4px)";this.style.boxShadow="0 2px 10px rgba(212,175,55,0.06)";});
+      row.addEventListener("mouseleave",function(){this.style.borderColor=cl.border;this.style.transform="translateX(0)";this.style.boxShadow="none";});
       var rTop=div({display:"flex",justifyContent:"space-between",alignItems:"flex-start"});
       var rLeft=div({flex:"1"});
       var nameRow=div({display:"flex",alignItems:"center",gap:"6px",marginBottom:"3px"});
@@ -252,7 +252,9 @@ function renderFind(){
     }
 
     FS.results.forEach(function(r,i){
-      var card=el("div",{style:{background:cl.raised,borderRadius:"12px",padding:"14px",marginBottom:"10px",border:"1px solid "+cl.border}});
+      var card=el("div",{style:{background:cl.raised,borderRadius:"12px",padding:"14px",marginBottom:"10px",border:"1px solid "+cl.border,transition:"border-color 0.2s ease,transform 0.2s ease,box-shadow 0.2s ease",cursor:"pointer"}});
+      card.addEventListener("mouseenter",function(){card.style.borderColor=cl.goldDim;card.style.transform="translateY(-1px)";card.style.boxShadow="0 4px 16px rgba(212,175,55,0.06)";});
+      card.addEventListener("mouseleave",function(){card.style.borderColor=cl.border;card.style.transform="translateY(0)";card.style.boxShadow="none";});
       
       // Photo + Title row
       var topRow=el("div",{style:{display:"flex",gap:"12px",marginBottom:"10px"}});
@@ -343,10 +345,8 @@ function renderFind(){
         analyzerState.f.furnished=r.furnished||"Unfurnished";
         analyzerState.f.floor=r.floor?String(r.floor):"";
         analyzerState.f.propCategory=(r.type&&(r.type.toLowerCase().includes("villa")||r.type.toLowerCase().includes("townhouse")))?"villa":"apartment";
-        currentTab="Analyzer";
         analyzerState.stage=0;
-        render();
-        // Scroll to top
+        setSection("Market","Analyzer");
         window.scrollTo(0,0);
       });
       btnRow.appendChild(anaBtn);
@@ -766,7 +766,7 @@ function renderAlerts(){
       badge.textContent=m.d.g;
       row.appendChild(info);
       row.appendChild(badge);
-      row.addEventListener("click",function(){analyzerState.f.area=m.d.a;analyzerState.f.building=m.key;currentTab="Analyzer";render();});
+      row.addEventListener("click",function(){analyzerState.f.area=m.d.a;analyzerState.f.building=m.key;setSection("Market","Analyzer");});
       mWrap.appendChild(row);
     });
     wrap.appendChild(mWrap);
@@ -1255,7 +1255,9 @@ function renderHome(){
   wrap.appendChild(hero);
 
   // --- Market Pulse Card ---
-  var pulseCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"20px",marginBottom:"16px"}});
+  var pulseCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"20px",marginBottom:"16px",transition:"border-color 0.2s ease"}});
+  pulseCard.addEventListener("mouseenter",function(){pulseCard.style.borderColor=cl.goldDim;});
+  pulseCard.addEventListener("mouseleave",function(){pulseCard.style.borderColor=cl.border;});
   pulseCard.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"600",borderLeft:"3px solid "+cl.gold,paddingLeft:"10px",marginBottom:"16px"},"Market Pulse"));
   var areaKeys=Object.keys(AREAS);
   var totalPSF=0,totalYield=0,psfCount=0,yieldCount=0;
@@ -1275,7 +1277,9 @@ function renderHome(){
 
   var statsGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:"12px",marginBottom:"16px"}});
   [{l:"Avg PSF",v:"AED "+avgPSF.toLocaleString(),c:cl.gold},{l:"Avg Yield",v:avgYield+"%",c:"#10B981"},{l:"Residential",v:dbCount.toLocaleString(),c:"#3B82F6"},{l:"Commercial",v:comCount.toLocaleString(),c:"#8B5CF6"},{l:"Land Plots",v:landCount.toLocaleString(),c:"#F59E0B"},{l:"Areas",v:String(areaKeys.length),c:"#EF4444"}].forEach(function(s){
-    var card=el("div",{style:{background:"#131926",borderRadius:"10px",padding:"14px",textAlign:"center"}});
+    var card=el("div",{style:{background:"#131926",borderRadius:"10px",padding:"14px",textAlign:"center",transition:"transform 0.15s ease,box-shadow 0.15s ease",cursor:"default"}});
+    card.addEventListener("mouseenter",function(){card.style.transform="translateY(-2px)";card.style.boxShadow="0 4px 12px rgba(0,0,0,0.25)";});
+    card.addEventListener("mouseleave",function(){card.style.transform="translateY(0)";card.style.boxShadow="none";});
     card.appendChild(div({color:s.c,fontSize:"20px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},s.v));
     card.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",textTransform:"uppercase"},s.l));
     statsGrid.appendChild(card);
@@ -1286,7 +1290,10 @@ function renderHome(){
     pulseCard.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Top Movers (1-Year Growth)"));
     var moverList=el("div",{style:{display:"flex",flexDirection:"column",gap:"6px"}});
     movers.slice(0,5).forEach(function(m,i){
-      var row=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",background:i%2===0?"#131926":"transparent",borderRadius:"8px"}});
+      var bgOrig=i%2===0?"#131926":"transparent";
+      var row=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",background:bgOrig,borderRadius:"8px",transition:"transform 0.15s ease,background 0.15s ease",cursor:"default"}});
+      row.addEventListener("mouseenter",function(){row.style.transform="translateX(4px)";row.style.background="rgba(212,175,55,0.04)";});
+      row.addEventListener("mouseleave",function(){row.style.transform="translateX(0)";row.style.background=bgOrig;});
       row.appendChild(span({color:"#E8EDF5",fontSize:"12px",fontFamily:"'Inter',sans-serif"},m.name));
       var badge=el("div",{style:{display:"flex",alignItems:"center",gap:"8px"}});
       badge.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},"PSF "+m.psf.toLocaleString()));

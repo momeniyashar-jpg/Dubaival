@@ -682,7 +682,9 @@ function renderDeals(){
     var isHave=d.type==="have";
     var urgColors={hot:"#EF4444",urgent:"#F59E0B",normal:cl.border};
     var urgLabels={hot:"🔥 HOT",urgent:"⚡ URGENT",normal:""};
-    var card=el("div",{style:{background:cl.surface,border:"1px solid "+(d.urgency==="hot"?"rgba(239,68,68,0.4)":d.urgency==="urgent"?"rgba(245,158,11,0.3)":cl.border),borderRadius:"14px",padding:"14px 16px",marginBottom:"10px",cursor:"pointer",transition:"border-color 0.2s"}});
+    var card=el("div",{style:{background:cl.surface,border:"1px solid "+(d.urgency==="hot"?"rgba(239,68,68,0.4)":d.urgency==="urgent"?"rgba(245,158,11,0.3)":cl.border),borderRadius:"14px",padding:"14px 16px",marginBottom:"10px",cursor:"pointer",transition:"all 0.2s ease"}});
+    card.addEventListener("mouseenter",function(){this.style.borderColor="#2A3660";this.style.boxShadow="0 4px 20px rgba(212,175,55,0.08)";this.style.transform="translateY(-1px)";});
+    card.addEventListener("mouseleave",function(){this.style.borderColor=d.urgency==="hot"?"rgba(239,68,68,0.4)":d.urgency==="urgent"?"rgba(245,158,11,0.3)":cl.border;this.style.boxShadow="none";this.style.transform="";});
     var topRow=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"8px"}});
     var leftTop=el("div",{});
     var typeBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em",padding:"3px 8px",borderRadius:"10px",

@@ -125,7 +125,32 @@ a{color:inherit;text-decoration:none}
 .dv-section-hdr{color:#D4AF37;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-family:'Space Grotesk',monospace;font-weight:600;border-left:3px solid #D4AF37;padding-left:10px;margin-bottom:16px}
 
 /* Global form elements */
+input,select,textarea{transition:border-color 0.2s ease,box-shadow 0.2s ease}
 input:focus,select:focus,textarea:focus{border-color:#D4AF37!important;outline:none;box-shadow:0 0 0 2px rgba(212,175,55,0.15)}
+::placeholder{color:#556677;opacity:1}
+::selection{background:rgba(212,175,55,0.3);color:#fff}
+
+/* Global button polish */
+button{transition:all 0.15s ease;-webkit-tap-highlight-color:transparent}
+button:active{transform:scale(0.97)}
+
+/* Content area fade-in */
+.dv-main>div:last-of-type>div:first-child{animation:fadeIn 0.25s ease-out}
+
+/* Smooth scroll for sub-tab containers */
+.dv-subtabs{-ms-overflow-style:none;scrollbar-width:none}
+
+/* Select arrow styling */
+select{-webkit-appearance:none;-moz-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238899AA' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px!important}
+
+/* Gold accent underline for active section */
+.dv-pill.active{box-shadow:0 2px 8px rgba(212,175,55,0.3)}
+
+/* Better link hover in about page etc */
+a:hover{opacity:0.85}
+
+/* Tooltip-style hover for stat cards */
+[style*="text-align: center"][style*="border-radius"]:hover,[style*="text-align:center"][style*="border-radius"]:hover{filter:brightness(1.08)}
 
 /* Tool grid buttons (Media Studio) */
 .dv-tool-btn{background:#131926;border:1px solid #1C2540;border-radius:12px;padding:16px 12px;text-align:center;cursor:pointer;transition:all 0.2s ease;min-height:90px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
@@ -190,16 +215,16 @@ window.dvTrack=function(event,params){try{gtag('event',event,params||{});}catch(
 <script src="js/core.js?v=20260628"></script>
 <script src="js/auth.js?v=20260627"></script>
 <script src="js/app.js?v=20260628"></script>
-<script src="js/market.js?v=20260627"></script>
+<script src="js/market.js?v=20260628"></script>
 <script src="js/mortgage.js?v=20260627"></script>
-<script src="js/portfolio.js?v=20260627"></script>
+<script src="js/portfolio.js?v=20260628"></script>
 <script src="js/map.js?v=20260627"></script>
-<script src="js/deals.js?v=20260627"></script>
+<script src="js/deals.js?v=20260628"></script>
 <script src="js/chat.js?v=20260628i"></script>
 <script src="js/social.js?v=20260627"></script>
-<script src="js/about.js?v=20260627"></script>
-<script src="js/workspace.js?v=20260627"></script>
-<script src="js/marketindex.js?v=20260627"></script>
+<script src="js/about.js?v=20260628"></script>
+<script src="js/workspace.js?v=20260628"></script>
+<script src="js/marketindex.js?v=20260628"></script>
 <script>render();</script>
 </body>
 </html>

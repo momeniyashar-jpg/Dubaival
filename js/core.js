@@ -819,7 +819,7 @@ function renderNotifBell(){
       var item=el("div",{style:{display:"flex",gap:"10px",padding:"10px 14px",borderBottom:"1px solid "+cl.border,background:n.read?"transparent":"rgba(201,168,76,0.04)",cursor:"pointer",transition:"background 0.2s"}});
       item.addEventListener("mouseenter",function(){this.style.background="rgba(255,255,255,0.03)";});
       item.addEventListener("mouseleave",function(){this.style.background=n.read?"transparent":"rgba(201,168,76,0.04)";});
-      item.addEventListener("click",function(e){e.stopPropagation();n.read=true;try{localStorage.setItem("dv_notifications",JSON.stringify(DV_NOTIF.items));}catch(e){}if(n.tab){currentTab=n.tab;DV_NOTIF.showPanel=false;render();}});
+      item.addEventListener("click",function(e){e.stopPropagation();n.read=true;try{localStorage.setItem("dv_notifications",JSON.stringify(DV_NOTIF.items));}catch(e){}if(n.tab){DV_NOTIF.showPanel=false;if(TAB_TO_SECTION&&TAB_TO_SECTION[n.tab]){setSection(TAB_TO_SECTION[n.tab][0],TAB_TO_SECTION[n.tab][1]);}else{currentTab=n.tab;render();}}});
       item.appendChild(span({fontSize:"16px",flexShrink:"0"},n.icon));
       var right=el("div",{style:{flex:"1",minWidth:"0"}});
       right.appendChild(div({color:n.read?cl.sub:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.4",wordBreak:"break-word"},n.text));
@@ -1075,8 +1075,10 @@ function showTourStep(){
   var isLast=DV_TOUR.step===total-1;
   var isQuickLast=!!s.quickLast&&DV_TOUR.level==="quick";
 
-  if(s.needTab&&typeof currentTab!=="undefined"&&currentTab!==s.needTab){
-    currentTab=s.needTab;render();setTimeout(showTourStep,400);return;
+  if(s.needTab&&typeof currentTab!=="undefined"){
+    if(TAB_TO_SECTION&&TAB_TO_SECTION[s.needTab]){setSection(TAB_TO_SECTION[s.needTab][0],TAB_TO_SECTION[s.needTab][1]);}
+    else{currentTab=s.needTab;render();}
+    setTimeout(showTourStep,400);return;
   }
 
   var target=null;
@@ -1151,7 +1153,7 @@ function showTourStep(){
   var fl=document.getElementById("dv-tour-full");
   if(sk)sk.addEventListener("click",endTour);
   if(nx)nx.addEventListener("click",function(){DV_TOUR.step++;showTourStep();});
-  if(fn)fn.addEventListener("click",function(){endTour();currentTab="Analyzer";render();});
+  if(fn)fn.addEventListener("click",function(){endTour();setSection("Market","Analyzer");});
   if(fl)fl.addEventListener("click",function(){
     try{localStorage.setItem("dv_tour_done","true");}catch(e){}
     DV_TOUR.level="full";DV_TOUR.steps=TOUR_FULL;DV_TOUR.step=0;showTourStep();

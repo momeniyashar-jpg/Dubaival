@@ -142,9 +142,9 @@ function renderWorkspace(){
       var miniContent=getMiniWidget(wid,cl);
       if(miniContent)card.appendChild(miniContent);
 
-      var tabMap={portfolio:"Portfolio",alerts:"Alerts",calculator:"Analyzer",market:"Index",dashboard:"Market",comparison:"Index",analyzer:"Analyzer",fairprice:"Analyzer",mortgage:"Analyzer",deals:"Deals",agenthub:"Deals",notifications:null,favareas:"Index",saved:"Analyzer"};
-      var targetTab=tabMap[wid];
-      if(targetTab)card.addEventListener("click",function(){currentTab=targetTab;render();});
+      var tabMap={portfolio:["Portfolio","Assets"],alerts:["Portfolio","Alerts"],calculator:["Market","Analyzer"],market:["Market","Index"],dashboard:["Market","Dashboard"],comparison:["Market","Index"],analyzer:["Market","Analyzer"],fairprice:["Market","Analyzer"],mortgage:["Market","Analyzer"],deals:["Network","Deals"],agenthub:["Network","Deals"],notifications:null,favareas:["Market","Index"],saved:["Market","Analyzer"]};
+      var targetNav=tabMap[wid];
+      if(targetNav)card.addEventListener("click",function(){setSection(targetNav[0],targetNav[1]);});
       dashGrid.appendChild(card);
     });
     wrap.appendChild(dashGrid);

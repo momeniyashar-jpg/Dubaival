@@ -75,8 +75,10 @@ function renderMarketIndex(){
     card.appendChild(hRow);
     // Data rows
     data.forEach(function(d,i){
-      var row=div({display:"grid",gridTemplateColumns:columns.map(function(c){return c.w||"1fr";}).join(" "),gap:"6px",padding:"8px 10px",background:i%2===0?"transparent":cl.raised,borderRadius:"6px",cursor:"pointer"});
-      row.addEventListener("click",function(){analyzerState.f.area=d.name;currentTab="Analyzer";render();});
+      var row=div({display:"grid",gridTemplateColumns:columns.map(function(c){return c.w||"1fr";}).join(" "),gap:"6px",padding:"8px 10px",background:i%2===0?"transparent":cl.raised,borderRadius:"6px",cursor:"pointer",transition:"all 0.15s ease"});
+      row.addEventListener("mouseenter",function(){this.style.background="rgba(212,175,55,0.06)";this.style.transform="translateX(4px)";});
+      row.addEventListener("mouseleave",function(){this.style.background=i%2===0?"transparent":cl.raised;this.style.transform="";});
+      row.addEventListener("click",function(){analyzerState.f.area=d.name;setSection("Market","Analyzer");});
       columns.forEach(function(c){
         var val=c.render(d,i);
         var s=span({color:c.color?c.color(d):cl.text,fontSize:"11.5px",fontFamily:c.mono?"'Space Grotesk',monospace":"'Inter',sans-serif",fontWeight:c.bold?"700":"400",textAlign:c.align||"left"});
@@ -89,7 +91,7 @@ function renderMarketIndex(){
     var link=div({textAlign:"center",marginTop:"12px"});
     var lBtn=el("button",{style:{background:"transparent",border:"1px solid "+cl.goldDim,color:cl.gold,padding:"6px 16px",borderRadius:"8px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
     lBtn.textContent="Get detailed valuation →";
-    lBtn.addEventListener("click",function(){currentTab="Analyzer";render();});
+    lBtn.addEventListener("click",function(){setSection("Market","Analyzer");});
     link.appendChild(lBtn);
     card.appendChild(link);
     return card;
@@ -353,7 +355,7 @@ function renderMarketIndex(){
       var a=AREAS[aName];if(!a)return;
       var y=a.y||[5,7];var g=a.g||[3,9,16];
       var fc=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"10px",padding:"10px",cursor:"pointer"}});
-      fc.addEventListener("click",function(){analyzerState.f.area=aName;currentTab="Analyzer";render();});
+      fc.addEventListener("click",function(){analyzerState.f.area=aName;setSection("Market","Analyzer");});
       fc.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"4px"},[
         span({color:cl.subHi,fontSize:"11px",fontWeight:"700",fontFamily:"'Inter',sans-serif"},aName.length>16?aName.substring(0,16)+"…":aName),
         span({color:cl.gold,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+(a.psf||0).toLocaleString())]));
@@ -405,7 +407,7 @@ function renderMarketIndex(){
     starBtn.textContent=isFavArea(d.name)?"★":"☆";
     (function(name){starBtn.addEventListener("click",function(e){e.stopPropagation();toggleFavArea(name);render();});})(d.name);
     row.appendChild(starBtn);
-    row.addEventListener("click",function(){analyzerState.f.area=d.name;currentTab="Analyzer";render();});
+    row.addEventListener("click",function(){analyzerState.f.area=d.name;setSection("Market","Analyzer");});
     row.appendChild(span({color:cl.text,fontSize:"11px",fontFamily:"'Inter',sans-serif",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},d.name));
     var barWrap=div({height:"6px",borderRadius:"3px",background:cl.border,overflow:"hidden"});
     barWrap.appendChild(div({height:"100%",width:barW+"%",borderRadius:"3px",background:barColor,transition:"width 0.3s ease"}));
