@@ -5483,6 +5483,22 @@ async function _heygenListAvatars(heygenKey){
     var d=await r.json();return d.data&&d.data.avatars?d.data.avatars:[];
   }catch(e){return[];}
 }
+async function _hedraGenVideo(text,imageUrl,hedraKey,voiceId){
+  var body={text:text,voice_id:voiceId||"Sara",aspect_ratio:"16:9"};
+  if(imageUrl)body.image_url=imageUrl;
+  var r=await fetch("https://mercury.dev.dream-ai.com/api/v2/characters",{
+    method:"POST",headers:{"X-API-KEY":hedraKey,"Content-Type":"application/json"},
+    body:JSON.stringify(body)
+  });
+  return await r.json();
+}
+async function _hedraCheckStatus(jobId,hedraKey){
+  var r=await fetch("https://mercury.dev.dream-ai.com/api/v2/characters/"+jobId,{
+    headers:{"X-API-KEY":hedraKey}
+  });
+  return await r.json();
+}
+
 async function _didGenTalk(sourceUrl,script,voiceId,didKey){
   var r=await fetch("https://api.d-id.com/talks",{
     method:"POST",headers:{"Authorization":"Basic "+didKey,"Content-Type":"application/json"},
@@ -5597,6 +5613,7 @@ function showAvatarVideoGen(avatarId){
     {id:"kling",icon:"🎬",name:"Kling AI 2.0",desc:"Cinematic video from image/text. Movie quality. 5-10s clips.",tier:"🟢 Free tier",color:"#F59E0B",quality:"★★★★★"},
     {id:"luma",icon:"✨",name:"Luma Dream Machine",desc:"Photorealistic video generation. Smooth motion. 5s clips.",tier:"🟢 Free tier",color:"#8B5CF6",quality:"★★★★☆"},
     {id:"heygen",icon:"🧑‍💼",name:"HeyGen",desc:"Ultra-realistic talking avatar. Lip-sync. Indistinguishable from real.",tier:"🟡 $24/mo",color:"#10B981",quality:"★★★★★"},
+    {id:"hedra",icon:"🌐",name:"Hedra",desc:"High-quality talking avatar from photo + text. Near HeyGen quality.",tier:"🟢 Free tier",color:"#14B8A6",quality:"★★★★☆"},
     {id:"did",icon:"🎭",name:"D-ID",desc:"Talking head from photo. Good lip-sync. Quick generation.",tier:"🟢 Free credits",color:"#06B6D4",quality:"★★★☆☆"},
   ];
   methods.forEach(function(mt){
@@ -5627,6 +5644,7 @@ function showAvatarVideoGen(avatarId){
   var klingKeyInp=mkKeyField("Kling AI","dv_kling_key","Get at klingai.com → API");
   var lumaKeyInp=mkKeyField("Luma AI","dv_luma_key","Get at lumalabs.ai → API");
   var heygenKeyInp=mkKeyField("HeyGen","dv_heygen_key","Get at heygen.com → API");
+  var hedraKeyInp=mkKeyField("Hedra","dv_hedra_key","Free at hedra.com → API settings");
   var didKeyInp=mkKeyField("D-ID","dv_did_key","Get at studio.d-id.com");
   card.appendChild(keysSection);
 
@@ -5661,7 +5679,7 @@ function showAvatarVideoGen(avatarId){
     var script=scriptInp.value.trim();
     if(!script){alert("Write a script or cinematic prompt first.");return;}
 
-    [klingKeyInp,lumaKeyInp,heygenKeyInp,didKeyInp].forEach(function(inp){
+    [klingKeyInp,lumaKeyInp,heygenKeyInp,hedraKeyInp,didKeyInp].forEach(function(inp){
       if(inp.value.trim())localStorage.setItem(inp.dataset.storageKey,inp.value.trim());
     });
     if(heygenAvatarInp.value.trim())localStorage.setItem("dv_heygen_avatar",heygenAvatarInp.value.trim());
@@ -5738,6 +5756,29 @@ function showAvatarVideoGen(avatarId){
           },5000,60,resultArea,genVideoBtn);
         }else{
           resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ HeyGen error: "+JSON.stringify(hd)));
+          genVideoBtn.disabled=false;
+        }
+      }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
+    }
+
+    else if(selectedMethod==="hedra"){
+      var hrk=localStorage.getItem("dv_hedra_key");
+      if(!hrk){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Enter Hedra API key. Get free at hedra.com"));genVideoBtn.disabled=false;return;}
+      genVideoBtn.textContent="🌐 Hedra — Creating talking avatar...";
+      resultArea.appendChild(el("div",{style:{color:"#14B8A6",fontSize:"11px",fontFamily:"monospace"}},"⏳ Generating high-quality talking avatar with Hedra..."));
+      try{
+        var hedraVoice=av.voiceId||"Sara";
+        var hrd=await _hedraGenVideo(cleanScript,av.avatarUrl||null,hrk,hedraVoice);
+        if(hrd.job_id){
+          resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace"}},"✅ Job started: "+hrd.job_id));
+          _videoPollStatus(async function(){
+            var st=await _hedraCheckStatus(hrd.job_id,hrk);
+            if(st.status==="completed"&&st.video_url){return{done:true,url:st.video_url};}
+            else if(st.status==="failed"){return{error:"Hedra failed: "+(st.error||"Unknown")};}
+            return{done:false};
+          },5000,60,resultArea,genVideoBtn);
+        }else{
+          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Hedra error: "+JSON.stringify(hrd)));
           genVideoBtn.disabled=false;
         }
       }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
@@ -6115,7 +6156,8 @@ function showSocialSetup(){
     {key:"dv_did_key",label:"🎭 D-ID API Key (talking avatar video)",ph:"Free at studio.d-id.com → API settings"},
     {key:"dv_kling_key",label:"🎬 Kling AI API Key (cinematic video)",ph:"Free at klingai.com → API settings"},
     {key:"dv_luma_key",label:"🌟 Luma Dream Machine API Key",ph:"Free at lumalabs.ai → API settings"},
-    {key:"dv_heygen_key",label:"🎥 HeyGen API Key (AI avatar video)",ph:"$24/mo at heygen.com → API settings"}
+    {key:"dv_heygen_key",label:"🎥 HeyGen API Key (AI avatar video)",ph:"$24/mo at heygen.com → API settings"},
+    {key:"dv_hedra_key",label:"🌐 Hedra API Key (talking avatar)",ph:"Free at hedra.com → API settings"}
   ];
   var inputs=[];
   fields.forEach(function(f){
