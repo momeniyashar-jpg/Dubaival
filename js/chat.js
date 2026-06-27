@@ -3491,9 +3491,24 @@ async function publishToTikTok(text,videoUrl){
   }catch(e){return{success:false,error:e.message};}
 }
 
-// --- YOUTUBE DATA API v3 ---
-async function publishToYouTube(title,description,videoUrl,privacy){
+// --- YOUTUBE DATA API v3 (auto-refresh) ---
+async function _ytRefreshToken(){
+  var refresh=localStorage.getItem("dv_youtube_refresh");
+  var cid=localStorage.getItem("dv_youtube_client_id");
+  var csec=localStorage.getItem("dv_youtube_client_secret");
+  if(!refresh||!cid||!csec)return null;
+  try{
+    var r=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"grant_type=refresh_token&refresh_token="+encodeURIComponent(refresh)+"&client_id="+encodeURIComponent(cid)+"&client_secret="+encodeURIComponent(csec)});
+    var d=await r.json();if(d.access_token){localStorage.setItem("dv_youtube_token",d.access_token);return d.access_token;}
+  }catch(e){}return null;
+}
+async function _ytGetToken(){
   var token=localStorage.getItem("dv_youtube_token");
+  if(!token){token=await _ytRefreshToken();}
+  return token;
+}
+async function publishToYouTube(title,description,videoUrl,privacy){
+  var token=await _ytGetToken();
   if(!token)return{success:false,error:"YouTube token not set. Go to Setup."};
   try{
     var videoResp=await fetch(videoUrl);var videoBlob=await videoResp.blob();
@@ -3517,7 +3532,7 @@ async function publishYouTubeShort(title,description,videoUrl){
 }
 
 async function getYouTubeChannelStats(){
-  var token=localStorage.getItem("dv_youtube_token");
+  var token=await _ytGetToken();
   if(!token)return null;
   try{
     var r=await fetch("https://www.googleapis.com/youtube/v3/channels?part=statistics,snippet&mine=true",{headers:{"Authorization":"Bearer "+token}});
@@ -4393,7 +4408,10 @@ function showSocialSetup(){
     {key:"dv_twitter_access_token",label:"𝕏 X Access Token",ph:"20708..."},
     {key:"dv_twitter_access_secret",label:"𝕏 X Access Token Secret",ph:"DF6Upt..."},
     {key:"dv_tiktok_token",label:"🎵 TikTok Access Token",ph:"From developers.tiktok.com"},
-    {key:"dv_youtube_token",label:"▶️ YouTube OAuth2 Token",ph:"From console.cloud.google.com — YouTube Data API v3"}
+    {key:"dv_youtube_token",label:"▶️ YouTube Access Token",ph:"Auto-refreshed — paste initial token here"},
+    {key:"dv_youtube_refresh",label:"▶️ YouTube Refresh Token",ph:"1//0c... — permanent, auto-renews access token"},
+    {key:"dv_youtube_client_id",label:"▶️ YouTube Client ID",ph:"916354...apps.googleusercontent.com"},
+    {key:"dv_youtube_client_secret",label:"▶️ YouTube Client Secret",ph:"GOCSPX-..."}
   ];
   var inputs=[];
   fields.forEach(function(f){
