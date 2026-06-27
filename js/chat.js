@@ -3443,20 +3443,39 @@ async function publishToLinkedIn(text,imageUrl){
   }catch(e){return{success:false,error:e.message};}
 }
 
-// --- X (TWITTER) API ---
+// --- X (TWITTER) OAuth 1.0a ---
+function _xOauthNonce(){var c="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",s="";for(var i=0;i<32;i++)s+=c.charAt(Math.floor(Math.random()*c.length));return s;}
+function _xPercentEncode(s){return encodeURIComponent(s).replace(/[!'()*]/g,function(c){return"%"+c.charCodeAt(0).toString(16).toUpperCase();});}
+async function _xOauthSign(method,url,params,consumerSecret,tokenSecret){
+  var keys=Object.keys(params).sort();
+  var paramStr=keys.map(function(k){return _xPercentEncode(k)+"="+_xPercentEncode(params[k]);}).join("&");
+  var baseStr=method.toUpperCase()+"&"+_xPercentEncode(url)+"&"+_xPercentEncode(paramStr);
+  var signingKey=_xPercentEncode(consumerSecret)+"&"+_xPercentEncode(tokenSecret);
+  var enc=new TextEncoder();
+  var key=await crypto.subtle.importKey("raw",enc.encode(signingKey),{name:"HMAC",hash:"SHA-1"},false,["sign"]);
+  var sig=await crypto.subtle.sign("HMAC",key,enc.encode(baseStr));
+  return btoa(String.fromCharCode.apply(null,new Uint8Array(sig)));
+}
+async function _xAuthHeader(method,url,extraParams){
+  var ck=localStorage.getItem("dv_twitter_consumer_key")||"";
+  var cs=localStorage.getItem("dv_twitter_consumer_secret")||"";
+  var at=localStorage.getItem("dv_twitter_access_token")||"";
+  var ats=localStorage.getItem("dv_twitter_access_secret")||"";
+  var oauthParams={oauth_consumer_key:ck,oauth_nonce:_xOauthNonce(),oauth_signature_method:"HMAC-SHA1",oauth_timestamp:Math.floor(Date.now()/1000).toString(),oauth_token:at,oauth_version:"1.0"};
+  var allParams=Object.assign({},oauthParams,extraParams||{});
+  oauthParams.oauth_signature=await _xOauthSign(method,url,allParams,cs,ats);
+  var hdr="OAuth "+Object.keys(oauthParams).sort().map(function(k){return _xPercentEncode(k)+'="'+_xPercentEncode(oauthParams[k])+'"';}).join(", ");
+  return hdr;
+}
 async function publishToTwitter(text,imageUrl){
-  var bearer=localStorage.getItem("dv_twitter_bearer");
-  if(!bearer)return{success:false,error:"X/Twitter bearer token not set. Go to Setup."};
+  var ck=localStorage.getItem("dv_twitter_consumer_key");
+  var at=localStorage.getItem("dv_twitter_access_token");
+  if(!ck||!at)return{success:false,error:"X/Twitter API keys not set. Go to Setup → fill Consumer Key, Secret, Access Token, Access Secret."};
   try{
-    var mediaId=null;
-    if(imageUrl){
-      var imgResp=await fetch(imageUrl);var imgBlob=await imgResp.blob();
-      var formData=new FormData();formData.append("media",imgBlob,"image.jpg");
-      var mResp=await fetch("https://upload.twitter.com/1.1/media/upload.json",{method:"POST",headers:{"Authorization":"Bearer "+bearer},body:formData});
-      var mData=await mResp.json();mediaId=mData.media_id_string;
-    }
-    var tweetBody={text:text};if(mediaId)tweetBody.media={media_ids:[mediaId]};
-    var r=await fetch("https://api.twitter.com/2/tweets",{method:"POST",headers:{"Authorization":"Bearer "+bearer,"Content-Type":"application/json"},body:JSON.stringify(tweetBody)});
+    var tweetBody={text:text};
+    var url="https://api.twitter.com/2/tweets";
+    var auth=await _xAuthHeader("POST",url,{});
+    var r=await fetch(url,{method:"POST",headers:{"Authorization":auth,"Content-Type":"application/json"},body:JSON.stringify(tweetBody)});
     var d=await r.json();if(d.data&&d.data.id)return{success:true,id:d.data.id};return{success:false,error:d.detail||d.title||JSON.stringify(d)};
   }catch(e){return{success:false,error:e.message};}
 }
@@ -4369,7 +4388,10 @@ function showSocialSetup(){
     {key:"dv_elevenlabs_voice",label:"ElevenLabs Voice ID (optional)",ph:"Default: Rachel — or paste custom voice ID"},
     {key:"dv_linkedin_token",label:"💼 LinkedIn Access Token",ph:"OAuth2 token from linkedin.com/developers"},
     {key:"dv_linkedin_urn",label:"LinkedIn Person URN",ph:"urn:li:person:XXXXXXXXX"},
-    {key:"dv_twitter_bearer",label:"𝕏 Twitter/X Bearer Token",ph:"From developer.twitter.com"},
+    {key:"dv_twitter_consumer_key",label:"𝕏 X Consumer Key (API Key)",ph:"D3gVfd..."},
+    {key:"dv_twitter_consumer_secret",label:"𝕏 X Consumer Secret",ph:"w4EHpI..."},
+    {key:"dv_twitter_access_token",label:"𝕏 X Access Token",ph:"20708..."},
+    {key:"dv_twitter_access_secret",label:"𝕏 X Access Token Secret",ph:"DF6Upt..."},
     {key:"dv_tiktok_token",label:"🎵 TikTok Access Token",ph:"From developers.tiktok.com"},
     {key:"dv_youtube_token",label:"▶️ YouTube OAuth2 Token",ph:"From console.cloud.google.com — YouTube Data API v3"}
   ];
