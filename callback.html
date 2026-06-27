@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DubAIVal — OAuth Callback</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#070B14;color:#E2E8F0;font-family:'Space Grotesk',system-ui,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;}
+.card{background:#0D1220;border:1px solid #1C2540;border-radius:16px;padding:40px;max-width:520px;width:90%;text-align:center;}
+h1{font-size:24px;margin-bottom:8px;color:#C9A84C;}
+p{color:#94A3B8;margin-bottom:20px;font-size:14px;}
+.code-box{background:#070B14;border:1px solid #C9A84C;border-radius:8px;padding:16px;word-break:break-all;font-family:monospace;font-size:13px;color:#10B981;margin:16px 0;text-align:left;max-height:120px;overflow-y:auto;}
+.btn{background:#C9A84C;color:#070B14;border:none;padding:12px 32px;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;margin:8px;}
+.btn:hover{background:#D4AF37;}
+.btn.green{background:#10B981;}
+.btn.green:hover{background:#059669;}
+.status{margin-top:16px;padding:12px;border-radius:8px;font-size:14px;display:none;}
+.status.success{display:block;background:#10B98120;border:1px solid #10B981;color:#10B981;}
+.status.error{display:block;background:#EF444420;border:1px solid #EF4444;color:#EF4444;}
+.status.loading{display:block;background:#C9A84C20;border:1px solid #C9A84C;color:#C9A84C;}
+.logo{font-size:36px;margin-bottom:16px;}
+</style>
+</head>
+<body>
+<div class="card">
+<div class="logo">🏠</div>
+<h1>DubAIVal OAuth</h1>
+<div id="content"></div>
+</div>
+<script>
+(function(){
+  var params=new URLSearchParams(window.location.search);
+  var code=params.get("code");
+  var error=params.get("error");
+  var ct=document.getElementById("content");
+  if(error){
+    ct.innerHTML='<div class="status error">Error: '+error+'</div><p style="margin-top:16px">Please try again.</p>';
+    return;
+  }
+  if(!code){
+    ct.innerHTML='<p>No authorization code found.</p>';
+    return;
+  }
+  ct.innerHTML='<p>Authorization code received successfully!</p>'+
+    '<div class="code-box" id="codeBox">'+code+'</div>'+
+    '<button class="btn" onclick="copyCode()">📋 Copy Code</button>'+
+    '<button class="btn green" onclick="saveToken()">💾 Save to DubAIVal</button>'+
+    '<div id="status"></div>'+
+    '<p style="margin-top:20px;font-size:12px;color:#64748B;">Copy this code and paste it in the DubAIVal Social Media Manager setup, or click "Save to DubAIVal" to auto-save.</p>';
+
+  window.copyCode=function(){
+    navigator.clipboard.writeText(code).then(function(){
+      document.getElementById("status").className="status success";
+      document.getElementById("status").textContent="Copied!";
+    });
+  };
+  window.saveToken=function(){
+    try{
+      localStorage.setItem("dv_linkedin_code",code);
+      document.getElementById("status").className="status success";
+      document.getElementById("status").textContent="Code saved! Go back to DubAIVal app to complete setup.";
+    }catch(e){
+      document.getElementById("status").className="status error";
+      document.getElementById("status").textContent="Error: "+e.message;
+    }
+  };
+})();
+</script>
+</body>
+</html>

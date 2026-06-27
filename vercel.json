@@ -5,7 +5,8 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    { "source": "/callback", "destination": "/callback.html" },
+    { "source": "/((?!api/|callback).*)", "destination": "/index.html" }
   ],
   "crons": [
     {
