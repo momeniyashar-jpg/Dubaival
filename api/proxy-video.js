@@ -59,35 +59,55 @@ module.exports = async function handler(req, res) {
     }
 
     // --- HEYGEN ---
+    // --- HEYGEN (via Fal.ai) ---
     if (engine === "heygen") {
-      var hk = process.env.HEYGEN_API_KEY;
-      if (!hk) return res.status(500).json({ error: "HEYGEN_API_KEY not configured" });
+      var hk = process.env.HEYGEN_API_KEY || process.env.PIKA_API_KEY;
+      if (!hk) return res.status(500).json({ error: "HEYGEN/FAL API key not configured" });
+      var isFal = !process.env.HEYGEN_API_KEY && !!process.env.PIKA_API_KEY;
 
-      if (action === "generate") {
-        var hr = await fetch("https://api.heygen.com/v2/video/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Api-Key": hk },
-          body: JSON.stringify({
-            video_inputs: [{
-              character: { type: "avatar", avatar_id: body.avatar_id, avatar_style: "normal" },
-              voice: { type: "text", input_text: body.text, voice_id: body.voice_id || "1bd001e7e50f421d891986aad5158bc8" }
-            }],
-            dimension: { width: 1280, height: 720 }
-          })
-        });
-        return res.status(hr.status).json(await hr.json());
-      }
-      if (action === "status") {
-        var hr2 = await fetch("https://api.heygen.com/v1/video_status.get?video_id=" + body.video_id, {
-          headers: { "X-Api-Key": hk }
-        });
-        return res.status(hr2.status).json(await hr2.json());
-      }
-      if (action === "list_avatars") {
-        var hr3 = await fetch("https://api.heygen.com/v2/avatars", {
-          headers: { "X-Api-Key": hk }
-        });
-        return res.status(hr3.status).json(await hr3.json());
+      if (isFal) {
+        if (action === "generate") {
+          var hgBody = { image_url: body.image_url || body.source_url, text: body.text, voice_id: body.voice_id || null };
+          var hgr = await fetch("https://queue.fal.run/fal-ai/heygen/avatar4/image-to-video", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": "Key " + hk },
+            body: JSON.stringify(hgBody)
+          });
+          return res.status(hgr.status).json(await hgr.json());
+        }
+        if (action === "status") {
+          var hgr2 = await fetch("https://queue.fal.run/fal-ai/heygen/avatar4/image-to-video/requests/" + body.request_id, {
+            headers: { "Authorization": "Key " + hk }
+          });
+          return res.status(hgr2.status).json(await hgr2.json());
+        }
+      } else {
+        if (action === "generate") {
+          var hr = await fetch("https://api.heygen.com/v2/video/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-Api-Key": hk },
+            body: JSON.stringify({
+              video_inputs: [{
+                character: { type: "avatar", avatar_id: body.avatar_id, avatar_style: "normal" },
+                voice: { type: "text", input_text: body.text, voice_id: body.voice_id || "1bd001e7e50f421d891986aad5158bc8" }
+              }],
+              dimension: { width: 1280, height: 720 }
+            })
+          });
+          return res.status(hr.status).json(await hr.json());
+        }
+        if (action === "status") {
+          var hr2 = await fetch("https://api.heygen.com/v1/video_status.get?video_id=" + body.video_id, {
+            headers: { "X-Api-Key": hk }
+          });
+          return res.status(hr2.status).json(await hr2.json());
+        }
+        if (action === "list_avatars") {
+          var hr3 = await fetch("https://api.heygen.com/v2/avatars", {
+            headers: { "X-Api-Key": hk }
+          });
+          return res.status(hr3.status).json(await hr3.json());
+        }
       }
     }
 

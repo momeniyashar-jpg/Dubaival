@@ -5450,11 +5450,12 @@ async function _lumaGenVideo(prompt,imageUrl){
 async function _lumaCheckStatus(genId){
   return _videoProxy({engine:"luma",action:"status",gen_id:genId});
 }
-async function _heygenCreateAvatar(text,avatarId,voiceId){
-  return _videoProxy({engine:"heygen",action:"generate",text:text,avatar_id:avatarId,voice_id:voiceId});
+async function _heygenCreateAvatar(text,avatarId,voiceId,imageUrl){
+  return _videoProxy({engine:"heygen",action:"generate",text:text,avatar_id:avatarId,voice_id:voiceId,image_url:imageUrl||null});
 }
-async function _heygenCheckStatus(videoId){
-  return _videoProxy({engine:"heygen",action:"status",video_id:videoId});
+async function _heygenCheckStatus(videoIdOrReqId,isFal){
+  if(isFal)return _videoProxy({engine:"heygen",action:"status",request_id:videoIdOrReqId});
+  return _videoProxy({engine:"heygen",action:"status",video_id:videoIdOrReqId});
 }
 async function _heygenListAvatars(){
   try{var d=await _videoProxy({engine:"heygen",action:"list_avatars"});return d.data&&d.data.avatars?d.data.avatars:[];}catch(e){return[];}
@@ -5596,7 +5597,7 @@ function showAvatarVideoGen(avatarId){
     {id:"minimax",icon:"🌊",name:"Minimax Hailuo",desc:"Ultra-realistic motion. Cinematic lighting. 6s HD clips.",tier:"🟢 Free tier",color:"#3B82F6",quality:"★★★★★"},
     {id:"pika",icon:"⚡",name:"Pika Labs",desc:"Creative video effects. Style transfer. Fast generation.",tier:"🟢 Free tier",color:"#A855F7",quality:"★★★★☆"},
     {id:"luma",icon:"✨",name:"Luma Dream Machine",desc:"Photorealistic video generation. Smooth motion. 5s clips.",tier:"🟢 Free tier",color:"#8B5CF6",quality:"★★★★☆"},
-    {id:"heygen",icon:"🧑‍💼",name:"HeyGen",desc:"Ultra-realistic talking avatar. Lip-sync. Indistinguishable from real.",tier:"🟡 $24/mo",color:"#10B981",quality:"★★★★★"},
+    {id:"heygen",icon:"🧑‍💼",name:"HeyGen",desc:"Ultra-realistic talking avatar. Lip-sync. Indistinguishable from real.",tier:"🟢 Free via Fal.ai",color:"#10B981",quality:"★★★★★"},
     {id:"hedra",icon:"🌐",name:"Hedra",desc:"High-quality talking avatar from photo + text. Near HeyGen quality.",tier:"🟢 Free tier",color:"#14B8A6",quality:"★★★★☆"},
     {id:"did",icon:"🎭",name:"D-ID",desc:"Talking head from photo. Good lip-sync. Quick generation.",tier:"🟢 Free credits",color:"#06B6D4",quality:"★★★☆☆"},
   ];
@@ -5770,17 +5771,24 @@ function showAvatarVideoGen(avatarId){
       try{
         var voiceMap={"21m00Tcm4TlvDq8ikWAM":"1bd001e7e50f421d891986aad5158bc8","ErXwobaYiN019PkySvjV":"077ab11b14f04ce0b49b5f6e5cc20979"};
         var heyVoice=voiceMap[av.voiceId]||"1bd001e7e50f421d891986aad5158bc8";
-        var hd=await _heygenCreateAvatar(cleanScript,haId,heyVoice);
-        if(hd.data&&hd.data.video_id){
-          resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace"}},"✅ Video ID: "+hd.data.video_id));
+        var hd=await _heygenCreateAvatar(cleanScript,haId,heyVoice,av.avatarUrl||null);
+        var hgIsFal=!!(hd.request_id);
+        var hgId=hd.request_id||(hd.data&&hd.data.video_id);
+        if(hgId){
+          resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace"}},"✅ "+(hgIsFal?"Request":"Video")+" ID: "+hgId));
           _videoPollStatus(async function(){
-            var st=await _heygenCheckStatus(hd.data.video_id);
-            if(st.data&&st.data.status==="completed"&&st.data.video_url){return{done:true,url:st.data.video_url};}
-            else if(st.data&&st.data.status==="failed"){return{error:"HeyGen failed: "+(st.data.error||"Unknown")};}
+            var st=await _heygenCheckStatus(hgId,hgIsFal);
+            if(hgIsFal){
+              if(st.status==="COMPLETED"&&st.video&&st.video.url){return{done:true,url:st.video.url};}
+              else if(st.status==="FAILED"){return{error:"HeyGen failed: "+(st.error||"Unknown")};}
+            }else{
+              if(st.data&&st.data.status==="completed"&&st.data.video_url){return{done:true,url:st.data.video_url};}
+              else if(st.data&&st.data.status==="failed"){return{error:"HeyGen failed: "+(st.data.error||"Unknown")};}
+            }
             return{done:false};
           },5000,60,resultArea,genVideoBtn);
         }else{
-          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ HeyGen error: "+(hd.error||JSON.stringify(hd))));
+          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ HeyGen error: "+(hd.detail||hd.error||JSON.stringify(hd))));
           genVideoBtn.disabled=false;
         }
       }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
