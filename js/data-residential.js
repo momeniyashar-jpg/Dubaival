@@ -2,7 +2,7 @@
 // --- THEME --------------------------------------------------------------------
 var darkMode = true;
 const T = {
-  dark:{bg:"#070B14",surface:"#0D1220",raised:"#131926",border:"#1C2540",borderHi:"#2A3660",gold:"#D4A843",goldDim:"#8A6420",goldFaint:"#D4A84310",white:"#E8EDF5",sub:"#6B7A9E",subHi:"#9BA8C8",green:"#00C896",greenBg:"#00C89612",greenBo:"#00C89640",red:"#F04060",redBg:"#F0406012",redBo:"#F0406040",yellow:"#F0A030",yellowBg:"#F0A03012",yellowBo:"#F0A03040"},
+  dark:{bg:"#070B14",surface:"rgba(255,255,255,0.05)",raised:"rgba(255,255,255,0.03)",border:"rgba(255,255,255,0.08)",borderHi:"rgba(255,255,255,0.15)",gold:"#D4A843",goldDim:"#8A6420",goldFaint:"#D4A84310",white:"#E8EDF5",sub:"#6B7A9E",subHi:"#9BA8C8",green:"#00C896",greenBg:"#00C89612",greenBo:"#00C89640",red:"#F04060",redBg:"#F0406012",redBo:"#F0406040",yellow:"#F0A030",yellowBg:"#F0A03012",yellowBo:"#F0A03040",glass:"rgba(255,255,255,0.05)",glassBorder:"rgba(255,255,255,0.08)",glassShadow:"0 4px 30px rgba(0,0,0,0.3)",blur:"blur(12px)",goldGlass:"rgba(212,175,55,0.15)",goldGlassBorder:"rgba(212,175,55,0.3)",goldGlassHover:"rgba(212,175,55,0.25)",surfaceSolid:"#0D1220",raisedSolid:"#131926",blue:"#3B82F6"},
   light:{bg:"#F0F3FA",surface:"#FFFFFF",raised:"#F8FAFF",border:"#DDE3F0",borderHi:"#C0CBE8",gold:"#9A6A10",goldDim:"#C48A30",goldFaint:"#9A6A1010",white:"#1A2040",sub:"#7A88AA",subHi:"#4A5878",green:"#00A070",greenBg:"#00A07010",greenBo:"#00A07035",red:"#D03050",redBg:"#D0305010",redBo:"#D0305035",yellow:"#C07820",yellowBg:"#C0782010",yellowBo:"#C0782035"}
 };
 function C(){return darkMode?T.dark:T.light}

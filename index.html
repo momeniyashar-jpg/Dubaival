@@ -93,45 +93,45 @@ a{color:inherit;text-decoration:none}
 
 /* Sidebar (desktop) */
 .dv-layout{display:flex;min-height:100vh}
-.dv-sidebar{width:240px;min-height:100vh;background:#0D1220;border-right:1px solid #1C2540;padding:16px 0;position:fixed;left:0;top:0;z-index:100;transition:width 0.2s ease;display:flex;flex-direction:column;overflow-y:auto}
+.dv-sidebar{width:240px;min-height:100vh;background:rgba(13,18,32,0.85);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-right:1px solid rgba(255,255,255,0.06);padding:16px 0;position:fixed;left:0;top:0;z-index:100;transition:width 0.2s ease;display:flex;flex-direction:column;overflow-y:auto}
 .dv-sidebar.collapsed{width:64px}
 .dv-sidebar.collapsed .dv-sidebar-label,.dv-sidebar.collapsed .dv-sidebar-logo-text{display:none}
 .dv-sidebar.collapsed .dv-sidebar-item{justify-content:center;padding:12px 0}
-.dv-sidebar-logo{display:flex;align-items:center;gap:10px;padding:8px 20px 20px;border-bottom:1px solid #1C2540;margin-bottom:12px}
-.dv-sidebar-item{display:flex;align-items:center;gap:12px;padding:12px 20px;color:#8899AA;cursor:pointer;border-left:3px solid transparent;transition:all 0.15s ease;font-family:'Space Grotesk',monospace;font-size:13px;font-weight:500;user-select:none}
-.dv-sidebar-item:hover{color:#E8EDF5;background:rgba(255,255,255,0.03)}
-.dv-sidebar-item.active{color:#D4AF37;background:rgba(212,175,55,0.06);border-left-color:#D4AF37;font-weight:700}
-.dv-sidebar-toggle{margin-top:auto;padding:12px 20px;color:#556677;cursor:pointer;font-size:18px;text-align:center;border-top:1px solid #1C2540}
+.dv-sidebar-logo{display:flex;align-items:center;gap:10px;padding:8px 20px 20px;border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:12px}
+.dv-sidebar-item{display:flex;align-items:center;gap:12px;padding:12px 20px;color:#8899AA;cursor:pointer;border-left:3px solid transparent;transition:all 0.2s ease;font-family:'Space Grotesk',monospace;font-size:13px;font-weight:500;user-select:none;border-radius:0 8px 8px 0;margin-right:8px}
+.dv-sidebar-item:hover{color:#E8EDF5;background:rgba(255,255,255,0.06)}
+.dv-sidebar-item.active{color:#D4AF37;background:rgba(212,175,55,0.1);border-left-color:#D4AF37;font-weight:700}
+.dv-sidebar-toggle{margin-top:auto;padding:12px 20px;color:#556677;cursor:pointer;font-size:18px;text-align:center;border-top:1px solid rgba(255,255,255,0.06)}
 .dv-sidebar-toggle:hover{color:#8899AA}
 .dv-main{flex:1;margin-left:240px;transition:margin-left 0.2s ease;min-height:100vh;display:flex;flex-direction:column}
 .dv-sidebar.collapsed~.dv-main,.dv-main.sidebar-collapsed{margin-left:64px}
 
 /* Sub-tab pills */
-.dv-subtabs{display:flex;gap:8px;padding:12px 20px;overflow-x:auto;background:#0D1220;border-bottom:1px solid #1C2540;flex-shrink:0}
+.dv-subtabs{display:flex;gap:8px;padding:12px 20px;overflow-x:auto;background:rgba(13,18,32,0.6);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0}
 .dv-subtabs::-webkit-scrollbar{display:none}
-.dv-pill{background:transparent;border:1px solid #1C2540;border-radius:20px;padding:6px 16px;color:#8899AA;font-size:12px;font-family:'Space Grotesk',monospace;cursor:pointer;white-space:nowrap;transition:all 0.15s ease;font-weight:500}
-.dv-pill:hover{color:#E8EDF5;border-color:#2A3660}
-.dv-pill.active{background:linear-gradient(135deg,#D4AF37,#B8941F);color:#070B14;border-color:transparent;font-weight:700}
+.dv-pill{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:6px 16px;color:#8899AA;font-size:12px;font-family:'Space Grotesk',monospace;cursor:pointer;white-space:nowrap;transition:all 0.2s ease;font-weight:500;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.dv-pill:hover{color:#E8EDF5;border-color:rgba(255,255,255,0.15);background:rgba(255,255,255,0.08)}
+.dv-pill.active{background:rgba(212,175,55,0.15);color:#D4AF37;border-color:rgba(212,175,55,0.3);font-weight:700}
 
 /* Bottom tab bar (mobile) */
-.dv-bottom-tabs{display:none;position:fixed;bottom:0;left:0;right:0;height:56px;background:#0D1220;border-top:1px solid #1C2540;justify-content:space-around;align-items:center;padding-bottom:env(safe-area-inset-bottom);z-index:100}
-.dv-bottom-tab{display:flex;flex-direction:column;align-items:center;gap:2px;color:#556677;font-size:10px;font-family:'Space Grotesk',monospace;cursor:pointer;padding:4px 8px;transition:color 0.15s}
+.dv-bottom-tabs{display:none;position:fixed;bottom:0;left:0;right:0;height:56px;background:rgba(13,18,32,0.9);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid rgba(255,255,255,0.06);justify-content:space-around;align-items:center;padding-bottom:env(safe-area-inset-bottom);z-index:100}
+.dv-bottom-tab{display:flex;flex-direction:column;align-items:center;gap:2px;color:#556677;font-size:10px;font-family:'Space Grotesk',monospace;cursor:pointer;padding:4px 8px;transition:color 0.2s}
 .dv-bottom-tab.active{color:#D4AF37}
 .dv-bottom-tab .icon{font-size:22px}
 
-/* Cards & section headers */
-.dv-card{background:#0D1220;border:1px solid #1C2540;border-radius:12px;padding:20px;transition:all 0.2s ease}
-.dv-card:hover{border-color:#2A3660;box-shadow:0 4px 24px rgba(212,175,55,0.06)}
+/* Cards & section headers — Glassmorphism */
+.dv-card{background:rgba(255,255,255,0.05);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:20px;transition:all 0.25s ease;box-shadow:0 4px 30px rgba(0,0,0,0.3)}
+.dv-card:hover{border-color:rgba(212,175,55,0.3);box-shadow:0 8px 40px rgba(0,0,0,0.4),0 0 20px rgba(212,175,55,0.05)}
 .dv-section-hdr{color:#D4AF37;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-family:'Space Grotesk',monospace;font-weight:600;border-left:3px solid #D4AF37;padding-left:10px;margin-bottom:16px}
 
-/* Global form elements */
-input,select,textarea{transition:border-color 0.2s ease,box-shadow 0.2s ease}
-input:focus,select:focus,textarea:focus{border-color:#D4AF37!important;outline:none;box-shadow:0 0 0 2px rgba(212,175,55,0.15)}
+/* Global form elements — Glassmorphism */
+input,select,textarea{transition:border-color 0.2s ease,box-shadow 0.2s ease,background 0.2s ease}
+input:focus,select:focus,textarea:focus{border-color:rgba(212,175,55,0.4)!important;outline:none;box-shadow:0 0 0 3px rgba(212,175,55,0.1),0 0 20px rgba(212,175,55,0.05)}
 ::placeholder{color:#556677;opacity:1}
 ::selection{background:rgba(212,175,55,0.3);color:#fff}
 
-/* Global button polish */
-button{transition:all 0.15s ease;-webkit-tap-highlight-color:transparent}
+/* Global button polish — Glassmorphism */
+button{transition:all 0.2s ease;-webkit-tap-highlight-color:transparent}
 button:active{transform:scale(0.97)}
 
 /* Content area fade-in */
@@ -143,29 +143,29 @@ button:active{transform:scale(0.97)}
 /* Select arrow styling */
 select{-webkit-appearance:none;-moz-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238899AA' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px!important}
 
-/* Gold accent underline for active section */
-.dv-pill.active{box-shadow:0 2px 8px rgba(212,175,55,0.3)}
+/* Gold accent for active pill */
+.dv-pill.active{box-shadow:0 0 12px rgba(212,175,55,0.2)}
 
 /* Better link hover in about page etc */
 a:hover{opacity:0.85}
 
 /* Tooltip-style hover for stat cards */
-[style*="text-align: center"][style*="border-radius"]:hover,[style*="text-align:center"][style*="border-radius"]:hover{filter:brightness(1.08)}
+[style*="text-align: center"][style*="border-radius"]:hover,[style*="text-align:center"][style*="border-radius"]:hover{filter:brightness(1.1)}
 
-/* Tool grid buttons (Media Studio) */
-.dv-tool-btn{background:#131926;border:1px solid #1C2540;border-radius:12px;padding:16px 12px;text-align:center;cursor:pointer;transition:all 0.2s ease;min-height:90px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
-.dv-tool-btn:hover{border-color:#D4AF37;background:#1A1F2E;transform:translateY(-2px);box-shadow:0 4px 16px rgba(212,175,55,0.1)}
+/* Tool grid buttons (Media Studio) — Glassmorphism */
+.dv-tool-btn{background:rgba(255,255,255,0.04);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:18px 12px;text-align:center;cursor:pointer;transition:all 0.25s ease;min-height:90px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 30px rgba(0,0,0,0.15)}
+.dv-tool-btn:hover{border-color:rgba(212,175,55,0.3);background:rgba(255,255,255,0.08);transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,0.3),0 0 16px rgba(212,175,55,0.06)}
 .dv-tool-btn .dv-tool-icon{font-size:24px}
 .dv-tool-btn .dv-tool-label{font-size:11px;color:#E8EDF5;font-weight:600;font-family:'Inter',sans-serif}
 
-/* Table design system */
+/* Table design system — Glassmorphism */
 .dv-table{width:100%;border-collapse:collapse}
-.dv-table thead{position:sticky;top:0;background:#0D1220}
-.dv-table th{color:#D4AF37;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;padding:10px 12px;text-align:left;font-family:'Space Grotesk',monospace;font-weight:600;border-bottom:1px solid #1C2540}
-.dv-table tr:nth-child(odd){background:#0D1220}
-.dv-table tr:nth-child(even){background:#111827}
-.dv-table td{padding:10px 12px;font-size:13px;color:#E8EDF5;font-family:'Inter',sans-serif;border-bottom:1px solid rgba(28,37,64,0.5)}
-.dv-table tr:hover{background:rgba(212,175,55,0.04)}
+.dv-table thead{position:sticky;top:0;background:rgba(13,18,32,0.9);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.dv-table th{color:#D4AF37;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;padding:12px 14px;text-align:left;font-family:'Space Grotesk',monospace;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.08)}
+.dv-table tr:nth-child(odd){background:rgba(255,255,255,0.02)}
+.dv-table tr:nth-child(even){background:rgba(255,255,255,0.04)}
+.dv-table td{padding:12px 14px;font-size:13px;color:#E8EDF5;font-family:'Inter',sans-serif;border-bottom:1px solid rgba(255,255,255,0.04)}
+.dv-table tr:hover{background:rgba(212,175,55,0.06)}
 
 /* Fade-in animation for content */
 .dv-fadein{animation:fadeIn 0.3s ease-out}
@@ -175,9 +175,9 @@ a:hover{opacity:0.85}
 @media print{#app{display:none!important}#print-report{display:block!important}body{background:#fff!important}}
 
 /* Leaflet */
-.dv-popup .leaflet-popup-content-wrapper{background:transparent!important;box-shadow:none!important;border-radius:8px!important;padding:0!important}
+.dv-popup .leaflet-popup-content-wrapper{background:transparent!important;box-shadow:none!important;border-radius:12px!important;padding:0!important}
 .dv-popup .leaflet-popup-content{margin:0!important}
-.dv-popup .leaflet-popup-tip{background:#0D1220!important;border:1px solid #1C2540!important}
+.dv-popup .leaflet-popup-tip{background:rgba(13,18,32,0.9)!important;border:1px solid rgba(255,255,255,0.08)!important}
 .leaflet-container{background:#070B14!important;font-family:'Space Grotesk',monospace!important}
 
 /* Mobile responsive */
@@ -207,23 +207,23 @@ window.dvTrack=function(event,params){try{gtag('event',event,params||{});}catch(
 <div id="app"></div><div id="print-report"></div>
 
 <!-- App Modules -->
-<script src="js/data-residential.js?v=20260627"></script>
+<script src="js/data-residential.js?v=20260628g"></script>
 <script src="js/data-commercial.js?v=20260627"></script>
 <script src="js/valuation-db.js?v=20260623"></script>
 <script src="js/valuation.js?v=20260623"></script>
 <script src="js/api.js?v=20260627"></script>
-<script src="js/core.js?v=20260628"></script>
-<script src="js/auth.js?v=20260627"></script>
-<script src="js/app.js?v=20260628"></script>
-<script src="js/market.js?v=20260628"></script>
+<script src="js/core.js?v=20260628g"></script>
+<script src="js/auth.js?v=20260628g"></script>
+<script src="js/app.js?v=20260628g"></script>
+<script src="js/market.js?v=20260628g"></script>
 <script src="js/mortgage.js?v=20260627"></script>
-<script src="js/portfolio.js?v=20260628"></script>
+<script src="js/portfolio.js?v=20260628g"></script>
 <script src="js/map.js?v=20260627"></script>
-<script src="js/deals.js?v=20260628"></script>
+<script src="js/deals.js?v=20260628g"></script>
 <script src="js/chat.js?v=20260628i"></script>
-<script src="js/social.js?v=20260627"></script>
-<script src="js/about.js?v=20260628"></script>
-<script src="js/workspace.js?v=20260628"></script>
+<script src="js/social.js?v=20260628g"></script>
+<script src="js/about.js?v=20260628g"></script>
+<script src="js/workspace.js?v=20260628g"></script>
 <script src="js/marketindex.js?v=20260628"></script>
 <script>render();</script>
 </body>

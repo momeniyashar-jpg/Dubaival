@@ -254,17 +254,17 @@ function renderMarket(){
   // -- STATS GRID --
   const statsGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"});
   MARKET_STATS.forEach(function(s){
-    var sc=div({background:cl.raised,borderRadius:"10px",padding:"12px 14px",transition:"transform 0.15s ease,box-shadow 0.15s ease",cursor:"default"},[
+    var sc=div({background:"rgba(255,255,255,0.03)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:"12px",padding:"14px 16px",transition:"transform 0.2s ease,box-shadow 0.2s ease,border-color 0.2s ease",cursor:"default"},[
       div({color:cl.sub,fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:"5px",fontFamily:"'Space Grotesk',monospace"},s.label),
       div({color:cl.gold,fontSize:"17px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},s.val),
       div({color:s.up===true?cl.green:s.up===false?cl.red:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},(s.up===true?"▲ ":"")+s.note),
     ]);
-    sc.addEventListener("mouseenter",function(){sc.style.transform="translateY(-2px)";sc.style.boxShadow="0 4px 12px rgba(0,0,0,0.2)";});
-    sc.addEventListener("mouseleave",function(){sc.style.transform="translateY(0)";sc.style.boxShadow="none";});
+    sc.addEventListener("mouseenter",function(){sc.style.transform="translateY(-2px)";sc.style.boxShadow="0 6px 20px rgba(0,0,0,0.3)";sc.style.borderColor="rgba(255,255,255,0.12)";});
+    sc.addEventListener("mouseleave",function(){sc.style.transform="translateY(0)";sc.style.boxShadow="none";sc.style.borderColor="rgba(255,255,255,0.06)";});
     statsGrid.appendChild(sc);
   });
   // ── MACRO RISK MONITOR ────────────────────────────────────────────────
-  var riskCard=el("div",{style:{background:cl.surface,border:"1px solid "+(MACRO_VARS.riskFactor<0.97?cl.red:MACRO_VARS.riskFactor>=1.0?cl.goldDim:cl.border),borderRadius:"12px",padding:"14px",marginBottom:"14px"}});
+  var riskCard=el("div",{style:{background:cl.surface,backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid "+(MACRO_VARS.riskFactor<0.97?"rgba(240,64,96,0.3)":MACRO_VARS.riskFactor>=1.0?"rgba(212,175,55,0.3)":cl.border),borderRadius:"14px",padding:"16px",marginBottom:"14px",boxShadow:"0 4px 30px rgba(0,0,0,0.3)"}});
   var riskTop=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}});
   var riskTitle=el("div",{});
   riskTitle.appendChild(div({color:cl.gold,fontSize:"9px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"◆ Market Risk Monitor · Live"));
@@ -1121,7 +1121,7 @@ function renderAnalyzer(){
         span({color:"#3B82F6",fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+cpsf.toLocaleString()),
       ]));
     }
-    var comSubmit=el("button",{style:{marginTop:"10px",width:"100%",padding:"14px",borderRadius:"10px",border:"none",background:"linear-gradient(135deg,#3B82F6,#1D4ED8)",color:"#fff",fontSize:"14px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+    var comSubmit=el("button",{style:{marginTop:"10px",width:"100%",padding:"14px",borderRadius:"12px",border:"1px solid rgba(59,130,246,0.4)",background:"rgba(59,130,246,0.15)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",color:"#60A5FA",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.04em",cursor:"pointer"}});
     comSubmit.textContent="ANALYZE COMMERCIAL DEAL ->";
     comSubmit.addEventListener("click",function(){
       analyzerState.stage=1;render();
@@ -1163,7 +1163,7 @@ function renderAnalyzer(){
         span({color:"#10B981",fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+lpsf.toLocaleString()),
       ]));
     }
-    var landSubmit=el("button",{style:{marginTop:"10px",width:"100%",padding:"14px",borderRadius:"10px",border:"none",background:"linear-gradient(135deg,#10B981,#059669)",color:"#fff",fontSize:"14px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+    var landSubmit=el("button",{style:{marginTop:"10px",width:"100%",padding:"14px",borderRadius:"12px",border:"1px solid rgba(16,185,129,0.4)",background:"rgba(16,185,129,0.15)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",color:"#34D399",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.04em",cursor:"pointer"}});
     landSubmit.textContent="ANALYZE LAND DEAL ->";
     landSubmit.addEventListener("click",function(){
       analyzerState.stage=1;render();
@@ -1333,7 +1333,7 @@ function renderAnalyzer(){
     // Submit
     const canSubmit=true;
     var isAgentModeV=analyzerState.reportMode==="agent";
-    const submitBtn=el("button",{style:{marginTop:"14px",width:"100%",padding:"14px",borderRadius:"10px",border:"none",background:isRental?"linear-gradient(135deg,#8B5CF6,#6D28D9)":isAgentModeV?"linear-gradient(135deg,#3B82F6,#1D4ED8)":"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#FFFFFF",fontSize:"14px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+    const submitBtn=el("button",{style:{marginTop:"14px",width:"100%",padding:"14px",borderRadius:"12px",border:isRental?"1px solid rgba(139,92,246,0.4)":isAgentModeV?"1px solid rgba(59,130,246,0.4)":"1px solid rgba(212,175,55,0.3)",background:isRental?"rgba(139,92,246,0.15)":isAgentModeV?"rgba(59,130,246,0.15)":"rgba(212,175,55,0.15)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",color:isRental?"#A78BFA":isAgentModeV?"#60A5FA":"#D4A843",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.04em",cursor:"pointer"}});
     submitBtn.textContent=isRental?"ANALYZE THIS RENTAL ->":isAgentModeV?"GENERATE AGENT REPORT ->":"ANALYZE THIS DEAL ->";
     if(true){
       submitBtn.addEventListener("click",function(){

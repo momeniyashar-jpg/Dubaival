@@ -20,9 +20,9 @@ function renderAbout(){
   ];
   var statsRow=div({display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:"14px",marginBottom:"40px"});
   stats.forEach(function(s){
-    var card=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"20px 16px",textAlign:"center",transition:"transform 0.2s ease,border-color 0.2s ease,box-shadow 0.2s ease",cursor:"default"});
-    card.addEventListener("mouseenter",function(){card.style.transform="translateY(-3px)";card.style.borderColor=cl.goldDim;card.style.boxShadow="0 6px 20px rgba(212,175,55,0.1)";});
-    card.addEventListener("mouseleave",function(){card.style.transform="translateY(0)";card.style.borderColor=cl.border;card.style.boxShadow="none";});
+    var card=div({background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px 16px",textAlign:"center",transition:"transform 0.25s ease,border-color 0.25s ease,box-shadow 0.25s ease",cursor:"default",boxShadow:cl.glassShadow});
+    card.addEventListener("mouseenter",function(){card.style.transform="translateY(-3px)";card.style.borderColor="rgba(212,175,55,0.3)";card.style.boxShadow="0 8px 32px rgba(0,0,0,0.35),0 0 20px rgba(212,175,55,0.06)";});
+    card.addEventListener("mouseleave",function(){card.style.transform="translateY(0)";card.style.borderColor=cl.border;card.style.boxShadow=cl.glassShadow;});
     card.appendChild(el("div",{style:{color:cl.gold,fontSize:"22px",fontWeight:"700",marginBottom:"4px"}},s.n));
     card.appendChild(el("div",{style:{color:cl.sub,fontSize:"11px",letterSpacing:"0.06em",textTransform:"uppercase"}},s.l));
     statsRow.appendChild(card);
@@ -31,9 +31,9 @@ function renderAbout(){
 
   // Section helper
   function section(icon,title,body){
-    var sec=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"24px",marginBottom:"20px",transition:"border-color 0.2s ease"});
-    sec.addEventListener("mouseenter",function(){sec.style.borderColor=cl.goldDim;});
-    sec.addEventListener("mouseleave",function(){sec.style.borderColor=cl.border;});
+    var sec=div({background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"24px",marginBottom:"20px",transition:"border-color 0.25s ease,box-shadow 0.25s ease",boxShadow:cl.glassShadow});
+    sec.addEventListener("mouseenter",function(){sec.style.borderColor="rgba(212,175,55,0.2)";sec.style.boxShadow="0 8px 36px rgba(0,0,0,0.35)";});
+    sec.addEventListener("mouseleave",function(){sec.style.borderColor=cl.border;sec.style.boxShadow=cl.glassShadow;});
     sec.appendChild(el("div",{style:{color:cl.gold,fontSize:"13px",fontWeight:"700",marginBottom:"12px",letterSpacing:"0.06em"}},icon+" "+title));
     if(typeof body==="string"){
       var p=el("p",{style:{color:cl.text,fontSize:"12.5px",lineHeight:"1.75",margin:"0"}});
@@ -58,9 +58,9 @@ function renderAbout(){
   ];
   var featGrid=div({display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"12px"});
   features.forEach(function(f){
-    var card=div({background:cl.bg,border:"1px solid "+cl.border,borderRadius:"10px",padding:"16px",transition:"transform 0.2s ease,border-color 0.2s ease,box-shadow 0.2s ease",cursor:"default"});
-    card.addEventListener("mouseenter",function(){card.style.transform="translateY(-2px)";card.style.borderColor=cl.goldDim;card.style.boxShadow="0 4px 16px rgba(212,175,55,0.08)";});
-    card.addEventListener("mouseleave",function(){card.style.transform="translateY(0)";card.style.borderColor=cl.border;card.style.boxShadow="none";});
+    var card=div({background:"rgba(255,255,255,0.03)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:"12px",padding:"16px",transition:"transform 0.25s ease,border-color 0.25s ease,box-shadow 0.25s ease",cursor:"default",boxShadow:"0 2px 16px rgba(0,0,0,0.15)"});
+    card.addEventListener("mouseenter",function(){card.style.transform="translateY(-2px)";card.style.borderColor="rgba(212,175,55,0.3)";card.style.boxShadow="0 8px 28px rgba(0,0,0,0.3),0 0 16px rgba(212,175,55,0.04)";});
+    card.addEventListener("mouseleave",function(){card.style.transform="translateY(0)";card.style.borderColor="rgba(255,255,255,0.06)";card.style.boxShadow="0 2px 16px rgba(0,0,0,0.15)";});
     card.appendChild(el("div",{style:{fontSize:"20px",marginBottom:"8px"}},f.icon));
     card.appendChild(el("div",{style:{color:cl.text,fontSize:"12px",fontWeight:"700",marginBottom:"6px"}},f.title));
     card.appendChild(el("div",{style:{color:cl.sub,fontSize:"11px",lineHeight:"1.65"}},f.desc));

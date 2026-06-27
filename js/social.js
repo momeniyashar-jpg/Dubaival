@@ -412,10 +412,10 @@ function _categoryLabel(cat){
 function _renderVideoCard(video,cl){
   var thumb=video.thumbnail||getVideoThumbnail(video.video_url);
   var agent=video.agent_profiles||{};
-  var card=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",overflow:"hidden",
-    cursor:"pointer",transition:"border-color 0.2s,transform 0.2s"});
-  card.addEventListener("mouseenter",function(){card.style.borderColor=cl.goldDim;card.style.transform="translateY(-2px)";});
-  card.addEventListener("mouseleave",function(){card.style.borderColor=cl.border;card.style.transform="translateY(0)";});
+  var card=div({background:cl.surface,backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid "+cl.border,borderRadius:"14px",overflow:"hidden",
+    cursor:"pointer",transition:"all 0.25s ease",boxShadow:"0 4px 30px rgba(0,0,0,0.25)"});
+  card.addEventListener("mouseenter",function(){card.style.borderColor="rgba(212,175,55,0.3)";card.style.transform="translateY(-2px)";card.style.boxShadow="0 8px 32px rgba(0,0,0,0.35),0 0 16px rgba(212,175,55,0.05)";});
+  card.addEventListener("mouseleave",function(){card.style.borderColor=cl.border;card.style.transform="translateY(0)";card.style.boxShadow="0 4px 30px rgba(0,0,0,0.25)";});
   card.addEventListener("click",function(){
     SOCIAL_STATE.expandedVideo=video;
     _incrementViews(video);
@@ -726,10 +726,10 @@ function _renderExplore(wrap,cl){
 
 // --- Agent Profile Card ------------------------------------------------------
 function _renderAgentCard(agent,cl){
-  var card=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",
-    cursor:"pointer",transition:"border-color 0.2s,transform 0.2s"});
-  card.addEventListener("mouseenter",function(){card.style.borderColor=cl.goldDim;card.style.transform="translateY(-2px)";});
-  card.addEventListener("mouseleave",function(){card.style.borderColor=cl.border;card.style.transform="translateY(0)";});
+  var card=div({background:cl.surface,backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",
+    cursor:"pointer",transition:"all 0.25s ease",boxShadow:"0 4px 30px rgba(0,0,0,0.25)"});
+  card.addEventListener("mouseenter",function(){card.style.borderColor="rgba(212,175,55,0.3)";card.style.transform="translateY(-2px)";card.style.boxShadow="0 8px 32px rgba(0,0,0,0.35),0 0 16px rgba(212,175,55,0.05)";});
+  card.addEventListener("mouseleave",function(){card.style.borderColor=cl.border;card.style.transform="translateY(0)";card.style.boxShadow="0 4px 30px rgba(0,0,0,0.25)";});
   card.addEventListener("click",function(){
     SOCIAL_STATE.viewAgent=agent;
     _fetchAgentVideos(agent.id);

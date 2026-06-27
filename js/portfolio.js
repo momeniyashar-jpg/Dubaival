@@ -4,14 +4,14 @@ function renderCompare(){
   const cl=C();const s=compareState;
   const wrap=div({padding:"20px",maxWidth:"640px",margin:"0 auto"});
   wrap.appendChild(div({marginBottom:"16px"},[span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ Area Comparison"),span({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"AI-powered side-by-side analysis")]));
-  const card=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px"});
+  const card=div({background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",boxShadow:cl.glassShadow});
   const g=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"14px"});
   const a1W=div({});a1W.appendChild(lbl("Area A"));a1W.appendChild(mkSelect(S(),["Select…",...AREA_NAMES],s.a1,function(v){compareState.a1=v;}));g.appendChild(a1W);
   const a2W=div({});a2W.appendChild(lbl("Area B"));a2W.appendChild(mkSelect(S(),["Select…",...AREA_NAMES],s.a2,function(v){compareState.a2=v;}));g.appendChild(a2W);
   const bW=div({});bW.appendChild(lbl("Budget (AED)"));bW.appendChild(inp(I(),"e.g. 3,000,000","number",s.budget,function(v){compareState.budget=v;}));g.appendChild(bW);
   const pW=div({});pW.appendChild(lbl("Purpose"));pW.appendChild(mkSelect(S(),["Investment","End-Use","Rental Income","Capital Appreciation","Off-Plan Flip"],s.purpose,function(v){compareState.purpose=v;}));g.appendChild(pW);
   card.appendChild(g);
-  card.appendChild(el("button",{style:{background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",color:"#070B14",border:"none",padding:"12px 28px",borderRadius:"8px",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:async function(){
+  card.appendChild(el("button",{style:{background:"rgba(212,175,55,0.15)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",color:cl.gold,border:"1px solid rgba(212,175,55,0.3)",padding:"12px 28px",borderRadius:"10px",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:async function(){
     if(!s.a1||!s.a2||s.a1==="Select…"||s.a2==="Select…")return;
     compareState.loading=true;compareState.result="";render();
     try{
@@ -36,7 +36,7 @@ function renderPersonal(){
   const cl=C();const p=personalState;
   const wrap=div({padding:"20px",maxWidth:"640px",margin:"0 auto"});
   wrap.appendChild(div({marginBottom:"16px"},[span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ Personal Property Advisor"),span({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Tell us about yourself — get tailored recommendations")]));
-  const card=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px"});
+  const card=div({background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",boxShadow:cl.glassShadow});
   card.appendChild(fld("Budget (AED) *",inp(I(),"2,000,000","number",p.budget,function(v){personalState.budget=v;})));
   const g=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"14px"});
   const rW=div({});rW.appendChild(lbl("I am"));rW.appendChild(mkSelect(S(),["Investor","End-User","First-Time Buyer","Upgrader","Relocating"],p.role,function(v){personalState.role=v;}));g.appendChild(rW);
@@ -46,7 +46,7 @@ function renderPersonal(){
   const tlW=div({});tlW.appendChild(lbl("Timeline"));tlW.appendChild(mkSelect(S(),["1 month","3 months","6 months","1 year","2+ years"],p.timeline,function(v){personalState.timeline=v;}));g.appendChild(tlW);
   card.appendChild(g);
   card.appendChild(fld("Work Location",inp(I(),"DIFC, Downtown, Work from home…","text",p.work,function(v){personalState.work=v;})));
-  card.appendChild(el("button",{style:{width:"100%",padding:"13px",borderRadius:"10px",border:"none",background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",color:"#070B14",fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",cursor:"pointer"},onclick:async function(){
+  card.appendChild(el("button",{style:{width:"100%",padding:"13px",borderRadius:"10px",border:"1px solid rgba(212,175,55,0.3)",background:"rgba(212,175,55,0.15)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",color:cl.gold,fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",cursor:"pointer"},onclick:async function(){
     if(!p.budget)return;
     personalState.loading=true;personalState.result="";render();
     try{
@@ -189,15 +189,15 @@ function renderPortfolio(){
 
   // Portfolio Overview
   if(ps.assets.length>0){
-    var sumCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",position:"relative",overflow:"hidden"});
+    var sumCard=div({background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"24px",marginBottom:"14px",position:"relative",overflow:"hidden",boxShadow:cl.glassShadow});
     sumCard.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,"+cl.gold+","+cl.gold+",transparent)",animation:"shimmer 3s ease infinite"}));
     sumCard.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"14px"},"◆ Portfolio Overview"));
 
     var g1=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"});
     [{l:"Total Value",v:"AED "+totalValue.toLocaleString(),c:cl.gold},{l:"Total ROI",v:(totalROI>=0?"+":"")+totalROI.toFixed(1)+"%",c:totalROI>=0?cl.green:cl.red},{l:"Gross Yield",v:avgGrossYield.toFixed(1)+"%",c:cl.green},{l:"Net Yield",v:avgNetYield.toFixed(1)+"%",c:cl.green}].forEach(function(item){
-      var box=div({background:cl.raised,borderRadius:"10px",padding:"12px 14px",transition:"transform 0.15s ease,box-shadow 0.15s ease",cursor:"default"});
-      box.addEventListener("mouseenter",function(){box.style.transform="translateY(-2px)";box.style.boxShadow="0 4px 12px rgba(0,0,0,0.2)";});
-      box.addEventListener("mouseleave",function(){box.style.transform="translateY(0)";box.style.boxShadow="none";});
+      var box=div({background:"rgba(255,255,255,0.03)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:"12px",padding:"12px 14px",transition:"transform 0.2s ease,box-shadow 0.2s ease,border-color 0.2s ease",cursor:"default"});
+      box.addEventListener("mouseenter",function(){box.style.transform="translateY(-2px)";box.style.boxShadow="0 6px 20px rgba(0,0,0,0.3)";box.style.borderColor="rgba(255,255,255,0.12)";});
+      box.addEventListener("mouseleave",function(){box.style.transform="translateY(0)";box.style.boxShadow="none";box.style.borderColor="rgba(255,255,255,0.06)";});
       box.appendChild(lbl(item.l));
       box.appendChild(span({color:item.c,fontSize:"17px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},item.v));
       g1.appendChild(box);
@@ -613,9 +613,9 @@ function renderPortfolio(){
     var expanded=ps.expandedId===a.id;
     var roiColor=a.m.roi>=15?cl.green:a.m.roi>=0?cl.yellow:cl.red;
     var sigColor=a.m.investSignal==="Undervalued"||a.m.investSignal==="Fair Value"?cl.green:a.m.investSignal==="Elevated"?cl.yellow:cl.red;
-    var card=el("div",{style:{background:cl.surface,border:"1px solid "+(expanded?cl.goldDim:cl.border),borderRadius:"14px",padding:"16px",marginBottom:"10px",cursor:"pointer",transition:"all 0.2s"},onclick:function(){ps.expandedId=expanded?null:a.id;render();}});
-    card.addEventListener("mouseenter",function(){if(!expanded){card.style.borderColor=cl.goldDim;card.style.transform="translateY(-2px)";card.style.boxShadow="0 4px 20px rgba(212,175,55,0.08)";}});
-    card.addEventListener("mouseleave",function(){if(!expanded){card.style.borderColor=cl.border;card.style.transform="translateY(0)";card.style.boxShadow="none";}});
+    var card=el("div",{style:{background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+(expanded?"rgba(212,175,55,0.3)":cl.border),borderRadius:"14px",padding:"18px",marginBottom:"10px",cursor:"pointer",transition:"all 0.25s ease",boxShadow:cl.glassShadow},onclick:function(){ps.expandedId=expanded?null:a.id;render();}});
+    card.addEventListener("mouseenter",function(){if(!expanded){card.style.borderColor="rgba(212,175,55,0.3)";card.style.transform="translateY(-2px)";card.style.boxShadow="0 8px 32px rgba(0,0,0,0.35),0 0 20px rgba(212,175,55,0.05)";}});
+    card.addEventListener("mouseleave",function(){if(!expanded){card.style.borderColor=cl.border;card.style.transform="translateY(0)";card.style.boxShadow=cl.glassShadow;}});
 
     var header=div({display:"flex",justifyContent:"space-between",alignItems:"flex-start"});
     var left=div({flex:"1"});

@@ -85,7 +85,7 @@ function renderWorkspace(){
   }
 
   // Tool selector (always show)
-  var selCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"14px 16px",marginBottom:"14px"});
+  var selCard=div({background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"14px 16px",marginBottom:"14px",boxShadow:cl.glassShadow});
   selCard.appendChild(span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},"Available Tools"));
   var toolGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",overflow:"hidden"}});
   WS_TOOLS.forEach(function(t){
@@ -112,7 +112,7 @@ function renderWorkspace(){
 
   // Active widgets with reorder
   if(WS_STATE.widgets.length>0){
-    var orderCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"14px 16px",marginBottom:"14px"});
+    var orderCard=div({background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"14px 16px",marginBottom:"14px",boxShadow:cl.glassShadow});
     orderCard.appendChild(span({color:cl.gold,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},"◆ Your Workspace · "+WS_STATE.widgets.length+" tools"));
     WS_STATE.widgets.forEach(function(wid,idx){
       var tool=WS_TOOLS.find(function(t){return t.id===wid;});if(!tool)return;
@@ -202,7 +202,7 @@ function getMiniWidget(wid,cl){
 
 // --- REPORT BUILDER ---
 function renderReportBuilder(wrap,cl){
-  var card=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"});
+  var card=div({background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px",boxShadow:cl.glassShadow});
   card.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
     span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ Custom Report Builder"),
     span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Visual · Text · Voice")]));

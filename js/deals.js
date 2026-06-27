@@ -682,9 +682,9 @@ function renderDeals(){
     var isHave=d.type==="have";
     var urgColors={hot:"#EF4444",urgent:"#F59E0B",normal:cl.border};
     var urgLabels={hot:"🔥 HOT",urgent:"⚡ URGENT",normal:""};
-    var card=el("div",{style:{background:cl.surface,border:"1px solid "+(d.urgency==="hot"?"rgba(239,68,68,0.4)":d.urgency==="urgent"?"rgba(245,158,11,0.3)":cl.border),borderRadius:"14px",padding:"14px 16px",marginBottom:"10px",cursor:"pointer",transition:"all 0.2s ease"}});
-    card.addEventListener("mouseenter",function(){this.style.borderColor="#2A3660";this.style.boxShadow="0 4px 20px rgba(212,175,55,0.08)";this.style.transform="translateY(-1px)";});
-    card.addEventListener("mouseleave",function(){this.style.borderColor=d.urgency==="hot"?"rgba(239,68,68,0.4)":d.urgency==="urgent"?"rgba(245,158,11,0.3)":cl.border;this.style.boxShadow="none";this.style.transform="";});
+    var card=el("div",{style:{background:cl.surface,backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid "+(d.urgency==="hot"?"rgba(239,68,68,0.3)":d.urgency==="urgent"?"rgba(245,158,11,0.2)":cl.border),borderRadius:"14px",padding:"16px 18px",marginBottom:"10px",cursor:"pointer",transition:"all 0.25s ease",boxShadow:"0 4px 30px rgba(0,0,0,0.25)"}});
+    card.addEventListener("mouseenter",function(){this.style.borderColor="rgba(212,175,55,0.3)";this.style.boxShadow="0 8px 32px rgba(0,0,0,0.35),0 0 16px rgba(212,175,55,0.05)";this.style.transform="translateY(-2px)";});
+    card.addEventListener("mouseleave",function(){this.style.borderColor=d.urgency==="hot"?"rgba(239,68,68,0.3)":d.urgency==="urgent"?"rgba(245,158,11,0.2)":cl.border;this.style.boxShadow="0 4px 30px rgba(0,0,0,0.25)";this.style.transform="";});
     var topRow=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"8px"}});
     var leftTop=el("div",{});
     var typeBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em",padding:"3px 8px",borderRadius:"10px",
@@ -1360,7 +1360,7 @@ function renderDealForm(wrap,cl){
 
 function renderAgentHub(wrap,cl){
   var hub=DEAL_STATE.agentHub;
-  var card=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"});
+  var card=div({background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",boxShadow:cl.glassShadow});
   card.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"◆ Agent Referral Program"));
   card.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",marginBottom:"14px",lineHeight:"1.6"},
     "Join DubAIVal's verified agent network. Gold agents receive buyer referrals matched to their area of expertise. Earn more deals, build your reputation."));
