@@ -418,7 +418,7 @@ function renderDeals(){
   if(!DEAL_STATE.adminToken){
     var adminLink=el("button",{style:{padding:"6px 10px",borderRadius:"8px",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",
       background:"transparent",color:cl.sub,border:"1px solid "+cl.border,marginLeft:"auto"},
-      onclick:async function(){var token=prompt("Enter DubAIVal Admin Token:");if(token&&token.trim()){try{var enc=new TextEncoder();var buf=await crypto.subtle.digest("SHA-256",enc.encode(token.trim()));var hash=Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");if(hash==="67ed667fed4620ba36c09d97b542b81c39a5f63bcbdfe8d1931c234748498fc1"){DEAL_STATE.adminToken=token.trim();try{localStorage.setItem("dv_admin_token",hash);}catch(e){}DEAL_STATE.mode="admin";fetchAgents();fetchReferrals().then(function(){render();});render();}else{alert("Invalid admin token");}}catch(e){alert("Authentication failed");}}}});
+      onclick:async function(){var token=prompt("Enter DubAIVal Admin Token:");if(token&&token.trim()){try{var enc=new TextEncoder();var buf=await crypto.subtle.digest("SHA-256",enc.encode(token.trim()));var hash=Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");if(hash==="67ed667fed4620ba36c09d97b542b81c39a5f63bcbdfe8d1931c234748498fc1"){DEAL_STATE.adminToken=hash;try{localStorage.setItem("dv_admin_token",hash);}catch(e){}DEAL_STATE.mode="admin";fetchAgents();fetchReferrals().then(function(){render();});render();}else{alert("Invalid admin token");}}catch(e){alert("Authentication failed");}}}});
     adminLink.textContent="Admin Login";modeBar.appendChild(adminLink);
   }
   wrap.appendChild(modeBar);
@@ -938,7 +938,7 @@ function renderDeals(){
         addPhotoLabel.appendChild(addPhotoFileInp);addPhotoLabel.appendChild(document.createTextNode("+ Add Photos"));
         addMoreWrap.appendChild(addPhotoLabel);
         var addVidBtn=el("button",{style:{background:"rgba(96,165,250,0.12)",color:"#60A5FA",border:"1px solid rgba(96,165,250,0.3)",padding:"6px 12px",borderRadius:"6px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
-          onclick:(function(did){return function(e){e.stopPropagation();var url=prompt("Enter video URL (YouTube / Google Drive):");if(url&&url.trim()){uploadDealMedia(did,[],(url));delete DEAL_STATE.dealMediaCache[did];fetchDealMedia(did).then(function(){render();});}};})(d.id)});
+          onclick:(function(did){return async function(e){e.stopPropagation();var url=prompt("Enter video URL (YouTube / Google Drive):");if(url&&url.trim()){try{await uploadDealMedia(did,[],url);delete DEAL_STATE.dealMediaCache[did];await fetchDealMedia(did);render();}catch(er){alert("Video upload failed");}}};})(d.id)});
         addVidBtn.textContent="+ Add Video";addMoreWrap.appendChild(addVidBtn);
         mediaManage.appendChild(addMoreWrap);
       }
@@ -1597,7 +1597,7 @@ function renderAdminDashboard(wrap,cl){
         goldAgentsList.forEach(function(a){var o=el("option",{value:String(a.id)});o.textContent=a.agent_name+" ("+a.subscription+") — "+(a.areas_text||"all areas");agentSelect.appendChild(o);});
         assignRow.appendChild(agentSelect);
         var assignBtn=el("button",{style:{background:"linear-gradient(135deg,#10B981,#059669)",color:"#fff",border:"none",padding:"8px 14px",borderRadius:"6px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
-          onclick:(function(rid,sel){return function(){var aid=sel.value;if(!aid){alert("Please select an agent");return;}assignReferral(rid,parseInt(aid));};})(ref.id,agentSelect)});
+          onclick:(function(rid,sel){return function(){var aid=sel.value;if(!aid){alert("Please select an agent");return;}assignReferral(rid,parseInt(aid,10));};})(ref.id,agentSelect)});
         assignBtn.textContent="Assign";assignRow.appendChild(assignBtn);
         refCard.appendChild(assignRow);
       }else{
