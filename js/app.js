@@ -1587,7 +1587,8 @@ function render(preserveScroll){
 
   var logoWrap=el("div",{});
   logoWrap.className="dv-sidebar-logo";
-  logoWrap.appendChild(el("img",{src:"logo.png",alt:"DV",style:{width:"32px",height:"32px",borderRadius:"7px",flexShrink:"0",objectFit:"contain"}}));
+  var logoSize=sidebarCollapsed?"28px":"36px";
+  logoWrap.appendChild(el("img",{src:"logo.png",alt:"DV",style:{width:logoSize,height:logoSize,borderRadius:"7px",flexShrink:"0",objectFit:"contain",transition:"width 0.2s ease,height 0.2s ease"}}));
   var logoText=el("div",{});
   logoText.className="dv-sidebar-logo-text";
   logoText.appendChild(div({fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",color:"#fff"},"DubAIVal"));
@@ -1672,7 +1673,11 @@ function render(preserveScroll){
   var header=el("div",{style:{background:cl.surface,borderBottom:"1px solid "+cl.border,padding:"0 20px",display:"flex",alignItems:"center",justifyContent:"space-between",height:"50px",position:"sticky",top:"0",zIndex:"50"}});
   var secTitle=el("div",{style:{display:"flex",alignItems:"center",gap:"8px"}});
   var curSec=NAV_SECTIONS.find(function(n){return n.id===currentSection;});
+  var mobileLogo=el("img",{src:"logo.png",alt:"DV",style:{width:"28px",height:"28px",borderRadius:"6px",objectFit:"contain",display:"none"}});
+  mobileLogo.className="dv-mobile-logo";
+  secTitle.appendChild(mobileLogo);
   var secIconWrap=el("span",{style:{width:"18px",height:"18px",display:"inline-flex",alignItems:"center"}});
+  secIconWrap.className="dv-header-sec-icon";
   if(curSec)secIconWrap.innerHTML='<i data-lucide="'+curSec.icon+'"></i>';
   secTitle.appendChild(secIconWrap);
   secTitle.appendChild(span({fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",color:"#F0F2F5"},curSec?curSec.label:"DubAIVal"));
