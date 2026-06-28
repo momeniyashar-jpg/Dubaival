@@ -12,7 +12,7 @@ function renderMortgageStandalone(cl){
 
   const priceRow=el("div",{style:{marginBottom:"12px"}});
   priceRow.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.08em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"5px"},"Property Price (AED)"));
-  const priceInp=el("input",{type:"number",placeholder:"e.g. 2,500,000",style:{width:"100%",background:cl.bg,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"10px 12px",borderRadius:"8px",fontSize:"14px",fontFamily:"'Space Grotesk',monospace",boxSizing:"border-box",outline:"none"}});
+  const priceInp=el("input",{type:"number",placeholder:"e.g. 2,500,000",style:{width:"100%",background:cl.bg,border:"1px solid "+cl.border,color:cl.white,padding:"10px 12px",borderRadius:"8px",fontSize:"14px",fontFamily:"'Space Grotesk',monospace",boxSizing:"border-box",outline:"none"}});
   priceInp.value=M.price||"";
   priceInp.addEventListener("input",function(){M.price=this.value;});
   priceInp.addEventListener("change",function(){render();});
@@ -104,7 +104,7 @@ function renderMortgage(price, cl){
   
   const tenureBox=el("div",{});
   tenureBox.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.08em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Tenure"));
-  const tenureSel=el("select",{style:{width:"100%",background:cl.bg,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"6px 8px",borderRadius:"6px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace"}});
+  const tenureSel=el("select",{style:{width:"100%",background:cl.bg,border:"1px solid "+cl.border,color:cl.white,padding:"6px 8px",borderRadius:"6px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace"}});
   [15,20,25].forEach(function(y){
     const opt=el("option",{value:y},y+" years");
     if(M.tenure===y)opt.selected=true;
@@ -116,7 +116,7 @@ function renderMortgage(price, cl){
 
   const natBox=el("div",{});
   natBox.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.08em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Buyer Type"));
-  const natSel=el("select",{style:{width:"100%",background:cl.bg,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"6px 8px",borderRadius:"6px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace"}});
+  const natSel=el("select",{style:{width:"100%",background:cl.bg,border:"1px solid "+cl.border,color:cl.white,padding:"6px 8px",borderRadius:"6px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace"}});
   [{v:"expat",l:"Expat (max 75%)"},{v:"uae",l:"UAE National (max 80%)"}].forEach(function(n){
     const opt=el("option",{value:n.v},n.l);
     if(M.nationality===n.v)opt.selected=true;

@@ -127,8 +127,8 @@ a{color:inherit;text-decoration:none}
 .dv-bottom-tab [data-lucide]{color:inherit}
 
 /* Cards & section headers — Glassmorphism */
-.dv-card{background:rgba(255,255,255,0.05);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(212,175,55,0.15);border-radius:14px;padding:20px;transition:all 0.25s ease;box-shadow:0 4px 30px rgba(0,0,0,0.3)}
-.dv-card:hover{border-color:rgba(212,175,55,0.25);box-shadow:0 8px 40px rgba(0,0,0,0.4),0 0 20px rgba(212,175,55,0.04)}
+.dv-card{background:rgba(255,255,255,0.03);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:20px;transition:all 0.25s ease;box-shadow:0 4px 24px rgba(0,0,0,0.2),inset 0 1px 0 rgba(255,255,255,0.04)}
+.dv-card:hover{border-color:rgba(255,255,255,0.12);box-shadow:0 8px 32px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.06);transform:translateY(-2px)}
 .dv-section-hdr{color:#D4AF37;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-family:'Space Grotesk',monospace;font-weight:600;border-left:3px solid #D4AF37;padding-left:10px;margin-bottom:16px}
 
 /* Global form elements — Glassmorphism */
@@ -210,6 +210,79 @@ a:hover{opacity:0.85}
   .dv-home-grid2{grid-template-columns:1fr!important}
   .dv-hero-grid{grid-template-columns:1fr!important}
 }
+
+/* Per-page gradient blobs */
+.dv-page-blobs{position:relative;overflow:hidden}
+.dv-page-blobs::before,.dv-page-blobs::after{content:'';position:absolute;filter:blur(80px);pointer-events:none;z-index:0;border-radius:50%}
+.dv-page-blobs>*{position:relative;z-index:1}
+.dv-blobs-home::before{top:-10%;left:5%;width:500px;height:500px;background:radial-gradient(circle,rgba(212,175,55,0.07) 0%,transparent 70%)}
+.dv-blobs-home::after{bottom:-5%;right:10%;width:400px;height:400px;background:radial-gradient(circle,rgba(139,92,246,0.05) 0%,transparent 70%)}
+.dv-blobs-market::before{top:-8%;left:8%;width:500px;height:500px;background:radial-gradient(circle,rgba(59,130,246,0.07) 0%,transparent 70%)}
+.dv-blobs-market::after{bottom:-5%;right:5%;width:450px;height:450px;background:radial-gradient(circle,rgba(16,185,129,0.06) 0%,transparent 70%)}
+.dv-blobs-portfolio::before{top:-10%;left:10%;width:500px;height:500px;background:radial-gradient(circle,rgba(212,175,55,0.08) 0%,transparent 70%)}
+.dv-blobs-portfolio::after{bottom:-8%;right:8%;width:400px;height:400px;background:radial-gradient(circle,rgba(212,175,55,0.04) 0%,transparent 70%)}
+.dv-blobs-network::before{top:-8%;left:5%;width:500px;height:500px;background:radial-gradient(circle,rgba(16,185,129,0.07) 0%,transparent 70%)}
+.dv-blobs-network::after{bottom:-5%;right:10%;width:450px;height:450px;background:radial-gradient(circle,rgba(59,130,246,0.05) 0%,transparent 70%)}
+.dv-blobs-more::before{top:-10%;left:8%;width:500px;height:500px;background:radial-gradient(circle,rgba(139,92,246,0.07) 0%,transparent 70%)}
+.dv-blobs-more::after{bottom:-8%;right:5%;width:400px;height:400px;background:radial-gradient(circle,rgba(139,92,246,0.04) 0%,transparent 70%)}
+
+/* Glass card inline-style override for all pages */
+.dv-glass{background:rgba(255,255,255,0.03)!important;backdrop-filter:blur(12px)!important;-webkit-backdrop-filter:blur(12px)!important;border:1px solid rgba(255,255,255,0.06)!important;border-radius:14px!important;box-shadow:0 4px 24px rgba(0,0,0,0.2),inset 0 1px 0 rgba(255,255,255,0.04)!important;transition:all 0.25s ease!important}
+.dv-glass:hover{border-color:rgba(255,255,255,0.12)!important;box-shadow:0 8px 32px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.06)!important;transform:translateY(-2px)}
+
+/* ===== LIGHT MODE ===== */
+html.light-mode{background:#F0F3FA}
+html.light-mode body{background:#F0F3FA;color:#1A2040}
+html.light-mode ::-webkit-scrollbar-track{background:#E8ECF4}
+html.light-mode ::-webkit-scrollbar-thumb{background:#C0CBE0;border-radius:3px}
+html.light-mode ::-webkit-scrollbar-thumb:hover{background:#A0B0D0}
+html.light-mode .dv-sidebar{background:rgba(255,255,255,0.85);border-right-color:rgba(0,0,0,0.08)}
+html.light-mode .dv-sidebar-item{color:#7A88AA}
+html.light-mode .dv-sidebar-item:hover{color:#1A2040;background:rgba(0,0,0,0.04)}
+html.light-mode .dv-sidebar-item.active{color:#9A6A10;background:rgba(154,106,16,0.06);border-left-color:#9A6A10}
+html.light-mode .dv-sidebar-toggle{color:#A0B0C0;border-top-color:rgba(0,0,0,0.08)}
+html.light-mode .dv-sidebar-toggle:hover{color:#7A88AA}
+html.light-mode .dv-subtabs{background:rgba(255,255,255,0.6);border-bottom-color:rgba(0,0,0,0.06)}
+html.light-mode .dv-pill{background:rgba(0,0,0,0.03);border-color:rgba(0,0,0,0.08);color:#7A88AA}
+html.light-mode .dv-pill:hover{color:#1A2040;border-color:rgba(0,0,0,0.15);background:rgba(0,0,0,0.05)}
+html.light-mode .dv-pill.active{background:rgba(154,106,16,0.08);color:#9A6A10;border-color:rgba(154,106,16,0.2);box-shadow:0 0 12px rgba(154,106,16,0.1)}
+html.light-mode .dv-bottom-tabs{background:rgba(255,255,255,0.9);border-top-color:rgba(0,0,0,0.08)}
+html.light-mode .dv-bottom-tab{color:#A0B0C0}
+html.light-mode .dv-bottom-tab.active{color:#9A6A10}
+html.light-mode .dv-card{background:rgba(255,255,255,0.7)!important;border-color:rgba(0,0,0,0.08)!important;box-shadow:0 4px 24px rgba(0,0,0,0.06),inset 0 1px 0 rgba(255,255,255,0.8)!important}
+html.light-mode .dv-card:hover{border-color:rgba(0,0,0,0.12)!important;box-shadow:0 8px 32px rgba(0,0,0,0.1),inset 0 1px 0 rgba(255,255,255,0.9)!important}
+html.light-mode .dv-glass{background:rgba(255,255,255,0.7)!important;border-color:rgba(0,0,0,0.08)!important;box-shadow:0 4px 24px rgba(0,0,0,0.06),inset 0 1px 0 rgba(255,255,255,0.8)!important}
+html.light-mode .dv-glass:hover{border-color:rgba(0,0,0,0.12)!important;box-shadow:0 8px 32px rgba(0,0,0,0.1),inset 0 1px 0 rgba(255,255,255,0.9)!important}
+html.light-mode .dv-tool-btn{background:rgba(255,255,255,0.6);border-color:rgba(0,0,0,0.08);box-shadow:0 2px 12px rgba(0,0,0,0.04)}
+html.light-mode .dv-tool-btn:hover{background:rgba(255,255,255,0.8);border-color:rgba(0,0,0,0.12);box-shadow:0 4px 20px rgba(0,0,0,0.08)}
+html.light-mode .dv-tool-btn .dv-tool-label{color:#1A2040}
+html.light-mode .dv-table thead{background:rgba(255,255,255,0.9)}
+html.light-mode .dv-table th{color:#9A6A10;border-bottom-color:rgba(0,0,0,0.08)}
+html.light-mode .dv-table tr:nth-child(odd){background:rgba(0,0,0,0.01)}
+html.light-mode .dv-table tr:nth-child(even){background:rgba(0,0,0,0.03)}
+html.light-mode .dv-table td{color:#1A2040;border-bottom-color:rgba(0,0,0,0.04)}
+html.light-mode .dv-table tr:hover{background:rgba(154,106,16,0.04)}
+html.light-mode .dv-section-hdr{color:#9A6A10;border-left-color:#9A6A10}
+html.light-mode .dv-pill-glass{border-color:rgba(0,0,0,0.08);box-shadow:0 2px 12px rgba(0,0,0,0.06)}
+html.light-mode .leaflet-container{background:#E8ECF4!important}
+html.light-mode .dv-popup .leaflet-popup-tip{background:rgba(255,255,255,0.95)!important;border-color:rgba(0,0,0,0.08)!important}
+html.light-mode .dv-hero-container::before{background:radial-gradient(circle,rgba(154,106,16,0.06) 0%,transparent 70%)}
+html.light-mode .dv-hero-container::after{background:radial-gradient(circle,rgba(100,60,200,0.04) 0%,transparent 70%)}
+html.light-mode .dv-blobs-market::before{background:radial-gradient(circle,rgba(59,130,246,0.05) 0%,transparent 70%)}
+html.light-mode .dv-blobs-market::after{background:radial-gradient(circle,rgba(16,185,129,0.04) 0%,transparent 70%)}
+html.light-mode .dv-blobs-portfolio::before{background:radial-gradient(circle,rgba(154,106,16,0.06) 0%,transparent 70%)}
+html.light-mode .dv-blobs-portfolio::after{background:radial-gradient(circle,rgba(154,106,16,0.03) 0%,transparent 70%)}
+html.light-mode .dv-blobs-network::before{background:radial-gradient(circle,rgba(16,185,129,0.05) 0%,transparent 70%)}
+html.light-mode .dv-blobs-network::after{background:radial-gradient(circle,rgba(59,130,246,0.04) 0%,transparent 70%)}
+html.light-mode .dv-blobs-more::before{background:radial-gradient(circle,rgba(139,92,246,0.05) 0%,transparent 70%)}
+html.light-mode .dv-blobs-more::after{background:radial-gradient(circle,rgba(139,92,246,0.03) 0%,transparent 70%)}
+html.light-mode .dv-hero-card.dv-glass{background:rgba(255,255,255,0.6)!important;border-color:rgba(0,0,0,0.06)!important}
+html.light-mode .dv-hero-card.dv-glass:hover{background:rgba(255,255,255,0.8)!important;border-color:rgba(0,0,0,0.1)!important}
+html.light-mode input,html.light-mode select,html.light-mode textarea{color:#1A2040}
+html.light-mode input:focus,html.light-mode select:focus,html.light-mode textarea:focus{border-color:rgba(154,106,16,0.4)!important;box-shadow:0 0 0 3px rgba(154,106,16,0.08),0 0 20px rgba(154,106,16,0.03)}
+html.light-mode ::placeholder{color:#A0AABB}
+html.light-mode ::selection{background:rgba(154,106,16,0.2);color:#1A2040}
+html.light-mode select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237A88AA' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")}
 </style>
 </head>
 <body>
@@ -227,24 +300,24 @@ window.dvTrack=function(event,params){try{gtag('event',event,params||{});}catch(
 <div id="app"></div><div id="print-report"></div>
 
 <!-- App Modules -->
-<script src="js/data-residential.js?v=20260628n"></script>
-<script src="js/data-commercial.js?v=20260628n"></script>
+<script src="js/data-residential.js?v=20260628p"></script>
+<script src="js/data-commercial.js?v=20260628p"></script>
 <script src="js/valuation-db.js?v=20260623"></script>
 <script src="js/valuation.js?v=20260623"></script>
-<script src="js/api.js?v=20260628n"></script>
-<script src="js/core.js?v=20260628n"></script>
-<script src="js/auth.js?v=20260628n"></script>
-<script src="js/app.js?v=20260628n"></script>
-<script src="js/market.js?v=20260628n"></script>
-<script src="js/mortgage.js?v=20260628n"></script>
-<script src="js/portfolio.js?v=20260628n"></script>
-<script src="js/map.js?v=20260628n"></script>
-<script src="js/deals.js?v=20260628n"></script>
-<script src="js/chat.js?v=20260628n"></script>
-<script src="js/social.js?v=20260628n"></script>
-<script src="js/about.js?v=20260628n"></script>
-<script src="js/workspace.js?v=20260628n"></script>
-<script src="js/marketindex.js?v=20260628n"></script>
+<script src="js/api.js?v=20260628p"></script>
+<script src="js/core.js?v=20260628p"></script>
+<script src="js/auth.js?v=20260628p"></script>
+<script src="js/app.js?v=20260628p"></script>
+<script src="js/market.js?v=20260628p"></script>
+<script src="js/mortgage.js?v=20260628p"></script>
+<script src="js/portfolio.js?v=20260628p"></script>
+<script src="js/map.js?v=20260628p"></script>
+<script src="js/deals.js?v=20260628p"></script>
+<script src="js/chat.js?v=20260628p"></script>
+<script src="js/social.js?v=20260628p"></script>
+<script src="js/about.js?v=20260628p"></script>
+<script src="js/workspace.js?v=20260628p"></script>
+<script src="js/marketindex.js?v=20260628p"></script>
 <script>render();</script>
 </body>
 </html>

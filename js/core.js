@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- THEME --------------------------------------------------------------------
+T.light.glass="rgba(255,255,255,0.7)";T.light.glassBorder="rgba(0,0,0,0.08)";T.light.glassShadow="0 4px 30px rgba(0,0,0,0.08)";T.light.blur="blur(12px)";T.light.surfaceSolid="#FFFFFF";T.light.raisedSolid="#F8FAFF";T.light.blue="#3B82F6";T.light.goldGlass="rgba(154,106,16,0.08)";T.light.goldGlassBorder="rgba(154,106,16,0.15)";T.light.goldGlassHover="rgba(154,106,16,0.12)";
 function useThemeToggle(){return function(){darkMode=!darkMode;render();}}
 
 // --- i18n --------------------------------------------------------------------
@@ -882,7 +883,7 @@ function renderSmartBar(opts){
   ]));
   var row=div({display:"flex",gap:"8px",marginBottom:"10px"});
   var aiInp=el("input",{type:"text",placeholder:opts.placeholder||"Describe...",
-    style:{flex:"1",background:"rgba(255,255,255,0.04)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",border:"1px solid "+(ai.filled.length?"rgba(0,200,150,0.4)":"rgba(255,255,255,0.1)"),color:"#F0F2F5",padding:"13px 16px",borderRadius:"12px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",transition:"border-color 0.3s, box-shadow 0.3s"}});
+    style:{flex:"1",background:"rgba(255,255,255,0.04)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",border:"1px solid "+(ai.filled.length?"rgba(0,200,150,0.4)":"rgba(255,255,255,0.1)"),color:cl.white,padding:"13px 16px",borderRadius:"12px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",transition:"border-color 0.3s, box-shadow 0.3s"}});
   aiInp.value=ai.text||"";
   aiInp.addEventListener("input",function(){ai.text=this.value;ai.parsed=null;ai.missing=[];ai.filled=[];});
   aiInp.addEventListener("focus",function(){this.style.boxShadow="0 0 20px "+hexAlpha(cl.gold,0.15);this.style.borderColor=cl.gold;});

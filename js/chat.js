@@ -227,6 +227,7 @@ function getBrandPrompt(){
 }
 
 function showBrandingSetup(){
+  var cl=C();
   var existing=document.getElementById("branding-setup-modal");
   if(existing)existing.remove();
   var profile=getBrandProfile()||{};
@@ -239,7 +240,7 @@ function showBrandingSetup(){
   subtitle.textContent="AI will customize every post to match YOUR brand personality";
   card.appendChild(subtitle);
 
-  var aiAutoBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#8B5CF6,#A78BFA)",color:"#FFF",border:"none",borderRadius:"10px",padding:"12px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"16px",display:"flex",alignItems:"center",justifyContent:"center",gap:"6px"},onclick:function(){overlay.remove();runBehavioralProfiling();}});
+  var aiAutoBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#8B5CF6,#A78BFA)",color:cl.white,border:"none",borderRadius:"10px",padding:"12px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"16px",display:"flex",alignItems:"center",justifyContent:"center",gap:"6px"},onclick:function(){overlay.remove();runBehavioralProfiling();}});
   aiAutoBtn.textContent="AI Auto-Fill from Instagram — Analyze my posts & build profile";
   card.appendChild(aiAutoBtn);
 
@@ -347,7 +348,7 @@ function showBrandingSetup(){
     }
   }});
   saveBtn.textContent="Save Brand Profile";
-  var clearBtn=el("button",{style:{background:"#EF4444",color:"#FFF",border:"none",borderRadius:"10px",padding:"12px 16px",fontSize:"12px",fontWeight:"600",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){
+  var clearBtn=el("button",{style:{background:"#EF4444",color:cl.white,border:"none",borderRadius:"10px",padding:"12px 16px",fontSize:"12px",fontWeight:"600",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){
     if(confirm("Clear your brand profile?")){
       localStorage.removeItem("dv_brand_profile");
       overlay.remove();
@@ -849,6 +850,7 @@ function getSocialCreds(){
 var VIDEO_EDITOR_STATE={file:null,url:null,duration:0,trimStart:0,trimEnd:30,subtitles:[],caption:"",processing:false};
 
 function showVideoEditor(){
+  var cl=C();
   var existing=document.getElementById("video-editor-modal");
   if(existing)existing.remove();
   VIDEO_EDITOR_STATE={file:null,url:null,duration:0,trimStart:0,trimEnd:30,subtitles:[],caption:"",processing:false};
@@ -919,7 +921,7 @@ function showVideoEditor(){
   };
 
   // AI Auto-Trim button
-  var aiTrimBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#8B5CF6,#A78BFA)",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},onclick:async function(){
+  var aiTrimBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#8B5CF6,#A78BFA)",color:cl.white,border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},onclick:async function(){
     var geminiKey=localStorage.getItem("dv_gemini_key");
     if(!geminiKey){alert("Add Gemini API key in Setup first");return;}
     aiTrimBtn.textContent="Analyzing...";aiTrimBtn.disabled=true;
@@ -969,7 +971,7 @@ function showVideoEditor(){
   subSection.appendChild(el("div",{style:{color:"#EC4899",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"}},"Subtitles"));
   var subTextarea=el("textarea",{style:{width:"100%",background:"#1A1F2E",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",resize:"vertical",minHeight:"50px",boxSizing:"border-box"},placeholder:"Enter subtitles (one per line):\n0:00 Welcome to this stunning property\n0:05 Spacious living area with panoramic views"});
   subSection.appendChild(subTextarea);
-  var aiSubBtn=el("button",{style:{width:"100%",marginTop:"6px",background:"linear-gradient(135deg,#8B5CF6,#A78BFA)",color:"#FFF",border:"none",borderRadius:"6px",padding:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
+  var aiSubBtn=el("button",{style:{width:"100%",marginTop:"6px",background:"linear-gradient(135deg,#8B5CF6,#A78BFA)",color:cl.white,border:"none",borderRadius:"6px",padding:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
     var geminiKey=localStorage.getItem("dv_gemini_key");
     if(!geminiKey){alert("Add Gemini API key first");return;}
     aiSubBtn.textContent="Generating...";aiSubBtn.disabled=true;
@@ -1026,7 +1028,7 @@ function showVideoEditor(){
 
   // Process & Export
   var exportSection=div({marginBottom:"10px"});
-  var processBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#EC4899,#F472B6)",color:"#FFF",border:"none",borderRadius:"10px",padding:"14px",fontSize:"14px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},onclick:async function(){
+  var processBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#EC4899,#F472B6)",color:cl.white,border:"none",borderRadius:"10px",padding:"14px",fontSize:"14px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},onclick:async function(){
     if(!VIDEO_EDITOR_STATE.file){alert("Upload a video first");return;}
     processBtn.textContent="Processing...";processBtn.disabled=true;
     VIDEO_EDITOR_STATE.processing=true;
@@ -1095,13 +1097,13 @@ function showVideoEditor(){
 
       processBtn.textContent="Ready!";
 
-      var dlBtn=el("button",{style:{width:"100%",background:"#10B981",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},onclick:function(){
+      var dlBtn=el("button",{style:{width:"100%",background:"#10B981",color:cl.white,border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},onclick:function(){
         var a=document.createElement("a");a.href=url;a.download="dubaival-reel.webm";a.click();
       }});
       dlBtn.textContent="Download Video";
       exportSection.appendChild(dlBtn);
 
-      var shareBtn=el("button",{style:{width:"100%",background:"#3B82F6",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},onclick:async function(){
+      var shareBtn=el("button",{style:{width:"100%",background:"#3B82F6",color:cl.white,border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},onclick:async function(){
         try{
           var file=new File([blob],"dubaival-reel.webm",{type:"video/webm"});
           await navigator.share({files:[file],title:"DubAIVal Reel",text:captionInp.value||""});
@@ -2194,6 +2196,7 @@ function speakVoiceoverFallback(lines,secPerSlide){
 }
 
 function showVideoGenUI(initialPrompt){
+  var cl=C();
   var existing=document.getElementById("video-gen-modal");
   if(existing)existing.remove();
 
@@ -2499,12 +2502,12 @@ function showVideoGenUI(initialPrompt){
       var actRow=div({display:"flex",gap:"6px",flexWrap:"wrap"});
       var isMP4=blob.type.indexOf("mp4")!==-1;
       var vidExt=isMP4?"mp4":"webm";
-      var dlBtn=el("button",{style:{flex:1,background:"#10B981",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
+      var dlBtn=el("button",{style:{flex:1,background:"#10B981",color:cl.white,border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
         var a=document.createElement("a");a.href=videoUrl;a.download="dubaival-video."+vidExt;a.click();
       }});
       dlBtn.textContent="Download "+(isMP4?"MP4":"WebM");actRow.appendChild(dlBtn);
 
-      var shareBtn=el("button",{style:{flex:1,background:"#3B82F6",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
+      var shareBtn=el("button",{style:{flex:1,background:"#3B82F6",color:cl.white,border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
         try{
           var file=new File([blob],"dubaival-video."+vidExt,{type:blob.type});
           await navigator.share({files:[file],title:"DubAIVal Video",text:plan.caption||""});
@@ -2513,7 +2516,7 @@ function showVideoGenUI(initialPrompt){
       shareBtn.textContent="Share";actRow.appendChild(shareBtn);
 
       if(voiceCheck.checked&&plan.voiceover){
-        var voBtn=el("button",{style:{flex:1,background:"#8B5CF6",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
+        var voBtn=el("button",{style:{flex:1,background:"#8B5CF6",color:cl.white,border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
           videoEl.currentTime=0;videoEl.play();
           speakVoiceover(plan.voiceover,plan.duration/plan.slides.length);
         }});
@@ -2521,7 +2524,7 @@ function showVideoGenUI(initialPrompt){
       }
 
       if(plan.caption){
-        var cpBtn=el("button",{style:{flex:1,background:"#F97316",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
+        var cpBtn=el("button",{style:{flex:1,background:"#F97316",color:cl.white,border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
           navigator.clipboard.writeText(plan.caption).then(function(){cpBtn.textContent="Copied";setTimeout(function(){cpBtn.textContent="Caption";},2000);});
         }});
         cpBtn.textContent="Caption";actRow.appendChild(cpBtn);
@@ -3024,6 +3027,7 @@ function getBestPostTime(platform){
   return{next:best,all:times,peak:p.peak,isWeekend:isWeekend,notes:p.notes,timezone:p.timezone};
 }
 function showBestTimeModal(platform){
+  var cl=C();
   var m=document.getElementById("besttime-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:"10px"},id:"besttime-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #F59E0B",borderRadius:"16px",padding:"20px",width:"440px",maxWidth:"96vw"});
@@ -3034,7 +3038,7 @@ function showBestTimeModal(platform){
     var pCard=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"10px",padding:"10px",marginBottom:"8px"});
     var icons={instagram:"IG",facebook:"FB",linkedin:"LI",twitter:"𝕏",tiktok:"TT",whatsapp:"WA"};
     pCard.appendChild(el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
-      el("span",{style:{color:"#FFF",fontSize:"12px",fontWeight:"700",fontFamily:"monospace"}},(icons[p]||"")+" "+p.charAt(0).toUpperCase()+p.slice(1)),
+      el("span",{style:{color:cl.white,fontSize:"12px",fontWeight:"700",fontFamily:"monospace"}},(icons[p]||"")+" "+p.charAt(0).toUpperCase()+p.slice(1)),
       el("span",{style:{color:"#10B981",fontSize:"11px",fontFamily:"monospace"}},"Next: "+info.next)
     ));
     var timesRow=div({display:"flex",gap:"4px",marginTop:"6px",flexWrap:"wrap"});
@@ -3060,6 +3064,7 @@ function savePostToHistory(post){
   localStorage.setItem("dv_post_history",JSON.stringify(h));
 }
 function showPostAnalytics(){
+  var cl=C();
   var m=document.getElementById("analytics-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"analytics-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #8B5CF6",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
@@ -3079,14 +3084,14 @@ function showPostAnalytics(){
       sc.appendChild(el("div",{style:{color:s.c,fontSize:"20px",fontWeight:"800",fontFamily:"monospace"}},String(s.v)));
       sc.appendChild(el("div",{style:{color:"#8899AA",fontSize:"9px",fontFamily:"monospace"}},s.l));statGrid.appendChild(sc);
     });card.appendChild(statGrid);
-    card.appendChild(el("div",{style:{color:"#FFF",fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginBottom:"6px"}},"Platform Breakdown"));
+    card.appendChild(el("div",{style:{color:cl.white,fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginBottom:"6px"}},"Platform Breakdown"));
     var platWrap=div({display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"12px"});
     var icons={instagram:"IG",facebook:"FB",linkedin:"LI",twitter:"𝕏",tiktok:"TT",whatsapp:"WA"};
     Object.keys(stats.platforms).forEach(function(p){
       var pct=Math.round(stats.platforms[p]/stats.total*100);
       platWrap.appendChild(el("div",{style:{background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"6px 10px",fontSize:"10px",fontFamily:"monospace",color:"#E0E0E0"}},(icons[p]||"")+" "+p+": "+stats.platforms[p]+" ("+pct+"%)"));
     });card.appendChild(platWrap);
-    card.appendChild(el("div",{style:{color:"#FFF",fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginBottom:"6px"}},"Recent Posts"));
+    card.appendChild(el("div",{style:{color:cl.white,fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginBottom:"6px"}},"Recent Posts"));
     history.slice(0,10).forEach(function(p){
       var pCard=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",marginBottom:"4px"});
       var hdr=div({display:"flex",justifyContent:"space-between",alignItems:"center"});
@@ -3159,13 +3164,14 @@ async function spyCompetitorHashtags(competitors){
   }catch(e){}return null;
 }
 function showCompetitorSpy(){
+  var cl=C();
   var m=document.getElementById("spy-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"spy-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #EF4444",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
   card.appendChild(el("h3",{style:{color:"#EF4444",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"Competitor Hashtag Spy"));
   var compInput=el("textarea",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",boxSizing:"border-box",minHeight:"50px",resize:"vertical"},placeholder:"Enter competitor Instagram handles (comma separated)\ne.g. @dubailuxury, @emaarproperties, @damacofficial"});
   card.appendChild(compInput);
-  var analyzeBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"#EF4444",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
+  var analyzeBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"#EF4444",color:cl.white,border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
     analyzeBtn.textContent="Analyzing competitors...";resultWrap.innerHTML="";
     var result=await spyCompetitorHashtags(compInput.value||undefined);
     analyzeBtn.textContent="Analyze";
@@ -3221,6 +3227,7 @@ async function generateBulkPosts(config){
   }catch(e){console.warn("Bulk gen error:",e);}return null;
 }
 function showBulkGenerator(){
+  var cl=C();
   var m=document.getElementById("bulk-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"bulk-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #10B981",borderRadius:"16px",padding:"16px",width:"560px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
@@ -3232,12 +3239,12 @@ function showBulkGenerator(){
   ["Instagram","Facebook","LinkedIn","All Platforms"].forEach(function(p){var o=el("option");o.value=p.toLowerCase().replace(" ","_");o.textContent=p;platSel.appendChild(o);});
   configRow.appendChild(countSel);configRow.appendChild(platSel);card.appendChild(configRow);
   var resultWrap=div({});
-  var genBtn=el("button",{style:{width:"100%",background:"#10B981",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
+  var genBtn=el("button",{style:{width:"100%",background:"#10B981",color:cl.white,border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
     genBtn.textContent="Generating "+countSel.value+" posts with AI...";resultWrap.innerHTML="";
     var result=await generateBulkPosts({count:parseInt(countSel.value),platform:platSel.value});
     genBtn.textContent="Generate";
     if(!result||!result.posts){resultWrap.appendChild(el("p",{style:{color:"#EF4444",fontSize:"11px"}},"Generation failed. Check Gemini API key."));return;}
-    var schedBtn=el("button",{style:{width:"100%",marginBottom:"10px",background:"#3B82F6",color:"#FFF",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
+    var schedBtn=el("button",{style:{width:"100%",marginBottom:"10px",background:"#3B82F6",color:cl.white,border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
       result.posts.forEach(function(p){saveCalendarEvent({caption:p.caption,date:p.date,time:p.time,platform:platSel.value,pillar:p.pillar,type:p.type||"post"});});
       schedBtn.textContent=result.posts.length+" posts scheduled!";schedBtn.style.background="#10B981";
     }});schedBtn.textContent="Schedule All "+result.posts.length+" to Calendar";resultWrap.appendChild(schedBtn);
@@ -3310,6 +3317,7 @@ function showContentRecycler(){
 
 // --- LINK IN BIO GENERATOR ---
 function showLinkInBio(){
+  var cl=C();
   var m=document.getElementById("linkinbio-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"linkinbio-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #C9A84C",borderRadius:"16px",padding:"16px",width:"420px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
@@ -3321,11 +3329,11 @@ function showLinkInBio(){
     previewWrap.innerHTML="";
     var phone=div({background:"#000",borderRadius:"24px",padding:"20px 16px",width:"280px",margin:"0 auto",border:"3px solid #333",minHeight:"400px"});
     if(bp&&bp.name){
-      phone.appendChild(el("div",{style:{textAlign:"center",marginBottom:"4px"}},el("div",{style:{width:"60px",height:"60px",borderRadius:"50%",background:"linear-gradient(135deg,#C9A84C,#8B6914)",margin:"0 auto 8px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"24px",color:"#FFF"}},"")));
-      phone.appendChild(el("div",{style:{color:"#FFF",fontSize:"14px",fontWeight:"700",textAlign:"center",fontFamily:"'Space Grotesk',sans-serif"}},bp.name));
+      phone.appendChild(el("div",{style:{textAlign:"center",marginBottom:"4px"}},el("div",{style:{width:"60px",height:"60px",borderRadius:"50%",background:"linear-gradient(135deg,#C9A84C,#8B6914)",margin:"0 auto 8px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"24px",color:cl.white}},"")));
+      phone.appendChild(el("div",{style:{color:cl.white,fontSize:"14px",fontWeight:"700",textAlign:"center",fontFamily:"'Space Grotesk',sans-serif"}},bp.name));
       if(bp.bio)phone.appendChild(el("div",{style:{color:"#999",fontSize:"10px",textAlign:"center",marginTop:"2px"}},bp.bio));
     }else{
-      phone.appendChild(el("div",{style:{color:"#FFF",fontSize:"14px",fontWeight:"700",textAlign:"center",marginTop:"20px"}},"DubAIVal"));
+      phone.appendChild(el("div",{style:{color:cl.white,fontSize:"14px",fontWeight:"700",textAlign:"center",marginTop:"20px"}},"DubAIVal"));
       phone.appendChild(el("div",{style:{color:"#999",fontSize:"10px",textAlign:"center",marginTop:"2px"}},"AI Property Valuation Dubai"));
     }
     var linkWrap=div({marginTop:"16px"});
@@ -3340,7 +3348,7 @@ function showLinkInBio(){
     previewWrap.appendChild(phone);
   }
   card.appendChild(previewWrap);
-  card.appendChild(el("div",{style:{color:"#FFF",fontSize:"11px",fontWeight:"700",marginTop:"12px",marginBottom:"6px",fontFamily:"monospace"}},"Add Links"));
+  card.appendChild(el("div",{style:{color:cl.white,fontSize:"11px",fontWeight:"700",marginTop:"12px",marginBottom:"6px",fontFamily:"monospace"}},"Add Links"));
   var addRow=div({display:"flex",gap:"4px",marginBottom:"8px"});
   var titleInp=el("input",{style:{flex:2,background:"#0D1117",border:"1px solid #2A3040",borderRadius:"6px",padding:"6px",color:"#E0E0E0",fontSize:"10px",fontFamily:"monospace",boxSizing:"border-box"},placeholder:"Title (e.g. WhatsApp Me)"});
   var urlInp=el("input",{style:{flex:3,background:"#0D1117",border:"1px solid #2A3040",borderRadius:"6px",padding:"6px",color:"#E0E0E0",fontSize:"10px",fontFamily:"monospace",boxSizing:"border-box"},placeholder:"URL or wa.me/971..."});
@@ -3415,6 +3423,7 @@ async function generateStoryContent(templateId){
   }catch(e){}return null;
 }
 function showStoryTemplates(){
+  var cl=C();
   var m=document.getElementById("storytpl-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"storytpl-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #8B5CF6",borderRadius:"16px",padding:"16px",width:"480px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
@@ -3438,7 +3447,7 @@ function showStoryTemplates(){
       resultWrap.appendChild(rCard);
     }});
     tCard.appendChild(el("div",{style:{fontSize:"20px",textAlign:"center",marginBottom:"4px"}},t.name.split(" ")[0]));
-    tCard.appendChild(el("div",{style:{color:"#FFF",fontSize:"11px",fontWeight:"600",textAlign:"center",fontFamily:"monospace"}},t.name.split(" ").slice(1).join(" ")));
+    tCard.appendChild(el("div",{style:{color:cl.white,fontSize:"11px",fontWeight:"600",textAlign:"center",fontFamily:"monospace"}},t.name.split(" ").slice(1).join(" ")));
     tCard.appendChild(el("div",{style:{color:"#6B7280",fontSize:"9px",textAlign:"center",marginTop:"2px"}},t.description));
     tplGrid.appendChild(tCard);
   });card.appendChild(tplGrid);card.appendChild(resultWrap);
@@ -3449,18 +3458,19 @@ function showStoryTemplates(){
 
 // --- POST PREVIEW MOCKUP (Instagram/Facebook Feed Simulator) ---
 function showPostPreview(caption,imageUrl){
+  var cl=C();
   var m=document.getElementById("preview-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.92)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"preview-modal"});
   var card=div({background:"#000",borderRadius:"0",width:"380px",maxWidth:"96vw"});
   var bp=getBrandProfile();
   var igHeader=div({display:"flex",alignItems:"center",padding:"10px 12px",gap:"8px"});
-  var avatar=el("div",{style:{width:"32px",height:"32px",borderRadius:"50%",background:"linear-gradient(135deg,#C9A84C,#8B6914)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"14px",color:"#FFF",flexShrink:"0"}});avatar.textContent="";
+  var avatar=el("div",{style:{width:"32px",height:"32px",borderRadius:"50%",background:"linear-gradient(135deg,#C9A84C,#8B6914)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"14px",color:cl.white,flexShrink:"0"}});avatar.textContent="";
   igHeader.appendChild(avatar);
   var nameCol=div({flex:"1"});
-  nameCol.appendChild(el("div",{style:{color:"#FFF",fontSize:"13px",fontWeight:"600"}},bp?bp.name:"dubaival"));
+  nameCol.appendChild(el("div",{style:{color:cl.white,fontSize:"13px",fontWeight:"600"}},bp?bp.name:"dubaival"));
   nameCol.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px"}},"Dubai, UAE"));
   igHeader.appendChild(nameCol);
-  igHeader.appendChild(el("span",{style:{color:"#FFF",fontSize:"16px"}},"•••"));
+  igHeader.appendChild(el("span",{style:{color:cl.white,fontSize:"16px"}},"•••"));
   card.appendChild(igHeader);
   if(imageUrl){
     var img=el("img",{style:{width:"100%",aspectRatio:"1",objectFit:"cover",display:"block"}});
@@ -3471,12 +3481,12 @@ function showPostPreview(caption,imageUrl){
   }
   var actionBar=div({display:"flex",justifyContent:"space-between",padding:"10px 12px"});
   var leftActs=div({display:"flex",gap:"14px"});
-  ["♡","",""].forEach(function(ic){leftActs.appendChild(el("span",{style:{color:"#FFF",fontSize:"22px",cursor:"pointer"}},ic));});
-  actionBar.appendChild(leftActs);actionBar.appendChild(el("span",{style:{color:"#FFF",fontSize:"22px"}},""));
+  ["♡","",""].forEach(function(ic){leftActs.appendChild(el("span",{style:{color:cl.white,fontSize:"22px",cursor:"pointer"}},ic));});
+  actionBar.appendChild(leftActs);actionBar.appendChild(el("span",{style:{color:cl.white,fontSize:"22px"}},""));
   card.appendChild(actionBar);
-  card.appendChild(el("div",{style:{padding:"0 12px 4px",color:"#FFF",fontSize:"13px",fontWeight:"600"}},"2,847 likes"));
+  card.appendChild(el("div",{style:{padding:"0 12px 4px",color:cl.white,fontSize:"13px",fontWeight:"600"}},"2,847 likes"));
   var capWrap=div({padding:"0 12px 12px"});
-  var capText=el("div",{style:{color:"#FFF",fontSize:"12px",lineHeight:"1.5"}});
+  var capText=el("div",{style:{color:cl.white,fontSize:"12px",lineHeight:"1.5"}});
   var shortCap=caption.length>150?caption.substring(0,150)+"...":caption;
   capText.innerHTML="<span style='font-weight:700'>"+(bp?bp.name:"dubaival")+"</span> "+shortCap.replace(/\n/g,"<br>");
   capWrap.appendChild(capText);
@@ -3514,6 +3524,7 @@ function schedulePostReminder(event){
 // --- CAPTION LENGTH OPTIMIZER ---
 var PLATFORM_LIMITS={instagram:{max:2200,ideal:{min:138,max:150},hashtags:30,note:"First 125 chars show in feed"},facebook:{max:63206,ideal:{min:40,max:80},hashtags:5,note:"Short posts get 23% more engagement"},linkedin:{max:3000,ideal:{min:100,max:200},hashtags:5,note:"First 140 chars before 'see more'"},twitter:{max:280,ideal:{min:71,max:100},hashtags:3,note:"Tweets with 100 chars get 17% more RT"},tiktok:{max:2200,ideal:{min:50,max:150},hashtags:5,note:"Short & catchy, trend references help"},whatsapp:{max:65536,ideal:{min:20,max:100},hashtags:0,note:"Keep broadcast-friendly, 3-4 lines max"}};
 function showCaptionOptimizer(caption){
+  var cl=C();
   var m=document.getElementById("optimizer-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:"10px"},id:"optimizer-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #06B6D4",borderRadius:"16px",padding:"16px",width:"480px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
@@ -3533,7 +3544,7 @@ function showCaptionOptimizer(caption){
     var pCard=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",marginBottom:"6px"});
     var icons={instagram:"IG",facebook:"FB",linkedin:"LI",twitter:"𝕏",tiktok:"TT",whatsapp:"WA"};
     pCard.appendChild(el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
-      el("span",{style:{color:"#FFF",fontSize:"11px",fontWeight:"600",fontFamily:"monospace"}},(icons[p]||"")+" "+p.charAt(0).toUpperCase()+p.slice(1)),
+      el("span",{style:{color:cl.white,fontSize:"11px",fontWeight:"600",fontFamily:"monospace"}},(icons[p]||"")+" "+p.charAt(0).toUpperCase()+p.slice(1)),
       el("span",{style:{color:tooLong?"#EF4444":inIdeal?"#10B981":"#F59E0B",fontSize:"9px",fontFamily:"monospace"}},status)
     ));
     var barBg=div({height:"4px",background:"#2A3040",borderRadius:"2px",marginTop:"6px",overflow:"hidden"});
@@ -3964,6 +3975,7 @@ function renderPostDesign(ctx,w,h,opts){
 }
 
 function showPostDesigner(caption,existingImg){
+  var cl=C();
   var m=document.getElementById("post-designer-modal");if(m)m.remove();
   var pData=extractPostData(caption);
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.9)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"post-designer-modal"});
@@ -4044,7 +4056,7 @@ function showPostDesigner(caption,existingImg){
   slideRow.appendChild(slideSel);card.appendChild(slideRow);
 
   var actRow=div({display:"flex",gap:"6px",flexWrap:"wrap"});
-  actRow.appendChild(el("button",{style:{flex:1,background:"#10B981",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
+  actRow.appendChild(el("button",{style:{flex:1,background:"#10B981",color:cl.white,border:"none",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
     var f=POST_FORMATS[state.format];var c=document.createElement("canvas");c.width=f.w;c.height=f.h;
     var cx=c.getContext("2d");
     if(state.slideCount>1){
@@ -4060,7 +4072,7 @@ function showPostDesigner(caption,existingImg){
       var a=document.createElement("a");a.href=c.toDataURL("image/png");a.download="dubaival-post.png";a.click();
     }
   }},"Save PNG"));
-  actRow.appendChild(el("button",{style:{flex:1,background:"#E1306C",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
+  actRow.appendChild(el("button",{style:{flex:1,background:"#E1306C",color:cl.white,border:"none",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
     this.textContent="...";
     var f=POST_FORMATS[state.format];var c=document.createElement("canvas");c.width=f.w;c.height=f.h;
     var cx=c.getContext("2d");
@@ -4087,7 +4099,7 @@ function showPostDesigner(caption,existingImg){
     }
     this.textContent="Publish IG";
   }},"Publish IG"));
-  actRow.appendChild(el("button",{style:{flex:1,background:"#8B5CF6",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
+  actRow.appendChild(el("button",{style:{flex:1,background:"#8B5CF6",color:cl.white,border:"none",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
     saveCalendarEvent({caption:caption,template:state.template,format:state.format,platform:"instagram"});
     alert("Added to Content Calendar!");
   }},"Schedule"));
@@ -4279,6 +4291,7 @@ function deleteCalendarEvent(id){
 }
 
 function showContentCalendar(){
+  var cl=C();
   var m=document.getElementById("calendar-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"calendar-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #3B82F6",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
@@ -4298,7 +4311,7 @@ function showContentCalendar(){
     }});nextBtn.textContent="▶";
     var monthNames=["January","February","March","April","May","June","July","August","September","October","November","December"];
     header.appendChild(prevBtn);
-    header.appendChild(el("span",{style:{color:"#FFF",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"}},monthNames[month]+" "+year));
+    header.appendChild(el("span",{style:{color:cl.white,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"}},monthNames[month]+" "+year));
     header.appendChild(nextBtn);container.appendChild(header);
 
     var grid=div({display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:"3px"});
@@ -4349,7 +4362,7 @@ function showContentCalendar(){
     card.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",marginTop:"10px",fontFamily:"monospace"}},cal.length+" scheduled post"+(cal.length>1?"s":"")));
   }
 
-  var addBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#3B82F6,#06B6D4)",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){showAddCalendarEvent();}});
+  var addBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#3B82F6,#06B6D4)",color:cl.white,border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){showAddCalendarEvent();}});
   addBtn.textContent="Add New Post";card.appendChild(addBtn);
 
   if(cal.length>0){
@@ -4405,6 +4418,7 @@ async function translatePost(caption,targetLang,langCode){
   }catch(e){}return null;
 }
 function showMultiLanguage(caption){
+  var cl=C();
   var m=document.getElementById("multilang-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"multilang-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #06B6D4",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
@@ -4449,7 +4463,7 @@ function showMultiLanguage(caption){
     }});
     langBtn.textContent=lang.flag+" "+lang.code.toUpperCase();langGrid.appendChild(langBtn);
   });
-  var allBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#06B6D4,#8B5CF6)",color:"#FFF",border:"none",borderRadius:"10px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},onclick:async function(){
+  var allBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#06B6D4,#8B5CF6)",color:cl.white,border:"none",borderRadius:"10px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},onclick:async function(){
     allBtn.textContent="Translating to all 6 languages...";resultArea.innerHTML="";
     for(var li=0;li<languages.length;li++){
       var lang=languages[li];
@@ -4499,6 +4513,7 @@ async function generateHSO(caption,framework){
   }catch(e){}return null;
 }
 function showHookStoryOffer(caption){
+  var cl=C();
   var m=document.getElementById("hso-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"hso-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #F43F5E",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
@@ -4549,7 +4564,7 @@ function showHookStoryOffer(caption){
     fwBtn.appendChild(el("div",{style:{fontSize:"8px",color:"#8899AA",marginTop:"2px",fontWeight:"400"}},fw.desc));
     fwGrid.appendChild(fwBtn);
   });
-  var allFwBtn=el("button",{style:{gridColumn:"1/-1",background:"linear-gradient(135deg,#F43F5E,#8B5CF6)",color:"#FFF",border:"none",borderRadius:"10px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
+  var allFwBtn=el("button",{style:{gridColumn:"1/-1",background:"linear-gradient(135deg,#F43F5E,#8B5CF6)",color:cl.white,border:"none",borderRadius:"10px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
     allFwBtn.textContent="Generating all 5 frameworks...";resultArea.innerHTML="";
     for(var fi=0;fi<fwList.length;fi++){
       allFwBtn.textContent=fwList[fi].icon+" "+(fi+1)+"/5...";
@@ -4585,6 +4600,7 @@ function showHookStoryOffer(caption){
 
 // --- CONTENT CALENDAR ADD EVENT UI ---
 function showAddCalendarEvent(defaultCaption){
+  var cl=C();
   var m=document.getElementById("add-cal-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"add-cal-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #3B82F6",borderRadius:"16px",padding:"16px",width:"420px",maxWidth:"96vw"});
@@ -4615,7 +4631,7 @@ function showAddCalendarEvent(defaultCaption){
   var capInp=el("textarea",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",boxSizing:"border-box",minHeight:"80px",resize:"vertical"},placeholder:"Post caption..."});
   capInp.value=defaultCaption||"";card.appendChild(capInp);
   var btnRow=div({display:"flex",gap:"8px",marginTop:"12px"});
-  var saveBtn=el("button",{style:{flex:"1",background:"#3B82F6",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
+  var saveBtn=el("button",{style:{flex:"1",background:"#3B82F6",color:cl.white,border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
     var evt={caption:capInp.value,date:inputs.date.value,time:inputs.time.value,platform:inputs.platform.value,pillar:inputs.pillar.value};
     saveCalendarEvent(evt);overlay.remove();
     var existing=document.getElementById("calendar-modal");if(existing){existing.remove();showContentCalendar();}
@@ -5071,6 +5087,7 @@ function _getActiveAvatar(){var id=localStorage.getItem("dv_active_avatar");if(!
 function _setActiveAvatar(id){localStorage.setItem("dv_active_avatar",id);}
 
 function showAvatarStudio(){
+  var cl=C();
   var m=document.getElementById("avatar-studio-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.92)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"avatar-studio-modal"});
   var card=div({background:"linear-gradient(145deg,#1A1F2E,#0D1117)",border:"1px solid #EC4899",borderRadius:"20px",padding:"20px",width:"600px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
@@ -5086,7 +5103,7 @@ function showAvatarStudio(){
   var activeId=localStorage.getItem("dv_active_avatar")||"";
 
   if(avatars.length>0){
-    card.appendChild(el("div",{style:{color:"#FFF",fontSize:"12px",fontWeight:"700",fontFamily:"monospace",marginBottom:"8px"}},"Your Avatars ("+avatars.length+")"));
+    card.appendChild(el("div",{style:{color:cl.white,fontSize:"12px",fontWeight:"700",fontFamily:"monospace",marginBottom:"8px"}},"Your Avatars ("+avatars.length+")"));
     var grid=div({display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:"10px",marginBottom:"16px"});
     avatars.forEach(function(av){
       var isActive=av.id===activeId;
@@ -5095,7 +5112,7 @@ function showAvatarStudio(){
       avCard.onmouseleave=function(){if(!isActive)avCard.style.borderColor="#2A3040";};
 
       if(isActive){
-        var badge=el("div",{style:{position:"absolute",top:"-6px",right:"-6px",background:"#EC4899",color:"#FFF",fontSize:"8px",fontWeight:"800",padding:"2px 6px",borderRadius:"10px",fontFamily:"monospace"}});
+        var badge=el("div",{style:{position:"absolute",top:"-6px",right:"-6px",background:"#EC4899",color:cl.white,fontSize:"8px",fontWeight:"800",padding:"2px 6px",borderRadius:"10px",fontFamily:"monospace"}});
         badge.textContent="ACTIVE";avCard.appendChild(badge);
       }
 
@@ -5107,7 +5124,7 @@ function showAvatarStudio(){
         placeholder.textContent=av.emoji||"🧑‍💼";avCard.appendChild(placeholder);
       }
 
-      avCard.appendChild(el("div",{style:{color:"#FFF",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"}},av.name||"Unnamed"));
+      avCard.appendChild(el("div",{style:{color:cl.white,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"}},av.name||"Unnamed"));
       avCard.appendChild(el("div",{style:{color:"#8899AA",fontSize:"9px",fontFamily:"monospace",marginBottom:"6px"}},av.personality||"Custom"));
 
       var btnRow=div({display:"flex",gap:"4px"});
@@ -5134,11 +5151,11 @@ function showAvatarStudio(){
   }
 
   var actionGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"12px"});
-  var createBtn=el("button",{style:{background:"linear-gradient(135deg,#EC4899,#8B5CF6)",color:"#FFF",border:"none",borderRadius:"12px",padding:"14px",fontSize:"13px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){overlay.remove();showAvatarBuilder();}});
+  var createBtn=el("button",{style:{background:"linear-gradient(135deg,#EC4899,#8B5CF6)",color:cl.white,border:"none",borderRadius:"12px",padding:"14px",fontSize:"13px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){overlay.remove();showAvatarBuilder();}});
   createBtn.textContent="Create New Avatar";actionGrid.appendChild(createBtn);
 
   if(avatars.length>0){
-    var genBtn=el("button",{style:{background:"linear-gradient(135deg,#10B981,#06B6D4)",color:"#FFF",border:"none",borderRadius:"12px",padding:"14px",fontSize:"13px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){var ac=_getActiveAvatar();if(!ac){alert("Select an active avatar first.");return;}overlay.remove();showAvatarContentGen(ac.id);}});
+    var genBtn=el("button",{style:{background:"linear-gradient(135deg,#10B981,#06B6D4)",color:cl.white,border:"none",borderRadius:"12px",padding:"14px",fontSize:"13px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){var ac=_getActiveAvatar();if(!ac){alert("Select an active avatar first.");return;}overlay.remove();showAvatarContentGen(ac.id);}});
     genBtn.textContent="Generate Content";actionGrid.appendChild(genBtn);
   }else{
     actionGrid.style.gridTemplateColumns="1fr";
@@ -5164,6 +5181,7 @@ function showAvatarStudio(){
 
 // --- AVATAR BUILDER (Create / Edit) ---
 function showAvatarBuilder(editId){
+  var cl=C();
   var m=document.getElementById("avatar-builder-modal");if(m)m.remove();
   var existing=editId?_getAvatars().find(function(a){return a.id===editId;}):null;
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.92)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"avatar-builder-modal"});
@@ -5254,7 +5272,7 @@ function showAvatarBuilder(editId){
   var ctaInp=mkField("Default CTA","cta","DM for exclusive deals | Link in bio | Book a consultation",existing?existing.cta:"");
   var pillarsInp=mkField("Content Pillars (comma-separated)","pillars","Market Data, Investment Tips, Area Spotlights, Lifestyle",existing?(existing.pillars||[]).join(", "):"Market Data, Investment Tips, Area Spotlights, Lifestyle");
 
-  var genAvatarBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#EC4899,#8B5CF6)",color:"#FFF",border:"none",borderRadius:"10px",padding:"12px",fontSize:"12px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
+  var genAvatarBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#EC4899,#8B5CF6)",color:cl.white,border:"none",borderRadius:"10px",padding:"12px",fontSize:"12px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
     genAvatarBtn.textContent="Generating AI avatar image...";genAvatarBtn.disabled=true;
     var style=AVATAR_STYLES.find(function(s){return s.id===selectedStyle;})||AVATAR_STYLES[0];
     var prompt=customPromptInp.value.trim()||style.prompt;
@@ -5276,7 +5294,7 @@ function showAvatarBuilder(editId){
   genAvatarBtn.textContent="Generate AI Avatar Image";card.appendChild(genAvatarBtn);
 
   var btnRow=div({display:"flex",gap:"8px",marginTop:"14px"});
-  var saveBtn=el("button",{style:{flex:1,background:"#10B981",color:"#FFF",border:"none",borderRadius:"10px",padding:"12px",fontSize:"13px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){
+  var saveBtn=el("button",{style:{flex:1,background:"#10B981",color:cl.white,border:"none",borderRadius:"10px",padding:"12px",fontSize:"13px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){
     var avatar={
       id:existing?existing.id:"avatar_"+Date.now(),
       name:nameInp.value.trim()||"Unnamed Avatar",
@@ -5315,6 +5333,7 @@ function showAvatarBuilder(editId){
 
 // --- AVATAR CONTENT GENERATOR ---
 function showAvatarContentGen(avatarId){
+  var cl=C();
   var av=_getAvatars().find(function(a){return a.id===avatarId;});
   if(!av){alert("Avatar not found.");return;}
   var m=document.getElementById("avatar-content-modal");if(m)m.remove();
@@ -5356,7 +5375,7 @@ function showAvatarContentGen(avatarId){
   var resultArea=div({marginTop:"10px"});
   card.appendChild(resultArea);
 
-  var genBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#10B981,#06B6D4)",color:"#FFF",border:"none",borderRadius:"10px",padding:"14px",fontSize:"13px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
+  var genBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#10B981,#06B6D4)",color:cl.white,border:"none",borderRadius:"10px",padding:"14px",fontSize:"13px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
     if(!topicInp.value.trim()){alert("Enter a topic.");return;}
     genBtn.textContent="Generating as "+av.name+"...";genBtn.disabled=true;
     resultArea.innerHTML="";
@@ -5494,12 +5513,13 @@ async function _didCheckStatus(talkId){
 }
 
 function _videoResultUI(resultArea,videoUrl,genVideoBtn){
+  var cl=C();
   resultArea.innerHTML="";
   resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"13px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"}},"Cinematic Video Ready"));
   var video=el("video",{style:{width:"100%",maxHeight:"340px",borderRadius:"14px",border:"2px solid #F59E0B",boxShadow:"0 0 30px rgba(245,158,11,0.3)"},controls:true,autoplay:true});
   video.src=videoUrl;resultArea.appendChild(video);
   var dlRow=div({display:"flex",gap:"6px",marginTop:"10px"});
-  var dlBtn=el("a",{style:{flex:1,display:"block",background:"linear-gradient(135deg,#10B981,#06B6D4)",color:"#FFF",textAlign:"center",textDecoration:"none",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",fontFamily:"monospace"},href:videoUrl,target:"_blank",download:"avatar-video.mp4"});
+  var dlBtn=el("a",{style:{flex:1,display:"block",background:"linear-gradient(135deg,#10B981,#06B6D4)",color:cl.white,textAlign:"center",textDecoration:"none",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",fontFamily:"monospace"},href:videoUrl,target:"_blank",download:"avatar-video.mp4"});
   dlBtn.textContent="Download Video";dlRow.appendChild(dlBtn);
   var shareBtn2=el("button",{style:{flex:1,background:"#3B82F622",border:"1px solid #3B82F6",color:"#3B82F6",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){navigator.clipboard.writeText(videoUrl);shareBtn2.textContent="Copied";}});
   shareBtn2.textContent="Copy URL";dlRow.appendChild(shareBtn2);
@@ -5543,6 +5563,7 @@ function _videoPollStatus(checkFn,interval,maxChecks,resultArea,genVideoBtn){
 }
 
 function showAvatarVideoGen(avatarId){
+  var cl=C();
   var av=_getAvatars().find(function(a){return a.id===avatarId;});
   if(!av){alert("Avatar not found.");return;}
   var m=document.getElementById("avatar-video-modal");if(m)m.remove();
@@ -5560,7 +5581,7 @@ function showAvatarVideoGen(avatarId){
   hdr.appendChild(hdrTxt);
   card.appendChild(hdr);
 
-  var scriptLabel=el("label",{style:{color:"#FFF",fontSize:"11px",fontWeight:"700",display:"block",marginBottom:"4px",fontFamily:"monospace"}});
+  var scriptLabel=el("label",{style:{color:cl.white,fontSize:"11px",fontWeight:"700",display:"block",marginBottom:"4px",fontFamily:"monospace"}});
   scriptLabel.textContent="Video Script / Prompt";card.appendChild(scriptLabel);
   var scriptInp=el("textarea",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"10px",padding:"12px",color:"#E0E0E0",fontSize:"12px",fontFamily:"monospace",boxSizing:"border-box",minHeight:"90px",resize:"vertical",marginBottom:"8px"},placeholder:"Describe the video scene or write a talking-head script..."});
   card.appendChild(scriptInp);
@@ -5586,7 +5607,7 @@ function showAvatarVideoGen(avatarId){
   aiPromptBtn.textContent="AI Cinematic Prompt";aiRow.appendChild(aiPromptBtn);
   card.appendChild(aiRow);
 
-  card.appendChild(el("div",{style:{color:"#FFF",fontSize:"12px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"}},"Choose Video Engine"));
+  card.appendChild(el("div",{style:{color:cl.white,fontSize:"12px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"}},"Choose Video Engine"));
 
   var selectedMethod="runway";
   var methodGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:"6px",marginBottom:"12px"});
@@ -5646,7 +5667,7 @@ function showAvatarVideoGen(avatarId){
 
   var resultArea=div({marginTop:"8px"});card.appendChild(resultArea);
 
-  var genVideoBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#F59E0B,#EC4899,#8B5CF6)",color:"#FFF",border:"none",borderRadius:"12px",padding:"14px",fontSize:"14px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",boxShadow:"0 4px 20px rgba(245,158,11,0.3)"},onclick:async function(){
+  var genVideoBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#F59E0B,#EC4899,#8B5CF6)",color:cl.white,border:"none",borderRadius:"12px",padding:"14px",fontSize:"14px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",boxShadow:"0 4px 20px rgba(245,158,11,0.3)"},onclick:async function(){
     var script=scriptInp.value.trim();
     if(!script){alert("Write a script or cinematic prompt first.");return;}
 
@@ -5850,6 +5871,7 @@ function showAvatarVideoGen(avatarId){
 
 // --- AVATAR AUTO-PILOT (Automated Content Generation + Posting) ---
 function showAvatarAutoPilot(avatarId){
+  var cl=C();
   var av=_getAvatars().find(function(a){return a.id===avatarId;});
   if(!av){alert("Avatar not found.");return;}
   var m=document.getElementById("avatar-autopilot-modal");if(m)m.remove();
@@ -5893,7 +5915,7 @@ function showAvatarAutoPilot(avatarId){
 
   var resultArea=div({});card.appendChild(resultArea);
 
-  var launchBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#3B82F6,#8B5CF6)",color:"#FFF",border:"none",borderRadius:"10px",padding:"14px",fontSize:"13px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
+  var launchBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#3B82F6,#8B5CF6)",color:cl.white,border:"none",borderRadius:"10px",padding:"14px",fontSize:"13px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
     var days=parseInt(daysInp.value)||7;
     var freq=parseInt(freqSelect.value)||1;
     var totalPosts=days*freq;
@@ -5954,6 +5976,7 @@ function showAvatarAutoPilot(avatarId){
 
 // --- AVATAR BATCH GENERATOR (30 Days of Content) ---
 function showAvatarBatchGen(avatarId){
+  var cl=C();
   var av=_getAvatars().find(function(a){return a.id===avatarId;});
   if(!av){alert("Avatar not found.");return;}
   var m=document.getElementById("avatar-batch-modal");if(m)m.remove();
@@ -5980,7 +6003,7 @@ function showAvatarBatchGen(avatarId){
 
   var resultArea=div({});card.appendChild(resultArea);
 
-  var genBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#8B5CF6,#EC4899)",color:"#FFF",border:"none",borderRadius:"10px",padding:"14px",fontSize:"13px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
+  var genBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#8B5CF6,#EC4899)",color:cl.white,border:"none",borderRadius:"10px",padding:"14px",fontSize:"13px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
     genBtn.textContent="Generating 30 days of content...";genBtn.disabled=true;
     resultArea.innerHTML="";
     var progress=el("div",{style:{color:"#8B5CF6",fontSize:"11px",fontFamily:"monospace"}});
@@ -6028,6 +6051,7 @@ function showAvatarBatchGen(avatarId){
 
 // --- AUTO-POST LOG ---
 function showAutoPostLog(){
+  var cl=C();
   var m=document.getElementById("autopost-log-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"autopost-log-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #10B981",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
@@ -6048,7 +6072,7 @@ function showAutoPostLog(){
   });card.appendChild(statsGrid);
   var log;try{log=JSON.parse(localStorage.getItem("dv_autopost_log")||"[]");}catch(e){log=[];}
   if(log.length>0){
-    card.appendChild(el("div",{style:{color:"#FFF",fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginBottom:"6px"}},"Recent Activity"));
+    card.appendChild(el("div",{style:{color:cl.white,fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginBottom:"6px"}},"Recent Activity"));
     log.slice(0,20).forEach(function(entry){
       var isSuccess=entry.title.indexOf("Published")!==-1;
       var isFail=entry.title.indexOf("Failed")!==-1;
@@ -6089,6 +6113,7 @@ function showAutoPostLog(){
 
 // --- ENGAGEMENT DASHBOARD ---
 function showEngagementDashboard(){
+  var cl=C();
   var m=document.getElementById("engagement-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"engagement-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #8B5CF6",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
@@ -6125,7 +6150,7 @@ function showEngagementDashboard(){
         fwGrid.appendChild(fCard);
       });card.appendChild(fwGrid);
     }
-    card.appendChild(el("div",{style:{color:"#FFF",fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginBottom:"6px"}},"Recent Posts"));
+    card.appendChild(el("div",{style:{color:cl.white,fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginBottom:"6px"}},"Recent Posts"));
     entries.slice(0,10).forEach(function(entry){
       var eCard=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",marginBottom:"4px"});
       var hdr=div({display:"flex",justifyContent:"space-between",alignItems:"center"});
@@ -6142,7 +6167,7 @@ function showEngagementDashboard(){
       }
       card.appendChild(eCard);
     });
-    var refreshBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#8B5CF6,#06B6D4)",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
+    var refreshBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#8B5CF6,#06B6D4)",color:cl.white,border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
       refreshBtn.textContent="Fetching engagement data from Instagram...";
       var count=await checkAllPostEngagement();
       refreshBtn.textContent="Updated "+count+" posts";
@@ -6360,7 +6385,7 @@ function renderMediaStudio(){
   var wrap=el("div",{style:{padding:"20px",maxWidth:"900px",margin:"0 auto",paddingBottom:"80px"}});
 
   var hero=el("div",{style:{marginBottom:"24px"}});
-  hero.appendChild(div({fontSize:"20px",fontWeight:"700",color:"#F0F2F5",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Media Studio"));
+  hero.appendChild(div({fontSize:"20px",fontWeight:"700",color:cl.white,fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Media Studio"));
   hero.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Your complete social media command center — 35+ tools at your fingertips"));
   wrap.appendChild(hero);
 
@@ -6417,9 +6442,9 @@ function renderMediaStudio(){
     group.tools.forEach(function(tool){
       var card=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"16px 12px",textAlign:"center",cursor:"pointer",transition:"all 0.2s ease",minHeight:"90px",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"6px"}});
       card.appendChild(div({fontSize:"24px"},tool.icon));
-      card.appendChild(div({color:"#E8EDF5",fontSize:"11px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},tool.label));
+      card.appendChild(div({color:cl.white,fontSize:"11px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},tool.label));
       card.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},tool.desc));
-      card.addEventListener("mouseenter",function(){this.style.borderColor=group.color;this.style.background="#131926";this.style.transform="translateY(-2px)";this.style.boxShadow="0 4px 16px "+hexAlpha(group.color,0.15);});
+      card.addEventListener("mouseenter",function(){this.style.borderColor=group.color;this.style.background=C().raisedSolid||"#131926";this.style.transform="translateY(-2px)";this.style.boxShadow="0 4px 16px "+hexAlpha(group.color,0.15);});
       card.addEventListener("mouseleave",function(){this.style.borderColor=cl.border;this.style.background=cl.surface;this.style.transform="";this.style.boxShadow="";});
       card.addEventListener("click",tool.fn);
       grid.appendChild(card);
@@ -6430,7 +6455,7 @@ function renderMediaStudio(){
 
   var chatSection=el("div",{style:{marginTop:"16px"}});
   var chatToggle=el("button",{style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"14px 20px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",transition:"all 0.15s ease"}});
-  chatToggle.appendChild(div({},[span({color:"#F0F2F5",fontSize:"13px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},"AI Content Assistant"),span({color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace",marginLeft:"8px"},"Chat with Social Media Manager agent")]));
+  chatToggle.appendChild(div({},[span({color:cl.white,fontSize:"13px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},"AI Content Assistant"),span({color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace",marginLeft:"8px"},"Chat with Social Media Manager agent")]));
   var arrow=span({color:cl.sub,fontSize:"16px",transition:"transform 0.2s"},"▼");
   chatToggle.appendChild(arrow);
   var chatBody=el("div",{style:{display:"none",marginTop:"8px"}});

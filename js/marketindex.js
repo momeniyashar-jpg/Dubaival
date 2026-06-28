@@ -375,7 +375,7 @@ function renderMarketIndex(){
 
   // Search filter
   if(!window._idxFilter)window._idxFilter="";
-  var filterInp=el("input",{type:"text",placeholder:"Filter areas...",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"9px 12px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"12px"}});
+  var filterInp=el("input",{type:"text",placeholder:"Filter areas...",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"9px 12px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"12px"}});
   filterInp.value=window._idxFilter||"";
   filterInp.addEventListener("input",function(){window._idxFilter=this.value;render();});
   hmCard.appendChild(filterInp);

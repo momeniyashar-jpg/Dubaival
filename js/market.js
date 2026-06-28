@@ -341,7 +341,7 @@ function renderMarket(){
   const selRow=el("div",{style:{display:"flex",gap:"6px",marginBottom:"12px",flexWrap:"wrap"}});
   
   // Area dropdown
-  const areaSel=el("select",{style:{flex:"1",background:cl.bg,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"6px 10px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace"}});
+  const areaSel=el("select",{style:{flex:"1",background:cl.bg,border:"1px solid "+cl.border,color:cl.white,padding:"6px 10px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace"}});
   areaNames.forEach(function(a){
     const opt=el("option",{value:a},a);
     if(a===window.CHART_STATE.area)opt.selected=true;
@@ -480,7 +480,7 @@ function renderMarket(){
 
   psfRows.forEach(function(r,i){
     const row=el("div",{style:{display:"grid",gridTemplateColumns:"2fr 0.8fr 0.8fr 0.9fr",gap:"4px",padding:"7px 0",borderBottom:i<psfRows.length-1?"1px solid "+cl.border:"none",alignItems:"center"}});
-    row.appendChild(span({color:"#F0F2F5",fontSize:"12px",fontFamily:"'Inter',sans-serif"},r.area));
+    row.appendChild(span({color:cl.white,fontSize:"12px",fontFamily:"'Inter',sans-serif"},r.area));
     row.appendChild(span({color:r.apt?cl.white:cl.sub,fontSize:"11px",fontWeight:r.apt?"600":"400",fontFamily:"'Space Grotesk',monospace"},r.apt?r.apt.toLocaleString():"—"));
     row.appendChild(span({color:r.villa?cl.white:cl.sub,fontSize:"11px",fontWeight:r.villa?"600":"400",fontFamily:"'Space Grotesk',monospace"},r.villa?r.villa.toLocaleString():"—"));
     row.appendChild(span({color:cl.green,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},r.yield));
@@ -502,7 +502,7 @@ function renderMarket(){
     span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"14px"},"Market Cycle · 20-Year History"),
     ...cycleRows.map(function(c,i){return div({display:"flex",alignItems:"center",gap:"12px",padding:"9px 0",borderBottom:i<6?"1px solid "+cl.border:"none"},[
       span({color:cl.gold,fontSize:"10.5px",fontFamily:"'Space Grotesk',monospace",minWidth:"60px"},c.yr),
-      span({color:"#F0F2F5",fontSize:"12.5px",fontFamily:"'Inter',sans-serif",flex:"1"},c.n),
+      span({color:cl.white,fontSize:"12.5px",fontFamily:"'Inter',sans-serif",flex:"1"},c.n),
       span({color:c.col,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},c.c),
     ]);}),
     div({marginTop:"12px",background:cl.goldFaint,border:"1px solid "+cl.goldDim,borderRadius:"8px",padding:"10px 14px",color:"rgba(240,242,245,0.7)",fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.7"},
@@ -570,7 +570,7 @@ function renderMarket(){
       const errCol=r.absErr<=10?cl.green:r.absErr<=20?"#F59E0B":cl.red;
       return div({display:"flex",justifyContent:"space-between",alignItems:"center",gap:"8px",padding:"9px 0",borderBottom:i<csRows.length-1?"1px solid "+cl.border:"none"},[
         div({flex:"1",minWidth:"0"},[
-          div({color:"#F0F2F5",fontSize:"12px",fontFamily:"'Inter',sans-serif",fontWeight:"600",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"},r.label),
+          div({color:cl.white,fontSize:"12px",fontFamily:"'Inter',sans-serif",fontWeight:"600",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"},r.label),
           div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},[
             r.area+" · "+r.unitType+" · ",
             el("a",{href:r.source,target:"_blank",rel:"noopener",style:{color:cl.sub,textDecoration:"underline"}},"source"),
@@ -578,7 +578,7 @@ function renderMarket(){
         ]),
         div({textAlign:"right",flexShrink:"0"},[
           div({color:cl.sub,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},"Sold AED "+r.sold.toLocaleString()),
-          div({color:"#F0F2F5",fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},"Est. AED "+r.fair.toLocaleString()),
+          div({color:cl.white,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},"Est. AED "+r.fair.toLocaleString()),
         ]),
         div({color:errCol,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",minWidth:"48px",textAlign:"right",flexShrink:"0"},(r.err>=0?"+":"")+r.err.toFixed(1)+"%"),
       ]);
@@ -638,7 +638,7 @@ function renderAnalyzer(){
     aiBar.appendChild(aiLabel);
     var aiRow=div({display:"flex",gap:"6px",alignItems:"center"});
     var aiInp=el("input",{type:"text",placeholder:"e.g. 2BR Marina, 1200sqft, floor 25, sea view, 2.1M",
-      style:{flex:"1",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"10px 12px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+      style:{flex:"1",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"10px 12px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
     aiInp.value=ai.text||"";
     aiInp.addEventListener("input",function(){ai.text=this.value;ai.parsed=null;ai.missing=[];ai.filled=[];});
     aiInp.addEventListener("keydown",function(e){if(e.key==="Enter")doAiParse();});
@@ -735,7 +735,7 @@ function renderAnalyzer(){
 
     // Searchable area input
     var qcAreaWrap=el("div",{style:{position:"relative",marginBottom:"10px"}});
-    var qcAreaInp=el("input",{type:"text",placeholder:t("qc_select_area"),style:{width:"100%",background:cl.raised,border:"1px solid "+(qs.area&&AREAS[qs.area]?cl.gold:cl.border),color:"#F0F2F5",padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+    var qcAreaInp=el("input",{type:"text",placeholder:t("qc_select_area"),style:{width:"100%",background:cl.raised,border:"1px solid "+(qs.area&&AREAS[qs.area]?cl.gold:cl.border),color:cl.white,padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
     qcAreaInp.value=qs.area||"";
     qcAreaInp.addEventListener("input",function(){
       qs.area=this.value;qs.result=null;
@@ -743,7 +743,7 @@ function renderAnalyzer(){
       var q=this.value.toLowerCase().trim();if(q.length<1)return;
       var hits=AREA_NAMES.filter(function(n){return n.toLowerCase().indexOf(q)>=0;});
       hits.slice(0,8).forEach(function(n){
-        var row=el("div",{style:{padding:"8px 12px",cursor:"pointer",fontSize:"12px",color:"#F0F2F5",borderBottom:"1px solid "+cl.border,fontFamily:"'Inter',sans-serif"}});
+        var row=el("div",{style:{padding:"8px 12px",cursor:"pointer",fontSize:"12px",color:cl.white,borderBottom:"1px solid "+cl.border,fontFamily:"'Inter',sans-serif"}});
         row.textContent=n;
         row.addEventListener("mousedown",function(e){e.preventDefault();qs.area=n;qs.result=null;render();});
         row.addEventListener("mouseenter",function(){this.style.background=cl.raised;});
@@ -759,7 +759,7 @@ function renderAnalyzer(){
 
     // Building input with autocomplete
     var bWrap=el("div",{style:{position:"relative",marginBottom:"10px"}});
-    var bInp=el("input",{type:"text",placeholder:"Building name",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+    var bInp=el("input",{type:"text",placeholder:"Building name",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
     bInp.value=qs.building||"";
     bInp.addEventListener("input",function(){qs.building=this.value;qs.result=null;
       var sg=document.getElementById("qc-bldg-sugg");if(!sg)return;sg.innerHTML="";
@@ -784,7 +784,7 @@ function renderAnalyzer(){
     qc.appendChild(bWrap);
 
     // Price input
-    var pInp=el("input",{type:"text",inputMode:"numeric",placeholder:qs.mode==="rent"?"Asking rent (AED/year)":"Asking price (AED)",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"14px"}});
+    var pInp=el("input",{type:"text",inputMode:"numeric",placeholder:qs.mode==="rent"?"Asking rent (AED/year)":"Asking price (AED)",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"14px"}});
     pInp.value=qs.price||"";
     pInp.addEventListener("input",function(){qs.price=this.value.replace(/[^0-9]/g,"");this.value=qs.price?parseInt(qs.price).toLocaleString():"";qs.result=null;});
     qc.appendChild(pInp);
@@ -898,7 +898,7 @@ function renderAnalyzer(){
   
   const searchInp=el("input",{type:"text",id:"dv-search-input",placeholder:"e.g. Marina Gate, Venice, Address Kempinski, Sidra...",style:{
     width:"100%",background:cl.raised,border:"1px solid "+(f.building&&f.propCategory?cl.gold:cl.border),
-    color:"#F0F2F5",padding:"13px 16px",borderRadius:"12px",fontSize:"14px",
+    color:cl.white,padding:"13px 16px",borderRadius:"12px",fontSize:"14px",
     fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"
   }});
   // Restore value without losing cursor position
@@ -973,7 +973,7 @@ function renderAnalyzer(){
         const item=el("button",{style:{
           width:"100%",padding:"12px 16px",background:"transparent",
           border:"none",borderBottom:i<results.length-1?"1px solid "+cl.border:"none",
-          color:"#F0F2F5",fontSize:"13px",cursor:"pointer",textAlign:"left",
+          color:cl.white,fontSize:"13px",cursor:"pointer",textAlign:"left",
           fontFamily:"'Inter',sans-serif",display:"block"
         }});
         // Name line
@@ -1209,7 +1209,7 @@ function renderAnalyzer(){
     const typeRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"6px",marginBottom:"16px"}});
     ["Standalone Villa","Townhouse","Semi-Detached","Cluster Villa","Independent Villa"].forEach(function(t){
       const active=f.villaType===t;
-      const b=el("button",{style:{padding:"8px",borderRadius:"8px",fontSize:"12px",border:"1px solid "+(active?cl.gold:cl.border),background:active?cl.goldFaint:"transparent",color:active?"#F0F2F5":cl.sub,fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+      const b=el("button",{style:{padding:"8px",borderRadius:"8px",fontSize:"12px",border:"1px solid "+(active?cl.gold:cl.border),background:active?cl.goldFaint:"transparent",color:active?cl.white:cl.sub,fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
       b.textContent=t;
       b.addEventListener("click",function(){analyzerState.f.villaType=t;render();});
       typeRow.appendChild(b);
@@ -1226,7 +1226,7 @@ function renderAnalyzer(){
     ["G+1","G+2 (3F)","G+B+1","G+B+2","Other"].forEach(function(fl){
       if(floorRow.children.length>=5)return;
       const active=f.villaFloors===fl;
-      const b=el("button",{style:{padding:"7px 6px",borderRadius:"8px",fontSize:"11px",border:"1px solid "+(active?cl.gold:cl.border),background:active?cl.goldFaint:"transparent",color:active?"#F0F2F5":cl.sub,fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+      const b=el("button",{style:{padding:"7px 6px",borderRadius:"8px",fontSize:"11px",border:"1px solid "+(active?cl.gold:cl.border),background:active?cl.goldFaint:"transparent",color:active?cl.white:cl.sub,fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
       b.textContent=fl;
       b.addEventListener("click",function(){analyzerState.f.villaFloors=fl;render();});
       floorRow.appendChild(b);
@@ -1244,7 +1244,7 @@ function renderAnalyzer(){
     var ppChk=el("div",{style:{width:"16px",height:"16px",borderRadius:"4px",border:"2px solid "+(f.privatePool?cl.gold:cl.border),background:f.privatePool?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"10px",color:"#08090C"}});
     if(f.privatePool)ppChk.textContent="v";
     ppToggle.appendChild(ppChk);
-    var ppLbl=el("div",{style:{fontSize:"12px",fontFamily:"'Inter',sans-serif",color:f.privatePool?"#F0F2F5":cl.sub}});
+    var ppLbl=el("div",{style:{fontSize:"12px",fontFamily:"'Inter',sans-serif",color:f.privatePool?cl.white:cl.sub}});
     ppLbl.textContent="Private Pool (+12%)";
     ppToggle.appendChild(ppLbl);
     ppToggle.addEventListener("click",function(){analyzerState.f.privatePool=!analyzerState.f.privatePool;render();});
@@ -1255,7 +1255,7 @@ function renderAnalyzer(){
     var srChk=el("div",{style:{width:"16px",height:"16px",borderRadius:"4px",border:"2px solid "+(f.singleRow?cl.gold:cl.border),background:f.singleRow?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"10px",color:"#08090C"}});
     if(f.singleRow)srChk.textContent="v";
     srToggle.appendChild(srChk);
-    var srLbl=el("div",{style:{fontSize:"12px",fontFamily:"'Inter',sans-serif",color:f.singleRow?"#F0F2F5":cl.sub}});
+    var srLbl=el("div",{style:{fontSize:"12px",fontFamily:"'Inter',sans-serif",color:f.singleRow?cl.white:cl.sub}});
     srLbl.textContent="Single Row (+8%)";
     srToggle.appendChild(srLbl);
     srToggle.addEventListener("click",function(){analyzerState.f.singleRow=!analyzerState.f.singleRow;render();});
@@ -1265,7 +1265,7 @@ function renderAnalyzer(){
     var cvChk=el("div",{style:{width:"16px",height:"16px",borderRadius:"4px",border:"2px solid "+(f.cornerVilla?cl.gold:cl.border),background:f.cornerVilla?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"10px",color:"#08090C"}});
     if(f.cornerVilla)cvChk.textContent="v";
     cvToggle.appendChild(cvChk);
-    var cvLbl=el("div",{style:{fontSize:"12px",fontFamily:"'Inter',sans-serif",color:f.cornerVilla?"#F0F2F5":cl.sub}});
+    var cvLbl=el("div",{style:{fontSize:"12px",fontFamily:"'Inter',sans-serif",color:f.cornerVilla?cl.white:cl.sub}});
     cvLbl.textContent="Corner Villa (+5%)";
     cvToggle.appendChild(cvLbl);
     cvToggle.addEventListener("click",function(){analyzerState.f.cornerVilla=!analyzerState.f.cornerVilla;render();});
@@ -1283,7 +1283,7 @@ function renderAnalyzer(){
     var maidChkV=el("div",{style:{width:"18px",height:"18px",borderRadius:"4px",border:"2px solid "+(f.hasMaid?cl.gold:cl.border),background:f.hasMaid?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",color:"#08090C",fontWeight:"900"}});
     if(f.hasMaid)maidChkV.textContent="✓";
     var maidLblV=el("div",{});
-    maidLblV.appendChild(div({color:"#F0F2F5",fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Maid Room (+3%)"));
+    maidLblV.appendChild(div({color:cl.white,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Maid Room (+3%)"));
     maidLblV.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},"Dedicated maid quarters — value premium"));
     maidRowV.appendChild(maidChkV);
     maidRowV.appendChild(maidLblV);
@@ -1294,7 +1294,7 @@ function renderAnalyzer(){
     var studyChkV=el("div",{style:{width:"18px",height:"18px",borderRadius:"4px",border:"2px solid "+(f.hasStudy?cl.gold:cl.border),background:f.hasStudy?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",color:"#08090C",fontWeight:"900"}});
     if(f.hasStudy)studyChkV.textContent="✓";
     var studyLblV=el("div",{});
-    studyLblV.appendChild(div({color:"#F0F2F5",fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Study Room (+2%)"));
+    studyLblV.appendChild(div({color:cl.white,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Study Room (+2%)"));
     studyLblV.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},"Dedicated study/office — value premium"));
     studyRowV.appendChild(studyChkV);
     studyRowV.appendChild(studyLblV);
@@ -1305,7 +1305,7 @@ function renderAnalyzer(){
     var upgChkV=el("div",{style:{width:"18px",height:"18px",borderRadius:"4px",border:"2px solid "+(f.isUpgraded?cl.gold:cl.border),background:f.isUpgraded?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",color:"#08090C",fontWeight:"900"}});
     if(f.isUpgraded)upgChkV.textContent="✓";
     var upgLblV=el("div",{});
-    upgLblV.appendChild(div({color:"#F0F2F5",fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Upgraded (+5%)"));
+    upgLblV.appendChild(div({color:cl.white,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Upgraded (+5%)"));
     upgLblV.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},"Kitchen, bathrooms, flooring upgraded by owner"));
     upgRowV.appendChild(upgChkV);
     upgRowV.appendChild(upgLblV);
@@ -1441,7 +1441,7 @@ function renderAnalyzer(){
     const aptGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"5px",marginBottom:"16px"}});
     APTYPES.forEach(function(t){
       const active=f.aptSubtype===t||f.beds===t;
-      const b=el("button",{style:{padding:"7px 4px",borderRadius:"8px",fontSize:"11px",border:"1px solid "+(active?cl.gold:cl.border),background:active?cl.goldFaint:"transparent",color:active?"#F0F2F5":cl.sub,fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+      const b=el("button",{style:{padding:"7px 4px",borderRadius:"8px",fontSize:"11px",border:"1px solid "+(active?cl.gold:cl.border),background:active?cl.goldFaint:"transparent",color:active?cl.white:cl.sub,fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
       b.textContent=t;
       b.addEventListener("click",function(){analyzerState.f.aptSubtype=t;analyzerState.f.beds=t;render();});
       aptGrid.appendChild(b);
@@ -1476,7 +1476,7 @@ function renderAnalyzer(){
     const maidCheck=el("div",{style:{width:"18px",height:"18px",borderRadius:"4px",border:"2px solid "+(f.hasMaid?cl.gold:cl.border),background:f.hasMaid?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",color:"#08090C",fontWeight:"900"}});
     if(f.hasMaid)maidCheck.textContent="✓";
     const maidLabel=el("div",{});
-    maidLabel.appendChild(div({color:"#F0F2F5",fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Maid Room"));
+    maidLabel.appendChild(div({color:cl.white,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Maid Room"));
     maidLabel.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},isRentalA?"+AED 5-15K/yr rent premium":"+AED 50-100K value premium"));
     maidRow.appendChild(maidCheck);
     maidRow.appendChild(maidLabel);
@@ -1487,7 +1487,7 @@ function renderAnalyzer(){
     const studyChk=el("div",{style:{width:"18px",height:"18px",borderRadius:"4px",border:"2px solid "+(f.hasStudy?cl.gold:cl.border),background:f.hasStudy?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",color:"#08090C",fontWeight:"900"}});
     if(f.hasStudy)studyChk.textContent="✓";
     const studyLbl=el("div",{});
-    studyLbl.appendChild(div({color:"#F0F2F5",fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Study Room"));
+    studyLbl.appendChild(div({color:cl.white,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Study Room"));
     studyLbl.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},isRentalA?"+AED 3-8K/yr rent premium":"+2% value premium"));
     studyRow.appendChild(studyChk);
     studyRow.appendChild(studyLbl);
@@ -1498,7 +1498,7 @@ function renderAnalyzer(){
     const upgChk=el("div",{style:{width:"18px",height:"18px",borderRadius:"4px",border:"2px solid "+(f.isUpgraded?cl.gold:cl.border),background:f.isUpgraded?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",color:"#08090C",fontWeight:"900"}});
     if(f.isUpgraded)upgChk.textContent="✓";
     const upgLbl=el("div",{});
-    upgLbl.appendChild(div({color:"#F0F2F5",fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Upgraded"));
+    upgLbl.appendChild(div({color:cl.white,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Upgraded"));
     upgLbl.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},isRentalA?"+5-10% rent premium":"+5% value premium"));
     upgRow.appendChild(upgChk);
     upgRow.appendChild(upgLbl);
@@ -1532,7 +1532,7 @@ function renderAnalyzer(){
     // Submit
     const canSubmit=true;
     var isAgentMode=analyzerState.reportMode==="agent";
-    const submitBtn=el("button",{style:{marginTop:"14px",width:"100%",padding:"14px",borderRadius:"10px",border:"none",background:isRentalA?"linear-gradient(135deg,#8B5CF6,#6D28D9)":isAgentMode?"linear-gradient(135deg,#3B82F6,#1D4ED8)":"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#FFFFFF",fontSize:"14px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+    const submitBtn=el("button",{style:{marginTop:"14px",width:"100%",padding:"14px",borderRadius:"10px",border:"none",background:isRentalA?"linear-gradient(135deg,#8B5CF6,#6D28D9)":isAgentMode?"linear-gradient(135deg,#3B82F6,#1D4ED8)":"linear-gradient(135deg,#C9A84C,#7A5E28)",color:cl.white,fontSize:"14px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
     submitBtn.textContent=isRentalA?"ANALYZE THIS RENTAL ->":isAgentMode?"GENERATE AGENT REPORT ->":"ANALYZE THIS DEAL ->";
     if(true){
       submitBtn.addEventListener("click",function(){
@@ -1638,7 +1638,7 @@ function renderCommercialResult(wrap){
       div({fontSize:"11px",color:cl.sub,fontFamily:"'Inter',sans-serif"},vcfg.sub),
     ]),
     div({padding:"16px",display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px",textAlign:"center"},[
-      div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"ASKING PSF"),div({color:"#F0F2F5",fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.askPSF.toLocaleString())]),
+      div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"ASKING PSF"),div({color:cl.white,fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.askPSF.toLocaleString())]),
       div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"MARKET PSF"),div({color:accent,fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.adjPSF.toLocaleString())]),
       div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"DEVIATION"),div({color:v.deviation>0?"#EF4444":"#22C55E",fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.deviation>0?"+":"")+v.deviation+"%")]),
     ]),
@@ -1646,19 +1646,19 @@ function renderCommercialResult(wrap){
   wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginBottom:"14px"},[
     div({color:accent,fontSize:"10px",letterSpacing:"0.1em",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"COMMERCIAL METRICS"),
     div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"},[
-      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"FAIR VALUE"),div({color:"#F0F2F5",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.fairPrice.toLocaleString())]),
+      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"FAIR VALUE"),div({color:cl.white,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.fairPrice.toLocaleString())]),
       div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"CONFIDENCE"),div({color:v.confScore>=75?accent:v.confScore>=60?"#EAB308":"#EF4444",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},v.confScore+"%")]),
-      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"EST. GROSS YIELD"),div({color:"#F0F2F5",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},v.grossYield+"%")]),
-      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"EST. NET YIELD"),div({color:"#F0F2F5",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},v.netYield+"%")]),
+      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"EST. GROSS YIELD"),div({color:cl.white,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},v.grossYield+"%")]),
+      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"EST. NET YIELD"),div({color:cl.white,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},v.netYield+"%")]),
     ]),
   ]));
   if(v.areaTxns){
     wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginBottom:"14px"},[
       div({color:accent,fontSize:"10px",letterSpacing:"0.1em",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"AREA COMMERCIAL DATA · "+f.area),
       div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px"},[
-        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"AVG PRICE"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+(v.areaAvgPrice||0).toLocaleString())]),
-        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"AVG SIZE"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.areaAvgSize||0).toLocaleString()+" sqft")]),
-        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"TRANSACTIONS"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.areaTxns||0).toLocaleString())]),
+        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"AVG PRICE"),div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+(v.areaAvgPrice||0).toLocaleString())]),
+        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"AVG SIZE"),div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.areaAvgSize||0).toLocaleString()+" sqft")]),
+        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"TRANSACTIONS"),div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.areaTxns||0).toLocaleString())]),
       ]),
     ]));
   }
@@ -1688,7 +1688,7 @@ function renderLandResult(wrap){
       div({fontSize:"11px",color:cl.sub,fontFamily:"'Inter',sans-serif"},vcfg.sub),
     ]),
     div({padding:"16px",display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px",textAlign:"center"},[
-      div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"ASKING PSF"),div({color:"#F0F2F5",fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.askPSF.toLocaleString())]),
+      div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"ASKING PSF"),div({color:cl.white,fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.askPSF.toLocaleString())]),
       div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"MARKET PSF"),div({color:accent,fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.adjPSF.toLocaleString())]),
       div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"DEVIATION"),div({color:v.deviation>0?"#EF4444":"#22C55E",fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.deviation>0?"+":"")+v.deviation+"%")]),
     ]),
@@ -1696,10 +1696,10 @@ function renderLandResult(wrap){
   wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginBottom:"14px"},[
     div({color:accent,fontSize:"10px",letterSpacing:"0.1em",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"LAND VALUATION METRICS"),
     div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"},[
-      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"FAIR VALUE"),div({color:"#F0F2F5",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.fairPrice.toLocaleString())]),
+      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"FAIR VALUE"),div({color:cl.white,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.fairPrice.toLocaleString())]),
       div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"CONFIDENCE"),div({color:v.confScore>=70?accent:v.confScore>=55?"#EAB308":"#EF4444",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},v.confScore+"%")]),
-      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"PSF RANGE"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.psfLo.toLocaleString()+" — "+v.psfHi.toLocaleString())]),
-      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"ZONING"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.zoning||"Residential").charAt(0).toUpperCase()+(v.zoning||"residential").slice(1))]),
+      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"PSF RANGE"),div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.psfLo.toLocaleString()+" — "+v.psfHi.toLocaleString())]),
+      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"ZONING"),div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.zoning||"Residential").charAt(0).toUpperCase()+(v.zoning||"residential").slice(1))]),
     ]),
   ]));
   wrap.appendChild(div({background:"rgba(16,185,129,0.04)",border:"1px solid rgba(16,185,129,0.2)",borderRadius:"14px",padding:"16px",marginBottom:"14px"},[
@@ -1714,9 +1714,9 @@ function renderLandResult(wrap){
     wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginBottom:"14px"},[
       div({color:accent,fontSize:"10px",letterSpacing:"0.1em",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"AREA LAND DATA · "+f.area),
       div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px"},[
-        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"AVG PLOT PRICE"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+(v.areaAvgPrice||0).toLocaleString())]),
-        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"AVG PLOT SIZE"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.areaAvgSize||0).toLocaleString()+" sqft")]),
-        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"TRANSACTIONS"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.areaTxns||0).toLocaleString())]),
+        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"AVG PLOT PRICE"),div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+(v.areaAvgPrice||0).toLocaleString())]),
+        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"AVG PLOT SIZE"),div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.areaAvgSize||0).toLocaleString()+" sqft")]),
+        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"TRANSACTIONS"),div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.areaTxns||0).toLocaleString())]),
       ]),
     ]));
   }
@@ -2778,7 +2778,7 @@ function renderAnalyzerResult(wrap){
     }else{
       wWrap.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"8px"},"Get an email if "+targetName+" pricing moves ±5% or more."));
       const row=el("div",{style:{display:"flex",gap:"8px"}});
-      const inp=el("input",{type:"email",placeholder:"your@email.com",style:{flex:"1",background:"rgba(240,242,245,0.05)",border:"1px solid "+cl.border,color:"#F0F2F5",padding:"10px 12px",borderRadius:"8px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+      const inp=el("input",{type:"email",placeholder:"your@email.com",style:{flex:"1",background:"rgba(240,242,245,0.05)",border:"1px solid "+cl.border,color:cl.white,padding:"10px 12px",borderRadius:"8px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
       const btn=el("button",{style:{background:"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#08090C",border:"none",padding:"10px 16px",borderRadius:"8px",fontSize:"13px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer",whiteSpace:"nowrap"}});
       btn.textContent=WS.busy?"...":"Watch";
       btn.addEventListener("click",function(){
@@ -3076,7 +3076,7 @@ function renderAnalyzerResult(wrap){
   if(!window.PDF_BROKER){try{window.PDF_BROKER=JSON.parse(localStorage.getItem('dv_broker')||'null')||{name:'',company:'',rera:''};}catch(e){window.PDF_BROKER={name:'',company:'',rera:''};}}
   const bGrid=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'12px'}});
   [{k:'name',ph:'Your Name (optional)'},{k:'company',ph:'Company (optional)'},{k:'rera',ph:'RERA No. (optional)'}].forEach(function(fld){
-    const inp=el('input',{type:'text',placeholder:fld.ph,style:{background:'rgba(240,242,245,0.05)',border:'1px solid '+cl.border,color:'#F0F2F5',padding:'8px 10px',borderRadius:'8px',fontSize:'11px',fontFamily:"'Inter',sans-serif",width:'100%',outline:'none',boxSizing:'border-box'}});
+    const inp=el('input',{type:'text',placeholder:fld.ph,style:{background:'rgba(240,242,245,0.05)',border:'1px solid '+cl.border,color:cl.white,padding:'8px 10px',borderRadius:'8px',fontSize:'11px',fontFamily:"'Inter',sans-serif",width:'100%',outline:'none',boxSizing:'border-box'}});
     inp.value=window.PDF_BROKER[fld.k]||'';
     inp.addEventListener('input',function(){window.PDF_BROKER[fld.k]=this.value;try{localStorage.setItem('dv_broker',JSON.stringify(window.PDF_BROKER));}catch(e){}});
     bGrid.appendChild(inp);
@@ -3088,7 +3088,7 @@ function renderAnalyzerResult(wrap){
 
   if(!window.PDF_UNLOCKED){
     const gRow=el('div',{style:{display:'flex',gap:'8px'}});
-    const eInp=el('input',{type:'email',placeholder:'Enter email to unlock free PDF',style:{flex:'1',background:'rgba(240,242,245,0.05)',border:'1px solid '+cl.border,color:'#F0F2F5',padding:'10px 12px',borderRadius:'8px',fontSize:'13px',fontFamily:"'Inter',sans-serif",outline:'none'}});
+    const eInp=el('input',{type:'email',placeholder:'Enter email to unlock free PDF',style:{flex:'1',background:'rgba(240,242,245,0.05)',border:'1px solid '+cl.border,color:cl.white,padding:'10px 12px',borderRadius:'8px',fontSize:'13px',fontFamily:"'Inter',sans-serif",outline:'none'}});
     const uBtn=el('button',{style:{background:'linear-gradient(135deg,#C9A84C,#7A5E28)',color:'#08090C',border:'none',padding:'10px 16px',borderRadius:'8px',fontSize:'13px',fontWeight:'700',fontFamily:"'Inter',sans-serif",cursor:'pointer',whiteSpace:'nowrap'}});
     uBtn.textContent='Get Report';
     uBtn.addEventListener('click',function(){
@@ -3171,7 +3171,7 @@ function renderAnalyzerResult(wrap){
   }
   pitchWrap.appendChild(pitchOutput);
 
-  var genBtn=el("button",{style:{width:"100%",padding:"12px",borderRadius:"10px",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",border:"none",background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",color:"#fff",marginTop:window._pitchText?"10px":"0",transition:"opacity 0.2s"}});
+  var genBtn=el("button",{style:{width:"100%",padding:"12px",borderRadius:"10px",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",border:"none",background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",color:cl.white,marginTop:window._pitchText?"10px":"0",transition:"opacity 0.2s"}});
   genBtn.textContent=window._pitchLoading?"Generating...":window._pitchText?"Regenerate Pitch":"Generate Marketing Pitch";
   if(window._pitchLoading)genBtn.style.opacity="0.6";
   genBtn.addEventListener("click",async function(){
