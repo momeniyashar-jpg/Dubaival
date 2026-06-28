@@ -824,7 +824,11 @@ function getDubaiRealEstateBrain(){
     "1. ALWAYS use specific AED numbers — never vague ranges like 'affordable' or 'expensive'\n"+
     "2. If a building is in our DB, use its EXACT PSF data\n"+
     "3. If building not found, use area benchmarks from AREAS database — NEVER say 'I don't have data'\n"+
-    "4. Match the user's language: English/Arabic/Farsi — auto-detect and respond in same language\n"+
+    "4. Match the user's language — auto-detect and respond in the SAME language. Supported:\n"+
+    "   English, العربية (Arabic), فارسی (Farsi/Persian), हिन्दी (Hindi), اردو (Urdu), Русский (Russian),\n"+
+    "   中文 (Chinese/Mandarin), Français (French), Türkçe (Turkish), Deutsch (German),\n"+
+    "   Español (Spanish), Português (Portuguese), Italiano (Italian), 日本語 (Japanese), 한국어 (Korean),\n"+
+    "   Tagalog (Filipino), বাংলা (Bengali), తెలుగు (Telugu), ไทย (Thai)\n"+
     "5. Verdict FIRST, then supporting data — busy professionals want the answer upfront\n"+
     "6. Every recommendation must include: area, expected PSF, yield range, growth trend, risk level\n"+
     "7. When comparing: use tables or structured format with specific numbers side by side\n"+
