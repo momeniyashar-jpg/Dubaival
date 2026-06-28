@@ -1282,8 +1282,8 @@ function renderHome(){
     var microInfo=el("div",{style:{position:"absolute",bottom:"0",left:"0",right:"0",padding:"12px 16px",background:"rgba(0,0,0,0.7)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",borderRadius:"0 0 16px 16px",transform:"translateY(100%)",opacity:"0",transition:"transform 0.3s ease,opacity 0.3s ease",fontSize:"12px",color:cl.sub,lineHeight:"1.5",zIndex:"2"}});
     microInfo.innerHTML=hf.micro+' <span style="color:'+hf.microColor+';font-weight:700;cursor:pointer;font-family:\'Space Grotesk\',monospace;font-size:11px;display:block;margin-top:4px">'+hf.microLink+'</span>';
     hCard.appendChild(microInfo);
-    hCard.addEventListener("mouseenter",function(){hCard.style.borderColor=hf.hoverBorder;hCard.style.transform="translateY(-4px)";hCard.style.boxShadow="0 0 30px "+hf.hoverShadow;microInfo.style.transform="translateY(0)";microInfo.style.opacity="1";});
-    hCard.addEventListener("mouseleave",function(){hCard.style.borderColor=hf.border;hCard.style.transform="translateY(0)";hCard.style.boxShadow="none";microInfo.style.transform="translateY(100%)";microInfo.style.opacity="0";});
+    hCard.addEventListener("mouseenter",function(){hCard.style.borderColor=hf.hoverBorder;hCard.style.transform="translateY(-4px)";hCard.style.boxShadow="0 12px 40px rgba(0,0,0,0.4), 0 0 30px "+hf.hoverShadow+", 0 4px 16px rgba(212,175,55,0.06)";microInfo.style.transform="translateY(0)";microInfo.style.opacity="1";});
+    hCard.addEventListener("mouseleave",function(){hCard.style.borderColor=darkMode?hf.border:(cl.glassBorder||hf.border);hCard.style.transform="translateY(0)";hCard.style.boxShadow="";microInfo.style.transform="translateY(100%)";microInfo.style.opacity="0";});
     hCard.addEventListener("click",function(){setSection(hf.sec,hf.sub);});
     heroGrid.appendChild(hCard);
   });
@@ -1332,9 +1332,10 @@ function renderHome(){
 
   var statsGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:"12px",marginBottom:"16px"}});
   [{l:"Avg PSF",v:"AED "+avgPSF.toLocaleString(),c:cl.gold,ic:"trending-up",arrow:true},{l:"Avg Yield",v:avgYield+"%",c:"#10B981",ic:"percent",arrow:true},{l:"Residential",v:dbCount.toLocaleString(),c:"#3B82F6",ic:"building-2"},{l:"Commercial",v:comCount.toLocaleString(),c:"#8B5CF6",ic:"briefcase"},{l:"Land Plots",v:landCount.toLocaleString(),c:"#F59E0B",ic:"map-pin"},{l:"Areas",v:String(areaKeys.length),c:"#3B82F6",ic:"map"}].forEach(function(s){
-    var card=el("div",{style:{background:"rgba(255,255,255,0.03)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:"12px",padding:"14px",textAlign:"center",transition:"transform 0.2s ease,box-shadow 0.2s ease,border-color 0.2s ease",cursor:"default"}});
-    card.addEventListener("mouseenter",function(){card.style.transform="translateY(-2px)";card.style.boxShadow="0 4px 20px rgba(0,0,0,0.3)";card.style.borderColor="rgba(255,255,255,0.15)";});
-    card.addEventListener("mouseleave",function(){card.style.transform="translateY(0)";card.style.boxShadow="none";card.style.borderColor="rgba(255,255,255,0.06)";});
+    var card=el("div",{style:{background:cl.glass||"rgba(255,255,255,0.03)",backdropFilter:cl.blur||"blur(8px)",WebkitBackdropFilter:cl.blur||"blur(8px)",border:"1px solid "+(cl.glassBorder||"rgba(255,255,255,0.06)"),borderRadius:"12px",padding:"14px",textAlign:"center",transition:"transform 0.2s ease,box-shadow 0.2s ease,border-color 0.2s ease",cursor:"default"}});
+    card.className="dv-glass";
+    card.addEventListener("mouseenter",function(){card.style.transform="translateY(-2px)";card.style.boxShadow=darkMode?"0 4px 20px rgba(0,0,0,0.3),0 2px 12px rgba(212,175,55,0.06)":"0 4px 20px rgba(0,0,0,0.08)";card.style.borderColor=darkMode?"rgba(212,175,55,0.15)":"rgba(0,0,0,0.12)";});
+    card.addEventListener("mouseleave",function(){card.style.transform="translateY(0)";card.style.boxShadow="";card.style.borderColor="";});
     var icWrap=el("div",{style:{marginBottom:"6px",display:"flex",alignItems:"center",justifyContent:"center",gap:"4px"}});
     icWrap.innerHTML='<i data-lucide="'+s.ic+'" style="width:14px;height:14px;color:'+s.c+';opacity:0.6"></i>';
     card.appendChild(icWrap);
@@ -1352,9 +1353,9 @@ function renderHome(){
     pulseCard.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Top Movers (1-Year Growth)"));
     var moverList=el("div",{style:{display:"flex",flexDirection:"column",gap:"6px"}});
     movers.slice(0,5).forEach(function(m,i){
-      var bgOrig=i%2===0?"#131926":"transparent";
+      var bgOrig=i%2===0?(darkMode?"rgba(255,255,255,0.03)":"rgba(0,0,0,0.03)"):"transparent";
       var row=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",background:bgOrig,borderRadius:"8px",transition:"transform 0.15s ease,background 0.15s ease",cursor:"default"}});
-      row.addEventListener("mouseenter",function(){row.style.transform="translateX(4px)";row.style.background="rgba(212,175,55,0.04)";});
+      row.addEventListener("mouseenter",function(){row.style.transform="translateX(4px)";row.style.background=darkMode?"rgba(212,175,55,0.06)":"rgba(154,106,16,0.06)";});
       row.addEventListener("mouseleave",function(){row.style.transform="translateX(0)";row.style.background=bgOrig;});
       row.appendChild(span({color:cl.white,fontSize:"12px",fontFamily:"'Inter',sans-serif"},m.name));
       var badge=el("div",{style:{display:"flex",alignItems:"center",gap:"8px"}});
@@ -1406,13 +1407,16 @@ function renderHome(){
   actCard.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"600",borderLeft:"3px solid "+cl.gold,paddingLeft:"10px",marginBottom:"16px"},"Quick Actions"));
   var actGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}});
   [{icon:"search",l:"Analyze",sec:"Market",sub:"Analyzer"},{icon:"scan-search",l:"Search",sec:"Market",sub:"Find"},{icon:"scale",l:"Compare",sec:"Market",sub:"Compare"},{icon:"handshake",l:"Post Deal",sec:"Network",sub:"Deals"},{icon:"bar-chart-3",l:"Market Index",sec:"Market",sub:"Index"},{icon:"smartphone",l:"Media Studio",sec:"Network",sub:"MediaStudio"}].forEach(function(a){
-    var ab=el("button",{style:{padding:"12px 10px",background:"rgba(255,255,255,0.03)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:"10px",cursor:"pointer",display:"flex",alignItems:"center",gap:"8px",transition:"all 0.2s ease"}});
+    var _abBg=cl.glass||"rgba(255,255,255,0.03)";
+    var _abBd=cl.glassBorder||"rgba(255,255,255,0.06)";
+    var ab=el("button",{style:{padding:"12px 10px",background:_abBg,backdropFilter:cl.blur||"blur(8px)",WebkitBackdropFilter:cl.blur||"blur(8px)",border:"1px solid "+_abBd,borderRadius:"10px",cursor:"pointer",display:"flex",alignItems:"center",gap:"8px",transition:"all 0.2s ease"}});
+    ab.className="dv-glass";
     var abIcon=el("span",{style:{width:"16px",height:"16px",display:"inline-flex",alignItems:"center",justifyContent:"center",color:cl.gold}});
     abIcon.innerHTML='<i data-lucide="'+a.icon+'"></i>';
     ab.appendChild(abIcon);
     ab.appendChild(span({color:cl.white,fontSize:"12px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},a.l));
-    ab.addEventListener("mouseenter",function(){this.style.borderColor="rgba(212,175,55,0.3)";this.style.background="rgba(212,175,55,0.08)";this.style.boxShadow="0 0 16px rgba(212,175,55,0.06)";});
-    ab.addEventListener("mouseleave",function(){this.style.borderColor="rgba(255,255,255,0.06)";this.style.background="rgba(255,255,255,0.03)";this.style.boxShadow="none";});
+    ab.addEventListener("mouseenter",function(){this.style.borderColor=darkMode?"rgba(212,175,55,0.3)":"rgba(154,106,16,0.2)";this.style.background=darkMode?"rgba(212,175,55,0.08)":"rgba(154,106,16,0.06)";this.style.boxShadow=darkMode?"0 0 16px rgba(212,175,55,0.06)":"0 2px 12px rgba(0,0,0,0.06)";});
+    ab.addEventListener("mouseleave",function(){this.style.borderColor="";this.style.background="";this.style.boxShadow="";});
     ab.addEventListener("click",function(){setSection(a.sec,a.sub);});
     actGrid.appendChild(ab);
   });
@@ -1588,9 +1592,12 @@ function render(preserveScroll){
 
   var logoWrap=el("div",{});
   logoWrap.className="dv-sidebar-logo";
-  var logoSvg=el("div",{style:{width:sidebarCollapsed?"28px":"36px",height:sidebarCollapsed?"28px":"36px",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center"}});
-  logoSvg.innerHTML='<svg viewBox="0 0 40 40" width="'+(sidebarCollapsed?28:36)+'" height="'+(sidebarCollapsed?28:36)+'"><defs><linearGradient id="dvGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#D4AF37"/><stop offset="100%" stop-color="#B8941F"/></linearGradient></defs><rect x="6" y="6" width="28" height="28" rx="4" transform="rotate(45 20 20)" fill="none" stroke="url(#dvGrad)" stroke-width="2.5"/><text x="20" y="25" text-anchor="middle" fill="#D4AF37" font-family="Space Grotesk,monospace" font-weight="800" font-size="13">DV</text></svg>';
-  logoWrap.appendChild(logoSvg);
+  var _logoSize=sidebarCollapsed?28:36;
+  var logoBox=el("div",{style:{width:_logoSize+"px",height:_logoSize+"px",flexShrink:"0",borderRadius:"10px",background:"linear-gradient(135deg,#D4AF37,#B8941F)",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",boxShadow:"0 2px 8px rgba(212,175,55,0.3)"}});
+  var logoImg=el("img",{src:"logo.png",alt:"DubAIVal",style:{width:(_logoSize-4)+"px",height:(_logoSize-4)+"px",objectFit:"contain"}});
+  logoImg.onerror=function(){this.style.display="none";var fb=document.createElement("span");fb.style.cssText="color:#fff;font-family:Space Grotesk,monospace;font-weight:800;font-size:"+(_logoSize<32?"10":"13")+"px";fb.textContent="DV";this.parentNode.appendChild(fb);};
+  logoBox.appendChild(logoImg);
+  logoWrap.appendChild(logoBox);
   var logoText=el("div",{});
   logoText.className="dv-sidebar-logo-text";
   logoText.appendChild(div({fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",color:cl.white},"DubAIVal"));
@@ -1677,7 +1684,11 @@ function render(preserveScroll){
   var curSec=NAV_SECTIONS.find(function(n){return n.id===currentSection;});
   var mLogoWrap=el("span",{style:{display:"none",alignItems:"center"}});
   mLogoWrap.className="dv-mobile-logo";
-  mLogoWrap.innerHTML='<svg viewBox="0 0 40 40" width="28" height="28"><defs><linearGradient id="dvGradM" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#D4AF37"/><stop offset="100%" stop-color="#B8941F"/></linearGradient></defs><rect x="6" y="6" width="28" height="28" rx="4" transform="rotate(45 20 20)" fill="none" stroke="url(#dvGradM)" stroke-width="2.5"/><text x="20" y="25" text-anchor="middle" fill="#D4AF37" font-family="Space Grotesk,monospace" font-weight="800" font-size="13">DV</text></svg>';
+  var mLogoBox=el("span",{style:{width:"28px",height:"28px",borderRadius:"7px",background:"linear-gradient(135deg,#D4AF37,#B8941F)",display:"inline-flex",alignItems:"center",justifyContent:"center",overflow:"hidden",boxShadow:"0 2px 6px rgba(212,175,55,0.3)"}});
+  var mLogoImg=el("img",{src:"logo.png",alt:"DV",style:{width:"24px",height:"24px",objectFit:"contain"}});
+  mLogoImg.onerror=function(){this.style.display="none";var fb=document.createElement("span");fb.style.cssText="color:#fff;font-family:Space Grotesk,monospace;font-weight:800;font-size:10px";fb.textContent="DV";this.parentNode.appendChild(fb);};
+  mLogoBox.appendChild(mLogoImg);
+  mLogoWrap.appendChild(mLogoBox);
   secTitle.appendChild(mLogoWrap);
   var secIconWrap=el("span",{style:{width:"18px",height:"18px",display:"inline-flex",alignItems:"center"}});
   secIconWrap.className="dv-desktop-sec-icon";
