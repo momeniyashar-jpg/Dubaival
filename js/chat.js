@@ -3321,7 +3321,7 @@ function showLinkInBio(){
     previewWrap.innerHTML="";
     var phone=div({background:"#000",borderRadius:"24px",padding:"20px 16px",width:"280px",margin:"0 auto",border:"3px solid #333",minHeight:"400px"});
     if(bp&&bp.name){
-      phone.appendChild(el("div",{style:{textAlign:"center",marginBottom:"4px"}},el("div",{style:{width:"60px",height:"60px",borderRadius:"50%",background:"linear-gradient(135deg,#C9A84C,#8B6914)",margin:"0 auto 8px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"24px",color:"#FFF"}},"🏠")));
+      phone.appendChild(el("div",{style:{textAlign:"center",marginBottom:"4px"}},el("div",{style:{width:"60px",height:"60px",borderRadius:"50%",background:"linear-gradient(135deg,#C9A84C,#8B6914)",margin:"0 auto 8px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"24px",color:"#FFF"}},"")));
       phone.appendChild(el("div",{style:{color:"#FFF",fontSize:"14px",fontWeight:"700",textAlign:"center",fontFamily:"'Space Grotesk',sans-serif"}},bp.name));
       if(bp.bio)phone.appendChild(el("div",{style:{color:"#999",fontSize:"10px",textAlign:"center",marginTop:"2px"}},bp.bio));
     }else{
@@ -4239,9 +4239,9 @@ function showHashtagIntelligence(caption){
       var mid=enriched.filter(function(e){return e.posts&&e.posts>=100000&&e.posts<=1000000;}).slice(0,4);
       var niche=enriched.filter(function(e){return e.posts&&e.posts<100000&&e.posts>=1000;}).slice(0,3);
       var mixParts=[];
-      if(high.length>0)mixParts.push("🔴 "+high.length+" broad ("+high.map(function(h){return h.tag;}).join(" ")+")");
-      if(mid.length>0)mixParts.push("🟡 "+mid.length+" medium ("+mid.map(function(h){return h.tag;}).join(" ")+")");
-      if(niche.length>0)mixParts.push("🟢 "+niche.length+" niche ("+niche.map(function(h){return h.tag;}).join(" ")+")");
+      if(high.length>0)mixParts.push(high.length+" broad ("+high.map(function(h){return h.tag;}).join(" ")+")");
+      if(mid.length>0)mixParts.push(mid.length+" medium ("+mid.map(function(h){return h.tag;}).join(" ")+")");
+      if(niche.length>0)mixParts.push(niche.length+" niche ("+niche.map(function(h){return h.tag;}).join(" ")+")");
       if(mixParts.length>0){
         mixParts.forEach(function(p){stratBox.appendChild(el("div",{style:{color:"#CCC",fontSize:"9px",lineHeight:"1.6",fontFamily:"monospace"}},p));});
         stratBox.appendChild(el("div",{style:{color:"#6B7280",fontSize:"8px",marginTop:"6px",fontStyle:"italic",fontFamily:"monospace"}},"Best formula: 3 broad + 4 medium + 3 niche = maximum reach & discoverability"));
@@ -4250,7 +4250,7 @@ function showHashtagIntelligence(caption){
     }
     if(result.best_combo){
       var bestBox=div({background:"#1A1820",border:"1px solid #F59E0B",borderRadius:"8px",padding:"10px",marginTop:"10px"});
-      bestBox.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",fontWeight:"700",fontFamily:"monospace",marginBottom:"4px"}},"⭐ Best Combination (Copy All)"));
+      bestBox.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",fontWeight:"700",fontFamily:"monospace",marginBottom:"4px"}},"Best Combination (Copy All)"));
       var bestText=el("div",{style:{color:"#E0E0E0",fontSize:"11px",lineHeight:"1.5",cursor:"pointer"},onclick:function(){
         navigator.clipboard.writeText(result.best_combo);bestText.style.color="#10B981";setTimeout(function(){bestText.style.color="#E0E0E0";},1000);
       }});bestText.textContent=result.best_combo;bestBox.appendChild(bestText);
@@ -4282,7 +4282,7 @@ function showContentCalendar(){
   var m=document.getElementById("calendar-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"calendar-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #3B82F6",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
-  card.appendChild(el("h3",{style:{color:"#3B82F6",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"📅 Content Calendar"));
+  card.appendChild(el("h3",{style:{color:"#3B82F6",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"Content Calendar"));
 
   var cal=getCalendarData();
   var now=new Date();var curMonth=now.getMonth();var curYear=now.getFullYear();
@@ -4336,7 +4336,7 @@ function showContentCalendar(){
       var hRow=div({display:"flex",justifyContent:"space-between",alignItems:"center"});
       hRow.appendChild(el("span",{style:{color:"#3B82F6",fontSize:"10px",fontWeight:"700",fontFamily:"monospace"}},evt.time+" — "+(evt.platform||"Instagram")));
       var delBtn=el("button",{style:{background:"none",border:"none",color:"#EF4444",fontSize:"12px",cursor:"pointer"},onclick:function(){deleteCalendarEvent(evt.id);cal=getCalendarData();evCard.remove();}});
-      delBtn.textContent="🗑";hRow.appendChild(delBtn);evCard.appendChild(hRow);
+      delBtn.textContent="×";hRow.appendChild(delBtn);evCard.appendChild(hRow);
       var cap=el("div",{style:{color:"#CCC",fontSize:"10px",lineHeight:"1.4",marginTop:"4px",maxHeight:"60px",overflow:"hidden"}});cap.textContent=(evt.caption||"").substring(0,150);evCard.appendChild(cap);
       evWrap.appendChild(evCard);
     });
@@ -4346,26 +4346,26 @@ function showContentCalendar(){
   card.appendChild(renderMonth(curYear,curMonth));
 
   if(cal.length>0){
-    card.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",marginTop:"10px",fontFamily:"monospace"}},"📊 "+cal.length+" scheduled post"+(cal.length>1?"s":"")));
+    card.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",marginTop:"10px",fontFamily:"monospace"}},cal.length+" scheduled post"+(cal.length>1?"s":"")));
   }
 
   var addBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#3B82F6,#06B6D4)",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){showAddCalendarEvent();}});
-  addBtn.textContent="➕ Add New Post";card.appendChild(addBtn);
+  addBtn.textContent="Add New Post";card.appendChild(addBtn);
 
   if(cal.length>0){
     var upcomingHeader=el("div",{style:{color:"#3B82F6",fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginTop:"12px",marginBottom:"6px"}});
-    upcomingHeader.textContent="📋 Upcoming Posts";card.appendChild(upcomingHeader);
+    upcomingHeader.textContent="Upcoming Posts";card.appendChild(upcomingHeader);
     var today=new Date().toISOString().split("T")[0];
     var upcoming=cal.filter(function(e){return e.date>=today;}).sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:0;}).slice(0,5);
-    var platIcons={instagram:"📸",facebook:"📘",linkedin:"💼",twitter:"𝕏",whatsapp:"📲",youtube:"▶️",all:"🌐"};
+    var platIcons={instagram:"IG",facebook:"FB",linkedin:"LI",twitter:"X",whatsapp:"WA",youtube:"YT",all:"ALL"};
     upcoming.forEach(function(evt){
       var evCard=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",marginBottom:"4px",display:"flex",justifyContent:"space-between",alignItems:"center"});
       var leftCol=div({flex:"1",overflow:"hidden"});
-      leftCol.appendChild(el("div",{style:{color:"#3B82F6",fontSize:"10px",fontWeight:"700",fontFamily:"monospace"}},evt.date+" "+evt.time+" "+(platIcons[evt.platform]||"📱")));
+      leftCol.appendChild(el("div",{style:{color:"#3B82F6",fontSize:"10px",fontWeight:"700",fontFamily:"monospace"}},evt.date+" "+evt.time+" "+(platIcons[evt.platform]||"")));
       leftCol.appendChild(el("div",{style:{color:"#CCC",fontSize:"9px",marginTop:"2px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},(evt.caption||"").substring(0,60)));
       evCard.appendChild(leftCol);
       var delBtn=el("button",{style:{background:"none",border:"none",color:"#EF4444",fontSize:"12px",cursor:"pointer",flexShrink:"0",padding:"4px"},onclick:function(){deleteCalendarEvent(evt.id);evCard.remove();}});
-      delBtn.textContent="🗑";evCard.appendChild(delBtn);
+      delBtn.textContent="×";evCard.appendChild(delBtn);
       card.appendChild(evCard);
     });
   }
@@ -4408,24 +4408,24 @@ function showMultiLanguage(caption){
   var m=document.getElementById("multilang-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"multilang-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #06B6D4",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
-  card.appendChild(el("h3",{style:{color:"#06B6D4",margin:"0 0 4px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"🌐 Multi-Language Translator"));
+  card.appendChild(el("h3",{style:{color:"#06B6D4",margin:"0 0 4px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"Multi-Language Translator"));
   card.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",marginBottom:"12px",fontFamily:"monospace"}},"Translate your post for international Dubai audiences"));
   var languages=[
-    {code:"ar",name:"العربية (Arabic)",flag:"🇦🇪",color:"#10B981",audience:"UAE & GCC buyers"},
-    {code:"fa",name:"فارسی (Farsi)",flag:"🇮🇷",color:"#8B5CF6",audience:"Iranian investors"},
-    {code:"ru",name:"Русский (Russian)",flag:"🇷🇺",color:"#3B82F6",audience:"Russian-speaking investors"},
-    {code:"zh",name:"中文 (Chinese)",flag:"🇨🇳",color:"#EF4444",audience:"Chinese HNW buyers"},
-    {code:"hi",name:"हिन्दी (Hindi)",flag:"🇮🇳",color:"#F59E0B",audience:"Indian investors"},
-    {code:"fr",name:"Français (French)",flag:"🇫🇷",color:"#EC4899",audience:"Francophone African & European buyers"}
+    {code:"ar",name:"العربية (Arabic)",flag:"AR",color:"#10B981",audience:"UAE & GCC buyers"},
+    {code:"fa",name:"فارسی (Farsi)",flag:"FA",color:"#8B5CF6",audience:"Iranian investors"},
+    {code:"ru",name:"Русский (Russian)",flag:"RU",color:"#3B82F6",audience:"Russian-speaking investors"},
+    {code:"zh",name:"中文 (Chinese)",flag:"ZH",color:"#EF4444",audience:"Chinese HNW buyers"},
+    {code:"hi",name:"हिन्दी (Hindi)",flag:"HI",color:"#F59E0B",audience:"Indian investors"},
+    {code:"fr",name:"Français (French)",flag:"FR",color:"#EC4899",audience:"Francophone African & European buyers"}
   ];
   var resultArea=div({});
   var langGrid=div({display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"6px",marginBottom:"12px"});
   languages.forEach(function(lang){
     var langBtn=el("button",{style:{background:hexAlpha(lang.color,0.08),border:"1px solid "+hexAlpha(lang.color,0.25),color:lang.color,padding:"10px 6px",borderRadius:"10px",fontSize:"10px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace",textAlign:"center",transition:"all 0.2s"},onclick:async function(){
-      langBtn.textContent="⏳ ...";
+      langBtn.textContent="...";
       var result=await translatePost(caption,lang.name,lang.code);
       langBtn.textContent=lang.flag+" "+lang.code.toUpperCase();
-      if(!result){resultArea.innerHTML="";resultArea.appendChild(el("p",{style:{color:"#EF4444",fontSize:"11px"}},"❌ Check Gemini API key."));return;}
+      if(!result){resultArea.innerHTML="";resultArea.appendChild(el("p",{style:{color:"#EF4444",fontSize:"11px"}},"Check Gemini API key."));return;}
       var rCard=div({background:"#0D1117",border:"1px solid "+hexAlpha(lang.color,0.3),borderRadius:"10px",padding:"12px",marginBottom:"8px"});
       rCard.appendChild(el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}},
         el("span",{style:{color:lang.color,fontSize:"11px",fontWeight:"700",fontFamily:"monospace"}},lang.flag+" "+lang.name),
@@ -4433,17 +4433,17 @@ function showMultiLanguage(caption){
       ));
       var textEl=el("div",{style:{color:"#E0E0E0",fontSize:"11px",lineHeight:"1.6",whiteSpace:"pre-wrap",maxHeight:"200px",overflowY:"auto",direction:lang.code==="ar"||lang.code==="fa"?"rtl":"ltr"}});
       textEl.textContent=result.translated;rCard.appendChild(textEl);
-      if(result.notes){rCard.appendChild(el("div",{style:{color:"#6B7280",fontSize:"9px",marginTop:"6px",fontStyle:"italic"}},"💡 "+result.notes));}
+      if(result.notes){rCard.appendChild(el("div",{style:{color:"#6B7280",fontSize:"9px",marginTop:"6px",fontStyle:"italic"}},result.notes));}
       if(result.hashtags_added&&result.hashtags_added.length>0){
         var tagWrap=div({display:"flex",gap:"3px",flexWrap:"wrap",marginTop:"6px"});
         result.hashtags_added.forEach(function(t){tagWrap.appendChild(el("span",{style:{background:hexAlpha(lang.color,0.12),color:lang.color,padding:"2px 6px",borderRadius:"8px",fontSize:"9px",fontFamily:"monospace"}},t));});
         rCard.appendChild(tagWrap);
       }
       var btnRow=div({display:"flex",gap:"4px",marginTop:"8px"});
-      var copyBtn=el("button",{style:{background:hexAlpha(lang.color,0.15),border:"1px solid "+hexAlpha(lang.color,0.3),color:lang.color,padding:"5px 10px",borderRadius:"6px",fontSize:"10px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){navigator.clipboard.writeText(result.translated);copyBtn.textContent="✅ Copied!";setTimeout(function(){copyBtn.textContent="📋 Copy";},2000);}});
-      copyBtn.textContent="📋 Copy";btnRow.appendChild(copyBtn);
-      var schedBtn=el("button",{style:{background:hexAlpha("#3B82F6",0.15),border:"1px solid "+hexAlpha("#3B82F6",0.3),color:"#3B82F6",padding:"5px 10px",borderRadius:"6px",fontSize:"10px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){saveCalendarEvent({caption:result.translated,platform:"all",language:lang.code});schedBtn.textContent="✅ Scheduled!";setTimeout(function(){schedBtn.textContent="📅 Schedule";},2000);}});
-      schedBtn.textContent="📅 Schedule";btnRow.appendChild(schedBtn);
+      var copyBtn=el("button",{style:{background:hexAlpha(lang.color,0.15),border:"1px solid "+hexAlpha(lang.color,0.3),color:lang.color,padding:"5px 10px",borderRadius:"6px",fontSize:"10px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){navigator.clipboard.writeText(result.translated);copyBtn.textContent="✓ Copied!";setTimeout(function(){copyBtn.textContent="Copy";},2000);}});
+      copyBtn.textContent="Copy";btnRow.appendChild(copyBtn);
+      var schedBtn=el("button",{style:{background:hexAlpha("#3B82F6",0.15),border:"1px solid "+hexAlpha("#3B82F6",0.3),color:"#3B82F6",padding:"5px 10px",borderRadius:"6px",fontSize:"10px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){saveCalendarEvent({caption:result.translated,platform:"all",language:lang.code});schedBtn.textContent="✓ Scheduled!";setTimeout(function(){schedBtn.textContent="Schedule";},2000);}});
+      schedBtn.textContent="Schedule";btnRow.appendChild(schedBtn);
       rCard.appendChild(btnRow);
       resultArea.appendChild(rCard);
     }});
@@ -5527,12 +5527,12 @@ function _videoPollStatus(checkFn,interval,maxChecks,resultArea,genVideoBtn){
         _videoResultUI(resultArea,result.url,genVideoBtn);
       }else if(result.error){
         clearInterval(timer);
-        resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ "+result.error));
-        genVideoBtn.textContent="🎬 Retry";genVideoBtn.disabled=false;
+        resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},result.error));
+        genVideoBtn.textContent="Retry";genVideoBtn.disabled=false;
       }else if(count>=maxChecks){
         clearInterval(timer);
-        resultArea.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",fontFamily:"monospace"}},"⏰ Still processing — check back in a few minutes."));
-        genVideoBtn.textContent="🎬 Retry";genVideoBtn.disabled=false;
+        resultArea.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",fontFamily:"monospace"}},"Still processing — check back in a few minutes."));
+        genVideoBtn.textContent="Retry";genVideoBtn.disabled=false;
       }
     }catch(e){
       clearInterval(timer);
@@ -5555,7 +5555,7 @@ function showAvatarVideoGen(avatarId){
     avImg.src=av.avatarUrl;hdr.appendChild(avImg);
   }
   var hdrTxt=div({});
-  hdrTxt.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"15px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"}},"🎬 Cinematic AI Video Studio"));
+  hdrTxt.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"15px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"}},"Cinematic AI Video Studio"));
   hdrTxt.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",fontFamily:"monospace"}},av.name+" — Movie-quality AI video generation"));
   hdr.appendChild(hdrTxt);
   card.appendChild(hdr);
@@ -5567,23 +5567,23 @@ function showAvatarVideoGen(avatarId){
 
   var aiRow=div({display:"flex",gap:"6px",marginBottom:"14px"});
   var aiScriptBtn=el("button",{style:{flex:1,background:"#8B5CF622",border:"1px solid #8B5CF6",color:"#8B5CF6",borderRadius:"8px",padding:"8px",fontSize:"10px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
-    aiScriptBtn.textContent="🧠 Writing...";
+    aiScriptBtn.textContent="Writing...";
     try{
       var sys="You are "+av.name+". "+av.tone+". Write a 30-60 second video script for a social media video about Dubai real estate. Include [HOOK] (3 sec), [BODY], [CTA]. Conversational. Write in "+(av.language==="ar"?"Arabic":av.language==="fa"?"Persian":"English")+".";
       scriptInp.value=await askAI([{role:"user",content:"Write a short video script about Dubai real estate market trends"}],sys);
-      aiScriptBtn.textContent="✅ Done";
-    }catch(e){aiScriptBtn.textContent="❌ Error";}
+      aiScriptBtn.textContent="Done";
+    }catch(e){aiScriptBtn.textContent="Error";}
   }});
-  aiScriptBtn.textContent="🧠 AI Script";aiRow.appendChild(aiScriptBtn);
+  aiScriptBtn.textContent="AI Script";aiRow.appendChild(aiScriptBtn);
 
   var aiPromptBtn=el("button",{style:{flex:1,background:"#F59E0B22",border:"1px solid #F59E0B",color:"#F59E0B",borderRadius:"8px",padding:"8px",fontSize:"10px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
-    aiPromptBtn.textContent="🎬 Writing...";
+    aiPromptBtn.textContent="Writing...";
     try{
       scriptInp.value=await askAI([{role:"user",content:"Write a cinematic video prompt for AI video generation about Dubai luxury real estate. Describe the scene visually: camera movements, lighting, architecture, people, mood. 2-3 sentences max. Example: 'Aerial drone shot sweeping over Palm Jumeirah at golden hour...'"}],"You write cinematic video prompts for AI video generators like Kling and Runway. Focus on visual details, camera movements, and cinematic quality. No dialogue — pure visual storytelling.");
-      aiPromptBtn.textContent="✅ Done";
-    }catch(e){aiPromptBtn.textContent="❌ Error";}
+      aiPromptBtn.textContent="Done";
+    }catch(e){aiPromptBtn.textContent="Error";}
   }});
-  aiPromptBtn.textContent="🎬 AI Cinematic Prompt";aiRow.appendChild(aiPromptBtn);
+  aiPromptBtn.textContent="AI Cinematic Prompt";aiRow.appendChild(aiPromptBtn);
   card.appendChild(aiRow);
 
   card.appendChild(el("div",{style:{color:"#FFF",fontSize:"12px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"}},"Choose Video Engine"));
@@ -5592,14 +5592,14 @@ function showAvatarVideoGen(avatarId){
   var methodGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:"6px",marginBottom:"12px"});
   var methodCards=[];
   var methods=[
-    {id:"runway",icon:"🎞️",name:"Runway Gen-4",desc:"Hollywood-grade cinematic video. Best motion quality in the world.",tier:"🟢 Free trial",color:"#FF6B6B",quality:"★★★★★"},
-    {id:"kling",icon:"🎬",name:"Kling AI 2.0",desc:"Cinematic video from image/text. Movie quality. 5-10s clips.",tier:"🟢 Free tier",color:"#F59E0B",quality:"★★★★★"},
-    {id:"minimax",icon:"🌊",name:"Minimax Hailuo",desc:"Ultra-realistic motion. Cinematic lighting. 6s HD clips.",tier:"🟢 Free tier",color:"#3B82F6",quality:"★★★★★"},
-    {id:"pika",icon:"⚡",name:"Pika Labs",desc:"Creative video effects. Style transfer. Fast generation.",tier:"🟢 Free tier",color:"#A855F7",quality:"★★★★☆"},
-    {id:"luma",icon:"✨",name:"Luma Dream Machine",desc:"Photorealistic video generation. Smooth motion. 5s clips.",tier:"🟢 Free tier",color:"#8B5CF6",quality:"★★★★☆"},
-    {id:"heygen",icon:"🧑‍💼",name:"HeyGen",desc:"Ultra-realistic talking avatar. Lip-sync. Indistinguishable from real.",tier:"🟢 Free via Fal.ai",color:"#10B981",quality:"★★★★★"},
-    {id:"hedra",icon:"🌐",name:"Hedra",desc:"High-quality talking avatar from photo + text. Near HeyGen quality.",tier:"🟢 Free tier",color:"#14B8A6",quality:"★★★★☆"},
-    {id:"did",icon:"🎭",name:"D-ID",desc:"Talking head from photo. Good lip-sync. Quick generation.",tier:"🟢 Free credits",color:"#06B6D4",quality:"★★★☆☆"},
+    {id:"runway",icon:"RW",name:"Runway Gen-4",desc:"Hollywood-grade cinematic video. Best motion quality in the world.",tier:"Free trial",color:"#FF6B6B",quality:"★★★★★"},
+    {id:"kling",icon:"KL",name:"Kling AI 2.0",desc:"Cinematic video from image/text. Movie quality. 5-10s clips.",tier:"Free tier",color:"#F59E0B",quality:"★★★★★"},
+    {id:"minimax",icon:"MM",name:"Minimax Hailuo",desc:"Ultra-realistic motion. Cinematic lighting. 6s HD clips.",tier:"Free tier",color:"#3B82F6",quality:"★★★★★"},
+    {id:"pika",icon:"PK",name:"Pika Labs",desc:"Creative video effects. Style transfer. Fast generation.",tier:"Free tier",color:"#A855F7",quality:"★★★★☆"},
+    {id:"luma",icon:"LM",name:"Luma Dream Machine",desc:"Photorealistic video generation. Smooth motion. 5s clips.",tier:"Free tier",color:"#8B5CF6",quality:"★★★★☆"},
+    {id:"heygen",icon:"HG",name:"HeyGen",desc:"Ultra-realistic talking avatar. Lip-sync. Indistinguishable from real.",tier:"Free via Fal.ai",color:"#10B981",quality:"★★★★★"},
+    {id:"hedra",icon:"HD",name:"Hedra",desc:"High-quality talking avatar from photo + text. Near HeyGen quality.",tier:"Free tier",color:"#14B8A6",quality:"★★★★☆"},
+    {id:"did",icon:"DI",name:"D-ID",desc:"Talking head from photo. Good lip-sync. Quick generation.",tier:"Free credits",color:"#06B6D4",quality:"★★★☆☆"},
   ];
   methods.forEach(function(mt){
     var mc=div({background:mt.id===selectedMethod?"linear-gradient(135deg,"+mt.color+"22,"+mt.color+"11)":"#0D1117",border:"2px solid "+(mt.id===selectedMethod?mt.color:"#2A3040"),borderRadius:"12px",padding:"10px",cursor:"pointer",transition:"all 0.3s"});
@@ -5618,7 +5618,7 @@ function showAvatarVideoGen(avatarId){
   });
   card.appendChild(methodGrid);
 
-  card.appendChild(el("div",{style:{color:"#10B981",fontSize:"9px",fontFamily:"monospace",marginBottom:"10px",padding:"6px 8px",background:"#10B98115",borderRadius:"6px",border:"1px solid #10B98133"}},"✅ All video engines are server-powered — no API key needed. Just click Generate!"));
+  card.appendChild(el("div",{style:{color:"#10B981",fontSize:"9px",fontFamily:"monospace",marginBottom:"10px",padding:"6px 8px",background:"#10B98115",borderRadius:"6px",border:"1px solid #10B98133"}},"All video engines are server-powered — no API key needed. Just click Generate."));
 
   var heygenAvatarSection=div({display:"none",marginBottom:"10px"});
   var heygenAvatarId=localStorage.getItem("dv_heygen_avatar")||"";
@@ -5626,7 +5626,7 @@ function showAvatarVideoGen(avatarId){
   var heygenAvatarInp=el("input",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"6px",padding:"6px 8px",color:"#E0E0E0",fontSize:"10px",fontFamily:"monospace",boxSizing:"border-box",marginBottom:"4px"},placeholder:"Avatar ID from HeyGen dashboard or click Load Avatars",value:heygenAvatarId});
   heygenAvatarSection.appendChild(heygenAvatarInp);
   var loadAvatarsBtn=el("button",{style:{width:"100%",background:"#10B98122",border:"1px solid #10B981",color:"#10B981",borderRadius:"6px",padding:"6px",fontSize:"9px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
-    loadAvatarsBtn.textContent="⏳ Loading avatars...";
+    loadAvatarsBtn.textContent="Loading avatars...";
     var avatars=await _heygenListAvatars();
     if(avatars.length>0){
       heygenAvatarInp.value="";
@@ -5638,10 +5638,10 @@ function showAvatarVideoGen(avatarId){
         list.appendChild(row);
       });
       heygenAvatarSection.appendChild(list);
-      loadAvatarsBtn.textContent="✅ "+avatars.length+" avatars loaded";
-    }else{loadAvatarsBtn.textContent="❌ No avatars found";}
+      loadAvatarsBtn.textContent=avatars.length+" avatars loaded";
+    }else{loadAvatarsBtn.textContent="No avatars found";}
   }});
-  loadAvatarsBtn.textContent="📋 Load My HeyGen Avatars";heygenAvatarSection.appendChild(loadAvatarsBtn);
+  loadAvatarsBtn.textContent="Load My HeyGen Avatars";heygenAvatarSection.appendChild(loadAvatarsBtn);
   card.appendChild(heygenAvatarSection);
 
   var resultArea=div({marginTop:"8px"});card.appendChild(resultArea);
@@ -5656,12 +5656,12 @@ function showAvatarVideoGen(avatarId){
     var cleanScript=script.replace(/\[HOOK\]|\[BODY\]|\[CTA\]|\[.*?\]/g,"").trim();
 
     if(selectedMethod==="runway"){
-      genVideoBtn.textContent="🎞️ Runway Gen-4 — Creating Hollywood-grade video...";
-      resultArea.appendChild(el("div",{style:{color:"#FF6B6B",fontSize:"11px",fontFamily:"monospace"}},"⏳ Generating cinematic video with Runway Gen-4 Turbo..."));
+      genVideoBtn.textContent="Runway Gen-4 — Creating Hollywood-grade video...";
+      resultArea.appendChild(el("div",{style:{color:"#FF6B6B",fontSize:"11px",fontFamily:"monospace"}},"Generating cinematic video with Runway Gen-4 Turbo..."));
       try{
         var rwd=await _runwayGenVideo(cleanScript,av.avatarUrl||null);
         if(rwd.id){
-          resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace"}},"✅ Task started: "+rwd.id));
+          resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace"}},"Task started: "+rwd.id));
           _videoPollStatus(async function(){
             var st=await _runwayCheckStatus(rwd.id);
             if(st.status==="SUCCEEDED"&&st.output&&st.output.length>0){return{done:true,url:st.output[0]};}
@@ -5669,7 +5669,7 @@ function showAvatarVideoGen(avatarId){
             return{done:false};
           },5000,120,resultArea,genVideoBtn);
         }else{
-          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"❌ Runway error: "+(rwd.error||JSON.stringify(rwd))));
+          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Runway error: "+(rwd.error||JSON.stringify(rwd))));
           genVideoBtn.disabled=false;
         }
       }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
