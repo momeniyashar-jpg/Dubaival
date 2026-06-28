@@ -1707,7 +1707,7 @@ function render(preserveScroll){
       var p=el("button",{});
       p.className="dv-pill"+(isActive?" active":"");
       p.textContent=sub.label;
-      p.addEventListener("click",function(){currentSubTab=sub.id;render();});
+      p.addEventListener("click",function(){setSection(currentSection,sub.id);});
       pillBar.appendChild(p);
     });
     main.appendChild(pillBar);

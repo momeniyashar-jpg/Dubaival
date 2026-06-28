@@ -362,13 +362,33 @@ var NAV_SECTIONS=[
   ]}
 ];
 
+var _skipPush=false;
 function setSection(sec,sub){
   currentSection=sec;
   currentSubTab=sub||"";
   var s=NAV_SECTIONS.find(function(n){return n.id===sec;});
   if(s&&s.subs.length>0&&!sub)currentSubTab=s.subs[0].id;
+  if(!_skipPush){
+    var stateObj={section:currentSection,sub:currentSubTab};
+    var hash="#"+currentSection+(currentSubTab?"/"+currentSubTab:"");
+    history.pushState(stateObj,"",hash);
+  }
   render();
 }
+window.addEventListener("popstate",function(e){
+  if(e.state&&e.state.section){
+    _skipPush=true;
+    currentSection=e.state.section;
+    currentSubTab=e.state.sub||"";
+    render();
+    _skipPush=false;
+  }
+});
+(function(){
+  var stateObj={section:currentSection,sub:currentSubTab};
+  var hash="#"+currentSection+(currentSubTab?"/"+currentSubTab:"");
+  history.replaceState(stateObj,"",hash);
+})();
 // -- Live Geopolitical Adjustment ---------------------------------------------
 // ── MACRO RISK SYSTEM ─────────────────────────────────────────────────────
 // Based on: Geopolitical × Social × Economic weighted model
