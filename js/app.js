@@ -1594,7 +1594,7 @@ function render(preserveScroll){
   logoWrap.className="dv-sidebar-logo";
   var _logoSize=sidebarCollapsed?28:36;
   var logoBox=el("div",{style:{width:_logoSize+"px",height:_logoSize+"px",flexShrink:"0",borderRadius:"10px",background:"linear-gradient(135deg,#D4AF37,#B8941F)",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",boxShadow:"0 2px 8px rgba(212,175,55,0.3)"}});
-  var logoImg=el("img",{src:"logo.png",alt:"DubAIVal",style:{width:(_logoSize-4)+"px",height:(_logoSize-4)+"px",objectFit:"contain"}});
+  var logoImg=el("img",{src:"/logo.png",alt:"DubAIVal",style:{width:(_logoSize-4)+"px",height:(_logoSize-4)+"px",objectFit:"contain"}});
   logoImg.onerror=function(){this.style.display="none";var fb=document.createElement("span");fb.style.cssText="color:#fff;font-family:Space Grotesk,monospace;font-weight:800;font-size:"+(_logoSize<32?"10":"13")+"px";fb.textContent="DV";this.parentNode.appendChild(fb);};
   logoBox.appendChild(logoImg);
   logoWrap.appendChild(logoBox);
@@ -1685,7 +1685,7 @@ function render(preserveScroll){
   var mLogoWrap=el("span",{style:{display:"none",alignItems:"center"}});
   mLogoWrap.className="dv-mobile-logo";
   var mLogoBox=el("span",{style:{width:"28px",height:"28px",borderRadius:"7px",background:"linear-gradient(135deg,#D4AF37,#B8941F)",display:"inline-flex",alignItems:"center",justifyContent:"center",overflow:"hidden",boxShadow:"0 2px 6px rgba(212,175,55,0.3)"}});
-  var mLogoImg=el("img",{src:"logo.png",alt:"DV",style:{width:"24px",height:"24px",objectFit:"contain"}});
+  var mLogoImg=el("img",{src:"/logo.png",alt:"DV",style:{width:"24px",height:"24px",objectFit:"contain"}});
   mLogoImg.onerror=function(){this.style.display="none";var fb=document.createElement("span");fb.style.cssText="color:#fff;font-family:Space Grotesk,monospace;font-weight:800;font-size:10px";fb.textContent="DV";this.parentNode.appendChild(fb);};
   mLogoBox.appendChild(mLogoImg);
   mLogoWrap.appendChild(mLogoBox);

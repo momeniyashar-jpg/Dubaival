@@ -122,7 +122,7 @@ function renderMarket(){
     psfBins.forEach(function(b,i){
       var col=el('div',{style:{flex:'1',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-end',height:'100%'}});
       col.appendChild(el('div',{style:{width:'100%',height:Math.max(3,b/psfMax*100)+'%',background:'linear-gradient(180deg,'+cl.gold+','+hexAlpha(cl.gold,0.3)+')',borderRadius:'3px 3px 0 0',transition:'height 0.5s'}}));
-      col.appendChild(span({color:cl.sub,fontSize:'6px',fontFamily:"'Space Grotesk',monospace",marginTop:'2px'},psfLabels[i]));
+      col.appendChild(span({color:cl.sub,fontSize:'11px',fontFamily:"'Space Grotesk',monospace",marginTop:'4px'},psfLabels[i]));
       psfChart.appendChild(col);
     });
     psfCard.appendChild(psfChart);
@@ -138,7 +138,7 @@ function renderMarket(){
     yBins.forEach(function(b,i){
       var col=el('div',{style:{flex:'1',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-end',height:'100%'}});
       col.appendChild(el('div',{style:{width:'100%',height:Math.max(3,b/yMax*100)+'%',background:'linear-gradient(180deg,#22C55E,'+hexAlpha('#22C55E',0.3)+')',borderRadius:'3px 3px 0 0',transition:'height 0.5s'}}));
-      col.appendChild(span({color:cl.sub,fontSize:'6px',fontFamily:"'Space Grotesk',monospace",marginTop:'2px'},yLabels[i]));
+      col.appendChild(span({color:cl.sub,fontSize:'11px',fontFamily:"'Space Grotesk',monospace",marginTop:'4px'},yLabels[i]));
       yChart.appendChild(col);
     });
     yCard.appendChild(yChart);
@@ -154,10 +154,10 @@ function renderMarket(){
       var isTop=i<5;
       var pct=Math.min(100,Math.abs(g.g)*3);
       var row=el('div',{style:{display:'flex',alignItems:'center',gap:'4px',marginBottom:'2px'}});
-      row.appendChild(span({color:cl.sub,fontSize:'6px',fontFamily:"'Space Grotesk',monospace",width:'50px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flexShrink:'0',display:'inline-block'},g.name.length>10?g.name.substring(0,10)+'…':g.name));
+      row.appendChild(span({color:cl.sub,fontSize:'11px',fontFamily:"'Space Grotesk',monospace",width:'80px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flexShrink:'0',display:'inline-block'},g.name.length>14?g.name.substring(0,14)+'…':g.name));
       row.appendChild(el('div',{style:{flex:'1',height:'4px',background:'rgba(255,255,255,0.04)',borderRadius:'2px',overflow:'hidden'}},[
         el('div',{style:{height:'100%',width:pct+'%',background:isTop?'#22C55E':'#EF4444',borderRadius:'2px'}})]));
-      row.appendChild(span({color:isTop?'#22C55E':'#EF4444',fontSize:'6px',fontWeight:'700',fontFamily:"'Space Grotesk',monospace",width:'28px',textAlign:'right',flexShrink:'0'},(g.g>=0?'+':'')+g.g.toFixed(0)+'%'));
+      row.appendChild(span({color:isTop?'#22C55E':'#EF4444',fontSize:'11px',fontWeight:'700',fontFamily:"'Space Grotesk',monospace",width:'40px',textAlign:'right',flexShrink:'0'},(g.g>=0?'+':'')+g.g.toFixed(0)+'%'));
       gCard.appendChild(row);
     });
     dSec.appendChild(r2);
