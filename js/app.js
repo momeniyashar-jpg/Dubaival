@@ -1237,7 +1237,9 @@ var TAB_TO_SECTION={
   "Market":["Market","Dashboard"],"Index":["Market","Index"],"Analyzer":["Market","Analyzer"],
   "Map":["Market","Map"],"Find":["Market","Find"],"Compare":["Market","Compare"],
   "Portfolio":["Portfolio","Assets"],"Alerts":["Portfolio","Alerts"],
+  "Health":["Portfolio","Health"],"Projections":["Portfolio","Projections"],
   "Deals":["Network","Deals"],"Social":["Network","Social"],"Chat":["Network","Chat"],
+  "AgentHub":["Network","AgentHub"],
   "Workspace":["More","Workspace"],"About":["More","About"],"Admin":["More","Admin"],
   "MediaStudio":["Network","MediaStudio"],"Reports":["More","Reports"]
 };
@@ -1255,14 +1257,17 @@ function renderHome(){
   wrap.appendChild(hero);
 
   // --- 3 Hero Feature Cards ---
-  var heroGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"14px",marginBottom:"20px"}});heroGrid.className="dv-hero-grid";
+  var heroContainer=el("div",{style:{position:"relative",marginBottom:"20px"}});
+  heroContainer.className="dv-hero-container";
+  var heroGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"14px",position:"relative",zIndex:"1"}});heroGrid.className="dv-hero-grid";
   var heroFeatures=[
-    {icon:"search",title:"Analyze Any Property",desc:"AI valuation for 10,880+ properties across 347 areas",color:"#D4AF37",bg:"rgba(212,175,55,0.06)",border:"rgba(212,175,55,0.15)",sec:"Market",sub:"Analyzer"},
-    {icon:"handshake",title:"Off-Market Deals",desc:"",color:"#10B981",bg:"rgba(16,185,129,0.06)",border:"rgba(16,185,129,0.15)",sec:"Network",sub:"Deals",countKey:"deals"},
-    {icon:"video",title:"AI Media Studio",desc:"35+ AI Tools",color:"#8B5CF6",bg:"rgba(139,92,246,0.06)",border:"rgba(139,92,246,0.15)",sec:"Network",sub:"MediaStudio"}
+    {icon:"search",title:"Analyze Any Property",desc:"AI valuation for 10,880+ properties across 347 areas",color:"#D4AF37",bg:"rgba(255,255,255,0.04)",border:"rgba(255,255,255,0.08)",hoverBorder:"rgba(212,175,55,0.4)",hoverShadow:"rgba(212,175,55,0.12)",sec:"Market",sub:"Analyzer",micro:"AI-powered valuation — price per sqft, rent estimate, yield, investment signal, and confidence score for any Dubai property",microLink:"Start Analysis →",microColor:"#D4AF37"},
+    {icon:"handshake",title:"Off-Market Deals",desc:"",color:"#10B981",bg:"rgba(255,255,255,0.04)",border:"rgba(255,255,255,0.08)",hoverBorder:"rgba(16,185,129,0.4)",hoverShadow:"rgba(16,185,129,0.12)",sec:"Network",sub:"Deals",countKey:"deals",micro:"Private owner-to-buyer deal board — browse exclusive listings, verified title deeds, direct contact with property owners",microLink:"Browse Deals →",microColor:"#10B981"},
+    {icon:"video",title:"AI Media Studio",desc:"35+ AI Tools",color:"#8B5CF6",bg:"rgba(255,255,255,0.04)",border:"rgba(255,255,255,0.08)",hoverBorder:"rgba(139,92,246,0.4)",hoverShadow:"rgba(139,92,246,0.12)",sec:"Network",sub:"MediaStudio",micro:"35+ professional tools — AI video creator, post designer, content calendar, hashtag intelligence, avatar studio, and more",microLink:"Open Studio →",microColor:"#8B5CF6"}
   ];
   heroFeatures.forEach(function(hf){
-    var hCard=el("div",{style:{background:hf.bg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid "+hf.border,borderRadius:"16px",padding:"28px 20px",cursor:"pointer",transition:"all 0.25s ease",position:"relative",overflow:"hidden",minHeight:"140px",display:"flex",flexDirection:"column",justifyContent:"space-between"}});
+    var hCard=el("div",{style:{background:hf.bg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid "+hf.border,borderRadius:"16px",padding:"28px 20px",cursor:"pointer",transition:"transform 0.3s ease,border-color 0.3s ease,box-shadow 0.3s ease",position:"relative",overflow:"hidden",minHeight:"140px",display:"flex",flexDirection:"column",justifyContent:"space-between"}});
+    hCard.className="dv-hero-card";
     var glow=el("div",{style:{position:"absolute",top:"-40px",right:"-40px",width:"120px",height:"120px",borderRadius:"50%",background:hf.color,opacity:"0.04",filter:"blur(40px)",pointerEvents:"none"}});
     hCard.appendChild(glow);
     var topRow=el("div",{style:{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",position:"relative"}});
@@ -1274,12 +1279,33 @@ function renderHome(){
     var descText=hf.desc;
     if(hf.countKey==="deals"){var dc=0;try{dc=JSON.parse(localStorage.getItem("dv_deal_cache")||"[]").length;}catch(e){}descText=dc>0?dc+" active deals":"Browse exclusive listings";}
     hCard.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",position:"relative"},descText));
-    hCard.addEventListener("mouseenter",function(){hCard.style.borderColor=hf.color;hCard.style.transform="translateY(-3px)";hCard.style.boxShadow="0 12px 40px rgba(0,0,0,0.4),0 0 24px "+hf.color+"15";});
-    hCard.addEventListener("mouseleave",function(){hCard.style.borderColor=hf.border;hCard.style.transform="translateY(0)";hCard.style.boxShadow="none";});
+    var microInfo=el("div",{style:{position:"absolute",bottom:"0",left:"0",right:"0",padding:"12px 16px",background:"rgba(0,0,0,0.7)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",borderRadius:"0 0 16px 16px",transform:"translateY(100%)",opacity:"0",transition:"transform 0.3s ease,opacity 0.3s ease",fontSize:"12px",color:"#8899AA",lineHeight:"1.5",zIndex:"2"}});
+    microInfo.innerHTML=hf.micro+' <span style="color:'+hf.microColor+';font-weight:700;cursor:pointer;font-family:\'Space Grotesk\',monospace;font-size:11px;display:block;margin-top:4px">'+hf.microLink+'</span>';
+    hCard.appendChild(microInfo);
+    hCard.addEventListener("mouseenter",function(){hCard.style.borderColor=hf.hoverBorder;hCard.style.transform="translateY(-4px)";hCard.style.boxShadow="0 0 30px "+hf.hoverShadow;microInfo.style.transform="translateY(0)";microInfo.style.opacity="1";});
+    hCard.addEventListener("mouseleave",function(){hCard.style.borderColor=hf.border;hCard.style.transform="translateY(0)";hCard.style.boxShadow="none";microInfo.style.transform="translateY(100%)";microInfo.style.opacity="0";});
     hCard.addEventListener("click",function(){setSection(hf.sec,hf.sub);});
     heroGrid.appendChild(hCard);
   });
-  wrap.appendChild(heroGrid);
+  heroContainer.appendChild(heroGrid);
+  wrap.appendChild(heroContainer);
+
+  // --- Workspace Quick Card ---
+  var wsCard=el("div",{style:{background:"rgba(255,255,255,0.04)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:"14px",padding:"16px 20px",marginBottom:"20px",cursor:"pointer",display:"flex",alignItems:"center",gap:"14px",transition:"transform 0.2s ease,border-color 0.2s ease,box-shadow 0.2s ease"}});
+  var wsIcon=el("div",{style:{width:"40px",height:"40px",borderRadius:"10px",background:"rgba(59,130,246,0.08)",border:"1px solid rgba(59,130,246,0.15)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
+  wsIcon.innerHTML='<i data-lucide="layout-dashboard" style="width:20px;height:20px;color:#3B82F6"></i>';
+  wsCard.appendChild(wsIcon);
+  var wsText=el("div",{style:{flex:"1"}});
+  wsText.appendChild(div({color:"#F0F2F5",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},"My Workspace"));
+  wsText.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Your personalized dashboard — drag & drop widgets, custom reports, and saved views"));
+  wsCard.appendChild(wsText);
+  var wsBtn=el("span",{style:{color:"#3B82F6",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",whiteSpace:"nowrap"}});
+  wsBtn.textContent="Open →";
+  wsCard.appendChild(wsBtn);
+  wsCard.addEventListener("mouseenter",function(){wsCard.style.borderColor="rgba(255,255,255,0.15)";wsCard.style.transform="translateY(-2px)";wsCard.style.boxShadow="0 4px 20px rgba(0,0,0,0.3)";});
+  wsCard.addEventListener("mouseleave",function(){wsCard.style.borderColor="rgba(255,255,255,0.08)";wsCard.style.transform="translateY(0)";wsCard.style.boxShadow="none";});
+  wsCard.addEventListener("click",function(){setSection("More","Workspace");});
+  wrap.appendChild(wsCard);
 
   // --- Market Pulse Card ---
   var pulseCard=el("div",{style:{background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"24px",marginBottom:"16px",transition:"border-color 0.25s ease,box-shadow 0.25s ease",boxShadow:cl.glassShadow}});
@@ -1303,17 +1329,24 @@ function renderHome(){
   var landCount=typeof DB_LAND!=="undefined"?Object.keys(DB_LAND).length:0;
 
   var statsGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:"12px",marginBottom:"16px"}});
-  [{l:"Avg PSF",v:"AED "+avgPSF.toLocaleString(),c:cl.gold},{l:"Avg Yield",v:avgYield+"%",c:"#10B981"},{l:"Residential",v:dbCount.toLocaleString(),c:"#3B82F6"},{l:"Commercial",v:comCount.toLocaleString(),c:"#8B5CF6"},{l:"Land Plots",v:landCount.toLocaleString(),c:"#F59E0B"},{l:"Areas",v:String(areaKeys.length),c:"#EF4444"}].forEach(function(s){
+  [{l:"Avg PSF",v:"AED "+avgPSF.toLocaleString(),c:cl.gold,ic:"trending-up",arrow:true},{l:"Avg Yield",v:avgYield+"%",c:"#10B981",ic:"percent",arrow:true},{l:"Residential",v:dbCount.toLocaleString(),c:"#3B82F6",ic:"building-2"},{l:"Commercial",v:comCount.toLocaleString(),c:"#8B5CF6",ic:"briefcase"},{l:"Land Plots",v:landCount.toLocaleString(),c:"#F59E0B",ic:"map-pin"},{l:"Areas",v:String(areaKeys.length),c:"#3B82F6",ic:"map"}].forEach(function(s){
     var card=el("div",{style:{background:"rgba(255,255,255,0.03)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:"12px",padding:"14px",textAlign:"center",transition:"transform 0.2s ease,box-shadow 0.2s ease,border-color 0.2s ease",cursor:"default"}});
-    card.addEventListener("mouseenter",function(){card.style.transform="translateY(-2px)";card.style.boxShadow="0 6px 20px rgba(0,0,0,0.3)";card.style.borderColor="rgba(255,255,255,0.12)";});
+    card.addEventListener("mouseenter",function(){card.style.transform="translateY(-2px)";card.style.boxShadow="0 4px 20px rgba(0,0,0,0.3)";card.style.borderColor="rgba(255,255,255,0.15)";});
     card.addEventListener("mouseleave",function(){card.style.transform="translateY(0)";card.style.boxShadow="none";card.style.borderColor="rgba(255,255,255,0.06)";});
-    card.appendChild(div({color:s.c,fontSize:"20px",fontWeight:"800",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'",marginBottom:"2px"},s.v));
+    var icWrap=el("div",{style:{marginBottom:"6px",display:"flex",alignItems:"center",justifyContent:"center",gap:"4px"}});
+    icWrap.innerHTML='<i data-lucide="'+s.ic+'" style="width:14px;height:14px;color:'+s.c+';opacity:0.6"></i>';
+    card.appendChild(icWrap);
+    var valRow=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"center",gap:"4px",marginBottom:"2px"}});
+    valRow.appendChild(div({color:s.c,fontSize:"20px",fontWeight:"800",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'"},s.v));
+    if(s.arrow)valRow.appendChild(span({color:"#10B981",fontSize:"12px",fontWeight:"700"},"▲"));
+    card.appendChild(valRow);
     card.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",textTransform:"uppercase"},s.l));
     statsGrid.appendChild(card);
   });
   pulseCard.appendChild(statsGrid);
 
   if(movers.length>0){
+    pulseCard.appendChild(el("div",{style:{height:"1px",background:"linear-gradient(90deg,transparent 0%,rgba(212,175,55,0.3) 50%,transparent 100%)",margin:"20px 0"}}));
     pulseCard.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Top Movers (1-Year Growth)"));
     var moverList=el("div",{style:{display:"flex",flexDirection:"column",gap:"6px"}});
     movers.slice(0,5).forEach(function(m,i){
@@ -1551,7 +1584,9 @@ function render(preserveScroll){
 
   var logoWrap=el("div",{});
   logoWrap.className="dv-sidebar-logo";
-  logoWrap.appendChild(el("img",{src:"logo.png",alt:"DV",style:{width:"32px",height:"32px",borderRadius:"7px",flexShrink:"0",objectFit:"contain"}}));
+  var logoSvg=el("div",{style:{width:sidebarCollapsed?"28px":"36px",height:sidebarCollapsed?"28px":"36px",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center"}});
+  logoSvg.innerHTML='<svg viewBox="0 0 40 40" width="'+(sidebarCollapsed?28:36)+'" height="'+(sidebarCollapsed?28:36)+'"><defs><linearGradient id="dvGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#D4AF37"/><stop offset="100%" stop-color="#B8941F"/></linearGradient></defs><rect x="6" y="6" width="28" height="28" rx="4" transform="rotate(45 20 20)" fill="none" stroke="url(#dvGrad)" stroke-width="2.5"/><text x="20" y="25" text-anchor="middle" fill="#D4AF37" font-family="Space Grotesk,monospace" font-weight="800" font-size="13">DV</text></svg>';
+  logoWrap.appendChild(logoSvg);
   var logoText=el("div",{});
   logoText.className="dv-sidebar-logo-text";
   logoText.appendChild(div({fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",color:"#fff"},"DubAIVal"));
@@ -1636,7 +1671,12 @@ function render(preserveScroll){
   var header=el("div",{style:{background:cl.surface,borderBottom:"1px solid "+cl.border,padding:"0 20px",display:"flex",alignItems:"center",justifyContent:"space-between",height:"50px",position:"sticky",top:"0",zIndex:"50"}});
   var secTitle=el("div",{style:{display:"flex",alignItems:"center",gap:"8px"}});
   var curSec=NAV_SECTIONS.find(function(n){return n.id===currentSection;});
+  var mLogoWrap=el("span",{style:{display:"none",alignItems:"center"}});
+  mLogoWrap.className="dv-mobile-logo";
+  mLogoWrap.innerHTML='<svg viewBox="0 0 40 40" width="28" height="28"><defs><linearGradient id="dvGradM" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#D4AF37"/><stop offset="100%" stop-color="#B8941F"/></linearGradient></defs><rect x="6" y="6" width="28" height="28" rx="4" transform="rotate(45 20 20)" fill="none" stroke="url(#dvGradM)" stroke-width="2.5"/><text x="20" y="25" text-anchor="middle" fill="#D4AF37" font-family="Space Grotesk,monospace" font-weight="800" font-size="13">DV</text></svg>';
+  secTitle.appendChild(mLogoWrap);
   var secIconWrap=el("span",{style:{width:"18px",height:"18px",display:"inline-flex",alignItems:"center"}});
+  secIconWrap.className="dv-desktop-sec-icon";
   if(curSec)secIconWrap.innerHTML='<i data-lucide="'+curSec.icon+'"></i>';
   secTitle.appendChild(secIconWrap);
   secTitle.appendChild(span({fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",color:"#F0F2F5"},curSec?curSec.label:"DubAIVal"));
@@ -1688,10 +1728,13 @@ function render(preserveScroll){
     else content.appendChild(renderMarket());
   } else if(currentSection==="Portfolio"){
     if(currentSubTab==="Assets")content.appendChild(renderPortfolio());
+    else if(currentSubTab==="Health")content.appendChild(renderPortfolio());
+    else if(currentSubTab==="Projections")content.appendChild(renderPortfolio());
     else if(currentSubTab==="Alerts")content.appendChild(renderAlerts());
     else content.appendChild(renderPortfolio());
   } else if(currentSection==="Network"){
     if(currentSubTab==="Deals")content.appendChild(renderDeals());
+    else if(currentSubTab==="AgentHub"&&typeof renderAgentHub==="function")content.appendChild(renderAgentHub());
     else if(currentSubTab==="MediaStudio"&&typeof renderMediaStudio==="function")content.appendChild(renderMediaStudio());
     else if(currentSubTab==="Chat")content.appendChild(renderChat());
     else if(currentSubTab==="Social")content.appendChild(renderSocial());

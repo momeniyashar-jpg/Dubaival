@@ -246,10 +246,13 @@ var NAV_SECTIONS=[
   ]},
   {id:"Portfolio",icon:"briefcase",label:"Portfolio",accentColor:"#3B82F6",subs:[
     {id:"Assets",label:"My Assets"},
+    {id:"Health",label:"Health"},
+    {id:"Projections",label:"Projections"},
     {id:"Alerts",label:"Alerts"}
   ]},
   {id:"Network",icon:"users",label:"Network",accentColor:"#10B981",badgeKey:"deals",subs:[
     {id:"Deals",label:"Deals"},
+    {id:"AgentHub",label:"Agent Hub"},
     {id:"MediaStudio",label:"Media Studio"},
     {id:"Chat",label:"AI Agents"},
     {id:"Social",label:"Video Platform"}

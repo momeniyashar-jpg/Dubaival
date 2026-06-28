@@ -70,7 +70,7 @@ function getRentalAgentAIPrompt(propDesc,rv,mode,area){
 // --- MARKET TAB ---------------------------------------------------------------
 function renderMarket(){
   const cl=C();
-  const wrap=div({padding:"16px",maxWidth:"640px",margin:"0 auto"});
+  const wrap=div({padding:"16px",maxWidth:"960px",margin:"0 auto"});
 
   // -- LIVE DASHBOARD --
   (function(){
@@ -109,8 +109,8 @@ function renderMarket(){
     });
     dSec.appendChild(r1);
 
-    // Row 2: 3 mini charts
-    var r2=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',marginBottom:'14px'}});
+    // Row 2: 3 charts (wider)
+    var r2=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'14px'}});
 
     // PSF Distribution histogram
     var psfBins=[0,0,0,0,0];var psfLabels=['<1K','1-1.5K','1.5-2K','2-3K','3K+'];
@@ -160,11 +160,18 @@ function renderMarket(){
       row.appendChild(span({color:isTop?'#22C55E':'#EF4444',fontSize:'6px',fontWeight:'700',fontFamily:"'Space Grotesk',monospace",width:'28px',textAlign:'right',flexShrink:'0'},(g.g>=0?'+':'')+g.g.toFixed(0)+'%'));
       gCard.appendChild(row);
     });
-    r2.appendChild(gCard);
     dSec.appendChild(r2);
 
-    // Row 3: Market Pulse — 4 ranking lists
-    var r3=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:'8px',marginBottom:'12px'}});
+    // Growth Heatmap — full-width
+    gCard.style.marginBottom='14px';
+    gCard.style.padding='14px';
+    dSec.appendChild(gCard);
+
+    // Section divider
+    dSec.appendChild(el('div',{style:{height:'1px',background:'linear-gradient(90deg,transparent 0%,rgba(212,175,55,0.3) 50%,transparent 100%)',margin:'20px 0'}}));
+
+    // Row 3: Market Pulse — 4 ranking lists (2-column grid)
+    var r3=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'12px'}});
     // Compute rankings
     var ranked=aKeys.map(function(k){var a=AREAS[k];return{name:k,psf:a.psf||0,y:a.y?((a.y[0]+a.y[1])/2):0,g:a.g?a.g[0]:0,dom:a.dom||90};});
     var hottest=ranked.slice().sort(function(a,b){return(b.y+b.g)-(a.y+a.g);}).slice(0,5);
@@ -188,11 +195,16 @@ function renderMarket(){
     dSec.appendChild(r3);
 
     // Row 4: Rental Market Snapshot
+    var r4hdr=el('div',{style:{display:'flex',alignItems:'center',gap:'6px',marginBottom:'8px'}});
+    r4hdr.innerHTML='<i data-lucide="home" style="width:14px;height:14px;color:#8B5CF6;opacity:0.7"></i>';
+    r4hdr.appendChild(span({color:'#8B5CF6',fontSize:'9px',letterSpacing:'0.1em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",fontWeight:'700'},'Rental Market Snapshot'));
+    dSec.appendChild(r4hdr);
     var sumR1=0,sumR2=0,cntR=0;
     aKeys.forEach(function(k){var a=AREAS[k];if(a.r1){sumR1+=a.r1;sumR2+=(a.r2||0);cntR++;}});
     var avgR1=cntR?Math.round(sumR1/cntR):0;
     var avgR2=cntR?Math.round(sumR2/cntR):0;
-    var r4=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:'8px',marginBottom:'12px'}});
+    dSec.appendChild(el('div',{style:{height:'1px',background:'linear-gradient(90deg,transparent 0%,rgba(139,92,246,0.3) 50%,transparent 100%)',margin:'16px 0'}}));
+    var r4=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'12px'}});
     [{l:'Areas w/ Rental Data',v:String(cntR),c:'#8B5CF6'},{l:'Avg 1BR Rent',v:'AED '+avgR1.toLocaleString(),c:'#8B5CF6'},{l:'Avg 2BR Rent',v:'AED '+avgR2.toLocaleString(),c:'#8B5CF6'},{l:'Avg Monthly 1BR',v:'AED '+Math.round(avgR1/12).toLocaleString(),c:'#8B5CF6'}].forEach(function(s){
       var card=el('div',{style:{background:'rgba(139,92,246,0.04)',border:'1px solid rgba(139,92,246,0.15)',borderRadius:'10px',padding:'10px 8px',textAlign:'center'}});
       card.appendChild(div({color:cl.sub,fontSize:'7.5px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'4px'},s.l));
@@ -202,11 +214,16 @@ function renderMarket(){
     dSec.appendChild(r4);
 
     // Row 5: Commercial & Land Snapshot
+    var r5hdr=el('div',{style:{display:'flex',alignItems:'center',gap:'6px',marginBottom:'8px'}});
+    r5hdr.innerHTML='<i data-lucide="landmark" style="width:14px;height:14px;color:#3B82F6;opacity:0.7"></i>';
+    r5hdr.appendChild(span({color:'#3B82F6',fontSize:'9px',letterSpacing:'0.1em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",fontWeight:'700'},'Commercial & Land Snapshot'));
+    dSec.appendChild(r5hdr);
     var comCnt=typeof DB_COM!=="undefined"?Object.keys(DB_COM).length:0;
     var landCnt=typeof DB_LAND!=="undefined"?Object.keys(DB_LAND).length:0;
     var comAreaCnt=typeof AREAS_COM!=="undefined"?Object.keys(AREAS_COM).length:0;
     var landAreaCnt=typeof AREAS_LAND!=="undefined"?Object.keys(AREAS_LAND).length:0;
-    var r5=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:'8px',marginBottom:'12px'}});
+    dSec.appendChild(el('div',{style:{height:'1px',background:'linear-gradient(90deg,transparent 0%,rgba(59,130,246,0.3) 50%,transparent 100%)',margin:'16px 0'}}));
+    var r5=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'12px'}});
     [{l:'Commercial Properties',v:String(comCnt),c:'#3B82F6'},{l:'Commercial Areas',v:String(comAreaCnt),c:'#3B82F6'},{l:'Land Plots',v:String(landCnt),c:'#10B981'},{l:'Land Areas',v:String(landAreaCnt),c:'#10B981'}].forEach(function(s){
       var card=el('div',{style:{background:s.c==='#3B82F6'?'rgba(59,130,246,0.04)':'rgba(16,185,129,0.04)',border:'1px solid '+(s.c==='#3B82F6'?'rgba(59,130,246,0.15)':'rgba(16,185,129,0.15)'),borderRadius:'10px',padding:'10px 8px',textAlign:'center'}});
       card.appendChild(div({color:cl.sub,fontSize:'7.5px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'4px'},s.l));
@@ -223,7 +240,7 @@ function renderMarket(){
       momKeys.forEach(function(k){var m=MARKET_MOMENTUM[k];if(m.trend==="up")upCnt++;else if(m.trend==="down")downCnt++;else stableCnt++;});
       var momColor=overall&&overall.trend==="up"?"#10B981":overall&&overall.trend==="down"?"#EF4444":"#F59E0B";
       var momAge=overall&&overall.updated?Math.round((Date.now()-new Date(overall.updated).getTime())/(1000*60*60*24)):null;
-      var r6=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:'8px',marginBottom:'12px'}});
+      var r6=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'12px'}});
       [{l:'AI Tracked Areas',v:String(momKeys.length),c:momColor},{l:'Trending Up',v:String(upCnt),c:'#10B981'},{l:'Trending Down',v:String(downCnt),c:'#EF4444'},{l:'Data Age',v:momAge!==null?momAge+'d ago':'No data',c:momColor}].forEach(function(s){
         var card=el('div',{style:{background:hexAlpha(momColor,0.04),border:'1px solid '+hexAlpha(momColor,0.15),borderRadius:'10px',padding:'10px 8px',textAlign:'center'}});
         card.appendChild(div({color:cl.sub,fontSize:'7.5px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'4px'},s.l));

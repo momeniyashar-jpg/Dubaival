@@ -186,9 +186,13 @@ function renderPortfolio(){
   var totalSC=metrics.reduce(function(s,a){return s+a.m.sc;},0);
   var avgGrossYield=totalValue>0?(totalRent/totalValue*100):0;
   var avgNetYield=totalValue>0?((totalRent-totalSC)/totalValue*100):0;
+  var _psub=typeof currentSubTab!=="undefined"?currentSubTab:"Assets";
+  var _showAssets=_psub==="Assets"||(!_psub);
+  var _showHealth=_psub==="Health";
+  var _showProj=_psub==="Projections";
 
   // Portfolio Overview
-  if(ps.assets.length>0){
+  if(ps.assets.length>0&&(_showAssets||_showHealth||_showProj)){
     var sumCard=div({background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"24px",marginBottom:"14px",position:"relative",overflow:"hidden",boxShadow:cl.glassShadow});
     sumCard.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,"+cl.gold+","+cl.gold+",transparent)",animation:"shimmer 3s ease infinite"}));
     sumCard.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"14px"},"◆ Portfolio Overview"));
@@ -238,7 +242,7 @@ function renderPortfolio(){
     wrap.appendChild(sumCard);
 
     // CSV Export
-    wrap.appendChild(el("div",{style:{marginBottom:"14px"}},[csvExportBtn("Export Portfolio (CSV)",cl,function(){
+    if(_showAssets)wrap.appendChild(el("div",{style:{marginBottom:"14px"}},[csvExportBtn("Export Portfolio (CSV)",cl,function(){
       var hdrs=["building","area","type","beds","size_sqft","purchase_price","purchase_date","current_value","roi_pct","gross_yield","net_yield","growth_1y","sustainability_score"];
       var rows=metrics.map(function(a){var ss=typeof computeSustainabilityScore==="function"?computeSustainabilityScore(a.building,a.area,null,AREAS[a.area]):null;
         return[a.building||"",a.area,a.type||"Apartment",a.beds,a.size,a.purchasePrice||a.m.purchasePrice,a.purchaseDate||"",a.m.currentValue,a.m.roi.toFixed(1),a.m.grossYield.toFixed(1),a.m.netYield.toFixed(1),(AREAS[a.area]&&AREAS[a.area].g?AREAS[a.area].g[0]:0),ss?ss.score:""];});
@@ -246,7 +250,7 @@ function renderPortfolio(){
     })]));
 
     // Portfolio Health Score
-    var health=computePortfolioHealth(metrics,totalValue);
+    if(_showHealth||_showAssets){var health=computePortfolioHealth(metrics,totalValue);
     if(health){
       var hCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",position:"relative",overflow:"hidden"});
       var hScColor=health.score>=70?cl.green:health.score>=55?cl.yellow:cl.red;
@@ -283,10 +287,10 @@ function renderPortfolio(){
         ]));
       }
       wrap.appendChild(hCard);
-    }
+    }}
 
     // --- OPPORTUNITY ALERTS (Phase 1) ---
-    if(metrics.length>0){
+    if((_showHealth)&&metrics.length>0){
       var oaCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",position:"relative",overflow:"hidden"});
       oaCard.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,#F59E0B,#F59E0B,transparent)",animation:"shimmer 3s ease infinite"}));
       oaCard.appendChild(span({color:"#F59E0B",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"Opportunity Alerts"));
@@ -444,6 +448,7 @@ function renderPortfolio(){
       wrap.appendChild(oaCard);
     }
 
+    if(_showProj){
     // Future Projection Simulator
     if(!ps._proj)ps._proj={growth:0,rate:0};
     var projCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",position:"relative",overflow:"hidden"});
@@ -511,6 +516,7 @@ function renderPortfolio(){
     wrap.appendChild(projCard);
   }
 
+  if(_showAssets){
   // Investment Profile
   var goalsCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"});
   goalsCard.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"◆ Investment Profile"));
@@ -522,6 +528,7 @@ function renderPortfolio(){
   });
   goalsCard.appendChild(goalsGrid);
   wrap.appendChild(goalsCard);
+  }
 
   // What-If Scenario Simulator
   if(metrics.length>0){
@@ -607,7 +614,9 @@ function renderPortfolio(){
     }
     wrap.appendChild(swCard);
   }
+  }// end _showProj
 
+  if(_showAssets){
   // Asset Cards
   metrics.forEach(function(a){
     var expanded=ps.expandedId===a.id;
@@ -849,6 +858,8 @@ function renderPortfolio(){
     else{var aiText=div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.9",fontFamily:"'Inter',sans-serif",whiteSpace:"pre-wrap"});aiText.textContent=ps.aiAnalysis;aiCard.appendChild(aiText);}
     wrap.appendChild(aiCard);
   }
+
+  }// end _showAssets
 
   // Disclaimer
   var disc=div({background:cl.goldFaint,border:"1px solid "+cl.goldDim,borderRadius:"8px",padding:"10px 14px",fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6",color:cl.subHi});
