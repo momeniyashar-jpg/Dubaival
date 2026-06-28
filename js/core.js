@@ -914,7 +914,7 @@ function renderNotifBell(){
   var cl=C();var cnt=getUnreadCount();
   var wrap=el("div",{style:{position:"relative",display:"inline-block"}});
   var btn=el("button",{style:{background:DV_NOTIF.showPanel?cl.goldFaint:"transparent",border:"1px solid "+(DV_NOTIF.showPanel?cl.gold:cl.border),borderRadius:"20px",padding:"5px 10px",cursor:"pointer",color:DV_NOTIF.showPanel?cl.gold:cl.sub,fontSize:"14px",position:"relative"}});
-  btn.textContent="";
+  btn.innerHTML='<i data-lucide="bell" style="width:14px;height:14px"></i>';
   if(cnt>0){
     var badge=el("div",{style:{position:"absolute",top:"-4px",right:"-4px",background:"#EF4444",color:"#fff",fontSize:"8px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",minWidth:"16px",height:"16px",borderRadius:"8px",display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px",boxSizing:"border-box"}});
     badge.textContent=cnt>9?"9+":String(cnt);
