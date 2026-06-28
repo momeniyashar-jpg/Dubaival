@@ -162,7 +162,7 @@ function renderAuthModal(){
   var tabs=el("div",{style:{display:"flex",gap:"4px",marginBottom:"20px",background:"rgba(255,255,255,0.04)",borderRadius:"10px",padding:"3px"}});
   ["signin","signup"].forEach(function(tabId){
     var active=DV_AUTH.modalTab===tabId;
-    var tb=el("button",{style:{flex:"1",padding:"8px",borderRadius:"8px",border:active?"1px solid rgba(212,175,55,0.3)":"1px solid transparent",background:active?"rgba(212,175,55,0.15)":"transparent",color:active?"#D4A843":cl.sub,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",transition:"all 0.2s"}});
+    var tb=el("button",{style:{flex:"1",padding:"8px",borderRadius:"8px",border:active?"1px solid rgba(212,175,55,0.15)":"1px solid transparent",background:active?"rgba(212,175,55,0.10)":"transparent",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",color:active?"#D4A843":cl.sub,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",transition:"all 0.2s"}});
     tb.textContent=tabId==="signin"?t("auth_signin"):t("auth_signup");
     tb.addEventListener("click",function(){DV_AUTH.modalTab=tabId;DV_AUTH.error="";render();});
     tabs.appendChild(tb);
@@ -199,7 +199,7 @@ function renderAuthModal(){
     }else{dvSignIn(email,pass);}
   }
 
-  var submitBtn=el("button",{style:{width:"100%",padding:"12px",borderRadius:"10px",border:DV_AUTH.busy?"1px solid rgba(255,255,255,0.08)":"1px solid rgba(212,175,55,0.3)",background:DV_AUTH.busy?"rgba(75,85,99,0.3)":"rgba(212,175,55,0.15)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",color:DV_AUTH.busy?"#9CA3AF":"#D4A843",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:DV_AUTH.busy?"not-allowed":"pointer",marginBottom:"12px"}});
+  var submitBtn=el("button",{style:{width:"100%",padding:"12px",borderRadius:"999px",border:DV_AUTH.busy?"1px solid rgba(255,255,255,0.08)":"1px solid rgba(212,175,55,0.15)",background:DV_AUTH.busy?"rgba(75,85,99,0.3)":"rgba(212,175,55,0.10)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",color:DV_AUTH.busy?"#9CA3AF":"#D4A843",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:DV_AUTH.busy?"not-allowed":"pointer",marginBottom:"12px",boxShadow:"0 2px 12px rgba(0,0,0,0.2)"}});
   submitBtn.textContent=DV_AUTH.busy?"...":(DV_AUTH.modalTab==="signin"?t("auth_signin"):t("auth_create_account"));
   if(!DV_AUTH.busy)submitBtn.addEventListener("click",doSubmit);
   modal.appendChild(submitBtn);
@@ -216,17 +216,17 @@ function renderAuthButton(){
     var wrap=el("div",{style:{display:"flex",alignItems:"center",gap:"6px"}});
     var name=DV_AUTH.profile.display_name||DV_AUTH.user.email||"User";
     if(name.length>12)name=name.substring(0,12)+"…";
-    var userBtn=el("button",{style:{background:hexAlpha("#10B981",0.1),border:"1px solid "+hexAlpha("#10B981",0.3),borderRadius:"20px",padding:"4px 10px",cursor:"pointer",display:"flex",alignItems:"center",gap:"5px",color:"#10B981",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"}});
+    var userBtn=el("button",{style:{background:"rgba(16,185,129,0.08)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid rgba(16,185,129,0.18)",borderRadius:"999px",padding:"5px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:"5px",color:"#10B981",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",boxShadow:"0 2px 12px rgba(0,0,0,0.2)"}});
     userBtn.innerHTML="<i data-lucide='user' style='width:12px;height:12px;stroke-width:2'></i> "+name;
     userBtn.addEventListener("click",function(){DV_AUTH.showModal=false;render();});
     wrap.appendChild(userBtn);
-    var outBtn=el("button",{style:{background:"transparent",border:"1px solid "+cl.border,borderRadius:"20px",padding:"4px 8px",cursor:"pointer",color:cl.sub,fontSize:"9px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace"}});
+    var outBtn=el("button",{style:{background:"rgba(255,255,255,0.04)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid rgba(255,255,255,0.10)",borderRadius:"999px",padding:"4px 10px",cursor:"pointer",color:cl.sub,fontSize:"9px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace"}});
     outBtn.textContent=t("auth_signout");
     outBtn.addEventListener("click",function(){dvSignOut();});
     wrap.appendChild(outBtn);
     return wrap;
   }
-  var signinBtn=el("button",{style:{background:hexAlpha("#6366F1",0.12),border:"1px solid "+hexAlpha("#6366F1",0.3),borderRadius:"20px",padding:"4px 10px",cursor:"pointer",color:"#818CF8",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"}});
+  var signinBtn=el("button",{style:{background:"rgba(99,102,241,0.10)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid rgba(99,102,241,0.18)",borderRadius:"999px",padding:"5px 14px",cursor:"pointer",color:"#818CF8",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",boxShadow:"0 2px 12px rgba(0,0,0,0.2)",letterSpacing:"0.04em"}});
   signinBtn.textContent=t("auth_signin");
   signinBtn.addEventListener("click",function(){DV_AUTH.showModal=true;DV_AUTH.modalTab="signin";DV_AUTH.error="";render();});
   return signinBtn;

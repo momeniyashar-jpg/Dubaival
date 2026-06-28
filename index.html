@@ -127,8 +127,8 @@ a{color:inherit;text-decoration:none}
 .dv-bottom-tab [data-lucide]{color:inherit}
 
 /* Cards & section headers — Glassmorphism */
-.dv-card{background:rgba(255,255,255,0.05);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:20px;transition:all 0.25s ease;box-shadow:0 4px 30px rgba(0,0,0,0.3)}
-.dv-card:hover{border-color:rgba(212,175,55,0.3);box-shadow:0 8px 40px rgba(0,0,0,0.4),0 0 20px rgba(212,175,55,0.05)}
+.dv-card{background:rgba(255,255,255,0.05);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(212,175,55,0.15);border-radius:14px;padding:20px;transition:all 0.25s ease;box-shadow:0 4px 30px rgba(0,0,0,0.3)}
+.dv-card:hover{border-color:rgba(212,175,55,0.25);box-shadow:0 8px 40px rgba(0,0,0,0.4),0 0 20px rgba(212,175,55,0.04)}
 .dv-section-hdr{color:#D4AF37;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-family:'Space Grotesk',monospace;font-weight:600;border-left:3px solid #D4AF37;padding-left:10px;margin-bottom:16px}
 
 /* Global form elements — Glassmorphism */
@@ -138,8 +138,11 @@ input:focus,select:focus,textarea:focus{border-color:rgba(212,175,55,0.4)!import
 ::selection{background:rgba(212,175,55,0.3);color:#fff}
 
 /* Global button polish — Glassmorphism */
-button{transition:all 0.2s ease;-webkit-tap-highlight-color:transparent}
+button{transition:all 0.2s ease;-webkit-tap-highlight-color:transparent;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
 button:active{transform:scale(0.97)}
+
+/* Pill glass button */
+.dv-pill-glass{backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-radius:999px;border:1px solid rgba(255,255,255,0.12);box-shadow:0 2px 12px rgba(0,0,0,0.2)}
 
 /* Content area fade-in */
 .dv-main>div:last-of-type>div:first-child{animation:fadeIn 0.25s ease-out}
@@ -160,8 +163,8 @@ a:hover{opacity:0.85}
 [style*="text-align: center"][style*="border-radius"]:hover,[style*="text-align:center"][style*="border-radius"]:hover{filter:brightness(1.1)}
 
 /* Tool grid buttons (Media Studio) — Glassmorphism */
-.dv-tool-btn{background:rgba(255,255,255,0.04);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:18px 12px;text-align:center;cursor:pointer;transition:all 0.25s ease;min-height:90px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 30px rgba(0,0,0,0.15)}
-.dv-tool-btn:hover{border-color:rgba(212,175,55,0.3);background:rgba(255,255,255,0.08);transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,0.3),0 0 16px rgba(212,175,55,0.06)}
+.dv-tool-btn{background:rgba(255,255,255,0.04);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(212,175,55,0.15);border-radius:14px;padding:18px 12px;text-align:center;cursor:pointer;transition:all 0.25s ease;min-height:90px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 30px rgba(0,0,0,0.15)}
+.dv-tool-btn:hover{border-color:rgba(212,175,55,0.25);background:rgba(255,255,255,0.08);transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,0.3),0 0 16px rgba(212,175,55,0.04)}
 .dv-tool-btn .dv-tool-icon{font-size:24px}
 .dv-tool-btn .dv-tool-label{font-size:11px;color:#E8EDF5;font-weight:600;font-family:'Inter',sans-serif}
 
@@ -214,24 +217,24 @@ window.dvTrack=function(event,params){try{gtag('event',event,params||{});}catch(
 <div id="app"></div><div id="print-report"></div>
 
 <!-- App Modules -->
-<script src="js/data-residential.js?v=20260628j"></script>
-<script src="js/data-commercial.js?v=20260628j"></script>
+<script src="js/data-residential.js?v=20260628k"></script>
+<script src="js/data-commercial.js?v=20260628k"></script>
 <script src="js/valuation-db.js?v=20260623"></script>
 <script src="js/valuation.js?v=20260623"></script>
-<script src="js/api.js?v=20260628j"></script>
-<script src="js/core.js?v=20260628j"></script>
-<script src="js/auth.js?v=20260628j"></script>
-<script src="js/app.js?v=20260628j"></script>
-<script src="js/market.js?v=20260628j"></script>
-<script src="js/mortgage.js?v=20260628j"></script>
-<script src="js/portfolio.js?v=20260628j"></script>
-<script src="js/map.js?v=20260628j"></script>
-<script src="js/deals.js?v=20260628j"></script>
-<script src="js/chat.js?v=20260628j"></script>
-<script src="js/social.js?v=20260628j"></script>
-<script src="js/about.js?v=20260628j"></script>
-<script src="js/workspace.js?v=20260628j"></script>
-<script src="js/marketindex.js?v=20260628j"></script>
+<script src="js/api.js?v=20260628k"></script>
+<script src="js/core.js?v=20260628k"></script>
+<script src="js/auth.js?v=20260628k"></script>
+<script src="js/app.js?v=20260628k"></script>
+<script src="js/market.js?v=20260628k"></script>
+<script src="js/mortgage.js?v=20260628k"></script>
+<script src="js/portfolio.js?v=20260628k"></script>
+<script src="js/map.js?v=20260628k"></script>
+<script src="js/deals.js?v=20260628k"></script>
+<script src="js/chat.js?v=20260628k"></script>
+<script src="js/social.js?v=20260628k"></script>
+<script src="js/about.js?v=20260628k"></script>
+<script src="js/workspace.js?v=20260628k"></script>
+<script src="js/marketindex.js?v=20260628k"></script>
 <script>render();</script>
 </body>
 </html>

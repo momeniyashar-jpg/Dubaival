@@ -1599,10 +1599,10 @@ function render(preserveScroll){
   header.appendChild(secTitle);
 
   var controls=el("div",{style:{display:"flex",alignItems:"center",gap:"8px"}});
-  controls.appendChild(div({display:"flex",alignItems:"center",gap:"5px",background:cl.greenBg||"rgba(16,185,129,0.08)",border:"1px solid "+(cl.greenBo||"rgba(16,185,129,0.2)"),borderRadius:"20px",padding:"4px 10px"},[div({width:"5px",height:"5px",borderRadius:"50%",background:cl.green||"#10B981",animation:"pulse 2s infinite",flexShrink:"0"}),(function(){var lb=el("span",{style:{color:cl.green||"#10B981",fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"}});lb.textContent="LIVE";return lb;})()]));
+  controls.appendChild(div({display:"flex",alignItems:"center",gap:"5px",background:"rgba(16,185,129,0.08)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid rgba(16,185,129,0.18)",borderRadius:"999px",padding:"4px 12px",boxShadow:"0 2px 12px rgba(0,0,0,0.2)"},[div({width:"5px",height:"5px",borderRadius:"50%",background:cl.green||"#10B981",animation:"pulse 2s infinite",flexShrink:"0"}),(function(){var lb=el("span",{style:{color:cl.green||"#10B981",fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em"}});lb.textContent="LIVE";return lb;})()]));
   if(typeof renderNotifBell==="function")controls.appendChild(renderNotifBell());
   if(typeof renderAuthButton==="function")controls.appendChild(renderAuthButton());
-  var profileBtn=el("button",{style:{background:showProfilePanel?(cl.goldFaint||"rgba(212,175,55,0.06)"):"transparent",border:"1px solid "+(showProfilePanel?cl.gold:cl.border),borderRadius:"20px",padding:"5px 12px",cursor:"pointer",color:showProfilePanel?cl.gold:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace",transition:"all 0.15s ease"}});
+  var profileBtn=el("button",{style:{background:showProfilePanel?"rgba(212,175,55,0.08)":"rgba(255,255,255,0.04)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid "+(showProfilePanel?"rgba(212,175,55,0.15)":"rgba(255,255,255,0.10)"),borderRadius:"999px",padding:"5px 14px",cursor:"pointer",color:showProfilePanel?cl.gold:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace",transition:"all 0.15s ease",boxShadow:"0 2px 12px rgba(0,0,0,0.2)"}});
   profileBtn.textContent="Profile";
   profileBtn.addEventListener("click",function(){showProfilePanel=!showProfilePanel;render();});
   controls.appendChild(profileBtn);
