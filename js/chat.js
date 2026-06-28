@@ -6247,7 +6247,7 @@ function getAgentMsgs(agentId){
 // --- CHAT TAB ----------------------------------------------------------------
 function renderChat(){
   var cl=C();
-  var wrap=div({display:"flex",flexDirection:"column",height:"calc(100vh - 130px)",padding:"0 20px",maxWidth:"640px",margin:"0 auto",width:"100%"});
+  var wrap=div({display:"flex",flexDirection:"column",height:"calc(100vh - 130px)",padding:"0 20px",maxWidth:"900px",margin:"0 auto",width:"100%"});
 
   // Agent selector bar
   var agentBar=div({display:"flex",gap:"6px",overflowX:"auto",paddingBottom:"10px",paddingTop:"8px",flexShrink:"0"});
@@ -6261,7 +6261,7 @@ function renderChat(){
       fontFamily:"'Space Grotesk',monospace",cursor:"pointer",whiteSpace:"nowrap",
       display:"flex",alignItems:"center",gap:"5px",transition:"all 0.2s"
     },onclick:function(){chatState.agentId=agent.id;render(true);}});
-    btn.appendChild(document.createTextNode(agent.icon+" "+agent.name));
+    btn.innerHTML='<i data-lucide="'+agent.icon+'" style="width:14px;height:14px"></i> '+agent.name;
     agentBar.appendChild(btn);
   });
   wrap.appendChild(agentBar);
@@ -6270,7 +6270,7 @@ function renderChat(){
   var activeAgent=AI_AGENTS.find(function(a){return a.id===chatState.agentId;})||AI_AGENTS[0];
   var hdr=div({display:"flex",alignItems:"center",gap:"10px",padding:"8px 0 12px",borderBottom:"1px solid "+cl.border,marginBottom:"8px",flexShrink:"0"});
   var iconCircle=div({width:"36px",height:"36px",borderRadius:"10px",background:hexAlpha(activeAgent.color,0.15),border:"1px solid "+hexAlpha(activeAgent.color,0.3),display:"flex",alignItems:"center",justifyContent:"center",fontSize:"18px",flexShrink:"0"});
-  iconCircle.textContent=activeAgent.icon;
+  iconCircle.innerHTML='<i data-lucide="'+activeAgent.icon+'" style="width:18px;height:18px;color:'+activeAgent.color+'"></i>';
   hdr.appendChild(iconCircle);
   var hdrText=div({flex:"1"});
   hdrText.appendChild(div({color:activeAgent.color,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},activeAgent.name));
@@ -6310,7 +6310,7 @@ function renderChat(){
     var row=div({display:"flex",justifyContent:isA?"flex-start":"flex-end",gap:"8px"});
     if(isA){
       var av=div({width:"28px",height:"28px",borderRadius:"7px",background:hexAlpha(activeAgent.color,0.15),display:"flex",alignItems:"center",justifyContent:"center",fontSize:"14px",flexShrink:"0"});
-      av.textContent=activeAgent.icon;
+      av.innerHTML='<i data-lucide="'+activeAgent.icon+'" style="width:14px;height:14px;color:'+activeAgent.color+'"></i>';
       row.appendChild(av);
     }
     var bubble=div({maxWidth:"84%",background:isA?cl.surface:hexAlpha(activeAgent.color,0.08),border:"1px solid "+(isA?cl.border:hexAlpha(activeAgent.color,0.2)),borderRadius:isA?"14px 14px 14px 0":"14px 14px 0 14px",padding:"11px 15px",color:cl.subHi,fontSize:"13px",lineHeight:"1.8",fontFamily:"'Inter',sans-serif"});
@@ -6331,7 +6331,7 @@ function renderChat(){
   if(chatState.loading){
     var row2=div({display:"flex",gap:"8px",alignItems:"center"});
     var av2=div({width:"28px",height:"28px",borderRadius:"7px",background:hexAlpha(activeAgent.color,0.15),display:"flex",alignItems:"center",justifyContent:"center",fontSize:"14px"});
-    av2.textContent=activeAgent.icon;row2.appendChild(av2);
+    av2.innerHTML='<i data-lucide="'+activeAgent.icon+'" style="width:14px;height:14px;color:'+activeAgent.color+'"></i>';row2.appendChild(av2);
     var dots=div({display:"flex",gap:"4px"});
     [0,1,2].forEach(function(j){dots.appendChild(div({width:"7px",height:"7px",borderRadius:"50%",background:activeAgent.color,animation:"bounce 1.1s "+(j*0.18)+"s infinite"}))});
     row2.appendChild(dots);msgsDiv.appendChild(row2);
@@ -6358,7 +6358,7 @@ function renderChat(){
   inputRow.appendChild(sendBtn);
   wrap.appendChild(inputRow);
 
-  setTimeout(function(){msgsDiv.scrollTop=msgsDiv.scrollHeight;},50);
+  setTimeout(function(){msgsDiv.scrollTop=msgsDiv.scrollHeight;if(typeof lucide!=="undefined")lucide.createIcons();},50);
   return wrap;
 }
 

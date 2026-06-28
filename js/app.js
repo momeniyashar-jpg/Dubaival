@@ -1751,7 +1751,7 @@ function render(preserveScroll){
     else content.appendChild(renderPortfolio());
   } else if(currentSection==="Network"){
     if(currentSubTab==="Deals")content.appendChild(renderDeals());
-    else if(currentSubTab==="AgentHub"&&typeof renderAgentHub==="function")content.appendChild(renderAgentHub());
+    else if(currentSubTab==="AgentHub"){DEAL_STATE.mode="agents";content.appendChild(renderDeals());}
     else if(currentSubTab==="MediaStudio"&&typeof renderMediaStudio==="function")content.appendChild(renderMediaStudio());
     else if(currentSubTab==="Chat")content.appendChild(renderChat());
     else if(currentSubTab==="Social")content.appendChild(renderSocial());
