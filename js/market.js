@@ -280,7 +280,7 @@ function renderMarket(){
   riskTop.appendChild(srcBadge);
   riskCard.appendChild(riskTop);
   var indRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"6px",marginBottom:"10px"}});
-  [{l:"Geopolitical",v:MACRO_VARS.riskFactor,icon:""},{l:"Demand",v:MACRO_VARS.socialIndex,icon:""},{l:"Economic",v:MACRO_VARS.economicOutlook,icon:""].forEach(function(ind){
+  [{l:"Geopolitical",v:MACRO_VARS.riskFactor,icon:""},{l:"Demand",v:MACRO_VARS.socialIndex,icon:""},{l:"Economic",v:MACRO_VARS.economicOutlook,icon:""}].forEach(function(ind){
     var pct=(ind.v-1)*100;
     var col=pct>0?cl.green:pct>-2?"#F59E0B":cl.red;
     var c=el("div",{style:{background:cl.raised,borderRadius:"8px",padding:"8px",textAlign:"center"}});
