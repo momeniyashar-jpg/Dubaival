@@ -22,22 +22,79 @@ ensureDir(path.join(WWW, 'js'));
 
 copyFile(path.join(ROOT, 'index.html'), path.join(WWW, 'index.html'));
 
-// Apply Capacitor-specific modifications to index.html
 let html = fs.readFileSync(path.join(WWW, 'index.html'), 'utf8');
 
-// Viewport: add viewport-fit for notch devices
+// Viewport: add viewport-fit for notch/punch-hole, disable zoom for app feel
 html = html.replace(
   'width=device-width, initial-scale=1.0',
   'width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no'
 );
 
-// Add native app CSS fixes
+// Native app CSS overrides — fixes scroll, safe areas, touch, keyboard
 html = html.replace(
   '</head>',
-  `<style>
-html,body{overflow-x:hidden!important;overscroll-behavior-x:none!important;-webkit-text-size-adjust:100%!important;}
-*{-webkit-user-drag:none;-webkit-touch-callout:none;}
-#app{overflow-x:hidden!important;max-width:100vw!important;}
+  `<style id="cap-native-css">
+/* --- Capacitor Native App Overrides --- */
+
+/* FIX SCROLL: override height:100% on html/body so content can scroll naturally */
+html{height:auto!important}
+body{height:auto!important;min-height:100vh!important;
+  overflow-y:auto!important;overflow-x:hidden!important;
+  overscroll-behavior-x:none!important;overscroll-behavior-y:auto!important;
+  -webkit-overflow-scrolling:touch!important;
+  -webkit-text-size-adjust:100%!important;
+  padding-top:env(safe-area-inset-top)!important;
+  padding-bottom:0!important;
+}
+
+/* Prevent drag but allow scroll — do NOT block touch-callout globally */
+img,a{-webkit-user-drag:none}
+
+/* App container: allow content to flow and scroll */
+#app{overflow-y:visible!important;overflow-x:hidden!important;
+  max-width:100vw!important;min-height:100vh!important;height:auto!important}
+
+/* Layout: let content grow beyond viewport — body scrolls */
+.dv-layout{min-height:100vh!important;overflow:visible!important;height:auto!important}
+.dv-main{min-height:auto!important;height:auto!important;
+  overflow:visible!important;
+  padding-bottom:env(safe-area-inset-bottom)!important}
+
+/* Content div: disable internal scroll container, let body scroll */
+.dv-content{overflow:visible!important;flex:none!important;height:auto!important;
+  min-height:auto!important;-webkit-overflow-scrolling:auto!important}
+
+/* Bottom tabs: account for safe area on notch phones */
+.dv-bottom-tabs{
+  height:calc(56px + env(safe-area-inset-bottom))!important;
+  padding-bottom:env(safe-area-inset-bottom)!important;
+}
+/* Extra padding on main when bottom tabs are visible (mobile) */
+@media(max-width:768px){
+  .dv-main{padding-bottom:calc(64px + env(safe-area-inset-bottom))!important}
+}
+
+/* Keyboard open: prevent layout jump */
+body.keyboard-open .dv-bottom-tabs{display:none!important}
+body.keyboard-open .dv-main{padding-bottom:0!important}
+
+/* Fixed elements: respect safe areas */
+.dv-sidebar{top:env(safe-area-inset-top)!important}
+
+/* Smooth momentum scrolling for all scrollable areas */
+[style*="overflow"],[style*="overflow-y"],[style*="overflow-x"],
+.dv-subtabs{-webkit-overflow-scrolling:touch!important}
+
+/* Prevent text selection on nav elements (app feel) */
+.dv-sidebar-item,.dv-pill,.dv-bottom-tab,button{
+  -webkit-user-select:none!important;user-select:none!important}
+
+/* Tap highlight */
+a,button,.dv-sidebar-item,.dv-pill,.dv-bottom-tab,.dv-tool-btn{
+  -webkit-tap-highlight-color:rgba(212,175,55,0.15)!important}
+
+/* Status bar space (Android with overlay) */
+.dv-native-statusbar-pad{height:env(safe-area-inset-top);background:#070B14;position:fixed;top:0;left:0;right:0;z-index:9999}
 </style>
 </head>`
 );
@@ -50,36 +107,94 @@ html = html.replace(
   var isNative=typeof window.Capacitor!=='undefined'&&window.Capacitor.isNativePlatform();
   window.IS_NATIVE_APP=isNative;
   if(!isNative){render();return;}
-  document.addEventListener('DOMContentLoaded',function(){
-    document.body.style.paddingTop='env(safe-area-inset-top)';
-    document.body.style.paddingBottom='env(safe-area-inset-bottom)';
-    if(window.Capacitor.Plugins.StatusBar){
-      var SB=window.Capacitor.Plugins.StatusBar;
-      SB.setBackgroundColor({color:'#070B14'}).catch(function(){});
-      SB.setStyle({style:'DARK'}).catch(function(){});
-      SB.setOverlaysWebView({overlay:false}).catch(function(){});
+
+  function capBoot(){
+    var P=window.Capacitor.Plugins;
+
+    // StatusBar
+    if(P.StatusBar){
+      P.StatusBar.setBackgroundColor({color:'#070B14'}).catch(function(){});
+      P.StatusBar.setStyle({style:'DARK'}).catch(function(){});
+      P.StatusBar.setOverlaysWebView({overlay:false}).catch(function(){});
     }
-    if(window.Capacitor.Plugins.Keyboard){
-      window.Capacitor.Plugins.Keyboard.setResizeMode({mode:'body'}).catch(function(){});
+
+    // Keyboard: detect open/close to adjust layout
+    if(P.Keyboard){
+      P.Keyboard.setResizeMode({mode:'ionic'}).catch(function(){});
+      P.Keyboard.addListener('keyboardWillShow',function(){
+        document.body.classList.add('keyboard-open');
+      });
+      P.Keyboard.addListener('keyboardWillHide',function(){
+        document.body.classList.remove('keyboard-open');
+        window.scrollTo(0,window.scrollY);
+      });
     }
-    if(window.Capacitor.Plugins.SplashScreen){
-      window.Capacitor.Plugins.SplashScreen.hide().catch(function(){});
+
+    // SplashScreen: hide after render
+    if(P.SplashScreen){
+      setTimeout(function(){P.SplashScreen.hide().catch(function(){});},500);
     }
-    if(window.Capacitor.Plugins.Share){
+
+    // Share: expose native share
+    if(P.Share){
       window.nativeShare=function(o){
-        window.Capacitor.Plugins.Share.share({title:o.title||'DubAIVal',text:o.text||'',url:o.url||'https://www.dubaival.com',dialogTitle:'Share via'}).catch(function(){});
+        P.Share.share({
+          title:o.title||'DubAIVal',
+          text:o.text||'',
+          url:o.url||'https://www.dubaival.com',
+          dialogTitle:'Share via'
+        }).catch(function(){});
       };
     }
-    document.addEventListener('backbutton',function(e){
-      e.preventDefault();
-      if(typeof handleBackButton==='function')handleBackButton();
-      else if(window.history.length>1)window.history.back();
-    });
+
+    // Haptics: expose for UI feedback
+    if(P.Haptics){
+      window.nativeHaptic=function(type){
+        var t=type||'Medium';
+        P.Haptics.impact({style:t}).catch(function(){});
+      };
+    }
+
+    // Back button: use History API (matches web SPA behavior)
+    if(P.App){
+      P.App.addListener('backButton',function(ev){
+        if(window.history.length>1){
+          window.history.back();
+        }else{
+          if(ev.canGoBack===false){
+            P.App.exitApp();
+          }
+        }
+      });
+    }
+
+    // Deep link handling
+    if(P.App){
+      P.App.addListener('appUrlOpen',function(data){
+        if(data.url){
+          var hash=data.url.split('#')[1];
+          if(hash){window.location.hash='#'+hash;render();}
+        }
+      });
+    }
+
     render();
-  });
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',capBoot);
+  }else{
+    capBoot();
+  }
 })();
 </script>
 </body>`
+);
+
+// Remove service worker registration for native app (Capacitor handles caching)
+html = html.replace(
+  "if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(function(){});}",
+  "if(!window.IS_NATIVE_APP&&'serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(function(){});}"
 );
 
 fs.writeFileSync(path.join(WWW, 'index.html'), html);
@@ -96,5 +211,14 @@ fs.readdirSync(jsDir).filter(f => f.endsWith('.js')).forEach(f => {
 if (fs.existsSync(path.join(ROOT, 'logo.png'))) {
   copyFile(path.join(ROOT, 'logo.png'), path.join(WWW, 'logo.png'));
 }
+
+// Copy icons if they exist
+['icon-192.png', 'icon-512.png'].forEach(function(icon) {
+  if (fs.existsSync(path.join(ROOT, icon))) {
+    copyFile(path.join(ROOT, icon), path.join(WWW, icon));
+  } else if (fs.existsSync(path.join(WWW, icon))) {
+    console.log('  ' + icon + ' (already in www/)');
+  }
+});
 
 console.log('\n✅ Build complete — ' + fs.readdirSync(path.join(WWW, 'js')).length + ' JS files copied');

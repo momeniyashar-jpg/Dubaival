@@ -4,12 +4,22 @@
   "webDir": "www",
   "server": {
     "androidScheme": "https",
-    "allowNavigation": ["*.dubaival.com", "*.supabase.co", "*.googleapis.com", "*.groq.com", "*.rapidapi.com"]
+    "allowNavigation": [
+      "*.dubaival.com",
+      "*.supabase.co",
+      "*.googleapis.com",
+      "*.groq.com",
+      "*.rapidapi.com",
+      "*.pexels.com",
+      "*.unsplash.com",
+      "*.telegra.ph",
+      "*.fal.ai"
+    ]
   },
   "plugins": {
     "SplashScreen": {
-      "launchShowDuration": 2000,
-      "launchAutoHide": true,
+      "launchShowDuration": 1500,
+      "launchAutoHide": false,
       "backgroundColor": "#070B14",
       "androidSplashResourceName": "splash",
       "androidScaleType": "CENTER_CROP",
@@ -19,16 +29,18 @@
     },
     "StatusBar": {
       "style": "DARK",
-      "backgroundColor": "#070B14"
+      "backgroundColor": "#070B14",
+      "overlaysWebView": false
     },
     "Keyboard": {
-      "resize": "body",
+      "resize": "ionic",
       "resizeOnFullScreen": true
     }
   },
   "android": {
     "allowMixedContent": false,
-    "captureInput": true,
-    "webContentsDebuggingEnabled": false
+    "webContentsDebuggingEnabled": false,
+    "overScrollMode": "never",
+    "backgroundColor": "#070B14"
   }
 }

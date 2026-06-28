@@ -1714,7 +1714,7 @@ function render(preserveScroll){
   }
 
   // Content area
-  var content=el("div",{style:{flex:"1",overflow:"auto"}});
+  var content=el("div",{className:"dv-content",style:{flex:"1",overflow:"auto"}});
 
   if(currentSection==="Home"){
     content.appendChild(renderHome());

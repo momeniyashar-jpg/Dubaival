@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">dubaival.com</domain>
+        <domain includeSubdomains="true">supabase.co</domain>
+        <domain includeSubdomains="true">googleapis.com</domain>
+        <domain includeSubdomains="true">groq.com</domain>
+        <domain includeSubdomains="true">rapidapi.com</domain>
+        <domain includeSubdomains="true">pexels.com</domain>
+        <domain includeSubdomains="true">unsplash.com</domain>
+        <domain includeSubdomains="true">telegra.ph</domain>
+        <domain includeSubdomains="true">fal.ai</domain>
+    </domain-config>
+</network-security-config>
