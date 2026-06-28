@@ -263,7 +263,7 @@ function showBrandingSetup(){
     ]},
     {header:"Content Style",fields:[
       {key:"bio",label:"Your Tagline / Bio",ph:"e.g. Dubai's #1 Investment Advisor | 10+ Years Experience",type:"textarea"},
-      {key:"signature",label:"Signature Closing Line",ph:"e.g. 📞 Call me for exclusive deals | +971 50 xxx xxxx",type:"textarea"},
+      {key:"signature",label:"Signature Closing Line",ph:"e.g. Call me for exclusive deals | +971 50 xxx xxxx",type:"textarea"},
       {key:"hashtags",label:"Brand Hashtags (always included)",ph:"e.g. #YourBrand #DubaiLuxury #YourAgency",type:"text"},
       {key:"ctaStyle",label:"Preferred Call-to-Action",ph:"",type:"select",options:["DM me for details 📩","Call/WhatsApp for private viewing 📞","Link in bio for more 🔗","Comment 'INFO' for exclusive access 💬","Book a free consultation today 📅","Reply to this post for pricing 💰"]}
     ]}
@@ -3127,17 +3127,17 @@ function showCaptionRewriter(caption){
   var platRow=div({display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"12px"});
   platforms.forEach(function(p){
     platRow.appendChild(el("button",{style:{background:hexAlpha(p.color,0.12),border:"1px solid "+hexAlpha(p.color,0.3),color:p.color,padding:"8px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
-      this.textContent="⏳ Rewriting...";resultArea.innerHTML="";
+      this.textContent="Rewriting...";resultArea.innerHTML="";
       var result=await rewriteCaptionForPlatform(caption,p.k);
       this.textContent=p.icon+" "+p.k.charAt(0).toUpperCase()+p.k.slice(1);
-      if(!result){resultArea.appendChild(el("p",{style:{color:"#EF4444",fontSize:"11px"}},"❌ Check Gemini API key."));return;}
+      if(!result){resultArea.appendChild(el("p",{style:{color:"#EF4444",fontSize:"11px"}},"Check Gemini API key."));return;}
       var rCard=div({background:"#0D1117",border:"1px solid "+hexAlpha(p.color,0.3),borderRadius:"10px",padding:"12px"});
       rCard.appendChild(el("div",{style:{color:p.color,fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginBottom:"6px"}},p.icon+" Optimized for "+p.k.charAt(0).toUpperCase()+p.k.slice(1)+" ("+result.charCount+" chars)"));
       var textEl=el("div",{style:{color:"#E0E0E0",fontSize:"11px",lineHeight:"1.5",whiteSpace:"pre-wrap",maxHeight:"200px",overflowY:"auto"}});textEl.textContent=result.caption;rCard.appendChild(textEl);
-      if(result.tips){rCard.appendChild(el("div",{style:{color:"#6B7280",fontSize:"9px",marginTop:"6px",fontStyle:"italic"}},"💡 "+result.tips));}
+      if(result.tips){rCard.appendChild(el("div",{style:{color:"#6B7280",fontSize:"9px",marginTop:"6px",fontStyle:"italic"}},result.tips));}
       var copyBtn=el("button",{style:{marginTop:"8px",background:hexAlpha(p.color,0.15),border:"1px solid "+hexAlpha(p.color,0.3),color:p.color,padding:"6px 14px",borderRadius:"6px",fontSize:"10px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
-        navigator.clipboard.writeText(result.caption);copyBtn.textContent="✅ Copied!";setTimeout(function(){copyBtn.textContent="📋 Copy";},2000);
-      }});copyBtn.textContent="📋 Copy";rCard.appendChild(copyBtn);
+        navigator.clipboard.writeText(result.caption);copyBtn.textContent="Copied!";setTimeout(function(){copyBtn.textContent="Copy";},2000);
+      }});copyBtn.textContent="Copy";rCard.appendChild(copyBtn);
       resultArea.appendChild(rCard);
     }},p.icon+" "+p.k.charAt(0).toUpperCase()+p.k.slice(1)));
   });card.appendChild(platRow);card.appendChild(resultArea);
@@ -3162,14 +3162,14 @@ function showCompetitorSpy(){
   var m=document.getElementById("spy-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"spy-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #EF4444",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
-  card.appendChild(el("h3",{style:{color:"#EF4444",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"🕵️ Competitor Hashtag Spy"));
+  card.appendChild(el("h3",{style:{color:"#EF4444",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"Competitor Hashtag Spy"));
   var compInput=el("textarea",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",boxSizing:"border-box",minHeight:"50px",resize:"vertical"},placeholder:"Enter competitor Instagram handles (comma separated)\ne.g. @dubailuxury, @emaarproperties, @damacofficial"});
   card.appendChild(compInput);
   var analyzeBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"#EF4444",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
-    analyzeBtn.textContent="🔍 Analyzing competitors...";resultWrap.innerHTML="";
+    analyzeBtn.textContent="Analyzing competitors...";resultWrap.innerHTML="";
     var result=await spyCompetitorHashtags(compInput.value||undefined);
-    analyzeBtn.textContent="🔍 Analyze";
-    if(!result){resultWrap.appendChild(el("p",{style:{color:"#EF4444",fontSize:"11px"}},"❌ Check Gemini API key."));return;}
+    analyzeBtn.textContent="Analyze";
+    if(!result){resultWrap.appendChild(el("p",{style:{color:"#EF4444",fontSize:"11px"}},"Check Gemini API key."));return;}
     if(result.competitors){
       result.competitors.forEach(function(c){
         var cCard=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",marginBottom:"6px"});
@@ -3181,22 +3181,22 @@ function showCompetitorSpy(){
       });
     }
     if(result.niche_gems&&result.niche_gems.length){
-      resultWrap.appendChild(el("div",{style:{color:"#10B981",fontSize:"11px",fontWeight:"700",marginTop:"10px",fontFamily:"monospace"}},"💎 Niche Gems (Low Competition)"));
+      resultWrap.appendChild(el("div",{style:{color:"#10B981",fontSize:"11px",fontWeight:"700",marginTop:"10px",fontFamily:"monospace"}},"Niche Gems (Low Competition)"));
       result.niche_gems.forEach(function(g){
         resultWrap.appendChild(el("div",{style:{color:"#CCC",fontSize:"10px",marginLeft:"8px"}},"• "+g.tag+" — "+g.why));
       });
     }
     if(result.unique_combos&&result.unique_combos.length){
-      resultWrap.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"11px",fontWeight:"700",marginTop:"10px",fontFamily:"monospace"}},"⚡ Unique Combos to Own"));
+      resultWrap.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"11px",fontWeight:"700",marginTop:"10px",fontFamily:"monospace"}},"Unique Combos to Own"));
       result.unique_combos.forEach(function(c){
         var row=el("div",{style:{color:"#E0E0E0",fontSize:"10px",marginLeft:"8px",cursor:"pointer",padding:"4px",borderRadius:"4px"},onclick:function(){navigator.clipboard.writeText(c);row.style.background="#10B98122";setTimeout(function(){row.style.background="";},500);}});
-        row.textContent="📋 "+c;resultWrap.appendChild(row);
+        row.textContent=c;resultWrap.appendChild(row);
       });
     }
     if(result.summary){
-      resultWrap.appendChild(el("div",{style:{background:"#1A0A1A",border:"1px solid #8B5CF6",borderRadius:"8px",padding:"8px",marginTop:"10px",color:"#CCC",fontSize:"10px",lineHeight:"1.4"}},"🧠 "+result.summary));
+      resultWrap.appendChild(el("div",{style:{background:"#1A0A1A",border:"1px solid #8B5CF6",borderRadius:"8px",padding:"8px",marginTop:"10px",color:"#CCC",fontSize:"10px",lineHeight:"1.4"}},result.summary));
     }
-  }});analyzeBtn.textContent="🔍 Analyze";card.appendChild(analyzeBtn);
+  }});analyzeBtn.textContent="Analyze";card.appendChild(analyzeBtn);
   var resultWrap=div({});card.appendChild(resultWrap);
   card.appendChild(el("button",{style:{width:"100%",marginTop:"10px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
   overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
@@ -3224,7 +3224,7 @@ function showBulkGenerator(){
   var m=document.getElementById("bulk-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"bulk-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #10B981",borderRadius:"16px",padding:"16px",width:"560px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
-  card.appendChild(el("h3",{style:{color:"#10B981",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"📦 Bulk Post Generator — 30 Day Plan"));
+  card.appendChild(el("h3",{style:{color:"#10B981",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"Bulk Post Generator — 30 Day Plan"));
   var configRow=div({display:"flex",gap:"8px",marginBottom:"10px"});
   var countSel=el("select",{style:{flex:1,background:"#0D1117",border:"1px solid #2A3040",borderRadius:"6px",padding:"6px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace"}});
   [15,20,30,60].forEach(function(n){var o=el("option");o.value=n;o.textContent=n+" posts";if(n===30)o.selected=true;countSel.appendChild(o);});
@@ -3233,14 +3233,14 @@ function showBulkGenerator(){
   configRow.appendChild(countSel);configRow.appendChild(platSel);card.appendChild(configRow);
   var resultWrap=div({});
   var genBtn=el("button",{style:{width:"100%",background:"#10B981",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
-    genBtn.textContent="⏳ Generating "+countSel.value+" posts with AI...";resultWrap.innerHTML="";
+    genBtn.textContent="Generating "+countSel.value+" posts with AI...";resultWrap.innerHTML="";
     var result=await generateBulkPosts({count:parseInt(countSel.value),platform:platSel.value});
-    genBtn.textContent="🚀 Generate";
-    if(!result||!result.posts){resultWrap.appendChild(el("p",{style:{color:"#EF4444",fontSize:"11px"}},"❌ Generation failed. Check Gemini API key."));return;}
+    genBtn.textContent="Generate";
+    if(!result||!result.posts){resultWrap.appendChild(el("p",{style:{color:"#EF4444",fontSize:"11px"}},"Generation failed. Check Gemini API key."));return;}
     var schedBtn=el("button",{style:{width:"100%",marginBottom:"10px",background:"#3B82F6",color:"#FFF",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
       result.posts.forEach(function(p){saveCalendarEvent({caption:p.caption,date:p.date,time:p.time,platform:platSel.value,pillar:p.pillar,type:p.type||"post"});});
-      schedBtn.textContent="✅ "+result.posts.length+" posts scheduled!";schedBtn.style.background="#10B981";
-    }});schedBtn.textContent="📅 Schedule All "+result.posts.length+" to Calendar";resultWrap.appendChild(schedBtn);
+      schedBtn.textContent=result.posts.length+" posts scheduled!";schedBtn.style.background="#10B981";
+    }});schedBtn.textContent="Schedule All "+result.posts.length+" to Calendar";resultWrap.appendChild(schedBtn);
     var pillarColors={"Market Data":"#3B82F6","Area Spotlights":"#10B981","Investment Tips":"#F59E0B","Lifestyle":"#EC4899","Success Stories":"#8B5CF6","Behind the Scenes":"#F97316","FAQ":"#06B6D4","Trending News":"#EF4444"};
     result.posts.forEach(function(p,i){
       var pCard=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",marginBottom:"4px"});
@@ -3252,10 +3252,10 @@ function showBulkGenerator(){
       var capEl=el("div",{style:{color:"#CCC",fontSize:"10px",lineHeight:"1.4",marginTop:"4px",maxHeight:"60px",overflow:"hidden",cursor:"pointer"},onclick:function(){
         navigator.clipboard.writeText(p.caption);capEl.style.color="#10B981";setTimeout(function(){capEl.style.color="#CCC";},1000);
       }});capEl.textContent=p.caption.substring(0,200)+(p.caption.length>200?"...":"");pCard.appendChild(capEl);
-      if(p.imageHint)pCard.appendChild(el("div",{style:{color:"#6B7280",fontSize:"8px",marginTop:"2px"}},"📷 "+p.imageHint));
+      if(p.imageHint)pCard.appendChild(el("div",{style:{color:"#6B7280",fontSize:"8px",marginTop:"2px"}},p.imageHint));
       resultWrap.appendChild(pCard);
     });
-  }});genBtn.textContent="🚀 Generate";card.appendChild(genBtn);card.appendChild(resultWrap);
+  }});genBtn.textContent="Generate";card.appendChild(genBtn);card.appendChild(resultWrap);
   card.appendChild(el("button",{style:{width:"100%",marginTop:"10px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
   overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
   document.body.appendChild(overlay);
@@ -3266,7 +3266,7 @@ function showContentRecycler(){
   var m=document.getElementById("recycler-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"recycler-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #F97316",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
-  card.appendChild(el("h3",{style:{color:"#F97316",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"♻️ Content Recycler"));
+  card.appendChild(el("h3",{style:{color:"#F97316",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"Content Recycler"));
   var history=getPostHistory();
   if(history.length<3){card.appendChild(el("p",{style:{color:"#8899AA",fontSize:"12px"}},"Need at least 3 posts in history to recycle. Start posting!"));
   }else{
@@ -3276,12 +3276,12 @@ function showContentRecycler(){
     var candidates=older.slice(0,8);
     candidates.forEach(function(p){
       var pCard=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",marginBottom:"6px"});
-      pCard.appendChild(el("div",{style:{color:"#F97316",fontSize:"10px",fontWeight:"700",fontFamily:"monospace"}},"📅 "+new Date(p.postedAt).toLocaleDateString()+" · "+(p.platform||"instagram")));
+      pCard.appendChild(el("div",{style:{color:"#F97316",fontSize:"10px",fontWeight:"700",fontFamily:"monospace"}},new Date(p.postedAt).toLocaleDateString()+" · "+(p.platform||"instagram")));
       var capEl=el("div",{style:{color:"#CCC",fontSize:"10px",lineHeight:"1.4",marginTop:"4px",maxHeight:"40px",overflow:"hidden"}});capEl.textContent=(p.caption||"").substring(0,120);pCard.appendChild(capEl);
       var recycleBtn=el("button",{style:{marginTop:"6px",background:"#F9731622",border:"1px solid #F9731644",color:"#F97316",padding:"4px 10px",borderRadius:"6px",fontSize:"10px",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
-        recycleBtn.textContent="♻️ Refreshing...";
+        recycleBtn.textContent="Refreshing...";
         var geminiKey=localStorage.getItem("dv_gemini_key");
-        if(!geminiKey){recycleBtn.textContent="❌ Need Gemini key";return;}
+        if(!geminiKey){recycleBtn.textContent="Need Gemini key";return;}
         var areaData="";try{var top=Object.keys(AREAS).slice(0,20).map(function(k){return k+":PSF"+AREAS[k].psf;}).join(",");areaData=top;}catch(e){}
         try{
           var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
@@ -3292,14 +3292,14 @@ function showContentRecycler(){
           if(d.candidates&&d.candidates[0]){
             var newCap=d.candidates[0].content.parts[0].text;
             var resultDiv=div({background:"#1A1820",border:"1px solid #10B981",borderRadius:"8px",padding:"8px",marginTop:"6px"});
-            resultDiv.appendChild(el("div",{style:{color:"#10B981",fontSize:"9px",fontWeight:"700",fontFamily:"monospace",marginBottom:"4px"}},"✨ Refreshed Version"));
+            resultDiv.appendChild(el("div",{style:{color:"#10B981",fontSize:"9px",fontWeight:"700",fontFamily:"monospace",marginBottom:"4px"}},"Refreshed Version"));
             var newText=el("div",{style:{color:"#E0E0E0",fontSize:"10px",lineHeight:"1.4",whiteSpace:"pre-wrap",maxHeight:"100px",overflowY:"auto"}});newText.textContent=newCap;resultDiv.appendChild(newText);
-            var copyBtn=el("button",{style:{marginTop:"4px",background:"#10B98122",border:"1px solid #10B98144",color:"#10B981",padding:"3px 8px",borderRadius:"4px",fontSize:"9px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){navigator.clipboard.writeText(newCap);copyBtn.textContent="✅ Copied!";}});
-            copyBtn.textContent="📋 Copy";resultDiv.appendChild(copyBtn);pCard.appendChild(resultDiv);
+            var copyBtn=el("button",{style:{marginTop:"4px",background:"#10B98122",border:"1px solid #10B98144",color:"#10B981",padding:"3px 8px",borderRadius:"4px",fontSize:"9px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){navigator.clipboard.writeText(newCap);copyBtn.textContent="Copied!";}});
+            copyBtn.textContent="Copy";resultDiv.appendChild(copyBtn);pCard.appendChild(resultDiv);
           }
-          recycleBtn.textContent="♻️ Recycle";
-        }catch(e){recycleBtn.textContent="❌ Error";}
-      }});recycleBtn.textContent="♻️ Recycle This";pCard.appendChild(recycleBtn);
+          recycleBtn.textContent="Recycle";
+        }catch(e){recycleBtn.textContent="Error";}
+      }});recycleBtn.textContent="Recycle This";pCard.appendChild(recycleBtn);
       card.appendChild(pCard);
     });
   }
@@ -3313,7 +3313,7 @@ function showLinkInBio(){
   var m=document.getElementById("linkinbio-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"linkinbio-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #C9A84C",borderRadius:"16px",padding:"16px",width:"420px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
-  card.appendChild(el("h3",{style:{color:"#C9A84C",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"🔗 Link in Bio Generator"));
+  card.appendChild(el("h3",{style:{color:"#C9A84C",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"Link in Bio Generator"));
   var bp=getBrandProfile();
   var links;try{links=JSON.parse(localStorage.getItem("dv_linkinbio")||"[]");}catch(e){links=[];}
   var previewWrap=div({});
@@ -3331,7 +3331,7 @@ function showLinkInBio(){
     var linkWrap=div({marginTop:"16px"});
     links.forEach(function(l,i){
       var lb=el("div",{style:{background:l.color||"#C9A84C",borderRadius:"10px",padding:"10px 14px",marginBottom:"8px",textAlign:"center",cursor:"pointer",transition:"transform 0.2s"}});
-      lb.appendChild(el("div",{style:{color:l.color==="transparent"||l.color==="#FFFFFF"?"#000":"#FFF",fontSize:"12px",fontWeight:"600",fontFamily:"'Space Grotesk',sans-serif"}},(l.icon||"🔗")+" "+l.title));
+      lb.appendChild(el("div",{style:{color:l.color==="transparent"||l.color==="#FFFFFF"?"#000":"#FFF",fontSize:"12px",fontWeight:"600",fontFamily:"'Space Grotesk',sans-serif"}},(l.icon||"")+" "+l.title));
       if(l.subtitle)lb.appendChild(el("div",{style:{color:"rgba(255,255,255,0.7)",fontSize:"9px",marginTop:"2px"}},l.subtitle));
       linkWrap.appendChild(lb);
     });
@@ -3346,15 +3346,15 @@ function showLinkInBio(){
   var urlInp=el("input",{style:{flex:3,background:"#0D1117",border:"1px solid #2A3040",borderRadius:"6px",padding:"6px",color:"#E0E0E0",fontSize:"10px",fontFamily:"monospace",boxSizing:"border-box"},placeholder:"URL or wa.me/971..."});
   var addBtn=el("button",{style:{background:"#C9A84C",color:"#000",border:"none",borderRadius:"6px",padding:"6px 10px",fontSize:"10px",fontWeight:"700",cursor:"pointer"},onclick:function(){
     if(!titleInp.value.trim())return;
-    links.push({title:titleInp.value.trim(),url:urlInp.value.trim(),icon:"🔗",color:"#C9A84C"});
+    links.push({title:titleInp.value.trim(),url:urlInp.value.trim(),icon:"",color:"#C9A84C"});
     localStorage.setItem("dv_linkinbio",JSON.stringify(links));
     titleInp.value="";urlInp.value="";renderPreview();renderLinkList();
   }});addBtn.textContent="+";addRow.appendChild(titleInp);addRow.appendChild(urlInp);addRow.appendChild(addBtn);card.appendChild(addRow);
   var quickLinks=[
-    {title:"WhatsApp Me",url:"https://wa.me/971",icon:"📲",color:"#25D366"},
-    {title:"Free Valuation",url:"https://dubaival.com",icon:"📊",color:"#3B82F6"},
-    {title:"Instagram",url:"https://instagram.com/",icon:"📸",color:"#E1306C"},
-    {title:"View Properties",url:"https://dubaival.com",icon:"🏠",color:"#10B981"}
+    {title:"WhatsApp Me",url:"https://wa.me/971",icon:"WA",color:"#25D366"},
+    {title:"Free Valuation",url:"https://dubaival.com",icon:"",color:"#3B82F6"},
+    {title:"Instagram",url:"https://instagram.com/",icon:"IG",color:"#E1306C"},
+    {title:"View Properties",url:"https://dubaival.com",icon:"",color:"#10B981"}
   ];
   var quickRow=div({display:"flex",gap:"4px",flexWrap:"wrap",marginBottom:"8px"});
   quickLinks.forEach(function(q){
@@ -3368,17 +3368,17 @@ function showLinkInBio(){
     links.forEach(function(l,i){
       var row=div({display:"flex",gap:"4px",alignItems:"center",marginBottom:"4px"});
       row.appendChild(el("span",{style:{color:"#CCC",fontSize:"10px",flex:1,fontFamily:"monospace"}},l.icon+" "+l.title));
-      row.appendChild(el("button",{style:{background:"none",border:"none",color:"#EF4444",fontSize:"12px",cursor:"pointer"},onclick:function(){links.splice(i,1);localStorage.setItem("dv_linkinbio",JSON.stringify(links));renderPreview();renderLinkList();}},"🗑"));
+      row.appendChild(el("button",{style:{background:"none",border:"none",color:"#EF4444",fontSize:"12px",cursor:"pointer"},onclick:function(){links.splice(i,1);localStorage.setItem("dv_linkinbio",JSON.stringify(links));renderPreview();renderLinkList();}},"×"));
       linkListWrap.appendChild(row);
     });
   }
   card.appendChild(linkListWrap);renderLinkList();
   var copyBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"#C9A84C",color:"#000",border:"none",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
-    var html="<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>"+(bp?bp.name:"DubAIVal")+" — Links</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#070B14;font-family:'Segoe UI',sans-serif;display:flex;justify-content:center;padding:40px 16px;min-height:100vh}.container{max-width:400px;width:100%;text-align:center}.avatar{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#C9A84C,#8B6914);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:32px;color:#fff}.name{color:#fff;font-size:18px;font-weight:700;margin-bottom:4px}.bio{color:#999;font-size:12px;margin-bottom:24px}.link{display:block;padding:14px;border-radius:12px;margin-bottom:10px;text-decoration:none;color:#fff;font-weight:600;font-size:14px;transition:transform .2s}.link:hover{transform:scale(1.03)}.footer{color:#444;font-size:10px;margin-top:24px}</style></head><body><div class='container'><div class='avatar'>🏠</div><div class='name'>"+(bp?bp.name:"DubAIVal")+"</div><div class='bio'>"+(bp?bp.bio||"":"AI Property Valuation Dubai")+"</div>";
-    links.forEach(function(l){html+="<a class='link' href='"+(l.url||"#")+"' style='background:"+(l.color||"#C9A84C")+"'>"+(l.icon||"🔗")+" "+l.title+"</a>";});
+    var html="<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>"+(bp?bp.name:"DubAIVal")+" — Links</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#070B14;font-family:'Segoe UI',sans-serif;display:flex;justify-content:center;padding:40px 16px;min-height:100vh}.container{max-width:400px;width:100%;text-align:center}.avatar{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#C9A84C,#8B6914);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:32px;color:#fff}.name{color:#fff;font-size:18px;font-weight:700;margin-bottom:4px}.bio{color:#999;font-size:12px;margin-bottom:24px}.link{display:block;padding:14px;border-radius:12px;margin-bottom:10px;text-decoration:none;color:#fff;font-weight:600;font-size:14px;transition:transform .2s}.link:hover{transform:scale(1.03)}.footer{color:#444;font-size:10px;margin-top:24px}</style></head><body><div class='container'><div class='avatar'></div><div class='name'>"+(bp?bp.name:"DubAIVal")+"</div><div class='bio'>"+(bp?bp.bio||"":"AI Property Valuation Dubai")+"</div>";
+    links.forEach(function(l){html+="<a class='link' href='"+(l.url||"#")+"' style='background:"+(l.color||"#C9A84C")+"'>"+(l.icon||"")+" "+l.title+"</a>";});
     html+="<div class='footer'>Powered by DubAIVal.com</div></div></body></html>";
-    navigator.clipboard.writeText(html);copyBtn.textContent="✅ HTML Copied!";setTimeout(function(){copyBtn.textContent="📋 Copy HTML Page";},2000);
-  }});copyBtn.textContent="📋 Copy HTML Page";card.appendChild(copyBtn);
+    navigator.clipboard.writeText(html);copyBtn.textContent="HTML Copied!";setTimeout(function(){copyBtn.textContent="Copy HTML Page";},2000);
+  }});copyBtn.textContent="Copy HTML Page";card.appendChild(copyBtn);
   card.appendChild(el("button",{style:{width:"100%",marginTop:"6px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
   renderPreview();
   overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
@@ -3387,12 +3387,12 @@ function showLinkInBio(){
 
 // --- STORY TEMPLATES (Quiz, Poll, Countdown) ---
 var STORY_TEMPLATES=[
-  {id:"quiz",name:"🧠 Quiz",color:"#8B5CF6",description:"Test your audience's Dubai market knowledge"},
-  {id:"poll",name:"📊 Poll",color:"#3B82F6",description:"Engage with binary choices about property"},
-  {id:"countdown",name:"⏰ Countdown",color:"#EF4444",description:"Build urgency for launches, deals, events"},
-  {id:"thisorthat",name:"⚡ This or That",color:"#F59E0B",description:"Compare two areas, properties, or strategies"},
-  {id:"slider",name:"🔥 Emoji Slider",color:"#EC4899",description:"Rate sentiment on market topics"},
-  {id:"ama",name:"❓ AMA",color:"#10B981",description:"Ask Me Anything about Dubai real estate"}
+  {id:"quiz",name:"Quiz",color:"#8B5CF6",description:"Test your audience's Dubai market knowledge"},
+  {id:"poll",name:"Poll",color:"#3B82F6",description:"Engage with binary choices about property"},
+  {id:"countdown",name:"Countdown",color:"#EF4444",description:"Build urgency for launches, deals, events"},
+  {id:"thisorthat",name:"This or That",color:"#F59E0B",description:"Compare two areas, properties, or strategies"},
+  {id:"slider",name:"Emoji Slider",color:"#EC4899",description:"Rate sentiment on market topics"},
+  {id:"ama",name:"AMA",color:"#10B981",description:"Ask Me Anything about Dubai real estate"}
 ];
 async function generateStoryContent(templateId){
   var geminiKey=localStorage.getItem("dv_gemini_key");if(!geminiKey)return null;
@@ -3418,23 +3418,23 @@ function showStoryTemplates(){
   var m=document.getElementById("storytpl-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"storytpl-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #8B5CF6",borderRadius:"16px",padding:"16px",width:"480px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
-  card.appendChild(el("h3",{style:{color:"#8B5CF6",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"📱 Story Templates"));
+  card.appendChild(el("h3",{style:{color:"#8B5CF6",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"Story Templates"));
   var resultWrap=div({});
   var tplGrid=div({display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"8px",marginBottom:"12px"});
   STORY_TEMPLATES.forEach(function(t){
     var tCard=el("div",{style:{background:"#0D1117",border:"1px solid "+hexAlpha(t.color,0.3),borderRadius:"10px",padding:"10px",cursor:"pointer",transition:"all 0.2s"},onclick:async function(){
       tCard.style.borderColor=t.color;resultWrap.innerHTML="";
-      resultWrap.appendChild(el("div",{style:{color:"#8899AA",fontSize:"11px",textAlign:"center",padding:"10px"}},"⏳ Generating "+t.name+" content..."));
+      resultWrap.appendChild(el("div",{style:{color:"#8899AA",fontSize:"11px",textAlign:"center",padding:"10px"}},"Generating "+t.name+" content..."));
       var content=await generateStoryContent(t.id);
       resultWrap.innerHTML="";
-      if(!content){resultWrap.appendChild(el("p",{style:{color:"#EF4444",fontSize:"11px"}},"❌ Check Gemini API key."));return;}
+      if(!content){resultWrap.appendChild(el("p",{style:{color:"#EF4444",fontSize:"11px"}},"Check Gemini API key."));return;}
       var rCard=div({background:"#0D1117",border:"1px solid "+t.color,borderRadius:"10px",padding:"12px"});
       rCard.appendChild(el("div",{style:{color:t.color,fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginBottom:"6px"}},t.name+" Content"));
       var preEl=el("pre",{style:{color:"#E0E0E0",fontSize:"10px",lineHeight:"1.5",whiteSpace:"pre-wrap",background:"#0A0E18",padding:"8px",borderRadius:"6px",maxHeight:"200px",overflowY:"auto"}});
       preEl.textContent=JSON.stringify(content,null,2);rCard.appendChild(preEl);
       var copyBtn=el("button",{style:{marginTop:"8px",width:"100%",background:hexAlpha(t.color,0.15),border:"1px solid "+hexAlpha(t.color,0.3),color:t.color,padding:"6px",borderRadius:"6px",fontSize:"10px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
-        navigator.clipboard.writeText(JSON.stringify(content,null,2));copyBtn.textContent="✅ Copied!";setTimeout(function(){copyBtn.textContent="📋 Copy Content";},2000);
-      }});copyBtn.textContent="📋 Copy Content";rCard.appendChild(copyBtn);
+        navigator.clipboard.writeText(JSON.stringify(content,null,2));copyBtn.textContent="Copied!";setTimeout(function(){copyBtn.textContent="Copy Content";},2000);
+      }});copyBtn.textContent="Copy Content";rCard.appendChild(copyBtn);
       resultWrap.appendChild(rCard);
     }});
     tCard.appendChild(el("div",{style:{fontSize:"20px",textAlign:"center",marginBottom:"4px"}},t.name.split(" ")[0]));
@@ -3454,7 +3454,7 @@ function showPostPreview(caption,imageUrl){
   var card=div({background:"#000",borderRadius:"0",width:"380px",maxWidth:"96vw"});
   var bp=getBrandProfile();
   var igHeader=div({display:"flex",alignItems:"center",padding:"10px 12px",gap:"8px"});
-  var avatar=el("div",{style:{width:"32px",height:"32px",borderRadius:"50%",background:"linear-gradient(135deg,#C9A84C,#8B6914)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"14px",color:"#FFF",flexShrink:"0"}});avatar.textContent="🏠";
+  var avatar=el("div",{style:{width:"32px",height:"32px",borderRadius:"50%",background:"linear-gradient(135deg,#C9A84C,#8B6914)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"14px",color:"#FFF",flexShrink:"0"}});avatar.textContent="";
   igHeader.appendChild(avatar);
   var nameCol=div({flex:"1"});
   nameCol.appendChild(el("div",{style:{color:"#FFF",fontSize:"13px",fontWeight:"600"}},bp?bp.name:"dubaival"));
@@ -3467,12 +3467,12 @@ function showPostPreview(caption,imageUrl){
     img.src=imageUrl;card.appendChild(img);
   }else{
     var placeholder=div({width:"100%",aspectRatio:"1",background:"linear-gradient(135deg,#1A0A3A,#0A1628)",display:"flex",alignItems:"center",justifyContent:"center"});
-    placeholder.appendChild(el("span",{style:{color:"#333",fontSize:"48px"}},"📷"));card.appendChild(placeholder);
+    placeholder.appendChild(el("span",{style:{color:"#333",fontSize:"48px"}},""));card.appendChild(placeholder);
   }
   var actionBar=div({display:"flex",justifyContent:"space-between",padding:"10px 12px"});
   var leftActs=div({display:"flex",gap:"14px"});
-  ["♡","💬","✈️"].forEach(function(ic){leftActs.appendChild(el("span",{style:{color:"#FFF",fontSize:"22px",cursor:"pointer"}},ic));});
-  actionBar.appendChild(leftActs);actionBar.appendChild(el("span",{style:{color:"#FFF",fontSize:"22px"}},"🔖"));
+  ["♡","",""].forEach(function(ic){leftActs.appendChild(el("span",{style:{color:"#FFF",fontSize:"22px",cursor:"pointer"}},ic));});
+  actionBar.appendChild(leftActs);actionBar.appendChild(el("span",{style:{color:"#FFF",fontSize:"22px"}},""));
   card.appendChild(actionBar);
   card.appendChild(el("div",{style:{padding:"0 12px 4px",color:"#FFF",fontSize:"13px",fontWeight:"600"}},"2,847 likes"));
   var capWrap=div({padding:"0 12px 12px"});
@@ -3506,7 +3506,7 @@ function schedulePostReminder(event){
     if(delay<=0)return;
     if(delay>24*60*60*1000)return;
     setTimeout(function(){
-      new Notification("📱 DubAIVal — Time to Post!",{body:"Scheduled post for "+(event.platform||"Instagram")+" is due in 15 minutes.\n"+(event.caption||"").substring(0,80)+"...",icon:"logo.png",badge:"logo.png",tag:"dv-post-"+event.id,requireInteraction:true});
+      new Notification("DubAIVal — Time to Post!",{body:"Scheduled post for "+(event.platform||"Instagram")+" is due in 15 minutes.\n"+(event.caption||"").substring(0,80)+"...",icon:"logo.png",badge:"logo.png",tag:"dv-post-"+event.id,requireInteraction:true});
     },delay);
   });
 }
@@ -3517,7 +3517,7 @@ function showCaptionOptimizer(caption){
   var m=document.getElementById("optimizer-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:"10px"},id:"optimizer-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #06B6D4",borderRadius:"16px",padding:"16px",width:"480px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
-  card.appendChild(el("h3",{style:{color:"#06B6D4",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"📏 Caption Length Optimizer"));
+  card.appendChild(el("h3",{style:{color:"#06B6D4",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"Caption Length Optimizer"));
   var charCount=caption.length;var hashCount=(caption.match(/#\w+/g)||[]).length;var emojiCount=(caption.match(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu)||[]).length;
   var statsRow=div({display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px",marginBottom:"12px"});
   [{l:"Characters",v:charCount,c:"#06B6D4"},{l:"Hashtags",v:hashCount,c:"#10B981"},{l:"Emojis",v:emojiCount,c:"#F59E0B"}].forEach(function(s){
@@ -3529,7 +3529,7 @@ function showCaptionOptimizer(caption){
     var lim=PLATFORM_LIMITS[p];var pct=Math.min(charCount/lim.max*100,100);
     var inIdeal=charCount>=lim.ideal.min&&charCount<=lim.ideal.max;
     var tooLong=charCount>lim.max;var hashOk=hashCount<=lim.hashtags;
-    var status=tooLong?"🔴 Over limit":inIdeal?"🟢 Ideal length":charCount<lim.ideal.min?"🟡 Too short":"🟡 Could be shorter";
+    var status=tooLong?"Over limit":inIdeal?"Ideal length":charCount<lim.ideal.min?"Too short":"Could be shorter";
     var pCard=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",marginBottom:"6px"});
     var icons={instagram:"IG",facebook:"FB",linkedin:"LI",twitter:"𝕏",tiktok:"TT",whatsapp:"WA"};
     pCard.appendChild(el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
@@ -3543,7 +3543,7 @@ function showCaptionOptimizer(caption){
       el("span",{style:{color:"#6B7280",fontSize:"8px",fontFamily:"monospace"}},charCount+"/"+lim.max+" chars · Ideal: "+lim.ideal.min+"-"+lim.ideal.max),
       el("span",{style:{color:hashOk?"#6B7280":"#EF4444",fontSize:"8px",fontFamily:"monospace"}},"#: "+hashCount+"/"+lim.hashtags)
     ));
-    pCard.appendChild(el("div",{style:{color:"#4B5563",fontSize:"8px",marginTop:"2px"}},"💡 "+lim.note));
+    pCard.appendChild(el("div",{style:{color:"#4B5563",fontSize:"8px",marginTop:"2px"}},lim.note));
     card.appendChild(pCard);
   });
   card.appendChild(el("button",{style:{width:"100%",marginTop:"10px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
@@ -3567,15 +3567,15 @@ function showEmojiIntelligence(caption){
   var m=document.getElementById("emoji-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"emoji-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #F59E0B",borderRadius:"16px",padding:"16px",width:"480px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
-  card.appendChild(el("h3",{style:{color:"#F59E0B",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"😊 Emoji Intelligence"));
-  var loadingP=el("p",{style:{color:"#8899AA",fontSize:"12px",textAlign:"center"}},"⏳ Analyzing best emojis...");
+  card.appendChild(el("h3",{style:{color:"#F59E0B",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"Emoji Intelligence"));
+  var loadingP=el("p",{style:{color:"#8899AA",fontSize:"12px",textAlign:"center"}},"Analyzing best emojis...");
   card.appendChild(loadingP);
   overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
   document.body.appendChild(overlay);
   suggestEmojis(caption).then(function(result){
     loadingP.remove();
-    if(!result){card.appendChild(el("p",{style:{color:"#EF4444",fontSize:"12px"}},"❌ Check Gemini API key."));return;}
-    var cats=[{k:"hook",l:"🎯 Hook Emojis",c:"#EF4444"},{k:"separators",l:"📐 Separators",c:"#3B82F6"},{k:"cta",l:"📲 CTA Emojis",c:"#10B981"}];
+    if(!result){card.appendChild(el("p",{style:{color:"#EF4444",fontSize:"12px"}},"Check Gemini API key."));return;}
+    var cats=[{k:"hook",l:"Hook Emojis",c:"#EF4444"},{k:"separators",l:"Separators",c:"#3B82F6"},{k:"cta",l:"CTA Emojis",c:"#10B981"}];
     cats.forEach(function(cat){
       if(!result[cat.k]||!result[cat.k].length)return;
       card.appendChild(el("div",{style:{color:cat.c,fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginTop:"8px"}},cat.l));
@@ -3588,14 +3588,14 @@ function showEmojiIntelligence(caption){
     });
     if(result.enhanced_caption){
       var enhBox=div({background:"#0D1117",border:"1px solid #F59E0B",borderRadius:"8px",padding:"10px",marginTop:"12px"});
-      enhBox.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",fontWeight:"700",fontFamily:"monospace",marginBottom:"4px"}},"✨ Enhanced Caption ("+result.total_emojis+" emojis)"));
+      enhBox.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",fontWeight:"700",fontFamily:"monospace",marginBottom:"4px"}},"Enhanced Caption ("+result.total_emojis+" emojis)"));
       var enhText=el("div",{style:{color:"#E0E0E0",fontSize:"11px",lineHeight:"1.5",whiteSpace:"pre-wrap",maxHeight:"150px",overflowY:"auto"}});enhText.textContent=result.enhanced_caption;enhBox.appendChild(enhText);
       var copyBtn=el("button",{style:{marginTop:"6px",background:"#F59E0B22",border:"1px solid #F59E0B44",color:"#F59E0B",padding:"5px 12px",borderRadius:"6px",fontSize:"10px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
-        navigator.clipboard.writeText(result.enhanced_caption);copyBtn.textContent="✅ Copied!";setTimeout(function(){copyBtn.textContent="📋 Use Enhanced";},2000);
-      }});copyBtn.textContent="📋 Use Enhanced";enhBox.appendChild(copyBtn);
+        navigator.clipboard.writeText(result.enhanced_caption);copyBtn.textContent="Copied!";setTimeout(function(){copyBtn.textContent="Use Enhanced";},2000);
+      }});copyBtn.textContent="Use Enhanced";enhBox.appendChild(copyBtn);
       card.appendChild(enhBox);
     }
-    if(result.tip){card.appendChild(el("div",{style:{color:"#6B7280",fontSize:"9px",marginTop:"8px",fontStyle:"italic"}},"💡 "+result.tip));}
+    if(result.tip){card.appendChild(el("div",{style:{color:"#6B7280",fontSize:"9px",marginTop:"8px",fontStyle:"italic"}},result.tip));}
     card.appendChild(el("button",{style:{width:"100%",marginTop:"10px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
   });
 }
@@ -3632,7 +3632,7 @@ function showWatermarkSetup(){
   var m=document.getElementById("watermark-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:"10px"},id:"watermark-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #C9A84C",borderRadius:"16px",padding:"16px",width:"420px",maxWidth:"96vw"});
-  card.appendChild(el("h3",{style:{color:"#C9A84C",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"💧 Watermark Settings"));
+  card.appendChild(el("h3",{style:{color:"#C9A84C",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"Watermark Settings"));
   var settings=getWatermarkSettings();
   var preview=document.createElement("canvas");preview.width=400;preview.height=300;
   preview.style.cssText="width:100%;border-radius:8px;border:1px solid #2A3040;margin-bottom:10px;";
@@ -3641,7 +3641,7 @@ function showWatermarkSetup(){
     var ctx=preview.getContext("2d");
     var grd=ctx.createLinearGradient(0,0,0,300);grd.addColorStop(0,"#1A0A3A");grd.addColorStop(1,"#0A1628");
     ctx.fillStyle=grd;ctx.fillRect(0,0,400,300);
-    ctx.fillStyle="#333";ctx.font="48px sans-serif";ctx.textAlign="center";ctx.fillText("📷 Sample Image",200,160);
+    ctx.fillStyle="#333";ctx.font="48px sans-serif";ctx.textAlign="center";ctx.fillText("Sample Image",200,160);
     if(settings.enabled)applyWatermark(preview,settings);
   }
   var enableRow=div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px"});
@@ -3671,19 +3671,19 @@ function showWatermarkSetup(){
 
 // --- CONTENT PILLAR PLANNER ---
 var DEFAULT_PILLARS=[
-  {id:"market",name:"📊 Market Data",color:"#3B82F6",percentage:25,examples:["PSF updates","Yield comparisons","Growth trends"]},
-  {id:"area",name:"📍 Area Spotlight",color:"#10B981",percentage:20,examples:["Area guides","Neighborhood tours","Hidden gems"]},
-  {id:"education",name:"📚 Education",color:"#8B5CF6",percentage:20,examples:["Buying tips","Investment 101","Legal guide"]},
-  {id:"lifestyle",name:"✨ Lifestyle",color:"#EC4899",percentage:15,examples:["Dubai luxury","Community life","Amenities"]},
-  {id:"social_proof",name:"🏆 Social Proof",color:"#F59E0B",percentage:10,examples:["Testimonials","Deal closed","Client stories"]},
-  {id:"behind",name:"🎬 Behind Scenes",color:"#F97316",percentage:10,examples:["Market visits","Team","Day in life"]}
+  {id:"market",name:"Market Data",color:"#3B82F6",percentage:25,examples:["PSF updates","Yield comparisons","Growth trends"]},
+  {id:"area",name:"Area Spotlight",color:"#10B981",percentage:20,examples:["Area guides","Neighborhood tours","Hidden gems"]},
+  {id:"education",name:"Education",color:"#8B5CF6",percentage:20,examples:["Buying tips","Investment 101","Legal guide"]},
+  {id:"lifestyle",name:"Lifestyle",color:"#EC4899",percentage:15,examples:["Dubai luxury","Community life","Amenities"]},
+  {id:"social_proof",name:"Social Proof",color:"#F59E0B",percentage:10,examples:["Testimonials","Deal closed","Client stories"]},
+  {id:"behind",name:"Behind Scenes",color:"#F97316",percentage:10,examples:["Market visits","Team","Day in life"]}
 ];
 function getPillarSettings(){try{return JSON.parse(localStorage.getItem("dv_content_pillars")||"null")||DEFAULT_PILLARS;}catch(e){return DEFAULT_PILLARS;}}
 function showPillarPlanner(){
   var m=document.getElementById("pillar-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"pillar-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #8B5CF6",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
-  card.appendChild(el("h3",{style:{color:"#8B5CF6",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"🏛️ Content Pillar Planner"));
+  card.appendChild(el("h3",{style:{color:"#8B5CF6",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"Content Pillar Planner"));
   var pillars=getPillarSettings();
   var history=getPostHistory();
   var chartCanvas=document.createElement("canvas");chartCanvas.width=280;chartCanvas.height=280;
@@ -3718,7 +3718,7 @@ function showPillarPlanner(){
     pCard.appendChild(exRow);card.appendChild(pCard);
   });
   var totalPct=pillars.reduce(function(s,p){return s+p.percentage;},0);
-  if(totalPct!==100)card.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",textAlign:"center",marginTop:"6px"}},"⚠️ Total: "+totalPct+"% (should be 100%)"));
+  if(totalPct!==100)card.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",textAlign:"center",marginTop:"6px"}},"Total: "+totalPct+"% (should be 100%)"));
   card.appendChild(el("button",{style:{width:"100%",marginTop:"10px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
   overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
   document.body.appendChild(overlay);
@@ -3968,7 +3968,7 @@ function showPostDesigner(caption,existingImg){
   var pData=extractPostData(caption);
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.9)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"post-designer-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #C9A84C",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
-  card.appendChild(el("h3",{style:{color:"#C9A84C",margin:"0 0 8px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"🎨 Professional Post Designer"));
+  card.appendChild(el("h3",{style:{color:"#C9A84C",margin:"0 0 8px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"Professional Post Designer"));
 
   var state={template:"luxury",filter:"none",format:"square",bgImg:null,title:pData.area||"Dubai Property",subtitle:"",cta:"Learn More →",data:pData.data.slice(0,4),slideCount:1};
   var preview=document.createElement("canvas");var pCtx=preview.getContext("2d");
@@ -4142,7 +4142,7 @@ function showABTest(caption,platform){
   document.body.appendChild(overlay);
   generateCaptionVariants(caption,platform).then(function(result){
     loadingP.remove();
-    if(!result){card.appendChild(el("p",{style:{color:"#EF4444",fontSize:"12px"}},"❌ Could not generate variants. Check Gemini API key."));return;}
+    if(!result){card.appendChild(el("p",{style:{color:"#EF4444",fontSize:"12px"}},"Could not generate variants. Check Gemini API key."));return;}
     var variants=[{label:"Original",text:caption,color:"#C9A84C"},{label:"Variant A — Emotional",text:result.variantA,color:"#10B981"},{label:"Variant B — Data-Driven",text:result.variantB,color:"#3B82F6"}];
     variants.forEach(function(v){
       var vCard=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"10px",padding:"10px",marginBottom:"8px"});
@@ -4150,13 +4150,13 @@ function showABTest(caption,platform){
       var textEl=el("div",{style:{color:"#E0E0E0",fontSize:"11px",lineHeight:"1.5",maxHeight:"120px",overflowY:"auto",whiteSpace:"pre-wrap"}});textEl.textContent=v.text;
       vCard.appendChild(textEl);
       var useBtn=el("button",{style:{marginTop:"6px",background:hexAlpha(v.color,0.15),border:"1px solid "+hexAlpha(v.color,0.3),color:v.color,padding:"5px 12px",borderRadius:"6px",fontSize:"10px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
-        navigator.clipboard.writeText(v.text).then(function(){useBtn.textContent="✅ Copied!";setTimeout(function(){useBtn.textContent="📋 Use This";},2000);});
-      }});useBtn.textContent="📋 Use This";vCard.appendChild(useBtn);
+        navigator.clipboard.writeText(v.text).then(function(){useBtn.textContent="✓ Copied!";setTimeout(function(){useBtn.textContent="Use This";},2000);});
+      }});useBtn.textContent="Use This";vCard.appendChild(useBtn);
       card.appendChild(vCard);
     });
     if(result.analysis){
       var aBox=div({background:"#1A0A3A",border:"1px solid #8B5CF6",borderRadius:"8px",padding:"10px",marginBottom:"8px"});
-      aBox.appendChild(el("div",{style:{color:"#8B5CF6",fontSize:"10px",fontWeight:"700",fontFamily:"monospace",marginBottom:"4px"}},"🧠 AI Analysis"));
+      aBox.appendChild(el("div",{style:{color:"#8B5CF6",fontSize:"10px",fontWeight:"700",fontFamily:"monospace",marginBottom:"4px"}},"AI Analysis"));
       aBox.appendChild(el("div",{style:{color:"#CCC",fontSize:"11px",lineHeight:"1.4"}},result.analysis));
       card.appendChild(aBox);
     }
@@ -4181,19 +4181,19 @@ function showHashtagIntelligence(caption){
   var m=document.getElementById("hashtag-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"hashtag-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #F59E0B",borderRadius:"16px",padding:"16px",width:"520px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
-  card.appendChild(el("h3",{style:{color:"#F59E0B",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"#️⃣ Hashtag Intelligence Pro"));
-  var loadingP=el("p",{style:{color:"#8899AA",fontSize:"12px",textAlign:"center"}},"⏳ Analyzing hashtags with AI + Real Instagram Data...");
+  card.appendChild(el("h3",{style:{color:"#F59E0B",margin:"0 0 10px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}},"Hashtag Intelligence Pro"));
+  var loadingP=el("p",{style:{color:"#8899AA",fontSize:"12px",textAlign:"center"}},"Analyzing hashtags with AI + Real Instagram Data...");
   card.appendChild(loadingP);
   overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
   document.body.appendChild(overlay);
   analyzeHashtags(caption).then(async function(result){
     loadingP.remove();
-    if(!result){card.appendChild(el("p",{style:{color:"#EF4444",fontSize:"12px"}},"❌ Check Gemini API key."));return;}
+    if(!result){card.appendChild(el("p",{style:{color:"#EF4444",fontSize:"12px"}},"Check Gemini API key."));return;}
     var allTags=[];
-    var cats=[{key:"trending",label:"🔥 Trending",color:"#EF4444"},{key:"location",label:"📍 Location",color:"#3B82F6"},{key:"property",label:"🏠 Property",color:"#10B981"},{key:"investment",label:"💰 Investment",color:"#F59E0B"},{key:"lifestyle",label:"✨ Lifestyle",color:"#EC4899"}];
+    var cats=[{key:"trending",label:"Trending",color:"#EF4444"},{key:"location",label:"Location",color:"#3B82F6"},{key:"property",label:"Property",color:"#10B981"},{key:"investment",label:"Investment",color:"#F59E0B"},{key:"lifestyle",label:"Lifestyle",color:"#EC4899"}];
     cats.forEach(function(cat){var tags=result[cat.key];if(tags)tags.forEach(function(t){allTags.push(typeof t==="string"?t:t.tag);});});
     var realDataNote=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",marginBottom:"10px"});
-    realDataNote.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",fontWeight:"700",fontFamily:"monospace"}},"📊 Fetching real Instagram post counts..."));
+    realDataNote.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",fontWeight:"700",fontFamily:"monospace"}},"Fetching real Instagram post counts..."));
     var realProgress=el("div",{style:{color:"#6B7280",fontSize:"9px",fontFamily:"monospace",marginTop:"4px"}});
     realProgress.textContent="0/"+Math.min(allTags.length,15)+" hashtags checked";
     realDataNote.appendChild(realProgress);card.appendChild(realDataNote);
@@ -4213,7 +4213,7 @@ function showHashtagIntelligence(caption){
       }
     }else{
       realDataNote.innerHTML="";
-      realDataNote.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"9px",fontFamily:"monospace"}},"💡 Connect Instagram in Setup for real post counts & competition data"));
+      realDataNote.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"9px",fontFamily:"monospace"}},"Connect Instagram in Setup for real post counts & competition data"));
     }
     cats.forEach(function(cat){
       var tags=result[cat.key];if(!tags||tags.length===0)return;
@@ -4234,7 +4234,7 @@ function showHashtagIntelligence(caption){
     });
     if(enriched.length>0){
       var stratBox=div({background:"#0D1220",border:"1px solid #8B5CF6",borderRadius:"10px",padding:"10px",marginTop:"12px"});
-      stratBox.appendChild(el("div",{style:{color:"#8B5CF6",fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginBottom:"6px"}},"🎯 Optimal Strategy Mix"));
+      stratBox.appendChild(el("div",{style:{color:"#8B5CF6",fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginBottom:"6px"}},"Optimal Strategy Mix"));
       var high=enriched.filter(function(e){return e.posts&&e.posts>1000000;}).slice(0,3);
       var mid=enriched.filter(function(e){return e.posts&&e.posts>=100000&&e.posts<=1000000;}).slice(0,4);
       var niche=enriched.filter(function(e){return e.posts&&e.posts<100000&&e.posts>=1000;}).slice(0,3);
@@ -5422,9 +5422,9 @@ function showAvatarContentGen(avatarId){
     }catch(e){
       resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"11px",fontFamily:"monospace"}},"Error: "+e.message));
     }
-    genBtn.textContent="✨ Generate Content";genBtn.disabled=false;
+    genBtn.textContent="Generate Content";genBtn.disabled=false;
   }});
-  genBtn.textContent="✨ Generate as "+av.name;card.appendChild(genBtn);
+  genBtn.textContent="Generate as "+av.name;card.appendChild(genBtn);
 
   card.appendChild(el("button",{style:{width:"100%",marginTop:"8px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close"));
   overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
@@ -5495,21 +5495,21 @@ async function _didCheckStatus(talkId){
 
 function _videoResultUI(resultArea,videoUrl,genVideoBtn){
   resultArea.innerHTML="";
-  resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"13px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"}},"✅ Cinematic Video Ready!"));
+  resultArea.appendChild(el("div",{style:{color:"#10B981",fontSize:"13px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"}},"Cinematic Video Ready"));
   var video=el("video",{style:{width:"100%",maxHeight:"340px",borderRadius:"14px",border:"2px solid #F59E0B",boxShadow:"0 0 30px rgba(245,158,11,0.3)"},controls:true,autoplay:true});
   video.src=videoUrl;resultArea.appendChild(video);
   var dlRow=div({display:"flex",gap:"6px",marginTop:"10px"});
   var dlBtn=el("a",{style:{flex:1,display:"block",background:"linear-gradient(135deg,#10B981,#06B6D4)",color:"#FFF",textAlign:"center",textDecoration:"none",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",fontFamily:"monospace"},href:videoUrl,target:"_blank",download:"avatar-video.mp4"});
-  dlBtn.textContent="⬇️ Download Video";dlRow.appendChild(dlBtn);
-  var shareBtn2=el("button",{style:{flex:1,background:"#3B82F622",border:"1px solid #3B82F6",color:"#3B82F6",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){navigator.clipboard.writeText(videoUrl);shareBtn2.textContent="✅ Copied!";}});
-  shareBtn2.textContent="🔗 Copy URL";dlRow.appendChild(shareBtn2);
+  dlBtn.textContent="Download Video";dlRow.appendChild(dlBtn);
+  var shareBtn2=el("button",{style:{flex:1,background:"#3B82F622",border:"1px solid #3B82F6",color:"#3B82F6",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){navigator.clipboard.writeText(videoUrl);shareBtn2.textContent="Copied";}});
+  shareBtn2.textContent="Copy URL";dlRow.appendChild(shareBtn2);
   var publishBtn=el("button",{style:{flex:1,background:"#EC489922",border:"1px solid #EC4899",color:"#EC4899",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
-    publishBtn.textContent="⏳ Publishing...";
-    try{var r=await publishFacebookVideo("",videoUrl);publishBtn.textContent=r.success?"✅ Published!":"❌ "+r.error;}catch(e){publishBtn.textContent="❌ "+e.message;}
+    publishBtn.textContent="Publishing...";
+    try{var r=await publishFacebookVideo("",videoUrl);publishBtn.textContent=r.success?"Published":"Error: "+r.error;}catch(e){publishBtn.textContent="Error: "+e.message;}
   }});
-  publishBtn.textContent="🚀 Publish";dlRow.appendChild(publishBtn);
+  publishBtn.textContent="Publish";dlRow.appendChild(publishBtn);
   resultArea.appendChild(dlRow);
-  genVideoBtn.textContent="🎬 Generate Another";genVideoBtn.disabled=false;
+  genVideoBtn.textContent="Generate Another";genVideoBtn.disabled=false;
 }
 
 function _videoPollStatus(checkFn,interval,maxChecks,resultArea,genVideoBtn){
