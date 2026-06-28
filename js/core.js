@@ -233,7 +233,7 @@ try{sidebarCollapsed=localStorage.getItem("dv_sidebar_collapsed")==="1";}catch(e
 
 var NAV_SECTIONS=[
   {id:"Home",icon:"home",label:"Home",subs:[]},
-  {id:"Market",icon:"bar-chart-3",label:"Market",subs:[
+  {id:"Market",icon:"bar-chart-3",label:"Market",subtitle:"AI Valuation",accentColor:"#D4AF37",subs:[
     {id:"Dashboard",label:"Dashboard"},
     {id:"Analyzer",label:"Analyzer"},
     {id:"QuickCheck",label:"Quick Check"},
@@ -244,11 +244,11 @@ var NAV_SECTIONS=[
     {id:"Map",label:"Map"},
     {id:"Advisor",label:"Advisor"}
   ]},
-  {id:"Portfolio",icon:"briefcase",label:"Portfolio",subs:[
+  {id:"Portfolio",icon:"briefcase",label:"Portfolio",accentColor:"#3B82F6",subs:[
     {id:"Assets",label:"My Assets"},
     {id:"Alerts",label:"Alerts"}
   ]},
-  {id:"Network",icon:"users",label:"Network",subs:[
+  {id:"Network",icon:"users",label:"Network",accentColor:"#10B981",badgeKey:"deals",subs:[
     {id:"Deals",label:"Deals"},
     {id:"MediaStudio",label:"Media Studio"},
     {id:"Chat",label:"AI Agents"},

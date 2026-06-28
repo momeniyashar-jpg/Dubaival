@@ -1254,6 +1254,33 @@ function renderHome(){
   hero.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Dubai Real Estate Intelligence Dashboard"));
   wrap.appendChild(hero);
 
+  // --- 3 Hero Feature Cards ---
+  var heroGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"14px",marginBottom:"20px"}});heroGrid.className="dv-hero-grid";
+  var heroFeatures=[
+    {icon:"search",title:"Analyze Any Property",desc:"AI valuation for 10,880+ properties across 347 areas",color:"#D4AF37",bg:"rgba(212,175,55,0.06)",border:"rgba(212,175,55,0.15)",sec:"Market",sub:"Analyzer"},
+    {icon:"handshake",title:"Off-Market Deals",desc:"",color:"#10B981",bg:"rgba(16,185,129,0.06)",border:"rgba(16,185,129,0.15)",sec:"Network",sub:"Deals",countKey:"deals"},
+    {icon:"video",title:"AI Media Studio",desc:"35+ AI Tools",color:"#8B5CF6",bg:"rgba(139,92,246,0.06)",border:"rgba(139,92,246,0.15)",sec:"Network",sub:"MediaStudio"}
+  ];
+  heroFeatures.forEach(function(hf){
+    var hCard=el("div",{style:{background:hf.bg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid "+hf.border,borderRadius:"16px",padding:"28px 20px",cursor:"pointer",transition:"all 0.25s ease",position:"relative",overflow:"hidden",minHeight:"140px",display:"flex",flexDirection:"column",justifyContent:"space-between"}});
+    var glow=el("div",{style:{position:"absolute",top:"-40px",right:"-40px",width:"120px",height:"120px",borderRadius:"50%",background:hf.color,opacity:"0.04",filter:"blur(40px)",pointerEvents:"none"}});
+    hCard.appendChild(glow);
+    var topRow=el("div",{style:{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",position:"relative"}});
+    var iconBox=el("div",{style:{width:"44px",height:"44px",borderRadius:"12px",background:"rgba(255,255,255,0.06)",border:"1px solid "+hf.border,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
+    iconBox.innerHTML='<i data-lucide="'+hf.icon+'" style="width:22px;height:22px;color:'+hf.color+'"></i>';
+    topRow.appendChild(iconBox);
+    topRow.appendChild(div({color:"#F0F2F5",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",lineHeight:"1.2"},hf.title));
+    hCard.appendChild(topRow);
+    var descText=hf.desc;
+    if(hf.countKey==="deals"){var dc=0;try{dc=JSON.parse(localStorage.getItem("dv_deal_cache")||"[]").length;}catch(e){}descText=dc>0?dc+" active deals":"Browse exclusive listings";}
+    hCard.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",position:"relative"},descText));
+    hCard.addEventListener("mouseenter",function(){hCard.style.borderColor=hf.color;hCard.style.transform="translateY(-3px)";hCard.style.boxShadow="0 12px 40px rgba(0,0,0,0.4),0 0 24px "+hf.color+"15";});
+    hCard.addEventListener("mouseleave",function(){hCard.style.borderColor=hf.border;hCard.style.transform="translateY(0)";hCard.style.boxShadow="none";});
+    hCard.addEventListener("click",function(){setSection(hf.sec,hf.sub);});
+    heroGrid.appendChild(hCard);
+  });
+  wrap.appendChild(heroGrid);
+
   // --- Market Pulse Card ---
   var pulseCard=el("div",{style:{background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"24px",marginBottom:"16px",transition:"border-color 0.25s ease,box-shadow 0.25s ease",boxShadow:cl.glassShadow}});
   pulseCard.addEventListener("mouseenter",function(){pulseCard.style.borderColor=cl.goldGlassBorder;pulseCard.style.boxShadow="0 8px 40px rgba(0,0,0,0.4),0 0 20px rgba(212,175,55,0.05)";});
@@ -1534,15 +1561,32 @@ function render(preserveScroll){
 
   NAV_SECTIONS.forEach(function(sec){
     var isActive=currentSection===sec.id;
+    var isKey=sec.id==="Market"||sec.id==="Network";
     var item=el("div",{});
     item.className="dv-sidebar-item"+(isActive?" active":"");
-    var iconSpan=el("span",{style:{flexShrink:"0",width:"20px",height:"20px",display:"inline-flex",alignItems:"center",justifyContent:"center"}});
-    iconSpan.innerHTML='<i data-lucide="'+sec.icon+'"></i>';
+    if(isActive&&sec.accentColor)item.style.borderLeftColor=sec.accentColor;
+    var iconSize=isKey?"24px":"20px";
+    var iconSpan=el("span",{style:{flexShrink:"0",width:iconSize,height:iconSize,display:"inline-flex",alignItems:"center",justifyContent:"center",color:isActive&&sec.accentColor?sec.accentColor:""}});
+    iconSpan.innerHTML='<i data-lucide="'+sec.icon+'" style="width:'+iconSize+';height:'+iconSize+'"></i>';
     item.appendChild(iconSpan);
-    var labelSpan=el("span",{});
-    labelSpan.className="dv-sidebar-label";
-    labelSpan.textContent=sec.label;
-    item.appendChild(labelSpan);
+    var labelWrap=el("span",{style:{display:"flex",flexDirection:"column",overflow:"hidden"}});
+    labelWrap.className="dv-sidebar-label";
+    var labelMain=el("span",{});
+    labelMain.textContent=sec.label;
+    labelWrap.appendChild(labelMain);
+    if(sec.subtitle&&!sidebarCollapsed){
+      var sub=el("span",{style:{fontSize:"8px",color:sec.accentColor||"#6B7A9E",letterSpacing:"0.08em",fontFamily:"'Space Grotesk',monospace",opacity:"0.7",lineHeight:"1"}});
+      sub.textContent=sec.subtitle;
+      labelWrap.appendChild(sub);
+    }
+    item.appendChild(labelWrap);
+    if(sec.badgeKey==="deals"&&!sidebarCollapsed){
+      var dealCount=0;try{var dc=JSON.parse(localStorage.getItem("dv_deal_cache")||"[]");dealCount=dc.length;}catch(e){}
+      if(dealCount>0){var badge=el("span",{style:{background:"rgba(16,185,129,0.15)",color:"#10B981",fontSize:"8px",fontWeight:"700",fontFamily:"'JetBrains Mono',monospace",padding:"2px 6px",borderRadius:"999px",marginLeft:"auto",flexShrink:"0"}});badge.textContent=String(dealCount);item.appendChild(badge);}
+    }
+    if(sec.id==="Network"&&!sidebarCollapsed){
+      var tbadge=el("span",{style:{background:"rgba(139,92,246,0.15)",color:"#8B5CF6",fontSize:"7px",fontWeight:"700",fontFamily:"'JetBrains Mono',monospace",padding:"2px 6px",borderRadius:"999px",marginLeft:"auto",flexShrink:"0"}});tbadge.textContent="35+";item.appendChild(tbadge);
+    }
     item.addEventListener("click",function(){setSection(sec.id);});
     sidebar.appendChild(item);
   });
