@@ -6,7 +6,7 @@ function buildReportTypeSelector(cl,formCard){
   var rm=analyzerState.reportMode||"personal";
   var rf=analyzerState.reportFor||"buyer";
   var sec=el("div",{style:{marginTop:"16px",padding:"14px",background:cl.raised,borderRadius:"12px",border:"1px solid "+cl.border}});
-  sec.appendChild(div({color:cl.gold,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"◆ Report Type"));
+  sec.appendChild(div({color:cl.gold,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"Report Type"));
   var modes=[{v:"personal",l:"Personal",d:"For your own analysis"},{v:"agent",l:"Agent Report",d:"For client presentation"}];
   var mRow=el("div",{style:{display:"flex",gap:"8px",marginBottom:"10px"}});
   modes.forEach(function(m){
@@ -171,10 +171,10 @@ function renderMarket(){
     var bestVal=ranked.slice().sort(function(a,b){return(b.y/Math.max(b.psf,1))-(a.y/Math.max(a.psf,1));}).slice(0,5);
     var mostLiq=ranked.slice().sort(function(a,b){return a.dom-b.dom;}).slice(0,5);
     var highGr=ranked.slice().sort(function(a,b){return b.g-a.g;}).slice(0,5);
-    [{title:'🔥 Hottest Areas',data:hottest,vFn:function(d){return(d.y+d.g).toFixed(1);},color:'#EF4444'},
-     {title:'💎 Best Value',data:bestVal,vFn:function(d){return d.y.toFixed(1)+'% @ '+d.psf;},color:'#22C55E'},
-     {title:'⚡ Most Liquid',data:mostLiq,vFn:function(d){return d.dom+'d DOM';},color:'#3B82F6'},
-     {title:'📈 Highest Growth',data:highGr,vFn:function(d){return'+'+d.g.toFixed(1)+'%';},color:'#A78BFA'}].forEach(function(cat){
+    [{title:'Hottest Areas',data:hottest,vFn:function(d){return(d.y+d.g).toFixed(1);},color:'#EF4444'},
+     {title:'Best Value',data:bestVal,vFn:function(d){return d.y.toFixed(1)+'% @ '+d.psf;},color:'#22C55E'},
+     {title:'Most Liquid',data:mostLiq,vFn:function(d){return d.dom+'d DOM';},color:'#3B82F6'},
+     {title:'Highest Growth',data:highGr,vFn:function(d){return'+'+d.g.toFixed(1)+'%';},color:'#A78BFA'}].forEach(function(cat){
       var card=el('div',{style:{background:'rgba(240,242,245,0.03)',border:'1px solid '+cl.border,borderRadius:'10px',padding:'10px'}});
       card.appendChild(div({color:cat.color,fontSize:'8px',fontWeight:'700',letterSpacing:'0.06em',fontFamily:"'Space Grotesk',monospace",marginBottom:'6px'},cat.title));
       cat.data.forEach(function(d,i){
@@ -230,7 +230,7 @@ function renderMarket(){
         card.appendChild(el('div',{style:{color:s.c,fontSize:'14px',fontWeight:'800',fontFamily:"'Space Grotesk',monospace"}},s.v));
         r6.appendChild(card);
       });
-      dSec.appendChild(div({color:momColor,fontSize:'8px',letterSpacing:'0.1em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'6px',fontWeight:'700'},'◆ AI Market Intelligence · Groq'));
+      dSec.appendChild(div({color:momColor,fontSize:'8px',letterSpacing:'0.1em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'6px',fontWeight:'700'},'AI Market Intelligence · Groq'));
       dSec.appendChild(r6);
       if(momKeys.length>0){
         var topMovers=momKeys.map(function(k){return{area:k,pct:MARKET_MOMENTUM[k].pct||0,trend:MARKET_MOMENTUM[k].trend};}).sort(function(a,b){return Math.abs(b.pct)-Math.abs(a.pct);}).slice(0,6);
@@ -267,7 +267,7 @@ function renderMarket(){
   var riskCard=el("div",{style:{background:cl.surface,backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid "+(MACRO_VARS.riskFactor<0.97?"rgba(240,64,96,0.3)":MACRO_VARS.riskFactor>=1.0?"rgba(212,175,55,0.3)":cl.border),borderRadius:"14px",padding:"16px",marginBottom:"14px",boxShadow:"0 4px 30px rgba(0,0,0,0.3)"}});
   var riskTop=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}});
   var riskTitle=el("div",{});
-  riskTitle.appendChild(div({color:cl.gold,fontSize:"9px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"◆ Market Risk Monitor · Live"));
+  riskTitle.appendChild(div({color:cl.gold,fontSize:"9px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"Market Risk Monitor · Live"));
   var rf=MACRO_VARS.riskFactor;
   var riskColor=rf>=1.0?cl.green:rf>=0.97?"#F59E0B":cl.red;
   var riskLbl=rf>=1.0?"BULLISH · Market Expanding":rf>=0.97?"CAUTIOUS · Volatile Stabilization":"RISK-OFF · Market Correction";
@@ -280,7 +280,7 @@ function renderMarket(){
   riskTop.appendChild(srcBadge);
   riskCard.appendChild(riskTop);
   var indRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"6px",marginBottom:"10px"}});
-  [{l:"Geopolitical",v:MACRO_VARS.riskFactor,icon:"🌐"},{l:"Demand",v:MACRO_VARS.socialIndex,icon:"👥"},{l:"Economic",v:MACRO_VARS.economicOutlook,icon:"📈"}].forEach(function(ind){
+  [{l:"Geopolitical",v:MACRO_VARS.riskFactor,icon:""},{l:"Demand",v:MACRO_VARS.socialIndex,icon:""},{l:"Economic",v:MACRO_VARS.economicOutlook,icon:""].forEach(function(ind){
     var pct=(ind.v-1)*100;
     var col=pct>0?cl.green:pct>-2?"#F59E0B":cl.red;
     var c=el("div",{style:{background:cl.raised,borderRadius:"8px",padding:"8px",textAlign:"center"}});
@@ -291,7 +291,7 @@ function renderMarket(){
   riskCard.appendChild(indRow);
   if(MACRO_VARS.reason){
     var rEl=el("div",{style:{color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5",padding:"7px 10px",background:"rgba(255,255,255,0.02)",borderRadius:"6px",borderLeft:"2px solid "+cl.goldDim}});
-    rEl.textContent="⚡ "+MACRO_VARS.reason;
+    rEl.textContent=MACRO_VARS.reason;
     riskCard.appendChild(rEl);
   }
   wrap.appendChild(riskCard);
@@ -313,7 +313,7 @@ function renderMarket(){
   
   // Header
   chartWrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"},[
-    span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ PSF Trend · 3-Year History · DLD Data"),
+    span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"PSF Trend · 3-Year History · DLD Data"),
     span({color:cl.sub,fontSize:"8.5px",fontFamily:"'Space Grotesk',monospace"},"Source: DLD 2022–2026"),
   ]));
 
@@ -450,7 +450,7 @@ function renderMarket(){
 
   const psfWrap=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginBottom:"14px"});
   psfWrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"},[
-    span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ PSF Benchmarks · 2025–2026"),
+    span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"PSF Benchmarks · 2025–2026"),
     span({color:cl.sub,fontSize:"8.5px",fontFamily:"'Space Grotesk',monospace"},"AED/sqft"),
   ]));
 
@@ -482,7 +482,7 @@ function renderMarket(){
     {yr:"2026 →",n:"Moderation · Buyer Window",c:"±3–8%",col:cl.yellow},
   ];
   wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px"},[
-    span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"14px"},"◆ Market Cycle · 20-Year History"),
+    span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"14px"},"Market Cycle · 20-Year History"),
     ...cycleRows.map(function(c,i){return div({display:"flex",alignItems:"center",gap:"12px",padding:"9px 0",borderBottom:i<6?"1px solid "+cl.border:"none"},[
       span({color:cl.gold,fontSize:"10.5px",fontFamily:"'Space Grotesk',monospace",minWidth:"60px"},c.yr),
       span({color:"#F0F2F5",fontSize:"12.5px",fontFamily:"'Inter',sans-serif",flex:"1"},c.n),
@@ -531,7 +531,7 @@ function renderMarket(){
   const sortedAbs=csRows.map(function(r){return r.absErr;}).sort(function(a,b){return a-b;});
   const medianErr=sortedAbs.length?sortedAbs[Math.floor(sortedAbs.length/2)]:0;
   wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"},[
-    span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"6px"},"◆ Track Record · Estimate vs. Actual Sale Price"),
+    span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"6px"},"Track Record · Estimate vs. Actual Sale Price"),
     div({color:cl.sub,fontSize:"11.5px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6",marginBottom:"14px"},
       "Our fair-value model checked against "+csRows.length+" real DLD-registered transactions (2025–2026). One-off record-breaking sales are excluded — those are non-comparable to building/area averages by definition, so testing against them would be misleading either way."
     ),
@@ -615,7 +615,7 @@ function renderAnalyzer(){
     var aiSysPrompt='You are a Dubai real estate property parser. Extract these fields from the user\'s description and return ONLY a JSON object: {"area":null,"building":null,"propType":null,"beds":null,"size_sqft":null,"floor":null,"view":null,"furnished":null,"parking":null,"bathrooms":null,"price":null,"purpose":null}. propType must be one of: apartment, villa, townhouse, penthouse, office, land. beds must be like "Studio","1 BR","2 BR" etc. furnished must be Furnished/Unfurnished/Semi-Furnished. view examples: Full Sea View, Skyline View, Golf View, etc. purpose: sale or rent. If a field is not mentioned, set it to null. Parse Arabic too: غرفتين=2 BR, غرفة=1 BR, ثلاث غرف=3 BR, مارينا=Dubai Marina, داون تاون=Downtown Dubai, شقة=apartment, فيلا=villa, تاون هاوس=townhouse, طابق=floor, إطلالة بحرية=Full Sea View, مفروش=Furnished.';
     var aiBar=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"10px 12px",marginBottom:"16px"}});
     var aiLabel=div({display:"flex",alignItems:"center",gap:"6px",marginBottom:"8px"},[
-      span({color:cl.gold,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"✨ AI Smart Search"),
+      span({color:cl.gold,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AI Smart Search"),
       span({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif"},"— or describe your property in text/voice")
     ]);
     aiBar.appendChild(aiLabel);
@@ -627,7 +627,7 @@ function renderAnalyzer(){
     aiInp.addEventListener("keydown",function(e){if(e.key==="Enter")doAiParse();});
     aiRow.appendChild(aiInp);
     var aiBtn=el("button",{style:{background:ai.parsing?"#4B5563":"linear-gradient(135deg,#C9A84C,#7A5E28)",color:ai.parsing?"#9CA3AF":"#08090C",border:"none",padding:"10px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:ai.parsing?"not-allowed":"pointer",whiteSpace:"nowrap"}});
-    aiBtn.textContent=ai.parsing?"…":"✨ AI";
+    aiBtn.textContent=ai.parsing?"…":"AI";
     function doAiParse(){
       var txt=(ai.text||"").trim();if(!txt||ai.parsing)return;
       ai.parsing=true;ai.parsed=null;ai.missing=[];ai.filled=[];render();
@@ -690,7 +690,7 @@ function renderAnalyzer(){
       var essentials=["area","price","size_sqft"];
       var missingEss=ai.missing.filter(function(m){return essentials.indexOf(m)!==-1;});
       if(missingEss.length){
-        aiBar.appendChild(div({color:"#F59E0B",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginTop:"4px"},"⚠ Required: "+missingEss.join(", ")));
+        aiBar.appendChild(div({color:"#F59E0B",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginTop:"4px"},"Required: "+missingEss.join(", ")));
       }
     }
     wrap.appendChild(aiBar);
@@ -1077,7 +1077,7 @@ function renderAnalyzer(){
       var qcSection=el("div",{style:{marginTop:"16px"}});
       var qcToggleBar=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:"rgba(201,168,76,0.04)",border:"1px solid "+cl.goldDim,borderRadius:window._qcExpanded?"10px 10px 0 0":"10px",cursor:"pointer"}});
       qcToggleBar.appendChild(div({display:"flex",alignItems:"center",gap:"8px"},[
-        span({color:cl.gold,fontSize:"11px"},"⚡"),
+        span({color:cl.gold,fontSize:"11px"},""),
         span({color:cl.gold,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"Quick Price Check"),
         span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},"— instant estimate with area & price")
       ]));
@@ -1321,7 +1321,7 @@ function renderAnalyzer(){
     // Purchase history (seller/agent mode)
     if(!isRental&&(analyzerState.reportFor==="seller"||analyzerState.reportFor==="both")){
       var ppSec=el("div",{style:{background:hexAlpha("#8B5CF6",0.06),border:"1px solid "+hexAlpha("#8B5CF6",0.2),borderRadius:"10px",padding:"14px",marginTop:"12px"}});
-      ppSec.appendChild(div({color:"#A78BFA",fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"◆ Seller Purchase History (Optional)"));
+      ppSec.appendChild(div({color:"#A78BFA",fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"Seller Purchase History (Optional)"));
       var ppRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}});
       var ppBox=el("div",{});ppBox.appendChild(lbl("Purchase Price (AED)"));ppBox.appendChild(inp(I(),"e.g. 3,200,000","number",f.purchasePrice||"",function(v){analyzerState.f.purchasePrice=v;}));ppRow.appendChild(ppBox);
       var pdBox=el("div",{});pdBox.appendChild(lbl("Purchase Date"));var pdInp=el("input",{style:I(),type:"date",value:f.purchaseDate||""});pdInp.addEventListener("change",function(e){analyzerState.f.purchaseDate=e.target.value;});pdBox.appendChild(pdInp);ppRow.appendChild(pdBox);
@@ -1503,7 +1503,7 @@ function renderAnalyzer(){
     // Purchase history (seller/agent mode)
     if(!isRentalA&&(analyzerState.reportFor==="seller"||analyzerState.reportFor==="both")){
       var ppSecA=el("div",{style:{background:hexAlpha("#F87171",0.06),border:"1px solid "+hexAlpha("#F87171",0.2),borderRadius:"10px",padding:"14px",marginTop:"12px"}});
-      ppSecA.appendChild(div({color:"#F87171",fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"◆ Seller Purchase History (Optional)"));
+      ppSecA.appendChild(div({color:"#F87171",fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"Seller Purchase History (Optional)"));
       var ppRowA=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}});
       var ppBoxA=el("div",{});ppBoxA.appendChild(lbl("Purchase Price (AED)"));ppBoxA.appendChild(inp(I(),"e.g. 2,000,000","number",f.purchasePrice||"",function(v){analyzerState.f.purchasePrice=v;}));ppRowA.appendChild(ppBoxA);
       var pdBoxA=el("div",{});pdBoxA.appendChild(lbl("Purchase Date"));var pdInpA=el("input",{style:I(),type:"date",value:f.purchaseDate||""});pdInpA.addEventListener("change",function(e){analyzerState.f.purchaseDate=e.target.value;});pdBoxA.appendChild(pdInpA);ppRowA.appendChild(pdBoxA);
@@ -1613,7 +1613,7 @@ function renderCommercialResult(wrap){
     ]),
     el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 14px",borderRadius:"8px",cursor:"pointer",fontSize:"12px"},onclick:function(){analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"sale",sector:"commercial",subType:"",zoning:"",purchasePrice:"",purchaseDate:""},val:null,rentalVal:null,comVal:null,landVal:null,aiText:"",aiTextSeller:"",liveData:null,err:"",reportMode:"personal",reportFor:"buyer",smartRent:null};render();}},"← New"),
   ]));
-  var vcfg={UNDERVALUED:{bg:"linear-gradient(135deg,rgba(34,197,94,0.08),transparent)",bo:"rgba(34,197,94,0.3)",tx:"#22C55E",icon:"🟢",label:"UNDERVALUED",sub:"Significantly below market"},BELOW_MARKET:{bg:"linear-gradient(135deg,rgba(34,197,94,0.05),transparent)",bo:"rgba(34,197,94,0.2)",tx:"#22C55E",icon:"✅",label:"BELOW MARKET",sub:"Below market — opportunity"},FAIR_VALUE:{bg:"linear-gradient(135deg,rgba(234,179,8,0.08),transparent)",bo:"rgba(234,179,8,0.3)",tx:"#EAB308",icon:"🟡",label:"FAIR VALUE",sub:"At market rate"},ABOVE_MARKET:{bg:"linear-gradient(135deg,rgba(239,68,68,0.05),transparent)",bo:"rgba(239,68,68,0.2)",tx:"#EF4444",icon:"🔶",label:"ABOVE MARKET",sub:"Above market"},OVERPRICED:{bg:"linear-gradient(135deg,rgba(239,68,68,0.08),transparent)",bo:"rgba(239,68,68,0.3)",tx:"#EF4444",icon:"🔴",label:"OVERPRICED",sub:"Well above market"}}[v.verdict]||{bg:cl.surface,bo:cl.border,tx:cl.sub,icon:"·",label:v.verdict,sub:""};
+  var vcfg={UNDERVALUED:{bg:"linear-gradient(135deg,rgba(34,197,94,0.08),transparent)",bo:"rgba(34,197,94,0.3)",tx:"#22C55E",icon:"●",label:"UNDERVALUED",sub:"Significantly below market"},BELOW_MARKET:{bg:"linear-gradient(135deg,rgba(34,197,94,0.05),transparent)",bo:"rgba(34,197,94,0.2)",tx:"#22C55E",icon:"●",label:"BELOW MARKET",sub:"Below market — opportunity"},FAIR_VALUE:{bg:"linear-gradient(135deg,rgba(234,179,8,0.08),transparent)",bo:"rgba(234,179,8,0.3)",tx:"#EAB308",icon:"●",label:"FAIR VALUE",sub:"At market rate"},ABOVE_MARKET:{bg:"linear-gradient(135deg,rgba(239,68,68,0.05),transparent)",bo:"rgba(239,68,68,0.2)",tx:"#EF4444",icon:"●",label:"ABOVE MARKET",sub:"Above market"},OVERPRICED:{bg:"linear-gradient(135deg,rgba(239,68,68,0.08),transparent)",bo:"rgba(239,68,68,0.3)",tx:"#EF4444",icon:"●",label:"OVERPRICED",sub:"Well above market"}}[v.verdict]||{bg:cl.surface,bo:cl.border,tx:cl.sub,icon:"·",label:v.verdict,sub:""};
   wrap.appendChild(div({background:vcfg.bg,border:"2px solid "+vcfg.bo,borderRadius:"16px",overflow:"hidden",marginBottom:"14px"},[
     div({padding:"20px",textAlign:"center",borderBottom:"1px solid "+cl.border},[
       div({fontSize:"32px",marginBottom:"8px"},vcfg.icon),
@@ -1663,7 +1663,7 @@ function renderLandResult(wrap){
     ]),
     el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 14px",borderRadius:"8px",cursor:"pointer",fontSize:"12px"},onclick:function(){analyzerState={stage:0,mode:"valuation",f:{area:"",propCategory:"",aptSubtype:"",beds:"",bathrooms:"",hasMaid:false,floor:"",view:"Not specified",size:"",furnished:"Unfurnished",parking:"1",serviceCharge:"",price:"",villaType:"",cluster:"",floors:"",plotSize:"",buaSize:"",privatePool:false,singleRow:false,cornerVilla:false,building:"",txnType:"sale",sector:"land",subType:"",zoning:"",purchasePrice:"",purchaseDate:""},val:null,rentalVal:null,comVal:null,landVal:null,aiText:"",liveData:null,err:""};render();}},"← New"),
   ]));
-  var vcfg={UNDERVALUED:{bg:"linear-gradient(135deg,rgba(34,197,94,0.08),transparent)",bo:"rgba(34,197,94,0.3)",tx:"#22C55E",icon:"🟢",label:"UNDERVALUED",sub:"Below market — strong opportunity"},BELOW_MARKET:{bg:"linear-gradient(135deg,rgba(34,197,94,0.05),transparent)",bo:"rgba(34,197,94,0.2)",tx:"#22C55E",icon:"✅",label:"BELOW MARKET",sub:"Under market value"},FAIR_VALUE:{bg:"linear-gradient(135deg,rgba(234,179,8,0.08),transparent)",bo:"rgba(234,179,8,0.3)",tx:"#EAB308",icon:"🟡",label:"FAIR VALUE",sub:"At market rate"},ABOVE_MARKET:{bg:"linear-gradient(135deg,rgba(239,68,68,0.05),transparent)",bo:"rgba(239,68,68,0.2)",tx:"#EF4444",icon:"🔶",label:"ABOVE MARKET",sub:"Above market"},OVERPRICED:{bg:"linear-gradient(135deg,rgba(239,68,68,0.08),transparent)",bo:"rgba(239,68,68,0.3)",tx:"#EF4444",icon:"🔴",label:"OVERPRICED",sub:"Well above market"}}[v.verdict]||{bg:cl.surface,bo:cl.border,tx:cl.sub,icon:"·",label:v.verdict,sub:""};
+  var vcfg={UNDERVALUED:{bg:"linear-gradient(135deg,rgba(34,197,94,0.08),transparent)",bo:"rgba(34,197,94,0.3)",tx:"#22C55E",icon:"●",label:"UNDERVALUED",sub:"Below market — strong opportunity"},BELOW_MARKET:{bg:"linear-gradient(135deg,rgba(34,197,94,0.05),transparent)",bo:"rgba(34,197,94,0.2)",tx:"#22C55E",icon:"●",label:"BELOW MARKET",sub:"Under market value"},FAIR_VALUE:{bg:"linear-gradient(135deg,rgba(234,179,8,0.08),transparent)",bo:"rgba(234,179,8,0.3)",tx:"#EAB308",icon:"●",label:"FAIR VALUE",sub:"At market rate"},ABOVE_MARKET:{bg:"linear-gradient(135deg,rgba(239,68,68,0.05),transparent)",bo:"rgba(239,68,68,0.2)",tx:"#EF4444",icon:"●",label:"ABOVE MARKET",sub:"Above market"},OVERPRICED:{bg:"linear-gradient(135deg,rgba(239,68,68,0.08),transparent)",bo:"rgba(239,68,68,0.3)",tx:"#EF4444",icon:"●",label:"OVERPRICED",sub:"Well above market"}}[v.verdict]||{bg:cl.surface,bo:cl.border,tx:cl.sub,icon:"·",label:v.verdict,sub:""};
   wrap.appendChild(div({background:vcfg.bg,border:"2px solid "+vcfg.bo,borderRadius:"16px",overflow:"hidden",marginBottom:"14px"},[
     div({padding:"20px",textAlign:"center",borderBottom:"1px solid "+cl.border},[
       div({fontSize:"32px",marginBottom:"8px"},vcfg.icon),
@@ -1720,7 +1720,7 @@ function renderAnalyzerResult(wrap){
   window.scrollTo({top:0,behavior:"smooth"});
   wrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"16px"},[
     div({},[
-      span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block"},"◆ Analysis Complete"),
+      span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block"},"Analysis Complete"),
       span({color:cl.subHi,fontSize:"13px",fontFamily:"'Inter',sans-serif"},(f.building?f.building+" · ":"")+(isVilla?f.villaType:f.aptSubtype)+" · "+f.area+(f.cluster?" · "+f.cluster:"")),
     ]),
     el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 14px",borderRadius:"8px",cursor:"pointer",fontSize:"12px"},onclick:function(){
@@ -1730,7 +1730,7 @@ function renderAnalyzerResult(wrap){
 }},"← New"),
   ]));
 
-  const vcfg={DISTRESS:{bg:"linear-gradient(135deg,"+cl.greenBg+",transparent)",bo:cl.greenBo,tx:cl.green,icon:"🟢",label:"DISTRESS DEAL",sub:"Significantly below market"},GOOD:{bg:"linear-gradient(135deg,"+cl.greenBg+",transparent)",bo:cl.greenBo,tx:cl.green,icon:"✅",label:"GOOD PRICE",sub:"Below market — strong entry"},FAIR:{bg:"linear-gradient(135deg,"+cl.yellowBg+",transparent)",bo:cl.yellowBo,tx:cl.yellow,icon:"🟡",label:"FAIR PRICE",sub:"At market — room to negotiate"},OVER:{bg:"linear-gradient(135deg,"+cl.redBg+",transparent)",bo:cl.redBo,tx:cl.red,icon:"🔴",label:"OVERPRICED",sub:"Above market — negotiate hard"}}[val.verdict];
+  const vcfg={DISTRESS:{bg:"linear-gradient(135deg,"+cl.greenBg+",transparent)",bo:cl.greenBo,tx:cl.green,icon:"●",label:"DISTRESS DEAL",sub:"Significantly below market"},GOOD:{bg:"linear-gradient(135deg,"+cl.greenBg+",transparent)",bo:cl.greenBo,tx:cl.green,icon:"●",label:"GOOD PRICE",sub:"Below market — strong entry"},FAIR:{bg:"linear-gradient(135deg,"+cl.yellowBg+",transparent)",bo:cl.yellowBo,tx:cl.yellow,icon:"●",label:"FAIR PRICE",sub:"At market — room to negotiate"},OVER:{bg:"linear-gradient(135deg,"+cl.redBg+",transparent)",bo:cl.redBo,tx:cl.red,icon:"●",label:"OVERPRICED",sub:"Above market — negotiate hard"}}[val.verdict];
   const confColor=val.confTier.c==="green"?cl.green:val.confTier.c==="yellow"?cl.yellow:cl.red;
 
   wrap.appendChild(div({background:vcfg.bg,border:"2px solid "+vcfg.bo,borderRadius:"16px",overflow:"hidden",marginBottom:"14px",animation:"fadeUp 0.4s ease"},[
@@ -1763,7 +1763,7 @@ function renderAnalyzerResult(wrap){
           div({color:parseFloat(val.totalReturnAnnual)>=8?cl.green:parseFloat(val.totalReturnAnnual)>=5?cl.yellow:cl.red,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},val.totalReturnAnnual+"%/yr"),
         ]),
       ]),
-      ...[{label:"🟢 Distress Deal",price:val.distressPrice,active:val.verdict==="DISTRESS"},{label:"✅ Good Price",price:val.goodPrice,active:val.verdict==="GOOD"},{label:"🟡 Fair Market",price:val.fairPrice,active:val.verdict==="FAIR"},{label:"🔴 Overpriced",price:val.overpricedAt,active:val.verdict==="OVER"}].map(function(t){
+      ...[{label:"Distress Deal",price:val.distressPrice,active:val.verdict==="DISTRESS"},{label:"Good Price",price:val.goodPrice,active:val.verdict==="GOOD"},{label:"Fair Market",price:val.fairPrice,active:val.verdict==="FAIR"},{label:"Overpriced",price:val.overpricedAt,active:val.verdict==="OVER"}].map(function(t){
         return div({display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",marginBottom:"3px",borderRadius:"8px",background:t.active?vcfg.bg:"transparent",border:t.active?"1px solid "+vcfg.bo:"1px solid transparent"},[
           span({color:t.active?vcfg.tx:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif"},t.label),
           span({color:t.active?vcfg.tx:cl.sub,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+(t.price||0).toLocaleString()),
@@ -1787,7 +1787,7 @@ function renderAnalyzerResult(wrap){
   var anomalyDir=parseFloat(val.vsPct)>0?"above":"below";
   if(anomalyPct>=30){
     var anomLevel=anomalyPct>=60?"extreme":anomalyPct>=40?"significant":"unusual";
-    var anomColors={unusual:{bg:hexAlpha("#F59E0B",0.08),border:hexAlpha("#F59E0B",0.3),text:"#F59E0B",icon:"⚠️"},significant:{bg:hexAlpha("#F97316",0.08),border:hexAlpha("#F97316",0.3),text:"#F97316",icon:"⚠️"},extreme:{bg:hexAlpha("#EF4444",0.1),border:hexAlpha("#EF4444",0.35),text:"#EF4444",icon:"🚨"}};
+    var anomColors={unusual:{bg:hexAlpha("#F59E0B",0.08),border:hexAlpha("#F59E0B",0.3),text:"#F59E0B",icon:"!"},significant:{bg:hexAlpha("#F97316",0.08),border:hexAlpha("#F97316",0.3),text:"#F97316",icon:"!!"},extreme:{bg:hexAlpha("#EF4444",0.1),border:hexAlpha("#EF4444",0.35),text:"#EF4444",icon:"!!!"}};
     var ac=anomColors[anomLevel];
     var anomTitles={unusual:"Unusual Price — Verify with additional sources",significant:"Significant Anomaly — This price deviates significantly from market norms",extreme:"Extreme Anomaly — This pricing is highly irregular and may warrant investigation"};
     var anomCard=div({background:ac.bg,border:"2px solid "+ac.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"});
@@ -1820,13 +1820,13 @@ function renderAnalyzerResult(wrap){
     // Possible reasons
     anomCard.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:"8px"},"POSSIBLE EXPLANATIONS"));
     var reasons=anomalyDir==="below"?[
-      {icon:"📉",text:"Distress sale — owner may need urgent liquidity (divorce, debt, relocation)"},
-      {icon:"❌",text:"Data entry error — price or size may be incorrectly entered"},
-      {icon:"🔧",text:"Property condition — significant damage, legal dispute, or encumbrance"}
+      {icon:"—",text:"Distress sale — owner may need urgent liquidity (divorce, debt, relocation)"},
+      {icon:"—",text:"Data entry error — price or size may be incorrectly entered"},
+      {icon:"—",text:"Property condition — significant damage, legal dispute, or encumbrance"}
     ]:[
-      {icon:"💎",text:"Premium off-market factors — unique view, renovation, or celebrity provenance"},
-      {icon:"❌",text:"Data entry error — price or size may be incorrectly entered"},
-      {icon:"⚠️",text:"Inflated listing — price may not reflect genuine market intent"}
+      {icon:"—",text:"Premium off-market factors — unique view, renovation, or celebrity provenance"},
+      {icon:"—",text:"Data entry error — price or size may be incorrectly entered"},
+      {icon:"—",text:"Inflated listing — price may not reflect genuine market intent"}
     ];
     reasons.forEach(function(r){
       anomCard.appendChild(div({display:"flex",alignItems:"flex-start",gap:"8px",marginBottom:"6px"},[
@@ -1846,7 +1846,7 @@ function renderAnalyzerResult(wrap){
     var susCard=div({background:cl.surface,border:"1px solid "+hexAlpha(susColor,0.3),borderRadius:"14px",padding:"18px",marginBottom:"14px",position:"relative",overflow:"hidden"});
     susCard.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,"+susColor+","+susColor+",transparent)",animation:"shimmer 3s ease infinite"}));
     susCard.appendChild(div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"14px"},[
-      span({fontSize:"16px"},"🌿"),
+      span({fontSize:"16px",color:susColor,fontFamily:"'Space Grotesk',monospace",fontWeight:"700"},"S"),
       span({color:susColor,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"},"Sustainability & Efficiency Score")
     ]));
     var susCircWrap=div({display:"flex",alignItems:"center",gap:"20px",marginBottom:"16px"});
@@ -1862,10 +1862,10 @@ function renderAnalyzerResult(wrap){
     susCircWrap.appendChild(susInfo);
     susCard.appendChild(susCircWrap);
     var factors=[
-      {l:"Building Age / Grade",v:sus.age,icon:"🏗️"},
-      {l:"Service Charge Efficiency",v:sus.scEff,icon:"⚡"},
-      {l:"Area Green Rating",v:sus.green,icon:"🌳"},
-      {l:"Market Liquidity Health",v:sus.liq,icon:"💧"}
+      {l:"Building Age / Grade",v:sus.age,icon:""},
+      {l:"Service Charge Efficiency",v:sus.scEff,icon:""},
+      {l:"Area Green Rating",v:sus.green,icon:""},
+      {l:"Market Liquidity Health",v:sus.liq,icon:""}
     ];
     factors.forEach(function(fc){
       var fcColor=fc.v>=75?"#10B981":fc.v>=50?"#EAB308":fc.v>=35?"#F97316":"#EF4444";
@@ -1936,7 +1936,7 @@ function renderAnalyzerResult(wrap){
     var guidance=getConfidenceGuidance(val,analyzerState.f);
     if(!guidance)return;
     var gCard=el("div",{style:{background:"linear-gradient(135deg,rgba(201,168,76,0.08),rgba(0,200,150,0.04))",border:"1px solid rgba(201,168,76,0.25)",borderRadius:"12px",padding:"14px 16px",marginTop:"10px",marginBottom:"4px"}});
-    gCard.appendChild(div({color:cl.gold,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"◆ How to Improve This Estimate"));
+    gCard.appendChild(div({color:cl.gold,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"How to Improve This Estimate"));
     guidance.forEach(function(g){
       var row=el("div",{style:{display:"flex",alignItems:"flex-start",gap:"10px",padding:"6px 0",borderBottom:"1px solid rgba(255,255,255,0.05)"}});
       row.appendChild(span({color:cl.yellow,fontSize:"14px",lineHeight:"1"},"→"));
@@ -2019,7 +2019,7 @@ function renderAnalyzerResult(wrap){
         var stratColor=isAgentR?"rgba(59,130,246,0.08)":"rgba(201,168,76,0.08)";
         var stratBorder=isAgentR?"rgba(59,130,246,0.2)":"rgba(201,168,76,0.2)";
         sentWrap.appendChild(div({background:stratColor,border:"1px solid "+stratBorder,borderRadius:"8px",padding:"10px 14px",marginTop:"8px",color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6"},
-          "◆ Strategy: "+note
+          "Strategy: "+note
         ));
       }
     });
@@ -2031,7 +2031,7 @@ function renderAnalyzerResult(wrap){
     var phCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px",display:"none"}});
     phCard.id="dv-price-history-card";
     var phTitle=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}});
-    phTitle.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ PSF Price Trend · "+phArea));
+    phTitle.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"PSF Price Trend · "+phArea));
     phTitle.appendChild(span({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},"90 days"));
     phCard.appendChild(phTitle);
     var phCanvas=el("div",{style:{height:"100px",display:"flex",alignItems:"flex-end",gap:"2px",padding:"4px 0"}});
@@ -2071,7 +2071,7 @@ function renderAnalyzerResult(wrap){
   if(analyzerState.aiText){
     var ecBuyerColor=isAgentReport?"#3B82F6":cl.gold;
     var ecBuyerBorder=isAgentReport?"rgba(59,130,246,0.3)":cl.goldDim;
-    var ecLabel=isAgentReport?(analyzerState.reportFor==="seller"?"◆ Agent Report — Seller":"◆ Agent Report — Buyer / Tenant"):"◆ Expert Commentary";
+    var ecLabel=isAgentReport?(analyzerState.reportFor==="seller"?"Agent Report — Seller":"Agent Report — Buyer / Tenant"):"Expert Commentary";
     var ecCard=div({background:cl.surface,border:"1px solid "+ecBuyerBorder,borderRadius:"14px",padding:"18px",marginBottom:"14px"});
     ecCard.appendChild(span({color:ecBuyerColor,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},ecLabel));
     var ecFormatted=formatAIResponse(analyzerState.aiText,cl);
@@ -2081,7 +2081,7 @@ function renderAnalyzerResult(wrap){
   }
   if(analyzerState.aiTextSeller){
     var ecSCard=div({background:cl.surface,border:"1px solid rgba(239,68,68,0.3)",borderRadius:"14px",padding:"18px",marginBottom:"14px"});
-    ecSCard.appendChild(span({color:"#F87171",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},"◆ Agent Report — Seller / Landlord"));
+    ecSCard.appendChild(span({color:"#F87171",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},"Agent Report — Seller / Landlord"));
     var ecSFormatted=formatAIResponse(analyzerState.aiTextSeller,cl);
     if(ecSFormatted)ecSCard.appendChild(ecSFormatted);
     else ecSCard.appendChild(div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.85",fontFamily:"'Inter',sans-serif"},analyzerState.aiTextSeller));
@@ -2114,7 +2114,7 @@ function renderAnalyzerResult(wrap){
       var _sC="#A78BFA";var _sC2="#8B5CF6";
       var sellerCard=el("div",{style:{background:cl.surface,border:"1px solid "+hexAlpha(_sC2,0.25),borderRadius:"14px",padding:"18px",marginBottom:"14px"}});
       sellerCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
-        span({color:_sC,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ Seller Advisory"),
+        span({color:_sC,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Seller Advisory"),
         span({color:hexAlpha(_sC,0.6),fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},purchPrice?"Based on purchase history":"Market-based analysis"),
       ]));
 
@@ -2234,7 +2234,7 @@ function renderAnalyzerResult(wrap){
       var _bC="#2DD4BF";var _bC2="#14B8A6";
       var buyerCard=el("div",{style:{background:cl.surface,border:"1px solid "+hexAlpha(_bC2,0.25),borderRadius:"14px",padding:"18px",marginBottom:"14px"}});
       buyerCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
-        span({color:_bC,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ Buyer Advisory"),
+        span({color:_bC,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Buyer Advisory"),
         span({color:hexAlpha(_bC,0.6),fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Investment Projection"),
       ]));
 
@@ -2327,7 +2327,7 @@ function renderAnalyzerResult(wrap){
     if(isAgent&&rFor==="both"&&f.txnType==="sale"){
       var agentCard=el("div",{style:{background:cl.surface,border:"1px solid rgba(59,130,246,0.25)",borderRadius:"14px",padding:"18px",marginBottom:"14px"}});
       agentCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
-        span({color:"#3B82F6",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ Agent Deal Intelligence"),
+        span({color:"#3B82F6",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Agent Deal Intelligence"),
         span({color:hexAlpha("#3B82F6",0.6),fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Negotiation & Deal Facilitation"),
       ]));
 
@@ -2397,7 +2397,7 @@ function renderAnalyzerResult(wrap){
   })();
 
   wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"},[
-    span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"◆ Yield & Growth"),
+    span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"Yield & Growth"),
     div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"},[
       div({background:cl.raised,borderRadius:"10px",padding:"12px 14px"},[lbl("Gross Yield"),div({color:cl.green,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},val.grossYield+"%")]),
       div({background:cl.raised,borderRadius:"10px",padding:"12px 14px"},[lbl("Net Yield"),div({color:parseFloat(val.netYield)>5?cl.green:cl.yellow,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},val.netYield+"%")]),
@@ -2432,7 +2432,7 @@ function renderAnalyzerResult(wrap){
     var sr=analyzerState.smartRent;
     var riWrap=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"}});
     riWrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"},[
-      span({color:"#8B5CF6",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ Rental Intelligence Engine"),
+      span({color:"#8B5CF6",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Rental Intelligence Engine"),
       sr&&sr.source!=="estimated"?span({color:"#10B981",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"6px",background:hexAlpha("#10B981",0.12)},"LIVE"):span({color:cl.sub,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"6px",background:hexAlpha(cl.sub,0.12)},sr?"ESTIMATED":"LOADING...")
     ]));
     if(!sr){
@@ -2590,7 +2590,7 @@ function renderAnalyzerResult(wrap){
     // Gold shimmer for Deep Value
     if(val.mosScore>=80){mosWrap.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,"+cl.gold+","+cl.gold+",transparent)",animation:"shimmer 3s ease infinite"}));}
     mosWrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
-      span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ Margin of Safety"),
+      span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Margin of Safety"),
       span({color:mosC,fontSize:"12px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"6px",background:mosBg},val.mosTier.label)
     ]));
     // Risk-Reward slider
@@ -2618,9 +2618,9 @@ function renderAnalyzerResult(wrap){
     var bqGrade=val.bData?val.bData.g:"N/A";
     var bqDesc=val.timeDecayScore>=85?"Premium grade ("+bqGrade+"), well-maintained":val.timeDecayScore>=65?"Good condition ("+bqGrade+"), SC in line":val.timeDecayScore>=45?"Moderate — watch maintenance costs":"High SC vs expected — aging risk";
     var mdDesc=val.marketDepthScore>=80?"Price within building's normal range":val.marketDepthScore>=60?"Price near edge of typical range":"Price outside typical range — harder to resell";
-    [{l:"Price Gap",v:val.priceGapScore,w:"50%",icon:"📊",d:pgDesc},
-     {l:"Building Quality",v:val.timeDecayScore,w:"20%",icon:"🏗",d:bqDesc},
-     {l:"Market Depth",v:val.marketDepthScore,w:"30%",icon:"📈",d:mdDesc}
+    [{l:"Price Gap",v:val.priceGapScore,w:"50%",icon:"",d:pgDesc},
+     {l:"Building Quality",v:val.timeDecayScore,w:"20%",icon:"",d:bqDesc},
+     {l:"Market Depth",v:val.marketDepthScore,w:"30%",icon:"",d:mdDesc}
     ].forEach(function(comp){
       var cBox=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"10px 8px",textAlign:"center"}});
       cBox.appendChild(div({fontSize:"14px",marginBottom:"4px"},comp.icon));
@@ -2660,7 +2660,7 @@ function renderAnalyzerResult(wrap){
 
     locWrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
       div({},[
-        span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"2px"},"◆ Location Intelligence"),
+        span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"2px"},"Location Intelligence"),
         span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},"Transit & Amenity Proximity Analysis")
       ]),
       span({color:locC,fontSize:"12px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",padding:"3px 10px",borderRadius:"6px",background:locBg},locLabel+" · "+gs.locationScore+"/10")
@@ -2678,7 +2678,7 @@ function renderAnalyzerResult(wrap){
     var metroC=gs.metroScore>=7?cl.green:gs.metroScore>=5?cl.yellow:cl.red;
     var mCard=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px"}});
     mCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"},[
-      span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"🚇 Metro"),
+      span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Metro"),
       span({color:metroC,fontSize:"11px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},gs.metroScore+"/10")
     ]));
     mCard.appendChild(div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},gs.metroDist+" km"));
@@ -2690,7 +2690,7 @@ function renderAnalyzerResult(wrap){
     var mallC=gs.mallScore>=7?cl.green:gs.mallScore>=5?cl.yellow:cl.red;
     var maCard=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px"}});
     maCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"},[
-      span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"🛍️ Mall"),
+      span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Mall"),
       span({color:mallC,fontSize:"11px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},gs.mallScore+"/10")
     ]));
     maCard.appendChild(div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},gs.mallDist+" km"));
@@ -2701,7 +2701,7 @@ function renderAnalyzerResult(wrap){
     var beachC=gs.beachScore>=7?cl.green:gs.beachScore>=5?cl.yellow:cl.red;
     var bCard=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px"}});
     bCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"},[
-      span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"🏖️ Beach"),
+      span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Beach"),
       span({color:beachC,fontSize:"11px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},gs.beachScore+"/10")
     ]));
     bCard.appendChild(div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},gs.beachDist+" km"));
@@ -2712,7 +2712,7 @@ function renderAnalyzerResult(wrap){
     var bizC=gs.bizScore>=7?cl.green:gs.bizScore>=5?cl.yellow:cl.red;
     var biCard=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px"}});
     biCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"},[
-      span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"🏢 Business"),
+      span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Business"),
       span({color:bizC,fontSize:"11px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},gs.bizScore+"/10")
     ]));
     biCard.appendChild(div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},gs.bizDist+" km"));
@@ -2723,7 +2723,7 @@ function renderAnalyzerResult(wrap){
 
     // Airport distance
     locWrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",background:cl.raised,borderRadius:"8px",marginBottom:"12px"},[
-      span({color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},"✈️ "+gs.airportName),
+      span({color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},gs.airportName),
       span({color:cl.subHi,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},gs.airportDist+" km · ~"+Math.round(gs.airportDist*1.5)+" min")
     ]));
 
@@ -2755,7 +2755,7 @@ function renderAnalyzerResult(wrap){
     let already=false;
     try{already=!!localStorage.getItem(watchKey);}catch(e){}
     const wWrap=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"14px",marginTop:"8px"}});
-    wWrap.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"🔔 Price Alert"));
+    wWrap.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Price Alert"));
     if(already||WS.done){
       wWrap.appendChild(div({color:cl.green,fontSize:"12px",fontFamily:"'Inter',sans-serif"},"You're watching "+targetName+" — we'll email you if pricing moves ±5% or more."));
     }else{
@@ -2808,7 +2808,7 @@ function renderAnalyzerResult(wrap){
     var sec=el('div',{style:{background:cl.surface,border:'1px solid '+cl.goldDim,borderRadius:'14px',padding:'18px',marginTop:'14px'}});
     sec.appendChild(div({display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px',cursor:'pointer',userSelect:'none'},[
       div({},[
-        span({color:cl.gold,fontSize:'10px',letterSpacing:'0.14em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace"},'📊 Investment Scenario Planner'),
+        span({color:cl.gold,fontSize:'10px',letterSpacing:'0.14em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace"},'Investment Scenario Planner'),
       ]),
       span({color:cl.sub,fontSize:'9px',fontFamily:"'Space Grotesk',monospace"},IC.expanded?'▲ Collapse':'▼ Expand'),
     ]));
@@ -2923,7 +2923,7 @@ function renderAnalyzerResult(wrap){
 
     // 3 Scenarios
     var scenLabel=el('div',{style:{marginBottom:'10px'}});
-    scenLabel.appendChild(span({color:cl.gold,fontSize:'9px',letterSpacing:'0.12em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace"},'◆ Scenario Comparison'));
+    scenLabel.appendChild(span({color:cl.gold,fontSize:'9px',letterSpacing:'0.12em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace"},'Scenario Comparison'));
     sec.appendChild(scenLabel);
     var cons=calcScenario(gr0*0.5,10);
     var opt=calcScenario(gr0*1.5,2);
@@ -2948,7 +2948,7 @@ function renderAnalyzerResult(wrap){
 
     // Equity Growth Chart
     var chartLabel=el('div',{style:{marginBottom:'8px'}});
-    chartLabel.appendChild(span({color:cl.gold,fontSize:'9px',letterSpacing:'0.12em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace"},'◆ Equity Growth'));
+    chartLabel.appendChild(span({color:cl.gold,fontSize:'9px',letterSpacing:'0.12em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace"},'Equity Growth'));
     sec.appendChild(chartLabel);
     var maxEq=0;
     base.equityByYear.forEach(function(e){if(e.equity>maxEq)maxEq=e.equity;});
@@ -2983,12 +2983,12 @@ function renderAnalyzerResult(wrap){
 
     // Download Report button
     var dlBtn=el('button',{style:{width:'100%',padding:'12px',background:'linear-gradient(135deg,'+cl.gold+',#7A5E28)',color:'#08090C',border:'none',borderRadius:'10px',fontSize:'13px',fontWeight:'700',fontFamily:"'Inter',sans-serif",cursor:'pointer',letterSpacing:'0.03em'}});
-    dlBtn.textContent='📋 Download Investment Report';
+    dlBtn.textContent='Download Investment Report';
     dlBtn.addEventListener('click',function(){
       var w=window.open('','_blank');
       if(!w){alert("Please allow popups to download the report.");return;}
       var h='<html><head><title>Investment Report - DubAIVal</title><style>body{font-family:Arial,sans-serif;max-width:700px;margin:0 auto;padding:20px;color:#333}h1{color:#C9A84C;font-size:22px}h2{color:#555;font-size:16px;border-bottom:1px solid #ddd;padding-bottom:6px}table{width:100%;border-collapse:collapse;margin:10px 0}td,th{padding:6px 10px;border:1px solid #ddd;font-size:12px;text-align:left}th{background:#f5f5f5}.green{color:#22c55e}.red{color:#ef4444}.gold{color:#C9A84C}@media print{body{padding:0}}</style></head><body>';
-      h+='<h1>📊 DubAIVal Investment Report</h1>';
+      h+='<h1>DubAIVal Investment Report</h1>';
       h+='<p><strong>Property:</strong> '+(analyzerState.f.building||'')+(analyzerState.f.building?' · ':'')+analyzerState.f.area+'</p>';
       h+='<p><strong>Price:</strong> AED '+price.toLocaleString()+' | <strong>Size:</strong> '+(analyzerState.f.size||analyzerState.f.buaSize||'N/A')+' sqft</p>';
       h+='<h2>Investment Parameters</h2>';
@@ -3027,7 +3027,7 @@ function renderAnalyzerResult(wrap){
   }));
   var saveBtn=el("button",{style:{background:"transparent",border:"1px solid "+cl.goldDim,color:cl.gold,padding:"8px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",display:"inline-flex",alignItems:"center",gap:"6px"}});
   var alreadySaved=DV_SAVED.searches.some(function(s){return s.area===f.area&&s.building===f.building&&s.price===f.price;});
-  saveBtn.textContent=alreadySaved?"✓ Saved":"⭐ Save This Search";
+  saveBtn.textContent=alreadySaved?"✓ Saved":"Save This Search";
   if(!alreadySaved)saveBtn.addEventListener("click",function(){
     saveSearch({area:f.area,building:f.building||"",size:f.size||f.buaSize||"",price:f.price,beds:f.beds,floor:f.floor,view:f.view,propType:f.propCategory,verdict:val.verdict,fairPrice:val.fairPrice,ts:Date.now()});
     render();
@@ -3090,7 +3090,7 @@ function renderAnalyzerResult(wrap){
     dlBtn.textContent=t('download_pdf');
     dlBtn.addEventListener('click',function(){generatePDF();});
     var arBtn=el('button',{style:{width:'100%',padding:'13px',borderRadius:'10px',border:'1px solid '+cl.goldDim,background:'transparent',color:cl.gold,fontSize:'14px',fontWeight:'700',fontFamily:"Cairo,'Space Grotesk',sans-serif",cursor:'pointer',marginTop:'8px',direction:'rtl'}});
-    arBtn.textContent='📄 '+t('arabic_pdf');
+    arBtn.textContent=t('arabic_pdf');
     arBtn.addEventListener('click',function(){generateArabicPDF();});
     pdfWrap.appendChild(dlBtn);
     pdfWrap.appendChild(arBtn);
@@ -3102,10 +3102,10 @@ function renderAnalyzerResult(wrap){
   var pitchWrap=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginTop:"14px"});
   pitchWrap.appendChild(div({display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"14px"},[
     div({},[
-      span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"3px"},"◆ Marketing Pitch Generator"),
+      span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"3px"},"Marketing Pitch Generator"),
       span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"AI-generated property listing for WhatsApp & Email"),
     ]),
-    span({fontSize:"20px"},"📝"),
+    span({fontSize:"13px",color:cl.gold,fontFamily:"'Space Grotesk',monospace",fontWeight:"700"},"AI"),
   ]));
 
   var pitchLangRow=div({display:"flex",gap:"8px",marginBottom:"12px"});
@@ -3120,11 +3120,11 @@ function renderAnalyzerResult(wrap){
   pitchWrap.appendChild(pitchLangRow);
 
   var pitchToneRow=div({display:"flex",gap:"8px",marginBottom:"14px"});
-  var pitchTones=[{k:"professional",label:"Professional",icon:"🏢"},{k:"luxury",label:"Luxury",icon:"✨"},{k:"investor",label:"Investor-focused",icon:"📊"},{k:"urgent",label:"Urgent/FOMO",icon:"⏰"}];
+  var pitchTones=[{k:"professional",label:"Professional",icon:""},{k:"luxury",label:"Luxury",icon:""},{k:"investor",label:"Investor-focused",icon:""},{k:"urgent",label:"Urgent/FOMO",icon:""}];
   if(!window._pitchTone)window._pitchTone="professional";
   pitchTones.forEach(function(tn){
     var b=el("button",{style:{padding:"5px 12px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",border:"1px solid "+(window._pitchTone===tn.k?cl.gold:cl.border),background:window._pitchTone===tn.k?cl.goldFaint:"transparent",color:window._pitchTone===tn.k?cl.gold:cl.sub}});
-    b.textContent=tn.icon+" "+tn.label;
+    b.textContent=tn.icon?(tn.icon+" "+tn.label):tn.label;
     b.addEventListener("click",function(){window._pitchTone=tn.k;render();});
     pitchToneRow.appendChild(b);
   });
@@ -3138,15 +3138,15 @@ function renderAnalyzerResult(wrap){
 
     var pitchActions=div({display:"flex",gap:"8px",marginTop:"10px"});
     var copyPitch=el("button",{style:{flex:"1",padding:"9px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",border:"1px solid "+cl.border,background:cl.raised,color:cl.subHi}});
-    copyPitch.textContent="📋 Copy";
-    copyPitch.addEventListener("click",function(){navigator.clipboard.writeText(window._pitchText);copyPitch.textContent="✓ Copied!";setTimeout(function(){copyPitch.textContent="📋 Copy";},2000);});
+    copyPitch.textContent="Copy";
+    copyPitch.addEventListener("click",function(){navigator.clipboard.writeText(window._pitchText);copyPitch.textContent="✓ Copied!";setTimeout(function(){copyPitch.textContent="Copy";},2000);});
 
     var waPitch=el("button",{style:{flex:"1",padding:"9px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",border:"1px solid #25D366",background:"rgba(37,211,102,0.1)",color:"#25D366"}});
-    waPitch.textContent="💬 WhatsApp";
+    waPitch.textContent="WhatsApp";
     waPitch.addEventListener("click",function(){window.open("https://wa.me/?text="+encodeURIComponent(window._pitchText),"_blank");});
 
     var emailPitch=el("button",{style:{flex:"1",padding:"9px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",border:"1px solid "+cl.gold,background:cl.goldFaint,color:cl.gold}});
-    emailPitch.textContent="✉️ Email";
+    emailPitch.textContent="Email";
     emailPitch.addEventListener("click",function(){var subj=encodeURIComponent((f.building||f.area)+" — "+(isVilla?f.villaType:f.aptSubtype)+" | DubAIVal");window.open("mailto:?subject="+subj+"&body="+encodeURIComponent(window._pitchText));});
 
     pitchActions.appendChild(copyPitch);pitchActions.appendChild(waPitch);pitchActions.appendChild(emailPitch);
@@ -3155,7 +3155,7 @@ function renderAnalyzerResult(wrap){
   pitchWrap.appendChild(pitchOutput);
 
   var genBtn=el("button",{style:{width:"100%",padding:"12px",borderRadius:"10px",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",border:"none",background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",color:"#fff",marginTop:window._pitchText?"10px":"0",transition:"opacity 0.2s"}});
-  genBtn.textContent=window._pitchLoading?"⏳ Generating...":window._pitchText?"🔄 Regenerate Pitch":"✨ Generate Marketing Pitch";
+  genBtn.textContent=window._pitchLoading?"Generating...":window._pitchText?"Regenerate Pitch":"Generate Marketing Pitch";
   if(window._pitchLoading)genBtn.style.opacity="0.6";
   genBtn.addEventListener("click",async function(){
     if(window._pitchLoading)return;
@@ -3210,7 +3210,7 @@ function renderAnalyzerResult(wrap){
   // -- ASKING PRICE DEPENDENCY DISCLAIMER --
   var apDisclaim=div({background:cl.surface,border:"1px solid "+hexAlpha(cl.sub,0.15),borderRadius:"10px",padding:"14px 16px",marginTop:"14px"});
   apDisclaim.appendChild(div({display:"flex",alignItems:"center",gap:"6px",marginBottom:"8px"},[
-    span({fontSize:"11px"},"ℹ️"),
+    span({fontSize:"11px"},""),
     span({color:cl.sub,fontSize:"9px",fontWeight:"700",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Asking Price Dependent Metrics"),
   ]));
   apDisclaim.appendChild(div({color:hexAlpha(cl.sub,0.75),fontSize:"10px",lineHeight:"1.6",fontFamily:"'Inter',sans-serif"},[
@@ -3253,7 +3253,7 @@ function renderRentalResult(wrap){
 
   wrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"16px"},[
     div({},[
-      span({color:"#8B5CF6",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block"},"◆ Rental Analysis Complete"),
+      span({color:"#8B5CF6",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block"},"Rental Analysis Complete"),
       span({color:cl.subHi,fontSize:"13px",fontFamily:"'Inter',sans-serif"},(f.building?f.building+" · ":"")+(rv.isVilla?f.villaType:f.aptSubtype)+" · "+f.area),
     ]),
     el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 14px",borderRadius:"8px",cursor:"pointer",fontSize:"12px"},onclick:function(){
@@ -3262,7 +3262,7 @@ function renderRentalResult(wrap){
     }},"← New"),
   ]));
 
-  var vcfg={BELOW_MARKET:{bg:"linear-gradient(135deg,rgba(16,185,129,0.08),transparent)",bo:"rgba(16,185,129,0.4)",tx:"#10B981",icon:"🟢",label:"BELOW MARKET",sub:"This rent is significantly below the area average — great deal for tenants"},COMPETITIVE:{bg:"linear-gradient(135deg,rgba(16,185,129,0.06),transparent)",bo:"rgba(16,185,129,0.3)",tx:"#10B981",icon:"✅",label:"COMPETITIVE RENT",sub:"Slightly below market — attractive for tenants, fair for landlords"},MARKET_RATE:{bg:"linear-gradient(135deg,rgba(245,158,11,0.08),transparent)",bo:"rgba(245,158,11,0.3)",tx:"#F59E0B",icon:"🟡",label:"MARKET RATE",sub:"In line with area averages — standard rental pricing"},ABOVE_MARKET:{bg:"linear-gradient(135deg,rgba(249,115,22,0.08),transparent)",bo:"rgba(249,115,22,0.3)",tx:"#F97316",icon:"🟠",label:"ABOVE MARKET",sub:"Higher than average — negotiate or justify with premium features"},OVERPRICED:{bg:"linear-gradient(135deg,rgba(239,68,68,0.08),transparent)",bo:"rgba(239,68,68,0.3)",tx:"#EF4444",icon:"🔴",label:"OVERPRICED RENT",sub:"Well above market — significant negotiation recommended"}}[rv.verdict]||{bg:"linear-gradient(135deg,rgba(245,158,11,0.08),transparent)",bo:"rgba(245,158,11,0.3)",tx:"#F59E0B",icon:"🟡",label:"MARKET RATE",sub:""};
+  var vcfg={BELOW_MARKET:{bg:"linear-gradient(135deg,rgba(16,185,129,0.08),transparent)",bo:"rgba(16,185,129,0.4)",tx:"#10B981",icon:"●",label:"BELOW MARKET",sub:"This rent is significantly below the area average — great deal for tenants"},COMPETITIVE:{bg:"linear-gradient(135deg,rgba(16,185,129,0.06),transparent)",bo:"rgba(16,185,129,0.3)",tx:"#10B981",icon:"●",label:"COMPETITIVE RENT",sub:"Slightly below market — attractive for tenants, fair for landlords"},MARKET_RATE:{bg:"linear-gradient(135deg,rgba(245,158,11,0.08),transparent)",bo:"rgba(245,158,11,0.3)",tx:"#F59E0B",icon:"●",label:"MARKET RATE",sub:"In line with area averages — standard rental pricing"},ABOVE_MARKET:{bg:"linear-gradient(135deg,rgba(249,115,22,0.08),transparent)",bo:"rgba(249,115,22,0.3)",tx:"#F97316",icon:"●",label:"ABOVE MARKET",sub:"Higher than average — negotiate or justify with premium features"},OVERPRICED:{bg:"linear-gradient(135deg,rgba(239,68,68,0.08),transparent)",bo:"rgba(239,68,68,0.3)",tx:"#EF4444",icon:"●",label:"OVERPRICED RENT",sub:"Well above market — significant negotiation recommended"}}[rv.verdict]||{bg:"linear-gradient(135deg,rgba(245,158,11,0.08),transparent)",bo:"rgba(245,158,11,0.3)",tx:"#F59E0B",icon:"●",label:"MARKET RATE",sub:""};
   var confColor=rv.confTier.c==="green"?"#10B981":rv.confTier.c==="yellow"?"#F59E0B":"#EF4444";
 
   wrap.appendChild(div({background:vcfg.bg,border:"2px solid "+vcfg.bo,borderRadius:"16px",overflow:"hidden",marginBottom:"14px",animation:"fadeUp 0.4s ease"},[
@@ -3310,7 +3310,7 @@ function renderRentalResult(wrap){
 
   if(analyzerState.aiText){
     var ecCard=div({background:cl.surface,border:"1px solid rgba(139,92,246,0.3)",borderRadius:"14px",padding:"18px",marginBottom:"14px"});
-    ecCard.appendChild(span({color:"#8B5CF6",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},"◆ Rental Expert Commentary"));
+    ecCard.appendChild(span({color:"#8B5CF6",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},"Rental Expert Commentary"));
     var ecFormatted=typeof formatAIResponse==="function"?formatAIResponse(analyzerState.aiText,cl):null;
     if(ecFormatted)ecCard.appendChild(ecFormatted);
     else ecCard.appendChild(div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.85",fontFamily:"'Inter',sans-serif"},analyzerState.aiText));
@@ -3319,7 +3319,7 @@ function renderRentalResult(wrap){
 
   if(rv.sc>0){
     wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"},[
-      span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"◆ Landlord Net Rent Analysis"),
+      span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"Landlord Net Rent Analysis"),
       div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px"},[
         div({background:cl.raised,borderRadius:"10px",padding:"12px 14px",textAlign:"center"},[lbl("Gross Rent"),div({color:cl.subHi,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+rv.askRent.toLocaleString())]),
         div({background:cl.raised,borderRadius:"10px",padding:"12px 14px",textAlign:"center"},[lbl("Annual SC"),div({color:"#EF4444",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"-AED "+rv.sc.toLocaleString())]),
@@ -3330,7 +3330,7 @@ function renderRentalResult(wrap){
 
   if(rv.areaRents&&rv.areaRents.length>0){
     var benchCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"});
-    benchCard.appendChild(span({color:"#8B5CF6",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"◆ Area Rental Benchmarks · "+f.area));
+    benchCard.appendChild(span({color:"#8B5CF6",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"Area Rental Benchmarks · "+f.area));
     rv.areaRents.forEach(function(ar){
       var isActive=ar.beds===rv.beds||(ar.beds==="Studio"&&rv.beds==="Studio");
       var row=div({display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",marginBottom:"4px",borderRadius:"8px",background:isActive?"rgba(139,92,246,0.08)":"transparent",border:isActive?"1px solid rgba(139,92,246,0.25)":"1px solid transparent"});
@@ -3357,14 +3357,14 @@ function renderRentalResult(wrap){
   wrap.appendChild(adjCard);
 
   var tipCard=div({background:"rgba(139,92,246,0.04)",border:"1px solid rgba(139,92,246,0.2)",borderRadius:"14px",padding:"18px",marginBottom:"14px"});
-  tipCard.appendChild(span({color:"#8B5CF6",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},"◆ Rental Market Tips"));
+  tipCard.appendChild(span({color:"#8B5CF6",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},"Rental Market Tips"));
   var tips=[];
-  if(parseFloat(rv.vsPct)>10)tips.push({icon:"💡",text:"This rent is above market — request landlord to include DEWA deposit, maintenance, or parking to justify the premium."});
-  if(parseFloat(rv.vsPct)>5)tips.push({icon:"📊",text:"Counter-offer with market data: average "+rv.beds+" rent in "+f.area+" is AED "+rv.estRent.toLocaleString()+"/yr."});
-  if(parseFloat(rv.vsPct)<-5)tips.push({icon:"🎯",text:"Good deal for tenants — this is below market rate. Consider locking in a 2-year lease."});
-  tips.push({icon:"📋",text:"Always get an Ejari registration. RERA rent index: rera.gov.ae/rental-increase-calculator."});
-  tips.push({icon:"🏠",text:"Check the DEWA status and AC type (chiller-free vs metered) — this affects your total cost by AED 5-15K/yr."});
-  if(rv.sc>0)tips.push({icon:"💰",text:"Landlord pays AED "+rv.sc.toLocaleString()+"/yr in service charges — net return is AED "+rv.netRent.toLocaleString()+"/yr."});
+  if(parseFloat(rv.vsPct)>10)tips.push({icon:"—",text:"This rent is above market — request landlord to include DEWA deposit, maintenance, or parking to justify the premium."});
+  if(parseFloat(rv.vsPct)>5)tips.push({icon:"—",text:"Counter-offer with market data: average "+rv.beds+" rent in "+f.area+" is AED "+rv.estRent.toLocaleString()+"/yr."});
+  if(parseFloat(rv.vsPct)<-5)tips.push({icon:"—",text:"Good deal for tenants — this is below market rate. Consider locking in a 2-year lease."});
+  tips.push({icon:"—",text:"Always get an Ejari registration. RERA rent index: rera.gov.ae/rental-increase-calculator."});
+  tips.push({icon:"—",text:"Check the DEWA status and AC type (chiller-free vs metered) — this affects your total cost by AED 5-15K/yr."});
+  if(rv.sc>0)tips.push({icon:"—",text:"Landlord pays AED "+rv.sc.toLocaleString()+"/yr in service charges — net return is AED "+rv.netRent.toLocaleString()+"/yr."});
   tips.forEach(function(tip){
     tipCard.appendChild(div({display:"flex",alignItems:"flex-start",gap:"10px",marginBottom:"8px"},[
       span({fontSize:"14px",flexShrink:"0"},tip.icon),
