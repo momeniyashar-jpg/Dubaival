@@ -6246,7 +6246,7 @@ function getAgentMsgs(agentId){
 // --- CHAT TAB ----------------------------------------------------------------
 function renderChat(){
   var cl=C();
-  var wrap=div({display:"flex",flexDirection:"column",height:"calc(100vh - 130px)",padding:"0 20px",maxWidth:"640px",margin:"0 auto",width:"100%"});
+  var wrap=div({display:"flex",flexDirection:"column",height:"calc(100vh - 130px)",padding:"0 20px",maxWidth:"800px",margin:"0 auto",width:"100%"});
 
   // Agent selector bar
   var agentBar=div({display:"flex",gap:"6px",overflowX:"auto",paddingBottom:"10px",paddingTop:"8px",flexShrink:"0"});
@@ -6260,7 +6260,10 @@ function renderChat(){
       fontFamily:"'Space Grotesk',monospace",cursor:"pointer",whiteSpace:"nowrap",
       display:"flex",alignItems:"center",gap:"5px",transition:"all 0.2s"
     },onclick:function(){chatState.agentId=agent.id;render(true);}});
-    btn.appendChild(document.createTextNode(agent.icon+" "+agent.name));
+    var btnIcon=el("span",{style:{width:"14px",height:"14px",display:"inline-flex",alignItems:"center",justifyContent:"center"}});
+    btnIcon.innerHTML='<i data-lucide="'+agent.icon+'" style="width:14px;height:14px"></i>';
+    btn.appendChild(btnIcon);
+    btn.appendChild(document.createTextNode(agent.name));
     agentBar.appendChild(btn);
   });
   wrap.appendChild(agentBar);
@@ -6268,8 +6271,8 @@ function renderChat(){
   // Active agent header
   var activeAgent=AI_AGENTS.find(function(a){return a.id===chatState.agentId;})||AI_AGENTS[0];
   var hdr=div({display:"flex",alignItems:"center",gap:"10px",padding:"8px 0 12px",borderBottom:"1px solid "+cl.border,marginBottom:"8px",flexShrink:"0"});
-  var iconCircle=div({width:"36px",height:"36px",borderRadius:"10px",background:hexAlpha(activeAgent.color,0.15),border:"1px solid "+hexAlpha(activeAgent.color,0.3),display:"flex",alignItems:"center",justifyContent:"center",fontSize:"18px",flexShrink:"0"});
-  iconCircle.textContent=activeAgent.icon;
+  var iconCircle=div({width:"36px",height:"36px",borderRadius:"10px",background:hexAlpha(activeAgent.color,0.15),border:"1px solid "+hexAlpha(activeAgent.color,0.3),display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"});
+  iconCircle.innerHTML='<i data-lucide="'+activeAgent.icon+'" style="width:20px;height:20px;color:'+activeAgent.color+'"></i>';
   hdr.appendChild(iconCircle);
   var hdrText=div({flex:"1"});
   hdrText.appendChild(div({color:activeAgent.color,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},activeAgent.name));

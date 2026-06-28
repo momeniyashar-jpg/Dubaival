@@ -1237,7 +1237,8 @@ var TAB_TO_SECTION={
   "Market":["Market","Dashboard"],"Index":["Market","Index"],"Analyzer":["Market","Analyzer"],
   "Map":["Market","Map"],"Find":["Market","Find"],"Compare":["Market","Compare"],
   "Portfolio":["Portfolio","Assets"],"Alerts":["Portfolio","Alerts"],
-  "Deals":["Network","Deals"],"Social":["Network","Social"],"Chat":["Network","Chat"],
+  "Deals":["Network","Deals"],"AgentHub":["Network","AgentHub"],"Social":["Network","Social"],"Chat":["Network","Chat"],
+  "Health":["Portfolio","Health"],"Projections":["Portfolio","Projections"],
   "Workspace":["More","Workspace"],"About":["More","About"],"Admin":["More","Admin"],
   "MediaStudio":["Network","MediaStudio"],"Reports":["More","Reports"]
 };
@@ -1254,15 +1255,17 @@ function renderHome(){
   hero.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Dubai Real Estate Intelligence Dashboard"));
   wrap.appendChild(hero);
 
-  // --- 3 Hero Feature Cards ---
-  var heroGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"14px",marginBottom:"20px"}});heroGrid.className="dv-hero-grid";
+  // --- 3 Hero Feature Cards with Gradient Blobs ---
+  var heroContainer=el("div",{style:{position:"relative",marginBottom:"20px"}});
+  heroContainer.className="dv-hero-cards-container";
+  var heroGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"14px",position:"relative",zIndex:"1"}});heroGrid.className="dv-hero-grid";
   var heroFeatures=[
-    {icon:"search",title:"Analyze Any Property",desc:"AI valuation for 10,880+ properties across 347 areas",color:"#D4AF37",bg:"rgba(212,175,55,0.06)",border:"rgba(212,175,55,0.15)",sec:"Market",sub:"Analyzer"},
-    {icon:"handshake",title:"Off-Market Deals",desc:"",color:"#10B981",bg:"rgba(16,185,129,0.06)",border:"rgba(16,185,129,0.15)",sec:"Network",sub:"Deals",countKey:"deals"},
-    {icon:"video",title:"AI Media Studio",desc:"35+ AI Tools",color:"#8B5CF6",bg:"rgba(139,92,246,0.06)",border:"rgba(139,92,246,0.15)",sec:"Network",sub:"MediaStudio"}
+    {icon:"search",title:"Analyze Any Property",desc:"AI valuation for 10,880+ properties across 347 areas",color:"#D4AF37",bg:"rgba(255,255,255,0.04)",border:"rgba(212,175,55,0.15)",sec:"Market",sub:"Analyzer",hoverBorder:"rgba(212,175,55,0.4)",hoverShadow:"rgba(212,175,55,0.12)",micro:"AI-powered valuation — price per sqft, rent estimate, yield, investment signal, and confidence score for any Dubai property",cta:"Start Analysis →"},
+    {icon:"handshake",title:"Off-Market Deals",desc:"",color:"#10B981",bg:"rgba(255,255,255,0.04)",border:"rgba(16,185,129,0.15)",sec:"Network",sub:"Deals",countKey:"deals",hoverBorder:"rgba(16,185,129,0.4)",hoverShadow:"rgba(16,185,129,0.12)",micro:"Private owner-to-buyer deal board — browse exclusive listings, verified title deeds, direct contact with property owners",cta:"Browse Deals →"},
+    {icon:"video",title:"AI Media Studio",desc:"35+ AI Tools",color:"#8B5CF6",bg:"rgba(255,255,255,0.04)",border:"rgba(139,92,246,0.15)",sec:"Network",sub:"MediaStudio",hoverBorder:"rgba(139,92,246,0.4)",hoverShadow:"rgba(139,92,246,0.12)",micro:"35+ professional tools — AI video creator, post designer, content calendar, hashtag intelligence, avatar studio, and more",cta:"Open Studio →"}
   ];
   heroFeatures.forEach(function(hf){
-    var hCard=el("div",{style:{background:hf.bg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid "+hf.border,borderRadius:"16px",padding:"28px 20px",cursor:"pointer",transition:"all 0.25s ease",position:"relative",overflow:"hidden",minHeight:"140px",display:"flex",flexDirection:"column",justifyContent:"space-between"}});
+    var hCard=el("div",{style:{background:hf.bg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid "+hf.border,borderRadius:"16px",padding:"28px 20px",cursor:"pointer",transition:"transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease",position:"relative",overflow:"hidden",minHeight:"140px",display:"flex",flexDirection:"column",justifyContent:"space-between",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.04)"}});
     var glow=el("div",{style:{position:"absolute",top:"-40px",right:"-40px",width:"120px",height:"120px",borderRadius:"50%",background:hf.color,opacity:"0.04",filter:"blur(40px)",pointerEvents:"none"}});
     hCard.appendChild(glow);
     var topRow=el("div",{style:{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",position:"relative"}});
@@ -1274,12 +1277,40 @@ function renderHome(){
     var descText=hf.desc;
     if(hf.countKey==="deals"){var dc=0;try{dc=JSON.parse(localStorage.getItem("dv_deal_cache")||"[]").length;}catch(e){}descText=dc>0?dc+" active deals":"Browse exclusive listings";}
     hCard.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",position:"relative"},descText));
-    hCard.addEventListener("mouseenter",function(){hCard.style.borderColor=hf.color;hCard.style.transform="translateY(-3px)";hCard.style.boxShadow="0 12px 40px rgba(0,0,0,0.4),0 0 24px "+hf.color+"15";});
-    hCard.addEventListener("mouseleave",function(){hCard.style.borderColor=hf.border;hCard.style.transform="translateY(0)";hCard.style.boxShadow="none";});
+    // Micro-card
+    var microInfo=el("div",{style:{position:"absolute",bottom:"0",left:"0",right:"0",padding:"12px 16px",background:"rgba(0,0,0,0.7)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",borderRadius:"0 0 16px 16px",transform:"translateY(100%)",opacity:"0",transition:"transform 0.3s ease, opacity 0.3s ease",fontSize:"12px",color:"#8899AA",lineHeight:"1.5",zIndex:"2"}});
+    microInfo.appendChild(div({marginBottom:"6px",fontFamily:"'Inter',sans-serif"},hf.micro));
+    var ctaLink=el("a",{style:{color:hf.color,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",textDecoration:"none"}});
+    ctaLink.textContent=hf.cta;
+    microInfo.appendChild(ctaLink);
+    hCard.appendChild(microInfo);
+    hCard.addEventListener("mouseenter",function(){hCard.style.borderColor=hf.hoverBorder;hCard.style.transform="translateY(-4px)";hCard.style.boxShadow="0 0 30px "+hf.hoverShadow+", inset 0 0 30px "+hf.hoverShadow.replace("0.12","0.04");microInfo.style.transform="translateY(0)";microInfo.style.opacity="1";});
+    hCard.addEventListener("mouseleave",function(){hCard.style.borderColor=hf.border;hCard.style.transform="translateY(0)";hCard.style.boxShadow="none";microInfo.style.transform="translateY(100%)";microInfo.style.opacity="0";});
     hCard.addEventListener("click",function(){setSection(hf.sec,hf.sub);});
     heroGrid.appendChild(hCard);
   });
-  wrap.appendChild(heroGrid);
+  heroContainer.appendChild(heroGrid);
+  wrap.appendChild(heroContainer);
+
+  // --- Workspace Card (full-width below hero cards) ---
+  var wsCard=el("div",{style:{background:"rgba(255,255,255,0.04)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:"16px",padding:"16px 20px",marginBottom:"20px",cursor:"pointer",transition:"transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease",display:"flex",alignItems:"center",gap:"14px",position:"relative",overflow:"hidden",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.04)"}});
+  var wsIcon=el("div",{style:{width:"40px",height:"40px",borderRadius:"10px",background:"rgba(212,175,55,0.08)",border:"1px solid rgba(212,175,55,0.15)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
+  wsIcon.innerHTML='<i data-lucide="layout-dashboard" style="width:20px;height:20px;color:#D4AF37"></i>';
+  wsCard.appendChild(wsIcon);
+  var wsText=el("div",{style:{flex:"1"}});
+  wsText.appendChild(div({color:"#F0F2F5",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},"My Workspace"));
+  wsText.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Your personalized dashboard — drag & drop widgets, custom reports, and saved views"));
+  wsCard.appendChild(wsText);
+  var wsBtn=el("span",{style:{color:cl.gold,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",flexShrink:"0"}});
+  wsBtn.textContent="Open →";
+  wsCard.appendChild(wsBtn);
+  var wsMicro=el("div",{style:{position:"absolute",bottom:"0",left:"0",right:"0",padding:"10px 16px",background:"rgba(0,0,0,0.7)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",borderRadius:"0 0 16px 16px",transform:"translateY(100%)",opacity:"0",transition:"transform 0.3s ease, opacity 0.3s ease",fontSize:"11px",color:"#8899AA",lineHeight:"1.4",fontFamily:"'Inter',sans-serif"}});
+  wsMicro.textContent="Build your personal command center — choose from 14+ widgets, use preset templates (Investor/Agent/Buyer), and create custom PDF reports";
+  wsCard.appendChild(wsMicro);
+  wsCard.addEventListener("mouseenter",function(){wsCard.style.borderColor="rgba(255,255,255,0.15)";wsCard.style.transform="translateY(-2px)";wsCard.style.boxShadow="0 4px 20px rgba(0,0,0,0.3)";wsMicro.style.transform="translateY(0)";wsMicro.style.opacity="1";});
+  wsCard.addEventListener("mouseleave",function(){wsCard.style.borderColor="rgba(255,255,255,0.08)";wsCard.style.transform="translateY(0)";wsCard.style.boxShadow="none";wsMicro.style.transform="translateY(100%)";wsMicro.style.opacity="0";});
+  wsCard.addEventListener("click",function(){setSection("More","Workspace");});
+  wrap.appendChild(wsCard);
 
   // --- Market Pulse Card ---
   var pulseCard=el("div",{style:{background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"24px",marginBottom:"16px",transition:"border-color 0.25s ease,box-shadow 0.25s ease",boxShadow:cl.glassShadow}});
@@ -1303,12 +1334,14 @@ function renderHome(){
   var landCount=typeof DB_LAND!=="undefined"?Object.keys(DB_LAND).length:0;
 
   var statsGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:"12px",marginBottom:"16px"}});
-  [{l:"Avg PSF",v:"AED "+avgPSF.toLocaleString(),c:cl.gold},{l:"Avg Yield",v:avgYield+"%",c:"#10B981"},{l:"Residential",v:dbCount.toLocaleString(),c:"#3B82F6"},{l:"Commercial",v:comCount.toLocaleString(),c:"#8B5CF6"},{l:"Land Plots",v:landCount.toLocaleString(),c:"#F59E0B"},{l:"Areas",v:String(areaKeys.length),c:"#EF4444"}].forEach(function(s){
+  [{l:"Avg PSF",v:"AED "+avgPSF.toLocaleString(),c:cl.gold,icon:"trending-up",trend:"+3.2%"},{l:"Avg Yield",v:avgYield+"%",c:"#10B981",icon:"percent",trend:"Stable"},{l:"Residential",v:dbCount.toLocaleString(),c:"#3B82F6",icon:"building-2"},{l:"Commercial",v:comCount.toLocaleString(),c:"#8B5CF6",icon:"briefcase"},{l:"Land Plots",v:landCount.toLocaleString(),c:"#F59E0B",icon:"map-pin"},{l:"Areas",v:String(areaKeys.length),c:"#3B82F6",icon:"map"}].forEach(function(s){
     var card=el("div",{style:{background:"rgba(255,255,255,0.03)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:"12px",padding:"14px",textAlign:"center",transition:"transform 0.2s ease,box-shadow 0.2s ease,border-color 0.2s ease",cursor:"default"}});
-    card.addEventListener("mouseenter",function(){card.style.transform="translateY(-2px)";card.style.boxShadow="0 6px 20px rgba(0,0,0,0.3)";card.style.borderColor="rgba(255,255,255,0.12)";});
+    card.addEventListener("mouseenter",function(){card.style.transform="translateY(-2px)";card.style.boxShadow="0 4px 20px rgba(0,0,0,0.3)";card.style.borderColor="rgba(255,255,255,0.15)";});
     card.addEventListener("mouseleave",function(){card.style.transform="translateY(0)";card.style.boxShadow="none";card.style.borderColor="rgba(255,255,255,0.06)";});
+    if(s.icon){var ic=el("div",{style:{marginBottom:"6px"}});ic.innerHTML='<i data-lucide="'+s.icon+'" style="width:16px;height:16px;color:'+s.c+';opacity:0.6"></i>';card.appendChild(ic);}
     card.appendChild(div({color:s.c,fontSize:"20px",fontWeight:"800",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'",marginBottom:"2px"},s.v));
     card.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",textTransform:"uppercase"},s.l));
+    if(s.trend){var trendEl=el("div",{style:{marginTop:"4px",fontSize:"10px",fontFamily:"'JetBrains Mono',monospace",color:s.trend.indexOf("-")===0?"#EF4444":"#10B981"}});trendEl.textContent=(s.trend==="Stable"?"— ":"▲ ")+s.trend;card.appendChild(trendEl);}
     statsGrid.appendChild(card);
   });
   pulseCard.appendChild(statsGrid);
@@ -1332,6 +1365,9 @@ function renderHome(){
     pulseCard.appendChild(moverList);
   }
   wrap.appendChild(pulseCard);
+
+  // Section divider
+  wrap.appendChild(el("div",{style:{height:"1px",background:"linear-gradient(90deg, transparent 0%, rgba(212,175,55,0.3) 50%, transparent 100%)",margin:"32px 0"}}));
 
   // --- Two-column: Portfolio + Quick Actions ---
   var twoCol=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"16px",marginBottom:"16px"}});
@@ -1687,11 +1723,14 @@ function render(preserveScroll){
     else if(currentSubTab==="Advisor")content.appendChild(renderPersonal());
     else content.appendChild(renderMarket());
   } else if(currentSection==="Portfolio"){
-    if(currentSubTab==="Assets")content.appendChild(renderPortfolio());
+    if(currentSubTab==="Assets")content.appendChild(renderPortfolio("assets"));
+    else if(currentSubTab==="Health")content.appendChild(renderPortfolio("health"));
+    else if(currentSubTab==="Projections")content.appendChild(renderPortfolio("projections"));
     else if(currentSubTab==="Alerts")content.appendChild(renderAlerts());
-    else content.appendChild(renderPortfolio());
+    else content.appendChild(renderPortfolio("assets"));
   } else if(currentSection==="Network"){
     if(currentSubTab==="Deals")content.appendChild(renderDeals());
+    else if(currentSubTab==="AgentHub"){DEAL_STATE.mode="agents";if(typeof fetchAgents==="function")fetchAgents();content.appendChild(renderDeals());}
     else if(currentSubTab==="MediaStudio"&&typeof renderMediaStudio==="function")content.appendChild(renderMediaStudio());
     else if(currentSubTab==="Chat")content.appendChild(renderChat());
     else if(currentSubTab==="Social")content.appendChild(renderSocial());

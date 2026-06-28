@@ -70,7 +70,7 @@ function getRentalAgentAIPrompt(propDesc,rv,mode,area){
 // --- MARKET TAB ---------------------------------------------------------------
 function renderMarket(){
   const cl=C();
-  const wrap=div({padding:"16px",maxWidth:"640px",margin:"0 auto"});
+  const wrap=div({padding:"16px",maxWidth:"960px",margin:"0 auto"});
 
   // -- LIVE DASHBOARD --
   (function(){
@@ -109,8 +109,15 @@ function renderMarket(){
     });
     dSec.appendChild(r1);
 
-    // Row 2: 3 mini charts
-    var r2=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',marginBottom:'14px'}});
+    // Section header: Price Distribution
+    var distHdr=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'10px'}});
+    distHdr.innerHTML='<i data-lucide="bar-chart-3" style="width:14px;height:14px;color:'+cl.gold+'"></i>';
+    distHdr.appendChild(span({color:cl.gold,fontSize:'9px',letterSpacing:'0.1em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",fontWeight:'700'},'Price & Yield Distribution'));
+    dSec.appendChild(distHdr);
+    dSec.appendChild(el('div',{style:{height:'1px',background:'linear-gradient(90deg,transparent 0%,rgba(212,175,55,0.3) 50%,transparent 100%)',marginBottom:'12px'}}));
+
+    // Row 2: 3 charts — wider layout
+    var r2=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px',marginBottom:'14px'}});
 
     // PSF Distribution histogram
     var psfBins=[0,0,0,0,0];var psfLabels=['<1K','1-1.5K','1.5-2K','2-3K','3K+'];
@@ -118,7 +125,7 @@ function renderMarket(){
     var psfMax=Math.max.apply(null,psfBins)||1;
     var psfCard=el('div',{style:{background:'rgba(240,242,245,0.03)',border:'1px solid '+cl.border,borderRadius:'10px',padding:'10px'}});
     psfCard.appendChild(div({color:cl.sub,fontSize:'8px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'8px',textAlign:'center'},'PSF Distribution'));
-    var psfChart=el('div',{style:{display:'flex',alignItems:'flex-end',gap:'3px',height:'50px'}});
+    var psfChart=el('div',{style:{display:'flex',alignItems:'flex-end',gap:'3px',height:'80px'}});
     psfBins.forEach(function(b,i){
       var col=el('div',{style:{flex:'1',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-end',height:'100%'}});
       col.appendChild(el('div',{style:{width:'100%',height:Math.max(3,b/psfMax*100)+'%',background:'linear-gradient(180deg,'+cl.gold+','+hexAlpha(cl.gold,0.3)+')',borderRadius:'3px 3px 0 0',transition:'height 0.5s'}}));
@@ -134,7 +141,7 @@ function renderMarket(){
     var yMax=Math.max.apply(null,yBins)||1;
     var yCard=el('div',{style:{background:'rgba(240,242,245,0.03)',border:'1px solid '+cl.border,borderRadius:'10px',padding:'10px'}});
     yCard.appendChild(div({color:cl.sub,fontSize:'8px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'8px',textAlign:'center'},'Yield Distribution'));
-    var yChart=el('div',{style:{display:'flex',alignItems:'flex-end',gap:'3px',height:'50px'}});
+    var yChart=el('div',{style:{display:'flex',alignItems:'flex-end',gap:'3px',height:'80px'}});
     yBins.forEach(function(b,i){
       var col=el('div',{style:{flex:'1',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-end',height:'100%'}});
       col.appendChild(el('div',{style:{width:'100%',height:Math.max(3,b/yMax*100)+'%',background:'linear-gradient(180deg,#22C55E,'+hexAlpha('#22C55E',0.3)+')',borderRadius:'3px 3px 0 0',transition:'height 0.5s'}}));
@@ -163,8 +170,15 @@ function renderMarket(){
     r2.appendChild(gCard);
     dSec.appendChild(r2);
 
-    // Row 3: Market Pulse — 4 ranking lists
-    var r3=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:'8px',marginBottom:'12px'}});
+    // Section header: Market Movers
+    var moverHdr=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'10px'}});
+    moverHdr.innerHTML='<i data-lucide="flame" style="width:14px;height:14px;color:#EF4444"></i>';
+    moverHdr.appendChild(span({color:'#EF4444',fontSize:'9px',letterSpacing:'0.1em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",fontWeight:'700'},'Market Movers'));
+    dSec.appendChild(moverHdr);
+    dSec.appendChild(el('div',{style:{height:'1px',background:'linear-gradient(90deg,transparent 0%,rgba(239,68,68,0.3) 50%,transparent 100%)',marginBottom:'12px'}}));
+
+    // Row 3: Market Pulse — 4 ranking lists in 2x2 grid
+    var r3=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'12px'}});
     // Compute rankings
     var ranked=aKeys.map(function(k){var a=AREAS[k];return{name:k,psf:a.psf||0,y:a.y?((a.y[0]+a.y[1])/2):0,g:a.g?a.g[0]:0,dom:a.dom||90};});
     var hottest=ranked.slice().sort(function(a,b){return(b.y+b.g)-(a.y+a.g);}).slice(0,5);
@@ -186,6 +200,13 @@ function renderMarket(){
       r3.appendChild(card);
     });
     dSec.appendChild(r3);
+
+    // Section header: Rental Snapshot
+    var rentalHdr=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'10px'}});
+    rentalHdr.innerHTML='<i data-lucide="home" style="width:14px;height:14px;color:#8B5CF6"></i>';
+    rentalHdr.appendChild(span({color:'#8B5CF6',fontSize:'9px',letterSpacing:'0.1em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",fontWeight:'700'},'Rental Market Snapshot'));
+    dSec.appendChild(rentalHdr);
+    dSec.appendChild(el('div',{style:{height:'1px',background:'linear-gradient(90deg,transparent 0%,rgba(139,92,246,0.3) 50%,transparent 100%)',marginBottom:'12px'}}));
 
     // Row 4: Rental Market Snapshot
     var sumR1=0,sumR2=0,cntR=0;

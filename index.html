@@ -190,12 +190,18 @@ a:hover{opacity:0.85}
 .dv-popup .leaflet-popup-tip{background:rgba(13,18,32,0.9)!important;border:1px solid rgba(255,255,255,0.08)!important}
 .leaflet-container{background:#070B14!important;font-family:'Space Grotesk',monospace!important}
 
+/* Hero cards gradient blobs */
+.dv-hero-cards-container{position:relative}
+.dv-hero-cards-container::before{content:'';position:absolute;top:-40%;left:10%;width:500px;height:500px;background:radial-gradient(circle,rgba(212,175,55,0.08) 0%,transparent 70%);filter:blur(80px);pointer-events:none;z-index:0}
+.dv-hero-cards-container::after{content:'';position:absolute;bottom:-30%;right:15%;width:400px;height:400px;background:radial-gradient(circle,rgba(139,92,246,0.06) 0%,transparent 70%);filter:blur(80px);pointer-events:none;z-index:0}
+
 /* Mobile responsive */
 @media(max-width:768px){
   .dv-sidebar{display:none!important}
   .dv-main{margin-left:0!important}
   .dv-bottom-tabs{display:flex!important}
   .dv-main{padding-bottom:60px}
+  .dv-hero-cards-container::before,.dv-hero-cards-container::after{display:none}
 }
 @media(max-width:640px){
   .dv-home-grid2{grid-template-columns:1fr!important}
@@ -218,24 +224,24 @@ window.dvTrack=function(event,params){try{gtag('event',event,params||{});}catch(
 <div id="app"></div><div id="print-report"></div>
 
 <!-- App Modules -->
-<script src="js/data-residential.js?v=20260628m"></script>
-<script src="js/data-commercial.js?v=20260628m"></script>
+<script src="js/data-residential.js?v=20260628p2"></script>
+<script src="js/data-commercial.js?v=20260628p2"></script>
 <script src="js/valuation-db.js?v=20260623"></script>
 <script src="js/valuation.js?v=20260623"></script>
-<script src="js/api.js?v=20260628m"></script>
-<script src="js/core.js?v=20260628m"></script>
-<script src="js/auth.js?v=20260628m"></script>
-<script src="js/app.js?v=20260628m"></script>
-<script src="js/market.js?v=20260628m"></script>
-<script src="js/mortgage.js?v=20260628m"></script>
-<script src="js/portfolio.js?v=20260628m"></script>
-<script src="js/map.js?v=20260628m"></script>
-<script src="js/deals.js?v=20260628m"></script>
-<script src="js/chat.js?v=20260628m"></script>
-<script src="js/social.js?v=20260628m"></script>
-<script src="js/about.js?v=20260628m"></script>
-<script src="js/workspace.js?v=20260628m"></script>
-<script src="js/marketindex.js?v=20260628m"></script>
+<script src="js/api.js?v=20260628p2"></script>
+<script src="js/core.js?v=20260628p2"></script>
+<script src="js/auth.js?v=20260628p2"></script>
+<script src="js/app.js?v=20260628p2"></script>
+<script src="js/market.js?v=20260628p2"></script>
+<script src="js/mortgage.js?v=20260628p2"></script>
+<script src="js/portfolio.js?v=20260628p2"></script>
+<script src="js/map.js?v=20260628p2"></script>
+<script src="js/deals.js?v=20260628p2"></script>
+<script src="js/chat.js?v=20260628p2"></script>
+<script src="js/social.js?v=20260628p2"></script>
+<script src="js/about.js?v=20260628p2"></script>
+<script src="js/workspace.js?v=20260628p2"></script>
+<script src="js/marketindex.js?v=20260628p2"></script>
 <script>render();</script>
 </body>
 </html>

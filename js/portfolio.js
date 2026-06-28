@@ -170,12 +170,15 @@ else if(weakest==="rr")insight="Risk-adjusted returns could improve — look for
 else insight="Growth outlook is your weakest dimension — consider areas with stronger appreciation trends";
 return{score:score,tier:tier,div:divSc,liq:liqSc,rr:rrSc,gr:grSc,insight:insight,nAreas:nA,hasBoth:hasBoth};
 }
-function renderPortfolio(){
+function renderPortfolio(mode){
+  mode=mode||"assets";
   var cl=C();var ps=window.PORTFOLIO_STATE;
   var wrap=div({padding:"20px",maxWidth:"640px",margin:"0 auto"});
+  var titles={assets:"Portfolio Manager",health:"Portfolio Health",projections:"Projections & What-If"};
+  var descs={assets:"Track assets, monitor performance & get AI-powered signals",health:"Health score, diversification analysis & opportunity alerts",projections:"Future projections, scenario analysis & swap simulator"};
   wrap.appendChild(div({marginBottom:"16px"},[
-    span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ Portfolio Manager"),
-    span({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Track assets, monitor performance & get AI-powered signals")
+    span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ "+(titles[mode]||titles.assets)),
+    span({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},descs[mode]||descs.assets)
   ]));
 
   var metrics=ps.assets.map(function(a){return Object.assign({},a,{m:computeAssetMetrics(a)});});
@@ -187,8 +190,8 @@ function renderPortfolio(){
   var avgGrossYield=totalValue>0?(totalRent/totalValue*100):0;
   var avgNetYield=totalValue>0?((totalRent-totalSC)/totalValue*100):0;
 
-  // Portfolio Overview
-  if(ps.assets.length>0){
+  // Portfolio Overview (show on assets tab only)
+  if(ps.assets.length>0&&mode==="assets"){
     var sumCard=div({background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"24px",marginBottom:"14px",position:"relative",overflow:"hidden",boxShadow:cl.glassShadow});
     sumCard.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,"+cl.gold+","+cl.gold+",transparent)",animation:"shimmer 3s ease infinite"}));
     sumCard.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"14px"},"◆ Portfolio Overview"));
@@ -245,7 +248,10 @@ function renderPortfolio(){
       exportCSV("DubAIVal_Portfolio_"+csvDate()+".csv",hdrs,rows);
     })]));
 
+  } // end assets overview
+
     // Portfolio Health Score
+  if(mode==="assets"||mode==="health"){
     var health=computePortfolioHealth(metrics,totalValue);
     if(health){
       var hCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",position:"relative",overflow:"hidden"});
@@ -443,7 +449,9 @@ function renderPortfolio(){
       });
       wrap.appendChild(oaCard);
     }
+  } // end health section
 
+  if(mode==="assets"||mode==="projections"){
     // Future Projection Simulator
     if(!ps._proj)ps._proj={growth:0,rate:0};
     var projCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",position:"relative",overflow:"hidden"});
@@ -511,6 +519,7 @@ function renderPortfolio(){
     wrap.appendChild(projCard);
   }
 
+  if(mode==="assets"){
   // Investment Profile
   var goalsCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"});
   goalsCard.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"◆ Investment Profile"));
@@ -522,7 +531,9 @@ function renderPortfolio(){
   });
   goalsCard.appendChild(goalsGrid);
   wrap.appendChild(goalsCard);
+  } // end assets-only investment profile
 
+  if(mode==="assets"||mode==="projections"){
   // What-If Scenario Simulator
   if(metrics.length>0){
     if(!ps._swap)ps._swap={sellId:"",buyArea:"",buyType:"Apartment",buyBeds:"2 BR",buySize:"",showResult:false};
@@ -607,7 +618,9 @@ function renderPortfolio(){
     }
     wrap.appendChild(swCard);
   }
+  } // end projections section
 
+  if(mode==="assets"){
   // Asset Cards
   metrics.forEach(function(a){
     var expanded=ps.expandedId===a.id;
@@ -848,6 +861,19 @@ function renderPortfolio(){
     if(aiFormatted)aiCard.appendChild(aiFormatted);
     else{var aiText=div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.9",fontFamily:"'Inter',sans-serif",whiteSpace:"pre-wrap"});aiText.textContent=ps.aiAnalysis;aiCard.appendChild(aiText);}
     wrap.appendChild(aiCard);
+  }
+  } // end assets section
+
+  // Empty state for Health/Projections when no assets
+  if(mode!=="assets"&&ps.assets.length===0){
+    var emptyCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"40px 20px",textAlign:"center",marginBottom:"14px"});
+    emptyCard.innerHTML='<i data-lucide="'+(mode==="health"?"heart-pulse":"trending-up")+'" style="width:48px;height:48px;color:'+cl.gold+';margin:0 auto 16px;display:block"></i>';
+    emptyCard.appendChild(div({color:cl.white,fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},mode==="health"?"Portfolio Health Dashboard":"Projections & What-If"));
+    emptyCard.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",marginBottom:"16px"},mode==="health"?"Add assets to see health score, diversification analysis & opportunity alerts":"Add assets to simulate future growth and swap scenarios"));
+    var goBtn=el("button",{style:{padding:"10px 24px",background:"rgba(212,175,55,0.15)",color:cl.gold,border:"1px solid rgba(212,175,55,0.3)",borderRadius:"10px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){setSection("Portfolio","Assets");}});
+    goBtn.textContent="+ Add Your First Asset";
+    emptyCard.appendChild(goBtn);
+    wrap.appendChild(emptyCard);
   }
 
   // Disclaimer
