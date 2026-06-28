@@ -116,8 +116,8 @@ function renderMarket(){
     dSec.appendChild(distHdr);
     dSec.appendChild(el('div',{style:{height:'1px',background:'linear-gradient(90deg,transparent 0%,rgba(212,175,55,0.3) 50%,transparent 100%)',marginBottom:'12px'}}));
 
-    // Row 2: 3 charts — wider layout
-    var r2=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px',marginBottom:'14px'}});
+    // Row 2: 2 charts side by side
+    var r2=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'14px'}});
 
     // PSF Distribution histogram
     var psfBins=[0,0,0,0,0];var psfLabels=['<1K','1-1.5K','1.5-2K','2-3K','3K+'];
@@ -151,24 +151,46 @@ function renderMarket(){
     yCard.appendChild(yChart);
     r2.appendChild(yCard);
 
-    // Growth Heatmap: top 10 vs bottom 10
-    var gArr=[];aKeys.forEach(function(k){var a=AREAS[k];if(a.g)gArr.push({name:k,g:a.g[0]});});
-    gArr.sort(function(a,b){return b.g-a.g;});
-    var gCard=el('div',{style:{background:'rgba(240,242,245,0.03)',border:'1px solid '+cl.border,borderRadius:'10px',padding:'10px'}});
-    gCard.appendChild(div({color:cl.sub,fontSize:'8px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'6px',textAlign:'center'},'Growth Heatmap'));
-    var top5=gArr.slice(0,5);var bot5=gArr.slice(-5).reverse();
-    top5.concat(bot5).forEach(function(g,i){
-      var isTop=i<5;
-      var pct=Math.min(100,Math.abs(g.g)*3);
-      var row=el('div',{style:{display:'flex',alignItems:'center',gap:'4px',marginBottom:'2px'}});
-      row.appendChild(span({color:cl.sub,fontSize:'6px',fontFamily:"'Space Grotesk',monospace",width:'50px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flexShrink:'0',display:'inline-block'},g.name.length>10?g.name.substring(0,10)+'…':g.name));
-      row.appendChild(el('div',{style:{flex:'1',height:'4px',background:'rgba(255,255,255,0.04)',borderRadius:'2px',overflow:'hidden'}},[
-        el('div',{style:{height:'100%',width:pct+'%',background:isTop?'#22C55E':'#EF4444',borderRadius:'2px'}})]));
-      row.appendChild(span({color:isTop?'#22C55E':'#EF4444',fontSize:'6px',fontWeight:'700',fontFamily:"'Space Grotesk',monospace",width:'28px',textAlign:'right',flexShrink:'0'},(g.g>=0?'+':'')+g.g.toFixed(0)+'%'));
-      gCard.appendChild(row);
-    });
-    r2.appendChild(gCard);
     dSec.appendChild(r2);
+
+    // Growth Heatmap — full-width section
+    var gHdr=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'10px'}});
+    gHdr.innerHTML='<i data-lucide="activity" style="width:14px;height:14px;color:#22C55E"></i>';
+    gHdr.appendChild(span({color:'#22C55E',fontSize:'9px',letterSpacing:'0.1em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",fontWeight:'700'},'Growth Heatmap'));
+    dSec.appendChild(gHdr);
+    dSec.appendChild(el('div',{style:{height:'1px',background:'linear-gradient(90deg,transparent 0%,rgba(34,197,94,0.3) 50%,transparent 100%)',marginBottom:'12px'}}));
+
+    var gArr=[];aKeys.forEach(function(k){var a=AREAS[k];if(a.g)gArr.push({name:k,g:a.g[0],psf:a.psf||0});});
+    gArr.sort(function(a,b){return b.g-a.g||b.psf-a.psf;});
+    var gWrap=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'14px'}});
+    var gTopCard=el('div',{style:{background:'rgba(34,197,94,0.04)',border:'1px solid rgba(34,197,94,0.15)',borderRadius:'10px',padding:'12px'}});
+    gTopCard.appendChild(div({color:'#22C55E',fontSize:'8px',fontWeight:'700',letterSpacing:'0.06em',fontFamily:"'Space Grotesk',monospace",marginBottom:'8px'},'Top 10 Growth'));
+    gArr.slice(0,10).forEach(function(g,i){
+      var pct=Math.min(100,Math.abs(g.g)*3);
+      var row=el('div',{style:{display:'flex',alignItems:'center',gap:'6px',marginBottom:'3px'}});
+      row.appendChild(span({color:cl.sub,fontSize:'7px',fontFamily:"'Space Grotesk',monospace",width:'14px',textAlign:'right',flexShrink:'0'},String(i+1)));
+      row.appendChild(span({color:cl.subHi,fontSize:'8px',fontFamily:"'Inter',sans-serif",width:'80px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flexShrink:'0',display:'inline-block'},g.name.length>14?g.name.substring(0,14)+'…':g.name));
+      row.appendChild(el('div',{style:{flex:'1',height:'6px',background:'rgba(255,255,255,0.04)',borderRadius:'3px',overflow:'hidden'}},[
+        el('div',{style:{height:'100%',width:pct+'%',background:'linear-gradient(90deg,#22C55E,'+hexAlpha('#22C55E',0.5)+')',borderRadius:'3px'}})]));
+      row.appendChild(span({color:'#22C55E',fontSize:'8px',fontWeight:'700',fontFamily:"'Space Grotesk',monospace",width:'36px',textAlign:'right',flexShrink:'0'},'+'+(g.g).toFixed(1)+'%'));
+      gTopCard.appendChild(row);
+    });
+    gWrap.appendChild(gTopCard);
+
+    var gBotCard=el('div',{style:{background:'rgba(239,68,68,0.04)',border:'1px solid rgba(239,68,68,0.15)',borderRadius:'10px',padding:'12px'}});
+    gBotCard.appendChild(div({color:'#EF4444',fontSize:'8px',fontWeight:'700',letterSpacing:'0.06em',fontFamily:"'Space Grotesk',monospace",marginBottom:'8px'},'Bottom 10 Growth'));
+    gArr.slice(-10).reverse().forEach(function(g,i){
+      var pct=Math.min(100,Math.abs(g.g)*3);
+      var row=el('div',{style:{display:'flex',alignItems:'center',gap:'6px',marginBottom:'3px'}});
+      row.appendChild(span({color:cl.sub,fontSize:'7px',fontFamily:"'Space Grotesk',monospace",width:'14px',textAlign:'right',flexShrink:'0'},String(i+1)));
+      row.appendChild(span({color:cl.subHi,fontSize:'8px',fontFamily:"'Inter',sans-serif",width:'80px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flexShrink:'0',display:'inline-block'},g.name.length>14?g.name.substring(0,14)+'…':g.name));
+      row.appendChild(el('div',{style:{flex:'1',height:'6px',background:'rgba(255,255,255,0.04)',borderRadius:'3px',overflow:'hidden'}},[
+        el('div',{style:{height:'100%',width:pct+'%',background:'linear-gradient(90deg,#EF4444,'+hexAlpha('#EF4444',0.5)+')',borderRadius:'3px'}})]));
+      row.appendChild(span({color:'#EF4444',fontSize:'8px',fontWeight:'700',fontFamily:"'Space Grotesk',monospace",width:'36px',textAlign:'right',flexShrink:'0'},(g.g>=0?'+':'')+g.g.toFixed(1)+'%'));
+      gBotCard.appendChild(row);
+    });
+    gWrap.appendChild(gBotCard);
+    dSec.appendChild(gWrap);
 
     // Section header: Market Movers
     var moverHdr=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'10px'}});
@@ -184,7 +206,7 @@ function renderMarket(){
     var hottest=ranked.slice().sort(function(a,b){return(b.y+b.g)-(a.y+a.g);}).slice(0,5);
     var bestVal=ranked.slice().sort(function(a,b){return(b.y/Math.max(b.psf,1))-(a.y/Math.max(a.psf,1));}).slice(0,5);
     var mostLiq=ranked.slice().sort(function(a,b){return a.dom-b.dom;}).slice(0,5);
-    var highGr=ranked.slice().sort(function(a,b){return b.g-a.g;}).slice(0,5);
+    var highGr=ranked.slice().sort(function(a,b){return b.g-a.g||b.psf-a.psf;}).slice(0,5);
     [{title:'Hottest Areas',data:hottest,vFn:function(d){return(d.y+d.g).toFixed(1);},color:'#EF4444'},
      {title:'Best Value',data:bestVal,vFn:function(d){return d.y.toFixed(1)+'% @ '+d.psf;},color:'#22C55E'},
      {title:'Most Liquid',data:mostLiq,vFn:function(d){return d.dom+'d DOM';},color:'#3B82F6'},
@@ -222,6 +244,13 @@ function renderMarket(){
     });
     dSec.appendChild(r4);
 
+    // Section header: Commercial & Land
+    var comHdr=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'10px'}});
+    comHdr.innerHTML='<i data-lucide="building" style="width:14px;height:14px;color:#3B82F6"></i>';
+    comHdr.appendChild(span({color:'#3B82F6',fontSize:'9px',letterSpacing:'0.1em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",fontWeight:'700'},'Commercial & Land Market'));
+    dSec.appendChild(comHdr);
+    dSec.appendChild(el('div',{style:{height:'1px',background:'linear-gradient(90deg,transparent 0%,rgba(59,130,246,0.3) 50%,transparent 100%)',marginBottom:'12px'}}));
+
     // Row 5: Commercial & Land Snapshot
     var comCnt=typeof DB_COM!=="undefined"?Object.keys(DB_COM).length:0;
     var landCnt=typeof DB_LAND!=="undefined"?Object.keys(DB_LAND).length:0;
@@ -236,22 +265,35 @@ function renderMarket(){
     });
     dSec.appendChild(r5);
 
+    // Section header: AI Intelligence
+    var aiHdr=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'10px'}});
+    aiHdr.innerHTML='<i data-lucide="brain" style="width:14px;height:14px;color:#F59E0B"></i>';
+    aiHdr.appendChild(span({color:'#F59E0B',fontSize:'9px',letterSpacing:'0.1em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",fontWeight:'700'},'AI Market Intelligence · Groq'));
+    dSec.appendChild(aiHdr);
+    dSec.appendChild(el('div',{style:{height:'1px',background:'linear-gradient(90deg,transparent 0%,rgba(245,158,11,0.3) 50%,transparent 100%)',marginBottom:'12px'}}));
+
     // Row 6: AI Market Momentum
     (function(){
       var momKeys=Object.keys(MARKET_MOMENTUM).filter(function(k){return k!=="_overall";});
       var overall=MARKET_MOMENTUM["_overall"];
+      if(momKeys.length===0){
+        var emptyNote=el('div',{style:{background:'rgba(245,158,11,0.04)',border:'1px solid rgba(245,158,11,0.15)',borderRadius:'10px',padding:'16px',textAlign:'center',marginBottom:'12px'}});
+        emptyNote.appendChild(div({color:'#F59E0B',fontSize:'11px',fontFamily:"'Space Grotesk',monospace",marginBottom:'4px'},'Connecting to AI...'));
+        emptyNote.appendChild(div({color:cl.sub,fontSize:'9px',fontFamily:"'Inter',sans-serif"},'Market momentum data loads from Groq AI. Check back shortly.'));
+        dSec.appendChild(emptyNote);
+        return;
+      }
       var upCnt=0,downCnt=0,stableCnt=0;
       momKeys.forEach(function(k){var m=MARKET_MOMENTUM[k];if(m.trend==="up")upCnt++;else if(m.trend==="down")downCnt++;else stableCnt++;});
       var momColor=overall&&overall.trend==="up"?"#10B981":overall&&overall.trend==="down"?"#EF4444":"#F59E0B";
       var momAge=overall&&overall.updated?Math.round((Date.now()-new Date(overall.updated).getTime())/(1000*60*60*24)):null;
       var r6=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:'8px',marginBottom:'12px'}});
-      [{l:'AI Tracked Areas',v:String(momKeys.length),c:momColor},{l:'Trending Up',v:String(upCnt),c:'#10B981'},{l:'Trending Down',v:String(downCnt),c:'#EF4444'},{l:'Data Age',v:momAge!==null?momAge+'d ago':'No data',c:momColor}].forEach(function(s){
+      [{l:'AI Tracked Areas',v:String(momKeys.length),c:momColor},{l:'Trending Up',v:String(upCnt),c:'#10B981'},{l:'Trending Down',v:String(downCnt),c:'#EF4444'},{l:'Data Age',v:momAge!==null?momAge+'d ago':'Live',c:momColor}].forEach(function(s){
         var card=el('div',{style:{background:hexAlpha(momColor,0.04),border:'1px solid '+hexAlpha(momColor,0.15),borderRadius:'10px',padding:'10px 8px',textAlign:'center'}});
         card.appendChild(div({color:cl.sub,fontSize:'7.5px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'4px'},s.l));
         card.appendChild(el('div',{style:{color:s.c,fontSize:'14px',fontWeight:'800',fontFamily:"'Space Grotesk',monospace"}},s.v));
         r6.appendChild(card);
       });
-      dSec.appendChild(div({color:momColor,fontSize:'8px',letterSpacing:'0.1em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'6px',fontWeight:'700'},'AI Market Intelligence · Groq'));
       dSec.appendChild(r6);
       if(momKeys.length>0){
         var topMovers=momKeys.map(function(k){return{area:k,pct:MARKET_MOMENTUM[k].pct||0,trend:MARKET_MOMENTUM[k].trend};}).sort(function(a,b){return Math.abs(b.pct)-Math.abs(a.pct);}).slice(0,6);
