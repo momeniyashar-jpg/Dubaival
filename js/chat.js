@@ -2745,20 +2745,26 @@ async function findMultipleImages(caption,count){
   var query=extractImageKeywords(caption);
   var collected=[];
 
-  var unsplashImgs=await searchUnsplashMulti(query,count);
+  var geminiKey=localStorage.getItem("dv_gemini_key");
+  if(geminiKey){
+    var geminiPromises=[];
+    for(var g=0;g<count;g++)geminiPromises.push(generateGeminiImage(query+(g>0?" different angle "+(g+1):"")));
+    var geminiResults=await Promise.all(geminiPromises);
+    for(var gi=0;gi<geminiResults.length&&collected.length<count;gi++){
+      if(geminiResults[gi])collected.push(geminiResults[gi]);
+    }
+    if(collected.length>=count){console.log("[DubAIVal] "+collected.length+" images from Gemini AI");return collected;}
+  }
+
+  var unsplashImgs=await searchUnsplashMulti(query,count-collected.length);
   for(var u=0;u<unsplashImgs.length&&collected.length<count;u++)collected.push(unsplashImgs[u]);
-  if(collected.length>=count){console.log("[DubAIVal] "+collected.length+" images from Unsplash");return collected;}
+  if(collected.length>=count){console.log("[DubAIVal] "+collected.length+" images (Gemini+Unsplash)");return collected;}
 
   var pexelsImgs=await searchPexelsMulti(query,count-collected.length);
   for(var p=0;p<pexelsImgs.length&&collected.length<count;p++)collected.push(pexelsImgs[p]);
-  if(collected.length>=count){console.log("[DubAIVal] "+collected.length+" images from Unsplash+Pexels");return collected;}
+  if(collected.length>=count){console.log("[DubAIVal] "+collected.length+" images (Gemini+Unsplash+Pexels)");return collected;}
 
-  var remaining=count-collected.length;
-  for(var g=0;g<remaining;g++){
-    var geminiImg=await generateGeminiImage(query+(g>0?" angle "+(g+1):""));
-    if(geminiImg)collected.push(geminiImg);
-  }
-  if(collected.length>0){console.log("[DubAIVal] "+collected.length+" images total (incl. Gemini)");return collected;}
+  if(collected.length>0){console.log("[DubAIVal] "+collected.length+" images total");return collected;}
 
   var fallbacks=[
     "https://images.pexels.com/photos/3769312/pexels-photo-3769312.jpeg?auto=compress&w=1080",
