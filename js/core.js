@@ -224,6 +224,104 @@ function pill(text,color){
   return span({background:p.bg,border:"1px solid "+p.bo,color:p.tx,padding:"3px 10px",borderRadius:"20px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",fontWeight:"600"},text);
 }
 
+// --- SHARE MODAL --------------------------------------------------------------
+function showShareModal(opts){
+  // opts: { text, file, fileName, fileType, url, title }
+  var cl=C();
+  var overlay=el("div",{style:{position:"fixed",inset:"0",background:"rgba(0,0,0,0.7)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",zIndex:"99999",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}});
+  overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  var modal=el("div",{style:{background:cl.bg||"#070B14",border:"1px solid rgba(255,255,255,0.1)",borderRadius:"16px",padding:"24px",maxWidth:"400px",width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.5)"}});
+  modal.appendChild(div({fontSize:"16px",fontWeight:"700",color:cl.white||"#fff",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"Share Content"));
+  modal.appendChild(div({fontSize:"11px",color:cl.sub||"#6B7A9E",marginBottom:"20px",fontFamily:"'Inter',sans-serif"},"Send directly to your favorite app"));
+
+  var grid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"10px",marginBottom:"16px"}});
+
+  function shareBtn(name,color,icon,fn){
+    var b=el("button",{style:{background:hexAlpha(color,0.1),border:"1px solid "+hexAlpha(color,0.25),color:color,borderRadius:"12px",padding:"14px 8px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"6px",fontSize:"10px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",transition:"all 0.2s"},onclick:fn});
+    b.addEventListener("mouseenter",function(){b.style.background=hexAlpha(color,0.2);b.style.transform="translateY(-2px)";});
+    b.addEventListener("mouseleave",function(){b.style.background=hexAlpha(color,0.1);b.style.transform="";});
+    var ic=el("span",{style:{fontSize:"20px"}});ic.textContent=icon;
+    b.appendChild(ic);
+    b.appendChild(document.createTextNode(name));
+    return b;
+  }
+
+  var txt=opts.text||"";
+  var encodedText=encodeURIComponent(txt);
+  var encodedUrl=encodeURIComponent(opts.url||"https://www.dubaival.com");
+
+  // Quick Share (Web Share API)
+  if(navigator.share){
+    grid.appendChild(shareBtn("Quick Share","#10B981","\u{1F4E4}",async function(){
+      try{
+        var shareData={title:opts.title||"DubAIVal",text:txt};
+        if(opts.file){
+          var f=opts.file instanceof File?opts.file:new File([opts.file],opts.fileName||"dubaival-content",{type:opts.fileType||"image/png"});
+          if(navigator.canShare&&navigator.canShare({files:[f]}))shareData.files=[f];
+        }
+        await navigator.share(shareData);
+      }catch(e){}
+    }));
+  }
+
+  // WhatsApp
+  grid.appendChild(shareBtn("WhatsApp","#25D366","\u{1F4AC}",function(){
+    window.open("https://api.whatsapp.com/send?text="+encodedText,"_blank");
+  }));
+
+  // Telegram
+  grid.appendChild(shareBtn("Telegram","#0088CC","\u{2708}",function(){
+    window.open("https://t.me/share/url?url="+encodedUrl+"&text="+encodedText,"_blank");
+  }));
+
+  // Twitter/X
+  grid.appendChild(shareBtn("X / Twitter","#1DA1F2","\u{1D54F}",function(){
+    window.open("https://twitter.com/intent/tweet?text="+encodedText,"_blank");
+  }));
+
+  // LinkedIn
+  grid.appendChild(shareBtn("LinkedIn","#0A66C2","\u{1F4BC}",function(){
+    window.open("https://www.linkedin.com/sharing/share-offsite/?url="+encodedUrl,"_blank");
+  }));
+
+  // Copy Text
+  grid.appendChild(shareBtn("Copy Text","#8B5CF6","\u{1F4CB}",function(){
+    navigator.clipboard.writeText(txt).then(function(){
+      var btns=grid.querySelectorAll("button");
+      var last=btns[btns.length-1];if(last)last.style.borderColor="#10B981";
+      setTimeout(function(){if(last)last.style.borderColor="";},1500);
+    });
+  }));
+
+  modal.appendChild(grid);
+
+  // Download button (if file exists)
+  if(opts.file||opts.url){
+    var dlBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,rgba(212,175,55,0.15),rgba(212,175,55,0.05))",border:"1px solid rgba(212,175,55,0.3)",color:"#D4AF37",borderRadius:"10px",padding:"12px",cursor:"pointer",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px",transition:"all 0.2s"},onclick:function(){
+      if(opts.url){var a=document.createElement("a");a.href=opts.url;a.download=opts.fileName||"dubaival-content";a.click();}
+      else if(opts.file){var blob=opts.file instanceof Blob?opts.file:new Blob([opts.file]);var u=URL.createObjectURL(blob);var a=document.createElement("a");a.href=u;a.download=opts.fileName||"dubaival-content";a.click();URL.revokeObjectURL(u);}
+      dlBtn.textContent="Downloaded!";setTimeout(function(){dlBtn.textContent="Download File";},2000);
+    }});
+    dlBtn.textContent="Download File";
+    modal.appendChild(dlBtn);
+  }
+
+  // Close
+  var closeBtn=el("button",{style:{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",color:cl.sub||"#6B7A9E",borderRadius:"10px",padding:"10px",cursor:"pointer",fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},onclick:function(){overlay.remove();}});
+  closeBtn.textContent="Close";
+  modal.appendChild(closeBtn);
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+}
+
+function makeShareButton(opts,style){
+  var cl=C();
+  var b=el("button",{style:Object.assign({background:"linear-gradient(135deg,rgba(16,185,129,0.15),rgba(6,182,212,0.1))",border:"1px solid rgba(16,185,129,0.3)",color:"#10B981",borderRadius:"8px",padding:"8px 16px",cursor:"pointer",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"flex",alignItems:"center",gap:"5px",transition:"all 0.2s"},style||{}),onclick:function(){showShareModal(opts);}});
+  b.textContent="Share";
+  return b;
+}
+
 // --- STATE --------------------------------------------------------------------
 var currentTab="";
 var currentSection="Home";

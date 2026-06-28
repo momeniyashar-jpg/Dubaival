@@ -1101,13 +1101,8 @@ function showVideoEditor(){
       dlBtn.textContent="Download Video";
       exportSection.appendChild(dlBtn);
 
-      var shareBtn=el("button",{style:{width:"100%",background:"#3B82F6",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},onclick:async function(){
-        try{
-          var file=new File([blob],"dubaival-reel.webm",{type:"video/webm"});
-          await navigator.share({files:[file],title:"DubAIVal Reel",text:captionInp.value||""});
-        }catch(err){
-          var a=document.createElement("a");a.href=url;a.download="dubaival-reel.webm";a.click();
-        }
+      var shareBtn=el("button",{style:{width:"100%",background:"#3B82F6",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},onclick:function(){
+        showShareModal({text:captionInp.value||"",file:blob,fileName:"dubaival-reel.webm",fileType:"video/webm",title:"DubAIVal Reel"});
       }});
       shareBtn.textContent="Share (WhatsApp / Instagram / More)";
       exportSection.appendChild(shareBtn);
@@ -2504,11 +2499,8 @@ function showVideoGenUI(initialPrompt){
       }});
       dlBtn.textContent="Download "+(isMP4?"MP4":"WebM");actRow.appendChild(dlBtn);
 
-      var shareBtn=el("button",{style:{flex:1,background:"#3B82F6",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
-        try{
-          var file=new File([blob],"dubaival-video."+vidExt,{type:blob.type});
-          await navigator.share({files:[file],title:"DubAIVal Video",text:plan.caption||""});
-        }catch(err){var a=document.createElement("a");a.href=videoUrl;a.download="dubaival-video."+vidExt;a.click();}
+      var shareBtn=el("button",{style:{flex:1,background:"#3B82F6",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
+        showShareModal({text:plan.caption||"",file:blob,fileName:"dubaival-video."+vidExt,fileType:blob.type,title:"DubAIVal Video"});
       }});
       shareBtn.textContent="Share";actRow.appendChild(shareBtn);
 
@@ -3135,9 +3127,12 @@ function showCaptionRewriter(caption){
       rCard.appendChild(el("div",{style:{color:p.color,fontSize:"11px",fontWeight:"700",fontFamily:"monospace",marginBottom:"6px"}},p.icon+" Optimized for "+p.k.charAt(0).toUpperCase()+p.k.slice(1)+" ("+result.charCount+" chars)"));
       var textEl=el("div",{style:{color:"#E0E0E0",fontSize:"11px",lineHeight:"1.5",whiteSpace:"pre-wrap",maxHeight:"200px",overflowY:"auto"}});textEl.textContent=result.caption;rCard.appendChild(textEl);
       if(result.tips){rCard.appendChild(el("div",{style:{color:"#6B7280",fontSize:"9px",marginTop:"6px",fontStyle:"italic"}},result.tips));}
-      var copyBtn=el("button",{style:{marginTop:"8px",background:hexAlpha(p.color,0.15),border:"1px solid "+hexAlpha(p.color,0.3),color:p.color,padding:"6px 14px",borderRadius:"6px",fontSize:"10px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
+      var rwBtnRow=div({display:"flex",gap:"4px",marginTop:"8px"});
+      var copyBtn=el("button",{style:{background:hexAlpha(p.color,0.15),border:"1px solid "+hexAlpha(p.color,0.3),color:p.color,padding:"6px 14px",borderRadius:"6px",fontSize:"10px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
         navigator.clipboard.writeText(result.caption);copyBtn.textContent="Copied!";setTimeout(function(){copyBtn.textContent="Copy";},2000);
-      }});copyBtn.textContent="Copy";rCard.appendChild(copyBtn);
+      }});copyBtn.textContent="Copy";rwBtnRow.appendChild(copyBtn);
+      rwBtnRow.appendChild(makeShareButton({text:result.caption||"",title:"DubAIVal Caption"}));
+      rCard.appendChild(rwBtnRow);
       resultArea.appendChild(rCard);
     }},p.icon+" "+p.k.charAt(0).toUpperCase()+p.k.slice(1)));
   });card.appendChild(platRow);card.appendChild(resultArea);
@@ -3237,10 +3232,14 @@ function showBulkGenerator(){
     var result=await generateBulkPosts({count:parseInt(countSel.value),platform:platSel.value});
     genBtn.textContent="Generate";
     if(!result||!result.posts){resultWrap.appendChild(el("p",{style:{color:"#EF4444",fontSize:"11px"}},"Generation failed. Check Gemini API key."));return;}
-    var schedBtn=el("button",{style:{width:"100%",marginBottom:"10px",background:"#3B82F6",color:"#FFF",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
+    var schedBtn=el("button",{style:{width:"100%",marginBottom:"6px",background:"#3B82F6",color:"#FFF",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
       result.posts.forEach(function(p){saveCalendarEvent({caption:p.caption,date:p.date,time:p.time,platform:platSel.value,pillar:p.pillar,type:p.type||"post"});});
       schedBtn.textContent=result.posts.length+" posts scheduled!";schedBtn.style.background="#10B981";
     }});schedBtn.textContent="Schedule All "+result.posts.length+" to Calendar";resultWrap.appendChild(schedBtn);
+    var allCaptions=result.posts.map(function(p,i){return"Day "+(p.day||i+1)+" ("+p.date+" "+p.time+") ["+( p.pillar||"Post")+"]\n"+p.caption;}).join("\n\n---\n\n");
+    var bulkShareRow=div({display:"flex",gap:"6px",marginBottom:"10px"});
+    bulkShareRow.appendChild(makeShareButton({text:allCaptions,title:"DubAIVal 30-Day Content Plan"},{flex:"1"}));
+    resultWrap.appendChild(bulkShareRow);
     var pillarColors={"Market Data":"#3B82F6","Area Spotlights":"#10B981","Investment Tips":"#F59E0B","Lifestyle":"#EC4899","Success Stories":"#8B5CF6","Behind the Scenes":"#F97316","FAQ":"#06B6D4","Trending News":"#EF4444"};
     result.posts.forEach(function(p,i){
       var pCard=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",marginBottom:"4px"});
@@ -4091,6 +4090,11 @@ function showPostDesigner(caption,existingImg){
     saveCalendarEvent({caption:caption,template:state.template,format:state.format,platform:"instagram"});
     alert("Added to Content Calendar!");
   }},"Schedule"));
+  actRow.appendChild(el("button",{style:{flex:1,background:"linear-gradient(135deg,rgba(16,185,129,0.15),rgba(6,182,212,0.1))",border:"1px solid rgba(16,185,129,0.3)",color:"#10B981",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
+    var f=POST_FORMATS[state.format];var sc=document.createElement("canvas");sc.width=f.w;sc.height=f.h;
+    renderPostDesign(sc.getContext("2d"),f.w,f.h,state);
+    sc.toBlob(function(b){if(b){showShareModal({text:caption||"",file:b,fileName:"dubaival-post.png",fileType:"image/png",title:"DubAIVal Post"});}});
+  }},"Share"));
   card.appendChild(actRow);
 
   var closeBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close");
