@@ -26,7 +26,7 @@ function renderMortgageStandalone(cl){
     if(calcWrap)wrap.appendChild(calcWrap);
   } else {
     const placeholder=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"40px 20px",textAlign:"center"}});
-    placeholder.appendChild(div({fontSize:"32px",marginBottom:"10px"},"💰"));
+    placeholder.appendChild(div({fontSize:"32px",marginBottom:"10px"},""));
     placeholder.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Enter property price above to calculate mortgage"));
     wrap.appendChild(placeholder);
   }

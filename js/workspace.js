@@ -7,38 +7,38 @@ function saveWS(){try{localStorage.setItem("dv_workspace",JSON.stringify({widget
 function saveTemplates(){try{localStorage.setItem("dv_report_templates",JSON.stringify(WS_STATE.templates));}catch(e){}}
 
 var WS_TOOLS=[
-  {id:"portfolio",icon:"💼",label:"Portfolio Manager",desc:"Track assets, ROI & yield"},
-  {id:"alerts",icon:"🔔",label:"Opportunity Alerts",desc:"Hidden investment opportunities"},
-  {id:"calculator",icon:"📊",label:"Investment Calculator",desc:"IRR, cash flow & scenarios"},
-  {id:"market",icon:"📈",label:"Market Index",desc:"348 areas, PSF & yield data"},
-  {id:"dashboard",icon:"📡",label:"Live Dashboard",desc:"Real-time market stats"},
-  {id:"comparison",icon:"⚖️",label:"Neighborhood Comparison",desc:"Compare 2-3 areas"},
-  {id:"analyzer",icon:"🔍",label:"Valuation Analyzer",desc:"AI-powered property valuation"},
-  {id:"fairprice",icon:"💰",label:"Fair Price Checker",desc:"Quick price assessment"},
-  {id:"mortgage",icon:"🏦",label:"Mortgage Calculator",desc:"Monthly payments & costs"},
-  {id:"deals",icon:"🤝",label:"Deal Network",desc:"Agent-to-agent deals"},
-  {id:"agenthub",icon:"👥",label:"Agent Hub",desc:"Agent directory & referrals"},
-  {id:"notifications",icon:"🔔",label:"Notifications",desc:"Activity alerts"},
-  {id:"favareas",icon:"⭐",label:"Favorite Areas",desc:"Your bookmarked areas"},
-  {id:"saved",icon:"📌",label:"Saved Searches",desc:"Recent valuations"}
+  {id:"portfolio",icon:"briefcase",label:"Portfolio Manager",desc:"Track assets, ROI & yield"},
+  {id:"alerts",icon:"bell",label:"Opportunity Alerts",desc:"Hidden investment opportunities"},
+  {id:"calculator",icon:"bar-chart-3",label:"Investment Calculator",desc:"IRR, cash flow & scenarios"},
+  {id:"market",icon:"trending-up",label:"Market Index",desc:"348 areas, PSF & yield data"},
+  {id:"dashboard",icon:"radio",label:"Live Dashboard",desc:"Real-time market stats"},
+  {id:"comparison",icon:"scale",label:"Neighborhood Comparison",desc:"Compare 2-3 areas"},
+  {id:"analyzer",icon:"search",label:"Valuation Analyzer",desc:"AI-powered property valuation"},
+  {id:"fairprice",icon:"dollar-sign",label:"Fair Price Checker",desc:"Quick price assessment"},
+  {id:"mortgage",icon:"landmark",label:"Mortgage Calculator",desc:"Monthly payments & costs"},
+  {id:"deals",icon:"handshake",label:"Deal Network",desc:"Agent-to-agent deals"},
+  {id:"agenthub",icon:"users",label:"Agent Hub",desc:"Agent directory & referrals"},
+  {id:"notifications",icon:"bell-ring",label:"Notifications",desc:"Activity alerts"},
+  {id:"favareas",icon:"star",label:"Favorite Areas",desc:"Your bookmarked areas"},
+  {id:"saved",icon:"pin",label:"Saved Searches",desc:"Recent valuations"}
 ];
 
 var WS_PRESETS={
-  investor:{label:"Investor",icon:"📈",ids:["portfolio","alerts","calculator","market"]},
-  agent:{label:"Agent",icon:"👥",ids:["deals","agenthub","notifications","dashboard"]},
-  buyer:{label:"Buyer",icon:"🏠",ids:["fairprice","comparison","mortgage","saved"]}
+  investor:{label:"Investor",icon:"trending-up",ids:["portfolio","alerts","calculator","market"]},
+  agent:{label:"Agent",icon:"users",ids:["deals","agenthub","notifications","dashboard"]},
+  buyer:{label:"Buyer",icon:"home",ids:["fairprice","comparison","mortgage","saved"]}
 };
 
 var WS_REPORT_SECTIONS=[
-  {id:"valuation",label:"Property Valuation Summary",icon:"🔍"},
-  {id:"marketcmp",label:"Market Comparison",icon:"⚖️"},
-  {id:"areastats",label:"Area Statistics",icon:"📊"},
-  {id:"portfolio",label:"Portfolio Overview",icon:"💼"},
-  {id:"opportunity",label:"Opportunity Alerts",icon:"🔔"},
-  {id:"investment",label:"Investment Scenarios",icon:"📈"},
-  {id:"mortgage",label:"Mortgage Analysis",icon:"🏦"},
-  {id:"neighborhood",label:"Neighborhood Comparison",icon:"🏘️"},
-  {id:"sustainability",label:"Sustainability Score",icon:"🌿"}
+  {id:"valuation",label:"Property Valuation Summary",icon:"search"},
+  {id:"marketcmp",label:"Market Comparison",icon:"scale"},
+  {id:"areastats",label:"Area Statistics",icon:"bar-chart-3"},
+  {id:"portfolio",label:"Portfolio Overview",icon:"briefcase"},
+  {id:"opportunity",label:"Opportunity Alerts",icon:"bell"},
+  {id:"investment",label:"Investment Scenarios",icon:"trending-up"},
+  {id:"mortgage",label:"Mortgage Analysis",icon:"landmark"},
+  {id:"neighborhood",label:"Neighborhood Comparison",icon:"home"},
+  {id:"sustainability",label:"Sustainability Score",icon:"leaf"}
 ];
 
 function renderWorkspace(){
@@ -65,7 +65,7 @@ function renderWorkspace(){
   if(!WS_STATE.widgets.length){
     // Welcome screen
     var welcome=div({background:"linear-gradient(135deg,rgba(201,168,76,0.06),transparent)",border:"1px solid "+cl.goldDim,borderRadius:"16px",padding:"30px 20px",textAlign:"center",marginBottom:"20px"});
-    welcome.appendChild(div({fontSize:"36px",marginBottom:"12px"},"🛠️"));
+    var _wsWelcomeIcon=el("div",{style:{marginBottom:"12px",display:"flex",justifyContent:"center"}});_wsWelcomeIcon.innerHTML='<i data-lucide="layout-dashboard" style="width:36px;height:36px;color:'+cl.gold+'"></i>';welcome.appendChild(_wsWelcomeIcon);
     welcome.appendChild(div({color:cl.gold,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Build Your Workspace"));
     welcome.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6",marginBottom:"20px"},"Select tools below to create your personalized dashboard. Choose a preset or pick individually."));
 
@@ -74,7 +74,7 @@ function renderWorkspace(){
     Object.keys(WS_PRESETS).forEach(function(k){
       var p=WS_PRESETS[k];
       var btn=el("button",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"10px",padding:"12px 18px",cursor:"pointer",textAlign:"center"}});
-      btn.appendChild(div({fontSize:"20px",marginBottom:"4px"},p.icon));
+      var _pIcon=div({marginBottom:"4px",display:"flex",justifyContent:"center"});_pIcon.innerHTML='<i data-lucide="'+p.icon+'" style="width:20px;height:20px;color:'+cl.gold+'"></i>';btn.appendChild(_pIcon);
       btn.appendChild(div({color:cl.gold,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},p.label));
       btn.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif"},p.ids.length+" tools"));
       btn.addEventListener("click",function(){WS_STATE.widgets=p.ids.slice();saveWS();render();});
@@ -91,7 +91,7 @@ function renderWorkspace(){
   WS_TOOLS.forEach(function(t){
     var inWS=WS_STATE.widgets.indexOf(t.id)!==-1;
     var tc=el("div",{style:{background:inWS?hexAlpha(cl.gold,0.06):"rgba(240,242,245,0.03)",border:"1px solid "+(inWS?cl.goldDim:cl.border),borderRadius:"10px",padding:"10px",cursor:"pointer",display:"flex",alignItems:"center",gap:"8px",transition:"all 0.2s",minWidth:"0",overflow:"hidden"}});
-    tc.appendChild(span({fontSize:"16px",flexShrink:"0"},t.icon));
+    var _tIcon=span({flexShrink:"0",display:"flex",alignItems:"center"});_tIcon.innerHTML='<i data-lucide="'+t.icon+'" style="width:16px;height:16px;color:'+(inWS?cl.gold:cl.sub)+'"></i>';tc.appendChild(_tIcon);
     var info=el("div",{style:{flex:"1",minWidth:"0"}});
     info.appendChild(div({color:inWS?cl.gold:cl.subHi,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},t.label));
     info.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif"},t.desc));
@@ -117,7 +117,7 @@ function renderWorkspace(){
     WS_STATE.widgets.forEach(function(wid,idx){
       var tool=WS_TOOLS.find(function(t){return t.id===wid;});if(!tool)return;
       var row=div({display:"flex",alignItems:"center",gap:"8px",padding:"8px 10px",background:cl.raised,borderRadius:"8px",marginBottom:"4px"});
-      row.appendChild(span({fontSize:"14px"},tool.icon));
+      var _wIcon=span({display:"flex",alignItems:"center"});_wIcon.innerHTML='<i data-lucide="'+tool.icon+'" style="width:14px;height:14px;color:'+cl.gold+'"></i>';row.appendChild(_wIcon);
       row.appendChild(span({color:cl.subHi,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",flex:"1"},tool.label));
       if(idx>0){var upBtn=el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,width:"22px",height:"22px",borderRadius:"4px",cursor:"pointer",fontSize:"10px",display:"flex",alignItems:"center",justifyContent:"center"}});upBtn.textContent="↑";
         (function(i){upBtn.addEventListener("click",function(){var tmp=WS_STATE.widgets[i-1];WS_STATE.widgets[i-1]=WS_STATE.widgets[i];WS_STATE.widgets[i]=tmp;saveWS();render();});})(idx);row.appendChild(upBtn);}
@@ -135,7 +135,7 @@ function renderWorkspace(){
       card.addEventListener("mouseenter",function(){this.style.borderColor=cl.gold;});
       card.addEventListener("mouseleave",function(){this.style.borderColor=cl.border;});
       card.appendChild(div({display:"flex",alignItems:"center",gap:"6px",marginBottom:"8px"},[
-        span({fontSize:"16px"},tool.icon),
+        (function(){var _mIcon=span({display:"flex",alignItems:"center"});_mIcon.innerHTML='<i data-lucide="'+tool.icon+'" style="width:16px;height:16px;color:'+cl.gold+'"></i>';return _mIcon;})(),
         span({color:cl.gold,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},tool.label)]));
 
       // Mini widget content
@@ -152,10 +152,10 @@ function renderWorkspace(){
 
   var tourRow2=div({display:"flex",gap:"8px",justifyContent:"center",marginTop:"24px",flexWrap:"wrap"});
   var tq2=el("button",{style:{background:"transparent",border:"1px solid "+cl.gold,color:cl.gold,padding:"9px 18px",borderRadius:"10px",fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
-  tq2.textContent="🎯 Quick Tour (8)";
+  tq2.textContent="Quick Tour (8)";
   tq2.addEventListener("click",function(){try{localStorage.removeItem("dv_tour_done");}catch(e){}startTour("quick");});
   var tf2=el("button",{style:{background:"linear-gradient(135deg,"+cl.gold+",#7A5E28)",border:"none",color:"#08090C",padding:"9px 18px",borderRadius:"10px",fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
-  tf2.textContent="🚀 Full Tour (16)";
+  tf2.textContent="Full Tour (16)";
   tf2.addEventListener("click",function(){try{localStorage.removeItem("dv_full_tour_done");}catch(e){}startTour("full");});
   tourRow2.appendChild(tq2);tourRow2.appendChild(tf2);
   wrap.appendChild(tourRow2);
@@ -185,7 +185,7 @@ function getMiniWidget(wid,cl){
   }else if(wid==="deals"){
     var dc=DEAL_STATE.deals.length;var hc=DEAL_STATE.deals.filter(function(d){return d.urgency==="hot";}).length;
     w.appendChild(div({color:cl.text,fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},dc+" active deals"));
-    if(hc)w.appendChild(div({color:"#EF4444",fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},"🔥 "+hc+" hot deals"));
+    if(hc)w.appendChild(div({color:"#EF4444",fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},hc+" hot deals"));
   }else if(wid==="notifications"){
     var uc=getUnreadCount();
     w.appendChild(div({color:uc>0?cl.gold:cl.sub,fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},uc+" unread"));
@@ -209,7 +209,7 @@ function renderReportBuilder(wrap,cl){
 
   // Mode tabs
   var rmBar=div({display:"flex",gap:"6px",marginBottom:"14px"});
-  [{l:"🎨 Visual Builder",v:"visual"},{l:"⌨️ Smart Text",v:"text"},{l:"🎤 Voice",v:"voice"}].forEach(function(m){
+  [{l:"Visual Builder",v:"visual"},{l:"Smart Text",v:"text"},{l:"Voice",v:"voice"}].forEach(function(m){
     var active=WS_STATE.reportMode===m.v;
     rmBar.appendChild(el("button",{style:{flex:"1",padding:"8px",borderRadius:"8px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",
       background:active?hexAlpha(cl.gold,0.12):"transparent",color:active?cl.gold:cl.sub,border:"1px solid "+(active?cl.goldDim:cl.border)},
@@ -288,7 +288,7 @@ function renderReportBuilder(wrap,cl){
       render();
     });
     row.appendChild(cb);
-    row.appendChild(span({fontSize:"14px"},sec.icon));
+    var _sIcon=span({display:"flex",alignItems:"center"});_sIcon.innerHTML='<i data-lucide="'+sec.icon+'" style="width:14px;height:14px;color:'+(checked?cl.gold:cl.sub)+'"></i>';row.appendChild(_sIcon);
     row.appendChild(span({color:checked?cl.gold:cl.subHi,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",flex:"1"},sec.label));
     // Reorder buttons
     if(checked){
@@ -341,7 +341,7 @@ function renderReportBuilder(wrap,cl){
     reader.readAsDataURL(this.files[0]);
   });
   var logoBtn=el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"6px 12px",borderRadius:"6px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
-  logoBtn.textContent=WS_STATE.reportLogo?"✓ Logo uploaded":"📎 Upload Company Logo";
+  logoBtn.textContent=WS_STATE.reportLogo?"Logo uploaded":"Upload Company Logo";
   logoBtn.addEventListener("click",function(){logoInp.click();});
   logoRow.appendChild(logoBtn);logoRow.appendChild(logoInp);
   if(WS_STATE.reportLogo){
@@ -355,7 +355,7 @@ function renderReportBuilder(wrap,cl){
   // Save template + Generate buttons
   var btnRow=div({display:"flex",gap:"8px",marginBottom:"10px"});
   var saveTPL=el("button",{style:{flex:"1",padding:"10px",background:"transparent",border:"1px solid "+cl.goldDim,color:cl.gold,borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
-  saveTPL.textContent="💾 Save Template";
+  saveTPL.textContent="Save Template";
   saveTPL.addEventListener("click",function(){
     if(!WS_STATE.reportSections.length){alert("Select at least one section");return;}
     var name=prompt("Template name:");if(!name)return;
@@ -365,7 +365,7 @@ function renderReportBuilder(wrap,cl){
   });
   btnRow.appendChild(saveTPL);
   var genBtn=el("button",{style:{flex:"1",padding:"10px",background:"linear-gradient(135deg,"+cl.gold+",#7A5E28)",color:"#08090C",border:"none",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
-  genBtn.textContent="📄 Generate Report";
+  genBtn.textContent="Generate Report";
   genBtn.addEventListener("click",function(){
     if(!WS_STATE.reportSections.length){alert("Select at least one section");return;}
     generateReport();

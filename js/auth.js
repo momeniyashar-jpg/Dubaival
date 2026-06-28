@@ -153,7 +153,7 @@ function renderAuthModal(){
   modal.addEventListener("click",function(e){e.stopPropagation();});
 
   modal.appendChild(div({textAlign:"center",marginBottom:"20px"},[
-    div({fontSize:"24px",marginBottom:"6px"},"🔐"),
+    div({fontSize:"24px",marginBottom:"6px"},""),
     div({color:"#F0F2F5",fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},DV_AUTH.modalTab==="signin"?t("auth_signin"):t("auth_signup")),
     div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",marginTop:"4px"},t("auth_cloud_sync"))
   ]));
@@ -217,7 +217,7 @@ function renderAuthButton(){
     var name=DV_AUTH.profile.display_name||DV_AUTH.user.email||"User";
     if(name.length>12)name=name.substring(0,12)+"…";
     var userBtn=el("button",{style:{background:hexAlpha("#10B981",0.1),border:"1px solid "+hexAlpha("#10B981",0.3),borderRadius:"20px",padding:"4px 10px",cursor:"pointer",display:"flex",alignItems:"center",gap:"5px",color:"#10B981",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"}});
-    userBtn.innerHTML="<span style='font-size:12px'>👤</span> "+name;
+    userBtn.innerHTML="<i data-lucide='user' style='width:12px;height:12px;stroke-width:2'></i> "+name;
     userBtn.addEventListener("click",function(){DV_AUTH.showModal=false;render();});
     wrap.appendChild(userBtn);
     var outBtn=el("button",{style:{background:"transparent",border:"1px solid "+cl.border,borderRadius:"20px",padding:"4px 8px",cursor:"pointer",color:cl.sub,fontSize:"9px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace"}});

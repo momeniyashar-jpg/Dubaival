@@ -155,6 +155,7 @@ function el(tag,attrs,children){
 }
 function div(style,children){return el("div",{style:style},children)}
 function span(style,text){const e=el("span",{style:style});if(text!=null)e.textContent=String(text);return e}
+function numSpan(style,text){var s=Object.assign({fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'"},style);const e=el("span",{style:s});if(text!=null)e.textContent=String(text);return e}
 function inp(style,placeholder,type,value,onChange){
   const e=el("input",{style:style,placeholder:placeholder||"",type:type||"text"});
   e.value=value||"";
@@ -231,8 +232,8 @@ var sidebarCollapsed=false;
 try{sidebarCollapsed=localStorage.getItem("dv_sidebar_collapsed")==="1";}catch(e){}
 
 var NAV_SECTIONS=[
-  {id:"Home",icon:"\u{1F3E0}",label:"Home",subs:[]},
-  {id:"Market",icon:"\u{1F4CA}",label:"Market",subs:[
+  {id:"Home",icon:"home",label:"Home",subs:[]},
+  {id:"Market",icon:"bar-chart-3",label:"Market",subs:[
     {id:"Dashboard",label:"Dashboard"},
     {id:"Analyzer",label:"Analyzer"},
     {id:"QuickCheck",label:"Quick Check"},
@@ -243,17 +244,17 @@ var NAV_SECTIONS=[
     {id:"Map",label:"Map"},
     {id:"Advisor",label:"Advisor"}
   ]},
-  {id:"Portfolio",icon:"\u{1F4BC}",label:"Portfolio",subs:[
+  {id:"Portfolio",icon:"briefcase",label:"Portfolio",subs:[
     {id:"Assets",label:"My Assets"},
     {id:"Alerts",label:"Alerts"}
   ]},
-  {id:"Network",icon:"\u{1F91D}",label:"Network",subs:[
+  {id:"Network",icon:"users",label:"Network",subs:[
     {id:"Deals",label:"Deals"},
     {id:"MediaStudio",label:"Media Studio"},
     {id:"Chat",label:"AI Agents"},
     {id:"Social",label:"Video Platform"}
   ]},
-  {id:"More",icon:"\u{2699}\u{FE0F}",label:"More",subs:[
+  {id:"More",icon:"settings",label:"More",subs:[
     {id:"Workspace",label:"Workspace"},
     {id:"Reports",label:"Reports"},
     {id:"About",label:"About"}
@@ -690,11 +691,11 @@ function copyAndFlash(btn,text){
 }
 function buildShareButtons(cl,opts){
   var btns=[];
-  if(opts.wa){var b=el("button",{style:shareBtnStyle("#25D366","#fff")});b.textContent="💬 WhatsApp";b.addEventListener("click",function(e){e.stopPropagation();shareWhatsApp(opts.wa);});btns.push(b);}
+  if(opts.wa){var b=el("button",{style:shareBtnStyle("#25D366","#fff")});b.textContent="WhatsApp";b.addEventListener("click",function(e){e.stopPropagation();shareWhatsApp(opts.wa);});btns.push(b);}
   if(opts.tw){var b=el("button",{style:shareBtnStyle("#1DA1F2","#fff")});b.textContent="𝕏 Twitter";b.addEventListener("click",function(e){e.stopPropagation();shareTwitter(opts.tw);});btns.push(b);}
   if(opts.li){var b=el("button",{style:shareBtnStyle("#0A66C2","#fff")});b.textContent="in LinkedIn";b.addEventListener("click",function(e){e.stopPropagation();shareLinkedIn(opts.li);});btns.push(b);}
-  if(opts.tg){var b=el("button",{style:shareBtnStyle("#26A5E4","#fff")});b.textContent="✈ Telegram";b.addEventListener("click",function(e){e.stopPropagation();shareTelegram(opts.tg,opts.url);});btns.push(b);}
-  if(opts.copy){var b=el("button",{style:shareBtnStyle("transparent",cl.gold)});b.style.border="1px solid "+cl.goldDim;b.textContent="🔗 Copy Link";b.addEventListener("click",function(e){e.stopPropagation();copyAndFlash(b,opts.copy);});btns.push(b);}
+  if(opts.tg){var b=el("button",{style:shareBtnStyle("#26A5E4","#fff")});b.textContent="Telegram";b.addEventListener("click",function(e){e.stopPropagation();shareTelegram(opts.tg,opts.url);});btns.push(b);}
+  if(opts.copy){var b=el("button",{style:shareBtnStyle("transparent",cl.gold)});b.style.border="1px solid "+cl.goldDim;b.textContent="Copy Link";b.addEventListener("click",function(e){e.stopPropagation();copyAndFlash(b,opts.copy);});btns.push(b);}
   return shareRow(cl,btns);
 }
 
@@ -733,7 +734,7 @@ function exportCSV(filename,headers,rows){return;}
 function csvDate(){return new Date().toISOString().slice(0,10);}
 function csvExportBtn(label,cl,onclick){
   var b=el("button",{style:{background:"transparent",border:"1px solid "+cl.goldDim,color:cl.gold,padding:"8px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",display:"none",alignItems:"center",gap:"6px"}});
-  b.textContent="📥 "+label;b.addEventListener("click",onclick);return b;
+  b.textContent=label;b.addEventListener("click",onclick);return b;
 }
 
 // --- NOTIFICATION SYSTEM ---
@@ -765,13 +766,13 @@ function checkDealNotifications(oldInquiries,newInquiries,deals,myTokens){
       var deal=deals.find(function(d){return d.id===dealId;});
       var area=deal?deal.area:"property";
       if(!oldIds[inq.id]&&myDealIds.indexOf(dealId)!==-1){
-        addNotification("📩","New inquiry from "+inq.buyer_name+" for your "+area+" listing","deals");
+        addNotification("","New inquiry from "+inq.buyer_name+" for your "+area+" listing","deals");
       }
       if(oldIds[inq.id]&&oldIds[inq.id]==="pending"&&inq.status==="approved"&&myDealIds.indexOf(dealId)===-1){
-        addNotification("✅","Your inquiry for "+area+" deal has been approved! You can now view media","deals");
+        addNotification("","Your inquiry for "+area+" deal has been approved! You can now view media","deals");
       }
       if(oldIds[inq.id]&&oldIds[inq.id]==="pending"&&inq.status==="rejected"&&myDealIds.indexOf(dealId)===-1){
-        addNotification("❌","Your inquiry for "+area+" deal was declined","deals");
+        addNotification("","Your inquiry for "+area+" deal was declined","deals");
       }
     });
   });
@@ -783,7 +784,7 @@ function checkMatchNotifications(dealId,matches){
   matches.forEach(function(m){
     now[m.deal.id]=true;
     if(!prev[m.deal.id]){
-      addNotification("🤖","New matching deal in "+m.deal.area+" — "+(m.aiScore||m.score)+"% match","deals");
+      addNotification("","New matching deal in "+m.deal.area+" — "+(m.aiScore||m.score)+"% match","deals");
     }
   });
   try{localStorage.setItem(key,JSON.stringify(now));}catch(e){}
@@ -792,7 +793,7 @@ function renderNotifBell(){
   var cl=C();var cnt=getUnreadCount();
   var wrap=el("div",{style:{position:"relative",display:"inline-block"}});
   var btn=el("button",{style:{background:DV_NOTIF.showPanel?cl.goldFaint:"transparent",border:"1px solid "+(DV_NOTIF.showPanel?cl.gold:cl.border),borderRadius:"20px",padding:"5px 10px",cursor:"pointer",color:DV_NOTIF.showPanel?cl.gold:cl.sub,fontSize:"14px",position:"relative"}});
-  btn.textContent="🔔";
+  btn.textContent="";
   if(cnt>0){
     var badge=el("div",{style:{position:"absolute",top:"-4px",right:"-4px",background:"#EF4444",color:"#fff",fontSize:"8px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",minWidth:"16px",height:"16px",borderRadius:"8px",display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px",boxSizing:"border-box"}});
     badge.textContent=cnt>9?"9+":String(cnt);
@@ -873,7 +874,7 @@ function renderSmartBar(opts){
   var box=div({background:"rgba(212,175,55,0.04)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid rgba(212,175,55,0.2)",borderRadius:"14px",padding:"20px",marginBottom:"20px",position:"relative",boxShadow:"0 4px 30px rgba(0,0,0,0.2)"});
   var inner=div({background:cl.surface,borderRadius:"16px",padding:"20px",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)"});
   inner.appendChild(div({textAlign:"center",marginBottom:"14px"},[
-    div({fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",color:cl.gold,marginBottom:"4px"},opts.title||"✨ AI Smart Fill"),
+    div({fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",color:cl.gold,marginBottom:"4px"},opts.title||"AI Smart Fill"),
     div({fontSize:"11px",fontFamily:"'Inter',sans-serif",color:cl.sub},opts.subtitle||"Describe in natural language — AI fills the form")
   ]));
   var row=div({display:"flex",gap:"8px",marginBottom:"10px"});
@@ -886,12 +887,12 @@ function renderSmartBar(opts){
   aiInp.addEventListener("keydown",function(e){if(e.key==="Enter")doAiParse();});
   row.appendChild(aiInp);
   var aiBtn=el("button",{style:{background:ai.parsing?"rgba(75,85,99,0.5)":"rgba(212,175,55,0.15)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",color:ai.parsing?"#9CA3AF":cl.gold,border:ai.parsing?"1px solid rgba(255,255,255,0.08)":"1px solid rgba(212,175,55,0.3)",padding:"13px 20px",borderRadius:"12px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:ai.parsing?"not-allowed":"pointer",whiteSpace:"nowrap",minWidth:"110px"}});
-  aiBtn.textContent=ai.parsing?"Parsing…":"✨ AI Fill";
+  aiBtn.textContent=ai.parsing?"Parsing…":"AI Fill";
   if(!ai.parsing)aiBtn.addEventListener("click",doAiParse);
   row.appendChild(aiBtn);inner.appendChild(row);
 
   if(ai.missing.length>0&&ai.parsed){
-    inner.appendChild(div({background:hexAlpha("#F59E0B",0.08),border:"1px solid "+hexAlpha("#F59E0B",0.25),borderRadius:"8px",padding:"8px 12px",marginBottom:"8px",color:"#F59E0B",fontSize:"11px",fontFamily:"'Inter',sans-serif"},"⚠ Please also specify: "+ai.missing.join(", ")));
+    inner.appendChild(div({background:hexAlpha("#F59E0B",0.08),border:"1px solid "+hexAlpha("#F59E0B",0.25),borderRadius:"8px",padding:"8px 12px",marginBottom:"8px",color:"#F59E0B",fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Please also specify: "+ai.missing.join(", ")));
   }else if(ai.missing.length>0){
     inner.appendChild(div({background:hexAlpha("#EF4444",0.08),border:"1px solid "+hexAlpha("#EF4444",0.25),borderRadius:"8px",padding:"8px 12px",marginBottom:"8px",color:"#EF4444",fontSize:"11px",fontFamily:"'Inter',sans-serif"},ai.missing[0]));
   }
@@ -953,7 +954,7 @@ function createVoiceMic(stateKey,onResult,opts){
 
   if(!hasSpeech){
     var dis=el("button",{style:{width:sz,height:sz,borderRadius:"50%",border:"1px solid "+cl.border,background:cl.raised,color:cl.sub,fontSize:fsz,cursor:"not-allowed",opacity:"0.5",flexShrink:"0"},title:"Voice not supported"});
-    dis.textContent="🎤";
+    dis.textContent="";
     return dis;
   }
 
@@ -970,7 +971,7 @@ function createVoiceMic(stateKey,onResult,opts){
     color:vs.active?"#fff":"#08090C",
     animation:vs.active?"pulse 1.5s infinite":"none",
     boxShadow:vs.active?"0 0 20px rgba(239,68,68,0.4)":"none",transition:"all 0.3s"}});
-  micBtn.textContent="🎤";
+  micBtn.textContent="";
   micBtn.addEventListener("click",function(){
     if(vs.active){if(vs.recog)vs.recog.stop();vs.active=false;render();return;}
     var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -1021,16 +1022,16 @@ var TOUR_QUICK=[
 ];
 
 var TOUR_FULL=[
-  {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){if(bs[i].textContent==="🎤")return bs[i];}return null;},title:"Voice Command 🎤",text:"Tap the mic to speak — describe properties, deals, or report preferences by voice.",arrow:"bottom",needTab:"Analyzer"},
-  {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){var tx=bs[i].textContent||"";if(tx.indexOf("EN")!==-1||tx.indexOf("AR")!==-1||tx==="🌐")return bs[i];}return null;},title:"Multi-language Toggle",text:"Switch between English and العربية anytime — the entire interface adapts instantly.",arrow:"bottom"},
+  {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){if(bs[i].textContent===""&&bs[i].style.borderRadius==="50%")return bs[i];}return null;},title:"Voice Command",text:"Tap the mic to speak — describe properties, deals, or report preferences by voice.",arrow:"bottom",needTab:"Analyzer"},
+  {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){var tx=bs[i].textContent||"";if(tx.indexOf("EN")!==-1||tx.indexOf("AR")!==-1)return bs[i];}return null;},title:"Multi-language Toggle",text:"Switch between English and العربية anytime — the entire interface adapts instantly.",arrow:"bottom"},
   {tab:"Compare",title:"Neighborhood Comparison",text:"Compare 2–3 areas side by side with AI verdict, yield spreads, and growth trajectories.",arrow:"top"},
   {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){if((bs[i].textContent||"").indexOf("Scenario")!==-1||(bs[i].textContent||"").indexOf("scenario")!==-1)return bs[i];}return null;},title:"Investment Calculator",text:"Plan scenarios with IRR, cash flow projections, and equity growth over 1–30 years.",arrow:"bottom",needTab:"Analyzer"},
   {sel:function(){var es=document.querySelectorAll("[style]");for(var i=0;i<es.length;i++){if((es[i].textContent||"").indexOf("Sustainability")!==-1)return es[i];}return null;},title:"Sustainability Score",text:"See building efficiency and green ratings — make environmentally conscious investment decisions.",arrow:"bottom"},
   {tab:"Workspace",title:"Custom Report Builder",text:"Build personalized PDF reports — click sections, type descriptions, or use voice commands.",arrow:"top"},
-  {sel:function(){var bs=document.querySelectorAll("button,div");for(var i=0;i<bs.length;i++){if((bs[i].textContent||"")==="🔔")return bs[i];}return null;},title:"Notification Bell 🔔",text:"Get alerts for new inquiries, deal matches, portfolio opportunities, and market changes.",arrow:"bottom"},
+  {sel:function(){var bs=document.querySelectorAll("button,div");for(var i=0;i<bs.length;i++){if((bs[i].textContent||"")===""&&bs[i].style&&bs[i].style.borderRadius==="20px"&&bs[i].tagName==="BUTTON")return bs[i];}return null;},title:"Notification Bell",text:"Get alerts for new inquiries, deal matches, portfolio opportunities, and market changes.",arrow:"bottom"},
   {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){var tx=bs[i].textContent||"";if(tx.indexOf("Save")!==-1&&tx.indexOf("Search")!==-1)return bs[i];}return null;},title:"Saved Searches & Favorites",text:"Save valuations and bookmark favorite deals and areas — access them instantly from any tab.",arrow:"bottom",needTab:"Analyzer"},
   {sel:function(){var bs=document.querySelectorAll("a,button");for(var i=0;i<bs.length;i++){var tx=bs[i].textContent||"";if(tx.indexOf("WhatsApp")!==-1||tx.indexOf("whatsapp")!==-1)return bs[i];}return null;},title:"Social Share",text:"Share valuations on WhatsApp, LinkedIn, X, and Telegram with one tap.",arrow:"bottom"},
-  {sel:function(){return null;},title:"Export CSV 📥",text:"Data export is currently disabled.",arrow:"bottom"},
+  {sel:function(){return null;},title:"Export CSV",text:"Data export is currently disabled.",arrow:"bottom"},
   {sel:function(){var es=document.querySelectorAll("[style]");for(var i=0;i<es.length;i++){if((es[i].textContent||"").indexOf("Anomal")!==-1||(es[i].textContent||"").indexOf("anomal")!==-1)return es[i];}return null;},title:"Price Anomaly Detection",text:"AI flags suspicious pricing patterns to protect market integrity and your investments.",arrow:"bottom",needTab:"Index"},
   {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){if((bs[i].textContent||"").indexOf("Arabic")!==-1||(bs[i].textContent||"").indexOf("عربي")!==-1)return bs[i];}return null;},title:"Arabic PDF Reports",text:"Generate professional valuation reports in Arabic with full RTL layout support.",arrow:"bottom"},
   {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){if((bs[i].textContent||"").indexOf("Agent Hub")!==-1||(bs[i].textContent||"").indexOf("Register")!==-1)return bs[i];}return null;},title:"Agent Hub & Referral",text:"Register as an agent, receive referrals, and manage your subscription tier.",arrow:"bottom",needTab:"Deals"},
@@ -1125,7 +1126,7 @@ function showTourStep(){
   if(s.type==="center"){
     h+='<div style="text-align:center;margin-bottom:16px">';
     if(s.icon==="logo")h+='<img src="logo.png" alt="DubAIVal" style="width:64px;height:64px;border-radius:14px;margin:0 auto 12px;display:block;object-fit:contain">';
-    if(s.fullLast)h+='<div style="font-size:40px;margin-bottom:12px">🎯</div>';
+    /* fullLast icon removed — clean terminal aesthetic */
     h+='<div style="color:'+cl.gold+';font-size:18px;font-weight:800;font-family:Space Grotesk,monospace;margin-bottom:6px">'+s.title+'</div><div style="color:#9CA3AF;font-size:12px;font-family:Inter,sans-serif;line-height:1.6">'+s.text+'</div></div>';
   }else{
     h+='<div style="margin-bottom:14px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="background:linear-gradient(135deg,'+cl.gold+',#7A5E28);color:#08090C;font-size:9px;font-weight:800;font-family:Space Grotesk,monospace;padding:2px 8px;border-radius:4px;letter-spacing:0.08em">'+lbl+'</span></div><div style="color:'+cl.gold+';font-size:15px;font-weight:700;font-family:Space Grotesk,monospace;margin-bottom:8px">'+s.title+'</div><div style="color:#D1D5DB;font-size:12px;font-family:Inter,sans-serif;line-height:1.7">'+s.text+'</div></div>';
@@ -1137,7 +1138,7 @@ function showTourStep(){
     h+='<button id="dv-tour-finish" style="background:transparent;border:1px solid #374151;color:#9CA3AF;padding:8px 16px;border-radius:8px;font-size:11px;font-weight:600;font-family:Space Grotesk,monospace;cursor:pointer">Start Exploring</button>';
     h+='<button id="dv-tour-full" style="background:linear-gradient(135deg,'+cl.gold+',#7A5E28);color:#08090C;border:none;padding:8px 18px;border-radius:8px;font-size:11px;font-weight:700;font-family:Space Grotesk,monospace;cursor:pointer">Show Me Everything →</button>';
   }else if(isLast||s.fullLast){
-    h+='<button id="dv-tour-finish" style="background:linear-gradient(135deg,'+cl.gold+',#7A5E28);color:#08090C;border:none;padding:8px 20px;border-radius:8px;font-size:12px;font-weight:700;font-family:Space Grotesk,monospace;cursor:pointer">Start Exploring 🎯</button>';
+    h+='<button id="dv-tour-finish" style="background:linear-gradient(135deg,'+cl.gold+',#7A5E28);color:#08090C;border:none;padding:8px 20px;border-radius:8px;font-size:12px;font-weight:700;font-family:Space Grotesk,monospace;cursor:pointer">Start Exploring</button>';
   }else{
     h+='<button id="dv-tour-skip" style="background:transparent;border:1px solid #374151;color:#9CA3AF;padding:8px 16px;border-radius:8px;font-size:11px;font-weight:600;font-family:Space Grotesk,monospace;cursor:pointer">Skip</button>';
     h+='<button id="dv-tour-next" style="background:linear-gradient(135deg,'+cl.gold+',#7A5E28);color:#08090C;border:none;padding:8px 20px;border-radius:8px;font-size:12px;font-weight:700;font-family:Space Grotesk,monospace;cursor:pointer">Next →</button>';

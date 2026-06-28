@@ -64,23 +64,29 @@
 
 <!-- Preconnect -->
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Cairo:wght@400;600;700;800&display=swap"/>
 <link rel="preconnect" href="https://api.groq.com"/>
 <link rel="dns-prefetch" href="https://www.googletagmanager.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"/>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;overflow-x:hidden!important;overscroll-behavior-x:none!important;-webkit-overflow-scrolling:touch}
 html{background:#070B14}
-body{background:#070B14;color:#E8EDF5;font-family:'Inter','Space Grotesk',sans-serif;-webkit-font-smoothing:antialiased;margin:0;padding:0;min-height:100vh;-webkit-tap-highlight-color:transparent}
+body{background:#070B14;color:#E8EDF5;font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;margin:0;padding:0;min-height:100vh;-webkit-tap-highlight-color:transparent;font-feature-settings:'cv02','cv03','cv04','cv11';letter-spacing:-0.01em}
 ::-webkit-scrollbar{width:6px;height:6px}
 ::-webkit-scrollbar-track{background:#0D1220}
 ::-webkit-scrollbar-thumb{background:#1C2540;border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:#2A3660}
 input,select,button,textarea{font-family:inherit}
 a{color:inherit;text-decoration:none}
+
+/* Lucide icons */
+[data-lucide]{width:18px;height:18px;stroke-width:1.5;display:inline-block;vertical-align:middle}
+.dv-sidebar-item [data-lucide]{width:20px;height:20px;stroke-width:1.5;flex-shrink:0}
+.dv-bottom-tab [data-lucide]{width:22px;height:22px;stroke-width:1.5}
+.dv-num{font-family:'JetBrains Mono',monospace!important;font-feature-settings:'tnum' 1;letter-spacing:-0.02em}
 
 /* Keyframes */
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -118,6 +124,7 @@ a{color:inherit;text-decoration:none}
 .dv-bottom-tab{display:flex;flex-direction:column;align-items:center;gap:2px;color:#556677;font-size:10px;font-family:'Space Grotesk',monospace;cursor:pointer;padding:4px 8px;transition:color 0.2s}
 .dv-bottom-tab.active{color:#D4AF37}
 .dv-bottom-tab .icon{font-size:22px}
+.dv-bottom-tab [data-lucide]{color:inherit}
 
 /* Cards & section headers — Glassmorphism */
 .dv-card{background:rgba(255,255,255,0.05);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:20px;transition:all 0.25s ease;box-shadow:0 4px 30px rgba(0,0,0,0.3)}
@@ -207,24 +214,24 @@ window.dvTrack=function(event,params){try{gtag('event',event,params||{});}catch(
 <div id="app"></div><div id="print-report"></div>
 
 <!-- App Modules -->
-<script src="js/data-residential.js?v=20260628g"></script>
-<script src="js/data-commercial.js?v=20260627"></script>
+<script src="js/data-residential.js?v=20260628j"></script>
+<script src="js/data-commercial.js?v=20260628j"></script>
 <script src="js/valuation-db.js?v=20260623"></script>
 <script src="js/valuation.js?v=20260623"></script>
-<script src="js/api.js?v=20260627"></script>
-<script src="js/core.js?v=20260628g"></script>
-<script src="js/auth.js?v=20260628g"></script>
-<script src="js/app.js?v=20260628g"></script>
-<script src="js/market.js?v=20260628g"></script>
-<script src="js/mortgage.js?v=20260627"></script>
-<script src="js/portfolio.js?v=20260628g"></script>
-<script src="js/map.js?v=20260627"></script>
-<script src="js/deals.js?v=20260628g"></script>
-<script src="js/chat.js?v=20260628i"></script>
-<script src="js/social.js?v=20260628g"></script>
-<script src="js/about.js?v=20260628g"></script>
-<script src="js/workspace.js?v=20260628g"></script>
-<script src="js/marketindex.js?v=20260628"></script>
+<script src="js/api.js?v=20260628j"></script>
+<script src="js/core.js?v=20260628j"></script>
+<script src="js/auth.js?v=20260628j"></script>
+<script src="js/app.js?v=20260628j"></script>
+<script src="js/market.js?v=20260628j"></script>
+<script src="js/mortgage.js?v=20260628j"></script>
+<script src="js/portfolio.js?v=20260628j"></script>
+<script src="js/map.js?v=20260628j"></script>
+<script src="js/deals.js?v=20260628j"></script>
+<script src="js/chat.js?v=20260628j"></script>
+<script src="js/social.js?v=20260628j"></script>
+<script src="js/about.js?v=20260628j"></script>
+<script src="js/workspace.js?v=20260628j"></script>
+<script src="js/marketindex.js?v=20260628j"></script>
 <script>render();</script>
 </body>
 </html>

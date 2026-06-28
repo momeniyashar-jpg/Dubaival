@@ -298,7 +298,7 @@ function renderMarketIndex(){
       aiSection.appendChild(div({background:cl.raised,borderRadius:"10px",padding:"14px",color:cl.subHi,fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.7",whiteSpace:"pre-wrap"},cmp.aiVerdict));
     }else{
       var aiBtn=el("button",{style:{width:"100%",padding:"12px",background:cmp.aiLoading?"#4B5563":"linear-gradient(135deg,#C9A84C,#7A5E28)",color:cmp.aiLoading?"#9CA3AF":"#08090C",border:"none",borderRadius:"10px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:cmp.aiLoading?"not-allowed":"pointer"}});
-      aiBtn.textContent=cmp.aiLoading?"Analyzing…":"🤖 Get AI Verdict";
+      aiBtn.textContent=cmp.aiLoading?"Analyzing…":"Get AI Verdict";
       if(!cmp.aiLoading)aiBtn.addEventListener("click",function(){
         cmp.aiLoading=true;render();
         var summary=activeAreas.map(function(n){var d=AREAS[n]||{};var y=d.y||[5,7];var g=d.g||[3,9,16];return n+": PSF "+d.psf+", SC "+d.sc+", yield "+(y[0]+y[1])/2+"%, 1yr growth "+g[0]+"%, 3yr "+g[1]+"%, DOM "+(d.dom||"?")+"d, txVol "+(d.txVol||"?")+" , buildings "+bldgCounts[n]+", sustainability "+(GREEN_AREAS[n]||50);}).join(". ");
@@ -313,10 +313,10 @@ function renderMarketIndex(){
     // --- Share button ---
     var shareRow=div({marginTop:"14px",display:"flex",gap:"8px"});
     var shareBtn=el("button",{style:{flex:"1",padding:"10px",background:hexAlpha("#3B82F6",0.12),border:"1px solid "+hexAlpha("#3B82F6",0.3),borderRadius:"8px",color:"#60A5FA",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
-    shareBtn.textContent="📤 Share Comparison";
+    shareBtn.textContent="Share Comparison";
     shareBtn.addEventListener("click",function(){
       var url=window.location.origin+window.location.pathname+"?compare="+encodeURIComponent(activeAreas.join(","));
-      if(navigator.clipboard){navigator.clipboard.writeText(url).then(function(){shareBtn.textContent="✓ Link Copied!";setTimeout(function(){shareBtn.textContent="📤 Share Comparison";},2000);});}
+      if(navigator.clipboard){navigator.clipboard.writeText(url).then(function(){shareBtn.textContent="✓ Link Copied!";setTimeout(function(){shareBtn.textContent="Share Comparison";},2000);});}
       else{prompt("Copy this link:",url);}
     });
     shareRow.appendChild(shareBtn);

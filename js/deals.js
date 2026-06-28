@@ -454,7 +454,7 @@ function renderDeals(){
   bedsSelect.onchange=function(){DEAL_STATE.filter.beds=this.value;fetchDeals();};
   filterRow.appendChild(bedsSelect);
   var urgSelect=el("select",{style:{background:cl.surface,border:"1px solid "+cl.border,color:cl.subHi,padding:"8px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Inter',sans-serif"}});
-  [{l:"All Priority",v:"all"},{l:"🔥 Hot",v:"hot"},{l:"⚡ Urgent",v:"urgent"},{l:"Normal",v:"normal"}].forEach(function(u){
+  [{l:"All Priority",v:"all"},{l:"Hot",v:"hot"},{l:"Urgent",v:"urgent"},{l:"Normal",v:"normal"}].forEach(function(u){
     var o=el("option",{value:u.v});o.textContent=u.l;if(DEAL_STATE.filter.urgency===u.v)o.selected=true;urgSelect.appendChild(o);});
   urgSelect.onchange=function(){DEAL_STATE.filter.urgency=this.value;fetchDeals();};
   filterRow.appendChild(urgSelect);
@@ -477,7 +477,7 @@ function renderDeals(){
   if(!DEAL_STATE.filter.sortBestMatch)DEAL_STATE.filter.sortBestMatch=false;
   var bmActive=DEAL_STATE.filter.sortBestMatch;
   var bmBtn=el("button",{style:{display:"flex",alignItems:"center",gap:"6px",padding:"6px 14px",borderRadius:"8px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",background:bmActive?hexAlpha("#8B5CF6",0.15):"transparent",color:bmActive?"#A78BFA":cl.sub,border:"1px solid "+(bmActive?"rgba(139,92,246,0.3)":cl.border)}});
-  bmBtn.textContent=(bmActive?"✓ ":"")+"🤖 Best Matches First";
+  bmBtn.textContent=(bmActive?"✓ ":"")+"Best Matches First";
   bmBtn.addEventListener("click",function(){DEAL_STATE.filter.sortBestMatch=!DEAL_STATE.filter.sortBestMatch;render();});
   reraToggle.appendChild(bmBtn);
   wrap.appendChild(reraToggle);
@@ -492,7 +492,7 @@ function renderDeals(){
 
   // Row 1: core stats
   var stats=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:"8px",marginBottom:"10px"});
-  [{l:"Total",v:allDeals.length,c:cl.gold},{l:"I Have",v:haveCount,c:cl.green},{l:"I Need",v:needCount,c:"#60A5FA"},{l:"🔥 Hot",v:hotCount,c:"#EF4444"}].forEach(function(s){
+  [{l:"Total",v:allDeals.length,c:cl.gold},{l:"I Have",v:haveCount,c:cl.green},{l:"I Need",v:needCount,c:"#60A5FA"},{l:"Hot",v:hotCount,c:"#EF4444"}].forEach(function(s){
     stats.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"10px",padding:"10px 6px",textAlign:"center"},[
       div({color:s.c,fontSize:"20px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},String(s.v)),
       div({color:cl.sub,fontSize:"8.5px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},s.l)]));
@@ -516,7 +516,7 @@ function renderDeals(){
       div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"},[
         div({},[div({color:cl.sub,fontSize:"8.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Avg Price"),
           div({color:cl.gold,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},avgPrice?"AED "+avgPrice.toLocaleString():"—")]),
-        expiringCount>0?div({textAlign:"right"},[div({color:"#EF4444",fontSize:"8.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"⚠ Expiring"),
+        expiringCount>0?div({textAlign:"right"},[div({color:"#EF4444",fontSize:"8.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Expiring"),
           div({color:"#EF4444",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},String(expiringCount))]):div({})
       ]),
       div({background:"rgba(255,255,255,0.05)",borderRadius:"4px",height:"6px",overflow:"hidden",display:"flex"})
@@ -549,7 +549,7 @@ function renderDeals(){
 
   if(!DEAL_STATE.deals.length){
     wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"32px",textAlign:"center"},[
-      div({fontSize:"32px",marginBottom:"12px"},"🤝"),
+      div({fontSize:"14px",marginBottom:"12px",color:cl.sub,fontFamily:"'Space Grotesk',monospace"},"No listings"),
       div({color:cl.subHi,fontSize:"14px",fontWeight:"600",fontFamily:"'Inter',sans-serif",marginBottom:"6px"},"No deals yet"),
       div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",marginBottom:"16px"},"Be the first to post — your deal gets auto-valued by DubAIVal AVM"),
       el("button",{style:{background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",color:"#070B14",border:"none",padding:"10px 24px",borderRadius:"8px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
@@ -577,8 +577,7 @@ function renderDeals(){
     var matchPanel=div({background:"linear-gradient(135deg,rgba(201,168,76,0.08),rgba(201,168,76,0.03))",border:"1px solid rgba(201,168,76,0.35)",borderRadius:"14px",padding:"14px 16px",marginBottom:"14px"});
     matchPanel.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"},[
       div({display:"flex",alignItems:"center",gap:"8px"},[
-        span({fontSize:"16px"},"🔗"),
-        div({},[
+                div({},[
           div({color:cl.gold,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"},"Smart Matches"),
           div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},"Have ↔ Need deals matched by area, type & budget")])]),
       span({background:"rgba(201,168,76,0.15)",color:cl.gold,fontSize:"11px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",padding:"4px 10px",borderRadius:"10px"},String(allMatches.length)+" match"+(allMatches.length!==1?"es":""))
@@ -625,8 +624,7 @@ function renderDeals(){
     if(hasAny){
       var myMatchPanel=div({background:"linear-gradient(135deg,rgba(139,92,246,0.08),rgba(139,92,246,0.02))",border:"1px solid rgba(139,92,246,0.3)",borderRadius:"14px",padding:"14px 16px",marginBottom:"14px"});
       myMatchPanel.appendChild(div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"10px"},[
-        span({fontSize:"16px"},"🤖"),
-        div({},[
+                div({},[
           div({color:"#A78BFA",fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"},"AI Matches for Your Posts"),
           div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},"Smart matches ranked by AI compatibility")])
       ]));
@@ -649,7 +647,7 @@ function renderDeals(){
           ]));
           if(m.reason&&m.reason!=="Rule-based match")mCard.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif",fontStyle:"italic",marginBottom:"6px"},"\""+m.reason+"\""));
           var cBtn=el("button",{style:{padding:"5px 12px",borderRadius:"6px",fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",background:"linear-gradient(135deg,#25D366,#128C7E)",color:"#fff",border:"none"}});
-          cBtn.textContent="💬 Contact";
+          cBtn.textContent="Contact";
           (function(deal){cBtn.addEventListener("click",function(e){e.stopPropagation();if(deal.contact_mode==="whatsapp"){openWhatsApp(deal);}else{DEAL_STATE.inquiry.dealId=deal.id;render();}});})(m.deal);
           mCard.appendChild(cBtn);
           myMatchPanel.appendChild(mCard);
@@ -681,7 +679,7 @@ function renderDeals(){
   sortedDeals.forEach(function(d){
     var isHave=d.type==="have";
     var urgColors={hot:"#EF4444",urgent:"#F59E0B",normal:cl.border};
-    var urgLabels={hot:"🔥 HOT",urgent:"⚡ URGENT",normal:""};
+    var urgLabels={hot:"HOT",urgent:"URGENT",normal:""};
     var card=el("div",{style:{background:cl.surface,backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",border:"1px solid "+(d.urgency==="hot"?"rgba(239,68,68,0.3)":d.urgency==="urgent"?"rgba(245,158,11,0.2)":cl.border),borderRadius:"14px",padding:"16px 18px",marginBottom:"10px",cursor:"pointer",transition:"all 0.25s ease",boxShadow:"0 4px 30px rgba(0,0,0,0.25)"}});
     card.addEventListener("mouseenter",function(){this.style.borderColor="rgba(212,175,55,0.3)";this.style.boxShadow="0 8px 32px rgba(0,0,0,0.35),0 0 16px rgba(212,175,55,0.05)";this.style.transform="translateY(-2px)";});
     card.addEventListener("mouseleave",function(){this.style.borderColor=d.urgency==="hot"?"rgba(239,68,68,0.3)":d.urgency==="urgent"?"rgba(245,158,11,0.2)":cl.border;this.style.boxShadow="0 4px 30px rgba(0,0,0,0.25)";this.style.transform="";});
@@ -693,8 +691,8 @@ function renderDeals(){
     leftTop.appendChild(typeBadge);
     if(d.urgency!=="normal"){var urgBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:"rgba(239,68,68,0.12)",color:urgColors[d.urgency]}});urgBadge.textContent=urgLabels[d.urgency];leftTop.appendChild(urgBadge);}
     if(d.rera_number){var verBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:hexAlpha("#3B82F6",0.12),color:"#3B82F6"}});verBadge.textContent="RERA Verified ✓";leftTop.appendChild(verBadge);}
-    if(d.title_deed_no){var tdBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:"rgba(234,179,8,0.12)",color:"#EAB308"}});tdBadge.textContent="📜 TITLE DEED";leftTop.appendChild(tdBadge);}
-    (function(dealId,cardEl){fetchDealVideoAnalyses(dealId).then(function(vids){if(vids&&vids.length){var vBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:hexAlpha("#8B5CF6",0.12),color:"#A78BFA",cursor:"pointer"},onclick:function(e){e.stopPropagation();DEAL_STATE.videoViewDeal["_show_"+dealId]=!DEAL_STATE.videoViewDeal["_show_"+dealId];render();}});vBadge.textContent="🎬 Video Analysis ("+vids.length+")";leftTop.appendChild(vBadge);}});})(d.id,card);
+    if(d.title_deed_no){var tdBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:"rgba(234,179,8,0.12)",color:"#EAB308"}});tdBadge.textContent="TITLE DEED";leftTop.appendChild(tdBadge);}
+    (function(dealId,cardEl){fetchDealVideoAnalyses(dealId).then(function(vids){if(vids&&vids.length){var vBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:hexAlpha("#8B5CF6",0.12),color:"#A78BFA",cursor:"pointer"},onclick:function(e){e.stopPropagation();DEAL_STATE.videoViewDeal["_show_"+dealId]=!DEAL_STATE.videoViewDeal["_show_"+dealId];render();}});vBadge.textContent="Video Analysis ("+vids.length+")";leftTop.appendChild(vBadge);}});})(d.id,card);
     if(d.off_market){var omBadge=el("span",{style:{fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"10px",marginLeft:"6px",background:"rgba(201,168,76,0.12)",color:cl.gold}});omBadge.textContent="OFF-MARKET";leftTop.appendChild(omBadge);}
     topRow.appendChild(leftTop);
     var rightTop=el("div",{style:{display:"flex",alignItems:"center",gap:"8px"}});
@@ -719,7 +717,7 @@ function renderDeals(){
       var isWarnExp=!isExpired&&!isUrgentExp&&expDays<=7;
       var expColor=isExpired?"#EF4444":isUrgentExp?"#EF4444":isWarnExp?"#F59E0B":"#6B7280";
       var expBg=isExpired?"rgba(239,68,68,0.08)":isUrgentExp?"rgba(239,68,68,0.08)":isWarnExp?"rgba(245,158,11,0.06)":"transparent";
-      var expText=isExpired?"❌ Expired":expDays===0?"⚠️ "+expHours+"h left":expDays===1?"⚠️ 1 day left":isUrgentExp?"⚠️ "+expDays+" days left":"⏱ "+expDays+" days left";
+      var expText=isExpired?"Expired":expDays===0?expHours+"h left":expDays===1?"1 day left":isUrgentExp?expDays+" days left":expDays+" days left";
       var expBar=div({background:expBg,borderRadius:"8px",padding:"6px 10px",marginBottom:"8px",display:"flex",justifyContent:"space-between",alignItems:"center"});
       expBar.appendChild(span({color:expColor,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},expText));
       if(!isExpired){
@@ -768,7 +766,7 @@ function renderDeals(){
       var dealDevPct=Math.abs((d.price-d.dv_fair_price)/d.dv_fair_price*100);
       if(dealDevPct>=30){
         var anomBadgeColor=dealDevPct>=60?"#EF4444":dealDevPct>=40?"#F97316":"#F59E0B";
-        priceRow.appendChild(div({position:"absolute",top:"-2px",right:"-2px",background:anomBadgeColor,color:"#fff",fontSize:"8px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"2px 6px",borderRadius:"0 10px 0 6px",letterSpacing:"0.05em"},"⚠ ANOMALY"));
+        priceRow.appendChild(div({position:"absolute",top:"-2px",right:"-2px",background:anomBadgeColor,color:"#fff",fontSize:"8px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"2px 6px",borderRadius:"0 10px 0 6px",letterSpacing:"0.05em"},"ANOMALY"));
         priceRow.style.position="relative";
       }
     }
@@ -787,7 +785,7 @@ function renderDeals(){
     // Video Analysis expand
     if(DEAL_STATE.videoViewDeal["_show_"+d.id]&&DEAL_STATE.videoViewDeal[d.id]){
       var vaPanel=div({background:hexAlpha("#8B5CF6",0.06),border:"1px solid "+hexAlpha("#8B5CF6",0.2),borderRadius:"10px",padding:"12px",marginBottom:"8px"});
-      vaPanel.appendChild(div({color:"#A78BFA",fontSize:"9px",fontWeight:"700",letterSpacing:"0.1em",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"🎬 VIDEO ANALYSES"));
+      vaPanel.appendChild(div({color:"#A78BFA",fontSize:"9px",fontWeight:"700",letterSpacing:"0.1em",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"VIDEO ANALYSES"));
       DEAL_STATE.videoViewDeal[d.id].forEach(function(vid){
         var vRow=div({marginBottom:"8px",paddingBottom:"8px",borderBottom:"1px solid "+hexAlpha("#8B5CF6",0.15)});
         vRow.appendChild(div({color:cl.subHi,fontSize:"12px",fontWeight:"700",fontFamily:"'Inter',sans-serif",marginBottom:"4px"},vid.title));
@@ -818,7 +816,7 @@ function renderDeals(){
     card.appendChild(bottomRow);
 
     // Share buttons
-    var shareText=(d.type==="have"?"🏠 ":"🔍 ")+d.area+(d.building?" – "+d.building:"")+" | "+(d.beds||"")+" "+d.prop_type+" | AED "+d.price.toLocaleString()+(d.dv_verdict?" | DubAIVal: "+d.dv_verdict:"")+" | dubaival.com";
+    var shareText=d.area+(d.building?" – "+d.building:"")+" | "+(d.beds||"")+" "+d.prop_type+" | AED "+d.price.toLocaleString()+(d.dv_verdict?" | DubAIVal: "+d.dv_verdict:"")+" | dubaival.com";
     var dealShareBtns=buildShareButtons(cl,{wa:shareText,tw:shareText,tg:shareText,url:"https://www.dubaival.com",copy:shareText});
     dealShareBtns.style.borderTop="1px solid "+cl.border;dealShareBtns.style.paddingTop="8px";
     dealShareBtns.addEventListener("click",function(e){e.stopPropagation();});
@@ -863,7 +861,7 @@ function renderDeals(){
         var iTop=div({display:"flex",justifyContent:"space-between",alignItems:"center"});
         var iInfo=div({});
         var statusColor=inq.status==="approved"?"#10B981":inq.status==="rejected"?"#EF4444":"#F59E0B";
-        var statusLabel=inq.status==="approved"?"✓ Approved":inq.status==="rejected"?"✗ Rejected":"⏳ Pending";
+        var statusLabel=inq.status==="approved"?"✓ Approved":inq.status==="rejected"?"✗ Rejected":"Pending";
         iInfo.appendChild(div({display:"flex",alignItems:"center",gap:"6px"},[
           div({color:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif",fontWeight:"600"},inq.sender_name),
           span({color:statusColor,fontSize:"8px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",background:hexAlpha(statusColor,0.12),padding:"2px 6px",borderRadius:"6px"},statusLabel)
@@ -922,7 +920,7 @@ function renderDeals(){
         }
         if(existVideos.length){existVideos.forEach(function(v){
           mediaManage.appendChild(div({display:"flex",alignItems:"center",gap:"6px",marginBottom:"6px"},[
-            span({color:"#60A5FA",fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},"🎥 "+v.data),
+            span({color:"#60A5FA",fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},v.data),
             el("button",{style:{background:"rgba(239,68,68,0.1)",color:"#EF4444",border:"none",padding:"2px 8px",borderRadius:"4px",fontSize:"9px",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},
               onclick:(function(mid,did){return function(e){e.stopPropagation();if(confirm("Delete this video link?"))deleteDealMedia(mid,did);};})(v.id,d.id)},
             "Delete")]));
@@ -977,7 +975,7 @@ function renderDeals(){
           }
           if(bVideos.length){bVideos.forEach(function(v){
             mediaAccess.appendChild(div({marginTop:"6px"},[span({color:"#60A5FA",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",textDecoration:"underline"},
-              el("a",{href:v.data,target:"_blank",style:{color:"#60A5FA",fontSize:"11px",fontFamily:"'Space Grotesk',monospace"}},"🎥 Watch Video"))]));
+              el("a",{href:v.data,target:"_blank",style:{color:"#60A5FA",fontSize:"11px",fontFamily:"'Space Grotesk',monospace"}},"Watch Video"))]));
           });}
           if(!bPhotos.length&&!bVideos.length){mediaAccess.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",textAlign:"center",padding:"12px"},"No media uploaded yet — check back later"));}
         }
@@ -995,7 +993,7 @@ function renderDeals(){
     if(cachedAI&&cachedAI.data.length){
       var mWrap=el("div",{style:{background:"linear-gradient(135deg,rgba(139,92,246,0.06),transparent)",border:"1px solid rgba(139,92,246,0.2)",borderRadius:"8px",padding:"8px 10px",marginTop:"8px"}});
       mWrap.appendChild(div({display:"flex",alignItems:"center",gap:"6px",marginBottom:"6px"},[
-        span({fontSize:"12px"},"🤖"),
+        span({fontSize:"12px"},""),
         span({color:"#A78BFA",fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em"},"AI SMART MATCHES · "+cachedAI.data.length)
       ]));
       cachedAI.data.slice(0,3).forEach(function(m){
@@ -1043,7 +1041,7 @@ function renderDealForm(wrap,cl){
 
   // AI Smart Bar for Deal Form
   card.appendChild(renderSmartBar({
-    stateKey:"_aiDeal",histKey:"dv_smart_deals",title:"✨ AI Deal Parser",subtitle:"Describe your deal — AI fills the form automatically",
+    stateKey:"_aiDeal",histKey:"dv_smart_deals",title:"AI Deal Parser",subtitle:"Describe your deal — AI fills the form automatically",
     placeholder:"e.g. I have a 2BR in Marina, 1300sqft, selling for 2.8M, urgent, sea view",
     examples:["I have 3BR Palm villa, 4000sqft, 8M, urgent","I need 1BR JLT under 800K"],
     sysPrompt:'You are a Dubai real estate deal parser. Extract these fields and return ONLY a JSON object: {"type":null,"area":null,"building":null,"propType":null,"beds":null,"size_sqft":null,"floor":null,"view":null,"furnished":null,"purpose":null,"price":null,"urgency":null,"offMarket":null,"notes":null,"contactMode":null,"titleDeedNo":null}. type: have or need. propType: apartment/villa/townhouse. purpose: sale or rent. urgency: normal/urgent/hot. offMarket: true/false. contactMode: whatsapp or private. If not mentioned set to null. Parse Arabic too: عندي=have, أحتاج=need, للبيع=sale, للإيجار=rent, عاجل=urgent, غرفتين=2 BR, مارينا=Dubai Marina, شقة=apartment, فيلا=villa.',
@@ -1191,7 +1189,7 @@ function renderDealForm(wrap,cl){
   card.appendChild(priceRow);
 
   var urgRow=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"});
-  urgRow.appendChild(makeSelect("Priority","urgency",[{l:"Normal",v:"normal"},{l:"⚡ Urgent",v:"urgent"},{l:"🔥 Hot Deal",v:"hot"}]));
+  urgRow.appendChild(makeSelect("Priority","urgency",[{l:"Normal",v:"normal"},{l:"Urgent",v:"urgent"},{l:"Hot Deal",v:"hot"}]));
   var omToggle=div({marginBottom:"10px"});
   omToggle.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",marginBottom:"4px"},"Off-Market"));
   var omBtn=el("button",{style:{width:"100%",padding:"10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",
@@ -1299,7 +1297,7 @@ function renderDealForm(wrap,cl){
     tdSection.appendChild(tdRow);
     if(f.titleDeedNo&&f.titleDeedNo.length>=3){
       tdSection.appendChild(div({display:"flex",alignItems:"center",gap:"6px"},[
-        span({color:"#EAB308",fontSize:"18px"},"📜"),
+        span({color:"#EAB308",fontSize:"18px"},""),
         span({color:"#EAB308",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",fontWeight:"700",background:"rgba(234,179,8,0.12)",padding:"4px 10px",borderRadius:"8px"},"Title Deed #"+f.titleDeedNo+(f.titleDeedImg?" · Document Attached":""))]));
     }else{
       tdSection.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",fontStyle:"italic"},"Enter your Title Deed number to verify ownership and build buyer trust"));
@@ -1378,7 +1376,7 @@ function renderAgentHub(wrap,cl){
     var rf=hub.regForm;
     // AI Smart Bar for Agent Registration
     card.appendChild(renderSmartBar({
-      stateKey:"_aiAgent",histKey:"dv_smart_agent",title:"✨ AI Agent Profile",subtitle:"Describe yourself — AI fills the registration form",
+      stateKey:"_aiAgent",histKey:"dv_smart_agent",title:"AI Agent Profile",subtitle:"Describe yourself — AI fills the registration form",
       placeholder:"e.g. I'm Ahmed, RERA 54321, specializing in Marina and JBR luxury apartments, 5 years experience",
       examples:["Sara, RERA 12345, ABC Real Estate, Dubai Hills and Arabian Ranches villas"],
       sysPrompt:'You are a real estate agent profile parser. Extract these fields and return ONLY a JSON object: {"name":null,"phone":null,"email":null,"company":null,"rera":null,"areas":null,"specialties":null,"bio":null}. areas and specialties are comma-separated strings. If not mentioned set to null.',
@@ -1448,7 +1446,7 @@ function renderAgentHub(wrap,cl){
     if(hub.loading){card.appendChild(div({textAlign:"center",padding:"20px",color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},"Loading agents…"));}
     else if(!hub.agents.length){
       card.appendChild(div({textAlign:"center",padding:"20px"},[
-        div({fontSize:"28px",marginBottom:"8px"},"🏢"),
+        div({fontSize:"28px",marginBottom:"8px"},""),
         div({color:cl.subHi,fontSize:"13px",fontWeight:"600",fontFamily:"'Inter',sans-serif",marginBottom:"4px"},"No agents registered yet"),
         div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Be the first to join the DubAIVal referral network")]));
     }else{
@@ -1480,13 +1478,13 @@ function renderAgentHub(wrap,cl){
         if(ag.areas_text)agCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginTop:"4px"},"Areas: "+ag.areas_text));
         if(ag.specialties)agCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},"Specialties: "+ag.specialties));
         if(!ag.rera_number)agCard.appendChild(div({background:hexAlpha("#F59E0B",0.08),border:"1px solid "+hexAlpha("#F59E0B",0.25),borderRadius:"6px",padding:"5px 10px",marginTop:"6px",display:"flex",alignItems:"center",gap:"4px"},[
-          span({color:"#F59E0B",fontSize:"9px"},"⚠"),
+          span({color:"#F59E0B",fontSize:"9px"},"!"),
           span({color:"#F59E0B",fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Add RERA number to get verified badge")
         ]));
         if(ag.deals_closed>0||ag.video_analyses>0){
           var agStats=div({display:"flex",gap:"12px",marginTop:"6px"});
           if(ag.deals_closed>0)agStats.appendChild(span({color:cl.green,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},ag.deals_closed+" deals closed"));
-          if(ag.video_analyses>0)agStats.appendChild(span({color:"#A78BFA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"🎬 "+ag.video_analyses+" video analyses"));
+          if(ag.video_analyses>0)agStats.appendChild(span({color:"#A78BFA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},ag.video_analyses+" video analyses"));
           agCard.appendChild(agStats);
         }
         // Upload Video Analysis button (Gold/Platinum only)
@@ -1494,7 +1492,7 @@ function renderAgentHub(wrap,cl){
           var vaToggleKey="_va_"+ag.id;
           var vaBtn=el("button",{style:{marginTop:"6px",background:hexAlpha("#8B5CF6",0.1),border:"1px solid "+hexAlpha("#8B5CF6",0.25),color:"#A78BFA",padding:"5px 12px",borderRadius:"8px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
             onclick:(function(k,aid){return function(e){e.stopPropagation();DEAL_STATE.videoForm.agentId=aid;window[k]=!window[k];render();};})(vaToggleKey,ag.id)});
-          vaBtn.textContent=window[vaToggleKey]?"Close":"🎬 Upload Video Analysis";
+          vaBtn.textContent=window[vaToggleKey]?"Close":"Upload Video Analysis";
           agCard.appendChild(vaBtn);
           if(window[vaToggleKey]){
             var vaForm=div({background:cl.raised,borderRadius:"10px",padding:"12px",marginTop:"8px",border:"1px solid "+hexAlpha("#8B5CF6",0.2)});
@@ -1700,7 +1698,7 @@ function renderAdminDashboard(wrap,cl){
     }
     var miStatusEl=div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",textAlign:"center",marginTop:"8px",display:"none"});
     var runBtn=el("button",{style:{width:"100%",padding:"10px",background:"linear-gradient(135deg,#F59E0B,#D97706)",color:"#000",border:"none",borderRadius:"8px",fontSize:"12px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.06em"}});
-    runBtn.textContent=stale?"⚡ Run AI Market Analysis (Recommended)":"⚡ Refresh Market Intelligence";
+    runBtn.textContent=stale?"Run AI Market Analysis (Recommended)":"Refresh Market Intelligence";
     runBtn.onclick=async function(){
       runBtn.disabled=true;runBtn.style.opacity="0.5";runBtn.textContent="Analyzing 50 areas with Groq AI…";
       miStatusEl.style.display="block";miStatusEl.textContent="Sending to Groq Llama 3.3-70b…";

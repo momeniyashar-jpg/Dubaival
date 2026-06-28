@@ -199,7 +199,7 @@ function renderPortfolio(){
       box.addEventListener("mouseenter",function(){box.style.transform="translateY(-2px)";box.style.boxShadow="0 6px 20px rgba(0,0,0,0.3)";box.style.borderColor="rgba(255,255,255,0.12)";});
       box.addEventListener("mouseleave",function(){box.style.transform="translateY(0)";box.style.boxShadow="none";box.style.borderColor="rgba(255,255,255,0.06)";});
       box.appendChild(lbl(item.l));
-      box.appendChild(span({color:item.c,fontSize:"17px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},item.v));
+      box.appendChild(span({color:item.c,fontSize:"17px",fontWeight:"700",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'",display:"block"},item.v));
       g1.appendChild(box);
     });
     sumCard.appendChild(g1);
@@ -208,10 +208,10 @@ function renderPortfolio(){
     var pnl=totalValue-totalPurchase;
     var avgSus=Math.round(metrics.reduce(function(s,a){var bd=DB[(a.building||"").toLowerCase()]||null;var ad=AREAS[a.area]||{psf:1800,sc:15};return s+computeSustainabilityScore(a.building||"",a.area||"",bd,ad).score;},0)/Math.max(1,metrics.length));
     var avgSusC=avgSus>=75?"#10B981":avgSus>=50?"#EAB308":avgSus>=35?"#F97316":"#EF4444";
-    [{l:"Assets",v:String(ps.assets.length),c:cl.white},{l:"Annual Rent",v:"AED "+totalRent.toLocaleString(),c:cl.white},{l:"Unrealized P&L",v:(pnl>=0?"+":"")+"AED "+pnl.toLocaleString(),c:pnl>=0?cl.green:cl.red},{l:"🌿 Sustainability",v:avgSus+"/100",c:avgSusC}].forEach(function(item){
+    [{l:"Assets",v:String(ps.assets.length),c:cl.white},{l:"Annual Rent",v:"AED "+totalRent.toLocaleString(),c:cl.white},{l:"Unrealized P&L",v:(pnl>=0?"+":"")+"AED "+pnl.toLocaleString(),c:pnl>=0?cl.green:cl.red},{l:"Sustainability",v:avgSus+"/100",c:avgSusC}].forEach(function(item){
       var box=div({background:cl.raised,borderRadius:"10px",padding:"10px 12px"});
       box.appendChild(lbl(item.l));
-      box.appendChild(span({color:item.c,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},item.v));
+      box.appendChild(span({color:item.c,fontSize:"13px",fontWeight:"700",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'",display:"block"},item.v));
       g2.appendChild(box);
     });
     sumCard.appendChild(g2);
@@ -289,7 +289,7 @@ function renderPortfolio(){
     if(metrics.length>0){
       var oaCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",position:"relative",overflow:"hidden"});
       oaCard.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,#F59E0B,#F59E0B,transparent)",animation:"shimmer 3s ease infinite"}));
-      oaCard.appendChild(span({color:"#F59E0B",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"⚡ Opportunity Alerts"));
+      oaCard.appendChild(span({color:"#F59E0B",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"Opportunity Alerts"));
       oaCard.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",display:"block",marginBottom:"16px"},"Hidden opportunities and actionable insights for your assets"));
 
       metrics.forEach(function(a){
@@ -310,7 +310,7 @@ function renderPortfolio(){
           var pct=Math.min(100,Math.round(holdMonths/recoveryMonths*100));
           alerts.push({
             type:recovered?"good":"warn",
-            icon:"🏛️",
+            icon:"",
             title:"DLD Fee Recovery",
             text:recovered?"DLD fees fully recovered after "+recoveryMonths+" months":recoveryMonths>120?"Recovery unlikely at current growth rate":recoveryMonths+" months to recover DLD fees ("+pct+"% done)",
             pct:pct
@@ -325,9 +325,9 @@ function renderPortfolio(){
         if(benchRent>0&&actualRent>0){
           var rentRatio=actualRent/benchRent*100;
           if(rentRatio<90){
-            alerts.push({type:"warn",icon:"📊",title:"Rent Optimization",text:"You may be under-renting by "+Math.round(100-rentRatio)+"% — benchmark: AED "+benchRent.toLocaleString()+"/yr vs current estimate AED "+actualRent.toLocaleString()+"/yr",pct:Math.round(rentRatio)});
+            alerts.push({type:"warn",icon:"",title:"Rent Optimization",text:"You may be under-renting by "+Math.round(100-rentRatio)+"% — benchmark: AED "+benchRent.toLocaleString()+"/yr vs current estimate AED "+actualRent.toLocaleString()+"/yr",pct:Math.round(rentRatio)});
           }else{
-            alerts.push({type:"good",icon:"📊",title:"Rent Optimization",text:"Rent is at "+Math.round(rentRatio)+"% of area benchmark — well optimized",pct:Math.min(100,Math.round(rentRatio))});
+            alerts.push({type:"good",icon:"",title:"Rent Optimization",text:"Rent is at "+Math.round(rentRatio)+"% of area benchmark — well optimized",pct:Math.min(100,Math.round(rentRatio))});
           }
         }
 
@@ -340,7 +340,7 @@ function renderPortfolio(){
         var bestTR=Math.max(tr1,tr3,tr5);
         var bestWindow=bestTR===tr1?"1 year":bestTR===tr3?"3 years":"5 years";
         var exitType=bestTR>=12?"good":bestTR>=8?"neutral":"warn";
-        alerts.push({type:exitType,icon:"📅",title:"Optimal Exit Window",text:"Best exit: "+bestWindow+" (total return "+bestTR.toFixed(1)+"%/yr) — 1yr: "+tr1.toFixed(1)+"% · 3yr: "+tr3.toFixed(1)+"% · 5yr: "+tr5.toFixed(1)+"%",pct:-1});
+        alerts.push({type:exitType,icon:"",title:"Optimal Exit Window",text:"Best exit: "+bestWindow+" (total return "+bestTR.toFixed(1)+"%/yr) — 1yr: "+tr1.toFixed(1)+"% · 3yr: "+tr3.toFixed(1)+"% · 5yr: "+tr5.toFixed(1)+"%",pct:-1});
 
         // 4) Equity Release Calculator
         if(pp>0&&cv>pp){
@@ -348,12 +348,12 @@ function renderPortfolio(){
           var mortgage=parseInt(a.mortgage)||0;
           var releasable=equity75-mortgage;
           if(releasable>0){
-            alerts.push({type:"good",icon:"💰",title:"Equity Release",text:"Releasable equity: AED "+releasable.toLocaleString()+" (at 75% LTV). Property grew +"+(a.m.roi>=0?a.m.roi.toFixed(0):0)+"% since purchase.",pct:-1});
+            alerts.push({type:"good",icon:"",title:"Equity Release",text:"Releasable equity: AED "+releasable.toLocaleString()+" (at 75% LTV). Property grew +"+(a.m.roi>=0?a.m.roi.toFixed(0):0)+"% since purchase.",pct:-1});
           }else{
-            alerts.push({type:"neutral",icon:"💰",title:"Equity Release",text:"No releasable equity yet — current LTV headroom insufficient. Keep holding for appreciation.",pct:-1});
+            alerts.push({type:"neutral",icon:"",title:"Equity Release",text:"No releasable equity yet — current LTV headroom insufficient. Keep holding for appreciation.",pct:-1});
           }
         }else if(pp>0){
-          alerts.push({type:"neutral",icon:"💰",title:"Equity Release",text:"Property has not appreciated beyond purchase price yet. Equity release not recommended.",pct:-1});
+          alerts.push({type:"neutral",icon:"",title:"Equity Release",text:"Property has not appreciated beyond purchase price yet. Equity release not recommended.",pct:-1});
         }
 
         // 5) Airbnb vs Long-term Rent Comparison (Phase 2)
@@ -362,15 +362,15 @@ function renderPortfolio(){
           var strAnnual=Math.round(strInfo.nightly*365*strInfo.occ*0.80);
           var strDiff=Math.round((strAnnual-actualRent)/actualRent*100);
           if(strDiff>30){
-            alerts.push({type:"good",icon:"🏨",title:"Airbnb Opportunity",text:"Short-term rental could increase income by "+strDiff+"% — STR estimate: AED "+strAnnual.toLocaleString()+"/yr ("+strInfo.nightly+" AED/night × "+Math.round(strInfo.occ*100)+"% occ × 80% net) vs long-term: AED "+actualRent.toLocaleString()+"/yr",pct:-1});
+            alerts.push({type:"good",icon:"",title:"Airbnb Opportunity",text:"Short-term rental could increase income by "+strDiff+"% — STR estimate: AED "+strAnnual.toLocaleString()+"/yr ("+strInfo.nightly+" AED/night × "+Math.round(strInfo.occ*100)+"% occ × 80% net) vs long-term: AED "+actualRent.toLocaleString()+"/yr",pct:-1});
           }else if(strDiff>0){
-            alerts.push({type:"neutral",icon:"🏨",title:"Airbnb vs Long-term",text:"STR premium only "+strDiff+"% — marginal after management hassle. Long-term rental is optimal. STR: AED "+strAnnual.toLocaleString()+"/yr vs LTR: AED "+actualRent.toLocaleString()+"/yr",pct:-1});
+            alerts.push({type:"neutral",icon:"",title:"Airbnb vs Long-term",text:"STR premium only "+strDiff+"% — marginal after management hassle. Long-term rental is optimal. STR: AED "+strAnnual.toLocaleString()+"/yr vs LTR: AED "+actualRent.toLocaleString()+"/yr",pct:-1});
           }else{
-            alerts.push({type:"neutral",icon:"🏨",title:"Long-term Optimal",text:"Long-term rental is optimal for "+a.area+". STR estimate: AED "+strAnnual.toLocaleString()+"/yr vs LTR: AED "+actualRent.toLocaleString()+"/yr",pct:-1});
+            alerts.push({type:"neutral",icon:"",title:"Long-term Optimal",text:"Long-term rental is optimal for "+a.area+". STR estimate: AED "+strAnnual.toLocaleString()+"/yr vs LTR: AED "+actualRent.toLocaleString()+"/yr",pct:-1});
           }
         }else if(strInfo){
           var strEst=Math.round(strInfo.nightly*365*strInfo.occ*0.80);
-          alerts.push({type:"neutral",icon:"🏨",title:"STR Potential",text:a.area+" STR estimate: AED "+strEst.toLocaleString()+"/yr ("+strInfo.nightly+" AED/night × "+Math.round(strInfo.occ*100)+"% occ). Compare with your rental income.",pct:-1});
+          alerts.push({type:"neutral",icon:"",title:"STR Potential",text:a.area+" STR estimate: AED "+strEst.toLocaleString()+"/yr ("+strInfo.nightly+" AED/night × "+Math.round(strInfo.occ*100)+"% occ). Compare with your rental income.",pct:-1});
         }
 
         // 6) Renovation ROI Estimator (Phase 2)
@@ -384,7 +384,7 @@ function renderPortfolio(){
             {l:"Full Renovation",costLo:500,costHi:800,valLo:15,valHi:22,desc:"Complete interior overhaul"}
           ];
           if(bGrade==="A+"||bGrade==="Ultra"){
-            alerts.push({type:"neutral",icon:"🔧",title:"Renovation ROI",text:"Limited renovation upside for "+bGrade+" grade. Premium properties have minimal value-add from renovations.",pct:-1});
+            alerts.push({type:"neutral",icon:"",title:"Renovation ROI",text:"Limited renovation upside for "+bGrade+" grade. Premium properties have minimal value-add from renovations.",pct:-1});
           }else{
             var bestLvl=null,bestRoi=0;
             levels.forEach(function(lv){
@@ -399,7 +399,7 @@ function renderPortfolio(){
               var renoLines=levels.map(function(lv){
                 var c=Math.round(sz*(lv.costLo+lv.costHi)/2);var v=Math.round(cv*(lv.valLo+lv.valHi)/2*gradeMulti/100);return lv.l+": AED "+c.toLocaleString()+" cost → +AED "+v.toLocaleString()+" value ("+Math.round(v/c*100)+"% ROI)";
               }).join(" · ");
-              alerts.push({type:renoType,icon:"🔧",title:"Renovation ROI — Best: "+bestLvl.name,text:renoLines+" · Grade "+bGrade+" "+(gradeMulti>1?"(higher upside)":"")+" · Payback: "+bestLvl.payback,pct:-1});
+              alerts.push({type:renoType,icon:"",title:"Renovation ROI — Best: "+bestLvl.name,text:renoLines+" · Grade "+bGrade+" "+(gradeMulti>1?"(higher upside)":"")+" · Payback: "+bestLvl.payback,pct:-1});
             }
           }
         }
@@ -410,7 +410,7 @@ function renderPortfolio(){
         if(Date.now()-prevNotifTs>86400000){
           alerts.forEach(function(al){
             if(al.type==="warn"&&al.title.indexOf("Rent")!==-1){
-              addNotification("📊","Rent optimization opportunity for your "+a.area+" property","portfolio");
+              addNotification("","Rent optimization opportunity for your "+a.area+" property","portfolio");
               try{localStorage.setItem(notifKey,String(Date.now()));}catch(e){}
             }
           });
@@ -694,7 +694,7 @@ function renderPortfolio(){
       var susC=susS.score>=75?"#10B981":susS.score>=50?"#EAB308":susS.score>=35?"#F97316":"#EF4444";
       var susRow=div({background:hexAlpha(susC,0.06),border:"1px solid "+hexAlpha(susC,0.2),borderRadius:"10px",padding:"10px 12px",marginBottom:"10px"});
       susRow.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"},[
-        div({display:"flex",alignItems:"center",gap:"6px"},[span({fontSize:"13px"},"🌿"),span({color:susC,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"Sustainability Score")]),
+        div({display:"flex",alignItems:"center",gap:"6px"},[span({fontSize:"13px"},""),span({color:susC,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"Sustainability Score")]),
         div({display:"flex",alignItems:"center",gap:"6px"},[span({color:susC,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},String(susS.score)),span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},susS.tier)])
       ]));
       [{l:"Age/Grade",v:susS.age},{l:"SC Efficiency",v:susS.scEff},{l:"Green Area",v:susS.green},{l:"Liquidity",v:susS.liq}].forEach(function(fc){
@@ -742,7 +742,7 @@ function renderPortfolio(){
 
     // AI Smart Bar for Portfolio
     formCard.appendChild(renderSmartBar({
-      stateKey:"_aiPortfolio",histKey:"dv_smart_portfolio",title:"✨ AI Portfolio Parser",subtitle:"Describe your investment — AI fills the form",
+      stateKey:"_aiPortfolio",histKey:"dv_smart_portfolio",title:"AI Portfolio Parser",subtitle:"Describe your investment — AI fills the form",
       placeholder:"e.g. Bought 2BR in Downtown for 2.5M in March 2023, furnished, floor 34, Burj view",
       examples:["Bought Studio in JLT for 650K, 2024","3BR villa DAMAC Hills, 3200sqft, 4.2M, 2022"],
       sysPrompt:'You are a Dubai real estate portfolio parser. Extract these fields and return ONLY a JSON object: {"building":null,"area":null,"propType":null,"beds":null,"size_sqft":null,"floor":null,"view":null,"furnished":null,"purchasePrice":null,"purchaseDate":null,"parking":null,"bathrooms":null,"serviceCharge":null}. propType: Apartment/Villa/Townhouse. beds: "Studio","1 BR","2 BR" etc. purchaseDate: YYYY-MM format. If not mentioned set to null. Parse Arabic: اشتريت=bought, غرفتين=2 BR, مفروش=Furnished, فيلا=Villa, مارينا=Dubai Marina.',
