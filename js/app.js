@@ -1,5 +1,25 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- RENDER -------------------------------------------------------------------
+function wrapHScroll(scrollEl){
+  var wrap=el("div",{style:{position:"relative"}});
+  wrap.className="dv-hscroll-wrap";
+  wrap.appendChild(scrollEl);
+  var bar=el("div",{});bar.className="dv-hscroll-bar";
+  var thumb=el("div",{});thumb.className="dv-hscroll-thumb";
+  bar.appendChild(thumb);wrap.appendChild(bar);
+  function sync(){
+    var sw=scrollEl.scrollWidth,cw=scrollEl.clientWidth;
+    if(sw<=cw){bar.style.display="none";wrap.classList.add("scrolled-end");return;}
+    bar.style.display="block";
+    var ratio=cw/sw;var thumbW=Math.max(20,ratio*100);
+    thumb.style.width=thumbW+"%";
+    thumb.style.left=((scrollEl.scrollLeft/(sw-cw))*(100-thumbW))+"%";
+    wrap.classList.toggle("scrolled-end",scrollEl.scrollLeft+cw>=sw-2);
+  }
+  scrollEl.addEventListener("scroll",sync,{passive:true});
+  setTimeout(sync,100);
+  return wrap;
+}
 var _sentimentCache={};
 async function fetchMarketSentiment(area){
   if(_sentimentCache[area]&&Date.now()-_sentimentCache[area].ts<3600000)return _sentimentCache[area].data;
@@ -1276,7 +1296,7 @@ function renderHome(){
   wrap.appendChild(ctaBar);
 
   // --- Quick Actions Grid (app-style circular icons) ---
-  var qaLabel=el("div",{style:{fontSize:"11px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"}});
+  var qaLabel=el("div",{style:{fontSize:"12px",color:"#9AABBB",fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"}});
   qaLabel.textContent="Quick Actions";
   wrap.appendChild(qaLabel);
   var qaScroll=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"12px",marginBottom:"28px"}});
@@ -1318,7 +1338,7 @@ function renderHome(){
   var avgYield=yieldCount>0?(totalYield/yieldCount).toFixed(1):0;
   var dbCount=Object.keys(DB).length;
 
-  var snapLabel=el("div",{style:{fontSize:"11px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"}});
+  var snapLabel=el("div",{style:{fontSize:"12px",color:"#9AABBB",fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"}});
   snapLabel.textContent="Market Snapshot";
   wrap.appendChild(snapLabel);
 
@@ -1326,7 +1346,7 @@ function renderHome(){
   [{l:"Avg PSF",v:"AED "+avgPSF.toLocaleString(),c:"#D4AF37"},{l:"Avg Yield",v:avgYield+"%",c:"#10B981"},{l:"Properties",v:dbCount.toLocaleString(),c:"#3B82F6"}].forEach(function(s){
     var sc=el("div",{style:{background:"rgba(255,255,255,0.04)",borderRadius:"14px",padding:"14px 12px",border:"1px solid rgba(255,255,255,0.06)"}});
     sc.appendChild(div({fontSize:"18px",fontWeight:"800",color:s.c,fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'",marginBottom:"4px"},s.v));
-    sc.appendChild(div({fontSize:"10px",color:cl.sub,fontWeight:"600",fontFamily:"'Inter',sans-serif",textTransform:"uppercase",letterSpacing:"0.04em"},s.l));
+    sc.appendChild(div({fontSize:"11px",color:"#9AABBB",fontWeight:"600",fontFamily:"'Inter',sans-serif",textTransform:"uppercase",letterSpacing:"0.04em"},s.l));
     statsRow.appendChild(sc);
   });
   wrap.appendChild(statsRow);
@@ -1334,7 +1354,7 @@ function renderHome(){
   // --- Top Movers ---
   if(movers.length>0){
     var moverCard=el("div",{style:{background:"rgba(255,255,255,0.04)",borderRadius:"16px",padding:"16px",marginBottom:"20px",border:"1px solid rgba(255,255,255,0.06)"}});
-    moverCard.appendChild(div({fontSize:"11px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"12px"},"Top Movers"));
+    moverCard.appendChild(div({fontSize:"12px",color:"#9AABBB",fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"12px"},"Top Movers"));
     movers.slice(0,5).forEach(function(m,i){
       var row=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<4?"1px solid rgba(255,255,255,0.04)":"none"}});
       var rowLeft=el("div",{style:{display:"flex",alignItems:"center",gap:"10px"}});
@@ -1344,7 +1364,7 @@ function renderHome(){
       rowLeft.appendChild(span({color:"#E8EDF5",fontSize:"13px",fontFamily:"'Inter',sans-serif",fontWeight:"500"},m.name));
       row.appendChild(rowLeft);
       var rowRight=el("div",{style:{display:"flex",alignItems:"center",gap:"10px"}});
-      rowRight.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'"},m.psf.toLocaleString()+" PSF"));
+      rowRight.appendChild(span({color:"#9AABBB",fontSize:"12px",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'"},m.psf.toLocaleString()+" PSF"));
       var growthColor=m.growth>0?"#10B981":"#EF4444";
       var growthBg=m.growth>0?"rgba(16,185,129,0.1)":"rgba(239,68,68,0.1)";
       var growthBadge=el("div",{style:{background:growthBg,borderRadius:"8px",padding:"3px 8px",fontSize:"12px",fontWeight:"700",color:growthColor,fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'"}});
@@ -1363,7 +1383,7 @@ function renderHome(){
   }
 
   // --- Feature Cards (horizontal scroll) ---
-  var featLabel=el("div",{style:{fontSize:"11px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"}});
+  var featLabel=el("div",{style:{fontSize:"12px",color:"#9AABBB",fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"}});
   featLabel.textContent="Explore";
   wrap.appendChild(featLabel);
   var featScroll=el("div",{style:{display:"flex",gap:"12px",overflowX:"auto",paddingBottom:"8px",scrollSnapType:"x mandatory",WebkitOverflowScrolling:"touch"}});
@@ -1386,14 +1406,14 @@ function renderHome(){
     fc.addEventListener("mouseleave",function(){fc.style.background="rgba(255,255,255,0.04)";fc.style.borderColor="rgba(255,255,255,0.06)";});
     featScroll.appendChild(fc);
   });
-  wrap.appendChild(featScroll);
+  wrap.appendChild(wrapHScroll(featScroll));
 
   // --- Portfolio Summary ---
   var portfolioAssets=[];
   try{portfolioAssets=JSON.parse(localStorage.getItem("dubaival_portfolio")||"[]");}catch(e){}
 
   var pfSection=el("div",{style:{marginTop:"24px"}});
-  pfSection.appendChild(div({fontSize:"11px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"},"Your Portfolio"));
+  pfSection.appendChild(div({fontSize:"12px",color:"#9AABBB",fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"},"Your Portfolio"));
 
   var pfCard=el("div",{style:{background:"rgba(255,255,255,0.04)",borderRadius:"16px",padding:"18px",border:"1px solid rgba(255,255,255,0.06)",marginBottom:"20px"}});
   if(portfolioAssets.length>0){
@@ -1428,7 +1448,7 @@ function renderHome(){
   try{recent=JSON.parse(localStorage.getItem("dubaival_recent")||"[]");}catch(e){}
   if(recent.length>0){
     var recentSec=el("div",{style:{marginBottom:"20px"}});
-    recentSec.appendChild(div({fontSize:"11px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"},"Recent Activity"));
+    recentSec.appendChild(div({fontSize:"12px",color:"#9AABBB",fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"},"Recent Activity"));
     var recentCard=el("div",{style:{background:"rgba(255,255,255,0.04)",borderRadius:"16px",border:"1px solid rgba(255,255,255,0.06)",overflow:"hidden"}});
     recent.slice(0,5).forEach(function(r,i){
       var row=el("div",{style:{display:"flex",alignItems:"center",gap:"12px",padding:"14px 16px",borderBottom:i<Math.min(recent.length,5)-1?"1px solid rgba(255,255,255,0.04)":"none"}});
@@ -1684,7 +1704,7 @@ function render(preserveScroll){
       p.addEventListener("click",function(){setSection(currentSection,sub.id);});
       pillBar.appendChild(p);
     });
-    main.appendChild(pillBar);
+    main.appendChild(wrapHScroll(pillBar));
   }
 
   // Content area
