@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
 const WWW = path.join(ROOT, 'www');
@@ -272,3 +273,16 @@ if (fs.existsSync(path.join(ROOT, 'logo.png'))) {
 });
 
 console.log('\n✅ Build complete — ' + fs.readdirSync(path.join(WWW, 'js')).length + ' JS files copied');
+
+// Auto-sync to Android project if it exists
+const androidDir = path.join(ROOT, 'android');
+if (fs.existsSync(androidDir)) {
+  console.log('\n📱 Syncing to Android project...');
+  try {
+    execSync('npx cap sync android', { cwd: ROOT, stdio: 'inherit' });
+    console.log('✅ Android sync complete — APK will use the latest files');
+  } catch (e) {
+    console.error('⚠️  cap sync failed:', e.message);
+    console.log('Run manually: npx cap sync android');
+  }
+}
