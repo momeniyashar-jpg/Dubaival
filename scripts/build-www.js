@@ -28,7 +28,7 @@ let html = fs.readFileSync(path.join(WWW, 'index.html'), 'utf8');
 // Viewport: add viewport-fit for notch/punch-hole, disable zoom for app feel
 html = html.replace(
   'width=device-width, initial-scale=1.0',
-  'width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no'
+  'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'
 );
 
 // Native app CSS overrides — fixes scroll, safe areas, touch, keyboard
@@ -45,7 +45,7 @@ body{height:auto!important;min-height:100vh!important;
   overscroll-behavior-x:none!important;overscroll-behavior-y:auto!important;
   -webkit-overflow-scrolling:touch!important;
   -webkit-text-size-adjust:100%!important;
-  padding-top:env(safe-area-inset-top)!important;
+  padding-top:0!important;
   padding-bottom:0!important;
 }
 

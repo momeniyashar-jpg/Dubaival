@@ -2,8 +2,11 @@ package com.dubaival.app;
 
 import android.os.Bundle;
 import android.view.View;
-import android.webkit.WebSettings;
 import android.webkit.WebView;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -11,25 +14,31 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // CRITICAL: Tell Android the app handles its own insets —
+        // prevents edge-to-edge from extending WebView behind system bars
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+
         WebView webView = getBridge().getWebView();
-        WebSettings settings = webView.getSettings();
 
-        // Use viewport meta tag for proper mobile sizing
-        settings.setUseWideViewPort(true);
-        settings.setLoadWithOverviewMode(true);
-        settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING);
+        // Force exactly 100% zoom — no viewport expansion
+        webView.setInitialScale(100);
 
-        // Disable horizontal scrolling at the WebView level
+        // Scrollbars render as overlay — don't consume layout width
+        webView.setScrollBarStyle(WebView.SCROLLBARS_INSIDE_OVERLAY);
         webView.setHorizontalScrollBarEnabled(false);
         webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
 
-        // Force any horizontal scroll back to 0
-        webView.setOnScrollChangeListener(new View.OnScrollChangeListener() {
-            @Override
-            public void onScrollChange(View v, int scrollX, int scrollY, int oldScrollX, int oldScrollY) {
-                if (scrollX != 0) {
-                    webView.scrollTo(0, scrollY);
-                }
+        // Apply system bar insets as padding so content never goes behind side bars
+        ViewCompat.setOnApplyWindowInsetsListener(webView, (v, insets) -> {
+            Insets sys = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(sys.left, 0, sys.right, 0);
+            return WindowInsetsCompat.CONSUMED;
+        });
+
+        // Hard lock: kill any horizontal scroll
+        webView.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
+            if (scrollX != 0) {
+                webView.scrollTo(0, scrollY);
             }
         });
     }
