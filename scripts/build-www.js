@@ -36,10 +36,11 @@ html = html.replace(
   `<style id="cap-native-css">
 /* --- Capacitor Native App Overrides --- */
 
-/* FIX SCROLL: override height:100% on html/body so content can scroll naturally */
-html{height:auto!important}
+/* Global box-sizing + prevent horizontal overflow */
+*,*::before,*::after{box-sizing:border-box!important}
+html{height:auto!important;overflow-x:hidden!important;max-width:100vw!important}
 body{height:auto!important;min-height:100vh!important;
-  overflow-y:auto!important;overflow-x:hidden!important;
+  overflow-y:auto!important;overflow-x:hidden!important;max-width:100vw!important;
   overscroll-behavior-x:none!important;overscroll-behavior-y:auto!important;
   -webkit-overflow-scrolling:touch!important;
   -webkit-text-size-adjust:100%!important;
@@ -61,8 +62,11 @@ img,a{-webkit-user-drag:none}
   padding-bottom:env(safe-area-inset-bottom)!important}
 
 /* Content div: disable internal scroll container, let body scroll */
-.dv-content{overflow:visible!important;flex:none!important;height:auto!important;
-  min-height:auto!important;-webkit-overflow-scrolling:auto!important}
+.dv-content{overflow:visible!important;overflow-x:hidden!important;flex:none!important;height:auto!important;
+  min-height:auto!important;-webkit-overflow-scrolling:auto!important;max-width:100vw!important;width:100%!important}
+
+/* Prevent any child from exceeding viewport width */
+#app>div,#app>div>div,.dv-content>div{max-width:100vw!important;overflow-x:hidden!important}
 
 /* Bottom tabs: account for safe area on notch phones */
 .dv-bottom-tabs{
