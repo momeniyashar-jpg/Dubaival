@@ -189,6 +189,17 @@ html = html.replace(
     }
 
     render();
+
+    // Fix viewport overflow: clamp any element wider than screen
+    setTimeout(function(){
+      var vw=document.documentElement.clientWidth;
+      document.querySelectorAll('*').forEach(function(el){
+        if(el.scrollWidth>vw){
+          el.style.maxWidth='100vw';
+          el.style.overflowX='hidden';
+        }
+      });
+    },300);
   }
 
   if(document.readyState==='loading'){
