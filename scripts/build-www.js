@@ -66,16 +66,13 @@ img,a{-webkit-user-drag:none}
 .dv-content{overflow-y:visible!important;overflow-x:hidden!important;flex:none!important;height:auto!important;
   min-height:auto!important;-webkit-overflow-scrolling:auto!important;max-width:100%!important;width:100%!important}
 
-/* Prevent any child from exceeding viewport width */
-#app,#app>div,#app>div>div,.dv-content,.dv-content>div,.dv-content>div>div,.dv-content>div>div>div{
-  max-width:100%!important;overflow-x:hidden!important;word-break:break-word!important}
-/* Force ALL elements to never exceed screen width */
-*{box-sizing:border-box!important}
-html,body,#app,.dv-layout,.dv-main,.dv-content{width:100%!important;max-width:100%!important;overflow-x:hidden!important}
 /* Flex/grid children: allow shrinking below content size */
-.dv-layout>*,.dv-main>*,.dv-content>*,.dv-content>div>*{min-width:0!important;max-width:100%!important}
+.dv-layout>*,.dv-main>*{min-width:0!important;max-width:100%!important}
 /* Hero card decorations: clip within parent */
-.dv-hero-cards-container,.dv-hero-grid,[style*="overflow: hidden"],[style*="overflow:hidden"]{overflow:hidden!important}
+.dv-hero-cards-container,.dv-hero-grid{overflow:hidden!important}
+/* Allow horizontal scroll in sub-tabs and scroll containers */
+.dv-subtabs{overflow-x:auto!important;max-width:100%!important}
+[style*="overflow-x: auto"],[style*="overflow-x:auto"],[style*="overflowX"]{overflow-x:auto!important}
 
 /* Bottom tabs: account for safe area on notch phones */
 .dv-bottom-tabs{
@@ -108,17 +105,7 @@ a,button,.dv-sidebar-item,.dv-pill,.dv-bottom-tab,.dv-tool-btn{
 
 /* Force multi-column grids to wrap on narrow screens */
 @media(max-width:500px){
-  [style*="grid-template-columns"]{
-    grid-template-columns:repeat(auto-fit,minmax(min(140px,100%),1fr))!important;
-  }
   .dv-subtabs{grid-template-columns:unset!important}
-}
-
-/* Absolutely prevent ANY element from exceeding viewport */
-*{max-width:100%!important}
-html,body,#app,.dv-layout,.dv-main,.dv-content,
-#app>div,#app>div>div,.dv-content>div{
-  max-width:100%!important;overflow-x:hidden!important;
 }
 
 /* Status bar space (Android with overlay) */
