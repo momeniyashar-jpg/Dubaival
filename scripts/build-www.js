@@ -66,7 +66,13 @@ img,a{-webkit-user-drag:none}
   min-height:auto!important;-webkit-overflow-scrolling:auto!important;max-width:100vw!important;width:100%!important}
 
 /* Prevent any child from exceeding viewport width */
-#app>div,#app>div>div,.dv-content>div{max-width:100vw!important;overflow-x:hidden!important}
+#app,#app>div,#app>div>div,.dv-content,.dv-content>div,.dv-content>div>div,.dv-content>div>div>div{
+  max-width:100vw!important;overflow-x:hidden!important;word-break:break-word!important}
+/* Force all grid/flex containers to stay within bounds */
+[style*="display: grid"],[style*="display:grid"],[style*="display: flex"],[style*="display:flex"]{
+  max-width:100%!important;overflow-x:auto!important}
+/* Force all elements to respect viewport */
+div,section,article{max-width:100vw!important}
 
 /* Bottom tabs: account for safe area on notch phones */
 .dv-bottom-tabs{
