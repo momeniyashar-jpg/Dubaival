@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- AUTH MODULE ---
-var DV_AUTH={user:null,profile:null,loading:true,showModal:false,modalTab:"signin",error:"",busy:false,loginSuccess:false,successName:""};
+var DV_AUTH={user:null,profile:null,loading:true,showModal:false,modalTab:"signup",error:"",busy:false,loginSuccess:false,successName:""};
 
 function sbHeaders(token){
   var h={"apikey":SUPABASE_KEY,"Content-Type":"application/json"};
@@ -114,7 +114,7 @@ async function dvSignOut(){
   var token=localStorage.getItem("dv_access_token");
   if(token)try{await fetch(SUPABASE_URL+"/auth/v1/logout",{method:"POST",headers:sbHeaders(token)});}catch(e){}
   localStorage.removeItem("dv_access_token");localStorage.removeItem("dv_refresh_token");localStorage.removeItem("dv_user");
-  DV_AUTH.user=null;DV_AUTH.profile=null;render();
+  DV_AUTH.user=null;DV_AUTH.profile=null;DV_AUTH.modalTab="signin";render();
 }
 
 async function setAuthSession(data){
@@ -327,9 +327,6 @@ function renderAuthModal(){
 
   var overlay=el("div",{});
   overlay.className="dv-login-overlay";
-  overlay.addEventListener("click",function(e){
-    if(e.target===overlay&&!DV_AUTH.loginSuccess){DV_AUTH.showModal=false;DV_AUTH.error="";render();}
-  });
 
   var card=el("div",{});
   card.className="dv-login-card";

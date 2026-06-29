@@ -1545,6 +1545,26 @@ function render(preserveScroll){
     }
     return;
   }
+
+  // --- AUTH GATE: block app behind Sign Up / Sign In until authenticated ---
+  if(typeof DV_AUTH!=="undefined"){
+    var gateApp=document.getElementById("app");
+    if(DV_AUTH.loading){
+      gateApp.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#070B14;gap:16px"><div style="width:40px;height:40px;border-radius:50%;border:2px solid #1C2030;border-top-color:#D4AF37;animation:spin 0.8s linear infinite"></div></div>';
+      return;
+    }
+    if(!DV_AUTH.user){
+      gateApp.innerHTML="";
+      gateApp.style.cssText="background:#070B14;min-height:100vh;";
+      DV_AUTH.showModal=true;
+      if(typeof renderAuthModal==="function"){
+        var gateModal=renderAuthModal();
+        if(gateModal)gateApp.appendChild(gateModal);
+      }
+      return;
+    }
+  }
+
   document.documentElement.dir=isRTL()?"rtl":"ltr";
   document.documentElement.lang=isRTL()?"ar":"en";
   if(isRTL())document.body.style.fontFamily="Cairo,'Space Grotesk',monospace";
