@@ -55,22 +55,26 @@ img,a{-webkit-user-drag:none}
 #app{overflow-y:visible!important;overflow-x:hidden!important;
   max-width:100%!important;min-height:100vh!important;height:auto!important}
 
-/* Layout: let content grow beyond viewport — body scrolls */
-.dv-layout{min-height:100vh!important;overflow:visible!important;height:auto!important}
+/* Layout: let content grow beyond viewport — body scrolls, but NEVER horizontally */
+.dv-layout{min-height:100vh!important;overflow-y:visible!important;overflow-x:hidden!important;height:auto!important;max-width:100%!important;width:100%!important}
 .dv-main{min-height:auto!important;height:auto!important;
-  overflow:visible!important;
+  overflow-y:visible!important;overflow-x:hidden!important;max-width:100%!important;width:100%!important;
   padding-bottom:env(safe-area-inset-bottom)!important}
 
 /* Content div: disable internal scroll container, let body scroll */
-.dv-content{overflow:visible!important;overflow-x:hidden!important;flex:none!important;height:auto!important;
+.dv-content{overflow-y:visible!important;overflow-x:hidden!important;flex:none!important;height:auto!important;
   min-height:auto!important;-webkit-overflow-scrolling:auto!important;max-width:100%!important;width:100%!important}
 
 /* Prevent any child from exceeding viewport width */
 #app,#app>div,#app>div>div,.dv-content,.dv-content>div,.dv-content>div>div,.dv-content>div>div>div{
   max-width:100%!important;overflow-x:hidden!important;word-break:break-word!important}
 /* Force ALL elements to never exceed screen width */
-*{max-width:100%!important;box-sizing:border-box!important;min-width:0!important}
-html,body,#app,.dv-layout,.dv-main,.dv-content{width:100%!important;max-width:100%!important;min-width:0!important;overflow-x:hidden!important}
+*{box-sizing:border-box!important}
+html,body,#app,.dv-layout,.dv-main,.dv-content{width:100%!important;max-width:100%!important;overflow-x:hidden!important}
+/* Flex/grid children: allow shrinking below content size */
+.dv-layout>*,.dv-main>*,.dv-content>*,.dv-content>div>*{min-width:0!important;max-width:100%!important}
+/* Hero card decorations: clip within parent */
+.dv-hero-cards-container,.dv-hero-grid,[style*="overflow: hidden"],[style*="overflow:hidden"]{overflow:hidden!important}
 
 /* Bottom tabs: account for safe area on notch phones */
 .dv-bottom-tabs{
@@ -100,6 +104,21 @@ body.keyboard-open .dv-main{padding-bottom:0!important}
 /* Tap highlight */
 a,button,.dv-sidebar-item,.dv-pill,.dv-bottom-tab,.dv-tool-btn{
   -webkit-tap-highlight-color:rgba(212,175,55,0.15)!important}
+
+/* Force multi-column grids to wrap on narrow screens */
+@media(max-width:500px){
+  [style*="grid-template-columns"]{
+    grid-template-columns:repeat(auto-fit,minmax(min(140px,100%),1fr))!important;
+  }
+  .dv-subtabs{grid-template-columns:unset!important}
+}
+
+/* Absolutely prevent ANY element from exceeding viewport */
+*{max-width:100%!important}
+html,body,#app,.dv-layout,.dv-main,.dv-content,
+#app>div,#app>div>div,.dv-content>div{
+  max-width:100%!important;overflow-x:hidden!important;
+}
 
 /* Status bar space (Android with overlay) */
 .dv-native-statusbar-pad{height:env(safe-area-inset-top);background:#070B14;position:fixed;top:0;left:0;right:0;z-index:9999}
@@ -188,7 +207,7 @@ html = html.replace(
 
     render();
 
-    // Fix viewport overflow: clamp any element wider than screen
+    // Fix viewport overflow: clamp elements + fix grids + lock horizontal scroll
     setTimeout(function(){
       var vw=document.documentElement.clientWidth;
       document.querySelectorAll('*').forEach(function(el){
@@ -196,8 +215,20 @@ html = html.replace(
           el.style.maxWidth='100%';
           el.style.overflowX='hidden';
         }
+        // Fix multi-column grids that overflow
+        var cs=window.getComputedStyle(el);
+        if((cs.display==='grid'||cs.display==='inline-grid')&&el.scrollWidth>vw){
+          el.style.gridTemplateColumns='repeat(auto-fit,minmax(min(140px,100%),1fr))';
+        }
       });
+      // Prevent horizontal scrolling entirely
+      window.scrollTo(0,window.scrollY);
     },300);
+
+    // Lock horizontal scroll — reset on any scroll event
+    document.addEventListener('scroll',function(){
+      if(window.scrollX!==0)window.scrollTo(0,window.scrollY);
+    },{passive:true});
   }
 
   if(document.readyState==='loading'){

@@ -1258,7 +1258,7 @@ function renderHome(){
   // --- 3 Hero Feature Cards with Gradient Blobs ---
   var heroContainer=el("div",{style:{position:"relative",marginBottom:"20px"}});
   heroContainer.className="dv-hero-cards-container";
-  var heroGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"14px",position:"relative",zIndex:"1"}});heroGrid.className="dv-hero-grid";
+  var heroGrid=el("div",{style:{display:"grid",gridTemplateColumns:window.innerWidth<500?"1fr":"repeat(3,1fr)",gap:"12px",position:"relative",zIndex:"1",overflow:"hidden"}});heroGrid.className="dv-hero-grid";
   var heroFeatures=[
     {icon:"search",title:"Analyze Any Property",desc:"AI valuation for 10,880+ properties across 347 areas",color:"#D4AF37",bg:"rgba(255,255,255,0.04)",border:"rgba(212,175,55,0.15)",sec:"Market",sub:"Analyzer",hoverBorder:"rgba(212,175,55,0.4)",hoverShadow:"rgba(212,175,55,0.12)",micro:"AI-powered valuation — price per sqft, rent estimate, yield, investment signal, and confidence score for any Dubai property",cta:"Start Analysis →"},
     {icon:"handshake",title:"Off-Market Deals",desc:"",color:"#10B981",bg:"rgba(255,255,255,0.04)",border:"rgba(16,185,129,0.15)",sec:"Network",sub:"Deals",countKey:"deals",hoverBorder:"rgba(16,185,129,0.4)",hoverShadow:"rgba(16,185,129,0.12)",micro:"Private owner-to-buyer deal board — browse exclusive listings, verified title deeds, direct contact with property owners",cta:"Browse Deals →"},
@@ -1266,7 +1266,7 @@ function renderHome(){
   ];
   heroFeatures.forEach(function(hf){
     var hCard=el("div",{style:{background:hf.bg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid "+hf.border,borderRadius:"16px",padding:"28px 20px",cursor:"pointer",transition:"transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease",position:"relative",overflow:"hidden",minHeight:"140px",display:"flex",flexDirection:"column",justifyContent:"space-between",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.04)"}});
-    var glow=el("div",{style:{position:"absolute",top:"-40px",right:"-40px",width:"120px",height:"120px",borderRadius:"50%",background:hf.color,opacity:"0.04",filter:"blur(40px)",pointerEvents:"none"}});
+    var glow=el("div",{style:{position:"absolute",top:"-20px",right:"-20px",width:"80px",height:"80px",borderRadius:"50%",background:hf.color,opacity:"0.04",filter:"blur(40px)",pointerEvents:"none"}});
     hCard.appendChild(glow);
     var topRow=el("div",{style:{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",position:"relative"}});
     var iconBox=el("div",{style:{width:"44px",height:"44px",borderRadius:"12px",background:"rgba(255,255,255,0.06)",border:"1px solid "+hf.border,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
@@ -1370,7 +1370,7 @@ function renderHome(){
   wrap.appendChild(el("div",{style:{height:"1px",background:"linear-gradient(90deg, transparent 0%, rgba(212,175,55,0.3) 50%, transparent 100%)",margin:"32px 0"}}));
 
   // --- Two-column: Portfolio + Quick Actions ---
-  var twoCol=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"16px",marginBottom:"16px"}});
+  var twoCol=el("div",{style:{display:"grid",gridTemplateColumns:window.innerWidth<500?"1fr":"1fr 1fr",gap:"12px",marginBottom:"16px"}});
 
   // Portfolio Summary
   var portfolioAssets=[];
@@ -1422,7 +1422,7 @@ function renderHome(){
   wrap.appendChild(twoCol);
 
   // --- Two-column: Alerts + Recent Activity ---
-  var bottomRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"16px"}});
+  var bottomRow=el("div",{style:{display:"grid",gridTemplateColumns:window.innerWidth<500?"1fr":"1fr 1fr",gap:"16px"}});
 
   // Active Alerts
   var alertCard=el("div",{style:{background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",boxShadow:cl.glassShadow}});
@@ -1570,7 +1570,7 @@ function render(preserveScroll){
   var cl=C();
   var app=document.getElementById("app");
   app.innerHTML="";
-  app.style.cssText="background:"+cl.bg+";min-height:100vh;color:"+cl.white+";overflow-x:hidden;max-width:100vw;";
+  app.style.cssText="background:"+cl.bg+";min-height:100vh;color:"+cl.white+";overflow-x:hidden;max-width:100%;width:100%;";
 
   if(!document.getElementById("dvGlobalStyles")){
     var gs=document.createElement("style");gs.id="dvGlobalStyles";

@@ -90,7 +90,7 @@ function renderMarket(){
     dSec.appendChild(hdr);
 
     // Row 1: 5 stat cards with count-up
-    var r1=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr',gap:'8px',marginBottom:'14px'}});
+    var r1=el('div',{style:{display:'grid',gridTemplateColumns:window.innerWidth<500?'repeat(auto-fit,minmax(100px,1fr))':'1fr 1fr 1fr 1fr 1fr',gap:'8px',marginBottom:'14px'}});
     [{l:'Buildings Tracked',v:bCnt,fmt:function(v){return v.toLocaleString();}},{l:'Areas Covered',v:aCnt,fmt:String},{l:'Avg PSF',v:avgPsf,fmt:function(v){return 'AED '+v.toLocaleString();}},{l:'Avg Yield',v:parseFloat(avgYield),fmt:function(v){return v.toFixed(1)+'%';}},{l:'Avg Growth 1Y',v:parseFloat(avgGr),fmt:function(v){return v.toFixed(1)+'%';}}].forEach(function(s){
       var card=el('div',{style:{background:'rgba(240,242,245,0.03)',border:'1px solid '+cl.border,borderRadius:'10px',padding:'10px 8px',textAlign:'center'}});
       card.appendChild(div({color:cl.sub,fontSize:'7.5px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'4px'},s.l));
@@ -237,7 +237,7 @@ function renderMarket(){
     aKeys.forEach(function(k){var a=AREAS[k];if(a.r1){sumR1+=a.r1;sumR2+=(a.r2||0);cntR++;}});
     var avgR1=cntR?Math.round(sumR1/cntR):0;
     var avgR2=cntR?Math.round(sumR2/cntR):0;
-    var r4=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:'8px',marginBottom:'12px'}});
+    var r4=el('div',{style:{display:'grid',gridTemplateColumns:window.innerWidth<500?'1fr 1fr':'1fr 1fr 1fr 1fr',gap:'8px',marginBottom:'12px'}});
     [{l:'Areas w/ Rental Data',v:String(cntR),c:'#8B5CF6'},{l:'Avg 1BR Rent',v:'AED '+avgR1.toLocaleString(),c:'#8B5CF6'},{l:'Avg 2BR Rent',v:'AED '+avgR2.toLocaleString(),c:'#8B5CF6'},{l:'Avg Monthly 1BR',v:'AED '+Math.round(avgR1/12).toLocaleString(),c:'#8B5CF6'}].forEach(function(s){
       var card=el('div',{style:{background:'rgba(139,92,246,0.04)',border:'1px solid rgba(139,92,246,0.15)',borderRadius:'10px',padding:'10px 8px',textAlign:'center'}});
       card.appendChild(div({color:cl.sub,fontSize:'7.5px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'4px'},s.l));
@@ -258,7 +258,7 @@ function renderMarket(){
     var landCnt=typeof DB_LAND!=="undefined"?Object.keys(DB_LAND).length:0;
     var comAreaCnt=typeof AREAS_COM!=="undefined"?Object.keys(AREAS_COM).length:0;
     var landAreaCnt=typeof AREAS_LAND!=="undefined"?Object.keys(AREAS_LAND).length:0;
-    var r5=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:'8px',marginBottom:'12px'}});
+    var r5=el('div',{style:{display:'grid',gridTemplateColumns:window.innerWidth<500?'1fr 1fr':'1fr 1fr 1fr 1fr',gap:'8px',marginBottom:'12px'}});
     [{l:'Commercial Properties',v:String(comCnt),c:'#3B82F6'},{l:'Commercial Areas',v:String(comAreaCnt),c:'#3B82F6'},{l:'Land Plots',v:String(landCnt),c:'#10B981'},{l:'Land Areas',v:String(landAreaCnt),c:'#10B981'}].forEach(function(s){
       var card=el('div',{style:{background:s.c==='#3B82F6'?'rgba(59,130,246,0.04)':'rgba(16,185,129,0.04)',border:'1px solid '+(s.c==='#3B82F6'?'rgba(59,130,246,0.15)':'rgba(16,185,129,0.15)'),borderRadius:'10px',padding:'10px 8px',textAlign:'center'}});
       card.appendChild(div({color:cl.sub,fontSize:'7.5px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'4px'},s.l));
@@ -289,7 +289,7 @@ function renderMarket(){
       momKeys.forEach(function(k){var m=MARKET_MOMENTUM[k];if(m.trend==="up")upCnt++;else if(m.trend==="down")downCnt++;else stableCnt++;});
       var momColor=overall&&overall.trend==="up"?"#10B981":overall&&overall.trend==="down"?"#EF4444":"#F59E0B";
       var momAge=overall&&overall.updated?Math.round((Date.now()-new Date(overall.updated).getTime())/(1000*60*60*24)):null;
-      var r6=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:'8px',marginBottom:'12px'}});
+      var r6=el('div',{style:{display:'grid',gridTemplateColumns:window.innerWidth<500?'1fr 1fr':'1fr 1fr 1fr 1fr',gap:'8px',marginBottom:'12px'}});
       [{l:'AI Tracked Areas',v:String(momKeys.length),c:momColor},{l:'Trending Up',v:String(upCnt),c:'#10B981'},{l:'Trending Down',v:String(downCnt),c:'#EF4444'},{l:'Data Age',v:momAge!==null?momAge+'d ago':'Live',c:momColor}].forEach(function(s){
         var card=el('div',{style:{background:hexAlpha(momColor,0.04),border:'1px solid '+hexAlpha(momColor,0.15),borderRadius:'10px',padding:'10px 8px',textAlign:'center'}});
         card.appendChild(div({color:cl.sub,fontSize:'7.5px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'4px'},s.l));
@@ -299,7 +299,7 @@ function renderMarket(){
       dSec.appendChild(r6);
       if(momKeys.length>0){
         var topMovers=momKeys.map(function(k){return{area:k,pct:MARKET_MOMENTUM[k].pct||0,trend:MARKET_MOMENTUM[k].trend};}).sort(function(a,b){return Math.abs(b.pct)-Math.abs(a.pct);}).slice(0,6);
-        var moverGrid=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'6px',marginBottom:'12px'}});
+        var moverGrid=el('div',{style:{display:'grid',gridTemplateColumns:window.innerWidth<500?'1fr 1fr':'1fr 1fr 1fr',gap:'6px',marginBottom:'12px'}});
         topMovers.forEach(function(m){
           var mc=m.trend==='up'?'#10B981':m.trend==='down'?'#EF4444':'#F59E0B';
           var card=el('div',{style:{background:cl.raised,borderRadius:'8px',padding:'8px',textAlign:'center'}});
