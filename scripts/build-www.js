@@ -262,10 +262,19 @@ console.log('\n✅ Build complete — ' + fs.readdirSync(path.join(WWW, 'js')).l
 // Auto-sync to Android project if it exists
 const androidDir = path.join(ROOT, 'android');
 if (fs.existsSync(androidDir)) {
-  console.log('\n📱 Syncing to Android project...');
+  // Auto-increment versionCode so APK installs over previous without uninstall
+  const versionFile = path.join(androidDir, 'app', 'version.properties');
+  let vCode = 1;
+  if (fs.existsSync(versionFile)) {
+    const m = fs.readFileSync(versionFile, 'utf8').match(/VERSION_CODE=(\d+)/);
+    if (m) vCode = parseInt(m[1]);
+  }
+  vCode++;
+  fs.writeFileSync(versionFile, 'VERSION_CODE=' + vCode + '\n');
+  console.log('\n📱 Syncing to Android project (versionCode=' + vCode + ')...');
   try {
     execSync('npx cap sync android', { cwd: ROOT, stdio: 'inherit' });
-    console.log('✅ Android sync complete — APK will use the latest files');
+    console.log('✅ Android sync complete — versionCode ' + vCode + ', install over previous APK without uninstall');
   } catch (e) {
     console.error('⚠️  cap sync failed:', e.message);
     console.log('Run manually: npx cap sync android');
