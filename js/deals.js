@@ -399,7 +399,7 @@ async function fetchMyInquiries(){
 }
 
 function renderDeals(){
-  var cl=C();var wrap=div({padding:"16px 20px",maxWidth:"640px",margin:"0 auto",paddingBottom:"90px"});
+  var cl=C();var wrap=div({padding:"12px",maxWidth:"640px",margin:"0 auto",paddingBottom:"90px",width:"100%",boxSizing:"border-box"});
   wrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"},[
     div({},[span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block"},"◆ Deal Network"),
       span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Agent-to-Agent · Off-Market Deals")]),

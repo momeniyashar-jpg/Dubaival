@@ -72,7 +72,7 @@ function getRentalAgentAIPrompt(propDesc,rv,mode,area){
 // --- MARKET TAB ---------------------------------------------------------------
 function renderMarket(){
   const cl=C();
-  const wrap=div({padding:"16px",maxWidth:"960px",margin:"0 auto"});
+  const wrap=div({padding:"12px",maxWidth:"960px",margin:"0 auto",width:"100%",boxSizing:"border-box"});
 
   // -- LIVE DASHBOARD --
   (function(){
