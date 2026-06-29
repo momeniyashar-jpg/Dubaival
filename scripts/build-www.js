@@ -68,11 +68,9 @@ img,a{-webkit-user-drag:none}
 /* Prevent any child from exceeding viewport width */
 #app,#app>div,#app>div>div,.dv-content,.dv-content>div,.dv-content>div>div,.dv-content>div>div>div{
   max-width:100vw!important;overflow-x:hidden!important;word-break:break-word!important}
-/* Force all grid/flex containers to stay within bounds */
-[style*="display: grid"],[style*="display:grid"],[style*="display: flex"],[style*="display:flex"]{
-  max-width:100%!important;overflow-x:auto!important}
-/* Force all elements to respect viewport */
-div,section,article{max-width:100vw!important}
+/* Force ALL elements to never exceed screen width */
+*{max-width:100%!important;box-sizing:border-box!important}
+html,body,#app,.dv-layout,.dv-main,.dv-content{width:100%!important;max-width:100%!important}
 
 /* Bottom tabs: account for safe area on notch phones */
 .dv-bottom-tabs{
