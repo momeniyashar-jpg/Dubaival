@@ -1578,7 +1578,7 @@ function render(preserveScroll){
     document.head.appendChild(gs);
   }
 
-  var layout=el("div",{style:{display:"flex",minHeight:"100vh"}});
+  var layout=el("div",{style:{display:"flex",minHeight:"100vh",maxWidth:"100vw",overflowX:"hidden",width:"100%"}});
 
   // --- SIDEBAR (desktop) ---
   var sbClass="dv-sidebar"+(sidebarCollapsed?" collapsed":"");
