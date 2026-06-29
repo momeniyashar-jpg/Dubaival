@@ -208,32 +208,6 @@ html = html.replace(
 
     render();
 
-    // DEBUG: Show viewport info as floating banner (TEMPORARY — remove after diagnosis)
-    setTimeout(function(){
-      var vw=document.documentElement.clientWidth;
-      var sw=document.documentElement.scrollWidth;
-      var bsw=document.body.scrollWidth;
-      var iw=window.innerWidth;
-      var dpr=window.devicePixelRatio;
-      var scw=screen.width;
-      var overflowEls=0;
-      document.querySelectorAll('*').forEach(function(el){
-        var r=el.getBoundingClientRect();
-        if(r.right>vw+2&&r.width>0&&el.offsetParent!==null){
-          var p=el.parentElement,c=false;
-          while(p&&p!==document.body){
-            if(getComputedStyle(p).overflowX==='hidden'&&p.getBoundingClientRect().right<=vw+2){c=true;break;}
-            p=p.parentElement;
-          }
-          if(!c)overflowEls++;
-        }
-      });
-      var dbg=document.createElement('div');
-      dbg.style.cssText='position:fixed;top:60px;left:4px;z-index:999999;background:rgba(0,0,0,0.9);color:#0f0;font:bold 11px monospace;padding:8px;border-radius:8px;border:1px solid #0f0;pointer-events:none;';
-      dbg.innerHTML='VW:'+vw+' SW:'+sw+' BSW:'+bsw+'<br>innerW:'+iw+' DPR:'+dpr+' screen:'+scw+'<br>overflow:'+overflowEls+(sw>vw?' ❌OVERFLOW':'  ✅OK');
-      document.body.appendChild(dbg);
-    },2000);
-
     // Fix viewport overflow: clamp elements + fix grids
     setTimeout(function(){
       var vw=document.documentElement.clientWidth;
