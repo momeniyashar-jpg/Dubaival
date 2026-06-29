@@ -213,21 +213,18 @@ function renderAuthModal(){
 function renderAuthButton(){
   var cl=C();
   if(DV_AUTH.user&&DV_AUTH.profile){
-    var wrap=el("div",{style:{display:"flex",alignItems:"center",gap:"6px"}});
-    var name=DV_AUTH.profile.display_name||DV_AUTH.user.email||"User";
-    if(name.length>12)name=name.substring(0,12)+"…";
-    var userBtn=el("button",{style:{background:"rgba(16,185,129,0.08)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid rgba(16,185,129,0.18)",borderRadius:"999px",padding:"5px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:"5px",color:"#10B981",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",boxShadow:"0 2px 12px rgba(0,0,0,0.2)"}});
-    userBtn.innerHTML="<i data-lucide='user' style='width:12px;height:12px;stroke-width:2'></i> "+name;
-    userBtn.addEventListener("click",function(){DV_AUTH.showModal=false;render();});
-    wrap.appendChild(userBtn);
-    var outBtn=el("button",{style:{background:"rgba(255,255,255,0.04)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid rgba(255,255,255,0.10)",borderRadius:"999px",padding:"4px 10px",cursor:"pointer",color:cl.sub,fontSize:"9px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace"}});
-    outBtn.textContent=t("auth_signout");
-    outBtn.addEventListener("click",function(){dvSignOut();});
-    wrap.appendChild(outBtn);
-    return wrap;
+    var syncBtn=el("button",{});
+    syncBtn.className="dv-icon-btn";
+    syncBtn.style.position="relative";
+    syncBtn.innerHTML='<i data-lucide="cloud" style="width:18px;height:18px;color:#10B981"></i>';
+    var syncDot=el("div",{style:{position:"absolute",top:"6px",right:"6px",width:"6px",height:"6px",borderRadius:"50%",background:"#10B981"}});
+    syncBtn.appendChild(syncDot);
+    syncBtn.addEventListener("click",function(){DV_AUTH.showModal=false;render();});
+    return syncBtn;
   }
-  var signinBtn=el("button",{style:{background:"rgba(99,102,241,0.10)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid rgba(99,102,241,0.18)",borderRadius:"999px",padding:"5px 14px",cursor:"pointer",color:"#818CF8",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",boxShadow:"0 2px 12px rgba(0,0,0,0.2)",letterSpacing:"0.04em"}});
-  signinBtn.textContent=t("auth_signin");
+  var signinBtn=el("button",{});
+  signinBtn.className="dv-icon-btn";
+  signinBtn.innerHTML='<i data-lucide="log-in" style="width:18px;height:18px;color:#6B7A9E"></i>';
   signinBtn.addEventListener("click",function(){DV_AUTH.showModal=true;DV_AUTH.modalTab="signin";DV_AUTH.error="";render();});
   return signinBtn;
 }

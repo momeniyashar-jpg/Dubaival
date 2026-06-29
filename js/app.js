@@ -1245,78 +1245,65 @@ var TAB_TO_SECTION={
 
 function renderHome(){
   var cl=C();
-  var wrap=el("div",{style:{padding:"12px",maxWidth:"960px",margin:"0 auto",width:"100%",boxSizing:"border-box"}});
+  var wrap=el("div",{style:{padding:"16px",maxWidth:"960px",margin:"0 auto",width:"100%",boxSizing:"border-box"}});
 
-  var hero=el("div",{style:{marginBottom:"24px"}});
+  // --- Greeting + Avatar Row ---
+  var heroRow=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"24px"}});
+  var heroLeft=el("div",{});
   var hr=new Date().getHours();
   var greeting="Good "+(hr<12?"Morning":hr<18?"Afternoon":"Evening");
-  if(USER_PROFILE.name)greeting+=", "+USER_PROFILE.name;
-  hero.appendChild(div({fontSize:"22px",fontWeight:"700",color:"#F0F2F5",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},greeting));
-  hero.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Dubai Real Estate Intelligence Dashboard"));
-  wrap.appendChild(hero);
+  heroLeft.appendChild(div({fontSize:"13px",color:cl.sub,fontFamily:"'Inter',sans-serif",fontWeight:"500",marginBottom:"2px"},greeting));
+  var userName=USER_PROFILE.name||"Explorer";
+  heroLeft.appendChild(div({fontSize:"24px",fontWeight:"800",color:"#F0F2F5",fontFamily:"'Space Grotesk',monospace",letterSpacing:"-0.02em"},userName));
+  heroRow.appendChild(heroLeft);
+  wrap.appendChild(heroRow);
 
-  // --- 3 Hero Feature Cards with Gradient Blobs ---
-  var heroContainer=el("div",{style:{position:"relative",marginBottom:"20px"}});
-  heroContainer.className="dv-hero-cards-container";
-  var heroGrid=el("div",{style:{display:"grid",gridTemplateColumns:window.innerWidth<500?"1fr":"repeat(3,1fr)",gap:"12px",position:"relative",zIndex:"1",overflow:"hidden"}});heroGrid.className="dv-hero-grid";
-  var heroFeatures=[
-    {icon:"search",title:"Analyze Any Property",desc:"AI valuation for 10,880+ properties across 347 areas",color:"#D4AF37",bg:"rgba(255,255,255,0.04)",border:"rgba(212,175,55,0.15)",sec:"Market",sub:"Analyzer",hoverBorder:"rgba(212,175,55,0.4)",hoverShadow:"rgba(212,175,55,0.12)",micro:"AI-powered valuation — price per sqft, rent estimate, yield, investment signal, and confidence score for any Dubai property",cta:"Start Analysis →"},
-    {icon:"handshake",title:"Off-Market Deals",desc:"",color:"#10B981",bg:"rgba(255,255,255,0.04)",border:"rgba(16,185,129,0.15)",sec:"Network",sub:"Deals",countKey:"deals",hoverBorder:"rgba(16,185,129,0.4)",hoverShadow:"rgba(16,185,129,0.12)",micro:"Private owner-to-buyer deal board — browse exclusive listings, verified title deeds, direct contact with property owners",cta:"Browse Deals →"},
-    {icon:"video",title:"AI Media Studio",desc:"35+ AI Tools",color:"#8B5CF6",bg:"rgba(255,255,255,0.04)",border:"rgba(139,92,246,0.15)",sec:"Network",sub:"MediaStudio",hoverBorder:"rgba(139,92,246,0.4)",hoverShadow:"rgba(139,92,246,0.12)",micro:"35+ professional tools — AI video creator, post designer, content calendar, hashtag intelligence, avatar studio, and more",cta:"Open Studio →"}
+  // --- Primary CTA: Analyze Property ---
+  var ctaBar=el("div",{style:{background:"rgba(255,255,255,0.04)",borderRadius:"16px",padding:"16px",marginBottom:"24px",cursor:"pointer",display:"flex",alignItems:"center",gap:"14px",transition:"all 0.2s ease",border:"1px solid rgba(255,255,255,0.06)"}});
+  ctaBar.addEventListener("click",function(){setSection("Market","Analyzer");});
+  var ctaIcon=el("div",{style:{width:"48px",height:"48px",borderRadius:"14px",background:"linear-gradient(135deg,rgba(212,175,55,0.2),rgba(212,175,55,0.05))",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
+  ctaIcon.innerHTML='<i data-lucide="search" style="width:22px;height:22px;color:#D4AF37"></i>';
+  ctaBar.appendChild(ctaIcon);
+  var ctaText=el("div",{style:{flex:"1"}});
+  ctaText.appendChild(div({fontSize:"15px",fontWeight:"700",color:"#F0F2F5",fontFamily:"'Inter',sans-serif",marginBottom:"2px"},"Analyze Property"));
+  ctaText.appendChild(div({fontSize:"12px",color:cl.sub,fontFamily:"'Inter',sans-serif"},"AI valuation for 10,880+ properties"));
+  ctaBar.appendChild(ctaText);
+  var ctaArrow=el("div",{style:{color:"#4A5568",flexShrink:"0"}});
+  ctaArrow.innerHTML='<i data-lucide="chevron-right" style="width:20px;height:20px"></i>';
+  ctaBar.appendChild(ctaArrow);
+  ctaBar.addEventListener("mouseenter",function(){ctaBar.style.background="rgba(255,255,255,0.06)";ctaBar.style.borderColor="rgba(212,175,55,0.15)";});
+  ctaBar.addEventListener("mouseleave",function(){ctaBar.style.background="rgba(255,255,255,0.04)";ctaBar.style.borderColor="rgba(255,255,255,0.06)";});
+  wrap.appendChild(ctaBar);
+
+  // --- Quick Actions Grid (app-style circular icons) ---
+  var qaLabel=el("div",{style:{fontSize:"11px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"}});
+  qaLabel.textContent="Quick Actions";
+  wrap.appendChild(qaLabel);
+  var qaScroll=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"12px",marginBottom:"28px"}});
+  var qaItems=[
+    {icon:"scan-search",l:"Search",c:"#3B82F6",sec:"Market",sub:"Find"},
+    {icon:"handshake",l:"Deals",c:"#10B981",sec:"Network",sub:"Deals"},
+    {icon:"bar-chart-3",l:"Index",c:"#8B5CF6",sec:"Market",sub:"Index"},
+    {icon:"scale",l:"Compare",c:"#F59E0B",sec:"Market",sub:"Compare"},
+    {icon:"briefcase",l:"Portfolio",c:"#3B82F6",sec:"Portfolio",sub:"Assets"},
+    {icon:"map",l:"Map",c:"#10B981",sec:"Market",sub:"Map"},
+    {icon:"video",l:"Studio",c:"#8B5CF6",sec:"Network",sub:"MediaStudio"},
+    {icon:"zap",l:"Quick Val",c:"#D4AF37",sec:"Market",sub:"QuickCheck"}
   ];
-  heroFeatures.forEach(function(hf){
-    var hCard=el("div",{style:{background:hf.bg,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid "+hf.border,borderRadius:"16px",padding:"28px 20px",cursor:"pointer",transition:"transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease",position:"relative",overflow:"hidden",minHeight:"140px",display:"flex",flexDirection:"column",justifyContent:"space-between",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.04)"}});
-    var glow=el("div",{style:{position:"absolute",top:"-20px",right:"-20px",width:"80px",height:"80px",borderRadius:"50%",background:hf.color,opacity:"0.04",filter:"blur(40px)",pointerEvents:"none"}});
-    hCard.appendChild(glow);
-    var topRow=el("div",{style:{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",position:"relative"}});
-    var iconBox=el("div",{style:{width:"44px",height:"44px",borderRadius:"12px",background:"rgba(255,255,255,0.06)",border:"1px solid "+hf.border,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
-    iconBox.innerHTML='<i data-lucide="'+hf.icon+'" style="width:22px;height:22px;color:'+hf.color+'"></i>';
-    topRow.appendChild(iconBox);
-    topRow.appendChild(div({color:"#F0F2F5",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",lineHeight:"1.2"},hf.title));
-    hCard.appendChild(topRow);
-    var descText=hf.desc;
-    if(hf.countKey==="deals"){var dc=0;try{dc=JSON.parse(localStorage.getItem("dv_deal_cache")||"[]").length;}catch(e){}descText=dc>0?dc+" active deals":"Browse exclusive listings";}
-    hCard.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",position:"relative"},descText));
-    // Micro-card
-    var microInfo=el("div",{style:{position:"absolute",bottom:"0",left:"0",right:"0",padding:"12px 16px",background:"rgba(0,0,0,0.7)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",borderRadius:"0 0 16px 16px",transform:"translateY(100%)",opacity:"0",transition:"transform 0.3s ease, opacity 0.3s ease",fontSize:"12px",color:"#8899AA",lineHeight:"1.5",zIndex:"2"}});
-    microInfo.appendChild(div({marginBottom:"6px",fontFamily:"'Inter',sans-serif"},hf.micro));
-    var ctaLink=el("a",{style:{color:hf.color,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",textDecoration:"none"}});
-    ctaLink.textContent=hf.cta;
-    microInfo.appendChild(ctaLink);
-    hCard.appendChild(microInfo);
-    hCard.addEventListener("mouseenter",function(){hCard.style.borderColor=hf.hoverBorder;hCard.style.transform="translateY(-4px)";hCard.style.boxShadow="0 0 30px "+hf.hoverShadow+", inset 0 0 30px "+hf.hoverShadow.replace("0.12","0.04");microInfo.style.transform="translateY(0)";microInfo.style.opacity="1";});
-    hCard.addEventListener("mouseleave",function(){hCard.style.borderColor=hf.border;hCard.style.transform="translateY(0)";hCard.style.boxShadow="none";microInfo.style.transform="translateY(100%)";microInfo.style.opacity="0";});
-    hCard.addEventListener("click",function(){setSection(hf.sec,hf.sub);});
-    heroGrid.appendChild(hCard);
+  qaItems.forEach(function(qa){
+    var qaBtn=el("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",gap:"8px",cursor:"pointer",padding:"8px 4px",borderRadius:"12px",transition:"all 0.2s ease"}});
+    var qaCircle=el("div",{style:{width:"48px",height:"48px",borderRadius:"14px",background:qa.c+"14",display:"flex",alignItems:"center",justifyContent:"center",transition:"transform 0.2s ease"}});
+    qaCircle.innerHTML='<i data-lucide="'+qa.icon+'" style="width:22px;height:22px;color:'+qa.c+'"></i>';
+    qaBtn.appendChild(qaCircle);
+    qaBtn.appendChild(div({fontSize:"11px",color:"#9BA8C8",fontWeight:"600",fontFamily:"'Inter',sans-serif",textAlign:"center"},qa.l));
+    qaBtn.addEventListener("click",function(){setSection(qa.sec,qa.sub);});
+    qaBtn.addEventListener("mouseenter",function(){qaCircle.style.transform="scale(1.08)";});
+    qaBtn.addEventListener("mouseleave",function(){qaCircle.style.transform="scale(1)";});
+    qaScroll.appendChild(qaBtn);
   });
-  heroContainer.appendChild(heroGrid);
-  wrap.appendChild(heroContainer);
+  wrap.appendChild(qaScroll);
 
-  // --- Workspace Card (full-width below hero cards) ---
-  var wsCard=el("div",{style:{background:"rgba(255,255,255,0.04)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:"16px",padding:"16px 20px",marginBottom:"20px",cursor:"pointer",transition:"transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease",display:"flex",alignItems:"center",gap:"14px",position:"relative",overflow:"hidden",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.04)"}});
-  var wsIcon=el("div",{style:{width:"40px",height:"40px",borderRadius:"10px",background:"rgba(212,175,55,0.08)",border:"1px solid rgba(212,175,55,0.15)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
-  wsIcon.innerHTML='<i data-lucide="layout-dashboard" style="width:20px;height:20px;color:#D4AF37"></i>';
-  wsCard.appendChild(wsIcon);
-  var wsText=el("div",{style:{flex:"1"}});
-  wsText.appendChild(div({color:"#F0F2F5",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},"My Workspace"));
-  wsText.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Your personalized dashboard — drag & drop widgets, custom reports, and saved views"));
-  wsCard.appendChild(wsText);
-  var wsBtn=el("span",{style:{color:cl.gold,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",flexShrink:"0"}});
-  wsBtn.textContent="Open →";
-  wsCard.appendChild(wsBtn);
-  var wsMicro=el("div",{style:{position:"absolute",bottom:"0",left:"0",right:"0",padding:"10px 16px",background:"rgba(0,0,0,0.7)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",borderRadius:"0 0 16px 16px",transform:"translateY(100%)",opacity:"0",transition:"transform 0.3s ease, opacity 0.3s ease",fontSize:"11px",color:"#8899AA",lineHeight:"1.4",fontFamily:"'Inter',sans-serif"}});
-  wsMicro.textContent="Build your personal command center — choose from 14+ widgets, use preset templates (Investor/Agent/Buyer), and create custom PDF reports";
-  wsCard.appendChild(wsMicro);
-  wsCard.addEventListener("mouseenter",function(){wsCard.style.borderColor="rgba(255,255,255,0.15)";wsCard.style.transform="translateY(-2px)";wsCard.style.boxShadow="0 4px 20px rgba(0,0,0,0.3)";wsMicro.style.transform="translateY(0)";wsMicro.style.opacity="1";});
-  wsCard.addEventListener("mouseleave",function(){wsCard.style.borderColor="rgba(255,255,255,0.08)";wsCard.style.transform="translateY(0)";wsCard.style.boxShadow="none";wsMicro.style.transform="translateY(100%)";wsMicro.style.opacity="0";});
-  wsCard.addEventListener("click",function(){setSection("More","Workspace");});
-  wrap.appendChild(wsCard);
-
-  // --- Market Pulse Card ---
-  var pulseCard=el("div",{style:{background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"24px",marginBottom:"16px",transition:"border-color 0.25s ease,box-shadow 0.25s ease",boxShadow:cl.glassShadow}});
-  pulseCard.addEventListener("mouseenter",function(){pulseCard.style.borderColor=cl.goldGlassBorder;pulseCard.style.boxShadow="0 8px 40px rgba(0,0,0,0.4),0 0 20px rgba(212,175,55,0.05)";});
-  pulseCard.addEventListener("mouseleave",function(){pulseCard.style.borderColor=cl.border;pulseCard.style.boxShadow=cl.glassShadow;});
-  pulseCard.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"600",borderLeft:"3px solid "+cl.gold,paddingLeft:"10px",marginBottom:"16px"},"Market Pulse"));
+  // --- Market Snapshot ---
   var areaKeys=Object.keys(AREAS);
   var totalPSF=0,totalYield=0,psfCount=0,yieldCount=0;
   var movers=[];
@@ -1330,150 +1317,134 @@ function renderHome(){
   var avgPSF=psfCount>0?Math.round(totalPSF/psfCount):0;
   var avgYield=yieldCount>0?(totalYield/yieldCount).toFixed(1):0;
   var dbCount=Object.keys(DB).length;
-  var comCount=typeof DB_COM!=="undefined"?Object.keys(DB_COM).length:0;
-  var landCount=typeof DB_LAND!=="undefined"?Object.keys(DB_LAND).length:0;
 
-  var statsGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:"12px",marginBottom:"16px"}});
-  [{l:"Avg PSF",v:"AED "+avgPSF.toLocaleString(),c:cl.gold,icon:"trending-up",trend:"+3.2%"},{l:"Avg Yield",v:avgYield+"%",c:"#10B981",icon:"percent",trend:"Stable"},{l:"Residential",v:dbCount.toLocaleString(),c:"#3B82F6",icon:"building-2"},{l:"Commercial",v:comCount.toLocaleString(),c:"#8B5CF6",icon:"briefcase"},{l:"Land Plots",v:landCount.toLocaleString(),c:"#F59E0B",icon:"map-pin"},{l:"Areas",v:String(areaKeys.length),c:"#3B82F6",icon:"map"}].forEach(function(s){
-    var card=el("div",{style:{background:"rgba(255,255,255,0.03)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:"12px",padding:"14px",textAlign:"center",transition:"transform 0.2s ease,box-shadow 0.2s ease,border-color 0.2s ease",cursor:"default"}});
-    card.addEventListener("mouseenter",function(){card.style.transform="translateY(-2px)";card.style.boxShadow="0 4px 20px rgba(0,0,0,0.3)";card.style.borderColor="rgba(255,255,255,0.15)";});
-    card.addEventListener("mouseleave",function(){card.style.transform="translateY(0)";card.style.boxShadow="none";card.style.borderColor="rgba(255,255,255,0.06)";});
-    if(s.icon){var ic=el("div",{style:{marginBottom:"6px"}});ic.innerHTML='<i data-lucide="'+s.icon+'" style="width:16px;height:16px;color:'+s.c+';opacity:0.6"></i>';card.appendChild(ic);}
-    card.appendChild(div({color:s.c,fontSize:"20px",fontWeight:"800",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'",marginBottom:"2px"},s.v));
-    card.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",textTransform:"uppercase"},s.l));
-    if(s.trend){var trendEl=el("div",{style:{marginTop:"4px",fontSize:"10px",fontFamily:"'JetBrains Mono',monospace",color:s.trend.indexOf("-")===0?"#EF4444":"#10B981"}});trendEl.textContent=(s.trend==="Stable"?"— ":"▲ ")+s.trend;card.appendChild(trendEl);}
-    statsGrid.appendChild(card);
+  var snapLabel=el("div",{style:{fontSize:"11px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"}});
+  snapLabel.textContent="Market Snapshot";
+  wrap.appendChild(snapLabel);
+
+  var statsRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px",marginBottom:"20px"}});
+  [{l:"Avg PSF",v:"AED "+avgPSF.toLocaleString(),c:"#D4AF37"},{l:"Avg Yield",v:avgYield+"%",c:"#10B981"},{l:"Properties",v:dbCount.toLocaleString(),c:"#3B82F6"}].forEach(function(s){
+    var sc=el("div",{style:{background:"rgba(255,255,255,0.04)",borderRadius:"14px",padding:"14px 12px",border:"1px solid rgba(255,255,255,0.06)"}});
+    sc.appendChild(div({fontSize:"18px",fontWeight:"800",color:s.c,fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'",marginBottom:"4px"},s.v));
+    sc.appendChild(div({fontSize:"10px",color:cl.sub,fontWeight:"600",fontFamily:"'Inter',sans-serif",textTransform:"uppercase",letterSpacing:"0.04em"},s.l));
+    statsRow.appendChild(sc);
   });
-  pulseCard.appendChild(statsGrid);
+  wrap.appendChild(statsRow);
 
+  // --- Top Movers ---
   if(movers.length>0){
-    pulseCard.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Top Movers (1-Year Growth)"));
-    var moverList=el("div",{style:{display:"flex",flexDirection:"column",gap:"6px"}});
+    var moverCard=el("div",{style:{background:"rgba(255,255,255,0.04)",borderRadius:"16px",padding:"16px",marginBottom:"20px",border:"1px solid rgba(255,255,255,0.06)"}});
+    moverCard.appendChild(div({fontSize:"11px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"12px"},"Top Movers"));
     movers.slice(0,5).forEach(function(m,i){
-      var bgOrig=i%2===0?"#131926":"transparent";
-      var row=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",background:bgOrig,borderRadius:"8px",transition:"transform 0.15s ease,background 0.15s ease",cursor:"default"}});
-      row.addEventListener("mouseenter",function(){row.style.transform="translateX(4px)";row.style.background="rgba(212,175,55,0.04)";});
-      row.addEventListener("mouseleave",function(){row.style.transform="translateX(0)";row.style.background=bgOrig;});
-      row.appendChild(span({color:"#E8EDF5",fontSize:"12px",fontFamily:"'Inter',sans-serif"},m.name));
-      var badge=el("div",{style:{display:"flex",alignItems:"center",gap:"8px"}});
-      badge.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'"},"PSF "+m.psf.toLocaleString()));
+      var row=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<4?"1px solid rgba(255,255,255,0.04)":"none"}});
+      var rowLeft=el("div",{style:{display:"flex",alignItems:"center",gap:"10px"}});
+      var rank=el("div",{style:{width:"24px",height:"24px",borderRadius:"8px",background:"rgba(255,255,255,0.04)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",fontWeight:"700",color:cl.sub,fontFamily:"'JetBrains Mono',monospace",flexShrink:"0"}});
+      rank.textContent=String(i+1);
+      rowLeft.appendChild(rank);
+      rowLeft.appendChild(span({color:"#E8EDF5",fontSize:"13px",fontFamily:"'Inter',sans-serif",fontWeight:"500"},m.name));
+      row.appendChild(rowLeft);
+      var rowRight=el("div",{style:{display:"flex",alignItems:"center",gap:"10px"}});
+      rowRight.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'"},m.psf.toLocaleString()+" PSF"));
       var growthColor=m.growth>0?"#10B981":"#EF4444";
-      badge.appendChild(span({color:growthColor,fontSize:"12px",fontWeight:"700",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'"},(m.growth>0?"+":"")+m.growth.toFixed(1)+"%"));
-      row.appendChild(badge);
-      moverList.appendChild(row);
+      var growthBg=m.growth>0?"rgba(16,185,129,0.1)":"rgba(239,68,68,0.1)";
+      var growthBadge=el("div",{style:{background:growthBg,borderRadius:"8px",padding:"3px 8px",fontSize:"12px",fontWeight:"700",color:growthColor,fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'"}});
+      growthBadge.textContent=(m.growth>0?"+":"")+m.growth.toFixed(1)+"%";
+      rowRight.appendChild(growthBadge);
+      row.appendChild(rowRight);
+      moverCard.appendChild(row);
     });
-    pulseCard.appendChild(moverList);
+    var viewAllMkt=el("div",{style:{display:"flex",justifyContent:"center",paddingTop:"12px"}});
+    var mktBtn=el("button",{style:{background:"transparent",border:"none",color:"#D4AF37",fontSize:"12px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer",padding:"8px 16px"}});
+    mktBtn.textContent="View Full Market Index";
+    mktBtn.addEventListener("click",function(){setSection("Market","Index");});
+    viewAllMkt.appendChild(mktBtn);
+    moverCard.appendChild(viewAllMkt);
+    wrap.appendChild(moverCard);
   }
-  wrap.appendChild(pulseCard);
 
-  // Section divider
-  wrap.appendChild(el("div",{style:{height:"1px",background:"linear-gradient(90deg, transparent 0%, rgba(212,175,55,0.3) 50%, transparent 100%)",margin:"32px 0"}}));
+  // --- Feature Cards (horizontal scroll) ---
+  var featLabel=el("div",{style:{fontSize:"11px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"}});
+  featLabel.textContent="Explore";
+  wrap.appendChild(featLabel);
+  var featScroll=el("div",{style:{display:"flex",gap:"12px",overflowX:"auto",paddingBottom:"8px",scrollSnapType:"x mandatory",WebkitOverflowScrolling:"touch"}});
+  featScroll.style.cssText+=";-ms-overflow-style:none;scrollbar-width:none";
+  var feats=[
+    {icon:"handshake",title:"Deal Board",desc:"Off-market listings",color:"#10B981",sec:"Network",sub:"Deals"},
+    {icon:"video",title:"AI Studio",desc:"35+ creative tools",color:"#8B5CF6",sec:"Network",sub:"MediaStudio"},
+    {icon:"layout-dashboard",title:"Workspace",desc:"Custom dashboard",color:"#D4AF37",sec:"More",sub:"Workspace"},
+    {icon:"user-check",title:"AI Advisor",desc:"Personalized picks",color:"#3B82F6",sec:"Market",sub:"Advisor"}
+  ];
+  feats.forEach(function(f){
+    var fc=el("div",{style:{background:"rgba(255,255,255,0.04)",borderRadius:"16px",padding:"16px",minWidth:"160px",flexShrink:"0",cursor:"pointer",border:"1px solid rgba(255,255,255,0.06)",transition:"all 0.2s ease",scrollSnapAlign:"start"}});
+    var fcIcon=el("div",{style:{width:"40px",height:"40px",borderRadius:"12px",background:f.color+"14",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:"12px"}});
+    fcIcon.innerHTML='<i data-lucide="'+f.icon+'" style="width:20px;height:20px;color:'+f.color+'"></i>';
+    fc.appendChild(fcIcon);
+    fc.appendChild(div({fontSize:"14px",fontWeight:"700",color:"#F0F2F5",fontFamily:"'Inter',sans-serif",marginBottom:"4px"},f.title));
+    fc.appendChild(div({fontSize:"12px",color:cl.sub,fontFamily:"'Inter',sans-serif"},f.desc));
+    fc.addEventListener("click",function(){setSection(f.sec,f.sub);});
+    fc.addEventListener("mouseenter",function(){fc.style.background="rgba(255,255,255,0.06)";fc.style.borderColor="rgba(255,255,255,0.12)";});
+    fc.addEventListener("mouseleave",function(){fc.style.background="rgba(255,255,255,0.04)";fc.style.borderColor="rgba(255,255,255,0.06)";});
+    featScroll.appendChild(fc);
+  });
+  wrap.appendChild(featScroll);
 
-  // --- Two-column: Portfolio + Quick Actions ---
-  var twoCol=el("div",{style:{display:"grid",gridTemplateColumns:window.innerWidth<500?"1fr":"1fr 1fr",gap:"12px",marginBottom:"16px"}});
-
-  // Portfolio Summary
+  // --- Portfolio Summary ---
   var portfolioAssets=[];
   try{portfolioAssets=JSON.parse(localStorage.getItem("dubaival_portfolio")||"[]");}catch(e){}
-  var pfCard=el("div",{style:{background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",boxShadow:cl.glassShadow}});
-  pfCard.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"600",borderLeft:"3px solid "+cl.gold,paddingLeft:"10px",marginBottom:"16px"},"Your Portfolio"));
+
+  var pfSection=el("div",{style:{marginTop:"24px"}});
+  pfSection.appendChild(div({fontSize:"11px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"},"Your Portfolio"));
+
+  var pfCard=el("div",{style:{background:"rgba(255,255,255,0.04)",borderRadius:"16px",padding:"18px",border:"1px solid rgba(255,255,255,0.06)",marginBottom:"20px"}});
   if(portfolioAssets.length>0){
     var totalVal=0,totalRent=0;
     portfolioAssets.forEach(function(a){totalVal+=(parseFloat(a.price)||0);totalRent+=(parseFloat(a.rent)||0);});
-    pfCard.appendChild(div({color:"#F0F2F5",fontSize:"18px",fontWeight:"700",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'",marginBottom:"8px"},"AED "+(totalVal/1e6).toFixed(2)+"M"));
-    var pfStats=el("div",{style:{display:"flex",flexDirection:"column",gap:"6px"}});
-    pfStats.appendChild(div({display:"flex",justifyContent:"space-between"},[span({color:cl.sub,fontSize:"11px"},"Assets"),span({color:"#E8EDF5",fontSize:"12px",fontWeight:"600"},String(portfolioAssets.length))]));
-    if(totalRent>0)pfStats.appendChild(div({display:"flex",justifyContent:"space-between"},[span({color:cl.sub,fontSize:"11px"},"Rental Income"),span({color:"#10B981",fontSize:"12px",fontWeight:"600"},"AED "+(totalRent/12).toLocaleString(undefined,{maximumFractionDigits:0})+"/mo")]));
-    pfCard.appendChild(pfStats);
-    var pfBtn=el("button",{style:{marginTop:"14px",width:"100%",padding:"10px",background:"rgba(212,175,55,0.15)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",color:cl.gold,border:"1px solid rgba(212,175,55,0.3)",borderRadius:"10px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
-    pfBtn.addEventListener("mouseenter",function(){pfBtn.style.background="rgba(212,175,55,0.25)";pfBtn.style.boxShadow="0 0 20px rgba(212,175,55,0.1)";});
-    pfBtn.addEventListener("mouseleave",function(){pfBtn.style.background="rgba(212,175,55,0.15)";pfBtn.style.boxShadow="none";});
-    pfBtn.textContent="View Portfolio →";
+    var pfTop=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"16px"}});
+    var pfLeft=el("div",{});
+    pfLeft.appendChild(div({fontSize:"12px",color:cl.sub,fontFamily:"'Inter',sans-serif",marginBottom:"4px"},"Total Value"));
+    pfLeft.appendChild(div({fontSize:"22px",fontWeight:"800",color:"#F0F2F5",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'"},"AED "+(totalVal/1e6).toFixed(2)+"M"));
+    pfTop.appendChild(pfLeft);
+    var pfRight=el("div",{style:{textAlign:"right"}});
+    pfRight.appendChild(div({fontSize:"12px",color:cl.sub,fontFamily:"'Inter',sans-serif",marginBottom:"4px"},portfolioAssets.length+" Assets"));
+    if(totalRent>0)pfRight.appendChild(div({fontSize:"14px",fontWeight:"700",color:"#10B981",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'"},"AED "+(totalRent/12).toLocaleString(undefined,{maximumFractionDigits:0})+"/mo"));
+    pfTop.appendChild(pfRight);
+    pfCard.appendChild(pfTop);
+    var pfBtn=el("button",{style:{width:"100%",padding:"12px",background:"linear-gradient(135deg,rgba(212,175,55,0.15),rgba(212,175,55,0.05))",color:"#D4AF37",border:"none",borderRadius:"12px",fontSize:"13px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+    pfBtn.textContent="Manage Portfolio";
     pfBtn.addEventListener("click",function(){setSection("Portfolio","Assets");});
     pfCard.appendChild(pfBtn);
   } else {
-    pfCard.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",marginBottom:"12px"},"No assets tracked yet. Add your first property to start."));
-    var addBtn=el("button",{style:{padding:"10px 16px",background:"rgba(212,175,55,0.15)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",color:cl.gold,border:"1px solid rgba(212,175,55,0.3)",borderRadius:"10px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
-    addBtn.addEventListener("mouseenter",function(){addBtn.style.background="rgba(212,175,55,0.25)";addBtn.style.boxShadow="0 0 20px rgba(212,175,55,0.1)";});
-    addBtn.addEventListener("mouseleave",function(){addBtn.style.background="rgba(212,175,55,0.15)";addBtn.style.boxShadow="none";});
-    addBtn.textContent="+ Add Asset";
+    pfCard.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",marginBottom:"14px",lineHeight:"1.5"},"Track your properties and get real-time valuations."));
+    var addBtn=el("button",{style:{padding:"12px 20px",background:"linear-gradient(135deg,rgba(212,175,55,0.15),rgba(212,175,55,0.05))",color:"#D4AF37",border:"none",borderRadius:"12px",fontSize:"13px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+    addBtn.textContent="+ Add First Asset";
     addBtn.addEventListener("click",function(){setSection("Portfolio","Assets");});
     pfCard.appendChild(addBtn);
   }
-  twoCol.appendChild(pfCard);
+  pfSection.appendChild(pfCard);
+  wrap.appendChild(pfSection);
 
-  // Quick Actions
-  var actCard=el("div",{style:{background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",boxShadow:cl.glassShadow}});
-  actCard.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"600",borderLeft:"3px solid "+cl.gold,paddingLeft:"10px",marginBottom:"16px"},"Quick Actions"));
-  var actGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}});
-  [{icon:"search",l:"Analyze",sec:"Market",sub:"Analyzer"},{icon:"scan-search",l:"Search",sec:"Market",sub:"Find"},{icon:"scale",l:"Compare",sec:"Market",sub:"Compare"},{icon:"handshake",l:"Post Deal",sec:"Network",sub:"Deals"},{icon:"bar-chart-3",l:"Market Index",sec:"Market",sub:"Index"},{icon:"smartphone",l:"Media Studio",sec:"Network",sub:"MediaStudio"}].forEach(function(a){
-    var ab=el("button",{style:{padding:"12px 10px",background:"rgba(255,255,255,0.03)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:"10px",cursor:"pointer",display:"flex",alignItems:"center",gap:"8px",transition:"all 0.2s ease"}});
-    var abIcon=el("span",{style:{width:"16px",height:"16px",display:"inline-flex",alignItems:"center",justifyContent:"center",color:cl.gold}});
-    abIcon.innerHTML='<i data-lucide="'+a.icon+'"></i>';
-    ab.appendChild(abIcon);
-    ab.appendChild(span({color:"#E8EDF5",fontSize:"12px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},a.l));
-    ab.addEventListener("mouseenter",function(){this.style.borderColor="rgba(212,175,55,0.3)";this.style.background="rgba(212,175,55,0.08)";this.style.boxShadow="0 0 16px rgba(212,175,55,0.06)";});
-    ab.addEventListener("mouseleave",function(){this.style.borderColor="rgba(255,255,255,0.06)";this.style.background="rgba(255,255,255,0.03)";this.style.boxShadow="none";});
-    ab.addEventListener("click",function(){setSection(a.sec,a.sub);});
-    actGrid.appendChild(ab);
-  });
-  actCard.appendChild(actGrid);
-  twoCol.appendChild(actCard);
-  wrap.appendChild(twoCol);
-
-  // --- Two-column: Alerts + Recent Activity ---
-  var bottomRow=el("div",{style:{display:"grid",gridTemplateColumns:window.innerWidth<500?"1fr":"1fr 1fr",gap:"16px"}});
-
-  // Active Alerts
-  var alertCard=el("div",{style:{background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",boxShadow:cl.glassShadow}});
-  alertCard.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"600",borderLeft:"3px solid "+cl.gold,paddingLeft:"10px",marginBottom:"14px"},"Active Alerts"));
-  var alerts=[];
-  try{alerts=JSON.parse(localStorage.getItem("dv_alerts")||"[]");}catch(e){}
-  if(alerts.length>0){
-    alerts.slice(0,4).forEach(function(al){
-      var row=el("div",{style:{padding:"8px 0",borderBottom:"1px solid "+cl.border,display:"flex",justifyContent:"space-between",alignItems:"center"}});
-      var desc=(al.beds||"Any")+" BR "+(al.area||"Any area");
-      if(al.maxPsf)desc+=" < "+al.maxPsf+" PSF";
-      if(al.minYield)desc+=" > "+al.minYield+"% yield";
-      row.appendChild(span({color:"#E8EDF5",fontSize:"11px",fontFamily:"'Inter',sans-serif"},desc));
-      var dot=el("div",{style:{width:"6px",height:"6px",borderRadius:"50%",background:"#10B981",flexShrink:"0"}});
-      row.appendChild(dot);
-      alertCard.appendChild(row);
-    });
-    var alertBtn=el("button",{style:{marginTop:"10px",padding:"6px 12px",background:"transparent",border:"1px solid "+cl.border,borderRadius:"8px",color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
-    alertBtn.textContent="View All "+alerts.length+" Alerts →";
-    alertBtn.addEventListener("click",function(){setSection("Portfolio","Alerts");});
-    alertCard.appendChild(alertBtn);
-  } else {
-    alertCard.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",marginBottom:"10px"},"No alerts set. Get notified when properties match your criteria."));
-    var setAlertBtn=el("button",{style:{padding:"8px 14px",background:"transparent",border:"1px solid "+cl.gold,borderRadius:"8px",color:cl.gold,fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
-    setAlertBtn.textContent="+ Set Alert";
-    setAlertBtn.addEventListener("click",function(){setSection("Portfolio","Alerts");});
-    alertCard.appendChild(setAlertBtn);
-  }
-  bottomRow.appendChild(alertCard);
-
-  // Recent Activity
-  var recentCard=el("div",{style:{background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",boxShadow:cl.glassShadow}});
-  recentCard.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"600",borderLeft:"3px solid "+cl.gold,paddingLeft:"10px",marginBottom:"14px"},"Recent Activity"));
+  // --- Recent Activity ---
   var recent=[];
   try{recent=JSON.parse(localStorage.getItem("dubaival_recent")||"[]");}catch(e){}
   if(recent.length>0){
-    recent.slice(0,5).forEach(function(r){
-      var row=el("div",{style:{padding:"6px 0",borderBottom:"1px solid "+cl.border}});
-      row.appendChild(div({color:"#E8EDF5",fontSize:"11px",fontFamily:"'Inter',sans-serif"},r.label||r.building||r.area||"Valuation"));
-      if(r.ts){
-        var ago=Date.now()-r.ts;
-        var agoStr=ago<3600000?Math.round(ago/60000)+"m ago":ago<86400000?Math.round(ago/3600000)+"h ago":Math.round(ago/86400000)+"d ago";
-        row.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},agoStr));
-      }
+    var recentSec=el("div",{style:{marginBottom:"20px"}});
+    recentSec.appendChild(div({fontSize:"11px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"},"Recent Activity"));
+    var recentCard=el("div",{style:{background:"rgba(255,255,255,0.04)",borderRadius:"16px",border:"1px solid rgba(255,255,255,0.06)",overflow:"hidden"}});
+    recent.slice(0,5).forEach(function(r,i){
+      var row=el("div",{style:{display:"flex",alignItems:"center",gap:"12px",padding:"14px 16px",borderBottom:i<Math.min(recent.length,5)-1?"1px solid rgba(255,255,255,0.04)":"none"}});
+      var rIcon=el("div",{style:{width:"32px",height:"32px",borderRadius:"10px",background:"rgba(212,175,55,0.08)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
+      rIcon.innerHTML='<i data-lucide="file-search" style="width:16px;height:16px;color:#D4AF37"></i>';
+      row.appendChild(rIcon);
+      var rText=el("div",{style:{flex:"1",minWidth:"0"}});
+      rText.appendChild(div({color:"#E8EDF5",fontSize:"13px",fontFamily:"'Inter',sans-serif",fontWeight:"500",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},r.label||r.building||r.area||"Valuation"));
+      if(r.ts){var ago=Date.now()-r.ts;var agoStr=ago<3600000?Math.round(ago/60000)+"m ago":ago<86400000?Math.round(ago/3600000)+"h ago":Math.round(ago/86400000)+"d ago";rText.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},agoStr));}
+      row.appendChild(rText);
+      row.appendChild(el("div",{style:{color:"#4A5568",flexShrink:"0"},innerHTML:'<i data-lucide="chevron-right" style="width:16px;height:16px"></i>'}));
       recentCard.appendChild(row);
     });
-  } else {
-    recentCard.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif"},"No recent activity. Start by analyzing a property."));
+    recentSec.appendChild(recentCard);
+    wrap.appendChild(recentSec);
   }
-  bottomRow.appendChild(recentCard);
-  wrap.appendChild(bottomRow);
 
   return wrap;
 }
@@ -1669,28 +1640,31 @@ function render(preserveScroll){
   var main=el("div",{style:{width:"100%",maxWidth:"100%",overflowX:"hidden",boxSizing:"border-box",minWidth:"0"}});
   main.className="dv-main"+(sidebarCollapsed?" sidebar-collapsed":"");
 
-  // Top bar
-  var header=el("div",{style:{background:cl.surface,borderBottom:"1px solid "+cl.border,padding:"0 12px",display:"flex",alignItems:"center",justifyContent:"space-between",height:"50px",position:"sticky",top:"0",zIndex:"50",width:"100%",maxWidth:"100%",boxSizing:"border-box",overflowX:"hidden"}});
-  var secTitle=el("div",{style:{display:"flex",alignItems:"center",gap:"8px"}});
+  // Top bar — Modern native app header
+  var header=el("div",{});
+  header.className="dv-app-header";
   var curSec=NAV_SECTIONS.find(function(n){return n.id===currentSection;});
-  var mobileLogo=el("img",{src:"logo.png",alt:"DV",style:{width:"28px",height:"28px",borderRadius:"6px",objectFit:"contain",display:"none"}});
+
+  var secTitle=el("div",{style:{display:"flex",alignItems:"center",gap:"10px"}});
+  var mobileLogo=el("img",{src:"logo.png",alt:"DV",style:{width:"26px",height:"26px",borderRadius:"8px",objectFit:"contain",display:"none"}});
   mobileLogo.className="dv-mobile-logo";
   secTitle.appendChild(mobileLogo);
-  var secIconWrap=el("span",{style:{width:"18px",height:"18px",display:"inline-flex",alignItems:"center"}});
+  var secIconWrap=el("span",{style:{width:"20px",height:"20px",display:"inline-flex",alignItems:"center",color:curSec&&curSec.accentColor?curSec.accentColor:cl.gold}});
   secIconWrap.className="dv-header-sec-icon";
   if(curSec)secIconWrap.innerHTML='<i data-lucide="'+curSec.icon+'"></i>';
   secTitle.appendChild(secIconWrap);
-  secTitle.appendChild(span({fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",color:"#F0F2F5"},curSec?curSec.label:"DubAIVal"));
+  secTitle.appendChild(span({fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",color:"#F0F2F5",letterSpacing:"-0.02em"},curSec?curSec.label:"DubAIVal"));
   header.appendChild(secTitle);
 
-  var controls=el("div",{style:{display:"flex",alignItems:"center",gap:"4px",flexShrink:"1",overflow:"hidden",minWidth:"0"}});
-  controls.appendChild(div({display:"flex",alignItems:"center",gap:"4px",background:"rgba(16,185,129,0.08)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid rgba(16,185,129,0.18)",borderRadius:"999px",padding:"4px 8px",boxShadow:"0 2px 12px rgba(0,0,0,0.2)",flexShrink:"0"},[div({width:"5px",height:"5px",borderRadius:"50%",background:cl.green||"#10B981",animation:"pulse 2s infinite",flexShrink:"0"}),(function(){var lb=el("span",{style:{color:cl.green||"#10B981",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em"}});lb.textContent="LIVE";return lb;})()]));
+  var controls=el("div",{style:{display:"flex",alignItems:"center",gap:"6px"}});
   if(typeof renderNotifBell==="function")controls.appendChild(renderNotifBell());
   if(typeof renderAuthButton==="function")controls.appendChild(renderAuthButton());
-  var profileBtn=el("button",{style:{background:showProfilePanel?"rgba(212,175,55,0.08)":"rgba(255,255,255,0.04)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",border:"1px solid "+(showProfilePanel?"rgba(212,175,55,0.15)":"rgba(255,255,255,0.10)"),borderRadius:"999px",padding:"4px 10px",cursor:"pointer",color:showProfilePanel?cl.gold:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",transition:"all 0.15s ease",boxShadow:"0 2px 12px rgba(0,0,0,0.2)",flexShrink:"0",whiteSpace:"nowrap"}});
-  profileBtn.textContent="Profile";
-  profileBtn.addEventListener("click",function(){showProfilePanel=!showProfilePanel;render();});
-  controls.appendChild(profileBtn);
+  var avatarBtn=el("div",{});
+  avatarBtn.className="dv-avatar";
+  var avatarInitial=USER_PROFILE.name?USER_PROFILE.name.charAt(0).toUpperCase():"U";
+  avatarBtn.innerHTML='<span style="font-size:13px;font-weight:700;color:#D4AF37;font-family:\'Inter\',sans-serif">'+avatarInitial+'</span>';
+  avatarBtn.addEventListener("click",function(){showProfilePanel=!showProfilePanel;render();});
+  controls.appendChild(avatarBtn);
   header.appendChild(controls);
   main.appendChild(header);
 
@@ -1752,25 +1726,26 @@ function render(preserveScroll){
 
   main.appendChild(content);
 
-  main.appendChild(div({borderTop:"1px solid "+cl.border,padding:"10px 12px",display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:"4px",boxSizing:"border-box",width:"100%",maxWidth:"100%"},[
-    span({color:cl.sub,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},t("footer_tag")),
-    span({color:cl.sub,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},t("not_advice")),
+  main.appendChild(div({padding:"16px",textAlign:"center",boxSizing:"border-box",width:"100%",maxWidth:"100%"},[
+    span({color:"rgba(107,122,158,0.5)",fontSize:"9px",fontFamily:"'Inter',sans-serif"},t("footer_tag")),
   ]));
 
   layout.appendChild(main);
   app.appendChild(layout);
 
-  // --- BOTTOM TABS (mobile) ---
+  // --- BOTTOM TABS (mobile) — Modern floating nav ---
   var bottomBar=el("div",{});
   bottomBar.className="dv-bottom-tabs";
   NAV_SECTIONS.forEach(function(sec){
     var isActive=currentSection===sec.id;
     var tab=el("div",{});
     tab.className="dv-bottom-tab"+(isActive?" active":"");
-    var ic=el("span",{style:{display:"inline-flex",alignItems:"center",justifyContent:"center"}});
-    ic.innerHTML='<i data-lucide="'+sec.icon+'"></i>';
+    var ic=el("span",{style:{display:"inline-flex",alignItems:"center",justifyContent:"center",width:"24px",height:"24px"}});
+    ic.innerHTML='<i data-lucide="'+sec.icon+'" style="width:22px;height:22px;stroke-width:'+(isActive?"2":"1.5")+'"></i>';
     tab.appendChild(ic);
-    tab.appendChild(el("span",{},sec.label));
+    var label=el("span",{style:{fontSize:"9px",fontWeight:isActive?"700":"500",letterSpacing:"0.02em",opacity:isActive?"1":"0.7"}});
+    label.textContent=sec.label;
+    tab.appendChild(label);
     tab.addEventListener("click",function(){setSection(sec.id);});
     bottomBar.appendChild(tab);
   });

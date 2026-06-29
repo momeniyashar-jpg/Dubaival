@@ -79,12 +79,12 @@ html,body,#app,.dv-layout,.dv-main,.dv-content{width:100%!important;max-width:10
 
 /* Bottom tabs: account for safe area on notch phones */
 .dv-bottom-tabs{
-  height:calc(56px + env(safe-area-inset-bottom))!important;
-  padding-bottom:env(safe-area-inset-bottom)!important;
+  bottom:calc(8px + env(safe-area-inset-bottom))!important;
+  height:64px!important;
 }
 /* Extra padding on main when bottom tabs are visible (mobile) */
 @media(max-width:768px){
-  .dv-main{padding-bottom:calc(64px + env(safe-area-inset-bottom))!important}
+  .dv-main{padding-bottom:calc(88px + env(safe-area-inset-bottom))!important}
 }
 
 /* Keyboard open: prevent layout jump */
