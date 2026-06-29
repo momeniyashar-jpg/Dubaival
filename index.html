@@ -98,7 +98,7 @@ a{color:inherit;text-decoration:none}
 @keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 
 /* Sidebar (desktop) */
-.dv-layout{display:flex;min-height:100vh;max-width:100vw;overflow-x:hidden}
+.dv-layout{display:flex;min-height:100vh;max-width:100%;overflow-x:hidden;min-width:0;width:100%}
 .dv-sidebar{width:240px;min-height:100vh;background:rgba(13,18,32,0.85);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-right:1px solid rgba(255,255,255,0.06);padding:16px 0;position:fixed;left:0;top:0;z-index:100;transition:width 0.2s ease;display:flex;flex-direction:column;overflow-y:auto}
 .dv-sidebar.collapsed{width:64px}
 .dv-sidebar.collapsed .dv-sidebar-label,.dv-sidebar.collapsed .dv-sidebar-logo-text{display:none}
@@ -109,7 +109,7 @@ a{color:inherit;text-decoration:none}
 .dv-sidebar-item.active{color:#D4AF37;background:rgba(212,175,55,0.1);border-left-color:#D4AF37;font-weight:700}
 .dv-sidebar-toggle{margin-top:auto;padding:12px 20px;color:#556677;cursor:pointer;font-size:18px;text-align:center;border-top:1px solid rgba(255,255,255,0.06)}
 .dv-sidebar-toggle:hover{color:#8899AA}
-.dv-main{flex:1;margin-left:240px;transition:margin-left 0.2s ease;min-height:100vh;display:flex;flex-direction:column;max-width:100vw;overflow-x:hidden;width:100%}
+.dv-main{flex:1;margin-left:240px;transition:margin-left 0.2s ease;min-height:100vh;display:flex;flex-direction:column;max-width:100%;overflow-x:hidden;width:100%;min-width:0}
 .dv-sidebar.collapsed~.dv-main,.dv-main.sidebar-collapsed{margin-left:64px}
 
 /* Sub-tab pills */
@@ -198,7 +198,7 @@ a:hover{opacity:0.85}
 /* Mobile responsive */
 @media(max-width:768px){
   .dv-sidebar{display:none!important}
-  .dv-main{margin-left:0!important;max-width:100vw!important;width:100%!important;overflow-x:hidden!important}
+  .dv-main{margin-left:0!important;max-width:100%!important;width:100%!important;overflow-x:hidden!important;min-width:0!important}
   .dv-bottom-tabs{display:flex!important}
   .dv-main{padding-bottom:60px}
   .dv-hero-cards-container::before,.dv-hero-cards-container::after{display:none}
@@ -210,9 +210,9 @@ a:hover{opacity:0.85}
   .dv-hero-grid{grid-template-columns:1fr!important}
 }
 /* Prevent ALL horizontal overflow on any device */
-html,body,#app{max-width:100vw!important;overflow-x:hidden!important}
-*{max-width:100vw}
-div,section,main,article,aside,nav,header,footer{box-sizing:border-box}
+html,body,#app{max-width:100%!important;overflow-x:hidden!important;width:100%!important}
+*{box-sizing:border-box}
+
 </style>
 </head>
 <body>

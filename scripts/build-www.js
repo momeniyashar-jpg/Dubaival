@@ -38,9 +38,9 @@ html = html.replace(
 
 /* Global box-sizing + prevent horizontal overflow */
 *,*::before,*::after{box-sizing:border-box!important}
-html{height:auto!important;overflow-x:hidden!important;max-width:100vw!important}
+html{height:auto!important;overflow-x:hidden!important;max-width:100%!important}
 body{height:auto!important;min-height:100vh!important;
-  overflow-y:auto!important;overflow-x:hidden!important;max-width:100vw!important;
+  overflow-y:auto!important;overflow-x:hidden!important;max-width:100%!important;
   overscroll-behavior-x:none!important;overscroll-behavior-y:auto!important;
   -webkit-overflow-scrolling:touch!important;
   -webkit-text-size-adjust:100%!important;
@@ -53,7 +53,7 @@ img,a{-webkit-user-drag:none}
 
 /* App container: allow content to flow and scroll */
 #app{overflow-y:visible!important;overflow-x:hidden!important;
-  max-width:100vw!important;min-height:100vh!important;height:auto!important}
+  max-width:100%!important;min-height:100vh!important;height:auto!important}
 
 /* Layout: let content grow beyond viewport — body scrolls */
 .dv-layout{min-height:100vh!important;overflow:visible!important;height:auto!important}
@@ -63,14 +63,14 @@ img,a{-webkit-user-drag:none}
 
 /* Content div: disable internal scroll container, let body scroll */
 .dv-content{overflow:visible!important;overflow-x:hidden!important;flex:none!important;height:auto!important;
-  min-height:auto!important;-webkit-overflow-scrolling:auto!important;max-width:100vw!important;width:100%!important}
+  min-height:auto!important;-webkit-overflow-scrolling:auto!important;max-width:100%!important;width:100%!important}
 
 /* Prevent any child from exceeding viewport width */
 #app,#app>div,#app>div>div,.dv-content,.dv-content>div,.dv-content>div>div,.dv-content>div>div>div{
-  max-width:100vw!important;overflow-x:hidden!important;word-break:break-word!important}
+  max-width:100%!important;overflow-x:hidden!important;word-break:break-word!important}
 /* Force ALL elements to never exceed screen width */
-*{max-width:100%!important;box-sizing:border-box!important}
-html,body,#app,.dv-layout,.dv-main,.dv-content{width:100%!important;max-width:100%!important}
+*{max-width:100%!important;box-sizing:border-box!important;min-width:0!important}
+html,body,#app,.dv-layout,.dv-main,.dv-content{width:100%!important;max-width:100%!important;min-width:0!important;overflow-x:hidden!important}
 
 /* Bottom tabs: account for safe area on notch phones */
 .dv-bottom-tabs{
@@ -193,7 +193,7 @@ html = html.replace(
       var vw=document.documentElement.clientWidth;
       document.querySelectorAll('*').forEach(function(el){
         if(el.scrollWidth>vw){
-          el.style.maxWidth='100vw';
+          el.style.maxWidth='100%';
           el.style.overflowX='hidden';
         }
       });

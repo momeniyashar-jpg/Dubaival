@@ -1578,7 +1578,7 @@ function render(preserveScroll){
     document.head.appendChild(gs);
   }
 
-  var layout=el("div",{style:{display:"flex",minHeight:"100vh",maxWidth:"100vw",overflowX:"hidden",width:"100%"}});
+  var layout=el("div",{style:{display:"flex",minHeight:"100vh",maxWidth:"100%",overflowX:"hidden",width:"100%",minWidth:"0"}});
 
   // --- SIDEBAR (desktop) ---
   var sbClass="dv-sidebar"+(sidebarCollapsed?" collapsed":"");
@@ -1666,7 +1666,7 @@ function render(preserveScroll){
   layout.appendChild(sidebar);
 
   // --- MAIN AREA ---
-  var main=el("div",{style:{width:"100%",maxWidth:"100%",overflowX:"hidden",boxSizing:"border-box"}});
+  var main=el("div",{style:{width:"100%",maxWidth:"100%",overflowX:"hidden",boxSizing:"border-box",minWidth:"0"}});
   main.className="dv-main"+(sidebarCollapsed?" sidebar-collapsed":"");
 
   // Top bar
