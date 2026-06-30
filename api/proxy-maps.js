@@ -154,8 +154,12 @@ module.exports = async function handler(req, res) {
       results.forEach(function(r) { amenities[r.key] = r.nearest; });
       return res.json({ lat: alat, lng: alng, amenities: amenities });
 
+    // ── CONFIG (return key for Maps JS API client-side loading) ─────────────
+    } else if (action === "config") {
+      return res.json({ key: key });
+
     } else {
-      return res.status(400).json({ error: "Unknown action. Use: geocode, staticmap, streetview, distances, amenities" });
+      return res.status(400).json({ error: "Unknown action. Use: geocode, staticmap, streetview, distances, amenities, config" });
     }
 
   } catch (e) {
