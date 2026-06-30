@@ -1020,14 +1020,31 @@ function generateArabicPDF(){
 }
 
 // Update search suggestions without full re-render (keeps focus)
+function _dvNearestArea(lat,lng){
+  var best=null,bestDist=Infinity;
+  if(typeof AREA_COORDS==="undefined"||typeof AREAS==="undefined")return null;
+  Object.entries(AREA_COORDS).forEach(function(e){
+    var name=e[0],c=e[1];
+    if(!AREAS[name])return;
+    var dLat=(c[0]-lat)*Math.PI/180;
+    var dLng=(c[1]-lng)*Math.PI/180;
+    var a=Math.sin(dLat/2)*Math.sin(dLat/2)+
+          Math.cos(lat*Math.PI/180)*Math.cos(c[0]*Math.PI/180)*
+          Math.sin(dLng/2)*Math.sin(dLng/2);
+    var d=6371*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+    if(d<bestDist){bestDist=d;best=name;}
+  });
+  return bestDist<8?best:null;
+}
+
 function updateSearchSuggestions(query){
   var suggestEl=document.getElementById("dv-search-suggestions");
   if(!suggestEl)return;
-  if(!query||query.length<2){suggestEl.innerHTML="";return;}
+  if(!query||query.length<2){suggestEl.innerHTML="";clearTimeout(window._dvPlacesTimer);return;}
   var q=query.toLowerCase().trim();
   var results=[];
   var qWords=q.split(" ").filter(function(w){return w.length>0;});
-  
+
   // Score and search DB
   var scored=[];
   Object.entries(DB).forEach(function(e){
@@ -1036,17 +1053,15 @@ function updateSearchSuggestions(query){
     var keyWords=key.split(" ");
     if(key.startsWith(q))score=100;
     else if(q.length<=2){
-      // Short query: ONLY match if KEY starts with query
       if(keyWords[0].startsWith(q))score=90;
     } else if(qWords.every(function(w){return keyWords.some(function(kw){return kw.startsWith(w);});})){
-      // All query words match START of some key word
       score=keyWords[0].startsWith(qWords[0])?85:70;
     } else if(q.length>=5&&qWords.every(function(w){return key.includes(w);}))score=20;
     if(score>0)scored.push({name:key,area:val.a,psf:val.p,g:val.g,sc:val.sc,score:score});
   });
   scored.sort(function(a,b){return b.score-a.score;});
   results=scored.slice(0,8);
-  
+
   // Search CLUSTERS
   if(results.length<8){
     Object.entries(CLUSTERS).forEach(function(e){
@@ -1067,40 +1082,100 @@ function updateSearchSuggestions(query){
     });
   }
 
-  if(results.length===0){suggestEl.innerHTML="";return;}
-  
+  if(results.length===0&&query.length<3){suggestEl.innerHTML="";return;}
+
   var cl=C();
   suggestEl.innerHTML="";
-  suggestEl.style.cssText="background:"+cl.surface+";border:1px solid "+cl.gold+";border-radius:12px;margin-top:4px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.4);position:absolute;width:100%;z-index:100;";
-  
-  results.forEach(function(r,i){
-    var item=document.createElement("button");
-    item.style.cssText="width:100%;padding:12px 16px;background:transparent;border:none;border-bottom:"+(i<results.length-1?"1px solid "+cl.border:"none")+";color:#F0F2F5;font-size:13px;cursor:pointer;text-align:left;font-family:'Inter',sans-serif;display:block;";
-    var nameCap=r.name.split(" ").map(function(w){return w.charAt(0).toUpperCase()+w.slice(1);}).join(" ");
-    var typeLabel=r.type==="community"?" (Community)":r.type==="cluster"?" (Cluster)":"";
-    var info=r.area+(r.psf?" · AED "+r.psf.toLocaleString()+" PSF":"")+(r.g?" · "+r.g:"")+(r.type==="community"&&r.clusters?" · "+r.clusters.length+" clusters":"");
-    item.innerHTML="<div style='font-weight:600;margin-bottom:2px'>"+nameCap+typeLabel+"</div><div style='font-size:10px;color:"+cl.sub+";font-family:Space Grotesk,monospace'>"+info+"</div>";
-    item.addEventListener("mouseenter",function(){this.style.background=cl.raised;});
-    item.addEventListener("mouseleave",function(){this.style.background="transparent";});
-    item.addEventListener("mousedown",function(e){
-      e.preventDefault(); // Prevent input blur
-      analyzerState.f.building=r.name;
-      analyzerState.f.area=r.area||"";
-      if(r.sc)analyzerState.f.serviceCharge=String(r.sc);
-      if(r.type==="community"||r.type==="cluster"){
-        analyzerState.f.propCategory="villa";if(!analyzerState.f.beds)analyzerState.f.beds="4 BR";
-      } else {
-        var n=r.name.toLowerCase();
-        var isVA=typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(r.area);
-        var isVK=typeof VILLA_KEYWORDS!=="undefined"&&VILLA_KEYWORDS.some(function(kw){return n.includes(kw);});
-        analyzerState.f.propCategory=(isVA||isVK)?"villa":"apartment";
-        if(analyzerState.f.propCategory==="villa"&&!analyzerState.f.beds)analyzerState.f.beds="4 BR";
-      }
-      suggestEl.innerHTML="";
-      render();
+  suggestEl.dataset.dvQuery=query;
+
+  if(results.length>0){
+    suggestEl.style.cssText="background:"+cl.surface+";border:1px solid "+cl.gold+";border-radius:12px;margin-top:4px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.4);position:absolute;width:100%;z-index:100;";
+    results.forEach(function(r,i){
+      var item=document.createElement("button");
+      item.style.cssText="width:100%;padding:12px 16px;background:transparent;border:none;border-bottom:"+(i<results.length-1?"1px solid "+cl.border:"none")+";color:#F0F2F5;font-size:13px;cursor:pointer;text-align:left;font-family:'Inter',sans-serif;display:block;";
+      var nameCap=r.name.split(" ").map(function(w){return w.charAt(0).toUpperCase()+w.slice(1);}).join(" ");
+      var typeLabel=r.type==="community"?" (Community)":r.type==="cluster"?" (Cluster)":"";
+      var info=r.area+(r.psf?" · AED "+r.psf.toLocaleString()+" PSF":"")+(r.g?" · "+r.g:"")+(r.type==="community"&&r.clusters?" · "+r.clusters.length+" clusters":"");
+      item.innerHTML="<div style='font-weight:600;margin-bottom:2px'>"+nameCap+typeLabel+"</div><div style='font-size:10px;color:"+cl.sub+";font-family:Space Grotesk,monospace'>"+info+"</div>";
+      item.addEventListener("mouseenter",function(){this.style.background=cl.raised;});
+      item.addEventListener("mouseleave",function(){this.style.background="transparent";});
+      item.addEventListener("mousedown",function(e){
+        e.preventDefault();
+        analyzerState.f.building=r.name;
+        analyzerState.f.area=r.area||"";
+        if(r.sc)analyzerState.f.serviceCharge=String(r.sc);
+        if(r.type==="community"||r.type==="cluster"){
+          analyzerState.f.propCategory="villa";if(!analyzerState.f.beds)analyzerState.f.beds="4 BR";
+        } else {
+          var n=r.name.toLowerCase();
+          var isVA=typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(r.area);
+          var isVK=typeof VILLA_KEYWORDS!=="undefined"&&VILLA_KEYWORDS.some(function(kw){return n.includes(kw);});
+          analyzerState.f.propCategory=(isVA||isVK)?"villa":"apartment";
+          if(analyzerState.f.propCategory==="villa"&&!analyzerState.f.beds)analyzerState.f.beds="4 BR";
+        }
+        suggestEl.innerHTML="";
+        render();
+      });
+      suggestEl.appendChild(item);
     });
-    suggestEl.appendChild(item);
-  });
+  }
+
+  // Google Places tier: kick in when local results are sparse (< 4) and query >= 3 chars
+  if(query.length>=3&&results.length<4){
+    clearTimeout(window._dvPlacesTimer);
+    window._dvPlacesTimer=setTimeout(function(){
+      fetch("/api/proxy-maps?action=places&q="+encodeURIComponent(query))
+        .then(function(r){return r.json();})
+        .then(function(d){
+          if(suggestEl.dataset.dvQuery!==query)return; // Stale — user typed more
+          if(!d.predictions||!d.predictions.length)return;
+          // Filter out names already shown from local DB
+          var localNames=results.map(function(r){return r.name.toLowerCase();});
+          var extra=d.predictions.filter(function(p){
+            var pn=p.name.toLowerCase();
+            return !localNames.some(function(n){return n===pn||n.startsWith(pn)||pn.startsWith(n);});
+          }).slice(0,5);
+          if(!extra.length)return;
+
+          if(!suggestEl.children.length){
+            suggestEl.style.cssText="background:"+cl.surface+";border:1px solid "+cl.gold+";border-radius:12px;margin-top:4px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.4);position:absolute;width:100%;z-index:100;";
+          }
+
+          // Section divider
+          var div2=document.createElement("div");
+          div2.style.cssText="padding:5px 14px;background:rgba(212,175,55,0.07);border-top:"+(results.length?"1px solid "+cl.border:"none")+";display:flex;align-items:center;gap:7px;";
+          div2.innerHTML="<svg width='11' height='11' viewBox='0 0 48 48' style='flex-shrink:0'><path fill='#4285f4' d='M44.5 20H24v8.5h11.8C34.7 33.9 30.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z'/></svg><span style='font-size:9px;font-weight:700;letter-spacing:.09em;font-family:Space Grotesk,monospace;color:#D4AF37;text-transform:uppercase;'>Google</span><span style='font-size:9px;color:#6B7A9E;font-family:Space Grotesk,monospace;'>not yet in our database — area auto-detected</span>";
+          suggestEl.appendChild(div2);
+
+          extra.forEach(function(p){
+            var item=document.createElement("button");
+            item.style.cssText="width:100%;padding:10px 16px;background:transparent;border:none;border-top:1px solid "+cl.border+";color:#F0F2F5;font-size:13px;cursor:pointer;text-align:left;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:8px;";
+            item.innerHTML="<div style='flex:1;min-width:0'><div style='font-weight:600;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>"+p.name+"</div><div style='font-size:10px;color:#6B7A9E;font-family:Space Grotesk,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>"+p.address+"</div></div><div style='flex-shrink:0;font-size:9px;padding:2px 6px;background:rgba(66,133,244,0.12);border:1px solid rgba(66,133,244,0.25);border-radius:4px;color:#88aaee;font-family:Space Grotesk,monospace'>area detect</div>";
+            item.addEventListener("mouseenter",function(){this.style.background=cl.raised;});
+            item.addEventListener("mouseleave",function(){this.style.background="transparent";});
+            item.addEventListener("mousedown",function(e){
+              e.preventDefault();
+              var bldgName=p.name;
+              suggestEl.innerHTML="";
+              analyzerState.f.building=bldgName;
+              analyzerState.f._googleBuilding=true;
+              render();
+              // Geocode → nearest benchmark area
+              fetch("/api/proxy-maps?action=geocode&address="+encodeURIComponent(bldgName+", Dubai"))
+                .then(function(r){return r.json();})
+                .then(function(geo){
+                  if(!geo.lat)return;
+                  var area=_dvNearestArea(geo.lat,geo.lng);
+                  if(area){analyzerState.f.area=area;analyzerState.f._googleBuilding=true;render();}
+                })
+                .catch(function(){});
+            });
+            suggestEl.appendChild(item);
+          });
+        })
+        .catch(function(){});
+    },380);
+  }
 }
 
 

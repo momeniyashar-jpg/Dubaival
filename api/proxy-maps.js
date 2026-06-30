@@ -154,6 +154,27 @@ module.exports = async function handler(req, res) {
       results.forEach(function(r) { amenities[r.key] = r.nearest; });
       return res.json({ lat: alat, lng: alng, amenities: amenities });
 
+    // ── PLACES AUTOCOMPLETE (building/establishment suggestions) ────────────
+    } else if (action === "places") {
+      var q = req.query.q;
+      if (!q) return res.status(400).json({ error: "Missing q" });
+      var placesUrl = "https://maps.googleapis.com/maps/api/place/autocomplete/json"
+        + "?input=" + encodeURIComponent(q)
+        + "&components=country:ae"
+        + "&location=25.2,55.27&radius=50000"
+        + "&types=establishment"
+        + "&key=" + key;
+      var plR = await fetch(placesUrl, { headers: headers });
+      var plData = await plR.json();
+      var predictions = (plData.predictions || []).map(function(p) {
+        return {
+          place_id: p.place_id,
+          name: p.structured_formatting ? p.structured_formatting.main_text : p.description.split(",")[0],
+          address: p.description
+        };
+      });
+      return res.json({ predictions: predictions });
+
     // ── CONFIG (return key for Maps JS API client-side loading) ─────────────
     } else if (action === "config") {
       return res.json({ key: key });
