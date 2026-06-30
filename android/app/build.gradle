@@ -18,13 +18,27 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+
+    // Fixed project keystore — ALL builds (debug + release) use the same key.
+    // This means APK updates always install over previous versions without uninstall.
+    signingConfigs {
+        release {
+            storeFile file("dubaival.keystore")
+            storePassword "dubaival2026"
+            keyAlias "dubaival"
+            keyPassword "dubaival2026"
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig signingConfigs.release
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         debug {
+            signingConfig signingConfigs.release
             debuggable true
         }
     }
