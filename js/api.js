@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- API ---------------------------------------------------------------------
 var API_BASE="/api";
-var UAE_RE_KEY="7da522d58fmsh161b7610dfa29acp1023adjsn4dda46dfadfc";
+var UAE_RE_KEY="";
 const UAE_RE_HOST="uae-real-estate2.p.rapidapi.com";
 const PF_HOST="uae-real-estate-api-propertyfinder-ae-data.p.rapidapi.com";
 var GROQ_KEY="";try{GROQ_KEY=localStorage.getItem("dv_groq")||"";}catch(e){}

@@ -27,7 +27,7 @@ async function openWhatsApp(deal){
   if(!phone){alert("Contact info not available");return;}
   phone=phone.replace(/[^0-9+]/g,"");
   var msg=encodeURIComponent("Hi "+deal.agent_name+", I'm interested in your "+deal.type+" listing: "+deal.area+(deal.building?" - "+deal.building:"")+" at AED "+deal.price.toLocaleString()+" (via DubAIVal Deal Network)");
-  window.open("https://wa.me/"+phone+"?text="+msg,"_blank");
+  window.open("https://wa.me/"+phone+"?text="+msg,"_blank","noopener,noreferrer");
 }
 
 async function fetchDeals(){
@@ -891,7 +891,7 @@ function renderDeals(){
           rejectBtn.textContent="Reject";iActions.appendChild(rejectBtn);
         }else if(inq.status==="approved"&&inq.sender_phone){
           var waBtn=el("button",{style:{background:"rgba(37,211,102,0.15)",color:"#25D366",border:"1px solid rgba(37,211,102,0.3)",padding:"4px 10px",borderRadius:"6px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
-            onclick:(function(phone,name){return function(e){e.stopPropagation();window.open("https://wa.me/"+phone.replace(/[^0-9+]/g,"")+"?text="+encodeURIComponent("Hi "+name+", your request for my property listing on DubAIVal has been approved. Photos and details are now available for you."),"_blank");};})(inq.sender_phone,inq.sender_name)});
+            onclick:(function(phone,name){return function(e){e.stopPropagation();window.open("https://wa.me/"+phone.replace(/[^0-9+]/g,"")+"?text="+encodeURIComponent("Hi "+name+", your request for my property listing on DubAIVal has been approved. Photos and details are now available for you."),"_blank","noopener,noreferrer");};})(inq.sender_phone,inq.sender_name)});
           waBtn.textContent="WhatsApp";iActions.appendChild(waBtn);
         }
         iActions.appendChild(span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},timeAgo(inq.created_at)));
@@ -977,7 +977,7 @@ function renderDeals(){
             bPhotos.forEach(function(m){
               var thumb=div({position:"relative",paddingTop:"75%",borderRadius:"8px",overflow:"hidden",border:"1px solid "+cl.border,cursor:"pointer"});
               thumb.appendChild(el("img",{src:m.data,style:{position:"absolute",top:"0",left:"0",width:"100%",height:"100%",objectFit:"cover"}}));
-              thumb.onclick=function(e){e.stopPropagation();window.open(m.data,"_blank");};
+              thumb.onclick=(function(md){return function(e){e.stopPropagation();if(typeof md==="string"&&md.startsWith("data:image/"))window.open(md,"_blank","noopener,noreferrer");};})(m.data);
               bGrid.appendChild(thumb);
             });
             mediaAccess.appendChild(bGrid);

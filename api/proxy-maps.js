@@ -1,8 +1,14 @@
+var { rateLimitExceeded } = require("./lib/ratelimit");
+
+var ALLOWED_ORIGINS = ["https://www.dubaival.com", "https://dubaival.com", "http://localhost:3000", "http://localhost:5000"];
+
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(200).end();
+
+  if (rateLimitExceeded(req, res, 60000, 30)) return;
 
   var key = process.env.GOOGLE_MAPS_KEY;
   if (!key) return res.status(500).json({ error: "GOOGLE_MAPS_KEY not configured" });
@@ -177,6 +183,9 @@ module.exports = async function handler(req, res) {
 
     // ── CONFIG (return key for Maps JS API client-side loading) ─────────────
     } else if (action === "config") {
+      var origin = req.headers["origin"] || req.headers["referer"] || "";
+      var trusted = ALLOWED_ORIGINS.some(function (o) { return origin.startsWith(o); });
+      if (!trusted) return res.status(403).json({ error: "Forbidden" });
       return res.json({ key: key });
 
     } else {

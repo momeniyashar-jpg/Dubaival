@@ -3110,7 +3110,7 @@ async function publishFacebookReel(message,videoUrl){
 }
 
 function shareToWhatsApp(text){
-  window.open("https://wa.me/?text="+encodeURIComponent(text),"_blank");
+  window.open("https://wa.me/?text="+encodeURIComponent(text),"_blank","noopener,noreferrer");
   return{success:true};
 }
 
@@ -3604,10 +3604,10 @@ function showPostPreview(caption,imageUrl){
   var capWrap=div({padding:"0 12px 12px"});
   var capText=el("div",{style:{color:"#FFF",fontSize:"12px",lineHeight:"1.5"}});
   var shortCap=caption.length>150?caption.substring(0,150)+"...":caption;
-  capText.innerHTML="<span style='font-weight:700'>"+(bp?bp.name:"dubaival")+"</span> "+shortCap.replace(/\n/g,"<br>");
+  capText.innerHTML="<span style='font-weight:700'>"+escHtml(bp?bp.name:"dubaival")+"</span> "+escHtml(shortCap).replace(/\n/g,"<br>");
   capWrap.appendChild(capText);
   if(caption.length>150){
-    var moreBtn=el("span",{style:{color:"#8899AA",fontSize:"12px",cursor:"pointer"},onclick:function(){capText.innerHTML="<span style='font-weight:700'>"+(bp?bp.name:"dubaival")+"</span> "+caption.replace(/\n/g,"<br>");moreBtn.remove();}});
+    var moreBtn=el("span",{style:{color:"#8899AA",fontSize:"12px",cursor:"pointer"},onclick:function(){capText.innerHTML="<span style='font-weight:700'>"+escHtml(bp?bp.name:"dubaival")+"</span> "+escHtml(caption).replace(/\n/g,"<br>");moreBtn.remove();}});
     moreBtn.textContent="more";capWrap.appendChild(moreBtn);
   }
   card.appendChild(capWrap);

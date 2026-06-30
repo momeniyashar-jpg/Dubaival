@@ -48,12 +48,10 @@ async function currentTrimmedPsf(targetName, area, key) {
 }
 
 module.exports = async function handler(req, res) {
-  if (process.env.CRON_SECRET) {
-    const auth = req.headers["authorization"] || "";
-    if (auth !== "Bearer " + process.env.CRON_SECRET) {
-      res.status(401).json({ ok: false, error: "Unauthorized" });
-      return;
-    }
+  const auth = req.headers["authorization"] || "";
+  if (!process.env.CRON_SECRET || auth !== "Bearer " + process.env.CRON_SECRET) {
+    res.status(401).json({ ok: false, error: "Unauthorized" });
+    return;
   }
 
   const rapidKey = process.env.RAPIDAPI_KEY;

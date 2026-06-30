@@ -1,4 +1,6 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
+// --- SECURITY HELPERS ---------------------------------------------------------
+function escHtml(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
 // --- THEME --------------------------------------------------------------------
 function useThemeToggle(){return function(){darkMode=!darkMode;render();}}
 
@@ -266,22 +268,22 @@ function showShareModal(opts){
 
   // WhatsApp
   grid.appendChild(shareBtn("WhatsApp","#25D366","\u{1F4AC}",function(){
-    window.open("https://api.whatsapp.com/send?text="+encodedText,"_blank");
+    window.open("https://api.whatsapp.com/send?text="+encodedText,"_blank","noopener,noreferrer");
   }));
 
   // Telegram
   grid.appendChild(shareBtn("Telegram","#0088CC","\u{2708}",function(){
-    window.open("https://t.me/share/url?url="+encodedUrl+"&text="+encodedText,"_blank");
+    window.open("https://t.me/share/url?url="+encodedUrl+"&text="+encodedText,"_blank","noopener,noreferrer");
   }));
 
   // Twitter/X
   grid.appendChild(shareBtn("X / Twitter","#1DA1F2","\u{1D54F}",function(){
-    window.open("https://twitter.com/intent/tweet?text="+encodedText,"_blank");
+    window.open("https://twitter.com/intent/tweet?text="+encodedText,"_blank","noopener,noreferrer");
   }));
 
   // LinkedIn
   grid.appendChild(shareBtn("LinkedIn","#0A66C2","\u{1F4BC}",function(){
-    window.open("https://www.linkedin.com/sharing/share-offsite/?url="+encodedUrl,"_blank");
+    window.open("https://www.linkedin.com/sharing/share-offsite/?url="+encodedUrl,"_blank","noopener,noreferrer");
   }));
 
   // Copy Text
@@ -912,10 +914,10 @@ function shareRow(cl,buttons){
   return row;
 }
 function shareBtnStyle(bg,color){return{background:bg,color:color,border:"none",padding:"7px 12px",borderRadius:"8px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",display:"inline-flex",alignItems:"center",gap:"5px",transition:"opacity 0.2s"};}
-function shareWhatsApp(text){window.open("https://wa.me/?text="+encodeURIComponent(text),"_blank");}
-function shareTwitter(text){window.open("https://twitter.com/intent/tweet?text="+encodeURIComponent(text),"_blank");}
-function shareLinkedIn(url){window.open("https://linkedin.com/sharing/share-offsite/?url="+encodeURIComponent(url),"_blank");}
-function shareTelegram(text,url){window.open("https://t.me/share/url?url="+encodeURIComponent(url||"https://www.dubaival.com")+"&text="+encodeURIComponent(text),"_blank");}
+function shareWhatsApp(text){window.open("https://wa.me/?text="+encodeURIComponent(text),"_blank","noopener,noreferrer");}
+function shareTwitter(text){window.open("https://twitter.com/intent/tweet?text="+encodeURIComponent(text),"_blank","noopener,noreferrer");}
+function shareLinkedIn(url){window.open("https://linkedin.com/sharing/share-offsite/?url="+encodeURIComponent(url),"_blank","noopener,noreferrer");}
+function shareTelegram(text,url){window.open("https://t.me/share/url?url="+encodeURIComponent(url||"https://www.dubaival.com")+"&text="+encodeURIComponent(text),"_blank","noopener,noreferrer");}
 function copyAndFlash(btn,text){
   if(navigator.clipboard)navigator.clipboard.writeText(text);else{var ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);}
   var orig=btn.textContent;btn.textContent="Copied! ✓";btn.style.opacity="0.7";

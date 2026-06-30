@@ -31,12 +31,10 @@ async function fetchIGEngagement(mediaId, token) {
 }
 
 module.exports = async function handler(req, res) {
-  if (process.env.CRON_SECRET) {
-    var auth = req.headers["authorization"] || "";
-    if (auth !== "Bearer " + process.env.CRON_SECRET) {
-      res.status(401).json({ ok: false, error: "Unauthorized" });
-      return;
-    }
+  var auth = req.headers["authorization"] || "";
+  if (!process.env.CRON_SECRET || auth !== "Bearer " + process.env.CRON_SECRET) {
+    res.status(401).json({ ok: false, error: "Unauthorized" });
+    return;
   }
 
   var updated = 0;

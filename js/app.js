@@ -1201,7 +1201,7 @@ function updateSearchSuggestions(query){
           extra.forEach(function(p){
             var item=document.createElement("button");
             item.style.cssText="width:100%;padding:10px 16px;background:transparent;border:none;border-top:1px solid "+cl.border+";color:#F0F2F5;font-size:13px;cursor:pointer;text-align:left;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:8px;";
-            item.innerHTML="<div style='flex:1;min-width:0'><div style='font-weight:600;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>"+p.name+"</div><div style='font-size:10px;color:#6B7A9E;font-family:Space Grotesk,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>"+p.address+"</div></div><div style='flex-shrink:0;font-size:9px;padding:2px 6px;background:rgba(66,133,244,0.12);border:1px solid rgba(66,133,244,0.25);border-radius:4px;color:#88aaee;font-family:Space Grotesk,monospace'>area detect</div>";
+            item.innerHTML="<div style='flex:1;min-width:0'><div style='font-weight:600;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>"+escHtml(p.name)+"</div><div style='font-size:10px;color:#6B7A9E;font-family:Space Grotesk,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>"+escHtml(p.address)+"</div></div><div style='flex-shrink:0;font-size:9px;padding:2px 6px;background:rgba(66,133,244,0.12);border:1px solid rgba(66,133,244,0.25);border-radius:4px;color:#88aaee;font-family:Space Grotesk,monospace'>area detect</div>";
             item.addEventListener("mouseenter",function(){this.style.background=cl.raised;});
             item.addEventListener("mouseleave",function(){this.style.background="transparent";});
             item.addEventListener("mousedown",function(e){
@@ -1243,10 +1243,23 @@ function renderAdmin(){
     var pwBtn=el("button",{style:{width:"100%",padding:"12px",background:"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#08090C",border:"none",borderRadius:"8px",fontSize:"14px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
     pwBtn.textContent="Login";
     pwBtn.addEventListener("click",async function(){
-      try{var enc=new TextEncoder();var buf=await crypto.subtle.digest("SHA-256",enc.encode(pwInp.value));
+      // Brute-force lockout: 5 failed attempts → 30 min lockout
+      var lockKey="dv_admin_lock";var attKey="dv_admin_att";
+      try{
+        var lockUntil=parseInt(sessionStorage.getItem(lockKey)||"0");
+        if(Date.now()<lockUntil){var rem=Math.ceil((lockUntil-Date.now())/60000);pwInp.placeholder="Locked — try again in "+rem+"m";pwInp.style.borderColor="#EF4444";return;}
+        var enc=new TextEncoder();var buf=await crypto.subtle.digest("SHA-256",enc.encode(pwInp.value));
         var hash=Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");
-        if(hash==="67ed667fed4620ba36c09d97b542b81c39a5f63bcbdfe8d1931c234748498fc1"){window.ADMIN_UNLOCKED=true;render();}
-        else{pwInp.style.borderColor="#EF4444";pwInp.value="";}}catch(e){pwInp.style.borderColor="#EF4444";pwInp.value="";}
+        if(hash==="67ed667fed4620ba36c09d97b542b81c39a5f63bcbdfe8d1931c234748498fc1"){
+          sessionStorage.removeItem(lockKey);sessionStorage.removeItem(attKey);
+          window.ADMIN_UNLOCKED=true;render();
+        } else {
+          var att=parseInt(sessionStorage.getItem(attKey)||"0")+1;
+          sessionStorage.setItem(attKey,att);
+          if(att>=5){sessionStorage.setItem(lockKey,Date.now()+30*60*1000);sessionStorage.removeItem(attKey);pwInp.placeholder="Too many attempts — locked 30 min";}
+          pwInp.style.borderColor="#EF4444";pwInp.value="";
+        }
+      }catch(e){pwInp.style.borderColor="#EF4444";pwInp.value="";}
     });
     pwWrap.appendChild(pwInp);
     pwWrap.appendChild(pwBtn);

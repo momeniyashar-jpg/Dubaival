@@ -9,6 +9,7 @@
 
 var embeddings = require("./lib/embeddings.js");
 var shared = require("./lib/shared.js");
+var { rateLimitExceeded } = require("./lib/ratelimit");
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -16,6 +17,8 @@ module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "POST only", results: [] });
+
+  if (rateLimitExceeded(req, res, 60000, 30)) return;
 
   var body = req.body || {};
   var query = String(body.query || "").trim();

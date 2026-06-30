@@ -127,7 +127,7 @@ function _renderNewsList() {
     });
     card.addEventListener("mouseenter", function () { card.style.transform = "translateY(-2px)"; card.style.borderColor = meta.color; });
     card.addEventListener("mouseleave", function () { card.style.transform = "translateY(0)"; card.style.borderColor = a.isNew ? meta.bo : cl.border; });
-    card.addEventListener("click", function () { window.open(a.link, "_blank", "noopener"); });
+    card.addEventListener("click", function () { window.open(a.link, "_blank", "noopener,noreferrer"); });
 
     var topRow = div({ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", flexWrap: "wrap" });
     var badge = span({ fontSize: "10px", fontWeight: "700", padding: "3px 9px", borderRadius: "20px", background: meta.bg, color: meta.color, border: "1px solid " + meta.bo, letterSpacing: "0.02em" }, meta.label);

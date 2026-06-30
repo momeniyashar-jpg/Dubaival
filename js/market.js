@@ -3576,7 +3576,7 @@ function renderAnalyzerResult(wrap){
 
     var waPitch=el("button",{style:{flex:"1",padding:"9px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",border:"1px solid #25D366",background:"rgba(37,211,102,0.1)",color:"#25D366"}});
     waPitch.textContent="WhatsApp";
-    waPitch.addEventListener("click",function(){window.open("https://wa.me/?text="+encodeURIComponent(window._pitchText),"_blank");});
+    waPitch.addEventListener("click",function(){window.open("https://wa.me/?text="+encodeURIComponent(window._pitchText),"_blank","noopener,noreferrer");});
 
     var emailPitch=el("button",{style:{flex:"1",padding:"9px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",border:"1px solid "+cl.gold,background:cl.goldFaint,color:cl.gold}});
     emailPitch.textContent="Email";
@@ -3819,7 +3819,7 @@ function renderRentalResult(wrap){
   waBtn.textContent="WhatsApp";
   waBtn.addEventListener("click",function(){
     var text="Rental Analysis by DubAIVal.com\n\n"+(f.building||f.area)+" · "+rv.beds+"\nAsking: AED "+rv.askRent.toLocaleString()+"/yr\nMarket: AED "+rv.estRent.toLocaleString()+"/yr\nVerdict: "+rv.verdict.replace(/_/g," ")+"\n\ndubaival.com";
-    window.open("https://wa.me/?text="+encodeURIComponent(text),"_blank");
+    window.open("https://wa.me/?text="+encodeURIComponent(text),"_blank","noopener,noreferrer");
   });
   shareRow.appendChild(waBtn);
   wrap.appendChild(shareRow);

@@ -1,10 +1,14 @@
+var { rateLimitExceeded } = require("./lib/ratelimit");
+
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  var key = process.env.RAPIDAPI_KEY || "7da522d58fmsh161b7610dfa29acp1023adjsn4dda46dfadfc";
+  if (rateLimitExceeded(req, res, 60000, 30)) return;
+
+  var key = process.env.RAPIDAPI_KEY;
   if (!key) return res.status(500).json({ error: "RAPIDAPI_KEY not configured" });
 
   var endpoint = req.query.endpoint;
