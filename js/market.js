@@ -1989,6 +1989,75 @@ function renderAnalyzerResult(wrap){
     ]),
   ]));
 
+  // -- PROPERTY LOCATION: Satellite Map + Street View (Google Maps) --
+  (function(){
+    if(!f.area)return;
+    var query=(f.building?f.building+", ":"")+f.area;
+    if(!window._dvGeoCache)window._dvGeoCache={};
+
+    var locCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px",position:"relative",overflow:"hidden"}});
+    locCard.id="dv-location-card";
+    var lcHd=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}});
+    var lcLeft=el("div",{});
+    lcLeft.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"2px"},"Property Location"));
+    lcLeft.appendChild(span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},f.building||f.area));
+    lcHd.appendChild(lcLeft);
+    lcHd.appendChild(span({color:"#10B981",fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"6px",background:"rgba(16,185,129,0.1)"},"LIVE"));
+    locCard.appendChild(lcHd);
+
+    var mapWrap=el("div",{style:{borderRadius:"10px",overflow:"hidden",marginBottom:"8px",background:cl.raised,minHeight:"150px",display:"flex",alignItems:"center",justifyContent:"center"}});
+    mapWrap.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Loading satellite view..."));
+    locCard.appendChild(mapWrap);
+
+    var svLabel=el("div",{style:{color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px",marginTop:"8px",display:"none"}});
+    svLabel.textContent="Street View";
+    var svWrap=el("div",{style:{borderRadius:"10px",overflow:"hidden",display:"none"}});
+    locCard.appendChild(svLabel);
+    locCard.appendChild(svWrap);
+    wrap.appendChild(locCard);
+
+    function buildLocCard(lat,lng){
+      mapWrap.innerHTML="";
+      mapWrap.style.minHeight="auto";
+      mapWrap.style.background="transparent";
+      mapWrap.style.display="block";
+      var mImg=el("img",{style:{width:"100%",display:"block",borderRadius:"10px",objectFit:"cover",minHeight:"120px"}});
+      mImg.src="/api/proxy-maps?action=staticmap&lat="+lat+"&lng="+lng;
+      mImg.alt="Satellite view · "+f.area;
+      mImg.onerror=function(){mapWrap.style.display="none";};
+      mapWrap.appendChild(mImg);
+
+      var sImg=el("img",{style:{width:"100%",display:"block",maxHeight:"160px",objectFit:"cover",borderRadius:"10px"}});
+      sImg.src="/api/proxy-maps?action=streetview&lat="+lat+"&lng="+lng;
+      sImg.alt="Street view · "+f.area;
+      sImg.onload=function(){svLabel.style.display="block";svWrap.style.display="block";};
+      sImg.onerror=function(){};
+      svWrap.appendChild(sImg);
+
+      // headings: 0=N, 90=E, 180=S, 270=W — try alternate heading if primary fails
+      var heads=[90,180,270];var hi=0;
+      sImg.onerror=function(){
+        if(hi<heads.length){
+          sImg.src="/api/proxy-maps?action=streetview&lat="+lat+"&lng="+lng+"&heading="+heads[hi];
+          hi++;
+        }else{svLabel.style.display="none";svWrap.style.display="none";}
+      };
+    }
+
+    if(window._dvGeoCache[query]){
+      buildLocCard(window._dvGeoCache[query].lat,window._dvGeoCache[query].lng);
+    }else{
+      fetch("/api/proxy-maps?action=geocode&address="+encodeURIComponent(query))
+        .then(function(r){return r.json();})
+        .then(function(data){
+          if(!data||!data.lat){locCard.style.display="none";return;}
+          window._dvGeoCache[query]={lat:data.lat,lng:data.lng};
+          buildLocCard(data.lat,data.lng);
+        })
+        .catch(function(){locCard.style.display="none";});
+    }
+  })();
+
   // -- PRICE ANOMALY DETECTION --
   var anomalyPct=Math.abs(parseFloat(val.vsPct)||0);
   var anomalyDir=parseFloat(val.vsPct)>0?"above":"below";
@@ -3039,6 +3108,70 @@ function renderAnalyzerResult(wrap){
           renderAmenities(data);
         })
         .catch(function(){amCard.style.display="none";});
+    }
+  })();
+
+  // -- DRIVE TIMES (Google Maps Distance Matrix) --
+  (function(){
+    if(!f.area)return;
+    var query=(f.building?f.building+", ":"")+f.area;
+    if(!window._dvGeoCache)window._dvGeoCache={};
+
+    var dtCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginTop:"14px"}});
+    dtCard.id="dv-drivetimes-card";
+    var dtHd=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}});
+    var dtLeft=el("div",{});
+    dtLeft.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"2px"},"Drive Times"));
+    dtLeft.appendChild(span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},"To key Dubai destinations"));
+    dtHd.appendChild(dtLeft);
+    dtHd.appendChild(span({color:"#10B981",fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"6px",background:"rgba(16,185,129,0.1)"},"LIVE"));
+    dtCard.appendChild(dtHd);
+    var dtLoader=el("div",{style:{color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",textAlign:"center",padding:"12px 0"}});
+    dtLoader.textContent="Calculating drive times...";
+    dtCard.appendChild(dtLoader);
+    wrap.appendChild(dtCard);
+
+    var dtColors={"Downtown Dubai":"#C9A84C","DIFC":"#10B981","DXB Airport":"#3B82F6","Mall of Emirates":"#F59E0B","JBR Beach":"#06B6D4"};
+
+    function renderDriveTimes(rows){
+      if(!rows||!rows.length){dtCard.style.display="none";return;}
+      dtLoader.style.display="none";
+      var grid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}});
+      rows.forEach(function(r){
+        var c=dtColors[r.label]||cl.sub;
+        var box=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px"}});
+        box.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.08em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"5px"},r.label));
+        box.appendChild(div({color:c,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},r.duration||"—"));
+        box.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},r.distance||""));
+        grid.appendChild(box);
+      });
+      dtCard.appendChild(grid);
+      dtCard.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginTop:"8px",textAlign:"center"},"Peak-hour times may vary · Via Google Maps"));
+    }
+
+    function fetchDriveTimesFor(lat,lng){
+      var dtCacheKey="dv_dt_"+lat.toFixed(4)+"_"+lng.toFixed(4);
+      try{var cs=sessionStorage.getItem(dtCacheKey);if(cs){renderDriveTimes(JSON.parse(cs));return;}}catch(e){}
+      fetch("/api/proxy-maps?action=distances&lat="+lat+"&lng="+lng)
+        .then(function(r){return r.json();})
+        .then(function(data){
+          try{sessionStorage.setItem(dtCacheKey,JSON.stringify(data.rows));}catch(e){}
+          renderDriveTimes(data.rows);
+        })
+        .catch(function(){dtCard.style.display="none";});
+    }
+
+    if(window._dvGeoCache[query]){
+      fetchDriveTimesFor(window._dvGeoCache[query].lat,window._dvGeoCache[query].lng);
+    }else{
+      fetch("/api/proxy-maps?action=geocode&address="+encodeURIComponent(query))
+        .then(function(r){return r.json();})
+        .then(function(data){
+          if(!data||!data.lat){dtCard.style.display="none";return;}
+          window._dvGeoCache[query]={lat:data.lat,lng:data.lng};
+          fetchDriveTimesFor(data.lat,data.lng);
+        })
+        .catch(function(){dtCard.style.display="none";});
     }
   })();
 
