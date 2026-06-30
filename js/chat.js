@@ -6502,7 +6502,7 @@ async function sendChat(text){
   try{
     var agent=AI_AGENTS.find(function(a){return a.id===chatState.agentId;})||AI_AGENTS[0];
     var history=msgs.slice(-10).map(function(m){return{role:m.role==="assistant"?"assistant":"user",content:m.text};});
-    var reply=await askAI(history,agent.sys());
+    var reply=await askAI(history,agent.sys(),t);
     msgs.push({role:"assistant",text:reply});
   }catch(e){msgs.push({role:"assistant",text:"Error: "+e.message});}
   chatState.loading=false;render(true);

@@ -172,8 +172,11 @@ Code is now split across `js/*.js` files. To find anything, grep across `js/`:
 | `dv_referrals` | `supabase-referral-schema.sql` | Referral tracking (buyer → agent → deal) |
 | `price_watches` | `supabase-price-alerts-schema.sql` | Price alert subscriptions |
 | `market_config` | (pre-existing) | Macro yield/growth adjustment knobs |
+| `knowledge_base` | `supabase-knowledge-base-schema.sql` | RAG vector store — 768-dim Gemini embeddings of live news + daily market snapshots. NOT YET EXECUTED — awaiting user SQL migration + GEMINI_API_KEY env var. Feature degrades gracefully (inert but harmless) until then. |
+| `area_benchmarks` | (inside `api/refresh-market-data.js` workflow, already deployed) | Live PSF + rent data per area, refreshed daily by cron |
+| `price_history` | (inside `api/refresh-market-data.js` workflow, already deployed) | Historical PSF per area per day |
 
-**All 5 SQL migration files have been executed in Supabase** (confirmed 2026-06-18).
+**SQL migration files executed in Supabase** (confirmed 2026-06-18): the original 5 above. `supabase-knowledge-base-schema.sql` (the RAG table) requires manual execution — see Outstanding items.
 
 ## The valuation engine (`computeValuation`)
 
@@ -292,6 +295,48 @@ project-level settings overriding it. See "Outstanding items" for next steps.
 **Required env vars in Vercel**: `RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
 `RAPIDAPI_KEY`, optionally `CRON_SECRET` + `ALERTS_FROM_EMAIL`.
 
+## RAG Knowledge Base feature (code-complete, 2026-06-30)
+
+Architecture: pgvector (Supabase) + Google Gemini `text-embedding-004` (768-dim).
+Continuously-growing AI memory that makes DubAIVal smarter over time.
+
+**Files**:
+- `supabase-knowledge-base-schema.sql` — pgvector extension, `knowledge_base` table,
+  `match_knowledge()` RPC, HNSW cosine-similarity index, RLS public-read policy.
+- `api/lib/embeddings.js` — Gemini `text-embedding-004` batch-embedding helper.
+- `api/knowledge-query.js` — Public semantic-search retrieval endpoint (POST).
+- `api/proxy-news.js` (modified) — Embeds + upserts newly-seen articles after
+  serving the news response (non-blocking background ingestion).
+- `api/refresh-market-data.js` (modified) — After the daily area loop, synthesizes
+  natural-language market facts per area and batch-embeds them into the knowledge base.
+- `js/api.js` (modified) — `askAI()` extended with optional 3rd `groundQuery` param;
+  new `fetchKnowledgeContext(query,area)` helper.
+- Grounding wired into 5 AI call sites: Chat AI Agents (`js/chat.js:6505`),
+  Area Comparison in Market Index (`js/marketindex.js:305`), Area Compare
+  (`js/portfolio.js:19`), Personal Advisor (`js/portfolio.js:~89`),
+  Portfolio AI Analysis (`js/portfolio.js:910`).
+
+**Knowledge sources (auto-ingested)**:
+- **Live news** (every ~2.5 min on cache-miss): Google News RSS articles via
+  `api/proxy-news.js`. Embeds title+description. Stored with source_type='news',
+  tag='launch'/'general'.
+- **Daily market snapshots** (every day at 06:00 UTC via cron): Per-area PSF +
+  rent facts synthesized in `api/refresh-market-data.js`. Stored with
+  source_type='market_snapshot'. Upserted daily with synthetic source_url
+  key `area-snapshot:{area}:{date}` (overrides prior day's entry for same area).
+
+**Required new env var in Vercel**: `GEMINI_API_KEY`
+  - Get free at: https://aistudio.google.com/apikey (free tier, generous limits)
+  - Add in: Vercel Dashboard → Project → Settings → Environment Variables
+
+**Required new Supabase SQL migration**:
+  - Run `supabase-knowledge-base-schema.sql` in Supabase Dashboard → SQL Editor
+
+**Graceful degradation**: Both steps are required before the feature becomes live.
+Until they're done: ingestion calls fail silently, `knowledge-query.js` returns
+`{results:[]}`, and `askAI()` grounding falls through to a no-op — all existing
+features continue working exactly as before. Zero breakage.
+
 ## Bug fix log (commit `1fe67df`, 2026-06-18)
 
 16 bugs fixed in comprehensive review:
@@ -324,6 +369,22 @@ project-level settings overriding it. See "Outstanding items" for next steps.
 
 ## Recent work log (most recent first)
 
+- **2026-06-30 (session 8)**: World-class RAG knowledge-base system ("AI brain").
+  - `supabase-knowledge-base-schema.sql` — pgvector `knowledge_base` table, 768-dim
+    Gemini embeddings, HNSW cosine-similarity index, `match_knowledge()` Postgres RPC.
+  - `api/lib/embeddings.js` — Gemini `text-embedding-004` batch-embedding helper.
+  - `api/knowledge-query.js` — Public semantic-search endpoint (POST /api/knowledge-query).
+  - `api/proxy-news.js` — Ingests newly-seen news articles as embeddings after every
+    fresh RSS fetch (non-blocking, fire-and-continue, never delays news response).
+  - `api/refresh-market-data.js` — Synthesizes per-area market facts and batch-embeds
+    them daily via the existing 06:00 UTC cron. New `maxDuration: 60` in vercel.json.
+  - `js/api.js` — `askAI()` extended with optional `groundQuery` 3rd param (100%
+    backward-compatible). New `fetchKnowledgeContext()` helper retrieves RAG context.
+  - Grounding activated on 5 AI features: Chat Agents, Area Comparison, Compare,
+    Personal Advisor, Portfolio AI Analysis. 11 other call sites unchanged.
+  - Also: live Dubai real estate News tab from session 7 (commit 9a9a40d).
+  - **Manual setup required**: (1) Run `supabase-knowledge-base-schema.sql`, (2) Add
+    `GEMINI_API_KEY` to Vercel env vars. Feature is inert until both are done.
 - **2026-06-28 (session 7)**: AI Video Studio server-side proxy + API keys.
   - `api/proxy-video.js` — Central server-side proxy for 8 video engines
   - All video engine API keys moved to Vercel env vars (no client-side keys)
@@ -616,6 +677,18 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🟡 RAG Knowledge Base — code-complete, 2 manual setup steps needed**:
+  1. Run `supabase-knowledge-base-schema.sql` in Supabase Dashboard → SQL Editor.
+     Creates `knowledge_base` table with pgvector `vector(768)` column, HNSW index,
+     `match_knowledge()` RPC function, and public-read RLS policy.
+  2. Get a free Gemini API key at https://aistudio.google.com/apikey and add it
+     as `GEMINI_API_KEY` in Vercel Dashboard → Project → Settings → Environment Variables.
+  Once done: news articles are auto-embedded every ~2.5min (on proxy-news cache-miss),
+  area market snapshots are embedded daily at 06:00 UTC, and all 5 grounded AI
+  features (Chat Agents, Area Comparison, Compare, Personal Advisor, Portfolio Analysis)
+  automatically retrieve relevant context before answering. No code change needed.
+  Feature degrades fully gracefully until these steps are done.
 
 - **🔴 Email sending (Resend) — NOT WORKING**: Price Alert emails cannot send.
   `/api/*.js` serverless functions return 404 on Vercel. Next steps:

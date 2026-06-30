@@ -2,6 +2,68 @@
 var _cache = { ts: 0, data: null };
 var CACHE_MS = 150 * 1000;
 
+// Tracks links already embedded into the knowledge base during this warm
+// lambda instance's lifetime, so we don't re-call the Gemini embeddings API
+// for the same article on every poll. Bounded so it can't grow unbounded —
+// the Supabase unique(source_type, source_url) constraint is the real
+// dedup guarantee (this Set is purely a cost/latency optimization).
+var _ingestedLinks = {};
+var _ingestedCount = 0;
+var MAX_INGESTED_TRACK = 1000;
+
+// Best-effort: embeds newly-seen articles and upserts them into the
+// knowledge_base table for RAG grounding. Never throws — any failure here
+// (missing env vars, Gemini/Supabase down, etc.) must never affect the
+// news response, which has already been sent to the client by the time
+// this runs.
+async function ingestNewsToKnowledgeBase(articles) {
+  if (!process.env.GEMINI_API_KEY || !process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+  var fresh = articles.filter(function (a) { return a.link && !_ingestedLinks[a.link]; });
+  if (!fresh.length) return;
+
+  var embeddings = require("./lib/embeddings.js");
+  var shared = require("./lib/shared.js");
+
+  var texts = fresh.map(function (a) {
+    return a.title + (a.description ? ". " + a.description : "");
+  });
+  var vectors = await embeddings.embedTexts(texts, "RETRIEVAL_DOCUMENT");
+
+  var rows = [];
+  fresh.forEach(function (a, i) {
+    var vec = vectors[i];
+    if (!vec) return;
+    rows.push({
+      source_type: "news",
+      source_url: a.link,
+      title: a.title,
+      content: a.title + (a.description ? ". " + a.description : ""),
+      area: null,
+      tag: a.tag || null,
+      embedding: vec,
+      published_at: a.ts ? new Date(a.ts).toISOString() : null
+    });
+  });
+  if (!rows.length) return;
+
+  await shared.supabaseRequest("/knowledge_base", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: JSON.stringify(rows)
+  });
+
+  fresh.forEach(function (a) {
+    if (!_ingestedLinks[a.link]) {
+      _ingestedLinks[a.link] = true;
+      _ingestedCount++;
+    }
+  });
+  if (_ingestedCount > MAX_INGESTED_TRACK) {
+    _ingestedLinks = {};
+    _ingestedCount = 0;
+  }
+}
+
 var QUERIES = [
   { q: "Dubai real estate market", tag: "general" },
   { q: "Dubai property prices", tag: "general" },
@@ -132,7 +194,12 @@ module.exports = async function handler(req, res) {
 
     res.setHeader("Cache-Control", "public, s-maxage=150, stale-while-revalidate=300");
     res.setHeader("X-News-Cache", "miss");
-    return res.json(payload);
+    res.json(payload);
+
+    // Response already sent above — continue in the background to grow the
+    // knowledge base. Wrapped so a failure here can never surface to the client.
+    try { await ingestNewsToKnowledgeBase(all); } catch (e) {}
+    return;
   } catch (e) {
     if (_cache.data) {
       res.setHeader("X-News-Cache", "stale-error");

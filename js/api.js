@@ -160,9 +160,37 @@ async function fetchLiveRentals(building,area,beds){
   }catch(e){return{all:[],buildingMatches:[],areaListings:[],bayutCount:0,pfCount:0,ts:Date.now()};}
 }
 
-async function askAI(messages,system){
+// Pulls top semantically-relevant snippets from the growing RAG knowledge base
+// (live news + daily market snapshots) for a free-text query. Always resolves
+// (never throws) — returns "" if the knowledge base isn't configured yet or
+// the lookup fails, so callers can treat it as a pure best-effort enrichment.
+async function fetchKnowledgeContext(query,area){
+  try{
+    var body={query:query};
+    if(area)body.area=area;
+    var r=await fetch(API_BASE+"/knowledge-query",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(body)
+    });
+    if(!r.ok)return "";
+    var d=await r.json();
+    var results=d.results||[];
+    if(!results.length)return "";
+    return results.map(function(x){return "- "+(x.title?x.title+": ":"")+x.content;}).join("\n");
+  }catch(e){return "";}
+}
+
+async function askAI(messages,system,groundQuery){
   const groqMessages=[];
-  if(system)groqMessages.push({role:"system",content:system});
+  var sys=system||"";
+  if(groundQuery){
+    var context=await fetchKnowledgeContext(groundQuery);
+    if(context){
+      sys=(sys?sys+"\n\n":"")+"Relevant up-to-date Dubai real estate knowledge (from live news and daily market data — use only if genuinely helpful, ignore if irrelevant):\n"+context;
+    }
+  }
+  if(sys)groqMessages.push({role:"system",content:sys});
   messages.forEach(function(m){groqMessages.push({role:m.role,content:m.content})});
   var r;
   if(GROQ_KEY){

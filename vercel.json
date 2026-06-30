@@ -4,6 +4,9 @@
   "outputDirectory": ".",
   "cleanUrls": true,
   "trailingSlash": false,
+  "functions": {
+    "api/refresh-market-data.js": { "maxDuration": 60 }
+  },
   "rewrites": [
     { "source": "/callback", "destination": "/callback.html" },
     { "source": "/((?!api/|callback).*)", "destination": "/index.html" }

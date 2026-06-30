@@ -1,4 +1,5 @@
 const { supabaseRequest, SUPABASE_URL } = require("./lib/shared");
+const embeddings = require("./lib/embeddings");
 
 const UAE_RE_HOST = "uae-real-estate2.p.rapidapi.com";
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || "";
@@ -70,13 +71,60 @@ function extractRents(listings) {
   };
 }
 
+function buildMarketFact(area, today, psf, sampleSize, rents) {
+  var parts = [];
+  if (psf) parts.push("average price is AED " + psf + " per sqft (based on " + sampleSize + " live listings)");
+  if (rents.studio) parts.push("studio rent ~AED " + rents.studio + "/yr");
+  if (rents.r1) parts.push("1BR rent ~AED " + rents.r1 + "/yr");
+  if (rents.r2) parts.push("2BR rent ~AED " + rents.r2 + "/yr");
+  if (rents.r3) parts.push("3BR rent ~AED " + rents.r3 + "/yr");
+  if (!parts.length) return null;
+  return area + " market snapshot (" + today + "): " + parts.join("; ") + ".";
+}
+
+// Best-effort: batch-embeds all of today's area facts and upserts them into
+// the knowledge_base table for RAG grounding. Never throws — a failure here
+// must never affect the cron job's own area_benchmarks/price_history writes,
+// which have already completed by the time this runs.
+async function ingestMarketSnapshotsToKnowledgeBase(facts) {
+  if (!process.env.GEMINI_API_KEY || !facts.length) return 0;
+  var texts = facts.map(function (f) { return f.content; });
+  var vectors = await embeddings.embedTexts(texts, "RETRIEVAL_DOCUMENT");
+
+  var rows = [];
+  facts.forEach(function (f, i) {
+    var vec = vectors[i];
+    if (!vec) return;
+    rows.push({
+      source_type: "market_snapshot",
+      source_url: "area-snapshot:" + f.area + ":" + f.date,
+      title: f.area + " market snapshot — " + f.date,
+      content: f.content,
+      area: f.area,
+      tag: null,
+      embedding: vec,
+      published_at: new Date().toISOString()
+    });
+  });
+  if (!rows.length) return 0;
+
+  var resp = await supabaseRequest("/knowledge_base", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: JSON.stringify(rows)
+  });
+  return resp.ok ? rows.length : 0;
+}
+
 module.exports = async function handler(req, res) {
   if (process.env.CRON_SECRET && req.headers.authorization !== "Bearer " + process.env.CRON_SECRET) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
   var areas = Object.keys(AREA_LOCATION_MAP);
-  var results = { updated: 0, skipped: 0, errors: 0, history: 0 };
+  var results = { updated: 0, skipped: 0, errors: 0, history: 0, knowledge: 0 };
+  var today = new Date().toISOString().slice(0, 10);
+  var marketFacts = [];
 
   for (var i = 0; i < areas.length; i++) {
     var area = areas[i];
@@ -131,11 +179,18 @@ module.exports = async function handler(req, res) {
         if (histResp.ok) results.history++;
       }
 
+      var fact = buildMarketFact(area, today, psf, salePsfs.length, rents);
+      if (fact) marketFacts.push({ area: area, date: today, content: fact });
+
       if (i < areas.length - 1) await new Promise(function(r){setTimeout(r, 200);});
     } catch(e) {
       results.errors++;
     }
   }
+
+  try {
+    results.knowledge = await ingestMarketSnapshotsToKnowledgeBase(marketFacts);
+  } catch (e) {}
 
   res.status(200).json({
     ok: true,
