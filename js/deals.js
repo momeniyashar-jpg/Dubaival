@@ -706,6 +706,15 @@ function renderDeals(){
     rightTop.appendChild(heartBtn);
     topRow.appendChild(rightTop);
     card.appendChild(topRow);
+    // Satellite thumbnail for "I Have" deals
+    if(isHave&&typeof AREA_COORDS!=="undefined"&&AREA_COORDS[d.area]){
+      var _ac2=AREA_COORDS[d.area];
+      var _tImg=el("img",{style:{width:"100%",height:"110px",objectFit:"cover",borderRadius:"10px",marginBottom:"8px",display:"block"}});
+      _tImg.loading="lazy";_tImg.alt=d.area+" satellite";
+      _tImg.src="/api/proxy-maps?action=staticmap&lat="+_ac2[0]+"&lng="+_ac2[1]+"&zoom=15&size=640x180";
+      _tImg.onerror=function(){this.style.display="none";};
+      card.appendChild(_tImg);
+    }
 
     // Expiry countdown
     if(d.expires_at){

@@ -62,7 +62,7 @@ function renderFind(){
   wrap.appendChild(div({color:cl.sub,fontSize:"12px",marginBottom:"16px",fontFamily:"'Inter',sans-serif"},"Tell DubAIVal what you're looking for. AI searches Bayut, PropertyFinder & market data."));
 
   if(!window.FIND_STATE)window.FIND_STATE={area:"",building:"",beds:"2 BR",maxPrice:"",minYield:"",type:"Apartment",query:"",results:[],loading:false,searched:false,sort:"score",
-    sf:{area:"",grade:"",minYield:"",maxPSF:"",minPSF:"",minGrowth:"",maxDOM:"",minTurnover:"",type:"Apartment",beds:"Any",sort:"yield",showResults:false,results:[]}
+    sf:{area:"",grade:"",minYield:"",maxPSF:"",minPSF:"",minGrowth:"",maxDOM:"",minTurnover:"",type:"Apartment",beds:"Any",sort:"yield",showResults:false,results:[],mapView:false}
   };
   var FS=window.FIND_STATE;
 
@@ -201,10 +201,13 @@ function renderFind(){
   // Smart Discovery Results
   if(sf.showResults&&sf.results.length>0){
     var sfResCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"});
-    sfResCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
-      span({color:"#818CF8",fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ "+sf.results.length+" Buildings Found"+(sf.results.length>=50?" (showing top 50)":"")),
-      btn({background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"4px 10px",borderRadius:"6px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},"Clear",function(){sf.showResults=false;sf.results=[];render();})
-    ]));
+    var _sfHdr=div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"});
+    _sfHdr.appendChild(span({color:"#818CF8",fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ "+sf.results.length+" Buildings Found"+(sf.results.length>=50?" (showing top 50)":"")));
+    var _sfHdrBtns=div({display:"flex",gap:"6px"});
+    _sfHdrBtns.appendChild(el("button",{style:{background:sf.mapView?"rgba(129,140,248,0.15)":"transparent",border:"1px solid "+(sf.mapView?"rgba(129,140,248,0.4)":cl.border),color:sf.mapView?"#818CF8":cl.sub,padding:"4px 10px",borderRadius:"6px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){sf.mapView=!sf.mapView;render();}},sf.mapView?"≡ List":"◆ Map"));
+    _sfHdrBtns.appendChild(btn({background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"4px 10px",borderRadius:"6px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},"Clear",function(){sf.showResults=false;sf.results=[];sf.mapView=false;render();}));
+    _sfHdr.appendChild(_sfHdrBtns);
+    sfResCard.appendChild(_sfHdr);
     var sfStats=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:"8px",marginBottom:"14px"});
     var avgY2=sf.results.reduce(function(s,r){return s+r.yield;},0)/sf.results.length;
     var avgG2=sf.results.reduce(function(s,r){return s+r.growth3;},0)/sf.results.length;
@@ -217,6 +220,7 @@ function renderFind(){
       sfStats.appendChild(box);
     });
     sfResCard.appendChild(sfStats);
+    if(!sf.mapView){
     sf.results.forEach(function(r,idx){
       var sigColor=r.signal==="Undervalued"||r.signal==="Fair Value"?cl.green:r.signal==="Elevated"?cl.yellow:cl.red;
       var row=el("div",{style:{background:cl.raised,backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",borderRadius:"12px",padding:"12px 14px",marginBottom:"6px",cursor:"pointer",border:"1px solid "+cl.border,transition:"border-color 0.2s ease,transform 0.2s ease,box-shadow 0.2s ease"},onclick:function(){
@@ -247,7 +251,39 @@ function renderFind(){
       row.appendChild(rPills);
       sfResCard.appendChild(row);
     });
-    sfResCard.appendChild(div({marginTop:"10px",padding:"8px 10px",background:cl.goldFaint,borderRadius:"6px",fontSize:"10px",color:cl.sub,fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},"Click any building to open it in the Analyzer for full valuation."));
+      sfResCard.appendChild(div({marginTop:"10px",padding:"8px 10px",background:cl.goldFaint,borderRadius:"6px",fontSize:"10px",color:cl.sub,fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},"Click any building to open it in the Analyzer for full valuation."));
+    }else{
+      // Map view — group results by area and render Google Maps circles
+      var _sfAG={};
+      sf.results.forEach(function(r){
+        if(!_sfAG[r.area])_sfAG[r.area]={count:0,totalYield:0,buildings:[],coords:null};
+        _sfAG[r.area].count++;_sfAG[r.area].totalYield+=r.yield;_sfAG[r.area].buildings.push(r);
+        if(!_sfAG[r.area].coords&&typeof AREA_COORDS!=="undefined"&&AREA_COORDS[r.area])_sfAG[r.area].coords=AREA_COORDS[r.area];
+      });
+      var sfMapId2="dv-sf-gmap-"+Date.now();
+      sfResCard.appendChild(el("div",{style:{width:"100%",height:"380px",borderRadius:"10px",overflow:"hidden"},id:sfMapId2}));
+      sfResCard.appendChild(div({marginTop:"8px",fontSize:"10px",color:cl.sub,fontFamily:"'Inter',sans-serif",textAlign:"center"},"Click area circles to explore buildings · Circle size = buildings found"));
+      setTimeout(function(){
+        var sfc=document.getElementById(sfMapId2);if(!sfc||typeof _dvGmapLoad!=="function")return;
+        _dvGmapLoad(function(){
+          var sfc2=document.getElementById(sfMapId2);if(!sfc2)return;
+          var sfGm=new google.maps.Map(sfc2,{center:{lat:25.15,lng:55.22},zoom:11,styles:typeof _GMAP_DARK_STYLES!=="undefined"?_GMAP_DARK_STYLES:[],zoomControl:true,mapTypeControl:false,streetViewControl:false,fullscreenControl:false,gestureHandling:"greedy"});
+          var sfIW=new google.maps.InfoWindow();
+          Object.entries(_sfAG).forEach(function(ae){
+            var aName=ae[0],ag=ae[1];if(!ag.coords)return;
+            var avgY=ag.totalYield/ag.count;
+            var color=avgY>=8?"#00C896":avgY>=6?"#F0A030":"#F04060";
+            var radius=Math.max(200,Math.min(700,ag.count*180));
+            var circle=new google.maps.Circle({map:sfGm,center:{lat:ag.coords[0],lng:ag.coords[1]},radius:radius,strokeColor:color,strokeOpacity:0.9,strokeWeight:2,fillColor:color,fillOpacity:0.35,clickable:true});
+            var bHtml=ag.buildings.slice(0,5).map(function(b){return'<div style="font-size:10px;color:#E8EDF5;margin-bottom:3px;">'+b.name+' · AED '+b.psf.toLocaleString()+'/sqft</div>';}).join('')+(ag.buildings.length>5?'<div style="font-size:9px;color:#6B7A9E;margin-top:4px;">+'+(ag.buildings.length-5)+' more</div>':'');
+            var popHtml='<div style="font-family:\'Space Grotesk\',monospace;min-width:180px;color:#E8EDF5;padding:10px;"><div style="color:#D4A843;font-size:12px;font-weight:700;margin-bottom:6px;">'+aName+'</div><div style="font-size:10px;color:#8899AA;margin-bottom:8px;">'+ag.count+' building'+(ag.count>1?'s':'')+' · Avg Yield '+avgY.toFixed(1)+'%</div>'+bHtml+'</div>';
+            circle.addListener("click",function(){sfIW.setContent(popHtml);sfIW.setPosition({lat:ag.coords[0],lng:ag.coords[1]});sfIW.open(sfGm);});
+            circle.addListener("mouseover",function(){circle.setOptions({fillOpacity:0.65,strokeWeight:3});});
+            circle.addListener("mouseout",function(){circle.setOptions({fillOpacity:0.35,strokeWeight:2});});
+          });
+        });
+      },80);
+    }
     wrap.appendChild(sfResCard);
   }else if(sf.showResults&&sf.results.length===0){
     wrap.appendChild(div({background:cl.raised,borderRadius:"10px",padding:"20px",textAlign:"center",marginBottom:"14px"},[

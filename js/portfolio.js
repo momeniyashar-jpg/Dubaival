@@ -27,6 +27,42 @@ function renderCompare(){
     const r=div({background:cl.surface,border:"1px solid "+cl.goldDim,borderRadius:"14px",padding:"20px"});
     r.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"◆ "+s.a1+" vs "+s.a2));
     const t=div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.9",fontFamily:"'Inter',sans-serif",whiteSpace:"pre-wrap"});t.textContent=s.result;r.appendChild(t);wrap.appendChild(r);
+    // Google Map + Drive Times for each area
+    var _cmpA=typeof AREA_COORDS!=="undefined"?AREA_COORDS[s.a1]:null;
+    var _cmpB=typeof AREA_COORDS!=="undefined"?AREA_COORDS[s.a2]:null;
+    if(_cmpA||_cmpB){
+      var cmpCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginTop:"12px"});
+      cmpCard.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},"◆ Location Map & Drive Times"));
+      var cmpMapId="dv-cmp-gmap-"+Date.now();
+      cmpCard.appendChild(el("div",{style:{width:"100%",height:"200px",borderRadius:"10px",overflow:"hidden",marginBottom:"14px"},id:cmpMapId}));
+      var dtGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"});
+      var dtIdA="dv-cmp-dta"+Date.now(),dtIdB="dv-cmp-dtb"+Date.now()+"x";
+      dtGrid.appendChild(div({id:dtIdA},[span({color:"#60A5FA",fontSize:"9px",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"6px"},s.a1),span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Loading drive times…")]));
+      dtGrid.appendChild(div({id:dtIdB},[span({color:"#34D399",fontSize:"9px",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"6px"},s.a2),span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Loading drive times…")]));
+      cmpCard.appendChild(dtGrid);wrap.appendChild(cmpCard);
+      setTimeout(function(){
+        var c2=document.getElementById(cmpMapId);if(!c2||typeof _dvGmapLoad!=="function")return;
+        _dvGmapLoad(function(){
+          var c3=document.getElementById(cmpMapId);if(!c3)return;
+          var cLat=_cmpA?_cmpA[0]:_cmpB[0],cLng=_cmpA?_cmpA[1]:_cmpB[1];
+          if(_cmpA&&_cmpB){cLat=(_cmpA[0]+_cmpB[0])/2;cLng=(_cmpA[1]+_cmpB[1])/2;}
+          var gm=new google.maps.Map(c3,{center:{lat:cLat,lng:cLng},zoom:11,styles:typeof _GMAP_DARK_STYLES!=="undefined"?_GMAP_DARK_STYLES:[],zoomControl:true,mapTypeControl:false,streetViewControl:false,fullscreenControl:false,gestureHandling:"greedy"});
+          if(_cmpA)new google.maps.Marker({map:gm,position:{lat:_cmpA[0],lng:_cmpA[1]},title:s.a1,icon:{path:google.maps.SymbolPath.CIRCLE,scale:10,fillColor:"#60A5FA",fillOpacity:1,strokeColor:"#fff",strokeWeight:2},label:{text:"A",color:"#fff",fontSize:"10px",fontWeight:"700"}});
+          if(_cmpB)new google.maps.Marker({map:gm,position:{lat:_cmpB[0],lng:_cmpB[1]},title:s.a2,icon:{path:google.maps.SymbolPath.CIRCLE,scale:10,fillColor:"#34D399",fillOpacity:1,strokeColor:"#fff",strokeWeight:2},label:{text:"B",color:"#fff",fontSize:"10px",fontWeight:"700"}});
+          if(_cmpA&&_cmpB){var bnds=new google.maps.LatLngBounds();bnds.extend({lat:_cmpA[0],lng:_cmpA[1]});bnds.extend({lat:_cmpB[0],lng:_cmpB[1]});gm.fitBounds(bnds,50);}
+        });
+      },80);
+      function _cmpLoadDT(lat,lng,elId,aName,clr){
+        fetch("/api/proxy-maps?action=distances&lat="+lat+"&lng="+lng).then(function(rr){return rr.json();}).then(function(data){
+          var el2=document.getElementById(elId);if(!el2)return;
+          while(el2.firstChild)el2.removeChild(el2.firstChild);
+          el2.appendChild(span({color:clr,fontSize:"9px",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"6px"},aName));
+          (data.rows||[]).forEach(function(row){el2.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"4px"},[span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},row.label),span({color:cl.subHi,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},row.duration)]));});
+        }).catch(function(){});
+      }
+      if(_cmpA)_cmpLoadDT(_cmpA[0],_cmpA[1],dtIdA,s.a1,"#60A5FA");
+      if(_cmpB)_cmpLoadDT(_cmpB[0],_cmpB[1],dtIdB,s.a2,"#34D399");
+    }
   }
   return wrap;
 }
@@ -61,6 +97,33 @@ function renderPersonal(){
     const r=div({background:cl.surface,border:"1px solid "+cl.goldDim,borderRadius:"14px",padding:"20px"});
     r.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"◆ Your Recommendations"));
     const t=div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.9",fontFamily:"'Inter',sans-serif",whiteSpace:"pre-wrap"});t.textContent=p.result;r.appendChild(t);wrap.appendChild(r);
+    // Commute context: drive times from work location to 5 key Dubai hubs
+    if(p.work){
+      var paCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginTop:"12px"});
+      paCard.appendChild(span({color:"#818CF8",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ Commute Context"));
+      paCard.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",display:"block",marginBottom:"12px"},"Drive times from «"+p.work+"» to key Dubai hubs"));
+      var paBodyId="dv-pa-body-"+Date.now();
+      var paBody=div({id:paBodyId,textAlign:"center",padding:"12px"});
+      paBody.appendChild(div({width:"24px",height:"24px",borderRadius:"50%",border:"2px solid "+cl.border,borderTopColor:"#818CF8",animation:"spin 0.8s linear infinite",margin:"0 auto"}));
+      paCard.appendChild(paBody);wrap.appendChild(paCard);
+      fetch("/api/proxy-maps?action=geocode&address="+encodeURIComponent(p.work+", Dubai, UAE"))
+        .then(function(rr){return rr.json();})
+        .then(function(geo){if(!geo.lat)throw new Error("Not found");return fetch("/api/proxy-maps?action=distances&lat="+geo.lat+"&lng="+geo.lng);})
+        .then(function(rr){return rr.json();})
+        .then(function(data){
+          var bodyEl=document.getElementById(paBodyId);if(!bodyEl)return;
+          while(bodyEl.firstChild)bodyEl.removeChild(bodyEl.firstChild);
+          bodyEl.style.textAlign="";bodyEl.style.padding="";
+          (data.rows||[]).forEach(function(row){
+            bodyEl.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid "+cl.border},[
+              span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},row.label),
+              div({textAlign:"right"},[span({color:"#818CF8",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},row.duration),span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",display:"block"},row.distance)])
+            ]));
+          });
+          bodyEl.appendChild(span({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif",display:"block",marginTop:"8px",fontStyle:"italic"},"Use these times to compare with your recommended areas' hub proximity."));
+        })
+        .catch(function(){var bodyEl=document.getElementById(paBodyId);if(bodyEl){while(bodyEl.firstChild)bodyEl.removeChild(bodyEl.firstChild);bodyEl.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Could not load commute times."));}});
+    }
   }
   return wrap;
 }
