@@ -2949,6 +2949,99 @@ function renderAnalyzerResult(wrap){
     wrap.appendChild(locWrap);
   })();}
 
+  // -- NEARBY AMENITIES (Google Maps Live) --
+  (function(){
+    var query=(f.building?f.building+", ":"")+f.area;
+    if(!f.area)return;
+    var amCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginTop:"14px",position:"relative",overflow:"hidden"}});
+    amCard.id="dv-amenities-card";
+    amCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"},[
+      div({},[
+        span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"2px"},"Nearby Amenities"),
+        span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},"Live · Google Maps")
+      ]),
+      span({color:"#10B981",fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"6px",background:"rgba(16,185,129,0.1)"},"LIVE")
+    ]));
+    var amLoader=el("div",{style:{color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",textAlign:"center",padding:"16px 0"}});
+    amLoader.textContent="Fetching nearby places...";
+    amCard.appendChild(amLoader);
+    wrap.appendChild(amCard);
+
+    var amCacheKey="dv_amenities_"+f.area+(f.building?"_"+f.building:"");
+    var cached=null;
+    try{var s=sessionStorage.getItem(amCacheKey);if(s)cached=JSON.parse(s);}catch(e){}
+
+    function renderAmenities(data){
+      if(!data||data.error||!data.amenities){amCard.style.display="none";return;}
+      amLoader.style.display="none";
+      var ams=data.amenities;
+      function fmtD(m){return m<1000?m+"m":(m/1000).toFixed(1)+"km";}
+      var cfg={
+        metro:{label:"Metro",color:"#3B82F6"},
+        school:{label:"School",color:"#10B981"},
+        hospital:{label:"Hospital",color:"#EF4444"},
+        supermarket:{label:"Supermarket",color:"#F59E0B"},
+        mosque:{label:"Worship",color:"#8B5CF6"}
+      };
+      var grid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"12px"}});
+      Object.keys(cfg).forEach(function(k){
+        var a=ams[k];
+        var c=cfg[k].color;
+        var box=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px"}});
+        var hd=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}});
+        hd.appendChild(span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},cfg[k].label));
+        hd.appendChild(span({color:c,fontSize:"12px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},a?fmtD(a.dist):"—"));
+        box.appendChild(hd);
+        if(a){
+          var nm=el("div",{style:{color:cl.subHi,fontSize:"11px",fontWeight:"600",fontFamily:"'Inter',sans-serif",lineHeight:"1.3",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}});
+          nm.textContent=a.name;
+          box.appendChild(nm);
+          if(a.rating)box.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},"★ "+a.rating));
+          // distance bar (max 2km)
+          var pct=Math.max(3,Math.min(100,100-(a.dist/2000)*100));
+          var bar=el("div",{style:{background:"rgba(240,242,245,0.06)",borderRadius:"3px",height:"3px",marginTop:"6px",overflow:"hidden"}});
+          bar.appendChild(el("div",{style:{width:pct+"%",height:"100%",background:a.dist<=500?c:"rgba(240,242,245,0.2)",borderRadius:"3px"}}));
+          box.appendChild(bar);
+        }else{
+          var nm2=el("div",{style:{color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"}});
+          nm2.textContent="Not found nearby";
+          box.appendChild(nm2);
+        }
+        grid.appendChild(box);
+      });
+      amCard.appendChild(grid);
+      // Walkability score
+      var pts=0;
+      Object.keys(ams).forEach(function(k){
+        var a=ams[k];
+        if(!a)return;
+        var d=a.dist;
+        pts+=d<=300?20:d<=600?15:d<=1000?10:d<=2000?5:0;
+      });
+      var wScore=Math.min(100,pts);
+      var wColor=wScore>=80?cl.green:wScore>=60?"#F59E0B":wScore>=40?"#F97316":cl.red;
+      var wLabel=wScore>=80?"Walker's Paradise":wScore>=60?"Very Walkable":wScore>=40?"Walkable":"Car-Dependent";
+      var wBox=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",background:cl.raised,borderRadius:"8px",padding:"10px 14px"}});
+      var wLeft=el("div",{});
+      wLeft.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},"Walkability Score"));
+      wLeft.appendChild(div({color:wColor,fontSize:"12px",fontFamily:"'Inter',sans-serif"},wLabel));
+      wBox.appendChild(wLeft);
+      wBox.appendChild(span({color:wColor,fontSize:"28px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},String(wScore)));
+      amCard.appendChild(wBox);
+    }
+
+    if(cached){renderAmenities(cached);}
+    else{
+      fetch("/api/proxy-maps?action=amenities&address="+encodeURIComponent(query))
+        .then(function(r){return r.json();})
+        .then(function(data){
+          try{sessionStorage.setItem(amCacheKey,JSON.stringify(data));}catch(e){}
+          renderAmenities(data);
+        })
+        .catch(function(){amCard.style.display="none";});
+    }
+  })();
+
   // -- PRICE ALERT WATCH -- (temporarily disabled — backend /api not deploying yet)
   /*
   (function(){
