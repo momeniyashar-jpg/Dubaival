@@ -314,12 +314,21 @@ function renderFind(){
       
       // Photo + Title row
       var topRow=el("div",{style:{display:"flex",gap:"12px",marginBottom:"10px"}});
-      if(r.photo){
-        var img=el("img",{style:{width:"80px",height:"60px",borderRadius:"8px",objectFit:"cover",flexShrink:"0"}});
-        img.src=r.photo;
-        img.onerror=function(){this.style.display="none";};
-        topRow.appendChild(img);
-      }
+      (function(){
+        var imgEl=el("img",{style:{width:"80px",height:"60px",borderRadius:"8px",objectFit:"cover",flexShrink:"0"}});
+        var _ac3=typeof AREA_COORDS!=="undefined"&&AREA_COORDS[r.area]?AREA_COORDS[r.area]:null;
+        var mapFallback=_ac3?"/api/proxy-maps?action=staticmap&lat="+_ac3[0]+"&lng="+_ac3[1]+"&zoom=15&size=80x60":"";
+        if(r.photo){
+          imgEl.src=r.photo;
+          imgEl.onerror=function(){if(mapFallback){this.src=mapFallback;this.onerror=function(){this.style.display="none";};}else{this.style.display="none";}};
+          topRow.appendChild(imgEl);
+        }else if(mapFallback){
+          imgEl.loading="lazy";
+          imgEl.src=mapFallback;
+          imgEl.onerror=function(){this.style.display="none";};
+          topRow.appendChild(imgEl);
+        }
+      })();
       var titleBlock=el("div",{style:{flex:"1",minWidth:"0"}});
       var titleEl=el("div",{style:{color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Inter',sans-serif",marginBottom:"2px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}});
       titleEl.textContent=r.title||r.name||"Property";
@@ -462,7 +471,7 @@ function renderFind(){
 
       var bayutP=async function(){
         if(!locId)return[];
-        var params=new URLSearchParams({locationExternalIDs:locId,purpose:"for-sale",hitsPerPage:"25",page:String(pageNum)});
+        var params=new URLSearchParams({locationExternalIDs:locId,purpose:"for-sale",hitsPerPage:"50",page:String(pageNum)});
         if(beds){params.set("rooms_min",String(bn));params.set("rooms_max",String(bn));}
         if(maxPrice>0)params.set("priceMax",String(maxPrice));
         var r;
@@ -471,11 +480,15 @@ function renderFind(){
         if(!r.ok)return[];
         var d=await r.json();
         var hits=d.hits||[];
-        FS.hasMore=hits.length>=25;
+        FS.hasMore=hits.length>=50;
         return hits.filter(function(p){return p.price&&p.area;}).map(function(p){
           var psf=p.area>0?Math.round(p.price/p.area):0;
           var locName=p.location&&p.location.length>0?p.location[p.location.length-1].name:(area||"Dubai");
-          var imgs=p.coverPhoto?[p.coverPhoto.url]:(p.photos||[]).map(function(ph){return ph.url||"";});
+          var imgUrl="";
+          if(p.coverPhoto){imgUrl=typeof p.coverPhoto==="string"?p.coverPhoto:(p.coverPhoto.url||p.coverPhoto.thumb||"");}
+          if(!imgUrl&&p.mainPhoto){imgUrl=typeof p.mainPhoto==="string"?p.mainPhoto:(p.mainPhoto.url||p.mainPhoto.thumb||"");}
+          if(!imgUrl&&p.photos&&p.photos.length>0){var ph0=p.photos[0];imgUrl=typeof ph0==="string"?ph0:(ph0.url||ph0.thumb||"");}
+          if(!imgUrl)imgUrl=p.thumbnail||p.image||"";
           return{
             title:p.title||(p.rooms+" BR in "+locName),
             area:locName,
@@ -491,7 +504,7 @@ function renderFind(){
             agencyName:(p.agency&&p.agency.name)||"",
             agentPhone:"",
             agentWA:"",
-            photo:imgs[0]||"",
+            photo:imgUrl,
             listingUrl:p.externalURL||"https://www.bayut.com",
             listingSource:"Bayut",
             source:"Bayut"
@@ -511,34 +524,36 @@ function renderFind(){
           else{r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=search-sale&source=pf&"+params);}
           if(!r.ok)return[];
           var d=await r.json();
-          var items=d.data||d.hits||d.properties||[];
-          if(!Array.isArray(items))return[];
+          var rawPF=Array.isArray(d.data)?d.data:(d.data&&Array.isArray(d.data.data)?d.data.data:(d.data&&Array.isArray(d.data.properties)?d.data.properties:(d.hits||d.properties||d.results||[])));
+          var items=Array.isArray(rawPF)?rawPF:[];
           return items.filter(function(p){
             var price=p.price&&typeof p.price==="object"?p.price.value:p.price;
-            var size=p.size||p.area||0;
-            return price&&size&&price>0&&size>0;
+            var size=typeof p.size==="number"?p.size:(typeof p.area==="number"?p.area:(typeof p.sqft==="number"?p.sqft:0));
+            return price&&size>0&&price>0;
           }).map(function(p){
             var price=p.price&&typeof p.price==="object"?p.price.value:p.price;
-            var size=p.size||p.area||p.sqft||0;
-            var imgs=p.images||p.photos||[];
-            var imgUrl=Array.isArray(imgs)&&imgs.length>0?(typeof imgs[0]==="string"?imgs[0]:imgs[0].url||imgs[0].src||""):"";
+            var size=typeof p.size==="number"?p.size:(typeof p.area==="number"?p.area:(typeof p.sqft==="number"?p.sqft:0));
+            var imgUrl=p.cover_photo||"";
+            if(!imgUrl){var imgs=p.images||p.photos||[];if(Array.isArray(imgs)&&imgs.length>0){imgUrl=typeof imgs[0]==="string"?imgs[0]:(imgs[0].url||imgs[0].src||imgs[0].thumb||"");}}
+            if(!imgUrl)imgUrl=p.thumbnail||p.image||p.photo||"";
+            var areaName=p.location_name||p.community_name||p.area_name||(typeof p.area==="string"?p.area:"")||area||"Dubai";
             return{
               title:p.title||"Property",
-              area:p.location_name||p.area_name||area||"Dubai",
+              area:areaName,
               price:price,
               size:size,
-              psf:Math.round(price/size),
-              beds:p.bedrooms||p.beds||bn,
+              psf:size>0?Math.round(price/size):0,
+              beds:p.bedrooms||p.rooms||p.beds||bn,
               baths:p.bathrooms||p.baths||0,
               floor:"",
-              furnished:p.furnishing||"",
+              furnished:p.furnishing||p.furnished||"",
               permit:"",
               agentName:p.agent_name||"",
               agencyName:p.agency_name||"",
               agentPhone:"",
               agentWA:"",
-              photo:imgUrl||p.thumbnail||p.image||"",
-              listingUrl:p.url||p.link||"https://www.propertyfinder.ae",
+              photo:imgUrl,
+              listingUrl:p.url||p.link||p.property_url||"https://www.propertyfinder.ae",
               listingSource:"PropertyFinder",
               source:"PropertyFinder"
             };

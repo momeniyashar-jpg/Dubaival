@@ -43,18 +43,19 @@ async function fetchPFSales(area,beds){
     else{r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=search-sale&source=pf&"+params);}
     if(!r.ok)return[];
     var d=await r.json();
-    var items=d.data||d.hits||d.properties||[];
-    if(!Array.isArray(items))return[];
+    var rawPF=Array.isArray(d.data)?d.data:(d.data&&Array.isArray(d.data.data)?d.data.data:(d.data&&Array.isArray(d.data.properties)?d.data.properties:(d.hits||d.properties||d.results||[])));
+    var items=Array.isArray(rawPF)?rawPF:[];
     return items.filter(function(p){
       var price=p.price&&typeof p.price==="object"?p.price.value:p.price;
-      var size=p.size||p.area||(p.sqft?p.sqft:null);
-      return price&&size&&price>0&&size>0;
+      var size=typeof p.size==="number"?p.size:(typeof p.area==="number"?p.area:(typeof p.sqft==="number"?p.sqft:0));
+      return price>0&&size>0;
     }).map(function(p){
       var price=p.price&&typeof p.price==="object"?p.price.value:p.price;
-      var size=p.size||p.area||p.sqft;
-      var imgs=p.images||p.photos||[];
-      var imgUrl=Array.isArray(imgs)&&imgs.length>0?(typeof imgs[0]==="string"?imgs[0]:imgs[0].url||imgs[0].src||""):"";
-      return{price:price,size:size,psf:Math.round(price/size),beds:p.bedrooms||p.beds||0,img:imgUrl,title:p.title||"",source:"pf"};
+      var size=typeof p.size==="number"?p.size:(typeof p.area==="number"?p.area:(typeof p.sqft==="number"?p.sqft:0));
+      var imgUrl=p.cover_photo||"";
+      if(!imgUrl){var imgs=p.images||p.photos||[];if(Array.isArray(imgs)&&imgs.length>0){imgUrl=typeof imgs[0]==="string"?imgs[0]:(imgs[0].url||imgs[0].src||imgs[0].thumb||"");}}
+      if(!imgUrl)imgUrl=p.thumbnail||p.image||"";
+      return{price:price,size:size,psf:Math.round(price/size),beds:p.bedrooms||p.rooms||p.beds||0,img:imgUrl,title:p.title||"",source:"pf"};
     }).filter(function(p){return p.psf>400&&p.psf<15000;});
   }catch(e){return[];}
 }
@@ -130,13 +131,14 @@ async function fetchLiveRentals(building,area,beds){
       else{r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=search-rent&source=pf&"+params);}
       if(!r.ok)return[];
       var d=await r.json();
-      var items=d.data||d.hits||d.properties||[];
-      if(!Array.isArray(items))return[];
+      var rawRentPF=Array.isArray(d.data)?d.data:(d.data&&Array.isArray(d.data.data)?d.data.data:(d.data&&Array.isArray(d.data.properties)?d.data.properties:(d.hits||d.properties||d.results||[])));
+      var items=Array.isArray(rawRentPF)?rawRentPF:[];
       return items.filter(function(p){
         var price=p.price&&typeof p.price==="object"?p.price.value:p.price;
         return price&&price>5000;
       }).map(function(p){
-        return{price:p.price&&typeof p.price==="object"?p.price.value:p.price,size:p.size||p.area||0,beds:p.bedrooms||p.beds||0,title:(p.title||"").toLowerCase(),source:"pf"};
+        var size=typeof p.size==="number"?p.size:(typeof p.area==="number"?p.area:(typeof p.sqft==="number"?p.sqft:0));
+        return{price:p.price&&typeof p.price==="object"?p.price.value:p.price,size:size,beds:p.bedrooms||p.rooms||p.beds||0,title:(p.title||"").toLowerCase(),source:"pf"};
       });
     };
     var[bayutRes,pfRes]=await Promise.allSettled([bayutP(),pfP()]);
