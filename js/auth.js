@@ -69,8 +69,8 @@ var DV_AUTH={user:null,profile:null,loading:true,showModal:false,modalTab:"signu
 })();
 
 function sbHeaders(token){
-  var h={"apikey":SUPABASE_KEY,"Content-Type":"application/json"};
-  if(token)h["Authorization"]="Bearer "+token;
+  // Always send Authorization: Bearer — required by Supabase sb_publishable_* key format for auth/v1/ endpoints
+  var h={"apikey":SUPABASE_KEY,"Content-Type":"application/json","Authorization":"Bearer "+(token||SUPABASE_KEY)};
   return h;
 }
 
@@ -79,7 +79,14 @@ async function sbAuth(endpoint,body,redirectTo){
   if(redirectTo)url+=(url.indexOf("?")>=0?"&":"?")+"redirect_to="+encodeURIComponent(redirectTo);
   var resp=await fetch(url,{method:"POST",headers:sbHeaders(),body:JSON.stringify(body)});
   var data=await resp.json();
-  if(!resp.ok)throw new Error(data.error_description||data.msg||data.message||"Auth error");
+  if(!resp.ok){
+    var msg=data.error_description||data.msg||data.message||data.error||"Auth error ("+resp.status+")";
+    // Friendly messages for common Supabase errors
+    if(msg.toLowerCase().indexOf("email not confirmed")>=0)msg="ایمیل confirm نشده — لینک تأیید رو در ایمیلت بزن، سپس Sign In کن.";
+    if(msg.toLowerCase().indexOf("invalid login")>=0||msg.toLowerCase().indexOf("invalid credentials")>=0)msg="ایمیل یا رمز عبور اشتباه است.";
+    if(msg.toLowerCase().indexOf("user already registered")>=0)msg="این ایمیل قبلاً ثبت شده — Sign In کن.";
+    throw new Error(msg);
+  }
   return data;
 }
 
