@@ -1,13 +1,8 @@
 apply plugin: 'com.android.application'
 
-// Auto-increment versionCode from file so APK updates install without uninstall
-def versionFile = file("$projectDir/version.properties")
-if (!versionFile.exists()) {
-    versionFile.text = "VERSION_CODE=1\n"
-}
-def versionProps = new Properties()
-versionProps.load(new FileInputStream(versionFile))
-def autoVersionCode = (versionProps['VERSION_CODE'] ?: '1').toInteger()
+// Auto versionCode: minutes since epoch — increments every build automatically in Android Studio
+// No script needed, no file to update — just Build APK and it's always higher than the last
+def autoVersionCode = (int)(System.currentTimeMillis() / 60000L)
 
 android {
     namespace = "com.dubaival.app"
