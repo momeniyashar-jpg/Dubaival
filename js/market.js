@@ -554,10 +554,12 @@ function renderMarket(){
     ),
   ]));
 
-  // -- TRACK RECORD / ACCURACY PROOF --
-  // Raw facts only (building/area/size/sold price) — fairPrice is computed live
-  // via computeValuation() below, so this stays accurate as the model changes
-  // instead of going stale like a hardcoded number would.
+  return wrap;
+}
+
+function renderTrackRecord(){
+  const cl=C();
+  const wrap=div({padding:"12px",maxWidth:"960px",margin:"0 auto",width:"100%",boxSizing:"border-box"});
   const CASE_STUDIES=[
     {building:"Marina Gate 2",label:"Marina Gate 2",area:"Dubai Marina",unitType:"2BR",size:1450,sold:3347222,date:"2025",source:"https://www.bayut.com/for-sale/2-bedroom-apartments/dubai/dubai-marina/marina-gate/marina-gate-2/"},
     {building:"Marina Gate (Marina Gate 1, Select Group)",label:"Marina Gate 1",area:"Dubai Marina",unitType:"3BR",size:1950,sold:6479604,date:"2025",source:"https://www.bayut.com/for-sale/3-bedroom-apartments/dubai/dubai-marina/marina-gate/"},
@@ -631,7 +633,151 @@ function renderMarket(){
       "Accuracy varies by data depth — check the Confidence Score on each valuation (Verified Building Data vs. Area Benchmark) to gauge the expected range for your specific search."
     ),
   ]));
+  return wrap;
+}
 
+function renderQuickCheck(){
+  const cl=C();
+  const wrap=el("div",{style:{padding:"16px",maxWidth:"640px",margin:"0 auto"}});
+  var qc=el("div",{style:{background:"rgba(201,168,76,0.04)",border:"1px solid "+cl.goldDim,borderRadius:"16px",padding:"24px 20px",marginBottom:"20px",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)"}});
+  qc.appendChild(el("div",{style:{textAlign:"center",marginBottom:"16px"}},[
+    el("div",{style:{color:cl.gold,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"}},t("qc_title")),
+    el("div",{style:{color:cl.sub,fontSize:"11.5px",fontFamily:"'Inter',sans-serif"}},t("qc_sub"))
+  ]));
+  if(!window._qcState)window._qcState={area:"",building:"",price:"",result:null,mode:"sale"};
+  var qs=window._qcState;
+  var qcToggle=el("div",{style:{display:"flex",gap:"0",marginBottom:"14px",background:cl.raised,borderRadius:"8px",overflow:"hidden",border:"1px solid "+cl.border}});
+  ["sale","rent"].forEach(function(m){
+    var act=qs.mode===m;
+    var tb=el("button",{style:{flex:"1",padding:"9px",border:"none",background:act?(m==="rent"?"linear-gradient(135deg,#8B5CF6,#6D28D9)":"linear-gradient(135deg,#C9A84C,#7A5E28)"):"transparent",color:act?(m==="rent"?"#fff":"#08090C"):cl.sub,fontSize:"12px",fontWeight:act?"700":"500",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.06em"}});
+    tb.textContent=m==="sale"?"SALE CHECK":"RENT CHECK";
+    tb.addEventListener("click",function(){qs.mode=m;qs.result=null;render();});
+    qcToggle.appendChild(tb);
+  });
+  qc.appendChild(qcToggle);
+  var qcAreaWrap=el("div",{style:{position:"relative",marginBottom:"10px"}});
+  var qcAreaInp=el("input",{type:"text",placeholder:t("qc_select_area"),style:{width:"100%",background:cl.raised,border:"1px solid "+(qs.area&&AREAS[qs.area]?cl.gold:cl.border),color:"#F0F2F5",padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+  qcAreaInp.value=qs.area||"";
+  qcAreaInp.addEventListener("input",function(){
+    qs.area=this.value;qs.result=null;
+    var sg=document.getElementById("qc-area-sugg");if(!sg)return;sg.innerHTML="";
+    var q=this.value.toLowerCase().trim();if(q.length<1)return;
+    var hits=AREA_NAMES.filter(function(n){return n.toLowerCase().indexOf(q)>=0;});
+    hits.slice(0,8).forEach(function(n){
+      var row=el("div",{style:{padding:"8px 12px",cursor:"pointer",fontSize:"12px",color:"#F0F2F5",borderBottom:"1px solid "+cl.border,fontFamily:"'Inter',sans-serif"}});
+      row.textContent=n;
+      row.addEventListener("mousedown",function(e){e.preventDefault();qs.area=n;qs.result=null;render();});
+      row.addEventListener("mouseenter",function(){this.style.background=cl.raised;});
+      row.addEventListener("mouseleave",function(){this.style.background="transparent";});
+      sg.appendChild(row);
+    });
+  });
+  qcAreaInp.addEventListener("blur",function(){setTimeout(function(){var sg=document.getElementById("qc-area-sugg");if(sg)sg.innerHTML="";},200);});
+  qcAreaWrap.appendChild(qcAreaInp);
+  var qcAreaSugg=el("div",{id:"qc-area-sugg",style:{position:"absolute",top:"100%",left:"0",right:"0",zIndex:"100",background:cl.surface,border:"1px solid "+cl.border,borderRadius:"0 0 10px 10px",maxHeight:"180px",overflowY:"auto"}});
+  qcAreaWrap.appendChild(qcAreaSugg);
+  qc.appendChild(qcAreaWrap);
+  var bWrap=el("div",{style:{position:"relative",marginBottom:"10px"}});
+  var bInp=el("input",{type:"text",placeholder:"Building name",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+  bInp.value=qs.building||"";
+  bInp.addEventListener("input",function(){qs.building=this.value;qs.result=null;
+    var sg=document.getElementById("qc-bldg-sugg");if(!sg)return;sg.innerHTML="";
+    var q=this.value.toLowerCase().trim();if(q.length<2)return;
+    var hits=[];var areaFilter=qs.area?qs.area.toLowerCase():"";
+    Object.entries(DB).forEach(function(e){
+      if(e[0].indexOf(q)===0||(q.length>=3&&e[0].indexOf(q)>=0)){
+        if(!areaFilter||e[1].a&&e[1].a.toLowerCase()===areaFilter)hits.push({k:e[0],d:e[1]});
+      }
+    });
+    hits.slice(0,6).forEach(function(h){
+      var row=el("div",{style:{padding:"8px 12px",cursor:"pointer",fontSize:"12px",color:cl.text,borderBottom:"1px solid "+cl.border,fontFamily:"'Inter',sans-serif"}});
+      row.textContent=h.k.replace(/\b\w/g,function(c){return c.toUpperCase();})+(h.d.a?" · "+h.d.a:"");
+      row.addEventListener("mousedown",function(e){e.preventDefault();qs.building=h.k;if(h.d.a&&!qs.area)qs.area=h.d.a;qs.result=null;render();});
+      sg.appendChild(row);
+    });
+  });
+  bInp.addEventListener("blur",function(){setTimeout(function(){var sg=document.getElementById("qc-bldg-sugg");if(sg)sg.innerHTML="";},200);});
+  bWrap.appendChild(bInp);
+  var bSugg=el("div",{id:"qc-bldg-sugg",style:{position:"absolute",top:"100%",left:"0",right:"0",zIndex:"100",background:cl.surface,border:"1px solid "+cl.border,borderRadius:"0 0 10px 10px",maxHeight:"180px",overflowY:"auto",display:"block"}});
+  bWrap.appendChild(bSugg);
+  qc.appendChild(bWrap);
+  var pInp=el("input",{type:"text",inputMode:"numeric",placeholder:qs.mode==="rent"?"Asking rent (AED/year)":"Asking price (AED)",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"14px"}});
+  pInp.value=qs.price||"";
+  pInp.addEventListener("input",function(){qs.price=this.value.replace(/[^0-9]/g,"");this.value=qs.price?parseInt(qs.price).toLocaleString():"";qs.result=null;});
+  qc.appendChild(pInp);
+  var checkBtn=el("button",{style:{width:"100%",padding:"14px",borderRadius:"12px",border:"none",background:"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#08090C",fontSize:"15px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.03em"}});
+  checkBtn.textContent=qs.mode==="rent"?"CHECK RENT":"CHECK PRICE";
+  if(qs.mode==="rent"){checkBtn.style.background="linear-gradient(135deg,#8B5CF6,#6D28D9)";checkBtn.style.color="#fff";}
+  checkBtn.addEventListener("click",function(){
+    if(!qs.area){alert("Please select an area");return;}
+    var price=parseInt((qs.price||"").replace(/[^0-9]/g,""));
+    if(qs.mode==="rent"){
+      if(!price||price<5000){alert("Please enter a valid annual rent");return;}
+      var aData=AREAS[qs.area]||{r1:65000,r2:100000};
+      var estSize=Math.round((aData.r2||100000)/(aData.psf||1500)*12);
+      if(estSize<300)estSize=900;
+      var fakeF={area:qs.area,building:qs.building||"",price:String(price),size:String(estSize),buaSize:"",beds:"2 BR",propCategory:"apartment",txnType:"rent",floor:"15",view:"Not specified",furnished:"Unfurnished"};
+      var result=computeRentalValuation(fakeF);
+      if(result){qs.result=result;qs.result._isRental=true;}else{qs.result={error:true};}
+    }else{
+      if(!price||price<50000){alert("Please enter a valid price");return;}
+      var aData=AREAS[qs.area]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
+      var estSize=Math.round(price/(aData.psf||1800));
+      if(estSize<200)estSize=800;
+      if(estSize>10000)estSize=Math.round(price/1200);
+      var fakeF={area:qs.area,building:qs.building||"",price:String(price),size:String(estSize),buaSize:"",beds:"2 BR",propCategory:"apartment",txnType:"sale",floor:"15",view:"Not specified",furnished:"Unfurnished",condition:"Used"};
+      var result=computeValuation(fakeF);
+      if(result){qs.result=result;}else{qs.result={error:true};}
+    }
+    render();
+  });
+  qc.appendChild(checkBtn);
+  if(qs.result&&!qs.result.error&&qs.result._isRental){
+    var rr=qs.result;
+    var rentVerdictMap={BELOW_MARKET:{label:"BELOW MARKET",bg:"rgba(16,185,129,0.1)",border:"#10B981",color:"#10B981"},COMPETITIVE:{label:"COMPETITIVE",bg:"rgba(16,185,129,0.1)",border:"#10B981",color:"#10B981"},MARKET_RATE:{label:"MARKET RATE",bg:"rgba(245,158,11,0.1)",border:"#F59E0B",color:"#F59E0B"},ABOVE_MARKET:{label:"ABOVE MARKET",bg:"rgba(249,115,22,0.1)",border:"#F97316",color:"#F97316"},OVERPRICED:{label:"OVERPRICED",bg:"rgba(239,68,68,0.1)",border:"#EF4444",color:"#EF4444"}};
+    var vm=rentVerdictMap[rr.verdict]||rentVerdictMap.MARKET_RATE;
+    var resCard=el("div",{style:{marginTop:"16px",padding:"16px",borderRadius:"12px",border:"2px solid "+vm.border,background:vm.bg,textAlign:"center"}});
+    resCard.appendChild(el("div",{style:{fontSize:"20px",fontWeight:"900",color:vm.color,fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"}},vm.label));
+    resCard.appendChild(el("div",{style:{fontSize:"12px",color:cl.sub,lineHeight:"1.6",fontFamily:"'Inter',sans-serif"}},"Market Rent: AED "+rr.estRent.toLocaleString()+"/yr · Monthly: AED "+rr.estMonthly.toLocaleString()+" · "+(parseFloat(rr.vsPct)>=0?"+":"")+rr.vsPct+"% vs market"));
+    var fullLink=el("div",{style:{marginTop:"12px"}});
+    var fBtn=el("button",{style:{background:"transparent",border:"1px solid rgba(139,92,246,0.3)",color:"#8B5CF6",padding:"8px 20px",borderRadius:"8px",fontSize:"11.5px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",fontWeight:"600"}});
+    fBtn.textContent="Full Rental Analysis →";
+    fBtn.addEventListener("click",function(){
+      analyzerState.f.area=qs.area;analyzerState.f.building=qs.building||"";analyzerState.f.price=qs.price;
+      analyzerState.f.propCategory="apartment";analyzerState.f.txnType="rent";analyzerState.f.beds="2 BR";
+      setSection("Market","Analyzer");
+    });
+    fullLink.appendChild(fBtn);
+    resCard.appendChild(fullLink);
+    qc.appendChild(resCard);
+  }else if(qs.result&&!qs.result.error&&!qs.result._isRental){
+    var r=qs.result;
+    var verdictMap={DISTRESS:{label:t("v_distress_s"),bg:"rgba(16,185,129,0.1)",border:"#10B981",color:"#10B981"},GOOD:{label:t("v_good_s"),bg:"rgba(16,185,129,0.1)",border:"#10B981",color:"#10B981"},FAIR:{label:t("v_fair_s"),bg:"rgba(245,158,11,0.1)",border:"#F59E0B",color:"#F59E0B"},OVER:{label:t("v_over_s"),bg:"rgba(239,68,68,0.1)",border:"#EF4444",color:"#EF4444"}};
+    var vm=verdictMap[r.verdict]||verdictMap.FAIR;
+    var resCard=el("div",{style:{marginTop:"16px",padding:"16px",borderRadius:"12px",border:"2px solid "+vm.border,background:vm.bg,textAlign:"center"}});
+    resCard.appendChild(el("div",{style:{fontSize:"20px",fontWeight:"900",color:vm.color,fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"}},vm.label));
+    resCard.appendChild(el("div",{style:{fontSize:"12px",color:cl.sub,lineHeight:"1.6",fontFamily:"'Inter',sans-serif"}},"Market PSF: AED "+r.adjPSF.toLocaleString()+" · Fair Value: AED "+r.fairPrice.toLocaleString()+" · "+(parseFloat(r.vsPct)>=0?"+":"")+r.vsPct+"% vs market"));
+    var fullLink=el("div",{style:{marginTop:"12px"}});
+    var fBtn=el("button",{style:{background:"transparent",border:"1px solid "+cl.goldDim,color:cl.gold,padding:"8px 20px",borderRadius:"8px",fontSize:"11.5px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",fontWeight:"600"}});
+    fBtn.textContent=t("qc_full");
+    fBtn.addEventListener("click",function(){
+      var price=parseInt((qs.price||"").replace(/[^0-9]/g,""))||0;
+      var aData=AREAS[qs.area]||{psf:1800};
+      var estSize=Math.round(price/(aData.psf||1800));
+      if(estSize<200)estSize=800;if(estSize>10000)estSize=Math.round(price/1200);
+      analyzerState.f.area=qs.area;analyzerState.f.building=qs.building||"";
+      analyzerState.f.price=String(price);analyzerState.f.size=String(estSize);
+      analyzerState.f.beds="2";analyzerState.f.propCategory="apartment";analyzerState.f.txnType="sale";analyzerState.f.floor="15";
+      setSection("Market","Analyzer");
+    });
+    fullLink.appendChild(fBtn);
+    resCard.appendChild(fullLink);
+    qc.appendChild(resCard);
+  }else if(qs.result&&qs.result.error){
+    qc.appendChild(el("div",{style:{marginTop:"14px",padding:"12px",borderRadius:"10px",border:"1px solid "+cl.border,textAlign:"center",color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif"}},"Could not compute — try selecting a different area or entering a building name."));
+  }
+  window._qcElement=qc;
+  wrap.appendChild(qc);
   return wrap;
 }
 

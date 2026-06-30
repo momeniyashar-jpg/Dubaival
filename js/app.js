@@ -1716,7 +1716,9 @@ function render(preserveScroll){
   if(currentSection==="Home"){
     content.appendChild(renderHome());
   } else if(currentSection==="Market"){
-    if(currentSubTab==="Dashboard"||currentSubTab==="QuickCheck"||currentSubTab==="TrackRecord")content.appendChild(renderMarket());
+    if(currentSubTab==="Dashboard")content.appendChild(renderMarket());
+    else if(currentSubTab==="QuickCheck")content.appendChild(renderQuickCheck());
+    else if(currentSubTab==="TrackRecord")content.appendChild(renderTrackRecord());
     else if(currentSubTab==="Analyzer")content.appendChild(renderAnalyzer());
     else if(currentSubTab==="Index")content.appendChild(renderMarketIndex());
     else if(currentSubTab==="Compare")content.appendChild(renderCompare());
