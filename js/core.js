@@ -340,7 +340,8 @@ var NAV_SECTIONS=[
     {id:"Compare",label:"Compare"},
     {id:"Find",label:"Find"},
     {id:"Map",label:"Map"},
-    {id:"Advisor",label:"Advisor"}
+    {id:"Advisor",label:"Advisor"},
+    {id:"News",label:"News"}
   ]},
   {id:"Portfolio",icon:"briefcase",label:"Portfolio",accentColor:"#3B82F6",subs:[
     {id:"Assets",label:"My Assets"},

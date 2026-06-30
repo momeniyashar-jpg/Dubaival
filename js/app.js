@@ -1836,6 +1836,8 @@ function render(preserveScroll){
     main.appendChild(wrapHScroll(pillBar));
   }
 
+  if(!(currentSection==="Market"&&currentSubTab==="News")&&typeof stopNewsPolling==="function")stopNewsPolling();
+
   // Content area
   var content=el("div",{className:"dv-content",style:{flex:"1",overflow:"auto",width:"100%",maxWidth:"100%",boxSizing:"border-box",overflowX:"hidden"}});
 
@@ -1851,6 +1853,7 @@ function render(preserveScroll){
     else if(currentSubTab==="Find")content.appendChild(renderFind());
     else if(currentSubTab==="Map")content.appendChild(renderMap());
     else if(currentSubTab==="Advisor")content.appendChild(renderPersonal());
+    else if(currentSubTab==="News"&&typeof renderNews==="function")content.appendChild(renderNews());
     else content.appendChild(renderMarket());
   } else if(currentSection==="Portfolio"){
     if(currentSubTab==="Assets")content.appendChild(renderPortfolio("assets"));
