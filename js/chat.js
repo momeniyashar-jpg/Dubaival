@@ -7312,6 +7312,64 @@ function renderMediaStudio(mode){
   hero.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Create and publish content that gets results"));
   wrap.appendChild(hero);
 
+  // ── SETUP (Branding + Social — persistent configured state) ───────────────
+  function makeConfigCard(isConfigured,configuredContent,emptyIcon,emptyLabel,emptyDesc,onEdit,onRemove,onSetup){
+    var card=el("div",{style:{background:cl.surface,border:"1px solid "+(isConfigured?"#10B981":cl.border),borderRadius:"12px",padding:"14px 12px",cursor:isConfigured?"default":"pointer",transition:"all 0.2s ease",minHeight:"90px",display:"flex",flexDirection:"column",justifyContent:"center",gap:"6px"}});
+    if(isConfigured){
+      card.appendChild(div({color:"#10B981",fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em",marginBottom:"2px"},"✓ CONFIGURED"));
+      configuredContent.forEach(function(c){card.appendChild(c);});
+      var btnRow=el("div",{style:{display:"flex",gap:"6px",marginTop:"8px"}});
+      var editBtn=el("button",{style:{flex:"1",background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.25)",color:"#10B981",borderRadius:"6px",padding:"5px 0",fontSize:"10px",fontWeight:"600",cursor:"pointer",fontFamily:"'Inter',sans-serif"}});
+      editBtn.textContent="Edit";editBtn.addEventListener("click",function(e){e.stopPropagation();onEdit();});
+      var removeBtn=el("button",{style:{flex:"1",background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.2)",color:"#EF4444",borderRadius:"6px",padding:"5px 0",fontSize:"10px",fontWeight:"600",cursor:"pointer",fontFamily:"'Inter',sans-serif"}});
+      removeBtn.textContent="Remove";removeBtn.addEventListener("click",function(e){e.stopPropagation();onRemove();});
+      btnRow.appendChild(editBtn);btnRow.appendChild(removeBtn);
+      card.appendChild(btnRow);
+    }else{
+      card.appendChild(div({fontSize:"22px",textAlign:"center"},emptyIcon));
+      card.appendChild(div({color:"#E8EDF5",fontSize:"11px",fontWeight:"600",fontFamily:"'Inter',sans-serif",textAlign:"center"},emptyLabel));
+      card.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",textAlign:"center"},emptyDesc));
+      card.appendChild(div({color:"#10B981",fontSize:"9px",fontFamily:"'Inter',sans-serif",textAlign:"center",marginTop:"4px"},"→ Click to set up"));
+      card.addEventListener("mouseenter",function(){this.style.borderColor="#10B981";this.style.background="#131926";});
+      card.addEventListener("mouseleave",function(){this.style.borderColor=cl.border;this.style.background=cl.surface;});
+      card.addEventListener("click",onSetup);
+    }
+    return card;
+  }
+
+  var brand=getBrandProfile();
+  var creds=getSocialCreds();
+  var setupGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"24px"}});
+
+  var brandCard=makeConfigCard(
+    !!(brand&&brand.name),
+    [div({color:"#E8EDF5",fontSize:"12px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},brand&&brand.name?brand.name:""),
+     div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},(brand&&brand.tagline)?brand.tagline:"Brand profile active")],
+    "palette","Branding","Brand profile",
+    function(){showBrandingSetup();},
+    function(){if(confirm("Remove brand profile?")){localStorage.removeItem("dv_brand_profile");render();}},
+    function(){showBrandingSetup();}
+  );
+
+  var platforms=[];
+  if(creds){if(creds.igId)platforms.push("Instagram");if(creds.fbId)platforms.push("Facebook");}
+  var socialCard=makeConfigCard(
+    !!(creds&&creds.token),
+    [div({color:"#E8EDF5",fontSize:"12px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},platforms.join(" + ")||"Connected"),
+     div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},platforms.length+" platform"+(platforms.length!==1?"s":"")+" connected")],
+    "wrench","Social Setup","Platform accounts",
+    function(){showSocialSetup();},
+    function(){if(confirm("Disconnect social accounts?")){localStorage.removeItem("dv_ig_token");localStorage.removeItem("dv_ig_id");localStorage.removeItem("dv_fb_id");render();}},
+    function(){showSocialSetup();}
+  );
+
+  var setupSec=el("div",{style:{marginBottom:"24px"}});
+  setupSec.appendChild(makeSectionHeader("SETUP","#10B981"));
+  setupGrid.appendChild(brandCard);
+  setupGrid.appendChild(socialCard);
+  setupSec.appendChild(setupGrid);
+  wrap.appendChild(setupSec);
+
   // ── CREATE (prominent) ─────────────────────────────────────────────────────
   var createSection=el("div",{style:{marginBottom:"20px"}});
   createSection.appendChild(makeSectionHeader("CREATE","#D4AF37"));
@@ -7325,7 +7383,7 @@ function renderMediaStudio(mode){
   wrap.appendChild(createSection);
 
   // ── AI hint ────────────────────────────────────────────────────────────────
-  var aiHint=div({background:"rgba(139,92,246,0.05)",border:"1px solid rgba(139,92,246,0.14)",borderRadius:"10px",padding:"11px 16px",marginBottom:"28px",display:"flex",alignItems:"flex-start",gap:"10px"});
+  var aiHint=div({background:"rgba(139,92,246,0.05)",border:"1px solid rgba(139,92,246,0.14)",borderRadius:"10px",padding:"11px 16px",marginBottom:"24px",display:"flex",alignItems:"flex-start",gap:"10px"});
   aiHint.appendChild(span({style:{color:"#8B5CF6",fontSize:"13px",marginTop:"1px",flexShrink:"0"}},"✦"));
   var hintRight=div({style:{flex:"1"}});
   hintRight.appendChild(div({style:{color:"#9D71F5",fontSize:"10px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.09em",marginBottom:"4px"}},"AI IS WORKING BEHIND THE SCENES"));
@@ -7333,16 +7391,14 @@ function renderMediaStudio(mode){
   aiHint.appendChild(hintRight);
   wrap.appendChild(aiHint);
 
-  // ── SETUP (always visible) ─────────────────────────────────────────────────
-  var setupSection=el("div",{style:{marginBottom:"24px"}});
-  setupSection.appendChild(makeSectionHeader("SETUP","#10B981"));
-  setupSection.appendChild(makeToolGrid([
-    {icon:"palette",label:"Branding",desc:"Brand profile",fn:function(){showBrandingSetup();}},
-    {icon:"wrench",label:"Social Setup",desc:"Platform accounts",fn:function(){showSocialSetup();}},
+  // ── ANALYTICS (post-create) ────────────────────────────────────────────────
+  var analyticsSection=el("div",{style:{marginBottom:"24px"}});
+  analyticsSection.appendChild(makeSectionHeader("ANALYTICS","#3B82F6"));
+  analyticsSection.appendChild(makeToolGrid([
     {icon:"rocket",label:"Auto-Post",desc:"Automation log",fn:function(){showAutoPostLog();}},
     {icon:"trending-up",label:"Engagement",desc:"Analytics dashboard",fn:function(){showEngagementDashboard();}}
-  ],"#10B981"));
-  wrap.appendChild(setupSection);
+  ],"#3B82F6"));
+  wrap.appendChild(analyticsSection);
 
   // ── ADVANCED AI TOOLS (collapsed) ─────────────────────────────────────────
   wrap.appendChild(makeCollapsible("Advanced AI Tools","Hooks · Hashtags · A/B Test · Translate · Calendar · Planning","#8B5CF6",function(body){
