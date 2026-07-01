@@ -1921,6 +1921,16 @@ function render(preserveScroll){
   header.appendChild(secTitle);
 
   var controls=el("div",{style:{display:"flex",alignItems:"center",gap:"6px"}});
+  // News icon button with new-article dot
+  var newsBtn=el("button",{});
+  newsBtn.className="dv-icon-btn";
+  newsBtn.style.position="relative";
+  newsBtn.title="Dubai Real Estate News";
+  newsBtn.innerHTML='<i data-lucide="newspaper" style="width:18px;height:18px"></i>';
+  var _hasNewNews=(function(){try{var nc=localStorage.getItem("dv_news_cache");if(!nc)return false;var np=JSON.parse(nc);var lv=parseInt(localStorage.getItem("dv_news_last_visit")||"0",10)||0;return np&&np.articles&&np.articles.some(function(a){return a.ts&&a.ts>lv;});}catch(e){return false;}})();
+  if(_hasNewNews){var newsDot=el("div",{style:{position:"absolute",top:"6px",right:"6px",width:"6px",height:"6px",borderRadius:"50%",background:"#EF4444",boxShadow:"0 0 6px #EF4444"}});newsBtn.appendChild(newsDot);}
+  newsBtn.addEventListener("click",function(){setSection("Market","News");});
+  controls.appendChild(newsBtn);
   if(typeof renderNotifBell==="function")controls.appendChild(renderNotifBell());
   if(typeof renderAuthButton==="function")controls.appendChild(renderAuthButton());
   var avatarBtn=el("div",{});
