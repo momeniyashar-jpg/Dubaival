@@ -7352,6 +7352,52 @@ function renderMediaStudio(mode){
     gate.appendChild(regLink);
     return gate;
   }
+
+  // ── PROFILE COMPLETION GATE ───────────────────────────────────
+  var _hasPhone=localStorage.getItem("dv_phone");
+  var _hasWA=localStorage.getItem("dv_whatsapp_number");
+  if(!_hasPhone||!_hasWA){
+    var comp=el("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"55vh",padding:"40px 20px"}});
+    var compCard=el("div",{style:{background:"#0D1220",border:"1px solid #1C2535",borderRadius:"20px",padding:"32px 28px",width:"100%",maxWidth:"400px",boxShadow:"0 24px 80px rgba(0,0,0,0.4)"}});
+    compCard.appendChild(div({textAlign:"center",marginBottom:"24px"},[
+      div({fontSize:"36px",marginBottom:"10px"},"📱"),
+      div({color:"#F0F2F5",fontSize:"17px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"Complete Your Profile"),
+      div({color:"#8899AA",fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6"},"To use Social Media Manager, add your contact details. This lets us connect your content to the right accounts.")
+    ]));
+    function compInp(key,label,ph){
+      var w=el("div",{style:{marginBottom:"14px"}});
+      w.appendChild(div({color:"#8899AA",fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"5px"},label));
+      var inp=el("input",{type:"tel",placeholder:ph,style:{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid #1C2535",color:"#F0F2F5",padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+      inp.value=localStorage.getItem(key)||"";
+      inp.addEventListener("focus",function(){this.style.borderColor="#D4AF37";});
+      inp.addEventListener("blur",function(){this.style.borderColor="#1C2535";});
+      w.appendChild(inp);
+      return {wrap:w,inp:inp,key:key};
+    }
+    var phoneF=compInp("dv_phone","Phone Number","971501234567");
+    var waF=compInp("dv_whatsapp_number","WhatsApp Number","971501234567");
+    compCard.appendChild(phoneF.wrap);
+    compCard.appendChild(waF.wrap);
+    var compErr=el("div",{style:{color:"#EF4444",fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"10px",display:"none",textAlign:"center"}});
+    compCard.appendChild(compErr);
+    var contBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#D4AF37,#A07D1C)",border:"none",borderRadius:"999px",padding:"13px",color:"#070B14",fontWeight:"700",fontSize:"13px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.06em",marginBottom:"10px"}});
+    contBtn.textContent="CONTINUE →";
+    contBtn.addEventListener("click",function(){
+      var p=phoneF.inp.value.trim();var w=waF.inp.value.trim();
+      if(!p||!w){compErr.textContent="Please fill in both fields.";compErr.style.display="block";return;}
+      localStorage.setItem("dv_phone",p);localStorage.setItem("dv_whatsapp_number",w);
+      if(typeof _syncCredsToServer==="function")_syncCredsToServer();
+      render();
+    });
+    compCard.appendChild(contBtn);
+    var skipLink=el("button",{style:{width:"100%",background:"transparent",border:"none",color:"#445566",fontSize:"11px",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+    skipLink.textContent="Skip for now";
+    skipLink.addEventListener("click",function(){localStorage.setItem("dv_phone","skip");localStorage.setItem("dv_whatsapp_number","skip");render();});
+    compCard.appendChild(skipLink);
+    comp.appendChild(compCard);
+    return comp;
+  }
+
   var wrap=el("div",{style:{padding:"20px",maxWidth:"900px",margin:"0 auto",paddingBottom:"80px"}});
 
   function makeToolGrid(tools,color){
