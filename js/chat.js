@@ -7409,7 +7409,11 @@ function renderMediaStudio(mode){
       btnRow.appendChild(editBtn);btnRow.appendChild(removeBtn);
       card.appendChild(btnRow);
     }else{
-      card.appendChild(div({fontSize:"22px",textAlign:"center"},emptyIcon));
+      var iconWrap=el("div",{style:{textAlign:"center",marginBottom:"2px"}});
+      var iconEl=el("span",{style:{display:"inline-flex",alignItems:"center",justifyContent:"center",width:"28px",height:"28px",color:"#556677"}});
+      iconEl.innerHTML='<i data-lucide="'+emptyIcon+'" style="width:24px;height:24px"></i>';
+      iconWrap.appendChild(iconEl);
+      card.appendChild(iconWrap);
       card.appendChild(div({color:"#E8EDF5",fontSize:"11px",fontWeight:"600",fontFamily:"'Inter',sans-serif",textAlign:"center"},emptyLabel));
       card.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",textAlign:"center"},emptyDesc));
       card.appendChild(div({color:"#10B981",fontSize:"9px",fontFamily:"'Inter',sans-serif",textAlign:"center",marginTop:"4px"},"→ Click to set up"));
