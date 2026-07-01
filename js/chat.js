@@ -7102,14 +7102,6 @@ function renderSocialSettings(){
   wrap.appendChild(field("dv_youtube_refresh","Refresh Token","1//0c... — permanent, auto-renews"));
   wrap.appendChild(field("dv_youtube_token","Access Token (optional)","Auto-refreshed from refresh token"));
 
-  // API Keys
-  wrap.appendChild(secHeader("API KEYS (for content creation)","#8B5CF6"));
-  wrap.appendChild(field("dv_unsplash_key","Unsplash API Key","Free at unsplash.com/developers"));
-  wrap.appendChild(field("dv_pexels_key","Pexels API Key","Free at pexels.com/api"));
-  wrap.appendChild(field("dv_gemini_key","Gemini API Key (AI image gen)","Free at aistudio.google.com/apikey"));
-  wrap.appendChild(field("dv_elevenlabs_key","ElevenLabs API Key (voiceover)","Free at elevenlabs.io/app/settings/api-keys"));
-  wrap.appendChild(field("dv_elevenlabs_voice","ElevenLabs Voice ID (optional)","Default: Rachel — or paste custom voice ID"));
-
   // Save button
   var saveBtn=el("button",{style:{width:"100%",background:"#D4AF37",color:"#000",border:"none",borderRadius:"10px",padding:"12px",fontSize:"13px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginTop:"20px"}});
   saveBtn.textContent="Settings auto-saved on each field";
