@@ -7,9 +7,9 @@
 // callers (askAI grounding) can treat "no context available" as a no-op
 // rather than an error.
 
-var embeddings = require("./lib/embeddings.js");
-var shared = require("./lib/shared.js");
-var { rateLimitExceeded } = require("./lib/ratelimit");
+var embeddings = require("../lib/embeddings.js");
+var shared = require("../lib/shared.js");
+var { rateLimitExceeded } = require("../lib/ratelimit");
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");

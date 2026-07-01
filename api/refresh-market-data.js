@@ -1,5 +1,5 @@
-const { supabaseRequest, SUPABASE_URL } = require("./lib/shared");
-const embeddings = require("./lib/embeddings");
+const { supabaseRequest, SUPABASE_URL } = require("../lib/shared");
+const embeddings = require("../lib/embeddings");
 
 const UAE_RE_HOST = "uae-real-estate2.p.rapidapi.com";
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || "";

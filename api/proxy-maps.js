@@ -1,4 +1,4 @@
-var { rateLimitExceeded } = require("./lib/ratelimit");
+var { rateLimitExceeded } = require("../lib/ratelimit");
 
 var ALLOWED_ORIGINS = ["https://www.dubaival.com", "https://dubaival.com", "http://localhost:3000", "http://localhost:5000"];
 

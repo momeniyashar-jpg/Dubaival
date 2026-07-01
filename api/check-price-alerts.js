@@ -1,4 +1,4 @@
-const { supabaseRequest, sendEmail } = require("./lib/shared");
+const { supabaseRequest, sendEmail } = require("../lib/shared");
 
 const UAE_RE_HOST = "uae-real-estate2.p.rapidapi.com";
 

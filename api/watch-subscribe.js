@@ -1,4 +1,4 @@
-const { supabaseRequest, sendEmail } = require("./lib/shared");
+const { supabaseRequest, sendEmail } = require("../lib/shared");
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {

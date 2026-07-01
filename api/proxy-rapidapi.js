@@ -1,4 +1,4 @@
-var { rateLimitExceeded } = require("./lib/ratelimit");
+var { rateLimitExceeded } = require("../lib/ratelimit");
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");

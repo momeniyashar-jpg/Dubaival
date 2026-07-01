@@ -21,8 +21,8 @@ async function ingestNewsToKnowledgeBase(articles) {
   var fresh = articles.filter(function (a) { return a.link && !_ingestedLinks[a.link]; });
   if (!fresh.length) return;
 
-  var embeddings = require("./lib/embeddings.js");
-  var shared = require("./lib/shared.js");
+  var embeddings = require("../lib/embeddings.js");
+  var shared = require("../lib/shared.js");
 
   var texts = fresh.map(function (a) {
     return a.title + (a.description ? ". " + a.description : "");
@@ -158,7 +158,7 @@ async function fetchQuery(query) {
   }
 }
 
-var { rateLimitExceeded } = require("./lib/ratelimit");
+var { rateLimitExceeded } = require("../lib/ratelimit");
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
