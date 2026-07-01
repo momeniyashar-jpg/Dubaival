@@ -356,7 +356,7 @@ var NAV_SECTIONS=[
     {id:"AgentHub",label:"Agent Hub"},
     {id:"Chat",label:"AI Agents"}
   ]},
-  {id:"SocialMedia",icon:"share-2",label:"Social",accentColor:"#EC4899",subs:[
+  {id:"SocialMedia",icon:"share-2",label:"Social",accentColor:"#EC4899",badgeKey:"autopost",subs:[
     {id:"Studio",label:"Media Studio"},
     {id:"Avatar",label:"Avatar Studio"},
     {id:"VideoPlatform",label:"Video Platform"},

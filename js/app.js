@@ -1396,10 +1396,13 @@ var TAB_TO_SECTION={
   "Market":["Market","Dashboard"],"Index":["Market","Index"],"Analyzer":["Market","Analyzer"],
   "Map":["Market","Map"],"Find":["Market","Find"],"Compare":["Market","Compare"],
   "Portfolio":["Portfolio","Assets"],"Alerts":["Portfolio","Alerts"],
-  "Deals":["Network","Deals"],"AgentHub":["Network","AgentHub"],"Social":["Network","Social"],"Chat":["Network","Chat"],
+  "Deals":["Network","Deals"],"AgentHub":["Network","AgentHub"],"Chat":["Network","Chat"],
   "Health":["Portfolio","Health"],"Projections":["Portfolio","Projections"],
   "Workspace":["More","Workspace"],"About":["More","About"],"Admin":["More","Admin"],
-  "MediaStudio":["Network","MediaStudio"],"Reports":["More","Reports"]
+  "Reports":["More","Reports"],
+  "SocialStudio":["SocialMedia","Studio"],"SocialAvatar":["SocialMedia","Avatar"],
+  "SocialVideo":["SocialMedia","VideoPlatform"],"SocialChat":["SocialMedia","SocialChat"],
+  "MediaStudio":["SocialMedia","Studio"],"Social":["SocialMedia","VideoPlatform"]
 };
 
 function renderHome(){
@@ -1753,6 +1756,10 @@ function render(preserveScroll){
     if(sec.badgeKey==="deals"&&!sidebarCollapsed){
       var dealCount=0;try{var dc=JSON.parse(localStorage.getItem("dv_deal_cache")||"[]");dealCount=dc.length;}catch(e){}
       if(dealCount>0){var badge=el("span",{style:{background:"rgba(16,185,129,0.15)",color:"#10B981",fontSize:"8px",fontWeight:"700",fontFamily:"'JetBrains Mono',monospace",padding:"2px 6px",borderRadius:"999px",marginLeft:"auto",flexShrink:"0"}});badge.textContent=String(dealCount);item.appendChild(badge);}
+    }
+    if(sec.badgeKey==="autopost"&&!sidebarCollapsed){
+      var failCount=0;try{var acal=JSON.parse(localStorage.getItem("dv_content_calendar")||"[]");failCount=acal.filter(function(e){return e.status==="failed"||e.status==="partial";}).length;}catch(e){}
+      if(failCount>0){var fbadge=el("span",{style:{background:"rgba(239,68,68,0.15)",color:"#EF4444",fontSize:"8px",fontWeight:"700",fontFamily:"'JetBrains Mono',monospace",padding:"2px 6px",borderRadius:"999px",marginLeft:"auto",flexShrink:"0"}});fbadge.textContent=String(failCount);item.appendChild(fbadge);}
     }
     if(sec.id==="Network"&&!sidebarCollapsed){
       var tbadge=el("span",{style:{background:"rgba(139,92,246,0.15)",color:"#8B5CF6",fontSize:"7px",fontWeight:"700",fontFamily:"'JetBrains Mono',monospace",padding:"2px 6px",borderRadius:"999px",marginLeft:"auto",flexShrink:"0"}});tbadge.textContent="35+";item.appendChild(tbadge);

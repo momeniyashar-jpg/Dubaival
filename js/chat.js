@@ -733,6 +733,11 @@ function _autoPostNotify(title,body,evt){
     if(log.length>100)log=log.slice(0,100);
     localStorage.setItem("dv_autopost_log",JSON.stringify(log));
   }catch(e){}
+  if((title==="Failed"||title==="Partial Failure")&&typeof addNotification==="function"){
+    var snippet=(evt.caption||"Post").substring(0,40);
+    var platInfo=body.split(":")[0]||"";
+    addNotification("⚠️","Auto-post failed — \""+snippet+(snippet.length>=40?"...":"")+"\" on "+platInfo,"SocialStudio");
+  }
 }
 function _trackPostIds(calId,results){
   try{
