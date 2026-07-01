@@ -7112,6 +7112,7 @@ function renderSocialSettings(){
       var v=f.inp.value.trim();
       if(v)localStorage.setItem(f.key,v);else localStorage.removeItem(f.key);
     });
+    _syncCredsToServer();
     saveBtn.textContent="✓ Saved";
     saveBtn.style.background="#10B981";
     setTimeout(function(){setSection("SocialMedia","Studio");},800);
