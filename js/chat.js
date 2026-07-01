@@ -3873,7 +3873,8 @@ async function publishFacebookReel(message,videoUrl){
 }
 
 function shareToWhatsApp(text){
-  window.open("https://wa.me/?text="+encodeURIComponent(text),"_blank","noopener,noreferrer");
+  var num=(localStorage.getItem("dv_whatsapp_number")||"").replace(/\D/g,"");
+  window.open("https://wa.me/"+(num||"")+"?text="+encodeURIComponent(text),"_blank","noopener,noreferrer");
   return{success:true};
 }
 
@@ -7042,6 +7043,89 @@ function showEngagementDashboard(){
   document.body.appendChild(overlay);
 }
 
+function renderSocialSettings(){
+  var cl=C();
+  var wrap=el("div",{style:{padding:"20px",maxWidth:"640px",margin:"0 auto",paddingBottom:"80px"}});
+
+  wrap.appendChild(div({fontSize:"20px",fontWeight:"700",color:"#F0F2F5",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Social Accounts"));
+  wrap.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",marginBottom:"24px"},"Manage credentials for all your social platforms"));
+
+  function secHeader(label,color){
+    var h=el("div",{style:{display:"flex",alignItems:"center",gap:"10px",margin:"20px 0 12px"}});
+    h.appendChild(div({style:{width:"3px",height:"16px",background:color,borderRadius:"2px"}}));
+    h.appendChild(span({style:{color:color,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.12em"}},label));
+    return h;
+  }
+
+  function field(key,label,ph,type){
+    var wrap2=el("div",{style:{marginBottom:"14px"}});
+    var lbl=el("label",{style:{color:"#8899AA",fontSize:"11px",display:"block",marginBottom:"5px",fontFamily:"'Space Grotesk',monospace"}});
+    lbl.textContent=label;
+    var inp=el("input",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"9px 12px",color:"#E0E0E0",fontSize:"12px",fontFamily:"monospace",boxSizing:"border-box",outline:"none"},placeholder:ph,value:localStorage.getItem(key)||"",type:type||"text"});
+    inp.addEventListener("focus",function(){this.style.borderColor="#D4AF37";});
+    inp.addEventListener("blur",function(){this.style.borderColor="#2A3040";if(this.value.trim())localStorage.setItem(key,this.value.trim());else localStorage.removeItem(key);});
+    wrap2.appendChild(lbl);wrap2.appendChild(inp);
+    return wrap2;
+  }
+
+  // WhatsApp
+  wrap.appendChild(secHeader("WHATSAPP","#25D366"));
+  wrap.appendChild(div({color:"#667788",fontSize:"10px",fontFamily:"'Inter',sans-serif",marginBottom:"10px"},"Default number used when sharing content via WhatsApp (include country code, no + or spaces)"));
+  wrap.appendChild(field("dv_whatsapp_number","Default WhatsApp Number","+971501234567"));
+
+  // Instagram + Facebook
+  wrap.appendChild(secHeader("INSTAGRAM & FACEBOOK","#E1306C"));
+  wrap.appendChild(field("dv_ig_token","Page Access Token","EAATsXN..."));
+  wrap.appendChild(field("dv_ig_id","Instagram Account ID","17841416622862972"));
+  wrap.appendChild(field("dv_fb_id","Facebook Page ID (optional)","123456789"));
+
+  // LinkedIn
+  wrap.appendChild(secHeader("LINKEDIN","#0A66C2"));
+  wrap.appendChild(field("dv_linkedin_token","Access Token","OAuth2 token from linkedin.com/developers"));
+  wrap.appendChild(field("dv_linkedin_urn","Person URN","urn:li:person:XXXXXXXXX"));
+
+  // X / Twitter
+  wrap.appendChild(secHeader("X / TWITTER","#14171A"));
+  wrap.appendChild(field("dv_twitter_consumer_key","Consumer Key (API Key)","D3gVfd..."));
+  wrap.appendChild(field("dv_twitter_consumer_secret","Consumer Secret","w4EHpI..."));
+  wrap.appendChild(field("dv_twitter_access_token","Access Token","20708..."));
+  wrap.appendChild(field("dv_twitter_access_secret","Access Token Secret","DF6Upt..."));
+
+  // TikTok
+  wrap.appendChild(secHeader("TIKTOK","#FF0050"));
+  wrap.appendChild(field("dv_tiktok_token","Access Token","From developers.tiktok.com"));
+
+  // YouTube
+  wrap.appendChild(secHeader("YOUTUBE","#FF0000"));
+  wrap.appendChild(field("dv_youtube_client_id","Client ID","916354...apps.googleusercontent.com"));
+  wrap.appendChild(field("dv_youtube_client_secret","Client Secret","GOCSPX-..."));
+  wrap.appendChild(field("dv_youtube_refresh","Refresh Token","1//0c... — permanent, auto-renews"));
+  wrap.appendChild(field("dv_youtube_token","Access Token (optional)","Auto-refreshed from refresh token"));
+
+  // API Keys
+  wrap.appendChild(secHeader("API KEYS (for content creation)","#8B5CF6"));
+  wrap.appendChild(field("dv_unsplash_key","Unsplash API Key","Free at unsplash.com/developers"));
+  wrap.appendChild(field("dv_pexels_key","Pexels API Key","Free at pexels.com/api"));
+  wrap.appendChild(field("dv_gemini_key","Gemini API Key (AI image gen)","Free at aistudio.google.com/apikey"));
+  wrap.appendChild(field("dv_elevenlabs_key","ElevenLabs API Key (voiceover)","Free at elevenlabs.io/app/settings/api-keys"));
+  wrap.appendChild(field("dv_elevenlabs_voice","ElevenLabs Voice ID (optional)","Default: Rachel — or paste custom voice ID"));
+
+  // Save button
+  var saveBtn=el("button",{style:{width:"100%",background:"#D4AF37",color:"#000",border:"none",borderRadius:"10px",padding:"12px",fontSize:"13px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginTop:"20px"}});
+  saveBtn.textContent="Settings auto-saved on each field";
+  saveBtn.disabled=true;
+  saveBtn.style.opacity="0.5";
+  wrap.appendChild(saveBtn);
+
+  // Back to Social Media Manager
+  var backBtn=el("button",{style:{width:"100%",background:"transparent",border:"1px solid #2A3040",borderRadius:"10px",padding:"10px",fontSize:"12px",color:"#8899AA",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginTop:"10px"}});
+  backBtn.textContent="← Back to Social Media Manager";
+  backBtn.addEventListener("click",function(){setSection("SocialMedia","Studio");});
+  wrap.appendChild(backBtn);
+
+  return wrap;
+}
+
 function showSocialSetup(){
   var existing=document.getElementById("social-setup-modal");
   if(existing)existing.remove();
@@ -7363,18 +7447,20 @@ function renderMediaStudio(mode){
   if(creds&&creds.fbId)platforms.push("Facebook");
   if(localStorage.getItem("dv_linkedin_token"))platforms.push("LinkedIn");
   if(localStorage.getItem("dv_youtube_token")||localStorage.getItem("dv_youtube_refresh")||localStorage.getItem("dv_youtube_client_id"))platforms.push("YouTube");
+  if(localStorage.getItem("dv_twitter_consumer_key")||localStorage.getItem("dv_twitter_access_token"))platforms.push("X");
+  if(localStorage.getItem("dv_tiktok_token"))platforms.push("TikTok");
   var isSocialConfigured=platforms.length>0;
   var socialCard=makeConfigCard(
     isSocialConfigured,
     [div({color:"#E8EDF5",fontSize:"12px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},platforms.join(" · ")),
      div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},platforms.length+" platform"+(platforms.length!==1?"s":"")+" connected")],
     "wrench","Social Setup","Platform accounts",
-    function(){showSocialSetup();},
+    function(){setSection("More","Settings");},
     function(){if(confirm("Disconnect all social accounts?")){
-      ["dv_ig_token","dv_ig_id","dv_fb_id","dv_linkedin_token","dv_linkedin_urn","dv_youtube_token","dv_youtube_refresh","dv_youtube_client_id","dv_youtube_client_secret"].forEach(function(k){localStorage.removeItem(k);});
+      ["dv_ig_token","dv_ig_id","dv_fb_id","dv_linkedin_token","dv_linkedin_urn","dv_youtube_token","dv_youtube_refresh","dv_youtube_client_id","dv_youtube_client_secret","dv_twitter_consumer_key","dv_twitter_consumer_secret","dv_twitter_access_token","dv_twitter_access_secret","dv_tiktok_token","dv_whatsapp_number"].forEach(function(k){localStorage.removeItem(k);});
       render();
     }},
-    function(){showSocialSetup();}
+    function(){setSection("More","Settings");}
   );
 
   var setupSec=el("div",{style:{marginBottom:"24px"}});

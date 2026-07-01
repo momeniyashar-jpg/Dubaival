@@ -365,7 +365,8 @@ var NAV_SECTIONS=[
   {id:"More",icon:"settings",label:"More",subs:[
     {id:"Workspace",label:"Workspace"},
     {id:"Reports",label:"Reports"},
-    {id:"About",label:"About"}
+    {id:"About",label:"About"},
+    {id:"Settings",label:"Settings"}
   ]}
 ];
 

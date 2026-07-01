@@ -1898,6 +1898,7 @@ function render(preserveScroll){
     else if(currentSubTab==="Reports"&&typeof renderReportBuilder==="function")content.appendChild(renderReportBuilder(el("div",{style:{padding:"20px",maxWidth:"900px",margin:"0 auto"}}),cl));
     else if(currentSubTab==="About")content.appendChild(renderAbout());
     else if(currentSubTab==="Admin")content.appendChild(renderAdmin());
+    else if(currentSubTab==="Settings"&&typeof renderSocialSettings==="function")content.appendChild(renderSocialSettings());
     else content.appendChild(renderWorkspace());
   } else {
     content.appendChild(renderHome());
