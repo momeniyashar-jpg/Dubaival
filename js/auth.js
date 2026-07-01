@@ -177,10 +177,12 @@ function renderAuthModal(){
     modal.appendChild(nameInp);
   }
 
-  emailInp=el("input",{type:"email",placeholder:t("auth_email"),autocomplete:"email",style:{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",color:"#F0F2F5",padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"}});
+  emailInp=el("input",{type:"text",placeholder:t("auth_email"),autocomplete:"off",readonly:true,style:{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",color:"#F0F2F5",padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"}});
+  emailInp.addEventListener("focus",function(){this.removeAttribute("readonly");});
   modal.appendChild(emailInp);
 
-  passInp=el("input",{type:"password",placeholder:t("auth_password"),autocomplete:"current-password",style:{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",color:"#F0F2F5",padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"16px"}});
+  passInp=el("input",{type:"password",placeholder:t("auth_password"),autocomplete:"off",readonly:true,style:{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",color:"#F0F2F5",padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"16px"}});
+  passInp.addEventListener("focus",function(){this.removeAttribute("readonly");});
   passInp.addEventListener("keydown",function(e){if(e.key==="Enter")doSubmit();});
   modal.appendChild(passInp);
 
