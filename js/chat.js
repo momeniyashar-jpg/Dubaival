@@ -7362,7 +7362,7 @@ function renderMediaStudio(mode){
   if(creds&&creds.igId)platforms.push("Instagram");
   if(creds&&creds.fbId)platforms.push("Facebook");
   if(localStorage.getItem("dv_linkedin_token"))platforms.push("LinkedIn");
-  if(localStorage.getItem("dv_youtube_token")||localStorage.getItem("dv_youtube_refresh"))platforms.push("YouTube");
+  if(localStorage.getItem("dv_youtube_token")||localStorage.getItem("dv_youtube_refresh")||localStorage.getItem("dv_youtube_client_id"))platforms.push("YouTube");
   var isSocialConfigured=platforms.length>0;
   var socialCard=makeConfigCard(
     isSocialConfigured,
