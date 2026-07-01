@@ -7046,9 +7046,10 @@ function showEngagementDashboard(){
 function renderSocialSettings(){
   var cl=C();
   var wrap=el("div",{style:{padding:"20px",maxWidth:"640px",margin:"0 auto",paddingBottom:"80px"}});
+  var allFields=[];
 
   wrap.appendChild(div({fontSize:"20px",fontWeight:"700",color:"#F0F2F5",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Social Accounts"));
-  wrap.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",marginBottom:"24px"},"Manage credentials for all your social platforms"));
+  wrap.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",marginBottom:"24px"},"Enter your credentials then tap Save All"));
 
   function secHeader(label,color){
     var h=el("div",{style:{display:"flex",alignItems:"center",gap:"10px",margin:"20px 0 12px"}});
@@ -7057,21 +7058,22 @@ function renderSocialSettings(){
     return h;
   }
 
-  function field(key,label,ph,type){
+  function field(key,label,ph){
     var wrap2=el("div",{style:{marginBottom:"14px"}});
     var lbl=el("label",{style:{color:"#8899AA",fontSize:"11px",display:"block",marginBottom:"5px",fontFamily:"'Space Grotesk',monospace"}});
     lbl.textContent=label;
-    var inp=el("input",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"9px 12px",color:"#E0E0E0",fontSize:"12px",fontFamily:"monospace",boxSizing:"border-box",outline:"none"},placeholder:ph,value:localStorage.getItem(key)||"",type:type||"text"});
+    var inp=el("input",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"9px 12px",color:"#E0E0E0",fontSize:"12px",fontFamily:"monospace",boxSizing:"border-box",outline:"none"},placeholder:ph,value:localStorage.getItem(key)||""});
     inp.addEventListener("focus",function(){this.style.borderColor="#D4AF37";});
-    inp.addEventListener("blur",function(){this.style.borderColor="#2A3040";if(this.value.trim())localStorage.setItem(key,this.value.trim());else localStorage.removeItem(key);});
+    inp.addEventListener("blur",function(){this.style.borderColor="#2A3040";});
     wrap2.appendChild(lbl);wrap2.appendChild(inp);
+    allFields.push({key:key,inp:inp});
     return wrap2;
   }
 
   // WhatsApp
   wrap.appendChild(secHeader("WHATSAPP","#25D366"));
-  wrap.appendChild(div({color:"#667788",fontSize:"10px",fontFamily:"'Inter',sans-serif",marginBottom:"10px"},"Default number used when sharing content via WhatsApp (include country code, no + or spaces)"));
-  wrap.appendChild(field("dv_whatsapp_number","Default WhatsApp Number","+971501234567"));
+  wrap.appendChild(div({color:"#667788",fontSize:"10px",fontFamily:"'Inter',sans-serif",marginBottom:"10px"},"شماره پیش‌فرض برای اشتراک‌گذاری محتوا (با کد کشور، بدون + یا فاصله)"));
+  wrap.appendChild(field("dv_whatsapp_number","Default WhatsApp Number","971501234567"));
 
   // Instagram + Facebook
   wrap.appendChild(secHeader("INSTAGRAM & FACEBOOK","#E1306C"));
@@ -7085,7 +7087,7 @@ function renderSocialSettings(){
   wrap.appendChild(field("dv_linkedin_urn","Person URN","urn:li:person:XXXXXXXXX"));
 
   // X / Twitter
-  wrap.appendChild(secHeader("X / TWITTER","#14171A"));
+  wrap.appendChild(secHeader("X / TWITTER","#E7E9EA"));
   wrap.appendChild(field("dv_twitter_consumer_key","Consumer Key (API Key)","D3gVfd..."));
   wrap.appendChild(field("dv_twitter_consumer_secret","Consumer Secret","w4EHpI..."));
   wrap.appendChild(field("dv_twitter_access_token","Access Token","20708..."));
@@ -7102,14 +7104,21 @@ function renderSocialSettings(){
   wrap.appendChild(field("dv_youtube_refresh","Refresh Token","1//0c... — permanent, auto-renews"));
   wrap.appendChild(field("dv_youtube_token","Access Token (optional)","Auto-refreshed from refresh token"));
 
-  // Save button
-  var saveBtn=el("button",{style:{width:"100%",background:"#D4AF37",color:"#000",border:"none",borderRadius:"10px",padding:"12px",fontSize:"13px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginTop:"20px"}});
-  saveBtn.textContent="Settings auto-saved on each field";
-  saveBtn.disabled=true;
-  saveBtn.style.opacity="0.5";
+  // Save All button
+  var saveBtn=el("button",{style:{width:"100%",background:"#D4AF37",color:"#000",border:"none",borderRadius:"10px",padding:"13px",fontSize:"13px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginTop:"24px"}});
+  saveBtn.textContent="Save All";
+  saveBtn.addEventListener("click",function(){
+    allFields.forEach(function(f){
+      var v=f.inp.value.trim();
+      if(v)localStorage.setItem(f.key,v);else localStorage.removeItem(f.key);
+    });
+    saveBtn.textContent="✓ Saved";
+    saveBtn.style.background="#10B981";
+    setTimeout(function(){setSection("SocialMedia","Studio");},800);
+  });
   wrap.appendChild(saveBtn);
 
-  // Back to Social Media Manager
+  // Back button
   var backBtn=el("button",{style:{width:"100%",background:"transparent",border:"1px solid #2A3040",borderRadius:"10px",padding:"10px",fontSize:"12px",color:"#8899AA",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginTop:"10px"}});
   backBtn.textContent="← Back to Social Media Manager";
   backBtn.addEventListener("click",function(){setSection("SocialMedia","Studio");});
