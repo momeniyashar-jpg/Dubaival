@@ -1251,6 +1251,23 @@ function showVideoEditor(){
       container.appendChild(capBox);
     }
 
+    // Optional next steps — enhance before publishing
+    var veNextSec=div({background:"rgba(255,255,255,0.02)",border:"1px solid #2A3040",borderRadius:"12px",padding:"12px",marginTop:"10px",marginBottom:"10px"});
+    veNextSec.appendChild(div({color:"#556677",fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"10px"}),"✦ OPTIONAL — ENHANCE BEFORE PUBLISHING");
+    var veNextRow=div({display:"flex",gap:"6px",flexWrap:"wrap"});
+    [
+      {icon:"🎨",label:"Design Cover",desc:"Thumbnail / companion image",fn:function(){showPostDesigner(captionText||"");}},
+      {icon:"👁",label:"Preview Post",desc:"See how it looks on feed",fn:function(){showPostPreview(captionText||"",null);}},
+      {icon:"📱",label:"Story Template",desc:"Create a story too",fn:function(){showStoryTemplates();}}
+    ].forEach(function(step){
+      var nb=el("button",{style:{flex:"1",minWidth:"100px",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"10px",padding:"10px 8px",cursor:"pointer",textAlign:"center",transition:"all 0.2s",fontFamily:"inherit"}});
+      nb.innerHTML="<div style='font-size:20px;margin-bottom:4px'>"+step.icon+"</div><div style='color:#C0C8D8;font-size:10px;font-weight:600;font-family:Space Grotesk,monospace'>"+step.label+"</div><div style='color:#556677;font-size:9px;margin-top:2px;font-family:Inter,sans-serif'>"+step.desc+"</div>";
+      nb.onmouseenter=function(){nb.style.borderColor="#EC4899";nb.style.background="rgba(236,72,153,0.05)";};
+      nb.onmouseleave=function(){nb.style.borderColor="#2A3040";nb.style.background="#0D1117";};
+      nb.onclick=step.fn;veNextRow.appendChild(nb);
+    });
+    veNextSec.appendChild(veNextRow);container.appendChild(veNextSec);
+
     // Unified publish bar — same flow as Chat tab
     showVideoPublishBar(blob,captionText||"",container);
   }
@@ -3160,6 +3177,24 @@ function showVideoGenUI(initialPrompt){
       actGrid.appendChild(voBtn2);
     }
     vgBody.appendChild(actGrid);
+
+    // Optional next steps — enhance before publishing
+    var vgNextSec=div({background:"rgba(255,255,255,0.02)",border:"1px solid #2A3040",borderRadius:"12px",padding:"12px",marginBottom:"10px"});
+    vgNextSec.appendChild(div({color:"#556677",fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"10px"}),"✦ OPTIONAL — ENHANCE BEFORE PUBLISHING");
+    var vgNextRow=div({display:"flex",gap:"6px",flexWrap:"wrap"});
+    var vgCaption=plan.caption||"";
+    [
+      {icon:"🎨",label:"Design Cover",desc:"Thumbnail / companion image",fn:function(){showPostDesigner(vgCaption);}},
+      {icon:"👁",label:"Preview Post",desc:"See how it looks on feed",fn:function(){showPostPreview(vgCaption,null);}},
+      {icon:"📱",label:"Story Template",desc:"Create a story too",fn:function(){showStoryTemplates();}}
+    ].forEach(function(step){
+      var nb=el("button",{style:{flex:"1",minWidth:"100px",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"10px",padding:"10px 8px",cursor:"pointer",textAlign:"center",transition:"all 0.2s",fontFamily:"inherit"}});
+      nb.innerHTML="<div style='font-size:20px;margin-bottom:4px'>"+step.icon+"</div><div style='color:#C0C8D8;font-size:10px;font-weight:600;font-family:Space Grotesk,monospace'>"+step.label+"</div><div style='color:#556677;font-size:9px;margin-top:2px;font-family:Inter,sans-serif'>"+step.desc+"</div>";
+      nb.onmouseenter=function(){nb.style.borderColor="#C9A84C";nb.style.background="rgba(201,168,76,0.05)";};
+      nb.onmouseleave=function(){nb.style.borderColor="#2A3040";nb.style.background="#0D1117";};
+      nb.onclick=step.fn;vgNextRow.appendChild(nb);
+    });
+    vgNextSec.appendChild(vgNextRow);vgBody.appendChild(vgNextSec);
 
     // Unified publish bar — same flow as Chat tab
     showVideoPublishBar(blob,plan.caption||"",vgBody);
