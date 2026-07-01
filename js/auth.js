@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- AUTH MODULE ---
-var DV_AUTH={user:null,profile:null,loading:true,showModal:false,modalTab:"signin",error:"",busy:false};
+var DV_AUTH={user:null,profile:null,loading:true,showModal:false,modalTab:"signin",error:"",busy:false,resetSent:false};
 
 function sbHeaders(token){
   var h={"apikey":SUPABASE_KEY,"Content-Type":"application/json"};
@@ -35,6 +35,16 @@ async function dvSignIn(email,password){
     await setAuthSession(data);
     DV_AUTH.showModal=false;
     await syncPortfolioFromCloud();
+  }catch(e){DV_AUTH.error=e.message;}
+  DV_AUTH.busy=false;render();
+}
+
+async function dvResetPassword(email){
+  DV_AUTH.busy=true;DV_AUTH.error="";render();
+  try{
+    var resp=await fetch(SUPABASE_URL+"/auth/v1/recover",{method:"POST",headers:sbHeaders(),body:JSON.stringify({email:email})});
+    if(!resp.ok){var d=await resp.json();throw new Error(d.error_description||d.msg||"Error sending reset email");}
+    DV_AUTH.resetSent=true;
   }catch(e){DV_AUTH.error=e.message;}
   DV_AUTH.busy=false;render();
 }
@@ -152,6 +162,37 @@ function renderAuthModal(){
   var modal=el("div",{style:{background:"rgba(13,18,32,0.85)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:"20px",padding:"28px 24px",width:"90%",maxWidth:"380px",backdropFilter:"blur(24px)",WebkitBackdropFilter:"blur(24px)",boxShadow:"0 24px 80px rgba(0,0,0,0.6),0 0 40px rgba(212,175,55,0.04)"}});
   modal.addEventListener("click",function(e){e.stopPropagation();});
 
+  // ── FORGOT PASSWORD VIEW ──────────────────────────────────────
+  if(DV_AUTH.modalTab==="forgot"){
+    modal.appendChild(div({textAlign:"center",marginBottom:"20px"},[
+      div({fontSize:"24px",marginBottom:"6px"},"🔑"),
+      div({color:"#F0F2F5",fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"Reset Password"),
+      div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",marginTop:"4px"},"We'll send a reset link to your email")
+    ]));
+    if(DV_AUTH.resetSent){
+      modal.appendChild(div({background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.3)",borderRadius:"10px",padding:"16px",textAlign:"center",marginBottom:"16px"},[
+        div({fontSize:"20px",marginBottom:"6px"},"✅"),
+        div({color:"#10B981",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Reset email sent!"),
+        div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Check your inbox and click the link to reset your password.")
+      ]));
+    }else{
+      if(DV_AUTH.error)modal.appendChild(div({background:hexAlpha("#EF4444",0.1),border:"1px solid "+hexAlpha("#EF4444",0.3),borderRadius:"8px",padding:"8px 12px",marginBottom:"12px",color:"#EF4444",fontSize:"11px",fontFamily:"'Inter',sans-serif"},DV_AUTH.error));
+      var resetInp=el("input",{type:"text",placeholder:"Your email address",autocomplete:"off",readonly:true,style:{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",color:"#F0F2F5",padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"14px"}});
+      resetInp.addEventListener("focus",function(){this.removeAttribute("readonly");});
+      modal.appendChild(resetInp);
+      var sendBtn=el("button",{style:{width:"100%",padding:"12px",borderRadius:"999px",border:"1px solid rgba(212,175,55,0.15)",background:"rgba(212,175,55,0.10)",color:"#D4A843",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",marginBottom:"12px"}});
+      sendBtn.textContent=DV_AUTH.busy?"...":"Send Reset Link";
+      sendBtn.addEventListener("click",function(){var e=resetInp.value.trim();if(!e){DV_AUTH.error="Enter your email";render();return;}dvResetPassword(e);});
+      modal.appendChild(sendBtn);
+    }
+    var backLink=el("button",{style:{width:"100%",background:"transparent",border:"none",color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",cursor:"pointer",textAlign:"center"}});
+    backLink.textContent="← Back to Sign In";
+    backLink.addEventListener("click",function(){DV_AUTH.modalTab="signin";DV_AUTH.error="";DV_AUTH.resetSent=false;render();});
+    modal.appendChild(backLink);
+    overlay.appendChild(modal);
+    return overlay;
+  }
+
   modal.appendChild(div({textAlign:"center",marginBottom:"20px"},[
     div({fontSize:"24px",marginBottom:"6px"},""),
     div({color:"#F0F2F5",fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},DV_AUTH.modalTab==="signin"?t("auth_signin"):t("auth_signup")),
@@ -205,6 +246,13 @@ function renderAuthModal(){
   submitBtn.textContent=DV_AUTH.busy?"...":(DV_AUTH.modalTab==="signin"?t("auth_signin"):t("auth_create_account"));
   if(!DV_AUTH.busy)submitBtn.addEventListener("click",doSubmit);
   modal.appendChild(submitBtn);
+
+  if(DV_AUTH.modalTab==="signin"){
+    var forgotLink=el("button",{style:{width:"100%",background:"transparent",border:"none",color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",cursor:"pointer",textAlign:"center",marginBottom:"10px"}});
+    forgotLink.textContent="Forgot password?";
+    forgotLink.addEventListener("click",function(){DV_AUTH.modalTab="forgot";DV_AUTH.error="";DV_AUTH.resetSent=false;render();});
+    modal.appendChild(forgotLink);
+  }
 
   modal.appendChild(div({textAlign:"center",color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},t("auth_disclaimer")));
 
