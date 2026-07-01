@@ -7312,8 +7312,8 @@ function renderMediaStudio(mode){
 
   // ── STUDIO MODE (default) ─────────────────────────────────────────────────────
   var hero=el("div",{style:{marginBottom:"24px"}});
-  hero.appendChild(div({fontSize:"20px",fontWeight:"700",color:"#F0F2F5",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Media Studio"));
-  hero.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Create and publish content that gets results"));
+  hero.appendChild(div({fontSize:"20px",fontWeight:"700",color:"#F0F2F5",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Social Media Manager"));
+  hero.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"AI-powered content creation, publishing and automation"));
   wrap.appendChild(hero);
 
   // ── SETUP (Branding + Social — persistent configured state) ───────────────
@@ -7384,23 +7384,39 @@ function renderMediaStudio(mode){
   // ── CREATE (prominent) ─────────────────────────────────────────────────────
   var createSection=el("div",{style:{marginBottom:"20px"}});
   createSection.appendChild(makeSectionHeader("CREATE","#D4AF37"));
+
+  // Row 1: Video tools
   createSection.appendChild(makeToolGrid([
     {icon:"video",label:"AI Video Studio",desc:"8 AI engines",fn:function(){showVideoGenUI("");}},
-    {icon:"scissors",label:"Edit Video",desc:"Trim, subtitles, music",fn:function(){showVideoEditor();}},
+    {icon:"scissors",label:"Edit Video",desc:"Trim, subtitles, music",fn:function(){showVideoEditor();}}
+  ],"#D4AF37"));
+
+  // ── Inline SMM AI chat ─────────────────────────────────────────────────────
+  var smmDiv=el("div",{style:{display:"flex",alignItems:"center",gap:"10px",margin:"16px 0 14px"}});
+  var smmLine1=div({style:{flex:"1",height:"1px",background:"rgba(212,175,55,0.18)"}});
+  var smmLabel=span({style:{color:"#D4AF37",fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.14em",whiteSpace:"nowrap",flexShrink:"0"}},"💬  AI SOCIAL MEDIA MANAGER");
+  var smmLine2=div({style:{flex:"1",height:"1px",background:"rgba(212,175,55,0.18)"}});
+  smmDiv.appendChild(smmLine1);smmDiv.appendChild(smmLabel);smmDiv.appendChild(smmLine2);
+  createSection.appendChild(smmDiv);
+
+  var smmChatWrap=el("div",{style:{background:"rgba(212,175,55,0.025)",border:"1px solid rgba(212,175,55,0.16)",borderRadius:"14px",overflow:"hidden",marginBottom:"14px"}});
+  var prevAgentId=chatState.agentId;
+  chatState.agentId="outreach";
+  smmChatWrap.appendChild(renderChat());
+  chatState.agentId=prevAgentId;
+  createSection.appendChild(smmChatWrap);
+
+  var smmDiv2=div({style:{height:"1px",background:"rgba(212,175,55,0.18)",marginBottom:"14px"}});
+  createSection.appendChild(smmDiv2);
+
+  // Row 2: Design & preview tools
+  createSection.appendChild(makeToolGrid([
     {icon:"palette",label:"Design Post",desc:"Visual canvas editor",fn:function(){showPostDesigner("","");}},
     {icon:"smartphone",label:"Story Templates",desc:"Ready-made formats",fn:function(){showStoryTemplates();}},
     {icon:"eye",label:"Post Preview",desc:"Smart preview",fn:function(){showPostPreview("","");}}
   ],"#D4AF37"));
-  wrap.appendChild(createSection);
 
-  // ── AI hint ────────────────────────────────────────────────────────────────
-  var aiHint=div({background:"rgba(139,92,246,0.05)",border:"1px solid rgba(139,92,246,0.14)",borderRadius:"10px",padding:"11px 16px",marginBottom:"24px",display:"flex",alignItems:"flex-start",gap:"10px"});
-  aiHint.appendChild(span({style:{color:"#8B5CF6",fontSize:"13px",marginTop:"1px",flexShrink:"0"}},"✦"));
-  var hintRight=div({style:{flex:"1"}});
-  hintRight.appendChild(div({style:{color:"#9D71F5",fontSize:"10px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.09em",marginBottom:"4px"}},"AI IS WORKING BEHIND THE SCENES"));
-  hintRight.appendChild(div({style:{color:"#667788",fontSize:"10px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6"}},"When you create with our tools, smart hashtags, caption optimization, A/B tested hooks, multi-platform formatting, best posting times, and engagement boosting are automatically applied — so your content gets seen, clicked, and shared."));
-  aiHint.appendChild(hintRight);
-  wrap.appendChild(aiHint);
+  wrap.appendChild(createSection);
 
   // ── ANALYTICS (post-create) ────────────────────────────────────────────────
   var analyticsSection=el("div",{style:{marginBottom:"24px"}});
@@ -7441,30 +7457,6 @@ function renderMediaStudio(mode){
     ],"#3B82F6"));
     body.appendChild(plSec);
   }));
-
-  // ── AI Content Assistant (collapsed) ──────────────────────────────────────
-  var chatSection=el("div",{style:{marginTop:"16px"}});
-  var chatToggle=el("button",{style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"14px 20px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",transition:"all 0.15s ease"}});
-  chatToggle.appendChild(div({},[span({color:"#F0F2F5",fontSize:"13px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},"AI Content Assistant"),span({color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace",marginLeft:"8px"},"Chat with Social Media Manager agent")]));
-  var arrow=span({color:cl.sub,fontSize:"16px",transition:"transform 0.2s"},"▼");
-  chatToggle.appendChild(arrow);
-  var chatBody=el("div",{style:{display:"none",marginTop:"8px"}});
-  chatToggle.addEventListener("click",function(){
-    var open=chatBody.style.display!=="none";
-    chatBody.style.display=open?"none":"block";
-    arrow.textContent=open?"▼":"▲";
-    if(!open){
-      var prev=chatState.agentId;
-      chatState.agentId="outreach";
-      var chatEl=renderChat();
-      chatBody.innerHTML="";
-      chatBody.appendChild(chatEl);
-      chatState.agentId=prev==="outreach"?prev:prev;
-    }
-  });
-  chatSection.appendChild(chatToggle);
-  chatSection.appendChild(chatBody);
-  wrap.appendChild(chatSection);
 
   return wrap;
 }
