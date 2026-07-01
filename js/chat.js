@@ -7356,16 +7356,21 @@ function renderMediaStudio(mode){
   );
 
   var platforms=[];
-  if(creds){if(creds.igId)platforms.push("Instagram");if(creds.fbId)platforms.push("Facebook");}
+  if(creds&&creds.igId)platforms.push("Instagram");
+  if(creds&&creds.fbId)platforms.push("Facebook");
   if(localStorage.getItem("dv_linkedin_token"))platforms.push("LinkedIn");
   if(localStorage.getItem("dv_youtube_token")||localStorage.getItem("dv_youtube_refresh"))platforms.push("YouTube");
+  var isSocialConfigured=platforms.length>0;
   var socialCard=makeConfigCard(
-    !!(creds&&creds.token),
-    [div({color:"#E8EDF5",fontSize:"12px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},platforms.join(" + ")||"Connected"),
+    isSocialConfigured,
+    [div({color:"#E8EDF5",fontSize:"12px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},platforms.join(" · ")),
      div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},platforms.length+" platform"+(platforms.length!==1?"s":"")+" connected")],
     "wrench","Social Setup","Platform accounts",
     function(){showSocialSetup();},
-    function(){if(confirm("Disconnect social accounts?")){localStorage.removeItem("dv_ig_token");localStorage.removeItem("dv_ig_id");localStorage.removeItem("dv_fb_id");render();}},
+    function(){if(confirm("Disconnect all social accounts?")){
+      ["dv_ig_token","dv_ig_id","dv_fb_id","dv_linkedin_token","dv_linkedin_urn","dv_youtube_token","dv_youtube_refresh","dv_youtube_client_id","dv_youtube_client_secret"].forEach(function(k){localStorage.removeItem(k);});
+      render();
+    }},
     function(){showSocialSetup();}
   );
 
