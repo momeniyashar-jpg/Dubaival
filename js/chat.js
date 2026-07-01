@@ -7328,23 +7328,16 @@ function renderMediaStudio(mode){
   aiHint.appendChild(hintRight);
   wrap.appendChild(aiHint);
 
-  // ── SETTINGS & ANALYTICS (collapsed) ──────────────────────────────────────
-  wrap.appendChild(makeCollapsible("Settings & Analytics","Branding · Social Accounts · Auto-Post · Engagement","#10B981",function(body){
-    var s1=el("div",{style:{marginBottom:"20px"}});
-    s1.appendChild(makeSectionHeader("ONE-TIME SETUP","#10B981"));
-    s1.appendChild(makeToolGrid([
-      {icon:"palette",label:"Branding",desc:"Brand profile",fn:function(){showBrandingSetup();}},
-      {icon:"wrench",label:"Social Setup",desc:"Platform accounts",fn:function(){showSocialSetup();}}
-    ],"#10B981"));
-    body.appendChild(s1);
-    var s2=el("div",{style:{marginBottom:"8px"}});
-    s2.appendChild(makeSectionHeader("AUTOMATION & ANALYTICS","#3B82F6"));
-    s2.appendChild(makeToolGrid([
-      {icon:"rocket",label:"Auto-Post",desc:"Automation log",fn:function(){showAutoPostLog();}},
-      {icon:"trending-up",label:"Engagement",desc:"Analytics dashboard",fn:function(){showEngagementDashboard();}}
-    ],"#3B82F6"));
-    body.appendChild(s2);
-  }));
+  // ── SETUP (always visible) ─────────────────────────────────────────────────
+  var setupSection=el("div",{style:{marginBottom:"24px"}});
+  setupSection.appendChild(makeSectionHeader("SETUP","#10B981"));
+  setupSection.appendChild(makeToolGrid([
+    {icon:"palette",label:"Branding",desc:"Brand profile",fn:function(){showBrandingSetup();}},
+    {icon:"wrench",label:"Social Setup",desc:"Platform accounts",fn:function(){showSocialSetup();}},
+    {icon:"rocket",label:"Auto-Post",desc:"Automation log",fn:function(){showAutoPostLog();}},
+    {icon:"trending-up",label:"Engagement",desc:"Analytics dashboard",fn:function(){showEngagementDashboard();}}
+  ],"#10B981"));
+  wrap.appendChild(setupSection);
 
   // ── ADVANCED AI TOOLS (collapsed) ─────────────────────────────────────────
   wrap.appendChild(makeCollapsible("Advanced AI Tools","Hooks · Hashtags · A/B Test · Translate · Calendar · Planning","#8B5CF6",function(body){
