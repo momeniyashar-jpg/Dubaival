@@ -269,7 +269,8 @@ function renderAuthButton(){
     syncBtn.innerHTML='<i data-lucide="cloud" style="width:18px;height:18px;color:#10B981"></i>';
     var syncDot=el("div",{style:{position:"absolute",top:"6px",right:"6px",width:"6px",height:"6px",borderRadius:"50%",background:"#10B981"}});
     syncBtn.appendChild(syncDot);
-    syncBtn.addEventListener("click",function(){DV_AUTH.showModal=false;render();});
+    syncBtn.title="My Profile";
+    syncBtn.addEventListener("click",function(){showProfilePanel=!showProfilePanel;render();});
     return syncBtn;
   }
   var signinBtn=el("button",{});
