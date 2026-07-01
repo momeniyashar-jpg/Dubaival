@@ -6508,79 +6508,131 @@ async function sendChat(text){
   chatState.loading=false;render(true);
 }
 
-// --- MEDIA STUDIO (tool grid — all 35+ tools visible immediately) -----------
+// --- MEDIA STUDIO (clean user-facing view — AI tools run silently in background) ---
 function renderMediaStudio(){
   var cl=C();
   var wrap=el("div",{style:{padding:"20px",maxWidth:"900px",margin:"0 auto",paddingBottom:"80px"}});
 
   var hero=el("div",{style:{marginBottom:"24px"}});
   hero.appendChild(div({fontSize:"20px",fontWeight:"700",color:"#F0F2F5",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Media Studio"));
-  hero.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Your complete social media command center — 35+ tools at your fingertips"));
+  hero.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Create and publish content that gets results"));
   wrap.appendChild(hero);
 
-  var TOOL_GROUPS=[
-    {title:"CREATE",color:"#D4AF37",tools:[
-      {icon:"video",label:"AI Video Studio",desc:"8 AI engines",fn:function(){showVideoGenUI("");}},
-      {icon:"scissors",label:"Edit Video",desc:"Trim, subtitles, music",fn:function(){showVideoEditor();}},
-      {icon:"palette",label:"Design Post",desc:"Visual canvas editor",fn:function(){showPostDesigner("","");}},
-      {icon:"smartphone",label:"Story Templates",desc:"Ready-made formats",fn:function(){showStoryTemplates();}},
-      {icon:"eye",label:"Post Preview",desc:"Smart preview",fn:function(){showPostPreview("","");}}
-    ]},
-    {title:"AI INTELLIGENCE",color:"#8B5CF6",tools:[
-      {icon:"brain",label:"Neuro Hook",desc:"Hook-Story-Offer",fn:function(){showHookStoryOffer("");}},
-      {icon:"HD",label:"Translate",desc:"Multi-language",fn:function(){showMultiLanguage("");}},
-      {icon:"scale",label:"A/B Test",desc:"Variant generator",fn:function(){showABTest("","");}},
-      {icon:"hash",label:"Hashtags",desc:"Intelligence",fn:function(){showHashtagIntelligence("");}},
-      {icon:"pen-line",label:"Rewrite",desc:"Caption rewriter",fn:function(){showCaptionRewriter("");}},
-      {icon:"smile",label:"Emojis",desc:"Emoji intelligence",fn:function(){showEmojiIntelligence("");}},
-      {icon:"ruler",label:"Optimize",desc:"Caption optimizer",fn:function(){showCaptionOptimizer("");}},
-      {icon:"search",label:"Spy",desc:"Competitor analysis",fn:function(){showCompetitorSpy();}}
-    ]},
-    {title:"PLANNING",color:"#3B82F6",tools:[
-      {icon:"calendar",label:"Calendar",desc:"Content calendar",fn:function(){showContentCalendar();}},
-      {icon:"clock",label:"Schedule",desc:"Schedule posts",fn:function(){showAddCalendarEvent("");}},
-      {icon:"package",label:"Bulk 30-Day",desc:"Auto-generate month",fn:function(){showBulkGenerator();}},
-      {icon:"refresh-cw",label:"Recycle",desc:"Repurpose content",fn:function(){showContentRecycler();}},
-      {icon:"landmark",label:"Pillars",desc:"Content strategy",fn:function(){showPillarPlanner();}},
-      {icon:"timer",label:"Best Time",desc:"Optimal posting",fn:function(){showBestTimeModal("");}},
-      {icon:"bar-chart",label:"Analytics",desc:"Post performance",fn:function(){showPostAnalytics();}},
-      {icon:"link",label:"Link in Bio",desc:"Bio link builder",fn:function(){showLinkInBio();}},
-      {icon:"droplet",label:"Watermark",desc:"Branding overlay",fn:function(){showWatermarkSetup();}}
-    ]},
-    {title:"SETUP",color:"#10B981",tools:[
-      {icon:"palette",label:"Branding",desc:"Brand profile",fn:function(){showBrandingSetup();}},
-      {icon:"wrench",label:"Social Setup",desc:"Platform accounts",fn:function(){showSocialSetup();}},
-      {icon:"rocket",label:"Auto-Post",desc:"Automation log",fn:function(){showAutoPostLog();}},
-      {icon:"trending-up",label:"Engagement",desc:"Analytics dashboard",fn:function(){showEngagementDashboard();}}
-    ]},
-    {title:"AVATAR STUDIO",color:"#F59E0B",tools:[
-      {icon:"image",label:"Gallery",desc:"Avatar collection",fn:function(){showAvatarStudio();}},
-      {icon:"LM",label:"Create",desc:"Build new avatar",fn:function(){showAvatarBuilder();}},
-      {icon:"file-text",label:"Generate",desc:"Content as avatar",fn:function(){showAvatarContentGen();}},
-      {icon:"video",label:"Video",desc:"Avatar video",fn:function(){showAvatarVideoGen();}},
-      {icon:"bot",label:"AutoPilot",desc:"Auto content",fn:function(){showAvatarAutoPilot();}},
-      {icon:"package",label:"Batch",desc:"Bulk generate",fn:function(){showAvatarBatchGen();}}
-    ]}
-  ];
-
-  TOOL_GROUPS.forEach(function(group){
-    var section=el("div",{style:{marginBottom:"24px"}});
-    section.appendChild(div({color:group.color,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"600",borderLeft:"3px solid "+group.color,paddingLeft:"10px",marginBottom:"14px"},group.title));
-
+  function makeToolGrid(tools,color){
     var grid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:"10px"}});
-    group.tools.forEach(function(tool){
+    tools.forEach(function(tool){
       var card=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"16px 12px",textAlign:"center",cursor:"pointer",transition:"all 0.2s ease",minHeight:"90px",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"6px"}});
       card.appendChild(div({fontSize:"24px"},tool.icon));
       card.appendChild(div({color:"#E8EDF5",fontSize:"11px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},tool.label));
       card.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},tool.desc));
-      card.addEventListener("mouseenter",function(){this.style.borderColor=group.color;this.style.background="#131926";this.style.transform="translateY(-2px)";this.style.boxShadow="0 4px 16px "+hexAlpha(group.color,0.15);});
+      card.addEventListener("mouseenter",function(){this.style.borderColor=color;this.style.background="#131926";this.style.transform="translateY(-2px)";this.style.boxShadow="0 4px 16px "+hexAlpha(color,0.15);});
       card.addEventListener("mouseleave",function(){this.style.borderColor=cl.border;this.style.background=cl.surface;this.style.transform="";this.style.boxShadow="";});
       card.addEventListener("click",tool.fn);
       grid.appendChild(card);
     });
-    section.appendChild(grid);
-    wrap.appendChild(section);
+    return grid;
+  }
+
+  function makeSectionHeader(title,color){
+    return div({color:color,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"600",borderLeft:"3px solid "+color,paddingLeft:"10px",marginBottom:"14px"},title);
+  }
+
+  // ── CREATE (visible to users) ──────────────────────────────────────────────
+  var createSection=el("div",{style:{marginBottom:"20px"}});
+  createSection.appendChild(makeSectionHeader("CREATE","#D4AF37"));
+  createSection.appendChild(makeToolGrid([
+    {icon:"video",label:"AI Video Studio",desc:"8 AI engines",fn:function(){showVideoGenUI("");}},
+    {icon:"scissors",label:"Edit Video",desc:"Trim, subtitles, music",fn:function(){showVideoEditor();}},
+    {icon:"palette",label:"Design Post",desc:"Visual canvas editor",fn:function(){showPostDesigner("","");}},
+    {icon:"smartphone",label:"Story Templates",desc:"Ready-made formats",fn:function(){showStoryTemplates();}},
+    {icon:"eye",label:"Post Preview",desc:"Smart preview",fn:function(){showPostPreview("","");}}
+  ],"#D4AF37"));
+  wrap.appendChild(createSection);
+
+  // ── Subtle AI-boost hint (title-only, stays out of the way) ───────────────
+  var aiHint=div({background:"rgba(139,92,246,0.05)",border:"1px solid rgba(139,92,246,0.14)",borderRadius:"10px",padding:"11px 16px",marginBottom:"28px",display:"flex",alignItems:"flex-start",gap:"10px"});
+  aiHint.appendChild(span({style:{color:"#8B5CF6",fontSize:"13px",marginTop:"1px",flexShrink:"0"}},"✦"));
+  var hintRight=div({style:{flex:"1"}});
+  hintRight.appendChild(div({style:{color:"#9D71F5",fontSize:"10px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.09em",marginBottom:"4px"}},"AI IS WORKING BEHIND THE SCENES"));
+  hintRight.appendChild(div({style:{color:"#667788",fontSize:"10px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6"}},"When you create with our tools, smart hashtags, caption optimization, A/B tested hooks, multi-platform formatting, best posting times, and engagement boosting are automatically applied — so your content gets seen, clicked, and shared."));
+  aiHint.appendChild(hintRight);
+  wrap.appendChild(aiHint);
+
+  // ── SETUP (visible — users need to configure) ──────────────────────────────
+  var setupSection=el("div",{style:{marginBottom:"24px"}});
+  setupSection.appendChild(makeSectionHeader("SETUP","#10B981"));
+  setupSection.appendChild(makeToolGrid([
+    {icon:"palette",label:"Branding",desc:"Brand profile",fn:function(){showBrandingSetup();}},
+    {icon:"wrench",label:"Social Setup",desc:"Platform accounts",fn:function(){showSocialSetup();}},
+    {icon:"rocket",label:"Auto-Post",desc:"Automation log",fn:function(){showAutoPostLog();}},
+    {icon:"trending-up",label:"Engagement",desc:"Analytics dashboard",fn:function(){showEngagementDashboard();}}
+  ],"#10B981"));
+  wrap.appendChild(setupSection);
+
+  // ── AVATAR STUDIO (visible) ────────────────────────────────────────────────
+  var avatarSection=el("div",{style:{marginBottom:"24px"}});
+  avatarSection.appendChild(makeSectionHeader("AVATAR STUDIO","#F59E0B"));
+  avatarSection.appendChild(makeToolGrid([
+    {icon:"image",label:"Gallery",desc:"Avatar collection",fn:function(){showAvatarStudio();}},
+    {icon:"LM",label:"Create",desc:"Build new avatar",fn:function(){showAvatarBuilder();}},
+    {icon:"file-text",label:"Generate",desc:"Content as avatar",fn:function(){showAvatarContentGen();}},
+    {icon:"video",label:"Video",desc:"Avatar video",fn:function(){showAvatarVideoGen();}},
+    {icon:"bot",label:"AutoPilot",desc:"Auto content",fn:function(){showAvatarAutoPilot();}},
+    {icon:"package",label:"Batch",desc:"Bulk generate",fn:function(){showAvatarBatchGen();}}
+  ],"#F59E0B"));
+  wrap.appendChild(avatarSection);
+
+  // ── Advanced Tools (collapsed — AI intelligence + planning, accessible but hidden by default) ──
+  var advWrap=el("div",{style:{marginBottom:"24px"}});
+  var advToggle=el("button",{style:{width:"100%",background:"transparent",border:"1px solid "+cl.border,borderRadius:"10px",padding:"11px 16px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",transition:"all 0.15s ease",textAlign:"left"}});
+  var advLeft=div({style:{display:"flex",alignItems:"center",gap:"10px"}});
+  advLeft.appendChild(span({style:{color:"#556677",fontSize:"11px"}},"⚙"));
+  advLeft.appendChild(span({style:{color:"#8899AA",fontSize:"11px",fontFamily:"'Inter',sans-serif",fontWeight:"500"}},"Advanced Tools"));
+  advLeft.appendChild(span({style:{color:"#445566",fontSize:"9px",fontFamily:"'Space Grotesk',monospace"}},"AI Intelligence · Planning · Content Strategy"));
+  advToggle.appendChild(advLeft);
+  var advArrow=span({style:{color:"#445566",fontSize:"12px",transition:"transform 0.2s"}},"▼");
+  advToggle.appendChild(advArrow);
+  advToggle.addEventListener("mouseenter",function(){this.style.borderColor="#556677";});
+  advToggle.addEventListener("mouseleave",function(){this.style.borderColor=cl.border;});
+  var advBody=el("div",{style:{display:"none",marginTop:"14px"}});
+
+  var aiIntelSection=el("div",{style:{marginBottom:"20px"}});
+  aiIntelSection.appendChild(makeSectionHeader("AI INTELLIGENCE","#8B5CF6"));
+  aiIntelSection.appendChild(makeToolGrid([
+    {icon:"brain",label:"Neuro Hook",desc:"Hook-Story-Offer",fn:function(){showHookStoryOffer("");}},
+    {icon:"HD",label:"Translate",desc:"Multi-language",fn:function(){showMultiLanguage("");}},
+    {icon:"scale",label:"A/B Test",desc:"Variant generator",fn:function(){showABTest("","");}},
+    {icon:"hash",label:"Hashtags",desc:"Intelligence",fn:function(){showHashtagIntelligence("");}},
+    {icon:"pen-line",label:"Rewrite",desc:"Caption rewriter",fn:function(){showCaptionRewriter("");}},
+    {icon:"smile",label:"Emojis",desc:"Emoji intelligence",fn:function(){showEmojiIntelligence("");}},
+    {icon:"ruler",label:"Optimize",desc:"Caption optimizer",fn:function(){showCaptionOptimizer("");}},
+    {icon:"search",label:"Spy",desc:"Competitor analysis",fn:function(){showCompetitorSpy();}}
+  ],"#8B5CF6"));
+  advBody.appendChild(aiIntelSection);
+
+  var planSection=el("div",{style:{marginBottom:"8px"}});
+  planSection.appendChild(makeSectionHeader("PLANNING","#3B82F6"));
+  planSection.appendChild(makeToolGrid([
+    {icon:"calendar",label:"Calendar",desc:"Content calendar",fn:function(){showContentCalendar();}},
+    {icon:"clock",label:"Schedule",desc:"Schedule posts",fn:function(){showAddCalendarEvent("");}},
+    {icon:"package",label:"Bulk 30-Day",desc:"Auto-generate month",fn:function(){showBulkGenerator();}},
+    {icon:"refresh-cw",label:"Recycle",desc:"Repurpose content",fn:function(){showContentRecycler();}},
+    {icon:"landmark",label:"Pillars",desc:"Content strategy",fn:function(){showPillarPlanner();}},
+    {icon:"timer",label:"Best Time",desc:"Optimal posting",fn:function(){showBestTimeModal("");}},
+    {icon:"bar-chart",label:"Analytics",desc:"Post performance",fn:function(){showPostAnalytics();}},
+    {icon:"link",label:"Link in Bio",desc:"Bio link builder",fn:function(){showLinkInBio();}},
+    {icon:"droplet",label:"Watermark",desc:"Branding overlay",fn:function(){showWatermarkSetup();}}
+  ],"#3B82F6"));
+  advBody.appendChild(planSection);
+
+  advToggle.addEventListener("click",function(){
+    var open=advBody.style.display!=="none";
+    advBody.style.display=open?"none":"block";
+    advArrow.textContent=open?"▼":"▲";
   });
+  advWrap.appendChild(advToggle);
+  advWrap.appendChild(advBody);
+  wrap.appendChild(advWrap);
 
   var chatSection=el("div",{style:{marginTop:"16px"}});
   var chatToggle=el("button",{style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"14px 20px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",transition:"all 0.15s ease"}});
