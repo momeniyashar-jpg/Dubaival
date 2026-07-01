@@ -10,6 +10,11 @@ var NEWS_STATE = {
   lastVisit: 0
 };
 try { NEWS_STATE.lastVisit = parseInt(localStorage.getItem("dv_news_last_visit") || "0", 10) || 0; } catch (e) {}
+// Restore cached articles from localStorage for instant display
+try {
+  var _nc = localStorage.getItem("dv_news_cache");
+  if (_nc) { var _np = JSON.parse(_nc); if (_np && _np.articles && _np.articles.length) { NEWS_STATE.articles = _np.articles; NEWS_STATE.lastFetch = _np.ts || 0; } }
+} catch (e) {}
 
 var _newsListEl = null;
 var _newsStatusEl = null;
@@ -67,6 +72,7 @@ async function _fetchNews(initial) {
     NEWS_STATE.articles = incoming;
     NEWS_STATE.error = null;
     NEWS_STATE.lastFetch = Date.now();
+    try { localStorage.setItem("dv_news_cache", JSON.stringify({articles: incoming, ts: NEWS_STATE.lastFetch})); } catch (e) {}
   } catch (e) {
     NEWS_STATE.error = "Couldn't reach news service — showing last known articles.";
   }
@@ -203,8 +209,8 @@ function renderNews() {
   _newsListEl = div({});
   wrap.appendChild(_newsListEl);
 
-  // Initial paint from cache (if any); only hit the network if stale
-  var needsFetch = !NEWS_STATE.articles.length || (Date.now() - NEWS_STATE.lastFetch) > 30000;
+  // Show cached articles instantly; refresh if stale (>5 min) or empty
+  var needsFetch = !NEWS_STATE.articles.length || (Date.now() - NEWS_STATE.lastFetch) > 300000;
   if (needsFetch && !NEWS_STATE.articles.length) NEWS_STATE.loading = true;
   _renderNewsList();
   _renderNewsStatus();

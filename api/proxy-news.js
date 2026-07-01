@@ -1,6 +1,6 @@
 // In-memory cache — persists across warm invocations of the same lambda instance.
 var _cache = { ts: 0, data: null };
-var CACHE_MS = 150 * 1000;
+var CACHE_MS = 600 * 1000; // 10 min
 
 // Tracks links already embedded into the knowledge base during this warm
 // lambda instance's lifetime, so we don't re-call the Gemini embeddings API
