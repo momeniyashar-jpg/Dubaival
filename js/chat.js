@@ -966,326 +966,641 @@ function getSocialCreds(){
   return{token:t,igId:ig,fbId:fb||"",pexels:localStorage.getItem("dv_pexels_key")||""};
 }
 
-// --- AI VIDEO EDITOR ---------------------------------------------------------
-var VIDEO_EDITOR_STATE={file:null,url:null,duration:0,trimStart:0,trimEnd:30,subtitles:[],caption:"",processing:false};
+// --- AI VIDEO EDITOR (world-class rebuild) -----------------------------------
+var VIDEO_EDITOR_STATE={
+  file:null,url:null,duration:0,trimStart:0,trimEnd:0,
+  colorPreset:"cinematic",watermark:true,musicType:"luxury",
+  subtitleStyle:"animated",subtitleText:"",caption:"",hashtags:"",
+  platform:"reel",processing:false,processedBlob:null,processedUrl:null,
+  autoResults:{trim:null,subtitles:null,caption:null}
+};
 
 function showVideoEditor(){
   var existing=document.getElementById("video-editor-modal");
   if(existing)existing.remove();
-  VIDEO_EDITOR_STATE={file:null,url:null,duration:0,trimStart:0,trimEnd:30,subtitles:[],caption:"",processing:false};
-
-  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.85)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"video-editor-modal"});
-  var card=div({background:"#1A1F2E",border:"1px solid #EC4899",borderRadius:"16px",padding:"20px",width:"480px",maxWidth:"95vw",maxHeight:"90vh",overflowY:"auto"});
-
-  var title=el("h3",{style:{color:"#EC4899",margin:"0 0 4px",fontSize:"16px",fontFamily:"'Space Grotesk',monospace"}});
-  title.textContent="AI Video Editor";
-  card.appendChild(title);
-  var subtitle=el("p",{style:{color:"#8899AA",fontSize:"11px",margin:"0 0 14px",fontFamily:"'Inter',sans-serif"}});
-  subtitle.textContent="Upload → AI trim → subtitles → music → publish";
-  card.appendChild(subtitle);
-
-  // Step 1: Upload
-  var uploadZone=div({background:"#0D1117",border:"2px dashed #EC4899",borderRadius:"12px",padding:"30px",textAlign:"center",cursor:"pointer",transition:"all 0.2s"});
-  uploadZone.innerHTML="<div style='font-size:32px;margin-bottom:8px'></div><div style='color:#EC4899;font-size:13px;font-weight:700;font-family:Space Grotesk,monospace'>Drop video or click to upload</div><div style='color:#8899AA;font-size:10px;margin-top:4px'>MP4, MOV, WebM — Max 500MB</div>";
-  var fileInput=el("input",{type:"file",accept:"video/*",style:{display:"none"}});
-  uploadZone.onclick=function(){fileInput.click();};
-  card.appendChild(uploadZone);
-  card.appendChild(fileInput);
-
-  // Preview + Controls container
-  var editorUI=div({display:"none",marginTop:"14px"});
-
-  // Video Preview
-  var videoWrap=div({position:"relative",borderRadius:"10px",overflow:"hidden",background:"#000",marginBottom:"12px"});
-  var video=el("video",{style:{width:"100%",maxHeight:"260px",display:"block",borderRadius:"10px"},controls:true,playsInline:true});
-  videoWrap.appendChild(video);
-  editorUI.appendChild(videoWrap);
-
-  // Trim Controls
-  var trimSection=div({background:"#0D1117",borderRadius:"10px",padding:"12px",marginBottom:"10px"});
-  trimSection.appendChild(el("div",{style:{color:"#EC4899",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"}},"Trim"));
-  var trimRow=div({display:"flex",gap:"10px",alignItems:"center"});
-
-  var startLabel=el("span",{style:{color:"#8899AA",fontSize:"10px",fontFamily:"monospace",minWidth:"36px"}},"Start:");
-  var startInp=el("input",{type:"number",min:0,step:0.5,value:0,style:{width:"60px",background:"#1A1F2E",border:"1px solid #2A3040",borderRadius:"6px",padding:"4px 6px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",textAlign:"center"}});
-  var endLabel=el("span",{style:{color:"#8899AA",fontSize:"10px",fontFamily:"monospace",minWidth:"36px"}},"End:");
-  var endInp=el("input",{type:"number",min:1,step:0.5,value:30,style:{width:"60px",background:"#1A1F2E",border:"1px solid #2A3040",borderRadius:"6px",padding:"4px 6px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",textAlign:"center"}});
-  var durLabel=el("span",{style:{color:"#C9A84C",fontSize:"10px",fontFamily:"monospace"}});
-  durLabel.textContent="Duration: 30.0s";
-
-  trimRow.appendChild(startLabel);trimRow.appendChild(startInp);
-  trimRow.appendChild(endLabel);trimRow.appendChild(endInp);
-  trimRow.appendChild(durLabel);
-  trimSection.appendChild(trimRow);
-
-  var trimSlider=el("input",{type:"range",min:0,max:100,value:0,style:{width:"100%",marginTop:"8px",accentColor:"#EC4899"}});
-  trimSection.appendChild(trimSlider);
-  editorUI.appendChild(trimSection);
-
-  function updateDur(){
-    var s=parseFloat(startInp.value)||0;
-    var e=parseFloat(endInp.value)||30;
-    durLabel.textContent="Duration: "+(e-s).toFixed(1)+"s";
-    VIDEO_EDITOR_STATE.trimStart=s;
-    VIDEO_EDITOR_STATE.trimEnd=e;
-  }
-  startInp.oninput=updateDur;endInp.oninput=updateDur;
-  trimSlider.oninput=function(){
-    var pct=parseFloat(trimSlider.value)/100;
-    var dur=VIDEO_EDITOR_STATE.duration;
-    startInp.value=(pct*Math.max(0,dur-30)).toFixed(1);
-    endInp.value=(parseFloat(startInp.value)+Math.min(30,dur)).toFixed(1);
-    updateDur();
-    video.currentTime=parseFloat(startInp.value);
+  VIDEO_EDITOR_STATE={
+    file:null,url:null,duration:0,trimStart:0,trimEnd:0,
+    colorPreset:"cinematic",watermark:true,musicType:"luxury",
+    subtitleStyle:"animated",subtitleText:"",caption:"",hashtags:"",
+    platform:"reel",processing:false,processedBlob:null,processedUrl:null,
+    autoResults:{trim:null,subtitles:null,caption:null}
   };
 
-  // AI Auto-Trim button
-  var aiTrimBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#8B5CF6,#A78BFA)",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},onclick:async function(){
-    var geminiKey=localStorage.getItem("dv_gemini_key");
-    if(!geminiKey){alert("Add Gemini API key in Setup first");return;}
-    aiTrimBtn.textContent="Analyzing...";aiTrimBtn.disabled=true;
-    try{
-      var dur=VIDEO_EDITOR_STATE.duration;
-      var canvas=document.createElement("canvas");
-      var ctx=canvas.getContext("2d");
-      canvas.width=320;canvas.height=180;
-      var frames=[];
-      var frameCount=Math.min(8,Math.floor(dur));
-      for(var i=0;i<frameCount;i++){
-        var t=dur*(i/(frameCount-1||1));
-        video.currentTime=t;
-        await new Promise(function(r){video.onseeked=r;});
-        ctx.drawImage(video,0,0,320,180);
-        frames.push({time:t.toFixed(1),dataUrl:canvas.toDataURL("image/jpeg",0.5)});
-      }
-      var parts=frames.map(function(f){
-        return{inlineData:{mimeType:"image/jpeg",data:f.dataUrl.split(",")[1]}};
-      });
-      parts.push({text:"These are "+frameCount+" frames from a real estate property video (each labeled with timestamp). The video is "+dur.toFixed(1)+"s long. I want to trim it to max 30 seconds for an Instagram Reel/Story. Analyze the frames and tell me:\n1. The best start and end timestamps for a compelling 15-30 second clip\n2. Which frames show the best content (interiors, views, amenities)\n3. A short engaging caption for the reel\n\nRespond in JSON:\n```json\n{\"trimStart\":0,\"trimEnd\":30,\"caption\":\"...\",\"reason\":\"...\"}\n```"});
-      var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
-        method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({contents:[{parts:parts}],generationConfig:{temperature:0.3}})
-      });
-      if(r.ok){
-        var d=await r.json();
-        var txt=d.candidates&&d.candidates[0]&&d.candidates[0].content.parts[0].text;
-        var jm=txt.match(/```json\s*([\s\S]*?)\s*```/);
-        var obj=jm?JSON.parse(jm[1]):JSON.parse(txt.match(/\{[\s\S]*\}/)[0]);
-        startInp.value=obj.trimStart||0;
-        endInp.value=Math.min(obj.trimEnd||30,dur);
-        updateDur();
-        if(obj.caption)captionInp.value=obj.caption;
-        VIDEO_EDITOR_STATE.caption=obj.caption||"";
-        video.currentTime=parseFloat(startInp.value);
-        aiTrimBtn.textContent="AI suggested: "+obj.reason;
-      }else{aiTrimBtn.textContent="AI failed — try manual trim";}
-    }catch(e){aiTrimBtn.textContent="Error: "+e.message;}
-    setTimeout(function(){aiTrimBtn.textContent="AI Smart Trim";aiTrimBtn.disabled=false;},4000);
-  }});
-  aiTrimBtn.textContent="AI Smart Trim";
-  editorUI.appendChild(aiTrimBtn);
+  // ── WORLD-CLASS AI VIDEO EDITOR ─────────────────────────────────────────────
+  // Full-screen, tabs: Auto-Pilot | Edit | Export
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.92)",zIndex:9999,display:"flex",alignItems:"flex-start",justifyContent:"center",overflowY:"auto",padding:"16px"},id:"video-editor-modal"});
+  var card=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"20px",width:"720px",maxWidth:"97vw",overflow:"hidden",boxShadow:"0 32px 80px rgba(0,0,0,0.8)"});
 
-  // Subtitles
-  var subSection=div({background:"#0D1117",borderRadius:"10px",padding:"12px",marginBottom:"10px"});
-  subSection.appendChild(el("div",{style:{color:"#EC4899",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"}},"Subtitles"));
-  var subTextarea=el("textarea",{style:{width:"100%",background:"#1A1F2E",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",resize:"vertical",minHeight:"50px",boxSizing:"border-box"},placeholder:"Enter subtitles (one per line):\n0:00 Welcome to this stunning property\n0:05 Spacious living area with panoramic views"});
-  subSection.appendChild(subTextarea);
-  var aiSubBtn=el("button",{style:{width:"100%",marginTop:"6px",background:"linear-gradient(135deg,#8B5CF6,#A78BFA)",color:"#FFF",border:"none",borderRadius:"6px",padding:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
-    var geminiKey=localStorage.getItem("dv_gemini_key");
-    if(!geminiKey){alert("Add Gemini API key first");return;}
-    aiSubBtn.textContent="Generating...";aiSubBtn.disabled=true;
-    try{
-      var dur=VIDEO_EDITOR_STATE.trimEnd-VIDEO_EDITOR_STATE.trimStart;
-      var bp=getBrandProfile();
-      var prompt="Generate professional real estate video subtitles for a "+dur.toFixed(0)+"s Instagram Reel about a Dubai property."+(bp&&bp.tone?" Tone: "+bp.tone:"")+" Format: one subtitle per line with timestamp. Example:\n0:00 Discover luxury living in Dubai\n0:05 Stunning panoramic views\nGenerate 4-8 subtitles. Keep each under 8 words. Make them compelling and professional.";
-      var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
-        method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.7}})
-      });
-      if(r.ok){
-        var d=await r.json();
-        var txt=d.candidates[0].content.parts[0].text;
-        var lines=txt.split("\n").filter(function(l){return l.match(/^\d+:\d+/);}).join("\n");
-        subTextarea.value=lines;
-        aiSubBtn.textContent="Generated!";
-      }else{aiSubBtn.textContent="Failed";}
-    }catch(e){aiSubBtn.textContent="Error";}
-    setTimeout(function(){aiSubBtn.textContent="AI Generate Subtitles";aiSubBtn.disabled=false;},3000);
-  }});
-  aiSubBtn.textContent="AI Generate Subtitles";
-  subSection.appendChild(aiSubBtn);
-  editorUI.appendChild(subSection);
-
-  // Caption
-  var captionSection=div({background:"#0D1117",borderRadius:"10px",padding:"12px",marginBottom:"10px"});
-  captionSection.appendChild(el("div",{style:{color:"#EC4899",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"}},"Caption"));
-  var captionInp=el("textarea",{style:{width:"100%",background:"#1A1F2E",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",resize:"vertical",minHeight:"60px",boxSizing:"border-box"},placeholder:"Post caption with hashtags..."});
-  captionSection.appendChild(captionInp);
-  var aiCapBtn=el("button",{style:{width:"100%",marginTop:"6px",background:"linear-gradient(135deg,#F97316,#FB923C)",color:"#000",border:"none",borderRadius:"6px",padding:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
-    var geminiKey=localStorage.getItem("dv_gemini_key");
-    if(!geminiKey){alert("Add Gemini API key first");return;}
-    aiCapBtn.textContent="Writing...";aiCapBtn.disabled=true;
-    try{
-      var bp=getBrandProfile();
-      var brandCtx=bp?(bp.tone?" Tone:"+bp.tone:"")+(bp.name?" Agent:"+bp.name:"")+(bp.hashtags?" Include these hashtags:"+bp.hashtags:""):"";
-      var prompt="Write a professional Instagram Reel caption for a Dubai real estate property video."+brandCtx+" Include:\n- Compelling hook\n- 2-3 key selling points\n- Call to action\n- 5-8 relevant hashtags\nKeep it under 150 words. Make it engaging and professional.";
-      var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
-        method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.7}})
-      });
-      if(r.ok){
-        var d=await r.json();
-        captionInp.value=d.candidates[0].content.parts[0].text;
-        aiCapBtn.textContent="Generated!";
-      }else{aiCapBtn.textContent="Failed";}
-    }catch(e){aiCapBtn.textContent="Error";}
-    setTimeout(function(){aiCapBtn.textContent="AI Write Caption";aiCapBtn.disabled=false;},3000);
-  }});
-  aiCapBtn.textContent="AI Write Caption";
-  captionSection.appendChild(aiCapBtn);
-  editorUI.appendChild(captionSection);
-
-  // Process & Export
-  var exportSection=div({marginBottom:"10px"});
-  var processBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#EC4899,#F472B6)",color:"#FFF",border:"none",borderRadius:"10px",padding:"14px",fontSize:"14px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},onclick:async function(){
-    if(!VIDEO_EDITOR_STATE.file){alert("Upload a video first");return;}
-    processBtn.textContent="Processing...";processBtn.disabled=true;
-    VIDEO_EDITOR_STATE.processing=true;
-    try{
-      var s=VIDEO_EDITOR_STATE.trimStart;
-      var e=VIDEO_EDITOR_STATE.trimEnd;
-      var subs=subTextarea.value.trim().split("\n").filter(Boolean).map(function(l){
-        var m=l.match(/^(\d+):(\d+)\s+(.*)/);
-        if(m)return{time:parseInt(m[1])*60+parseInt(m[2]),text:m[3]};
-        return null;
-      }).filter(Boolean);
-
-      var canvas=document.createElement("canvas");
-      var ctx=canvas.getContext("2d");
-      canvas.width=video.videoWidth||1080;
-      canvas.height=video.videoHeight||1920;
-
-      var stream=canvas.captureStream(30);
-      if(video.captureStream){
-        var audioTracks=video.captureStream().getAudioTracks();
-        audioTracks.forEach(function(t){stream.addTrack(t);});
-      }
-
-      var chunks=[];
-      var recorder=new MediaRecorder(stream,{mimeType:"video/webm;codecs=vp9",videoBitsPerSecond:4000000});
-      recorder.ondataavailable=function(ev){if(ev.data.size>0)chunks.push(ev.data);};
-
-      var done=new Promise(function(resolve){recorder.onstop=function(){resolve();};});
-      video.currentTime=s;
-      await new Promise(function(r){video.onseeked=r;});
-      video.play();
-      recorder.start();
-
-      var drawFrame=function(){
-        if(video.currentTime>=e||video.paused||video.ended){
-          video.pause();recorder.stop();return;
-        }
-        ctx.drawImage(video,0,0,canvas.width,canvas.height);
-        var elapsed=video.currentTime-s;
-        var activeSub=null;
-        for(var i=subs.length-1;i>=0;i--){
-          if(elapsed>=subs[i].time){activeSub=subs[i].text;break;}
-        }
-        if(activeSub){
-          var fSize=Math.round(canvas.width/22);
-          ctx.font="bold "+fSize+"px 'Space Grotesk', sans-serif";
-          ctx.textAlign="center";
-          var tx=canvas.width/2;
-          var ty=canvas.height-canvas.height*0.12;
-          var tw=ctx.measureText(activeSub).width;
-          ctx.fillStyle="rgba(0,0,0,0.7)";
-          ctx.roundRect(tx-tw/2-16,ty-fSize-6,tw+32,fSize+20,8);
-          ctx.fill();
-          ctx.fillStyle="#FFFFFF";
-          ctx.fillText(activeSub,tx,ty);
-        }
-        requestAnimationFrame(drawFrame);
-      };
-      requestAnimationFrame(drawFrame);
-      await done;
-
-      var blob=new Blob(chunks,{type:"video/webm"});
-      var url=URL.createObjectURL(blob);
-      VIDEO_EDITOR_STATE.processedUrl=url;
-      VIDEO_EDITOR_STATE.processedBlob=blob;
-
-      processBtn.textContent="Ready!";
-
-      var dlBtn=el("button",{style:{width:"100%",background:"#10B981",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},onclick:function(){
-        var a=document.createElement("a");a.href=url;a.download="dubaival-reel.webm";a.click();
-      }});
-      dlBtn.textContent="Download Video";
-      exportSection.appendChild(dlBtn);
-
-      var shareBtn=el("button",{style:{width:"100%",background:"#3B82F6",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},onclick:function(){
-        showShareModal({text:captionInp.value||"",file:blob,fileName:"dubaival-reel.webm",fileType:"video/webm",title:"DubAIVal Reel"});
-      }});
-      shareBtn.textContent="Share (WhatsApp / Instagram / More)";
-      exportSection.appendChild(shareBtn);
-
-    }catch(err){
-      processBtn.textContent="Error: "+err.message;
-    }
-    VIDEO_EDITOR_STATE.processing=false;
-    setTimeout(function(){processBtn.textContent="Process & Export";processBtn.disabled=false;},5000);
-  }});
-  processBtn.textContent="Process & Export";
-  exportSection.appendChild(processBtn);
-  editorUI.appendChild(exportSection);
-
-  card.appendChild(editorUI);
-
-  // Close button
-  var closeBtn=el("button",{style:{width:"100%",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"10px",padding:"10px",fontSize:"12px",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginTop:"6px"},onclick:function(){
+  // ── Header ──────────────────────────────────────────────────────────────────
+  var header=div({background:"linear-gradient(135deg,#1A0A1E,#0D1220)",borderBottom:"1px solid #2A3040",padding:"16px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"});
+  var hLeft=div({display:"flex",alignItems:"center",gap:"12px"});
+  hLeft.appendChild(div({width:"10px",height:"10px",borderRadius:"50%",background:"#EC4899",boxShadow:"0 0 8px #EC4899"},""));
+  hLeft.appendChild(div({color:"#F0F2F5",fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AI Video Editor"));
+  hLeft.appendChild(div({background:"rgba(236,72,153,0.12)",border:"1px solid rgba(236,72,153,0.3)",borderRadius:"6px",padding:"2px 8px",color:"#EC4899",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em"},"STUDIO"));
+  header.appendChild(hLeft);
+  var closeX=el("button",{style:{background:"transparent",border:"none",color:"#8899AA",fontSize:"20px",cursor:"pointer",padding:"4px 8px",borderRadius:"6px",lineHeight:"1"}});
+  closeX.textContent="×";
+  closeX.onclick=function(){
     if(VIDEO_EDITOR_STATE.url)URL.revokeObjectURL(VIDEO_EDITOR_STATE.url);
     if(VIDEO_EDITOR_STATE.processedUrl)URL.revokeObjectURL(VIDEO_EDITOR_STATE.processedUrl);
     overlay.remove();
-  }});
-  closeBtn.textContent="Close";
-  card.appendChild(closeBtn);
+  };
+  header.appendChild(closeX);
+  card.appendChild(header);
 
-  // File handling
-  fileInput.onchange=function(ev){
-    var f=ev.target.files[0];
-    if(!f)return;
-    if(f.size>500*1024*1024){alert("File too large (max 500MB)");return;}
+  // ── Tabs ─────────────────────────────────────────────────────────────────────
+  var TABS=["Auto-Pilot","Edit","Export"];
+  var activeTab="Auto-Pilot";
+  var tabBar=div({display:"flex",borderBottom:"1px solid #2A3040",background:"#070B14"});
+  var tabBtns={};
+  TABS.forEach(function(t){
+    var btn=el("button",{style:{flex:"1",background:"transparent",border:"none",borderBottom:"2px solid transparent",padding:"12px",fontSize:"12px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",transition:"all 0.15s",color:"#556677"}});
+    btn.textContent=t==="Auto-Pilot"?"⚡ Auto-Pilot":t==="Edit"?"✏ Manual Edit":"📤 Export";
+    btn.onclick=function(){switchTab(t);};
+    tabBtns[t]=btn;
+    tabBar.appendChild(btn);
+  });
+  card.appendChild(tabBar);
+
+  var body=div({padding:"20px",minHeight:"400px"});
+  card.appendChild(body);
+
+  function switchTab(t){
+    activeTab=t;
+    TABS.forEach(function(n){
+      tabBtns[n].style.color=n===t?"#EC4899":"#556677";
+      tabBtns[n].style.borderBottomColor=n===t?"#EC4899":"transparent";
+      tabBtns[n].style.background=n===t?"rgba(236,72,153,0.05)":"transparent";
+    });
+    renderTabBody();
+  }
+  switchTab("Auto-Pilot");
+
+  // ── Shared video element (reused across tabs) ─────────────────────────────
+  var video=el("video",{style:{width:"100%",maxHeight:"280px",display:"block",borderRadius:"10px",background:"#000"},controls:true,playsInline:true});
+  var fileInput=el("input",{type:"file",accept:"video/*",style:{display:"none"}});
+  document.body.appendChild(fileInput);
+
+  // ── Shared state refs (live inputs) ──────────────────────────────────────
+  var startInp=el("input",{type:"number",min:0,step:0.1,value:0,style:{width:"70px",background:"#1A1F2E",border:"1px solid #2A3040",borderRadius:"6px",padding:"5px 8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",textAlign:"center"}});
+  var endInp=el("input",{type:"number",min:0,step:0.1,value:30,style:{width:"70px",background:"#1A1F2E",border:"1px solid #2A3040",borderRadius:"6px",padding:"5px 8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",textAlign:"center"}});
+  var subTextarea=el("textarea",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",resize:"vertical",minHeight:"70px",boxSizing:"border-box"},placeholder:"0:00 Luxury living in Dubai Marina\n0:05 Stunning sea views from every room\n0:12 AED 2.5M — Call to book a viewing"});
+  var captionInp=el("textarea",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",color:"#E0E0E0",fontSize:"11px",fontFamily:"'Inter',sans-serif",resize:"vertical",minHeight:"80px",boxSizing:"border-box"},placeholder:"Post caption + hashtags (auto-generated)..."});
+
+  function updateDurLabel(){
+    var s=parseFloat(startInp.value)||0;
+    var e=parseFloat(endInp.value)||0;
+    VIDEO_EDITOR_STATE.trimStart=s;
+    VIDEO_EDITOR_STATE.trimEnd=e;
+    return (e-s).toFixed(1)+"s";
+  }
+  startInp.oninput=updateDurLabel;
+  endInp.oninput=updateDurLabel;
+
+  // ── COLOR GRADES ────────────────────────────────────────────────────────────
+  var COLOR_GRADES={
+    original:{label:"Original",filter:"none"},
+    cinematic:{label:"Cinematic",filter:"contrast(1.15) saturate(0.9) brightness(0.95)"},
+    bright:{label:"Bright",filter:"brightness(1.12) saturate(1.2)"},
+    warm:{label:"Warm",filter:"sepia(0.3) saturate(1.1) brightness(1.05)"},
+    cool:{label:"Cool",filter:"hue-rotate(20deg) saturate(1.1) brightness(1.02)"},
+    luxury:{label:"Luxury",filter:"contrast(1.1) saturate(0.8) brightness(1.05) sepia(0.1)"}
+  };
+
+  // ── PLATFORM PRESETS ─────────────────────────────────────────────────────────
+  var PLATFORMS={
+    reel:{label:"Instagram Reel",icon:"📱",w:1080,h:1920,maxSec:90,desc:"9:16 vertical"},
+    story:{label:"Story/TikTok",icon:"🎵",w:1080,h:1920,maxSec:60,desc:"9:16 · 60s max"},
+    square:{label:"Square Post",icon:"⬜",w:1080,h:1080,maxSec:60,desc:"1:1 Instagram/FB"},
+    landscape:{label:"YouTube/LinkedIn",icon:"🖥",w:1920,h:1080,maxSec:600,desc:"16:9 landscape"},
+    whatsapp:{label:"WhatsApp Status",icon:"💬",w:1080,h:1920,maxSec:30,desc:"9:16 · 30s max"}
+  };
+
+  // ── AI ANALYSIS (shared helper) ──────────────────────────────────────────────
+  async function aiAnalyzeVideo(statusCb){
+    var geminiKey=localStorage.getItem("dv_gemini_key");
+    if(!geminiKey)throw new Error("Gemini key not set — go to Setup → Social Setup");
+    var dur=VIDEO_EDITOR_STATE.duration;
+    if(!dur)throw new Error("No video loaded");
+    statusCb("Capturing frames…");
+    var canvas=document.createElement("canvas");var ctx=canvas.getContext("2d");
+    canvas.width=320;canvas.height=180;
+    var frames=[];var frameCount=Math.min(10,Math.max(4,Math.floor(dur/3)));
+    for(var i=0;i<frameCount;i++){
+      var t=dur*(i/(frameCount-1||1));
+      video.currentTime=t;
+      await new Promise(function(r){video.onseeked=r;setTimeout(r,800);});
+      ctx.drawImage(video,0,0,320,180);
+      frames.push({t:t.toFixed(1),data:canvas.toDataURL("image/jpeg",0.45).split(",")[1]});
+    }
+    var bp=getBrandProfile()||{};
+    var plat=PLATFORMS[VIDEO_EDITOR_STATE.platform||"reel"];
+    var parts=frames.map(function(f){return{inlineData:{mimeType:"image/jpeg",data:f.data}};});
+    parts.push({text:"Dubai real estate video, "+dur.toFixed(0)+"s long, "+frameCount+" frames captured at even intervals. Target platform: "+plat.label+" (max "+plat.maxSec+"s). Agent brand: "+(bp.name||"DubAIVal")+(bp.tone?", tone: "+bp.tone:"")+".\n\nAnalyze frames and respond ONLY in this JSON (no markdown):\n{\"trimStart\":0,\"trimEnd\":30,\"subtitles\":[{\"time\":0,\"text\":\"...\"},{\"time\":5,\"text\":\"...\"}],\"caption\":\"compelling Instagram caption with 5-8 hashtags\",\"colorGrade\":\"cinematic\",\"reason\":\"brief explanation\"}"});
+    statusCb("AI analyzing content…");
+    var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({contents:[{parts:parts}],generationConfig:{temperature:0.2,maxOutputTokens:800}})
+    });
+    if(!r.ok)throw new Error("Gemini error "+r.status);
+    var d=await r.json();
+    var txt=((d.candidates||[])[0]||{content:{parts:[{text:"{}"}]}}).content.parts[0].text;
+    txt=txt.replace(/```json\s*/g,"").replace(/```\s*/g,"").trim();
+    var obj=JSON.parse(txt.match(/\{[\s\S]*\}/)[0]);
+    return obj;
+  }
+
+  // ── RENDER VIDEO WITH OVERLAYS (shared) ──────────────────────────────────────
+  async function renderWithOverlays(platKey,statusCb){
+    var plat=PLATFORMS[platKey]||PLATFORMS.reel;
+    var s=VIDEO_EDITOR_STATE.trimStart||0;
+    var e=VIDEO_EDITOR_STATE.trimEnd||VIDEO_EDITOR_STATE.duration||30;
+    var subs=(subTextarea.value||"").trim().split("\n").filter(Boolean).map(function(l){
+      var m=l.match(/^(\d+):(\d+)\s+(.*)/);
+      return m?{time:parseInt(m[1])*60+parseInt(m[2]),text:m[3]}:null;
+    }).filter(Boolean);
+    var grade=COLOR_GRADES[VIDEO_EDITOR_STATE.colorPreset]||COLOR_GRADES.cinematic;
+    var bp=getBrandProfile()||{};
+    var canvas=document.createElement("canvas");canvas.width=plat.w;canvas.height=plat.h;
+    var ctx=canvas.getContext("2d");
+    statusCb("Starting render…");
+
+    var stream=canvas.captureStream(30);
+    if(video.captureStream){
+      try{video.captureStream().getAudioTracks().forEach(function(t){stream.addTrack(t);});}catch(e){}
+    }
+
+    var mimeType=MediaRecorder.isTypeSupported("video/mp4")?"video/mp4":"video/webm;codecs=vp9";
+    var chunks=[];
+    var recorder=new MediaRecorder(stream,{mimeType:mimeType,videoBitsPerSecond:5000000});
+    recorder.ondataavailable=function(ev){if(ev.data&&ev.data.size>0)chunks.push(ev.data);};
+    var done=new Promise(function(resolve){recorder.onstop=resolve;});
+
+    video.currentTime=s;
+    await new Promise(function(r){video.onseeked=r;setTimeout(r,800);});
+    video.playbackRate=1;
+    video.play();
+    recorder.start(100);
+
+    var wm=VIDEO_EDITOR_STATE.watermark&&(bp.name||bp.tagline);
+    var totalDur=e-s;
+    var drawFrame=function(){
+      if(video.currentTime>=e||video.paused||video.ended){
+        video.pause();recorder.stop();statusCb("Finalizing…");return;
+      }
+      var progress=(video.currentTime-s)/totalDur;
+      statusCb("Rendering "+(Math.round(progress*100))+"%…");
+
+      // Draw video frame scaled to canvas with color grade
+      ctx.filter=grade.filter;
+      var vw=video.videoWidth||1280,vh=video.videoHeight||720;
+      var scale=Math.max(plat.w/vw,plat.h/vh);
+      var dw=vw*scale,dh=vh*scale;
+      ctx.drawImage(video,(plat.w-dw)/2,(plat.h-dh)/2,dw,dh);
+      ctx.filter="none";
+
+      // Color overlay for cinematic look
+      if(VIDEO_EDITOR_STATE.colorPreset==="cinematic"||VIDEO_EDITOR_STATE.colorPreset==="luxury"){
+        var grad=ctx.createLinearGradient(0,0,0,plat.h);
+        grad.addColorStop(0,"rgba(0,0,0,0.25)");grad.addColorStop(0.5,"rgba(0,0,0,0)");grad.addColorStop(1,"rgba(0,0,0,0.4)");
+        ctx.fillStyle=grad;ctx.fillRect(0,0,plat.w,plat.h);
+      }
+
+      // Subtitles
+      var elapsed=video.currentTime-s;
+      var activeSub=null;
+      for(var i=subs.length-1;i>=0;i--){if(elapsed>=subs[i].time){activeSub=subs[i].text;break;}}
+      if(activeSub){
+        var fSize=Math.max(28,Math.round(plat.w/26));
+        ctx.font="bold "+fSize+"px 'Space Grotesk', 'Arial', sans-serif";
+        ctx.textAlign="center";
+        var tx=plat.w/2,ty=plat.h-plat.h*0.1;
+        var tw=ctx.measureText(activeSub).width;
+        var pad=20,rh=fSize+pad;
+        var rx=tx-tw/2-pad,ry=ty-fSize-pad/2;
+        ctx.fillStyle="rgba(0,0,0,0.72)";
+        ctx.beginPath();ctx.roundRect(rx,ry,tw+pad*2,rh,10);ctx.fill();
+        var grd=ctx.createLinearGradient(rx,ry,rx+tw+pad*2,ry);
+        grd.addColorStop(0,"rgba(236,72,153,0.4)");grd.addColorStop(1,"rgba(139,92,246,0.4)");
+        ctx.fillStyle=grd;ctx.beginPath();ctx.roundRect(rx,ry,tw+pad*2,rh,10);ctx.fill();
+        ctx.fillStyle="#FFFFFF";ctx.shadowColor="rgba(0,0,0,0.8)";ctx.shadowBlur=4;
+        ctx.fillText(activeSub,tx,ty);ctx.shadowBlur=0;
+      }
+
+      // Watermark
+      if(wm){
+        var wmText=bp.name||"DubAIVal";
+        var wmSize=Math.max(18,Math.round(plat.w/50));
+        ctx.font="600 "+wmSize+"px 'Space Grotesk','Arial',sans-serif";
+        ctx.textAlign="left";
+        var wmW=ctx.measureText(wmText).width;
+        ctx.fillStyle="rgba(0,0,0,0.45)";
+        ctx.beginPath();ctx.roundRect(plat.w*0.04-8,plat.h*0.92-wmSize,wmW+22,wmSize+14,6);ctx.fill();
+        ctx.fillStyle="rgba(212,175,55,0.9)";
+        ctx.fillText(wmText,plat.w*0.04,plat.h*0.92);
+      }
+
+      requestAnimationFrame(drawFrame);
+    };
+    requestAnimationFrame(drawFrame);
+    await done;
+    return new Blob(chunks,{type:mimeType});
+  }
+
+  // ── SHOW RESULTS SECTION ────────────────────────────────────────────────────
+  function showResultsUI(blob,captionText,platKey,container){
+    var url=URL.createObjectURL(blob);
+    VIDEO_EDITOR_STATE.processedBlob=blob;
+    VIDEO_EDITOR_STATE.processedUrl=url;
+    container.innerHTML="";
+
+    var resultCard=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"12px",overflow:"hidden",marginTop:"16px"});
+
+    var vidEl=el("video",{style:{width:"100%",maxHeight:"300px",display:"block",background:"#000"},controls:true,src:url});
+    resultCard.appendChild(vidEl);
+
+    var actRow=div({padding:"12px",display:"flex",gap:"8px",flexWrap:"wrap",borderTop:"1px solid #2A3040"});
+    var plat=PLATFORMS[platKey]||PLATFORMS.reel;
+    var ext=blob.type.indexOf("mp4")!==-1?"mp4":"webm";
+
+    var dlBtn=el("button",{style:{flex:"1",minWidth:"120px",background:"#10B981",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px 14px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+    dlBtn.textContent="⬇ Download "+ext.toUpperCase();
+    dlBtn.onclick=function(){var a=document.createElement("a");a.href=url;a.download="dubaival-"+platKey+"."+ext;a.click();};
+    actRow.appendChild(dlBtn);
+
+    var shareBtn=el("button",{style:{flex:"1",minWidth:"120px",background:"#3B82F6",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px 14px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+    shareBtn.textContent="↗ Share";
+    shareBtn.onclick=function(){showShareModal({text:captionText||"",file:blob,fileName:"dubaival-"+platKey+"."+ext,fileType:blob.type,title:"DubAIVal Video"});};
+    actRow.appendChild(shareBtn);
+
+    if(captionText){
+      var cpBtn=el("button",{style:{flex:"1",minWidth:"120px",background:"#F97316",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px 14px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+      cpBtn.textContent="📋 Copy Caption";
+      cpBtn.onclick=function(){navigator.clipboard.writeText(captionText).then(function(){cpBtn.textContent="✓ Copied!";setTimeout(function(){cpBtn.textContent="📋 Copy Caption";},2000);});};
+      actRow.appendChild(cpBtn);
+    }
+    resultCard.appendChild(actRow);
+    container.appendChild(resultCard);
+
+    if(captionText){
+      var capBox=div({background:"#070B14",border:"1px solid #2A3040",borderRadius:"10px",padding:"12px",marginTop:"10px"});
+      capBox.appendChild(div({color:"#8899AA",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"6px"},"POST CAPTION + HASHTAGS"));
+      var capTxt=el("p",{style:{color:"#E0E0E0",fontSize:"11px",fontFamily:"'Inter',sans-serif",margin:0,whiteSpace:"pre-wrap",lineHeight:"1.6"}});
+      capTxt.textContent=captionText;
+      capBox.appendChild(capTxt);
+      container.appendChild(capBox);
+    }
+  }
+
+  // ── TAB RENDERERS ─────────────────────────────────────────────────────────
+  function renderTabBody(){
+    body.innerHTML="";
+    if(activeTab==="Auto-Pilot")renderAutoPilotTab();
+    else if(activeTab==="Edit")renderEditTab();
+    else renderExportTab();
+  }
+
+  function renderAutoPilotTab(){
+    // Upload zone always on top
+    var hasVideo=!!VIDEO_EDITOR_STATE.file;
+    if(!hasVideo){
+      var uploadZone=div({background:"#070B14",border:"2px dashed #EC4899",borderRadius:"16px",padding:"40px 20px",textAlign:"center",cursor:"pointer",transition:"all 0.2s",marginBottom:"16px"});
+      uploadZone.innerHTML="<div style='font-size:40px;margin-bottom:10px'>🎬</div><div style='color:#EC4899;font-size:14px;font-weight:700;font-family:Space Grotesk,monospace;margin-bottom:6px'>Drop your video here</div><div style='color:#8899AA;font-size:11px'>MP4 · MOV · WebM · Max 500MB</div>";
+      uploadZone.onclick=function(){fileInput.click();};
+      uploadZone.ondragover=function(ev){ev.preventDefault();this.style.background="#1A0A1E";this.style.borderColor="#F472B6";};
+      uploadZone.ondragleave=function(){this.style.background="#070B14";this.style.borderColor="#EC4899";};
+      uploadZone.ondrop=function(ev){
+        ev.preventDefault();this.style.background="#070B14";this.style.borderColor="#EC4899";
+        var f=ev.dataTransfer.files[0];
+        if(f&&f.type.startsWith("video/"))handleFileLoad(f);
+      };
+      body.appendChild(uploadZone);
+
+      // Platform selector
+      body.appendChild(div({color:"#8899AA",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"8px"},"TARGET PLATFORM"));
+      var platRow=div({display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"20px"});
+      Object.keys(PLATFORMS).forEach(function(k){
+        var p=PLATFORMS[k];
+        var btn=el("button",{style:{background:VIDEO_EDITOR_STATE.platform===k?"rgba(236,72,153,0.15)":"#1A1F2E",border:"1px solid "+(VIDEO_EDITOR_STATE.platform===k?"#EC4899":"#2A3040"),borderRadius:"8px",padding:"8px 12px",cursor:"pointer",transition:"all 0.15s",display:"flex",flexDirection:"column",alignItems:"center",gap:"2px",minWidth:"80px"}});
+        btn.appendChild(div({fontSize:"16px"},p.icon));
+        btn.appendChild(div({color:VIDEO_EDITOR_STATE.platform===k?"#EC4899":"#8899AA",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",textAlign:"center"},p.label));
+        btn.onclick=function(){VIDEO_EDITOR_STATE.platform=k;renderAutoPilotTab();};
+        platRow.appendChild(btn);
+      });
+      body.appendChild(platRow);
+      return;
+    }
+
+    // Video loaded — show preview + auto-pilot controls
+    var previewWrap=div({marginBottom:"14px",borderRadius:"12px",overflow:"hidden",background:"#000"});
+    previewWrap.appendChild(video);
+    body.appendChild(previewWrap);
+
+    // Platform selector (compact)
+    var platRow=div({display:"flex",gap:"6px",marginBottom:"14px",flexWrap:"wrap"});
+    Object.keys(PLATFORMS).forEach(function(k){
+      var p=PLATFORMS[k];
+      var btn=el("button",{style:{background:VIDEO_EDITOR_STATE.platform===k?"rgba(236,72,153,0.15)":"transparent",border:"1px solid "+(VIDEO_EDITOR_STATE.platform===k?"#EC4899":"#2A3040"),borderRadius:"8px",padding:"6px 10px",cursor:"pointer",display:"flex",alignItems:"center",gap:"4px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",color:VIDEO_EDITOR_STATE.platform===k?"#EC4899":"#8899AA"}});
+      btn.innerHTML=p.icon+" "+p.label;
+      btn.onclick=function(){VIDEO_EDITOR_STATE.platform=k;renderAutoPilotTab();};
+      platRow.appendChild(btn);
+    });
+    body.appendChild(platRow);
+
+    // AUTO-PILOT CARD
+    var apCard=div({background:"linear-gradient(135deg,rgba(236,72,153,0.08),rgba(139,92,246,0.08))",border:"1px solid rgba(236,72,153,0.25)",borderRadius:"16px",padding:"20px",marginBottom:"16px"});
+    apCard.appendChild(div({color:"#F0F2F5",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"⚡ Auto-Pilot"));
+    apCard.appendChild(div({color:"#8899AA",fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"16px"},"AI analyzes your video, finds the best clip, writes subtitles + caption, applies brand and color grade — all in one click."));
+
+    // Steps preview
+    var steps=[
+      {icon:"✂",label:"AI Smart Trim",desc:"Best 15-30s clip"},
+      {icon:"🎨",label:"Color Grade",desc:"Cinematic look"},
+      {icon:"💬",label:"AI Subtitles",desc:"Auto-generated"},
+      {icon:"✍",label:"Caption + Hashtags",desc:"Optimized for reach"},
+      {icon:"🏷",label:"Brand Watermark",desc:"From your profile"},
+      {icon:"🎵",label:"Background Music",desc:"Luxury ambience"}
+    ];
+    var stepsGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"16px"});
+    var stepEls=[];
+    steps.forEach(function(s){
+      var row=div({background:"rgba(255,255,255,0.03)",borderRadius:"8px",padding:"8px 10px",display:"flex",alignItems:"center",gap:"8px"});
+      row.appendChild(span({style:{fontSize:"16px"}},s.icon));
+      var txt=div({});
+      txt.appendChild(div({color:"#C0C8D8",fontSize:"10px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace"},s.label));
+      txt.appendChild(div({color:"#556677",fontSize:"9px"},s.desc));
+      row.appendChild(txt);
+      var statusDot=div({width:"8px",height:"8px",borderRadius:"50%",background:"#2A3040",marginLeft:"auto",flexShrink:"0"},"");
+      row.appendChild(statusDot);
+      stepsGrid.appendChild(row);
+      stepEls.push({row:row,dot:statusDot});
+    });
+    apCard.appendChild(stepsGrid);
+
+    var progressBar=div({height:"4px",background:"#1A1F2E",borderRadius:"2px",overflow:"hidden",marginBottom:"10px"});
+    var progressFill=div({height:"100%",width:"0%",background:"linear-gradient(90deg,#EC4899,#8B5CF6)",borderRadius:"2px",transition:"width 0.4s"},"");
+    progressBar.appendChild(progressFill);
+    apCard.appendChild(progressBar);
+
+    var statusTxt=div({color:"#8899AA",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",textAlign:"center",marginBottom:"14px"},"Ready to process");
+    apCard.appendChild(statusTxt);
+
+    var resultContainer=div({});
+    var autoPilotBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#EC4899,#8B5CF6)",color:"#FFF",border:"none",borderRadius:"12px",padding:"16px",fontSize:"15px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.02em",boxShadow:"0 4px 20px rgba(236,72,153,0.4)"}});
+    autoPilotBtn.textContent="⚡ Run Auto-Pilot";
+    autoPilotBtn.onclick=async function(){
+      autoPilotBtn.disabled=true;autoPilotBtn.textContent="Processing…";
+      var pct=0;
+      function setProgress(p,msg){progressFill.style.width=p+"%";statusTxt.textContent=msg;}
+      function setStep(i,done){stepEls[i].dot.style.background=done?"#10B981":"#EC4899";}
+
+      try{
+        // Step 1: AI Analysis
+        setProgress(5,"AI analyzing video content…");
+        var aiResult=await aiAnalyzeVideo(function(msg){statusTxt.textContent=msg;});
+        setStep(0,true);setProgress(30,"AI analysis complete");
+
+        // Apply AI trim
+        startInp.value=(aiResult.trimStart||0).toFixed(1);
+        endInp.value=(Math.min(aiResult.trimEnd||30,VIDEO_EDITOR_STATE.duration)).toFixed(1);
+        VIDEO_EDITOR_STATE.trimStart=parseFloat(startInp.value);
+        VIDEO_EDITOR_STATE.trimEnd=parseFloat(endInp.value);
+
+        // Color grade
+        VIDEO_EDITOR_STATE.colorPreset=aiResult.colorGrade||"cinematic";
+        setStep(1,true);setProgress(40,"Color grade applied");
+
+        // Subtitles
+        if(aiResult.subtitles&&aiResult.subtitles.length){
+          var subLines=aiResult.subtitles.map(function(s){
+            var m=Math.floor(s.time/60),sc=Math.floor(s.time%60);
+            return m+":"+(sc<10?"0":"")+sc+" "+s.text;
+          }).join("\n");
+          subTextarea.value=subLines;
+        }
+        setStep(2,true);setProgress(55,"Subtitles ready");
+
+        // Caption
+        if(aiResult.caption){captionInp.value=aiResult.caption;VIDEO_EDITOR_STATE.caption=aiResult.caption;}
+        setStep(3,true);setProgress(65,"Caption written");
+
+        // Watermark
+        VIDEO_EDITOR_STATE.watermark=true;
+        setStep(4,true);setProgress(70,"Watermark enabled");
+
+        // Render
+        setProgress(72,"Rendering video…");setStep(5,false);
+        var blob=await renderWithOverlays(VIDEO_EDITOR_STATE.platform,function(msg){statusTxt.textContent=msg;});
+        setStep(5,true);setProgress(100,"Done! 🎉");
+
+        autoPilotBtn.textContent="⚡ Re-run Auto-Pilot";
+        autoPilotBtn.disabled=false;
+        showResultsUI(blob,captionInp.value,VIDEO_EDITOR_STATE.platform,resultContainer);
+
+      }catch(err){
+        setProgress(0,"Error: "+err.message);
+        statusTxt.style.color="#EF4444";
+        autoPilotBtn.textContent="⚡ Run Auto-Pilot";
+        autoPilotBtn.disabled=false;
+      }
+    };
+    apCard.appendChild(autoPilotBtn);
+    body.appendChild(apCard);
+    body.appendChild(resultContainer);
+  }
+
+  function renderEditTab(){
+    var hasVideo=!!VIDEO_EDITOR_STATE.file;
+    if(!hasVideo){
+      body.appendChild(div({color:"#8899AA",fontSize:"13px",fontFamily:"'Inter',sans-serif",textAlign:"center",padding:"40px 20px"},"Upload a video in Auto-Pilot tab first."));
+      return;
+    }
+
+    var previewWrap=div({marginBottom:"14px",borderRadius:"12px",overflow:"hidden",background:"#000"});
+    previewWrap.appendChild(video);
+    body.appendChild(previewWrap);
+
+    function sectionHdr(label,color){
+      var h=div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"10px"});
+      h.appendChild(div({width:"3px",height:"14px",background:color||"#EC4899",borderRadius:"2px"},""));
+      h.appendChild(div({color:"#C0C8D8",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em"},label));
+      return h;
+    }
+
+    // Trim
+    var trimSec=div({background:"#1A1F2E",borderRadius:"12px",padding:"14px",marginBottom:"10px"});
+    trimSec.appendChild(sectionHdr("TRIM","#EC4899"));
+    var trimRow=div({display:"flex",gap:"10px",alignItems:"center",flexWrap:"wrap"});
+    trimRow.appendChild(span({style:{color:"#8899AA",fontSize:"11px"}},"Start (s):"));
+    trimRow.appendChild(startInp);
+    trimRow.appendChild(span({style:{color:"#8899AA",fontSize:"11px"}},"End (s):"));
+    trimRow.appendChild(endInp);
+    var durBadge=div({background:"rgba(201,168,76,0.12)",border:"1px solid rgba(201,168,76,0.3)",borderRadius:"6px",padding:"4px 10px",color:"#C9A84C",fontSize:"10px",fontFamily:"monospace"});
+    function refreshDurBadge(){durBadge.textContent=updateDurLabel();}
+    startInp.addEventListener("input",refreshDurBadge);endInp.addEventListener("input",refreshDurBadge);
+    refreshDurBadge();
+    trimRow.appendChild(durBadge);
+    trimSec.appendChild(trimRow);
+    body.appendChild(trimSec);
+
+    // Color Grade
+    var colorSec=div({background:"#1A1F2E",borderRadius:"12px",padding:"14px",marginBottom:"10px"});
+    colorSec.appendChild(sectionHdr("COLOR GRADE","#F59E0B"));
+    var colorRow=div({display:"flex",gap:"6px",flexWrap:"wrap"});
+    Object.keys(COLOR_GRADES).forEach(function(k){
+      var g=COLOR_GRADES[k];
+      var btn=el("button",{style:{background:VIDEO_EDITOR_STATE.colorPreset===k?"rgba(245,158,11,0.2)":"transparent",border:"1px solid "+(VIDEO_EDITOR_STATE.colorPreset===k?"#F59E0B":"#2A3040"),borderRadius:"8px",padding:"6px 12px",cursor:"pointer",color:VIDEO_EDITOR_STATE.colorPreset===k?"#F59E0B":"#8899AA",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",transition:"all 0.15s"}});
+      btn.textContent=g.label;
+      btn.onclick=function(){VIDEO_EDITOR_STATE.colorPreset=k;renderTabBody();};
+      colorRow.appendChild(btn);
+    });
+    colorSec.appendChild(colorRow);
+    body.appendChild(colorSec);
+
+    // Subtitles
+    var subSec=div({background:"#1A1F2E",borderRadius:"12px",padding:"14px",marginBottom:"10px"});
+    subSec.appendChild(sectionHdr("SUBTITLES","#8B5CF6"));
+    subSec.appendChild(subTextarea);
+    var aiSubBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#8B5CF6,#A78BFA)",color:"#FFF",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+    aiSubBtn.textContent="✨ AI Generate Subtitles";
+    aiSubBtn.onclick=async function(){
+      var geminiKey=localStorage.getItem("dv_gemini_key");
+      if(!geminiKey){alert("Gemini key needed — go to Setup");return;}
+      aiSubBtn.disabled=true;aiSubBtn.textContent="Generating…";
+      try{
+        var dur=VIDEO_EDITOR_STATE.trimEnd-VIDEO_EDITOR_STATE.trimStart||VIDEO_EDITOR_STATE.duration;
+        var bp=getBrandProfile()||{};
+        var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+          method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({contents:[{parts:[{text:"Write 5-8 professional subtitle lines for a "+Math.round(dur)+"s Dubai real estate Instagram Reel. Agent: "+(bp.name||"")+" Tone: "+(bp.tone||"luxury professional")+". Format: M:SS Text (one per line, max 7 words each, compelling, Arabic-market-friendly). No markdown."}]}],generationConfig:{temperature:0.6}})
+        });
+        if(r.ok){var d=await r.json();var txt=d.candidates[0].content.parts[0].text;subTextarea.value=txt.split("\n").filter(function(l){return l.match(/\d+:\d+/);}).join("\n");}
+      }catch(e){}
+      aiSubBtn.textContent="✨ AI Generate Subtitles";aiSubBtn.disabled=false;
+    };
+    subSec.appendChild(aiSubBtn);
+    body.appendChild(subSec);
+
+    // Caption
+    var capSec=div({background:"#1A1F2E",borderRadius:"12px",padding:"14px",marginBottom:"10px"});
+    capSec.appendChild(sectionHdr("CAPTION + HASHTAGS","#10B981"));
+    capSec.appendChild(captionInp);
+    var aiCapBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#10B981,#34D399)",color:"#000",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+    aiCapBtn.textContent="✨ AI Write Caption";
+    aiCapBtn.onclick=async function(){
+      var geminiKey=localStorage.getItem("dv_gemini_key");
+      if(!geminiKey){alert("Gemini key needed");return;}
+      aiCapBtn.disabled=true;aiCapBtn.textContent="Writing…";
+      try{
+        var bp=getBrandProfile()||{};
+        var platLabel=(PLATFORMS[VIDEO_EDITOR_STATE.platform]||PLATFORMS.reel).label;
+        var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+          method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({contents:[{parts:[{text:"Write a professional "+platLabel+" caption for a Dubai real estate video. Agent: "+(bp.name||"DubAIVal")+(bp.tone?", tone: "+bp.tone:"")+". Include: hook, 3 selling points, call to action, 6-8 relevant Dubai real estate hashtags. Under 150 words. "+(bp.hashtags?"Always include: "+bp.hashtags:"")}]}],generationConfig:{temperature:0.7}})
+        });
+        if(r.ok){var d=await r.json();captionInp.value=d.candidates[0].content.parts[0].text;}
+      }catch(e){}
+      aiCapBtn.textContent="✨ AI Write Caption";aiCapBtn.disabled=false;
+    };
+    capSec.appendChild(aiCapBtn);
+    body.appendChild(capSec);
+
+    // Watermark toggle
+    var wmSec=div({background:"#1A1F2E",borderRadius:"12px",padding:"14px",marginBottom:"14px",display:"flex",alignItems:"center",justifyContent:"space-between"});
+    wmSec.appendChild(div({},[
+      div({color:"#C0C8D8",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"Brand Watermark"),
+      div({color:"#556677",fontSize:"10px",marginTop:"2px"},"Agent name from brand profile")
+    ]));
+    var wmToggle=el("input",{type:"checkbox",checked:VIDEO_EDITOR_STATE.watermark,style:{width:"18px",height:"18px",cursor:"pointer",accentColor:"#EC4899"}});
+    wmToggle.onchange=function(){VIDEO_EDITOR_STATE.watermark=wmToggle.checked;};
+    wmSec.appendChild(wmToggle);
+    body.appendChild(wmSec);
+
+    // Render button
+    var renderBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#EC4899,#8B5CF6)",color:"#FFF",border:"none",borderRadius:"12px",padding:"14px",fontSize:"14px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+    renderBtn.textContent="🎬 Render Video";
+    var renderStatus=div({color:"#8899AA",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",textAlign:"center",marginTop:"8px"});
+    var resultContainer=div({});
+    renderBtn.onclick=async function(){
+      renderBtn.disabled=true;renderBtn.textContent="Rendering…";
+      try{
+        var blob=await renderWithOverlays(VIDEO_EDITOR_STATE.platform||"reel",function(msg){renderStatus.textContent=msg;});
+        renderBtn.textContent="🎬 Re-render";renderBtn.disabled=false;
+        showResultsUI(blob,captionInp.value,VIDEO_EDITOR_STATE.platform||"reel",resultContainer);
+      }catch(err){renderStatus.textContent="Error: "+err.message;renderBtn.textContent="🎬 Render Video";renderBtn.disabled=false;}
+    };
+    body.appendChild(renderBtn);
+    body.appendChild(renderStatus);
+    body.appendChild(resultContainer);
+  }
+
+  function renderExportTab(){
+    if(!VIDEO_EDITOR_STATE.processedBlob){
+      body.appendChild(div({color:"#8899AA",fontSize:"13px",textAlign:"center",padding:"40px 20px",fontFamily:"'Inter',sans-serif"},"Run Auto-Pilot or render a video first."));
+      return;
+    }
+
+    body.appendChild(div({color:"#F0F2F5",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"16px"},"Export for Each Platform"));
+
+    Object.keys(PLATFORMS).forEach(function(k){
+      var p=PLATFORMS[k];
+      var row=div({background:"#1A1F2E",border:"1px solid #2A3040",borderRadius:"12px",padding:"14px",marginBottom:"10px",display:"flex",alignItems:"center",justifyContent:"space-between"});
+      var info=div({});
+      info.appendChild(div({color:"#E8EDF5",fontSize:"12px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace"},p.icon+" "+p.label));
+      info.appendChild(div({color:"#556677",fontSize:"10px",marginTop:"2px"},p.desc+" · max "+p.maxSec+"s"));
+      row.appendChild(info);
+      var dlBtn=el("button",{style:{background:"#10B981",color:"#FFF",border:"none",borderRadius:"8px",padding:"8px 16px",cursor:"pointer",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"}});
+      dlBtn.textContent="⬇ Download";
+      dlBtn.onclick=async function(){
+        dlBtn.textContent="Rendering…";dlBtn.disabled=true;
+        var prevPlat=VIDEO_EDITOR_STATE.platform;
+        VIDEO_EDITOR_STATE.platform=k;
+        try{
+          var blob=await renderWithOverlays(k,function(msg){dlBtn.textContent=msg;});
+          var ext=blob.type.indexOf("mp4")!==-1?"mp4":"webm";
+          var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="dubaival-"+k+"."+ext;a.click();
+        }catch(e){alert("Error: "+e.message);}
+        VIDEO_EDITOR_STATE.platform=prevPlat;
+        dlBtn.textContent="⬇ Download";dlBtn.disabled=false;
+      };
+      row.appendChild(dlBtn);
+      body.appendChild(row);
+    });
+
+    // Caption copy
+    if(captionInp.value){
+      body.appendChild(div({color:"#8899AA",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",margin:"16px 0 8px"},"POST CAPTION"));
+      var capBox=div({background:"#070B14",border:"1px solid #2A3040",borderRadius:"10px",padding:"12px"});
+      var capTxt=el("p",{style:{color:"#C0C8D8",fontSize:"11px",margin:"0 0 10px",whiteSpace:"pre-wrap",lineHeight:"1.6"}});
+      capTxt.textContent=captionInp.value;
+      capBox.appendChild(capTxt);
+      var cpAllBtn=el("button",{style:{width:"100%",background:"#F97316",color:"#FFF",border:"none",borderRadius:"8px",padding:"8px",cursor:"pointer",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"}});
+      cpAllBtn.textContent="📋 Copy Caption + Hashtags";
+      cpAllBtn.onclick=function(){navigator.clipboard.writeText(captionInp.value).then(function(){cpAllBtn.textContent="✓ Copied!";setTimeout(function(){cpAllBtn.textContent="📋 Copy Caption + Hashtags";},2000);});};
+      capBox.appendChild(cpAllBtn);
+      body.appendChild(capBox);
+    }
+  }
+
+  // ── FILE LOAD HANDLER ─────────────────────────────────────────────────────
+  function handleFileLoad(f){
+    if(f.size>500*1024*1024){alert("File too large — max 500MB");return;}
     VIDEO_EDITOR_STATE.file=f;
+    if(VIDEO_EDITOR_STATE.url)URL.revokeObjectURL(VIDEO_EDITOR_STATE.url);
     VIDEO_EDITOR_STATE.url=URL.createObjectURL(f);
     video.src=VIDEO_EDITOR_STATE.url;
     video.onloadedmetadata=function(){
       VIDEO_EDITOR_STATE.duration=video.duration;
-      endInp.value=Math.min(30,video.duration).toFixed(1);
-      endInp.max=video.duration;
-      startInp.max=video.duration;
-      trimSlider.max=100;
-      updateDur();
-      uploadZone.style.display="none";
-      editorUI.style.display="block";
+      VIDEO_EDITOR_STATE.trimStart=0;
+      VIDEO_EDITOR_STATE.trimEnd=Math.min(30,video.duration);
+      startInp.value="0";endInp.value=VIDEO_EDITOR_STATE.trimEnd.toFixed(1);
+      switchTab("Auto-Pilot");
     };
-  };
-  uploadZone.ondragover=function(ev){ev.preventDefault();uploadZone.style.borderColor="#F472B6";uploadZone.style.background="#1A1020";};
-  uploadZone.ondragleave=function(){uploadZone.style.borderColor="#EC4899";uploadZone.style.background="#0D1117";};
-  uploadZone.ondrop=function(ev){
-    ev.preventDefault();
-    uploadZone.style.borderColor="#EC4899";uploadZone.style.background="#0D1117";
-    var f=ev.dataTransfer.files[0];
-    if(f&&f.type.startsWith("video/")){
-      fileInput.files=ev.dataTransfer.files;
-      fileInput.onchange({target:{files:[f]}});
-    }
-  };
+  }
+  fileInput.onchange=function(ev){var f=ev.target.files[0];if(f)handleFileLoad(f);};
 
   overlay.appendChild(card);
-  overlay.addEventListener("click",function(ev){if(ev.target===overlay){
-    if(VIDEO_EDITOR_STATE.url)URL.revokeObjectURL(VIDEO_EDITOR_STATE.url);
-    if(VIDEO_EDITOR_STATE.processedUrl)URL.revokeObjectURL(VIDEO_EDITOR_STATE.processedUrl);
-    overlay.remove();
-  }});
+  overlay.addEventListener("click",function(ev){if(ev.target===overlay){closeX.onclick();}});
   document.body.appendChild(overlay);
 }
 
@@ -2313,350 +2628,563 @@ function showVideoGenUI(initialPrompt){
   var existing=document.getElementById("video-gen-modal");
   if(existing)existing.remove();
 
-  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"video-gen-modal"});
-  var card=div({background:"#1A1F2E",border:"1px solid #C9A84C",borderRadius:"16px",padding:"20px",width:"500px",maxWidth:"95vw",maxHeight:"92vh",overflowY:"auto"});
+  // ── World-Class AI Video Studio ────────────────────────────────────────────
+  var VG_STATE={
+    template:null,platform:"reel",language:"en",hookType:"emotional",
+    prompt:"",mediaPhotos:[],mediaVideos:[],floorPlans:[],musicType:"luxury",
+    musicFile:null,locationText:"",processing:false,resultBlob:null,resultUrl:null,
+    plan:null,activeTab:"setup"
+  };
 
-  card.appendChild(el("h3",{style:{color:"#C9A84C",margin:"0 0 4px",fontSize:"16px",fontFamily:"'Space Grotesk',monospace"}},"AI Video Generator"));
-  card.appendChild(el("p",{style:{color:"#8899AA",fontSize:"11px",margin:"0 0 14px",fontFamily:"'Inter',sans-serif"}},"Describe your video → AI creates it with images, data, charts & voiceover"));
+  var CONTENT_TEMPLATES={
+    property_tour:{icon:"🏠",label:"Property Tour",color:"#C9A84C",
+      prompt:"Create a cinematic property tour video showcasing [building name] in [area], Dubai. Highlight the views, finishes, amenities, floor plan, and investment value. Include price per sqft and rental yield data.",
+      hookType:"emotional",desc:"Show the full property experience"},
+    market_report:{icon:"📊",label:"Market Report",color:"#3B82F6",
+      prompt:"Create a professional Dubai real estate market report video for [area]. Include current price per sqft, rental yields, price growth trends, and why investors should consider this area now.",
+      hookType:"statistic",desc:"Data-driven area analysis"},
+    investment_pitch:{icon:"💰",label:"Investment Pitch",color:"#10B981",
+      prompt:"Create a compelling investment pitch video for [property/building] in Dubai. Focus on ROI, rental yield, capital appreciation, location advantages, and developer reputation. Target HNW investors.",
+      hookType:"statistic",desc:"Convince investors to act now"},
+    area_guide:{icon:"🗺",label:"Area Guide",color:"#8B5CF6",
+      prompt:"Create an area guide video for [area], Dubai. Cover lifestyle, amenities, transport links, nearby schools, beaches, malls, and why families and professionals choose to live here.",
+      hookType:"story",desc:"Complete lifestyle overview"},
+    luxury_showcase:{icon:"✨",label:"Luxury Showcase",color:"#EC4899",
+      prompt:"Create a luxury property showcase video for [building/project] in Dubai. Emphasize exclusivity, world-class finishes, iconic views, premium amenities, and elite lifestyle. Brand: aspirational and prestigious.",
+      hookType:"emotional",desc:"High-end aspirational content"},
+    deal_alert:{icon:"🔔",label:"Deal Alert",color:"#F59E0B",
+      prompt:"Create an urgent deal alert video for a limited-time opportunity at [building/area] in Dubai. Show the asking price vs market value, the discount, and why buyers must act fast before this deal is gone.",
+      hookType:"question",desc:"Time-sensitive opportunity"}
+  };
 
-  // Prompt input
-  var promptInp=el("textarea",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"10px",padding:"12px",color:"#E0E0E0",fontSize:"13px",fontFamily:"'Inter',sans-serif",resize:"vertical",minHeight:"60px",boxSizing:"border-box"},placeholder:"e.g. Make a video about Vida Dubai Mall Tower 1 with investment data and market trends..."});
-  if(initialPrompt)promptInp.value=initialPrompt;
-  card.appendChild(promptInp);
+  var VG_PLATFORMS={
+    reel:{label:"Instagram Reel",icon:"📱",desc:"9:16 • up to 90s",w:1080,h:1920,maxSec:90},
+    story:{label:"Story / TikTok",icon:"🎵",desc:"9:16 • up to 60s",w:1080,h:1920,maxSec:60},
+    square:{label:"Square Post",icon:"⬜",desc:"1:1 • Feed",w:1080,h:1080,maxSec:60},
+    landscape:{label:"YouTube / LinkedIn",icon:"🖥",desc:"16:9 • up to 10min",w:1920,h:1080,maxSec:600},
+    whatsapp:{label:"WhatsApp Status",icon:"💬",desc:"9:16 • 30s max",w:1080,h:1920,maxSec:30}
+  };
 
-  // Options row
-  var optRow=div({display:"flex",gap:"8px",margin:"10px 0",flexWrap:"wrap"});
-  var formatSel=el("select",{style:{background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"6px 10px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace"}});
-  [["9:16 Reel/Story","1080x1920"],["1:1 Square","1080x1080"],["16:9 Landscape","1920x1080"]].forEach(function(o){
-    var opt=el("option");opt.value=o[1];opt.textContent=o[0];formatSel.appendChild(opt);
+  var HOOK_TYPES={
+    emotional:{label:"Emotional",icon:"❤️",desc:"Triggers desire & aspiration"},
+    statistic:{label:"Statistic",icon:"📈",desc:"Opens with a surprising number"},
+    question:{label:"Question",icon:"❓",desc:"Asks something the viewer must answer"},
+    story:{label:"Story",icon:"📖",desc:"Opens with a narrative or journey"}
+  };
+
+  var LANGUAGES={en:"English",ar:"العربية",ru:"Русский",fa:"فارسی"};
+
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.92)",zIndex:9999,display:"flex",alignItems:"flex-start",justifyContent:"center",overflowY:"auto",padding:"16px"},id:"video-gen-modal"});
+  var card=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"20px",width:"720px",maxWidth:"97vw",overflow:"hidden",boxShadow:"0 32px 80px rgba(0,0,0,0.8)"});
+
+  // ── Header ──────────────────────────────────────────────────────────────────
+  var vgHeader=div({background:"linear-gradient(135deg,#0A0E1A,#0D1220)",borderBottom:"1px solid #2A3040",padding:"16px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"});
+  var vgHL=div({display:"flex",alignItems:"center",gap:"12px"});
+  vgHL.appendChild(div({width:"10px",height:"10px",borderRadius:"50%",background:"#C9A84C",boxShadow:"0 0 8px #C9A84C"},""));
+  vgHL.appendChild(div({color:"#F0F2F5",fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AI Video Studio"));
+  vgHL.appendChild(div({background:"rgba(201,168,76,0.12)",border:"1px solid rgba(201,168,76,0.3)",borderRadius:"6px",padding:"2px 8px",color:"#C9A84C",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em"},"PRO"));
+  vgHeader.appendChild(vgHL);
+  var vgClose=el("button",{style:{background:"transparent",border:"none",color:"#8899AA",fontSize:"20px",cursor:"pointer",padding:"4px 8px",borderRadius:"6px",lineHeight:"1"}});
+  vgClose.textContent="×";vgClose.onclick=function(){if(VG_STATE.resultUrl)URL.revokeObjectURL(VG_STATE.resultUrl);overlay.remove();};
+  vgHeader.appendChild(vgClose);
+  card.appendChild(vgHeader);
+
+  // ── Tabs ──────────────────────────────────────────────────────────────────
+  var VG_TABS=["setup","create","results"];
+  var vgTabBar=div({display:"flex",borderBottom:"1px solid #2A3040",background:"#070B14"});
+  var vgTabBtns={};
+  VG_TABS.forEach(function(t){
+    var btn=el("button",{style:{flex:"1",background:"transparent",border:"none",borderBottom:"2px solid transparent",padding:"12px",fontSize:"12px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",transition:"all 0.15s",color:"#556677"}});
+    var labels={setup:"⚙ Setup",create:"🎬 Create",results:"📤 Results"};
+    btn.textContent=labels[t];
+    btn.onclick=function(){vgSwitchTab(t);};
+    vgTabBtns[t]=btn;
+    vgTabBar.appendChild(btn);
   });
-  optRow.appendChild(el("span",{style:{color:"#8899AA",fontSize:"11px",alignSelf:"center"}},"Format:"));
-  optRow.appendChild(formatSel);
+  card.appendChild(vgTabBar);
 
-  var voiceCheck=el("input",{type:"checkbox",checked:true,style:{accentColor:"#C9A84C"}});
-  optRow.appendChild(el("span",{style:{color:"#8899AA",fontSize:"11px",alignSelf:"center",marginLeft:"12px"}},"Voiceover:"));
-  optRow.appendChild(voiceCheck);
-  card.appendChild(optRow);
+  var vgBody=div({padding:"20px",minHeight:"420px"});
+  card.appendChild(vgBody);
 
-  // --- MEDIA UPLOADS (collapsible sections) ---
-  var mediaWrap=div({margin:"10px 0",background:"#0D1117",borderRadius:"10px",padding:"12px"});
-  mediaWrap.appendChild(el("div",{style:{color:"#C9A84C",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"}},"Add Your Media (all optional)"));
+  // ── Shared elements ────────────────────────────────────────────────────────
+  var promptInp=el("textarea",{style:{width:"100%",background:"#0D1220",border:"1px solid #2A3040",borderRadius:"10px",padding:"12px",color:"#E0E0E0",fontSize:"13px",fontFamily:"'Inter',sans-serif",resize:"vertical",minHeight:"70px",boxSizing:"border-box"},placeholder:"e.g. Showcase Vida Dubai Mall Tower 1 — views, amenities, 7% yield, why investors should buy now..."});
+  if(initialPrompt)promptInp.value=initialPrompt;
 
-  function makeMediaSection(icon,title,desc,accept,multiple,onFiles){
-    var sec=div({marginBottom:"10px",padding:"8px",background:"#1A1F2E",borderRadius:"8px",border:"1px solid #2A3040"});
-    var hdr=div({display:"flex",alignItems:"center",gap:"6px",cursor:"pointer",marginBottom:"4px"});
-    hdr.appendChild(el("span",{style:{fontSize:"14px"}},icon));
-    hdr.appendChild(el("span",{style:{color:"#E0E0E0",fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace"}},title));
-    hdr.appendChild(el("span",{style:{color:"#8899AA",fontSize:"10px",flex:"1",textAlign:"right"}},desc));
-    sec.appendChild(hdr);
-    var inp=el("input",{type:"file",accept:accept,multiple:multiple||false,style:{fontSize:"10px",color:"#8899AA",marginTop:"4px",width:"100%"}});
-    var preview=div({display:"flex",gap:"4px",flexWrap:"wrap",marginTop:"4px"});
-    inp.onchange=function(){onFiles(Array.from(inp.files||[]),preview);};
-    sec.appendChild(inp);sec.appendChild(preview);
-    return sec;
+  var userPhotoFiles=[];var userVideoFiles=[];var floorPlanFiles=[];var musicFileRef=null;
+
+  function vgSwitchTab(t){
+    VG_STATE.activeTab=t;
+    VG_TABS.forEach(function(n){
+      vgTabBtns[n].style.color=n===t?"#C9A84C":"#556677";
+      vgTabBtns[n].style.borderBottomColor=n===t?"#C9A84C":"transparent";
+      vgTabBtns[n].style.background=n===t?"rgba(201,168,76,0.05)":"transparent";
+    });
+    vgBody.innerHTML="";
+    if(t==="setup")renderVGSetup();
+    else if(t==="create")renderVGCreate();
+    else renderVGResults();
   }
 
-  // Photos
-  var userPhotoFiles=[];
-  mediaWrap.appendChild(makeMediaSection("","Photos","Blended naturally into video","image/*",true,function(files,prev){
-    userPhotoFiles=files;prev.innerHTML="";
-    files.forEach(function(f){
-      var url=URL.createObjectURL(f);
-      var thumb=el("img",{style:{width:"50px",height:"50px",objectFit:"cover",borderRadius:"6px",border:"1px solid #C9A84C"}});
-      thumb.src=url;prev.appendChild(thumb);
+  // ── SETUP TAB ─────────────────────────────────────────────────────────────
+  function renderVGSetup(){
+    // Content Templates
+    var tplSec=div({marginBottom:"20px"});
+    tplSec.appendChild(div({color:"#8899AA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"10px"},"VIDEO TYPE"));
+    var tplGrid=div({display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px"});
+    Object.keys(CONTENT_TEMPLATES).forEach(function(key){
+      var t=CONTENT_TEMPLATES[key];
+      var isSelected=VG_STATE.template===key;
+      var btn=div({background:isSelected?"rgba("+hexToRgb(t.color)+",0.12)":"rgba(255,255,255,0.02)",border:"1px solid "+(isSelected?t.color:"#2A3040"),borderRadius:"10px",padding:"10px 8px",cursor:"pointer",textAlign:"center",transition:"all 0.15s"});
+      btn.appendChild(div({fontSize:"20px",marginBottom:"4px"},t.icon));
+      btn.appendChild(div({color:isSelected?t.color:"#C0C8D8",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},t.label));
+      btn.appendChild(div({color:"#556677",fontSize:"9px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},t.desc));
+      btn.onclick=function(){
+        VG_STATE.template=key;VG_STATE.hookType=t.hookType;
+        if(!promptInp.value.trim()||promptInp.getAttribute("data-auto")==="1"){
+          promptInp.value=t.prompt;promptInp.setAttribute("data-auto","1");
+        }
+        renderVGSetup();
+      };
+      tplGrid.appendChild(btn);
     });
-  }));
+    tplSec.appendChild(tplGrid);
+    vgBody.appendChild(tplSec);
 
-  // User Videos
-  var userVideoFiles=[];
-  mediaWrap.appendChild(makeMediaSection("","Videos","Your clips merged into final video","video/*",true,function(files,prev){
-    userVideoFiles=files;prev.innerHTML="";
-    files.forEach(function(f){
-      var tag=el("div",{style:{background:"#2A3040",borderRadius:"6px",padding:"4px 8px",fontSize:"10px",color:"#E0E0E0",fontFamily:"monospace"}});
-      tag.textContent=f.name.substring(0,20)+" ("+(f.size/1024/1024).toFixed(1)+"MB)";
-      prev.appendChild(tag);
+    // Platform Selector
+    var platSec=div({marginBottom:"20px"});
+    platSec.appendChild(div({color:"#8899AA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"10px"},"PLATFORM"));
+    var platRow=div({display:"flex",gap:"8px",overflowX:"auto",paddingBottom:"4px"});
+    Object.keys(VG_PLATFORMS).forEach(function(pkey){
+      var p=VG_PLATFORMS[pkey];
+      var isSel=VG_STATE.platform===pkey;
+      var pb=div({background:isSel?"rgba(201,168,76,0.12)":"rgba(255,255,255,0.02)",border:"1px solid "+(isSel?"#C9A84C":"#2A3040"),borderRadius:"10px",padding:"10px 12px",cursor:"pointer",minWidth:"100px",textAlign:"center",flexShrink:"0",transition:"all 0.15s"});
+      pb.appendChild(div({fontSize:"18px",marginBottom:"3px"},p.icon));
+      pb.appendChild(div({color:isSel?"#C9A84C":"#C0C8D8",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},p.label));
+      pb.appendChild(div({color:"#556677",fontSize:"9px",marginTop:"2px"},p.desc));
+      pb.onclick=function(){VG_STATE.platform=pkey;renderVGSetup();};
+      platRow.appendChild(pb);
     });
-  }));
+    platSec.appendChild(platRow);
+    vgBody.appendChild(platSec);
 
-  // Floor Plans
-  var floorPlanFiles=[];
-  mediaWrap.appendChild(makeMediaSection("","Floor Plans","Shown as dedicated slide with labels","image/*",true,function(files,prev){
-    floorPlanFiles=files;prev.innerHTML="";
-    files.forEach(function(f){
-      var url=URL.createObjectURL(f);
-      var thumb=el("img",{style:{width:"50px",height:"50px",objectFit:"contain",borderRadius:"6px",border:"1px solid #10B981",background:"#FFF"}});
-      thumb.src=url;prev.appendChild(thumb);
+    // Language + Hook type row
+    var optRow2=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"20px"});
+
+    var langWrap=div({});
+    langWrap.appendChild(div({color:"#8899AA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"8px"},"LANGUAGE"));
+    var langRow=div({display:"flex",gap:"6px",flexWrap:"wrap"});
+    Object.keys(LANGUAGES).forEach(function(lk){
+      var isSel=VG_STATE.language===lk;
+      var lb=div({background:isSel?"rgba(139,92,246,0.15)":"rgba(255,255,255,0.02)",border:"1px solid "+(isSel?"#8B5CF6":"#2A3040"),borderRadius:"8px",padding:"5px 10px",cursor:"pointer",color:isSel?"#A78BFA":"#8899AA",fontSize:"11px",fontFamily:"'Inter',sans-serif",transition:"all 0.15s"});
+      lb.textContent=LANGUAGES[lk];lb.onclick=function(){VG_STATE.language=lk;renderVGSetup();};
+      langRow.appendChild(lb);
     });
-  }));
+    langWrap.appendChild(langRow);
+    optRow2.appendChild(langWrap);
 
-  // Music
-  var musicFile=null;
-  var musicSec=div({marginBottom:"10px",padding:"8px",background:"#1A1F2E",borderRadius:"8px",border:"1px solid #2A3040"});
-  var musicHdr=div({display:"flex",alignItems:"center",gap:"6px",marginBottom:"6px"});
-  musicHdr.appendChild(el("span",{style:{fontSize:"14px"}},""));
-  musicHdr.appendChild(el("span",{style:{color:"#E0E0E0",fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace"}},"Background Music"));
-  musicSec.appendChild(musicHdr);
-  var musicSelect=el("select",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"6px",padding:"6px",color:"#E0E0E0",fontSize:"10px",fontFamily:"monospace",marginBottom:"6px"}});
-  [["none","No Music"],["ambient","Ambient Piano"],["upbeat","Upbeat Corporate"],["luxury","Luxury Orchestral"],["chill","Chill Lofi"],["dramatic","Dramatic Cinematic"],["custom","Upload Your Music"]].forEach(function(o){
-    var opt=el("option");opt.value=o[0];opt.textContent=o[1];musicSelect.appendChild(opt);
-  });
-  musicSec.appendChild(musicSelect);
-  var musicFileInp=el("input",{type:"file",accept:"audio/*",style:{fontSize:"10px",color:"#8899AA",display:"none",marginTop:"4px",width:"100%"}});
-  musicSelect.onchange=function(){musicFileInp.style.display=musicSelect.value==="custom"?"block":"none";};
-  musicFileInp.onchange=function(){musicFile=musicFileInp.files[0]||null;};
-  musicSec.appendChild(musicFileInp);
-  mediaWrap.appendChild(musicSec);
+    var hookWrap=div({});
+    hookWrap.appendChild(div({color:"#8899AA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"8px"},"HOOK TYPE"));
+    var hookRow=div({display:"flex",gap:"6px",flexWrap:"wrap"});
+    Object.keys(HOOK_TYPES).forEach(function(hk){
+      var h=HOOK_TYPES[hk];
+      var isSel=VG_STATE.hookType===hk;
+      var hb=div({background:isSel?"rgba(59,130,246,0.15)":"rgba(255,255,255,0.02)",border:"1px solid "+(isSel?"#3B82F6":"#2A3040"),borderRadius:"8px",padding:"5px 8px",cursor:"pointer",color:isSel?"#93C5FD":"#8899AA",fontSize:"10px",fontFamily:"'Inter',sans-serif",transition:"all 0.15s",title:h.desc});
+      hb.textContent=h.icon+" "+h.label;hb.onclick=function(){VG_STATE.hookType=hk;renderVGSetup();};
+      hookRow.appendChild(hb);
+    });
+    hookWrap.appendChild(hookRow);
+    optRow2.appendChild(hookWrap);
+    vgBody.appendChild(optRow2);
 
-  // Location
-  var locationText="";
-  var locSec=div({marginBottom:"4px",padding:"8px",background:"#1A1F2E",borderRadius:"8px",border:"1px solid #2A3040"});
-  var locHdr=div({display:"flex",alignItems:"center",gap:"6px",marginBottom:"4px"});
-  locHdr.appendChild(el("span",{style:{fontSize:"14px"}},""));
-  locHdr.appendChild(el("span",{style:{color:"#E0E0E0",fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace"}},"Location / Map"));
-  locSec.appendChild(locHdr);
-  var locInp=el("input",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"6px",padding:"6px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",boxSizing:"border-box"},placeholder:"e.g. Dubai Marina, Palm Jumeirah Tower A"});
-  locInp.oninput=function(){locationText=locInp.value.trim();};
-  locSec.appendChild(locInp);
-  mediaWrap.appendChild(locSec);
+    // Brand bar (auto-apply)
+    var bp=getBrandProfile();
+    if(bp&&bp.name){
+      var brandBar=div({background:"rgba(201,168,76,0.06)",border:"1px solid rgba(201,168,76,0.2)",borderRadius:"10px",padding:"10px 14px",marginBottom:"16px",display:"flex",alignItems:"center",gap:"10px"});
+      brandBar.appendChild(div({fontSize:"16px"},"✦"));
+      var bbText=div({flex:"1"});
+      bbText.appendChild(div({color:"#C9A84C",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"Brand Auto-Apply: "+bp.name+(bp.agency?" · "+bp.agency:"")));
+      bbText.appendChild(div({color:"#8899AA",fontSize:"10px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},"Your watermark, contact info & tone will be applied automatically"));
+      brandBar.appendChild(bbText);
+      vgBody.appendChild(brandBar);
+    }
 
-  card.appendChild(mediaWrap);
+    // Prompt
+    var promptSec=div({marginBottom:"16px"});
+    promptSec.appendChild(div({color:"#8899AA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"8px"},"VIDEO DESCRIPTION"));
+    promptInp.style.display="block";
+    promptSec.appendChild(promptInp);
+    vgBody.appendChild(promptSec);
 
-  // Progress area
-  var progressArea=div({display:"none",margin:"14px 0"});
-  var progressBar=div({width:"100%",height:"8px",background:"#0D1117",borderRadius:"4px",overflow:"hidden"});
-  var progressFill=div({width:"0%",height:"100%",background:"linear-gradient(90deg,#C9A84C,#F59E0B)",borderRadius:"4px",transition:"width 0.3s"});
-  progressBar.appendChild(progressFill);progressArea.appendChild(progressBar);
-  var progressLabel=el("div",{style:{color:"#C9A84C",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",marginTop:"6px",textAlign:"center"}});
-  progressArea.appendChild(progressLabel);
-  card.appendChild(progressArea);
+    // Media Uploads (collapsible)
+    var mediaToggle=div({background:"rgba(255,255,255,0.02)",border:"1px solid #2A3040",borderRadius:"10px",marginBottom:"12px",overflow:"hidden"});
+    var mediaHdr=div({display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",cursor:"pointer"});
+    mediaHdr.appendChild(div({color:"#C0C8D8",fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace"},"📎 Add Your Media (photos, videos, floor plans)"));
+    var mediaChevron=div({color:"#8899AA",fontSize:"12px",transition:"transform 0.2s"},"▼");
+    mediaHdr.appendChild(mediaChevron);
+    var mediaBody=div({padding:"12px",borderTop:"1px solid #2A3040",display:"none"});
 
-  // Preview canvas
-  var previewWrap=div({display:"none",margin:"10px 0",textAlign:"center"});
-  var previewCanvas=el("canvas",{style:{maxWidth:"100%",maxHeight:"360px",borderRadius:"10px",border:"1px solid #2A3040"}});
-  previewWrap.appendChild(previewCanvas);
-  card.appendChild(previewWrap);
+    mediaHdr.onclick=function(){
+      var open=mediaBody.style.display==="block";
+      mediaBody.style.display=open?"none":"block";
+      mediaChevron.style.transform=open?"":"rotate(180deg)";
+    };
 
-  // Result area
-  var resultArea=div({display:"none",margin:"10px 0"});
-  card.appendChild(resultArea);
+    function vgMakeUploadSlot(label,accept,multiple,onFiles){
+      var slot=div({marginBottom:"10px"});
+      slot.appendChild(div({color:"#8899AA",fontSize:"10px",marginBottom:"4px"},label));
+      var inp=el("input",{type:"file",accept:accept,multiple:multiple,style:{fontSize:"10px",color:"#8899AA",width:"100%"}});
+      var prev=div({display:"flex",gap:"4px",flexWrap:"wrap",marginTop:"4px"});
+      inp.onchange=function(){onFiles(Array.from(inp.files||[]),prev);};
+      slot.appendChild(inp);slot.appendChild(prev);
+      return slot;
+    }
 
-  // Generate button
-  var genBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#C9A84C,#F59E0B)",color:"#000",border:"none",borderRadius:"10px",padding:"14px",fontSize:"14px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",margin:"10px 0"},onclick:async function(){
-    var prompt=promptInp.value.trim();
-    if(!prompt){alert("Enter a video description");return;}
-    var geminiKey=localStorage.getItem("dv_gemini_key");
-    if(!geminiKey){alert("Add Gemini API key in Setup first");return;}
+    mediaBody.appendChild(vgMakeUploadSlot("Photos (blended into slides)","image/*",true,function(files,prev){
+      userPhotoFiles=files;prev.innerHTML="";
+      files.forEach(function(f){var img=el("img",{style:{width:"44px",height:"44px",objectFit:"cover",borderRadius:"6px",border:"1px solid #C9A84C"}});img.src=URL.createObjectURL(f);prev.appendChild(img);});
+    }));
+    mediaBody.appendChild(vgMakeUploadSlot("Your Videos (merged into final)","video/*",true,function(files,prev){
+      userVideoFiles=files;prev.innerHTML="";
+      files.forEach(function(f){var t=div({background:"#2A3040",borderRadius:"6px",padding:"4px 8px",fontSize:"9px",color:"#E0E0E0"});t.textContent=f.name.slice(0,18);prev.appendChild(t);});
+    }));
+    mediaBody.appendChild(vgMakeUploadSlot("Floor Plans (shown as dedicated slide)","image/*",true,function(files,prev){
+      floorPlanFiles=files;prev.innerHTML="";
+      files.forEach(function(f){var img=el("img",{style:{width:"44px",height:"44px",objectFit:"contain",borderRadius:"6px",border:"1px solid #10B981",background:"#FFF"}});img.src=URL.createObjectURL(f);prev.appendChild(img);});
+    }));
 
-    genBtn.disabled=true;genBtn.textContent="Starting...";
-    progressArea.style.display="block";resultArea.style.display="none";
+    // Location
+    var locInp=el("input",{style:{width:"100%",background:"#0D1220",border:"1px solid #2A3040",borderRadius:"8px",padding:"7px 10px",color:"#E0E0E0",fontSize:"11px",boxSizing:"border-box"},placeholder:"e.g. Dubai Marina, Palm Jumeirah..."});
+    locInp.oninput=function(){VG_STATE.locationText=locInp.value.trim();};
+    if(VG_STATE.locationText)locInp.value=VG_STATE.locationText;
+    mediaBody.appendChild(vgMakeUploadSlot("Location / Map",null,false,function(){}));
+    mediaBody.lastChild.appendChild(locInp);
 
+    // Music
+    var musicSel=el("select",{style:{width:"100%",background:"#0D1220",border:"1px solid #2A3040",borderRadius:"8px",padding:"7px 10px",color:"#E0E0E0",fontSize:"11px",marginBottom:"6px"}});
+    [["none","No Music"],["ambient","Ambient Piano"],["upbeat","Upbeat Corporate"],["luxury","Luxury Orchestral"],["chill","Chill Lofi"],["dramatic","Dramatic Cinematic"],["custom","Upload Your Music"]].forEach(function(o){
+      var opt=el("option");opt.value=o[0];opt.textContent=o[1];if(o[0]===VG_STATE.musicType)opt.selected=true;musicSel.appendChild(opt);
+    });
+    musicSel.onchange=function(){VG_STATE.musicType=musicSel.value;};
+    var musicInp=el("input",{type:"file",accept:"audio/*",style:{fontSize:"10px",color:"#8899AA",display:"none",width:"100%",marginTop:"4px"}});
+    musicSel.onchange=function(){VG_STATE.musicType=musicSel.value;musicInp.style.display=musicSel.value==="custom"?"block":"none";};
+    musicInp.onchange=function(){musicFileRef=musicInp.files[0]||null;};
+    var musicWrap=div({marginBottom:"4px"});
+    musicWrap.appendChild(div({color:"#8899AA",fontSize:"10px",marginBottom:"4px"},"Background Music"));
+    musicWrap.appendChild(musicSel);musicWrap.appendChild(musicInp);
+    mediaBody.appendChild(musicWrap);
+
+    mediaToggle.appendChild(mediaHdr);mediaToggle.appendChild(mediaBody);
+    vgBody.appendChild(mediaToggle);
+
+    // Generate Button
+    var genBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#C9A84C,#F59E0B)",color:"#000",border:"none",borderRadius:"12px",padding:"16px",fontSize:"15px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.05em"}});
+    genBtn.textContent="🎬 Generate Video";
+    genBtn.onclick=function(){
+      var prompt=promptInp.value.trim();
+      if(!prompt){alert("Please enter a video description or select a template");return;}
+      if(!localStorage.getItem("dv_gemini_key")){alert("Add your Gemini API key in Setup first");return;}
+      VG_STATE.prompt=prompt;
+      vgSwitchTab("create");
+      setTimeout(runVGPipeline,100);
+    };
+    vgBody.appendChild(genBtn);
+  }
+
+  // ── CREATE TAB (pipeline) ─────────────────────────────────────────────────
+  var vgStepEls={};
+  var vgProgressFill,vgProgressLabel,vgPreviewCanvas;
+
+  function renderVGCreate(){
+    var steps=[
+      {key:"plan",icon:"🤖",label:"AI Planning",desc:"Analyzing prompt, creating script & slide structure"},
+      {key:"data",icon:"📊",label:"Market Data",desc:"Enriching with live Dubai property data"},
+      {key:"images",icon:"🖼",label:"Gathering Visuals",desc:"Finding the perfect images for each slide"},
+      {key:"brand",icon:"✦",label:"Applying Brand",desc:"Adding watermark, tone & brand elements"},
+      {key:"music",icon:"🎵",label:"Music & Audio",desc:"Composing background music"},
+      {key:"render",icon:"🎬",label:"Rendering Video",desc:"Compositing all elements frame by frame"},
+      {key:"voice",icon:"🎤",label:"Voiceover",desc:"Generating professional voiceover narration"}
+    ];
+
+    vgBody.appendChild(div({color:"#8899AA",fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"16px",textAlign:"center"},"Creating your world-class video..."));
+
+    var pBarWrap=div({marginBottom:"20px"});
+    var pBarOuter=div({width:"100%",height:"6px",background:"#1A1F2E",borderRadius:"3px",overflow:"hidden"});
+    vgProgressFill=div({width:"0%",height:"100%",background:"linear-gradient(90deg,#C9A84C,#F59E0B)",borderRadius:"3px",transition:"width 0.4s ease"});
+    pBarOuter.appendChild(vgProgressFill);
+    pBarWrap.appendChild(pBarOuter);
+    vgProgressLabel=div({color:"#C9A84C",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",marginTop:"8px",textAlign:"center"});
+    pBarWrap.appendChild(vgProgressLabel);
+    vgBody.appendChild(pBarWrap);
+
+    var stepsGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"16px"});
+    steps.forEach(function(s){
+      var row=div({background:"rgba(255,255,255,0.02)",border:"1px solid #1A1F2E",borderRadius:"10px",padding:"10px 12px",display:"flex",alignItems:"flex-start",gap:"10px"});
+      var dot=div({width:"8px",height:"8px",borderRadius:"50%",background:"#2A3040",flexShrink:"0",marginTop:"3px",transition:"background 0.3s"});
+      var txt=div({flex:"1"});
+      txt.appendChild(div({color:"#C0C8D8",fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace"},s.icon+" "+s.label));
+      txt.appendChild(div({color:"#556677",fontSize:"9px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},s.desc));
+      row.appendChild(dot);row.appendChild(txt);
+      vgStepEls[s.key]={row:row,dot:dot};
+      stepsGrid.appendChild(row);
+    });
+    vgBody.appendChild(stepsGrid);
+
+    var canvasWrap=div({textAlign:"center",marginBottom:"12px",display:"none"});
+    vgPreviewCanvas=el("canvas",{style:{maxWidth:"200px",maxHeight:"200px",borderRadius:"10px",border:"1px solid #2A3040"}});
+    canvasWrap.appendChild(vgPreviewCanvas);
+    vgBody.appendChild(canvasWrap);
+    vgPreviewCanvas._wrap=canvasWrap;
+  }
+
+  function vgSetStep(key,state){
+    var s=vgStepEls[key];if(!s)return;
+    var colors={pending:"#2A3040",active:"#F59E0B",done:"#10B981",error:"#EF4444"};
+    s.dot.style.background=colors[state]||"#2A3040";
+    s.dot.style.boxShadow=state==="active"?"0 0 6px #F59E0B":state==="done"?"0 0 4px #10B981":"none";
+    s.row.style.borderColor=state==="active"?"rgba(245,158,11,0.4)":state==="done"?"rgba(16,185,129,0.3)":"#1A1F2E";
+    s.row.style.background=state==="active"?"rgba(245,158,11,0.05)":state==="done"?"rgba(16,185,129,0.04)":"rgba(255,255,255,0.02)";
+  }
+
+  function vgProgress(pct,label){
+    if(vgProgressFill)vgProgressFill.style.width=pct+"%";
+    if(vgProgressLabel)vgProgressLabel.textContent=label||"";
+  }
+
+  // ── PIPELINE RUNNER ────────────────────────────────────────────────────────
+  async function runVGPipeline(){
     try{
-      // Step 1: Parse prompt with AI
-      progressLabel.textContent="AI planning your video...";progressFill.style.width="5%";
-      var plan=await parseVideoPromptAI(prompt);
-      if(!plan||!plan.slides){throw new Error("AI could not create video plan");}
+      var prompt=VG_STATE.prompt;
+      var plat=VG_PLATFORMS[VG_STATE.platform]||VG_PLATFORMS.reel;
+      var langNote=VG_STATE.language!=="en"?"Generate all text (captions, voiceover) in "+LANGUAGES[VG_STATE.language]+". ":"";
+      var hookNote=VG_STATE.hookType?("Hook style: "+HOOK_TYPES[VG_STATE.hookType].label+" — "+HOOK_TYPES[VG_STATE.hookType].desc+". "):"";
+      var fullPrompt=langNote+hookNote+prompt;
+
+      // Step 1: Plan
+      vgSetStep("plan","active");vgProgress(5,"AI planning your video...");
+      var plan=await parseVideoPromptAI(fullPrompt);
+      if(!plan||!plan.slides)throw new Error("AI could not create video plan");
+      VG_STATE.plan=plan;
+      vgSetStep("plan","done");
 
       // Step 2: Enrich with DB data
-      progressLabel.textContent="Loading real market data...";progressFill.style.width="10%";
+      vgSetStep("data","active");vgProgress(15,"Loading real market data...");
       plan=enrichPlanWithDB(plan);
+      vgSetStep("data","done");
 
       // Step 3: Gather images
-      progressLabel.textContent="Finding "+plan.slides.length+" images...";progressFill.style.width="15%";
+      vgSetStep("images","active");vgProgress(22,"Finding "+plan.slides.length+" visuals...");
       await gatherVideoImages(plan);
 
-      // Step 4: Load user photos
+      // Load user photos
       var userImgs=[];
-      if(userPhotoFiles.length>0){
-        progressLabel.textContent="Loading your photos...";progressFill.style.width="18%";
-        for(var ui=0;ui<userPhotoFiles.length;ui++){
-          var url=URL.createObjectURL(userPhotoFiles[ui]);
-          var im=await loadImg(url);
-          if(im)userImgs.push(im);
+      for(var ui=0;ui<userPhotoFiles.length;ui++){
+        var uimg=await loadImg(URL.createObjectURL(userPhotoFiles[ui]));
+        if(uimg)userImgs.push(uimg);
+      }
+      // Load floor plans as slides
+      for(var fi=0;fi<floorPlanFiles.length;fi++){
+        var fpImg=await loadImg(URL.createObjectURL(floorPlanFiles[fi]));
+        if(fpImg){
+          var fpSlide={type:"floorplan",text:"Floor Plan",_fpImg:fpImg};
+          plan.slides.splice(Math.min(plan.slides.length-1,Math.round(plan.slides.length*0.6)+fi),0,fpSlide);
         }
       }
-
-      // Step 4b: Load floor plans → insert as slides
-      if(floorPlanFiles.length>0){
-        progressLabel.textContent="Loading floor plans...";progressFill.style.width="19%";
-        for(var fi=0;fi<floorPlanFiles.length;fi++){
-          var fpUrl=URL.createObjectURL(floorPlanFiles[fi]);
-          var fpImg=await loadImg(fpUrl);
-          if(fpImg){
-            var fpSlide={type:"floorplan",text:"Floor Plan",_fpImg:fpImg};
-            var insertAt=Math.min(plan.slides.length-1,Math.round(plan.slides.length*0.6)+fi);
-            plan.slides.splice(insertAt,0,fpSlide);
-          }
-        }
-      }
-
-      // Step 4c: Load user videos → insert as slides
+      // Load user videos as slides
       var userVids=[];
-      if(userVideoFiles.length>0){
-        progressLabel.textContent="Loading your videos...";progressFill.style.width="20%";
-        for(var vi=0;vi<userVideoFiles.length;vi++){
-          var vUrl=URL.createObjectURL(userVideoFiles[vi]);
-          var vEl=document.createElement("video");
-          vEl.src=vUrl;vEl.muted=true;vEl.playsInline=true;
-          await new Promise(function(r){vEl.onloadedmetadata=r;vEl.onerror=r;});
-          if(vEl.duration>0){
-            userVids.push(vEl);
-            var vidSlide={type:"user_video",text:"",_vidEl:vEl,_vidDur:Math.min(vEl.duration,10)};
-            var vInsert=Math.min(plan.slides.length-1,Math.round(plan.slides.length*0.4)+vi);
-            plan.slides.splice(vInsert,0,vidSlide);
-          }
+      for(var vi=0;vi<userVideoFiles.length;vi++){
+        var vEl=document.createElement("video");
+        vEl.src=URL.createObjectURL(userVideoFiles[vi]);vEl.muted=true;vEl.playsInline=true;
+        await new Promise(function(r){vEl.onloadedmetadata=r;vEl.onerror=r;});
+        if(vEl.duration>0){
+          userVids.push(vEl);
+          var vidSlide={type:"user_video",text:"",_vidEl:vEl,_vidDur:Math.min(vEl.duration,10)};
+          plan.slides.splice(Math.min(plan.slides.length-1,Math.round(plan.slides.length*0.4)+vi),0,vidSlide);
         }
       }
-
-      // Step 4d: Location → insert map slide
-      if(locationText){
-        var mapSlide={type:"map",text:locationText,_location:locationText};
-        plan.slides.splice(Math.max(1,plan.slides.length-2),0,mapSlide);
-      }
-
-      // Recalculate duration for new slides
+      if(VG_STATE.locationText)plan.slides.splice(Math.max(1,plan.slides.length-2),0,{type:"map",text:VG_STATE.locationText,_location:VG_STATE.locationText});
       plan.duration=Math.max(plan.duration||30,plan.slides.length*3.5);
+      vgSetStep("images","done");
 
-      // Step 5: Set canvas size
-      var dims=formatSel.value.split("x");
-      var cW=parseInt(dims[0]);var cH=parseInt(dims[1]);
-      previewCanvas.width=cW;previewCanvas.height=cH;
-      previewWrap.style.display="block";
-      var pCtx=previewCanvas.getContext("2d");
+      // Step 4: Brand
+      vgSetStep("brand","active");vgProgress(32,"Applying brand identity...");
+      await new Promise(function(r){setTimeout(r,200);});
+      vgSetStep("brand","done");
 
-      // Step 5b: Prepare music audio
-      var musicCtx=null;var musicSource=null;var musicDest=null;
-      var musicType=musicSelect.value;
-      if(musicType!=="none"){
+      // Step 5: Music
+      vgSetStep("music","active");vgProgress(38,"Composing background music...");
+      var musicCtx=null,musicDest=null;
+      var mType=VG_STATE.musicType;
+      if(mType!=="none"){
         try{
           musicCtx=new(window.AudioContext||window.webkitAudioContext)();
           musicDest=musicCtx.createMediaStreamDestination();
-          if(musicType==="custom"&&musicFile){
-            var abuf=await musicFile.arrayBuffer();
-            var audioBuf=await musicCtx.decodeAudioData(abuf);
-            musicSource=musicCtx.createBufferSource();
-            musicSource.buffer=audioBuf;musicSource.loop=true;
-            var gain=musicCtx.createGain();gain.gain.value=0.15;
-            musicSource.connect(gain);gain.connect(musicDest);
-            musicSource.start();
+          if(mType==="custom"&&musicFileRef){
+            var abuf=await musicFileRef.arrayBuffer();
+            var aBuf=await musicCtx.decodeAudioData(abuf);
+            var mSrc=musicCtx.createBufferSource();mSrc.buffer=aBuf;mSrc.loop=true;
+            var mGain=musicCtx.createGain();mGain.gain.value=0.15;
+            mSrc.connect(mGain);mGain.connect(musicDest);mSrc.start();
           }else{
-            var presets={
+            var mPresets={
               ambient:{notes:[261.6,329.6,392,523.3],pad:true,vol:0.025,lfoRate:0.15,detune:6},
               upbeat:{notes:[329.6,392,493.9,659.3],pad:false,vol:0.02,lfoRate:0.6,detune:3},
               luxury:{notes:[220,277.2,329.6,440],pad:true,vol:0.022,lfoRate:0.1,detune:8},
               chill:{notes:[196,261.6,293.7,392],pad:true,vol:0.02,lfoRate:0.2,detune:5},
               dramatic:{notes:[146.8,220,293.7,440],pad:false,vol:0.018,lfoRate:0.4,detune:4}
             };
-            var preset=presets[musicType]||presets.ambient;
-            var masterGain=musicCtx.createGain();masterGain.gain.value=preset.vol;
-            masterGain.connect(musicDest);
-            preset.notes.forEach(function(freq,ni){
-              var o1=musicCtx.createOscillator();o1.type="sine";o1.frequency.value=freq;
-              o1.detune.value=preset.detune;
+            var mPr=mPresets[mType]||mPresets.luxury;
+            var mMaster=musicCtx.createGain();mMaster.gain.value=mPr.vol;mMaster.connect(musicDest);
+            mPr.notes.forEach(function(freq,ni){
+              var o1=musicCtx.createOscillator();o1.type="sine";o1.frequency.value=freq;o1.detune.value=mPr.detune;
               var o2=musicCtx.createOscillator();o2.type="triangle";o2.frequency.value=freq*1.002;
-              var oGain=musicCtx.createGain();oGain.gain.value=ni===0?1:0.6;
-              var lfo=musicCtx.createOscillator();lfo.type="sine";lfo.frequency.value=preset.lfoRate+ni*0.05;
-              var lfoG=musicCtx.createGain();lfoG.gain.value=preset.pad?freq*0.02:freq*0.01;
+              var oG=musicCtx.createGain();oG.gain.value=ni===0?1:0.6;
+              var lfo=musicCtx.createOscillator();lfo.type="sine";lfo.frequency.value=mPr.lfoRate+ni*0.05;
+              var lfoG=musicCtx.createGain();lfoG.gain.value=mPr.pad?freq*0.02:freq*0.01;
               lfo.connect(lfoG);lfoG.connect(o1.frequency);lfo.start();
-              o1.connect(oGain);o2.connect(oGain);oGain.connect(masterGain);
-              o1.start();o2.start();
+              o1.connect(oG);o2.connect(oG);oG.connect(mMaster);o1.start();o2.start();
             });
-            var subOsc=musicCtx.createOscillator();subOsc.type="sine";
-            subOsc.frequency.value=preset.notes[0]/2;
-            var subGain=musicCtx.createGain();subGain.gain.value=0.4;
-            subOsc.connect(subGain);subGain.connect(masterGain);subOsc.start();
+            var sub=musicCtx.createOscillator();sub.type="sine";sub.frequency.value=mPr.notes[0]/2;
+            var subG=musicCtx.createGain();subG.gain.value=0.4;sub.connect(subG);subG.connect(mMaster);sub.start();
           }
-        }catch(me){musicCtx=null;}
+        }catch(me){musicCtx=null;musicDest=null;}
       }
+      vgSetStep("music","done");
 
-      // Step 6: Render frames
-      progressLabel.textContent="Rendering video...";progressFill.style.width="25%";
-      var blob=await renderVideoFrames(previewCanvas,pCtx,plan,function(pct){
-        var total=25+pct*0.65;
-        progressFill.style.width=total+"%";
-        progressLabel.textContent="Rendering... "+pct+"%";
+      // Step 6: Render
+      vgSetStep("render","active");vgProgress(45,"Rendering video...");
+      var cW=plat.w,cH=plat.h;
+      vgPreviewCanvas.width=cW;vgPreviewCanvas.height=cH;
+      if(vgPreviewCanvas._wrap)vgPreviewCanvas._wrap.style.display="block";
+      var pCtx=vgPreviewCanvas.getContext("2d");
+      var blob=await renderVideoFrames(vgPreviewCanvas,pCtx,plan,function(pct){
+        vgProgress(45+pct*0.45,"Rendering... "+pct+"%");
       },userImgs,musicDest);
-
       if(musicCtx){try{musicCtx.close();}catch(e){}}
       userVids.forEach(function(v){try{v.pause();v.src="";}catch(e){}});
+      vgSetStep("render","done");
 
-      progressFill.style.width="95%";
-      progressLabel.textContent="Video ready!";
-
-      // Step 7: Voiceover (ElevenLabs or Web Speech)
+      // Step 7: Voiceover
+      vgSetStep("voice","active");vgProgress(92,"Generating voiceover...");
       var voAudio=null;
-      if(voiceCheck.checked&&plan.voiceover&&plan.voiceover.length>0){
-        progressLabel.textContent="Generating voiceover...";
+      if(plan.voiceover&&plan.voiceover.length>0){
         try{voAudio=await speakVoiceoverEL(plan.voiceover,3);}catch(e){}
       }
+      vgSetStep("voice","done");
 
-      // Step 8: Show results
-      progressFill.style.width="100%";
-      resultArea.style.display="block";resultArea.innerHTML="";
+      vgProgress(100,"Video ready!");
+      VG_STATE.resultBlob=blob;
+      VG_STATE.resultUrl=URL.createObjectURL(blob);
+      VG_STATE.plan=plan;
+      VG_STATE._voAudio=voAudio;
 
-      var videoUrl=URL.createObjectURL(blob);
-      var videoEl=el("video",{style:{width:"100%",maxHeight:"300px",borderRadius:"10px",marginBottom:"10px"},controls:true,src:videoUrl});
-      if(voAudio){
-        videoEl.onplay=function(){voAudio.currentTime=0;voAudio.play();};
-        videoEl.onpause=function(){voAudio.pause();};
-        videoEl.onseeked=function(){voAudio.currentTime=videoEl.currentTime;};
-      }
-      resultArea.appendChild(videoEl);
-
-      // Caption display
-      if(plan.caption){
-        var capBox=div({background:"#0D1117",borderRadius:"8px",padding:"10px",marginBottom:"8px"});
-        capBox.appendChild(el("div",{style:{color:"#C9A84C",fontSize:"10px",fontWeight:"700",marginBottom:"4px"}},"Caption:"));
-        var capText=el("div",{style:{color:"#E0E0E0",fontSize:"11px",fontFamily:"'Inter',sans-serif",whiteSpace:"pre-wrap"}});
-        capText.textContent=plan.caption;capBox.appendChild(capText);
-        resultArea.appendChild(capBox);
-      }
-
-      // Action buttons
-      var actRow=div({display:"flex",gap:"6px",flexWrap:"wrap"});
-      var isMP4=blob.type.indexOf("mp4")!==-1;
-      var vidExt=isMP4?"mp4":"webm";
-      var dlBtn=el("button",{style:{flex:1,background:"#10B981",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
-        var a=document.createElement("a");a.href=videoUrl;a.download="dubaival-video."+vidExt;a.click();
-      }});
-      dlBtn.textContent="Download "+(isMP4?"MP4":"WebM");actRow.appendChild(dlBtn);
-
-      var shareBtn=el("button",{style:{flex:1,background:"#3B82F6",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
-        showShareModal({text:plan.caption||"",file:blob,fileName:"dubaival-video."+vidExt,fileType:blob.type,title:"DubAIVal Video"});
-      }});
-      shareBtn.textContent="Share";actRow.appendChild(shareBtn);
-
-      if(voiceCheck.checked&&plan.voiceover){
-        var voBtn=el("button",{style:{flex:1,background:"#8B5CF6",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
-          videoEl.currentTime=0;videoEl.play();
-          speakVoiceover(plan.voiceover,plan.duration/plan.slides.length);
-        }});
-        voBtn.textContent="Play + Voice";actRow.appendChild(voBtn);
-      }
-
-      if(plan.caption){
-        var cpBtn=el("button",{style:{flex:1,background:"#F97316",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
-          navigator.clipboard.writeText(plan.caption).then(function(){cpBtn.textContent="Copied";setTimeout(function(){cpBtn.textContent="Caption";},2000);});
-        }});
-        cpBtn.textContent="Caption";actRow.appendChild(cpBtn);
-      }
-      resultArea.appendChild(actRow);
-
-      genBtn.textContent="Generate Another";genBtn.disabled=false;
+      setTimeout(function(){vgSwitchTab("results");},800);
     }catch(err){
-      progressLabel.textContent="Error: "+err.message;
-      genBtn.textContent="Generate Video";genBtn.disabled=false;
+      vgProgress(0,"Error: "+err.message);
+      Object.keys(vgStepEls).forEach(function(k){if(vgStepEls[k].dot.style.background==="#F59E0B")vgSetStep(k,"error");});
+      var retryBtn=el("button",{style:{width:"100%",background:"#2A3040",color:"#E0E0E0",border:"none",borderRadius:"10px",padding:"12px",fontSize:"12px",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginTop:"12px"}});
+      retryBtn.textContent="← Back to Setup";
+      retryBtn.onclick=function(){vgSwitchTab("setup");};
+      vgBody.appendChild(retryBtn);
     }
-  }});
-  genBtn.textContent="Generate Video";
-  card.appendChild(genBtn);
+  }
 
-  // Close
-  var closeBtn=el("button",{style:{width:"100%",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"10px",padding:"10px",fontSize:"12px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}});
-  closeBtn.textContent="Close";
-  card.appendChild(closeBtn);
+  // ── RESULTS TAB ───────────────────────────────────────────────────────────
+  function renderVGResults(){
+    if(!VG_STATE.resultBlob){
+      vgBody.appendChild(div({color:"#8899AA",fontSize:"13px",textAlign:"center",padding:"40px 0"},"No video yet — go to Setup to generate one."));
+      var backBtn2=el("button",{style:{display:"block",margin:"16px auto",background:"#C9A84C",color:"#000",border:"none",borderRadius:"10px",padding:"12px 28px",fontSize:"12px",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+      backBtn2.textContent="← Back to Setup";backBtn2.onclick=function(){vgSwitchTab("setup");};
+      vgBody.appendChild(backBtn2);
+      return;
+    }
+    var plan=VG_STATE.plan||{};
+    var blob=VG_STATE.resultBlob;
+    var voAudio=VG_STATE._voAudio;
+    var isMP4=blob.type.indexOf("mp4")!==-1;
+    var vidExt=isMP4?"mp4":"webm";
+
+    // Video player
+    var videoEl=el("video",{style:{width:"100%",maxHeight:"360px",borderRadius:"12px",marginBottom:"14px",background:"#000"},controls:true,src:VG_STATE.resultUrl});
+    if(voAudio){
+      videoEl.onplay=function(){voAudio.currentTime=0;voAudio.play();};
+      videoEl.onpause=function(){voAudio.pause();};
+      videoEl.onseeked=function(){voAudio.currentTime=videoEl.currentTime;};
+    }
+    vgBody.appendChild(videoEl);
+
+    // Stats row
+    var plat=VG_PLATFORMS[VG_STATE.platform]||VG_PLATFORMS.reel;
+    var statsRow=div({display:"flex",gap:"8px",marginBottom:"14px",flexWrap:"wrap"});
+    [[plat.icon,plat.label],["📐",plat.w+"×"+plat.h],["🎬",(plan.slides||[]).length+" slides"],["🌐",LANGUAGES[VG_STATE.language]||"English"]].forEach(function(s){
+      var chip=div({background:"rgba(255,255,255,0.04)",border:"1px solid #2A3040",borderRadius:"8px",padding:"5px 10px",color:"#C0C8D8",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"});
+      chip.textContent=s[0]+" "+s[1];statsRow.appendChild(chip);
+    });
+    vgBody.appendChild(statsRow);
+
+    // Caption box
+    if(plan.caption){
+      var capBox=div({background:"rgba(255,255,255,0.03)",border:"1px solid #2A3040",borderRadius:"10px",padding:"12px",marginBottom:"14px"});
+      capBox.appendChild(div({color:"#C9A84C",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"CAPTION"));
+      var capTxt=el("div",{style:{color:"#E0E0E0",fontSize:"11px",fontFamily:"'Inter',sans-serif",whiteSpace:"pre-wrap",lineHeight:"1.5"}});
+      capTxt.textContent=plan.caption;capBox.appendChild(capTxt);
+      vgBody.appendChild(capBox);
+    }
+
+    // Action buttons
+    var actGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"10px"});
+
+    var dlBtn=el("button",{style:{background:"#10B981",color:"#FFF",border:"none",borderRadius:"10px",padding:"12px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+    dlBtn.textContent="⬇ Download "+vidExt.toUpperCase();
+    dlBtn.onclick=function(){var a=document.createElement("a");a.href=VG_STATE.resultUrl;a.download="dubaival-video."+vidExt;a.click();};
+    actGrid.appendChild(dlBtn);
+
+    var shareBtn2=el("button",{style:{background:"#3B82F6",color:"#FFF",border:"none",borderRadius:"10px",padding:"12px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+    shareBtn2.textContent="↗ Share";
+    shareBtn2.onclick=function(){showShareModal({text:plan.caption||"",file:blob,fileName:"dubaival-video."+vidExt,fileType:blob.type,title:"DubAIVal Video"});};
+    actGrid.appendChild(shareBtn2);
+
+    if(plan.caption){
+      var cpBtn2=el("button",{style:{background:"#F97316",color:"#FFF",border:"none",borderRadius:"10px",padding:"12px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+      cpBtn2.textContent="📋 Copy Caption";
+      cpBtn2.onclick=function(){navigator.clipboard.writeText(plan.caption).then(function(){cpBtn2.textContent="✓ Copied!";setTimeout(function(){cpBtn2.textContent="📋 Copy Caption";},2000);});};
+      actGrid.appendChild(cpBtn2);
+    }
+
+    if(voAudio){
+      var voBtn2=el("button",{style:{background:"#8B5CF6",color:"#FFF",border:"none",borderRadius:"10px",padding:"12px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+      voBtn2.textContent="🎤 Play + Voice";
+      voBtn2.onclick=function(){videoEl.currentTime=0;videoEl.play();};
+      actGrid.appendChild(voBtn2);
+    }
+    vgBody.appendChild(actGrid);
+
+    // Schedule button
+    var schedBtn=el("button",{style:{width:"100%",background:"rgba(201,168,76,0.08)",border:"1px solid rgba(201,168,76,0.3)",color:"#C9A84C",borderRadius:"10px",padding:"10px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"}});
+    schedBtn.textContent="📅 Schedule Post to Content Calendar";
+    schedBtn.onclick=function(){
+      if(typeof showAddCalendarEvent==="function")showAddCalendarEvent(plan.caption||"Video post — "+plat.label);
+      else alert("Open Content Calendar to schedule this post.");
+    };
+    vgBody.appendChild(schedBtn);
+
+    // Re-generate / export for different platform
+    var makeNewBtn=el("button",{style:{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid #2A3040",color:"#8899AA",borderRadius:"10px",padding:"10px",fontSize:"11px",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+    makeNewBtn.textContent="🔄 Generate Another Video";
+    makeNewBtn.onclick=function(){VG_STATE.template=null;vgSwitchTab("setup");};
+    vgBody.appendChild(makeNewBtn);
+  }
+
+  // helper: hex to rgb string for rgba()
+  function hexToRgb(hex){
+    var r=0,g=0,b=0;
+    if(hex.length===7){r=parseInt(hex.slice(1,3),16);g=parseInt(hex.slice(3,5),16);b=parseInt(hex.slice(5,7),16);}
+    return r+","+g+","+b;
+  }
+
+  vgSwitchTab("setup");
 
   overlay.appendChild(card);
-  overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
+  overlay.addEventListener("click",function(e){if(e.target===overlay){if(VG_STATE.resultUrl)URL.revokeObjectURL(VG_STATE.resultUrl);overlay.remove();}});
   document.body.appendChild(overlay);
 }
 
