@@ -1,4 +1,4 @@
-var CACHE_NAME='dubaival-v3';
+var CACHE_NAME='dubaival-v4';
 var PRECACHE=[
   '/',
   '/index.html',
