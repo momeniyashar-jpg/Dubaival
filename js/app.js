@@ -1880,8 +1880,8 @@ function render(preserveScroll){
     else if(currentSubTab==="Chat")content.appendChild(renderChat());
     else content.appendChild(renderDeals());
   } else if(currentSection==="SocialMedia"){
-    if(currentSubTab==="Studio"&&typeof renderMediaStudio==="function")content.appendChild(renderMediaStudio());
-    else if(currentSubTab==="Avatar"&&typeof renderMediaStudio==="function")content.appendChild(renderMediaStudio());
+    if(currentSubTab==="Studio"&&typeof renderMediaStudio==="function")content.appendChild(renderMediaStudio("studio"));
+    else if(currentSubTab==="Avatar"&&typeof renderMediaStudio==="function")content.appendChild(renderMediaStudio("avatar"));
     else if(currentSubTab==="VideoPlatform")content.appendChild(renderSocial());
     else if(currentSubTab==="SocialChat")content.appendChild(renderChat());
     else if(typeof renderMediaStudio==="function")content.appendChild(renderMediaStudio());
