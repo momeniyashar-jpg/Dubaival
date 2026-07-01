@@ -1250,6 +1250,9 @@ function showVideoEditor(){
       capBox.appendChild(capTxt);
       container.appendChild(capBox);
     }
+
+    // Unified publish bar — same flow as Chat tab
+    showVideoPublishBar(blob,captionText||"",container);
   }
 
   // ── TAB RENDERERS ─────────────────────────────────────────────────────────
@@ -3158,17 +3161,11 @@ function showVideoGenUI(initialPrompt){
     }
     vgBody.appendChild(actGrid);
 
-    // Schedule button
-    var schedBtn=el("button",{style:{width:"100%",background:"rgba(201,168,76,0.08)",border:"1px solid rgba(201,168,76,0.3)",color:"#C9A84C",borderRadius:"10px",padding:"10px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"}});
-    schedBtn.textContent="📅 Schedule Post to Content Calendar";
-    schedBtn.onclick=function(){
-      if(typeof showAddCalendarEvent==="function")showAddCalendarEvent(plan.caption||"Video post — "+plat.label);
-      else alert("Open Content Calendar to schedule this post.");
-    };
-    vgBody.appendChild(schedBtn);
+    // Unified publish bar — same flow as Chat tab
+    showVideoPublishBar(blob,plan.caption||"",vgBody);
 
-    // Re-generate / export for different platform
-    var makeNewBtn=el("button",{style:{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid #2A3040",color:"#8899AA",borderRadius:"10px",padding:"10px",fontSize:"11px",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+    // Re-generate button
+    var makeNewBtn=el("button",{style:{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid #2A3040",color:"#8899AA",borderRadius:"10px",padding:"10px",fontSize:"11px",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginTop:"8px"}});
     makeNewBtn.textContent="🔄 Generate Another Video";
     makeNewBtn.onclick=function(){VG_STATE.template=null;vgSwitchTab("setup");};
     vgBody.appendChild(makeNewBtn);
@@ -3331,6 +3328,107 @@ async function uploadToPublicHost(blob){
     if(d&&d[0]&&d[0].src)return "https://telegra.ph"+d[0].src;
   }catch(e){console.log("Upload error:",e);}
   return null;
+}
+
+async function uploadVideoToPublicHost(blob){
+  try{
+    var ext=blob.type.indexOf("mp4")!==-1?"mp4":"webm";
+    var fd=new FormData();
+    fd.append("file",blob,"video."+ext);
+    var r=await fetch("https://telegra.ph/upload",{method:"POST",body:fd});
+    var d=await r.json();
+    if(d&&d[0]&&d[0].src)return "https://telegra.ph"+d[0].src;
+  }catch(e){}
+  return null;
+}
+
+// Shared publish bar — appears after every video tool output (Video Studio, Video Editor)
+function showVideoPublishBar(blob,caption,container){
+  var urlCache=null;
+  var section=div({background:"rgba(255,255,255,0.02)",border:"1px solid #2A3040",borderRadius:"12px",padding:"14px",marginTop:"12px"});
+  section.appendChild(div({color:"#C9A84C",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"10px"},"📲 PUBLISH TO SOCIAL MEDIA"));
+  var statusEl=div({color:"#8899AA",fontSize:"10px",fontFamily:"'Inter',sans-serif",marginBottom:"10px"});
+  statusEl.textContent="Select a platform — video uploads automatically then posts";
+  section.appendChild(statusEl);
+
+  var manualUrlInp=el("input",{style:{width:"100%",background:"#0D1117",border:"1px solid #EF4444",borderRadius:"8px",padding:"7px 10px",color:"#E0E0E0",fontSize:"11px",fontFamily:"monospace",boxSizing:"border-box",display:"none",marginBottom:"8px"},placeholder:"Paste a public video URL (mp4)..."});
+  section.appendChild(manualUrlInp);
+
+  var PLATS=[
+    {key:"ig_reel",label:"IG Reel",icon:"📱",color:"#E1306C",
+      fn:async function(u){return await publishInstagramReel(caption,u);}},
+    {key:"ig_story",label:"IG Story",icon:"⭕",color:"#C13584",
+      fn:async function(u){return await publishInstagramVideoStory(u);}},
+    {key:"tiktok",label:"TikTok",icon:"🎵",color:"#FF0050",
+      fn:async function(u){return await publishToTikTok(caption,u);}},
+    {key:"facebook",label:"Facebook",icon:"👍",color:"#1877F2",
+      fn:async function(u){return await publishToFacebook(caption,[u]);}},
+    {key:"twitter",label:"X / Twitter",icon:"𝕏",color:"#14171A",
+      fn:async function(u){return await publishToTwitter(caption.substring(0,280),u);}}
+  ];
+
+  var btnRow=div({display:"flex",gap:"6px",flexWrap:"wrap"});
+  PLATS.forEach(function(p){
+    var btn=el("button",{style:{background:"rgba(255,255,255,0.03)",border:"1px solid #2A3040",color:"#C0C8D8",borderRadius:"8px",padding:"8px 12px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",transition:"all 0.15s"}});
+    btn.textContent=p.icon+" "+p.label;
+    btn.onmouseenter=function(){if(!btn.disabled){btn.style.borderColor=p.color;btn.style.color=p.color;}};
+    btn.onmouseleave=function(){if(!btn.disabled){btn.style.borderColor="#2A3040";btn.style.color="#C0C8D8";}};
+    btn.onclick=async function(){
+      if(btn.disabled)return;
+      btn.disabled=true;
+      // Get public URL (upload once, reuse for all platforms)
+      if(!urlCache&&!(manualUrlInp.value.trim())){
+        statusEl.textContent="⬆ Uploading video to get public URL...";
+        statusEl.style.color="#F59E0B";
+        urlCache=await uploadVideoToPublicHost(blob);
+        if(!urlCache){
+          // fallback: ask for manual URL
+          manualUrlInp.style.display="block";
+          statusEl.textContent="Auto-upload failed. Paste a public video URL above then click again.";
+          statusEl.style.color="#EF4444";
+          btn.disabled=false;
+          return;
+        }
+      }
+      var videoUrl=urlCache||manualUrlInp.value.trim();
+      if(!videoUrl){statusEl.textContent="Paste a public video URL above first.";statusEl.style.color="#EF4444";btn.disabled=false;return;}
+      statusEl.textContent="📤 Publishing to "+p.label+"...";
+      statusEl.style.color="#C9A84C";
+      try{
+        var result=await p.fn(videoUrl);
+        if(result&&result.success){
+          btn.textContent="✓ "+p.label;
+          btn.style.background="rgba(16,185,129,0.15)";
+          btn.style.borderColor="#10B981";
+          btn.style.color="#10B981";
+          statusEl.textContent="Posted to "+p.label+" successfully!";
+          statusEl.style.color="#10B981";
+          savePostToHistory({caption:caption,platform:p.key,type:"video"});
+        }else{
+          btn.style.color="#EF4444";
+          statusEl.textContent="Error: "+(result&&result.error?result.error:"Unknown error. Check Social Setup credentials.");
+          statusEl.style.color="#EF4444";
+          setTimeout(function(){btn.textContent=p.icon+" "+p.label;btn.style.color="#C0C8D8";btn.style.borderColor="#2A3040";btn.disabled=false;},3000);
+        }
+      }catch(e){
+        statusEl.textContent="Error: "+e.message;statusEl.style.color="#EF4444";
+        btn.style.color="#EF4444";
+        setTimeout(function(){btn.textContent=p.icon+" "+p.label;btn.style.color="#C0C8D8";btn.style.borderColor="#2A3040";btn.disabled=false;},3000);
+      }
+    };
+    btnRow.appendChild(btn);
+  });
+  section.appendChild(btnRow);
+
+  // Schedule option
+  var schedRow=div({marginTop:"10px",paddingTop:"10px",borderTop:"1px solid #1A1F2E"});
+  var schedBtn2=el("button",{style:{background:"transparent",border:"none",color:"#8899AA",fontSize:"10px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"0"}});
+  schedBtn2.textContent="📅 Schedule instead of posting now";
+  schedBtn2.onclick=function(){if(typeof showAddCalendarEvent==="function")showAddCalendarEvent(caption||"Video post");};
+  schedRow.appendChild(schedBtn2);
+  section.appendChild(schedRow);
+
+  container.appendChild(section);
 }
 
 async function generateGeminiImage(query){
