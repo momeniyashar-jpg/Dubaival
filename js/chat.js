@@ -7337,6 +7337,21 @@ async function sendChat(text){
 // --- MEDIA STUDIO (clean user-facing view — AI tools run silently in background) ---
 function renderMediaStudio(mode){
   var cl=C();
+  if(typeof DV_AUTH==="undefined"||!DV_AUTH.user){
+    var gate=el("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"55vh",gap:"18px",padding:"40px 20px",textAlign:"center"}});
+    gate.appendChild(div({fontSize:"36px"},"🔒"));
+    gate.appendChild(div({color:"#F0F2F5",fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"Sign In Required"));
+    gate.appendChild(div({color:"#8899AA",fontSize:"13px",fontFamily:"'Inter',sans-serif",maxWidth:"320px",lineHeight:"1.6"},"Social Media Manager is available to registered members only. Sign in to access all content creation and scheduling tools."));
+    var signInBtn=el("button",{style:{background:"linear-gradient(135deg,#D4AF37,#A07D1C)",border:"none",borderRadius:"10px",padding:"12px 36px",color:"#070B14",fontWeight:"700",fontSize:"13px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.06em"}});
+    signInBtn.textContent="SIGN IN";
+    signInBtn.addEventListener("click",function(){if(typeof DV_AUTH!=="undefined"){DV_AUTH.showModal=true;DV_AUTH.modalTab="signin";render();}});
+    gate.appendChild(signInBtn);
+    var regLink=el("button",{style:{background:"transparent",border:"none",color:"#8899AA",fontSize:"12px",fontFamily:"'Inter',sans-serif",cursor:"pointer",textDecoration:"underline"}});
+    regLink.textContent="Don't have an account? Sign up";
+    regLink.addEventListener("click",function(){if(typeof DV_AUTH!=="undefined"){DV_AUTH.showModal=true;DV_AUTH.modalTab="signup";render();}});
+    gate.appendChild(regLink);
+    return gate;
+  }
   var wrap=el("div",{style:{padding:"20px",maxWidth:"900px",margin:"0 auto",paddingBottom:"80px"}});
 
   function makeToolGrid(tools,color){
@@ -7461,12 +7476,12 @@ function renderMediaStudio(mode){
     [div({color:"#E8EDF5",fontSize:"12px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},platforms.join(" · ")),
      div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},platforms.length+" platform"+(platforms.length!==1?"s":"")+" connected")],
     "wrench","Social Setup","Platform accounts",
-    function(){setSection("More","Settings");},
+    function(){showProfilePanel=true;render();},
     function(){if(confirm("Disconnect all social accounts?")){
       ["dv_ig_token","dv_ig_id","dv_fb_id","dv_linkedin_token","dv_linkedin_urn","dv_youtube_token","dv_youtube_refresh","dv_youtube_client_id","dv_youtube_client_secret","dv_twitter_consumer_key","dv_twitter_consumer_secret","dv_twitter_access_token","dv_twitter_access_secret","dv_tiktok_token","dv_whatsapp_number"].forEach(function(k){localStorage.removeItem(k);});
       render();
     }},
-    function(){setSection("More","Settings");}
+    function(){showProfilePanel=true;render();}
   );
 
   var setupSec=el("div",{style:{marginBottom:"24px"}});

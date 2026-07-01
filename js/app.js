@@ -1613,8 +1613,62 @@ function renderHome(){
 
 function renderProfilePanel(){
   var cl=C();
-  var panel=el("div",{style:{background:cl.surface,borderBottom:"1px solid "+cl.border,padding:"16px 20px"}});
-  var pGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:"16px",maxWidth:"800px",margin:"0 auto"}});
+  var panel=el("div",{style:{background:cl.surface,borderBottom:"1px solid "+cl.border,padding:"16px 20px",maxHeight:"80vh",overflowY:"auto"}});
+  var allSocialFields=[];
+
+  function secLabel(text){
+    return div({color:"#D4AF37",fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"600",borderLeft:"3px solid #D4AF37",paddingLeft:"8px",marginBottom:"10px",marginTop:"4px"},text);
+  }
+  function inpStyle(){
+    return {width:"100%",background:"rgba(240,242,245,0.05)",border:"1px solid "+cl.border,color:"#F0F2F5",padding:"7px 10px",borderRadius:"7px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"};
+  }
+  function socialInp(key,label,ph,type){
+    var w=el("div",{style:{marginBottom:"2px"}});
+    w.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},label));
+    var inp=el("input",{type:type||"text",placeholder:ph,style:Object.assign(inpStyle(),{fontFamily:"monospace",fontSize:"11px"})});
+    inp.value=localStorage.getItem(key)||"";
+    inp.addEventListener("focus",function(){this.style.borderColor="#D4AF37";});
+    inp.addEventListener("blur",function(){this.style.borderColor=cl.border;});
+    w.appendChild(inp);
+    allSocialFields.push({key:key,inp:inp});
+    return w;
+  }
+
+  var maxW=el("div",{style:{maxWidth:"800px",margin:"0 auto"}});
+
+  // ── PERSONAL INFO ─────────────────────────────────────────────
+  maxW.appendChild(secLabel("Personal Info"));
+  var contactGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:"12px",marginBottom:"16px"}});
+
+  var nameBox=el("div",{});
+  nameBox.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"Name"));
+  var nameInp=el("input",{type:"text",placeholder:"e.g. Ahmed Al Mansouri",style:inpStyle()});
+  nameInp.value=USER_PROFILE.name||"";
+  nameInp.addEventListener("input",function(){USER_PROFILE.name=this.value;saveProfile();});
+  nameBox.appendChild(nameInp);
+  contactGrid.appendChild(nameBox);
+
+  var phoneBox=el("div",{});
+  phoneBox.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"Phone"));
+  var phoneInp=el("input",{type:"tel",placeholder:"971501234567",style:inpStyle()});
+  phoneInp.value=localStorage.getItem("dv_phone")||"";
+  phoneInp.addEventListener("blur",function(){localStorage.setItem("dv_phone",this.value);});
+  phoneBox.appendChild(phoneInp);
+  contactGrid.appendChild(phoneBox);
+
+  var waBox=el("div",{});
+  waBox.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"WhatsApp"));
+  var waInp=el("input",{type:"tel",placeholder:"971501234567",style:inpStyle()});
+  waInp.value=localStorage.getItem("dv_whatsapp_number")||"";
+  waInp.addEventListener("blur",function(){localStorage.setItem("dv_whatsapp_number",this.value);});
+  waBox.appendChild(waInp);
+  contactGrid.appendChild(waBox);
+
+  maxW.appendChild(contactGrid);
+
+  // ── INVESTOR PROFILE ──────────────────────────────────────────
+  maxW.appendChild(secLabel("Investor Profile"));
+  var pGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:"16px",marginBottom:"16px"}});
 
   var typeBox=el("div",{});
   typeBox.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Investor Type"));
@@ -1657,25 +1711,66 @@ function renderProfilePanel(){
   budgetBox.appendChild(bRow);
   pGrid.appendChild(budgetBox);
 
-  var nameBox=el("div",{});
-  nameBox.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Your Name (optional)"));
-  var nameInp=el("input",{type:"text",placeholder:"e.g. Ahmed Al Mansouri",style:{width:"100%",background:"rgba(240,242,245,0.05)",border:"1px solid "+cl.border,color:"#F0F2F5",padding:"7px 10px",borderRadius:"7px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
-  nameInp.value=USER_PROFILE.name||"";
-  nameInp.addEventListener("input",function(){USER_PROFILE.name=this.value;saveProfile();});
-  nameBox.appendChild(nameInp);
-  pGrid.appendChild(nameBox);
+  maxW.appendChild(pGrid);
 
-  panel.appendChild(pGrid);
+  // ── SOCIAL ACCOUNTS (collapsible) ─────────────────────────────
+  var socWrap=el("div",{style:{background:"rgba(240,242,245,0.02)",border:"1px solid "+cl.border,borderRadius:"10px",overflow:"hidden",marginBottom:"14px"}});
+  var socToggle=el("button",{style:{width:"100%",background:"transparent",border:"none",padding:"10px 14px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between"}});
+  socToggle.appendChild(span({style:{color:"#D4AF37",fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"600"}},"Social Accounts"));
+  var socArrow=span({style:{color:"#445566",fontSize:"11px",transition:"transform 0.2s"}},"▼");
+  socToggle.appendChild(socArrow);
 
-  var summary=el("div",{style:{display:"flex",gap:"10px",flexWrap:"wrap",marginTop:"12px",paddingTop:"10px",borderTop:"1px solid "+cl.border,maxWidth:"800px",margin:"12px auto 0"}});
+  var socBody=el("div",{style:{display:"none",padding:"14px",paddingTop:"4px"}});
+  socToggle.addEventListener("click",function(){
+    var open=socBody.style.display!=="none";
+    socBody.style.display=open?"none":"block";
+    socArrow.textContent=open?"▼":"▲";
+  });
+
+  var socGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:"10px",marginBottom:"12px"}});
+  socGrid.appendChild(socialInp("dv_ig_id","Instagram Account ID","1234567890"));
+  socGrid.appendChild(socialInp("dv_ig_token","Instagram Access Token","EAAGm...","password"));
+  socGrid.appendChild(socialInp("dv_fb_id","Facebook Page ID","pagename_or_id"));
+  socGrid.appendChild(socialInp("dv_linkedin_token","LinkedIn Access Token","AQX...","password"));
+  socGrid.appendChild(socialInp("dv_linkedin_urn","LinkedIn URN","urn:li:organization:123"));
+  socGrid.appendChild(socialInp("dv_twitter_consumer_key","X Consumer Key","API key"));
+  socGrid.appendChild(socialInp("dv_twitter_consumer_secret","X Consumer Secret","API secret","password"));
+  socGrid.appendChild(socialInp("dv_twitter_access_token","X Access Token","token","password"));
+  socGrid.appendChild(socialInp("dv_twitter_access_secret","X Access Secret","secret","password"));
+  socGrid.appendChild(socialInp("dv_tiktok_token","TikTok Token","Bearer token","password"));
+  socGrid.appendChild(socialInp("dv_youtube_client_id","YouTube Client ID","client_id.apps.google..."));
+  socGrid.appendChild(socialInp("dv_youtube_refresh","YouTube Refresh Token","refresh_token","password"));
+  socBody.appendChild(socGrid);
+
+  var saveBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#D4AF37,#A07D1C)",border:"none",borderRadius:"8px",padding:"10px",color:"#070B14",fontWeight:"700",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.06em"}});
+  saveBtn.textContent="SAVE SOCIAL ACCOUNTS";
+  saveBtn.addEventListener("click",function(){
+    allSocialFields.forEach(function(f){if(f.inp.value)localStorage.setItem(f.key,f.inp.value);else localStorage.removeItem(f.key);});
+    if(typeof _syncCredsToServer==="function")_syncCredsToServer();
+    saveBtn.textContent="✓ SAVED";
+    saveBtn.style.background="linear-gradient(135deg,#10B981,#059669)";
+    setTimeout(function(){saveBtn.textContent="SAVE SOCIAL ACCOUNTS";saveBtn.style.background="linear-gradient(135deg,#D4AF37,#A07D1C)";},2000);
+  });
+  socBody.appendChild(saveBtn);
+
+  socWrap.appendChild(socToggle);
+  socWrap.appendChild(socBody);
+  maxW.appendChild(socWrap);
+
+  // ── SUMMARY CHIPS ─────────────────────────────────────────────
+  var summary=el("div",{style:{display:"flex",gap:"10px",flexWrap:"wrap",paddingTop:"10px",borderTop:"1px solid "+cl.border}});
   var typeLabels={income:"Rental Income",growth:"Capital Growth",flip:"Flip / Resale",enduse:"End Use"};
   var riskLabels={conservative:"Conservative",moderate:"Moderate",aggressive:"Aggressive"};
-  [{l:"Type",v:typeLabels[USER_PROFILE.investorType]||"Not set"},{l:"Risk",v:riskLabels[USER_PROFILE.risk]||"Moderate"},{l:"Budget",v:USER_PROFILE.budgetMax?"Up to AED "+(USER_PROFILE.budgetMax/1000000).toFixed(1)+"M":"Not set"}].forEach(function(item){
+  var chips=[{l:"Type",v:typeLabels[USER_PROFILE.investorType]||"Not set"},{l:"Risk",v:riskLabels[USER_PROFILE.risk]||"Moderate"},{l:"Budget",v:USER_PROFILE.budgetMax?"Up to AED "+(USER_PROFILE.budgetMax/1000000).toFixed(1)+"M":"Not set"}];
+  if(USER_PROFILE.name)chips.unshift({l:"Name",v:USER_PROFILE.name});
+  chips.forEach(function(item){
     var chip=el("div",{style:{background:cl.goldFaint||"rgba(212,175,55,0.06)",border:"1px solid "+(cl.goldDim||"#8A6420"),borderRadius:"20px",padding:"3px 12px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",color:cl.gold}});
     chip.textContent=item.l+": "+item.v;
     summary.appendChild(chip);
   });
-  panel.appendChild(summary);
+  maxW.appendChild(summary);
+
+  panel.appendChild(maxW);
   return panel;
 }
 
@@ -1898,7 +1993,6 @@ function render(preserveScroll){
     else if(currentSubTab==="Reports"&&typeof renderReportBuilder==="function")content.appendChild(renderReportBuilder(el("div",{style:{padding:"20px",maxWidth:"900px",margin:"0 auto"}}),cl));
     else if(currentSubTab==="About")content.appendChild(renderAbout());
     else if(currentSubTab==="Admin")content.appendChild(renderAdmin());
-    else if(currentSubTab==="Settings"&&typeof renderSocialSettings==="function")content.appendChild(renderSocialSettings());
     else content.appendChild(renderWorkspace());
   } else {
     content.appendChild(renderHome());
