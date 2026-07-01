@@ -3,7 +3,7 @@
 
 // --- State -------------------------------------------------------------------
 var SOCIAL_STATE={
-  tab:"explore",  // explore | agents | profile | following
+  tab:"profile",  // profile | following | agents | explore
   // Explore
   videos:[],videosLoading:false,videosFetched:false,videosPage:0,videosHasMore:true,
   filter:{area:"",category:"",sort:"newest",myFeed:false},
@@ -1329,10 +1329,10 @@ function renderSocial(){
   // Sub-tab bar
   var tabBar=div({display:"flex",gap:"6px",marginBottom:"16px",overflowX:"auto",paddingBottom:"4px"});
   var tabs=[
-    {v:"explore",l:"Explore"},
-    {v:"agents",l:"Agent Profiles"},
     {v:"profile",l:"My Profile"},
-    {v:"following",l:"Following"}
+    {v:"following",l:"Following"},
+    {v:"agents",l:"Agent Profiles"},
+    {v:"explore",l:"Explore"}
   ];
   tabs.forEach(function(tab){
     var active=SOCIAL_STATE.tab===tab.v;
@@ -1373,6 +1373,9 @@ function renderSocial(){
   // Auto-fetch on first render
   if(SOCIAL_STATE.tab==="explore"&&!SOCIAL_STATE.videos.length&&!SOCIAL_STATE.videosLoading&&!SOCIAL_STATE.videosFetched){
     setTimeout(function(){_fetchSocialVideos(true);},0);
+  }
+  if(SOCIAL_STATE.tab==="profile"&&SOCIAL_STATE.myProfile&&SOCIAL_STATE.myProfile.id&&!SOCIAL_STATE.profileLoading){
+    setTimeout(function(){_fetchMyProfile();_fetchMyVideos();},0);
   }
 
   return wrap;
