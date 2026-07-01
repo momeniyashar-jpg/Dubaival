@@ -7108,29 +7108,32 @@ function getAgentMsgs(agentId){
 }
 
 // --- CHAT TAB ----------------------------------------------------------------
-function renderChat(){
+function renderChat(opts){
+  var _inline=opts&&opts.inlineAgent;
   var cl=C();
-  var wrap=div({display:"flex",flexDirection:"column",height:"calc(100vh - 130px)",padding:"0 20px",maxWidth:"800px",margin:"0 auto",width:"100%"});
+  var wrap=div({display:"flex",flexDirection:"column",height:_inline?"480px":"calc(100vh - 130px)",padding:"0 20px",maxWidth:"800px",margin:"0 auto",width:"100%"});
 
-  // Agent selector bar
-  var agentBar=div({display:"flex",gap:"6px",overflowX:"auto",paddingBottom:"10px",paddingTop:"8px",flexShrink:"0"});
-  AI_AGENTS.forEach(function(agent){
-    var active=chatState.agentId===agent.id;
-    var btn=el("button",{style:{
-      background:active?hexAlpha(agent.color,0.15):"transparent",
-      border:"1px solid "+(active?agent.color:cl.border),
-      color:active?agent.color:cl.sub,
-      padding:"6px 12px",borderRadius:"20px",fontSize:"11px",fontWeight:active?"700":"400",
-      fontFamily:"'Space Grotesk',monospace",cursor:"pointer",whiteSpace:"nowrap",
-      display:"flex",alignItems:"center",gap:"5px",transition:"all 0.2s"
-    },onclick:function(){chatState.agentId=agent.id;render(true);}});
-    var btnIcon=el("span",{style:{width:"14px",height:"14px",display:"inline-flex",alignItems:"center",justifyContent:"center"}});
-    btnIcon.innerHTML='<i data-lucide="'+agent.icon+'" style="width:14px;height:14px"></i>';
-    btn.appendChild(btnIcon);
-    btn.appendChild(document.createTextNode(agent.name));
-    agentBar.appendChild(btn);
-  });
-  wrap.appendChild(agentBar);
+  // Agent selector bar — hidden in inline mode
+  if(!_inline){
+    var agentBar=div({display:"flex",gap:"6px",overflowX:"auto",paddingBottom:"10px",paddingTop:"8px",flexShrink:"0"});
+    AI_AGENTS.forEach(function(agent){
+      var active=chatState.agentId===agent.id;
+      var btn=el("button",{style:{
+        background:active?hexAlpha(agent.color,0.15):"transparent",
+        border:"1px solid "+(active?agent.color:cl.border),
+        color:active?agent.color:cl.sub,
+        padding:"6px 12px",borderRadius:"20px",fontSize:"11px",fontWeight:active?"700":"400",
+        fontFamily:"'Space Grotesk',monospace",cursor:"pointer",whiteSpace:"nowrap",
+        display:"flex",alignItems:"center",gap:"5px",transition:"all 0.2s"
+      },onclick:function(){chatState.agentId=agent.id;render(true);}});
+      var btnIcon=el("span",{style:{width:"14px",height:"14px",display:"inline-flex",alignItems:"center",justifyContent:"center"}});
+      btnIcon.innerHTML='<i data-lucide="'+agent.icon+'" style="width:14px;height:14px"></i>';
+      btn.appendChild(btnIcon);
+      btn.appendChild(document.createTextNode(agent.name));
+      agentBar.appendChild(btn);
+    });
+    wrap.appendChild(agentBar);
+  }
 
   // Active agent header
   var activeAgent=AI_AGENTS.find(function(a){return a.id===chatState.agentId;})||AI_AGENTS[0];
@@ -7402,7 +7405,7 @@ function renderMediaStudio(mode){
   var smmChatWrap=el("div",{style:{background:"rgba(212,175,55,0.025)",border:"1px solid rgba(212,175,55,0.16)",borderRadius:"14px",overflow:"hidden",marginBottom:"14px"}});
   var prevAgentId=chatState.agentId;
   chatState.agentId="outreach";
-  smmChatWrap.appendChild(renderChat());
+  smmChatWrap.appendChild(renderChat({inlineAgent:"outreach"}));
   chatState.agentId=prevAgentId;
   createSection.appendChild(smmChatWrap);
 
