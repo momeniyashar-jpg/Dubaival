@@ -3431,6 +3431,99 @@ function showVideoPublishBar(blob,caption,container){
   container.appendChild(section);
 }
 
+// Shared publish bar — for every image-producing social tool
+// blobOrFn: Blob | async fn()→Blob|string | pre-existing URL string | null (text-only)
+function showImagePublishBar(blobOrFn,caption,container){
+  var urlCache=(typeof blobOrFn==="string")?blobOrFn:null;
+  var hasImage=!!blobOrFn;
+  var section=div({background:"rgba(255,255,255,0.02)",border:"1px solid #2A3040",borderRadius:"12px",padding:"14px",marginTop:"12px"});
+  section.appendChild(div({color:"#C9A84C",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"10px"},"📲 PUBLISH TO SOCIAL MEDIA"));
+  var statusEl=div({color:"#8899AA",fontSize:"10px",fontFamily:"'Inter',sans-serif",marginBottom:"10px"});
+  statusEl.textContent=hasImage?"Select a platform — image uploads automatically then posts":"Select a platform to post this content (Instagram requires media)";
+  section.appendChild(statusEl);
+
+  var IPLATS=[
+    {key:"ig_post",label:"IG Post",icon:"📸",color:"#E1306C",needsImage:true,
+      fn:async function(u){return await publishToInstagram(caption,[u]);}},
+    {key:"ig_story",label:"IG Story",icon:"⭕",color:"#C13584",needsImage:true,
+      fn:async function(u){return await publishInstagramStory(caption,u);}},
+    {key:"facebook",label:"Facebook",icon:"👍",color:"#1877F2",needsImage:false,
+      fn:async function(u){return await publishToFacebook(caption,u?[u]:[]);}},
+    {key:"twitter",label:"X/Twitter",icon:"𝕏",color:"#14171A",needsImage:false,
+      fn:async function(u){return await publishToTwitter(caption.substring(0,280));}},
+    {key:"linkedin",label:"LinkedIn",icon:"💼",color:"#0A66C2",needsImage:false,
+      fn:async function(u){return await publishToLinkedIn(caption,u||null);}}
+  ];
+
+  var ibtnRow=div({display:"flex",gap:"6px",flexWrap:"wrap"});
+  IPLATS.forEach(function(p){
+    var noImg=!hasImage&&p.needsImage;
+    var btn=el("button",{style:{background:noImg?"rgba(255,255,255,0.01)":"rgba(255,255,255,0.03)",border:"1px solid "+(noImg?"#1A1F2E":"#2A3040"),color:noImg?"#3A3A4A":"#C0C8D8",borderRadius:"8px",padding:"8px 12px",fontSize:"11px",fontWeight:"600",cursor:noImg?"not-allowed":"pointer",fontFamily:"'Space Grotesk',monospace",transition:"all 0.15s",opacity:noImg?"0.4":"1"}});
+    btn.textContent=p.icon+" "+p.label+(noImg?" (needs image)":"");
+    if(!noImg){
+      btn.onmouseenter=function(){if(!btn.disabled){btn.style.borderColor=p.color;btn.style.color=p.color;}};
+      btn.onmouseleave=function(){if(!btn.disabled){btn.style.borderColor="#2A3040";btn.style.color="#C0C8D8";}};
+      btn.onclick=async function(){
+        if(btn.disabled)return;
+        btn.disabled=true;
+        var imageUrl=urlCache;
+        if(!imageUrl&&blobOrFn){
+          if(p.needsImage){
+            statusEl.textContent="⬆ Uploading image to get public URL...";
+            statusEl.style.color="#F59E0B";
+          }
+          var blobOrUrl=typeof blobOrFn==="function"?await blobOrFn():blobOrFn;
+          if(typeof blobOrUrl==="string"&&blobOrUrl){
+            imageUrl=blobOrUrl;urlCache=imageUrl;
+          }else if(blobOrUrl){
+            imageUrl=await uploadToPublicHost(blobOrUrl);
+            if(imageUrl)urlCache=imageUrl;
+          }
+          if(!imageUrl&&p.needsImage){
+            statusEl.textContent="No image available yet. Try 'Generate Image' first.";
+            statusEl.style.color="#EF4444";
+            btn.disabled=false;return;
+          }
+        }
+        statusEl.textContent="📤 Publishing to "+p.label+"...";
+        statusEl.style.color="#C9A84C";
+        try{
+          var result=await p.fn(imageUrl||null);
+          if(result&&result.success){
+            btn.textContent="✓ "+p.label;
+            btn.style.background="rgba(16,185,129,0.15)";
+            btn.style.borderColor="#10B981";
+            btn.style.color="#10B981";
+            statusEl.textContent="Posted to "+p.label+" successfully!";
+            statusEl.style.color="#10B981";
+            savePostToHistory({caption:caption,platform:p.key,type:"image"});
+          }else{
+            btn.style.color="#EF4444";
+            statusEl.textContent="Error: "+(result&&result.error?result.error:"Unknown error. Check Social Setup credentials.");
+            statusEl.style.color="#EF4444";
+            setTimeout(function(){btn.textContent=p.icon+" "+p.label;btn.style.color="#C0C8D8";btn.style.borderColor="#2A3040";btn.disabled=false;},3000);
+          }
+        }catch(e){
+          statusEl.textContent="Error: "+e.message;statusEl.style.color="#EF4444";
+          btn.style.color="#EF4444";
+          setTimeout(function(){btn.textContent=p.icon+" "+p.label;btn.style.color="#C0C8D8";btn.style.borderColor="#2A3040";btn.disabled=false;},3000);
+        }
+      };
+    }
+    ibtnRow.appendChild(btn);
+  });
+  section.appendChild(ibtnRow);
+
+  var ischedRow=div({marginTop:"10px",paddingTop:"10px",borderTop:"1px solid #1A1F2E"});
+  var ischedBtn=el("button",{style:{background:"transparent",border:"none",color:"#8899AA",fontSize:"10px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"0"}});
+  ischedBtn.textContent="📅 Schedule instead of posting now";
+  ischedBtn.onclick=function(){if(typeof showAddCalendarEvent==="function")showAddCalendarEvent(caption||"Image post");};
+  ischedRow.appendChild(ischedBtn);
+  section.appendChild(ischedRow);
+
+  container.appendChild(section);
+}
+
 async function generateGeminiImage(query){
   var key=localStorage.getItem("dv_gemini_key");
   if(!key)return null;
@@ -4005,6 +4098,14 @@ function showBulkGenerator(){
         navigator.clipboard.writeText(p.caption);capEl.style.color="#10B981";setTimeout(function(){capEl.style.color="#CCC";},1000);
       }});capEl.textContent=p.caption.substring(0,200)+(p.caption.length>200?"...":"");pCard.appendChild(capEl);
       if(p.imageHint)pCard.appendChild(el("div",{style:{color:"#6B7280",fontSize:"8px",marginTop:"2px"}},p.imageHint));
+      (function(postCaption,postCard){
+        var pubBtn=el("button",{style:{marginTop:"4px",background:"transparent",border:"1px solid #2A3040",color:"#8899AA",padding:"3px 8px",borderRadius:"6px",fontSize:"9px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
+          if(!postCard.querySelector("[data-ipb]")){
+            var m=div({});m.setAttribute("data-ipb","1");postCard.appendChild(m);
+            showImagePublishBar(null,postCaption,postCard);
+          }
+        }});pubBtn.textContent="📲 Post";postCard.appendChild(pubBtn);
+      })(p.caption,pCard);
       resultWrap.appendChild(pCard);
     });
   }});genBtn.textContent="Generate";card.appendChild(genBtn);card.appendChild(resultWrap);
@@ -4047,7 +4148,9 @@ function showContentRecycler(){
             resultDiv.appendChild(el("div",{style:{color:"#10B981",fontSize:"9px",fontWeight:"700",fontFamily:"monospace",marginBottom:"4px"}},"Refreshed Version"));
             var newText=el("div",{style:{color:"#E0E0E0",fontSize:"10px",lineHeight:"1.4",whiteSpace:"pre-wrap",maxHeight:"100px",overflowY:"auto"}});newText.textContent=newCap;resultDiv.appendChild(newText);
             var copyBtn=el("button",{style:{marginTop:"4px",background:"#10B98122",border:"1px solid #10B98144",color:"#10B981",padding:"3px 8px",borderRadius:"4px",fontSize:"9px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){navigator.clipboard.writeText(newCap);copyBtn.textContent="Copied!";}});
-            copyBtn.textContent="Copy";resultDiv.appendChild(copyBtn);pCard.appendChild(resultDiv);
+            copyBtn.textContent="Copy";resultDiv.appendChild(copyBtn);
+            showImagePublishBar(null,newCap,resultDiv);
+            pCard.appendChild(resultDiv);
           }
           recycleBtn.textContent="Recycle";
         }catch(e){recycleBtn.textContent="Error";}
@@ -4187,6 +4290,8 @@ function showStoryTemplates(){
       var copyBtn=el("button",{style:{marginTop:"8px",width:"100%",background:hexAlpha(t.color,0.15),border:"1px solid "+hexAlpha(t.color,0.3),color:t.color,padding:"6px",borderRadius:"6px",fontSize:"10px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
         navigator.clipboard.writeText(JSON.stringify(content,null,2));copyBtn.textContent="Copied!";setTimeout(function(){copyBtn.textContent="Copy Content";},2000);
       }});copyBtn.textContent="Copy Content";rCard.appendChild(copyBtn);
+      var stCaption=content.question||(content.title&&content.subtitle?content.title+"\n"+content.subtitle:content.title)||JSON.stringify(content,null,2);
+      showImagePublishBar(null,stCaption,rCard);
       resultWrap.appendChild(rCard);
     }});
     tCard.appendChild(el("div",{style:{fontSize:"20px",textAlign:"center",marginBottom:"4px"}},t.name.split(" ")[0]));
@@ -4247,6 +4352,9 @@ function showPostPreview(caption,imageUrl){
   if(imageUrl){previewShareOpts.url=imageUrl;}
   previewShareRow.appendChild(makeShareButton(previewShareOpts,{flex:"1",padding:"8px",fontSize:"11px"}));
   card.appendChild(previewShareRow);
+  var ppWrap=div({padding:"0 8px"});
+  showImagePublishBar(imageUrl||null,caption,ppWrap);
+  card.appendChild(ppWrap);
   card.appendChild(el("button",{style:{width:"100%",marginTop:"4px",background:"#111",color:"#8899AA",border:"none",padding:"10px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close Preview"));
   overlay.appendChild(card);overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
   document.body.appendChild(overlay);
@@ -4817,43 +4925,17 @@ function showPostDesigner(caption,existingImg){
       var a=document.createElement("a");a.href=c.toDataURL("image/png");a.download="dubaival-post.png";a.click();
     }
   }},"Save PNG"));
-  actRow.appendChild(el("button",{style:{flex:1,background:"#E1306C",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
-    this.textContent="...";
-    var f=POST_FORMATS[state.format];var c=document.createElement("canvas");c.width=f.w;c.height=f.h;
-    var cx=c.getContext("2d");
-    if(state.slideCount>1){
-      var urls=[];
-      for(var si=0;si<state.slideCount;si++){
-        state.slideNum=(si+1)+"/"+state.slideCount;
-        if(si>0&&pData.data.length>0){state.data=[pData.data[si%pData.data.length]];}
-        renderPostDesign(cx,f.w,f.h,state);
-        var blob=await new Promise(function(res){c.toBlob(function(b){res(b);},"image/png");});
-        var url=await uploadToPublicHost(blob);if(url)urls.push(url);
-      }
-      state.slideNum=null;state.data=pData.data.slice(0,4);
-      if(urls.length>0){var r=await publishToInstagram(caption,urls);alert(r.success?"Carousel posted!":"Error: "+r.error);}
-    }else{
-      renderPostDesign(cx,f.w,f.h,state);
-      var blob=await new Promise(function(res){c.toBlob(function(b){res(b);},"image/png");});
-      var url=await uploadToPublicHost(blob);
-      if(url){
-        var pubFn=state.format==="story"?publishInstagramStory:publishToInstagram;
-        var r=await pubFn(caption,state.format==="story"?url:[url]);
-        alert(r.success?"Posted!":"Error: "+r.error);
-      }
-    }
-    this.textContent="Publish IG";
-  }},"Publish IG"));
-  actRow.appendChild(el("button",{style:{flex:1,background:"#8B5CF6",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
-    saveCalendarEvent({caption:caption,template:state.template,format:state.format,platform:"instagram"});
-    alert("Added to Content Calendar!");
-  }},"Schedule"));
   actRow.appendChild(el("button",{style:{flex:1,background:"linear-gradient(135deg,rgba(16,185,129,0.15),rgba(6,182,212,0.1))",border:"1px solid rgba(16,185,129,0.3)",color:"#10B981",borderRadius:"8px",padding:"10px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"monospace"},onclick:function(){
     var f=POST_FORMATS[state.format];var sc=document.createElement("canvas");sc.width=f.w;sc.height=f.h;
     renderPostDesign(sc.getContext("2d"),f.w,f.h,state);
     sc.toBlob(function(b){if(b){showShareModal({text:caption||"",file:b,fileName:"dubaival-post.png",fileType:"image/png",title:"DubAIVal Post"});}});
   }},"Share"));
   card.appendChild(actRow);
+  showImagePublishBar(async function(){
+    var f=POST_FORMATS[state.format];var oc=document.createElement("canvas");oc.width=f.w;oc.height=f.h;
+    renderPostDesign(oc.getContext("2d"),f.w,f.h,state);
+    return new Promise(function(res){oc.toBlob(function(b){res(b);},"image/png");});
+  },caption||"Dubai Real Estate Post",card);
 
   var closeBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();}},"Close");
   card.appendChild(closeBtn);
@@ -6167,35 +6249,20 @@ function showAvatarContentGen(avatarId){
       copyBtn2.textContent="Copy";actionRow.appendChild(copyBtn2);
       actionRow.appendChild(makeShareButton({text:reply,title:"DubAIVal — "+av.name}));
 
-      var schedBtn=el("button",{style:{background:"#8B5CF622",border:"1px solid #8B5CF6",color:"#8B5CF6",padding:"6px 12px",borderRadius:"8px",fontSize:"10px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:function(){overlay.remove();showAddCalendarEvent(reply);}});
-      schedBtn.textContent="Schedule";actionRow.appendChild(schedBtn);
-
-      var publishBtn=el("button",{style:{background:"#10B98122",border:"1px solid #10B981",color:"#10B981",padding:"6px 12px",borderRadius:"8px",fontSize:"10px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
-        publishBtn.textContent="Publishing...";
-        try{
-          var img=await findSmartImage(reply);
-          var platform=selectedType.split("_")[0];
-          if(platform==="instagram"){var r=await publishToInstagram(reply,[img]);publishBtn.textContent=r.success?"Posted":"Error: "+r.error;}
-          else if(platform==="facebook"){var r2=await publishToFacebook(reply,[img]);publishBtn.textContent=r2.success?"Posted":"Error: "+r2.error;}
-          else if(platform==="linkedin"){var r3=await publishToLinkedIn(reply,img);publishBtn.textContent=r3.success?"Posted":"Error: "+r3.error;}
-          else if(platform==="twitter"){var r4=await publishToTwitter(reply.substring(0,280));publishBtn.textContent=r4.success?"Posted":"Error: "+r4.error;}
-          else{publishBtn.textContent="Copy and post manually";navigator.clipboard.writeText(reply);}
-        }catch(e){publishBtn.textContent="Error: "+e.message;}
-      }});
-      publishBtn.textContent="Publish Now";actionRow.appendChild(publishBtn);
-
+      var avImgRef={url:null};
       var imgBtn=el("button",{style:{background:"#EC489922",border:"1px solid #EC4899",color:"#EC4899",padding:"6px 12px",borderRadius:"8px",fontSize:"10px",fontWeight:"600",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
         imgBtn.textContent="Generating image...";
         var imgUrl=await generateGeminiImage(topicInp.value+" Dubai real estate, "+av.name+" character style");
         if(imgUrl){
           var preview=el("img",{style:{width:"100%",maxHeight:"200px",objectFit:"cover",borderRadius:"10px",marginTop:"8px",border:"1px solid #EC4899"}});
           preview.src=imgUrl;resultArea.appendChild(preview);
-          imgBtn.textContent="Image generated";
+          avImgRef.url=imgUrl;imgBtn.textContent="Image generated ✓";
         }else{imgBtn.textContent="Failed";}
       }});
       imgBtn.textContent="Generate Image";actionRow.appendChild(imgBtn);
 
       resultArea.appendChild(actionRow);
+      showImagePublishBar(function(){return Promise.resolve(avImgRef.url);},reply,resultArea);
     }catch(e){
       resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"11px",fontFamily:"monospace"}},"Error: "+e.message));
     }
