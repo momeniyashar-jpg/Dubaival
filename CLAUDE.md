@@ -783,3 +783,37 @@ no-ops. `computeValuation` requires `f.price` and `f.size`/`f.buaSize` set.
 - User email: momeni.yashar@gmail.com
 - Broad "upgrade everything" directives need scoping/clarification — confirm
   concrete scope before doing broad unscoped work
+
+## 💡 Product Roadmap Ideas (deferred — discussed 2026-07-02)
+
+### CRM Integration (B2B SaaS direction)
+User wants to let **real estate companies** connect their CRM to DubaiVal,
+turning the platform into a B2B tool that helps companies manage their agents
+and clients with AI-powered market intelligence.
+
+**Value proposition for companies:**
+- AI valuation on every lead/deal (auto-enrichment)
+- Market intelligence and news auto-fed into CRM
+- Social media content generation for their agents
+- Deal Network for agent-to-agent collaboration
+- Portfolio tracking for their clients
+
+**Technical requirements:**
+- Multi-tenant architecture: Company account → Agent sub-accounts
+- CRM OAuth connectors: HubSpot (start here), Zoho, Salesforce
+- Data sync: valuations + leads → CRM deals/contacts
+- Company Admin Panel: team management, API keys, usage reports
+- Pricing tiers: Free / Pro / Enterprise
+
+**Suggested starting point:** HubSpot connector first (most common, good API,
+has free tier so companies can test easily).
+
+**Status:** Deferred — to be revisited when core platform is stable.
+
+### Auth & User Flow (implemented 2026-07-02)
+- Social accounts moved to Profile panel (name, phone, WhatsApp + social credentials)
+- Social Media Manager gated to logged-in users
+- Profile completion prompt (phone + WhatsApp) required before using SMM
+- Forgot Password flow added
+- Browser autofill bug fixed (readonly trick on email/password inputs)
+- Settings sub-tab removed from More menu
