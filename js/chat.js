@@ -3399,6 +3399,10 @@ function showVideoPublishBar(blob,caption,container){
       fn:async function(u){return await publishInstagramReel(caption,u);}},
     {key:"ig_story",label:"IG Story",icon:"⭕",color:"#C13584",
       fn:async function(u){return await publishInstagramVideoStory(u);}},
+    {key:"youtube",label:"YouTube",icon:"▶",color:"#FF0000",
+      fn:async function(u){return await publishToYouTube(caption.substring(0,100)||"Dubai Real Estate",caption,u,"public");}},
+    {key:"linkedin",label:"LinkedIn",icon:"💼",color:"#0A66C2",
+      fn:async function(u){return await publishToLinkedIn(caption,u);}},
     {key:"tiktok",label:"TikTok",icon:"🎵",color:"#FF0050",
       fn:async function(u){return await publishToTikTok(caption,u);}},
     {key:"facebook",label:"Facebook",icon:"👍",color:"#1877F2",
@@ -7353,6 +7357,8 @@ function renderMediaStudio(mode){
 
   var platforms=[];
   if(creds){if(creds.igId)platforms.push("Instagram");if(creds.fbId)platforms.push("Facebook");}
+  if(localStorage.getItem("dv_linkedin_token"))platforms.push("LinkedIn");
+  if(localStorage.getItem("dv_youtube_token")||localStorage.getItem("dv_youtube_refresh"))platforms.push("YouTube");
   var socialCard=makeConfigCard(
     !!(creds&&creds.token),
     [div({color:"#E8EDF5",fontSize:"12px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},platforms.join(" + ")||"Connected"),
