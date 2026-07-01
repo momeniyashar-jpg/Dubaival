@@ -354,9 +354,13 @@ var NAV_SECTIONS=[
   {id:"Network",icon:"users",label:"Network",accentColor:"#10B981",badgeKey:"deals",subs:[
     {id:"Deals",label:"Deal Board"},
     {id:"AgentHub",label:"Agent Hub"},
-    {id:"MediaStudio",label:"Media Studio"},
-    {id:"Chat",label:"AI Agents"},
-    {id:"Social",label:"Video Platform"}
+    {id:"Chat",label:"AI Agents"}
+  ]},
+  {id:"SocialMedia",icon:"share-2",label:"Social",accentColor:"#EC4899",subs:[
+    {id:"Studio",label:"Media Studio"},
+    {id:"Avatar",label:"Avatar Studio"},
+    {id:"VideoPlatform",label:"Video Platform"},
+    {id:"SocialChat",label:"AI Assistant"}
   ]},
   {id:"More",icon:"settings",label:"More",subs:[
     {id:"Workspace",label:"Workspace"},

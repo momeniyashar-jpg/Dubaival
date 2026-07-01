@@ -1877,10 +1877,15 @@ function render(preserveScroll){
   } else if(currentSection==="Network"){
     if(currentSubTab==="Deals")content.appendChild(renderDeals());
     else if(currentSubTab==="AgentHub"){DEAL_STATE.mode="agents";if(typeof fetchAgents==="function")fetchAgents();content.appendChild(renderDeals());}
-    else if(currentSubTab==="MediaStudio"&&typeof renderMediaStudio==="function")content.appendChild(renderMediaStudio());
     else if(currentSubTab==="Chat")content.appendChild(renderChat());
-    else if(currentSubTab==="Social")content.appendChild(renderSocial());
     else content.appendChild(renderDeals());
+  } else if(currentSection==="SocialMedia"){
+    if(currentSubTab==="Studio"&&typeof renderMediaStudio==="function")content.appendChild(renderMediaStudio());
+    else if(currentSubTab==="Avatar"&&typeof renderMediaStudio==="function")content.appendChild(renderMediaStudio());
+    else if(currentSubTab==="VideoPlatform")content.appendChild(renderSocial());
+    else if(currentSubTab==="SocialChat")content.appendChild(renderChat());
+    else if(typeof renderMediaStudio==="function")content.appendChild(renderMediaStudio());
+    else content.appendChild(renderChat());
   } else if(currentSection==="More"){
     if(currentSubTab==="Workspace")content.appendChild(renderWorkspace());
     else if(currentSubTab==="Reports"&&typeof renderReportBuilder==="function")content.appendChild(renderReportBuilder(el("div",{style:{padding:"20px",maxWidth:"900px",margin:"0 auto"}}),cl));
