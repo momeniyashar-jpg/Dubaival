@@ -352,6 +352,7 @@ var NAV_SECTIONS=[
     {id:"Alerts",label:"Alerts"}
   ]},
   {id:"Network",icon:"users",label:"Network",accentColor:"#10B981",badgeKey:"deals",subs:[
+    {id:"Inbox",label:"Inbox",badgeKey:"inbox"},
     {id:"Deals",label:"Deal Board"},
     {id:"AgentHub",label:"Agent Hub"},
     {id:"Chat",label:"AI Agents"}

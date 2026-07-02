@@ -1991,9 +1991,11 @@ function render(preserveScroll){
     else if(currentSubTab==="Alerts")content.appendChild(renderAlerts());
     else content.appendChild(renderPortfolio("assets"));
   } else if(currentSection==="Network"){
-    if(currentSubTab==="Deals")content.appendChild(renderDeals());
+    if(currentSubTab==="Inbox"&&typeof renderInbox==="function")content.appendChild(renderInbox());
+    else if(currentSubTab==="Deals")content.appendChild(renderDeals());
     else if(currentSubTab==="AgentHub"){DEAL_STATE.mode="agents";if(typeof fetchAgents==="function")fetchAgents();content.appendChild(renderDeals());}
     else if(currentSubTab==="Chat")content.appendChild(renderChat());
+    else if(typeof renderInbox==="function")content.appendChild(renderInbox());
     else content.appendChild(renderDeals());
   } else if(currentSection==="SocialMedia"){
     if(currentSubTab==="Studio"&&typeof renderMediaStudio==="function")content.appendChild(renderMediaStudio("studio"));

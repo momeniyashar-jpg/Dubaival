@@ -1,4 +1,4 @@
-var CACHE_NAME='dubaival-v16';
+var CACHE_NAME='dubaival-v17';
 var PRECACHE=[
   '/',
   '/index.html',
@@ -8,6 +8,7 @@ var PRECACHE=[
   '/js/api.js',
   '/js/core.js',
   '/js/auth.js',
+  '/js/inbox.js',
   '/js/app.js',
   '/js/market.js',
   '/js/mortgage.js',

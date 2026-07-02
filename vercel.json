@@ -31,6 +31,10 @@
       "schedule": "0 8 * * *"
     },
     {
+      "path": "/api/send-email-replies",
+      "schedule": "0 4 * * *"
+    },
+    {
       "path": "/api/refresh-market-data",
       "schedule": "0 6 * * *"
     },
