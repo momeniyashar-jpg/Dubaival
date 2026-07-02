@@ -140,13 +140,31 @@ async function chiefsSaveInventory() {
     var method = "POST"; var hdrs = Object.assign({}, _chiefsH(), {"Prefer":"return=representation"});
     if (f.editing) { url += "?id=eq." + f.editing; method = "PATCH"; }
     var r = await fetch(url, { method: method, headers: hdrs, body: JSON.stringify(row) });
-    if (!r.ok) { var e = await r.json(); throw new Error(e.message || "Save failed"); }
+    var respData = await r.json();
+    if (!r.ok) { throw new Error((respData && respData.message) || "Save failed"); }
+    var savedId = f.editing || (Array.isArray(respData) && respData[0] && respData[0].id);
+    var wasNew = !f.editing;
     CHIEFS_STATE.invForm = { open:false, editing:null, source:"pocket", building:"", area:"", unit_no:"",
       prop_type:"apartment", beds:"2 BR", size_sqft:"", floor_num:"", view_type:"",
       furnished:"Unfurnished", purpose:"sale", price:"", status:"available", notes:"", contact_name:"", contact_phone:"" };
     CHIEFS_STATE.loaded.inventory = false;
     await chiefsLoadInventory();
-    if (!f.editing) _chiefsAutoMatch("inventory");
+    if (wasNew) {
+      _chiefsAutoMatch("inventory");
+      // Async: generate Gemini embedding and store — fails soft, never blocks UI
+      if (savedId) {
+        (function(id, txt) {
+          _chiefsEmbedText(txt, "RETRIEVAL_DOCUMENT").then(function(emb) {
+            if (!emb) return;
+            fetch(SUPABASE_URL + "/rest/v1/chiefs_inventory?id=eq." + id, {
+              method: "PATCH",
+              headers: Object.assign({}, _chiefsH(), {"Prefer":"return=minimal"}),
+              body: JSON.stringify({ embedding: emb })
+            }).catch(function(){});
+          }).catch(function(){});
+        })(savedId, _chiefsListingText(row));
+      }
+    }
   } catch(e) { alert("Error: " + e.message); }
   CHIEFS_STATE.busySave = false; render();
 }
@@ -191,14 +209,32 @@ async function chiefsSaveClient() {
     var method = "POST"; var hdrs = Object.assign({}, _chiefsH(), {"Prefer":"return=representation"});
     if (f.editing) { url += "?id=eq." + f.editing; method = "PATCH"; }
     var r = await fetch(url, { method: method, headers: hdrs, body: JSON.stringify(row) });
-    if (!r.ok) { var e = await r.json(); throw new Error(e.message || "Save failed"); }
+    var respData = await r.json();
+    if (!r.ok) { throw new Error((respData && respData.message) || "Save failed"); }
+    var savedId = f.editing || (Array.isArray(respData) && respData[0] && respData[0].id);
+    var wasNew = !f.editing;
     CHIEFS_STATE.cliForm = { open:false, editing:null, client_name:"", client_phone:"", client_email:"",
       purpose:"sale", prop_type:"apartment", beds_wanted:"2 BR", areas_wanted:[], area_input:"",
       min_price:"", max_price:"", min_size:"", max_size:"", view_pref:"", furnished_pref:"",
       timeline:"flexible", notes:"", status:"active", source:"manual", raw_conversation:"" };
     CHIEFS_STATE.loaded.clients = false;
     await chiefsLoadClients();
-    if (!f.editing) _chiefsAutoMatch("client");
+    if (wasNew) {
+      _chiefsAutoMatch("client");
+      // Async: generate Gemini embedding and store — fails soft, never blocks UI
+      if (savedId) {
+        (function(id, txt) {
+          _chiefsEmbedText(txt, "RETRIEVAL_QUERY").then(function(emb) {
+            if (!emb) return;
+            fetch(SUPABASE_URL + "/rest/v1/chiefs_clients?id=eq." + id, {
+              method: "PATCH",
+              headers: Object.assign({}, _chiefsH(), {"Prefer":"return=minimal"}),
+              body: JSON.stringify({ embedding: emb })
+            }).catch(function(){});
+          }).catch(function(){});
+        })(savedId, _chiefsClientText(row));
+      }
+    }
   } catch(e) { alert("Error: " + e.message); }
   CHIEFS_STATE.busySave = false; render();
 }
@@ -308,10 +344,35 @@ async function _chiefsAutoMatch(triggerSource) {
   var avail = CHIEFS_STATE.inventory.filter(function(l){ return l.status==="available"||l.status==="pocket"; });
   var existKeys = new Set(CHIEFS_STATE.matches.map(function(m){ return m.client_id+"_"+m.inventory_id; }));
   var newRows = [];
+  var semanticCovered = new Set(); // keys already handled by semantic phase
+
+  // ── Phase 1: Semantic matching (single Supabase RPC, server-side cosine) ───
+  var semPairs = await _chiefsSemanticRPC("auto_match_chiefs_semantic", {
+    agent_id_param: agentId, similarity_cutoff: 0.62
+  });
+  semPairs.forEach(function(pair) {
+    var key = pair.client_id + "_" + pair.inventory_id;
+    if (existKeys.has(key)) { semanticCovered.add(key); return; }
+    semanticCovered.add(key);
+    var client  = CHIEFS_STATE.clients.find(function(c){ return c.id === pair.client_id; });
+    var listing = CHIEFS_STATE.inventory.find(function(l){ return l.id === pair.inventory_id; });
+    var semScore = Math.round(pair.score * 100);
+    var reasons  = ["semantic " + semScore + "%"];
+    var finalScore = semScore;
+    // Blend with rule-based when both available
+    if (client && listing) {
+      var rb = _scoreMatch(client, listing);
+      if (rb) { finalScore = Math.round(semScore * 0.65 + rb.score * 0.35); reasons = reasons.concat(rb.reasons); }
+    }
+    newRows.push({ agent_id:agentId, client_id:pair.client_id, inventory_id:pair.inventory_id,
+      match_score: finalScore, match_reasons: reasons, status:"new" });
+  });
+
+  // ── Phase 2: Rule-based fallback (pairs not covered by semantic) ──────────
   activeClients.forEach(function(client) {
     avail.forEach(function(listing) {
       var key = client.id + "_" + listing.id;
-      if (existKeys.has(key)) return;
+      if (existKeys.has(key) || semanticCovered.has(key)) return;
       var ms = _scoreMatch(client, listing);
       if (ms) newRows.push({ agent_id:agentId, client_id:client.id, inventory_id:listing.id,
         match_score:ms.score, match_reasons:ms.reasons, status:"new" });
@@ -521,6 +582,62 @@ function _chiefsToast(icon, title, subtitle, onView) {
   requestAnimationFrame(function(){ requestAnimationFrame(function(){ t.style.transform="translateX(0)"; setTimeout(function(){ bar.style.width="0%"; },50); }); });
   var timer = setTimeout(dismiss, 7500);
   function dismiss(){ clearTimeout(timer); t.style.transform="translateX(130%)"; t.style.opacity="0"; t.style.transition="transform 0.25s ease,opacity 0.25s ease"; setTimeout(function(){ if(t.parentNode)t.parentNode.removeChild(t); },300); }
+}
+
+// ── SEMANTIC SEARCH HELPERS ───────────────────────────────────────────────────
+
+// Canonical text for embedding a pocket listing
+function _chiefsListingText(l) {
+  return [
+    l.beds ? l.beds + " bedroom" : "", l.prop_type || "apartment",
+    "for " + (l.purpose || "sale"), "in", l.area,
+    l.building ? "at " + l.building : "",
+    l.price ? "AED " + Number(l.price).toLocaleString() + (l.purpose === "rent" ? " per year" : "") : "",
+    l.size_sqft ? l.size_sqft + " sqft" : "",
+    l.furnished || "", l.view_type ? l.view_type + " view" : "",
+    l.floor_num ? "floor " + l.floor_num : "", l.notes || ""
+  ].filter(Boolean).join(" ");
+}
+
+// Canonical text for embedding a client requirement
+function _chiefsClientText(c) {
+  var areas = Array.isArray(c.areas_wanted) ? c.areas_wanted.join(", ") : (c.areas_wanted || "");
+  return [
+    "Looking for", c.beds_wanted ? c.beds_wanted + " bedroom" : "",
+    c.prop_type || "apartment", "to " + (c.purpose === "rent" ? "rent" : "buy"),
+    areas ? "in " + areas : "",
+    c.max_price ? "budget up to AED " + Number(c.max_price).toLocaleString() : "",
+    c.min_price ? "minimum AED " + Number(c.min_price).toLocaleString() : "",
+    c.furnished_pref ? "wants " + c.furnished_pref : "",
+    c.view_pref ? c.view_pref + " view preferred" : "",
+    c.timeline ? "timeline: " + c.timeline : "", c.notes || ""
+  ].filter(Boolean).join(" ");
+}
+
+// Call /api/chiefs-embed — returns 768-dim float array or null (fails soft)
+async function _chiefsEmbedText(text, taskType) {
+  if (!text) return null;
+  try {
+    var r = await fetch("/api/chiefs-embed", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: text.slice(0, 3000), taskType: taskType || "RETRIEVAL_DOCUMENT" })
+    });
+    if (!r.ok) return null;
+    var d = await r.json(); return d.embedding || null;
+  } catch(e) { return null; }
+}
+
+// Call a Supabase RPC — returns array or [] (fails soft)
+async function _chiefsSemanticRPC(name, params) {
+  try {
+    var r = await fetch(SUPABASE_URL + "/rest/v1/rpc/" + name, {
+      method: "POST",
+      headers: Object.assign({}, _chiefsH(), { "Content-Type": "application/json" }),
+      body: JSON.stringify(params)
+    });
+    if (!r.ok) return [];
+    var d = await r.json(); return Array.isArray(d) ? d : [];
+  } catch(e) { return []; }
 }
 
 // ── VIEW: DASHBOARD ───────────────────────────────────────────────────────────
@@ -1163,13 +1280,14 @@ async function chiefsCopilotAnalyze(text, source, senderName, senderContact) {
   }
 
   try {
+    // ── Step 1: Extract structured needs (Llama 3.3 70B — best available) ───
     var r = await callGroqRaw({
-      model: "llama3-8b-8192",
+      model: "llama-3.3-70b-versatile",
       response_format: { type: "json_object" },
-      temperature: 0.1, max_tokens: 400,
+      temperature: 0.1, max_tokens: 500,
       messages: [
-        { role: "system", content: "You are a Dubai real estate assistant. Extract property requirements from the message. Return JSON: purpose (\"sale\" or \"rent\"), prop_type (\"apartment\",\"villa\",\"townhouse\",\"penthouse\" or null), beds (\"Studio\",\"1\",\"2\",\"3\",\"4\",\"5\" or null), areas (array of Dubai area names, max 5), max_price (number AED or null), min_price (number AED or null), furnished (\"Furnished\",\"Unfurnished\",\"Semi-Furnished\" or null), summary (1-sentence)." },
-        { role: "user", content: "Message: " + text.substring(0, 2000) }
+        { role: "system", content: "You are an expert Dubai real estate assistant. Extract property requirements from the message with high precision. Return JSON: purpose (\"sale\" or \"rent\"), prop_type (\"apartment\",\"villa\",\"townhouse\",\"penthouse\" or null), beds (\"Studio\",\"1\",\"2\",\"3\",\"4\",\"5\" or null), areas (array of Dubai area names — interpret context clues like 'near the beach'→JBR/Palm/Marina, 'family'→Arabian Ranches/Springs, 'investment'→Business Bay/JVC, max 5), max_price (number AED or null), min_price (number AED or null), furnished (\"Furnished\",\"Unfurnished\",\"Semi-Furnished\" or null), summary (1 precise sentence describing what the client wants)." },
+        { role: "user", content: "Message: " + text.substring(0, 2500) }
       ]
     });
     var data = await r.json();
@@ -1177,37 +1295,76 @@ async function chiefsCopilotAnalyze(text, source, senderName, senderContact) {
     var needs = raw ? JSON.parse(raw) : {};
     CHIEFS_COPILOT.needs = needs;
 
-    // Score inventory against extracted needs
-    var scored = [];
-    (CHIEFS_STATE.inventory || []).forEach(function(listing) {
-      if (listing.status !== "available") return;
-      var score = 0; var reasons = [];
-      // Purpose: hard filter
+    // ── Step 2: Build inventory map (loaded items + RPC rows) ──────────────
+    var invMap = {};
+    (CHIEFS_STATE.inventory || []).forEach(function(l) { invMap[l.id] = l; });
+
+    // ── Step 3: Semantic search — embed the extracted summary, search DB ───
+    var semScores = {}; // id → {score, reasons}
+    if (needs.summary) {
+      var queryEmb = await _chiefsEmbedText(needs.summary, "RETRIEVAL_QUERY");
+      if (queryEmb) {
+        var semRows = await _chiefsSemanticRPC("match_chiefs_inventory", {
+          query_embedding: queryEmb,
+          agent_id_filter: _chiefsId(),
+          purpose_filter: needs.purpose || null,
+          match_count: 8
+        });
+        semRows.forEach(function(row) {
+          if (!invMap[row.id]) invMap[row.id] = row; // use RPC row if not in loaded inventory
+          var pct = Math.round(row.similarity * 100);
+          semScores[row.id] = { score: pct, reasons: ["semantic " + pct + "%"] };
+        });
+      }
+    }
+
+    // ── Step 4: Rule-based scoring ─────────────────────────────────────────
+    var ruleScores = {}; // id → {score, reasons}
+    Object.keys(invMap).forEach(function(lid) {
+      var listing = invMap[lid];
+      if (!listing || listing.status !== "available") return;
       if (needs.purpose && listing.purpose !== needs.purpose) return;
+      var score = 0; var reasons = [];
       if (needs.purpose) { score += 20; reasons.push("purpose"); }
-      // Area: key signal
       var listArea = (listing.area || "").toLowerCase();
       var wantedAreas = (needs.areas || []).map(function(a) { return a.toLowerCase(); });
       if (wantedAreas.length) {
         var areaMatch = wantedAreas.some(function(a) { return listArea.includes(a) || a.includes(listArea); });
         if (areaMatch) { score += 35; reasons.push("area match"); }
       }
-      // Beds
       if (needs.beds && listing.beds) {
         if (listing.beds === needs.beds) { score += 25; reasons.push("beds match"); }
         else { var nb = parseInt(needs.beds), lb = parseInt(listing.beds); if (!isNaN(nb)&&!isNaN(lb)&&Math.abs(nb-lb)<=1) { score += 10; reasons.push("beds close"); } }
       }
-      // Budget
       if (needs.max_price && listing.price) {
         if (listing.price <= needs.max_price) { score += 15; reasons.push("within budget"); }
         else if (listing.price <= needs.max_price * 1.1) { score += 5; reasons.push("near budget"); }
         else score -= 10;
       }
-      // Type + Furnished (bonus)
       if (needs.prop_type && listing.prop_type === needs.prop_type) { score += 5; reasons.push("type match"); }
       if (needs.furnished && listing.furnished === needs.furnished) { score += 5; reasons.push("furnished"); }
-      if (score < 15) return;
-      scored.push({ listing: listing, score: score, reasons: reasons });
+      if (score >= 15) ruleScores[lid] = { score: score, reasons: reasons };
+    });
+
+    // ── Step 5: Hybrid merge (semantic 65% + rule 35%) ─────────────────────
+    var allIds = Object.keys(semScores).concat(Object.keys(ruleScores).filter(function(k){ return !semScores[k]; }));
+    var seen = {};
+    var scored = [];
+    allIds.forEach(function(lid) {
+      if (seen[lid]) return; seen[lid] = true;
+      var listing = invMap[lid]; if (!listing) return;
+      var sem  = semScores[lid];
+      var rule = ruleScores[lid];
+      var finalScore, reasons;
+      if (sem && rule) {
+        finalScore = Math.round(sem.score * 0.65 + rule.score * 0.35);
+        reasons = sem.reasons.concat(rule.reasons);
+      } else if (sem) {
+        finalScore = sem.score; reasons = sem.reasons;
+      } else {
+        finalScore = rule.score; reasons = rule.reasons;
+      }
+      scored.push({ listing: listing, score: finalScore, reasons: reasons });
     });
     scored.sort(function(a, b) { return b.score - a.score; });
     CHIEFS_COPILOT.matches = scored.slice(0, 4);
@@ -1229,11 +1386,17 @@ async function chiefsCopilotDraft() {
       var l = m.listing;
       return "- " + (l.beds ? l.beds + "BR " : "") + (l.prop_type || "apt") + " in " + l.area + (l.building ? " (" + l.building + ")" : "") + (l.price ? " — AED " + Number(l.price).toLocaleString() + (l.purpose === "rent" ? "/yr" : "") : "") + (l.dv_verdict ? " [" + l.dv_verdict + "]" : "") + (l.size_sqft ? " " + l.size_sqft + " sqft" : "");
     }).join("\n");
-    var draft = await askAI(
-      [{ role: "user", content: "Draft a WhatsApp reply to " + (CHIEFS_COPILOT.senderName || "the prospect") + " who is looking for: " + (n.summary || JSON.stringify(n)) + "\n\nMy matching pocket listings:\n" + (matchLines || "None yet — I'll search the market.") + "\n\nWrite a warm, professional agent reply (max 130 words). No generic greetings. End with a clear call to action (e.g. 'When are you free for a viewing?')." }],
-      "You are a professional Dubai real estate agent writing a WhatsApp message. Be concise, warm and specific. Use the listing details naturally — don't just list them mechanically.",
-      null
-    );
+    // Use Llama 3.3 70B for higher-quality, more natural draft messages
+    var draftR = await callGroqRaw({
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.7, max_tokens: 250,
+      messages: [
+        { role: "system", content: "You are a professional Dubai real estate agent writing a WhatsApp message. Be warm, concise, and specific. Mention the listing details naturally — don't list them mechanically. Max 130 words. No generic openers. End with one clear call to action." },
+        { role: "user", content: "Draft a WhatsApp reply to " + (CHIEFS_COPILOT.senderName || "the prospect") + " who is looking for: " + (n.summary || JSON.stringify(n)) + "\n\nMy matching pocket listings:\n" + (matchLines || "None yet — I'll search the market for you.") + "\n\nWrite the WhatsApp message only. No preamble." }
+      ]
+    });
+    var draftData = await draftR.json();
+    var draft = draftData.choices && draftData.choices[0] && draftData.choices[0].message && draftData.choices[0].message.content;
     CHIEFS_COPILOT.draft = draft || "";
   } catch(e) {
     CHIEFS_COPILOT.draft = "Could not generate draft. Please write your reply manually.";
