@@ -1675,22 +1675,73 @@ function renderProfilePanel(){
   // ── SOCIAL ACCOUNTS ────────────────────────────────────────────
   maxW.appendChild(secLabel("Social Accounts"));
 
-  // Instagram
+  // Helper: OAuth connect button
+  function oauthBtn(label,color,platform){
+    var userId=(typeof DV_AUTH!=="undefined"&&DV_AUTH.user)?(DV_AUTH.user.email||DV_AUTH.user.id):"default";
+    var state=platform+"_"+userId;
+    var btn=el("button",{style:{display:"flex",alignItems:"center",gap:"6px",background:color+"22",border:"1px solid "+color,borderRadius:"8px",padding:"7px 14px",color:color,fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",whiteSpace:"nowrap"}});
+    var connected=false;
+    if(platform==="meta"){connected=!!localStorage.getItem("dv_ig_token")||!!localStorage.getItem("dv_fb_id");}
+    else if(platform==="google"){connected=!!localStorage.getItem("dv_gmail_connected");}
+    btn.innerHTML=(connected?"✓ Connected":"Connect")+" "+label;
+    btn.style.background=connected?"#10B98122":color+"22";
+    btn.style.borderColor=connected?"#10B981":color;
+    btn.style.color=connected?"#10B981":color;
+    btn.addEventListener("click",function(){
+      var appId=process.env&&process.env.META_APP_ID;
+      if(platform==="meta"){
+        var metaAppId="";// filled by server below
+        fetch("/api/oauth-config").then(function(r){return r.json();}).then(function(d){
+          var url="https://www.facebook.com/dialog/oauth?client_id="+d.meta_app_id+
+            "&redirect_uri="+encodeURIComponent(window.location.origin+"/callback")+
+            "&scope=pages_show_list,pages_messaging,instagram_manage_messages,instagram_basic,pages_read_engagement,read_page_mailboxes"+
+            "&response_type=code&state="+encodeURIComponent(state);
+          window.location.href=url;
+        }).catch(function(){alert("Meta App ID not configured. Add META_APP_ID to Vercel env vars.");});
+      } else if(platform==="google"){
+        fetch("/api/oauth-config").then(function(r){return r.json();}).then(function(d){
+          var url="https://accounts.google.com/o/oauth2/v2/auth?client_id="+d.google_client_id+
+            "&redirect_uri="+encodeURIComponent(window.location.origin+"/callback")+
+            "&scope="+encodeURIComponent("https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send")+
+            "&response_type=code&access_type=offline&prompt=consent"+
+            "&state="+encodeURIComponent(state);
+          window.location.href=url;
+        }).catch(function(){alert("Google Client ID not configured. Add GOOGLE_CLIENT_ID to Vercel env vars.");});
+      }
+    });
+    return btn;
+  }
+
+  // Instagram + Facebook — one OAuth button connects both
   var igSection=el("div",{style:{marginBottom:"14px"}});
-  igSection.appendChild(div({color:"#E1306C",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"📸 Instagram"));
+  var igHeader=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"8px"}});
+  var igLabel=div({color:"#E1306C",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"📸 Instagram & Facebook");
+  igHeader.appendChild(igLabel);
+  igHeader.appendChild(oauthBtn("Instagram + Facebook","#E1306C","meta"));
+  igSection.appendChild(igHeader);
   var igGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"10px"}});
-  igGrid.appendChild(socialInp("dv_ig_id","Account ID","e.g. 1234567890"));
-  igGrid.appendChild(socialInp("dv_ig_token","Access Token","EAAGm...","password"));
+  igGrid.appendChild(socialInp("dv_ig_id","Account ID (auto-filled after connect)","e.g. 1234567890"));
+  igGrid.appendChild(socialInp("dv_ig_token","Access Token (auto-filled after connect)","EAAGm...","password"));
   igSection.appendChild(igGrid);
   maxW.appendChild(igSection);
 
-  // Facebook
+  // Facebook manual (separate Page ID still shown for info)
   var fbSection=el("div",{style:{marginBottom:"14px"}});
-  fbSection.appendChild(div({color:"#1877F2",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"👥 Facebook"));
+  fbSection.appendChild(div({color:"#1877F2",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"👥 Facebook Page ID (auto-filled)"));
   var fbGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"10px"}});
-  fbGrid.appendChild(socialInp("dv_fb_id","Page ID","pagename or page ID"));
+  fbGrid.appendChild(socialInp("dv_fb_id","Page ID","auto-filled after Connect above"));
   fbSection.appendChild(fbGrid);
   maxW.appendChild(fbSection);
+
+  // Gmail
+  var gmailSection=el("div",{style:{marginBottom:"14px"}});
+  var gmailHeader=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"8px"}});
+  gmailHeader.appendChild(div({color:"#EA4335",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"📧 Gmail"));
+  gmailHeader.appendChild(oauthBtn("Gmail","#EA4335","google"));
+  gmailSection.appendChild(gmailHeader);
+  var gmailStatus=div({fontSize:"11px",color:"#8899AA",padding:"8px 12px",background:"#0D1220",borderRadius:"8px"},localStorage.getItem("dv_gmail_connected")?"Connected: "+localStorage.getItem("dv_gmail_connected"):"Not connected — click Connect Gmail to link your inbox");
+  gmailSection.appendChild(gmailStatus);
+  maxW.appendChild(gmailSection);
 
   // LinkedIn
   var liSection=el("div",{style:{marginBottom:"14px"}});
