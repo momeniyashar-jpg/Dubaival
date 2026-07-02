@@ -241,7 +241,16 @@ gtag('js',new Date());
 gtag('config','G-DUBAIVAL01',{page_title:'DubAIVal App',page_location:'https://dubaival.com/app'});
 window.dvTrack=function(event,params){try{gtag('event',event,params||{});}catch(e){}};
 </script>
-<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(function(){});}</script>
+<script>
+if('serviceWorker' in navigator){
+  var _hadSWController=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('/sw.js').catch(function(){});
+  navigator.serviceWorker.addEventListener('controllerchange',function(){
+    if(_hadSWController)window.location.reload();
+    _hadSWController=true;
+  });
+}
+</script>
 <div id="app"></div><div id="print-report"></div>
 
 <!-- App Modules -->
@@ -250,9 +259,9 @@ window.dvTrack=function(event,params){try{gtag('event',event,params||{});}catch(
 <script src="js/valuation-db.js?v=20260623"></script>
 <script src="js/valuation.js?v=20260623"></script>
 <script src="js/api.js?v=20260630i"></script>
-<script src="js/core.js?v=20260701r"></script>
-<script src="js/auth.js?v=20260702d"></script>
-<script src="js/app.js?v=20260702c"></script>
+<script src="js/core.js?v=20260702a"></script>
+<script src="js/auth.js?v=20260702e"></script>
+<script src="js/app.js?v=20260702d"></script>
 <script src="js/market.js?v=20260630d"></script>
 <script src="js/mortgage.js?v=20260629b"></script>
 <script src="js/portfolio.js?v=20260630g"></script>
@@ -263,7 +272,7 @@ window.dvTrack=function(event,params){try{gtag('event',event,params||{});}catch(
 <script src="js/about.js?v=20260629b"></script>
 <script src="js/workspace.js?v=20260629b"></script>
 <script src="js/marketindex.js?v=20260630a"></script>
-<script src="js/news.js?v=20260702a"></script>
+<script src="js/news.js?v=20260702b"></script>
 <script>render();</script>
 </body>
 </html>

@@ -1926,12 +1926,22 @@ function render(preserveScroll){
   newsBtn.addEventListener("click",function(){setSection("Market","News");});
   controls.appendChild(newsBtn);
   if(typeof renderNotifBell==="function")controls.appendChild(renderNotifBell());
-  if(typeof renderAuthButton==="function")controls.appendChild(renderAuthButton());
   var avatarBtn=el("div",{});
   avatarBtn.className="dv-avatar";
-  var avatarInitial=USER_PROFILE.name?USER_PROFILE.name.charAt(0).toUpperCase():"U";
-  avatarBtn.innerHTML='<span style="font-size:13px;font-weight:700;color:#D4AF37;font-family:\'Inter\',sans-serif">'+avatarInitial+'</span>';
-  avatarBtn.addEventListener("click",function(){showProfilePanel=!showProfilePanel;render();});
+  var _dvLoggedIn=typeof DV_AUTH!=="undefined"&&DV_AUTH.user;
+  if(_dvLoggedIn){
+    var _dvNameStr=USER_PROFILE.name||(DV_AUTH.user.email||"");
+    var avatarInitial=_dvNameStr?_dvNameStr.charAt(0).toUpperCase():"U";
+    avatarBtn.innerHTML='<span style="font-size:13px;font-weight:700;color:#D4AF37;font-family:\'Inter\',sans-serif">'+avatarInitial+'</span>';
+    avatarBtn.title="My Profile";
+    avatarBtn.addEventListener("click",function(){showProfilePanel=!showProfilePanel;render();});
+  }else{
+    avatarBtn.innerHTML='<i data-lucide="user" style="width:16px;height:16px;color:#6B7A9E"></i>';
+    avatarBtn.title="Sign In";
+    avatarBtn.style.background="transparent";
+    avatarBtn.style.border="1px solid rgba(255,255,255,0.08)";
+    avatarBtn.addEventListener("click",function(){if(typeof DV_AUTH!=="undefined"){DV_AUTH.showModal=true;DV_AUTH.modalTab="signin";DV_AUTH.error="";}render();});
+  }
   controls.appendChild(avatarBtn);
   header.appendChild(controls);
   main.appendChild(header);
@@ -2044,4 +2054,15 @@ function render(preserveScroll){
   checkTourOnLoad();
   if(preserveScroll&&_scrollY)requestAnimationFrame(function(){window.scrollTo(0,_scrollY);});
   if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
+
+  // Proactive news prefetch: start fetching in the background so News tab loads instantly
+  if(!window._newsPrefetchStarted){
+    window._newsPrefetchStarted=true;
+    setTimeout(function(){
+      if(typeof _fetchNews==="function"&&typeof NEWS_STATE!=="undefined"&&!NEWS_STATE.loading){
+        var stale=!NEWS_STATE.articles.length||(Date.now()-NEWS_STATE.lastFetch)>300000;
+        if(stale)_fetchNews(false);
+      }
+    },4000);
+  }
 }

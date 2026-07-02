@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- AUTH MODULE ---
-var DV_AUTH={user:null,profile:null,loading:true,showModal:false,modalTab:"signin",error:"",busy:false,resetSent:false};
+var DV_AUTH={user:null,profile:null,loading:true,showModal:false,modalTab:"signin",error:"",busy:false,resetSent:false,recoveryToken:null,passwordUpdated:false};
 
 function sbHeaders(token){
   var h={"apikey":SUPABASE_KEY,"Content-Type":"application/json"};
@@ -45,6 +45,27 @@ async function dvResetPassword(email){
     var resp=await fetch(SUPABASE_URL+"/auth/v1/recover",{method:"POST",headers:sbHeaders(),body:JSON.stringify({email:email})});
     if(!resp.ok){var d=await resp.json();throw new Error(d.error_description||d.msg||"Error sending reset email");}
     DV_AUTH.resetSent=true;
+  }catch(e){DV_AUTH.error=e.message;}
+  DV_AUTH.busy=false;render();
+}
+
+async function dvSetNewPassword(newPassword){
+  DV_AUTH.busy=true;DV_AUTH.error="";render();
+  try{
+    var token=DV_AUTH.recoveryToken||localStorage.getItem("dv_access_token");
+    if(!token)throw new Error("Session expired. Please request a new reset link.");
+    var resp=await fetch(SUPABASE_URL+"/auth/v1/user",{method:"PUT",headers:sbHeaders(token),body:JSON.stringify({password:newPassword})});
+    var data=await resp.json();
+    if(!resp.ok)throw new Error(data.error_description||data.msg||data.message||"Error updating password");
+    if(data.id){
+      var rt=localStorage.getItem("dv_refresh_token");
+      localStorage.setItem("dv_user",JSON.stringify(data));
+      DV_AUTH.user=data;
+      DV_AUTH.profile={display_name:(data.user_metadata&&data.user_metadata.display_name)||data.email};
+    }
+    DV_AUTH.recoveryToken=null;
+    DV_AUTH.passwordUpdated=true;
+    DV_AUTH.showModal=false;
   }catch(e){DV_AUTH.error=e.message;}
   DV_AUTH.busy=false;render();
 }
@@ -152,6 +173,23 @@ function portfolioChanged(){
   }catch(e){DV_AUTH.loading=false;}
 })();
 
+// Detect Supabase password-recovery link: #access_token=...&type=recovery
+(function(){
+  try{
+    var h=window.location.hash;
+    if(!h||h.indexOf("type=recovery")===-1)return;
+    var params={};
+    h.replace(/^#/,"").split("&").forEach(function(p){var kv=p.split("=");params[decodeURIComponent(kv[0])]=decodeURIComponent(kv[1]||"");});
+    if(!params.access_token||params.type!=="recovery")return;
+    localStorage.setItem("dv_access_token",params.access_token);
+    if(params.refresh_token)localStorage.setItem("dv_refresh_token",params.refresh_token);
+    DV_AUTH.recoveryToken=params.access_token;
+    DV_AUTH.showModal=true;
+    DV_AUTH.modalTab="setpassword";
+    history.replaceState(null,"",window.location.pathname);
+  }catch(e){}
+})();
+
 // --- AUTH MODAL ---
 function renderAuthModal(){
   if(!DV_AUTH.showModal)return null;
@@ -189,6 +227,32 @@ function renderAuthModal(){
     backLink.textContent="← Back to Sign In";
     backLink.addEventListener("click",function(){DV_AUTH.modalTab="signin";DV_AUTH.error="";DV_AUTH.resetSent=false;render();});
     modal.appendChild(backLink);
+    overlay.appendChild(modal);
+    return overlay;
+  }
+
+  // ── SET NEW PASSWORD VIEW ─────────────────────────────────────
+  if(DV_AUTH.modalTab==="setpassword"){
+    modal.appendChild(div({textAlign:"center",marginBottom:"22px"},[
+      div({fontSize:"26px",marginBottom:"8px"},"🔐"),
+      div({color:"#F0F2F5",fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Set New Password"),
+      div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Enter and confirm your new password")
+    ]));
+    if(DV_AUTH.error)modal.appendChild(div({background:hexAlpha("#EF4444",0.1),border:"1px solid "+hexAlpha("#EF4444",0.3),borderRadius:"8px",padding:"8px 12px",marginBottom:"12px",color:"#EF4444",fontSize:"11px",fontFamily:"'Inter',sans-serif"},DV_AUTH.error));
+    var inpStyle2={width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",color:"#F0F2F5",padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"};
+    var newPassInp=el("input",{type:"password",placeholder:"New password (min. 8 characters)",style:inpStyle2});
+    modal.appendChild(newPassInp);
+    var confPassInp=el("input",{type:"password",placeholder:"Confirm new password",style:Object.assign({},inpStyle2,{marginBottom:"16px"})});
+    modal.appendChild(confPassInp);
+    var setBtn=el("button",{style:{width:"100%",padding:"12px",borderRadius:"999px",border:"1px solid rgba(212,175,55,0.15)",background:DV_AUTH.busy?"rgba(75,85,99,0.3)":"rgba(212,175,55,0.10)",color:DV_AUTH.busy?"#9CA3AF":"#D4A843",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:DV_AUTH.busy?"not-allowed":"pointer",marginBottom:"8px"}});
+    setBtn.textContent=DV_AUTH.busy?"...":"Set New Password";
+    if(!DV_AUTH.busy)setBtn.addEventListener("click",function(){
+      var p1=newPassInp.value,p2=confPassInp.value;
+      if(!p1||p1.length<8){DV_AUTH.error="Password must be at least 8 characters";render();return;}
+      if(p1!==p2){DV_AUTH.error="Passwords don't match";render();return;}
+      dvSetNewPassword(p1);
+    });
+    modal.appendChild(setBtn);
     overlay.appendChild(modal);
     return overlay;
   }

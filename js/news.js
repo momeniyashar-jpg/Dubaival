@@ -57,7 +57,8 @@ function startNewsPolling() {
 async function _fetchNews(initial) {
   if (NEWS_STATE.loading) return;
   NEWS_STATE.loading = true;
-  if (_newsStatusEl) _newsStatusEl.textContent = "Refreshing…";
+  if (_newsStatusEl) _newsStatusEl.textContent = "Loading…";
+  if (!NEWS_STATE.articles.length) _renderNewsList();
   try {
     var r = await fetch("/api/proxy-news");
     var data = await r.json();
@@ -211,7 +212,6 @@ function renderNews() {
 
   // Show cached articles instantly; refresh if stale (>5 min) or empty
   var needsFetch = !NEWS_STATE.articles.length || (Date.now() - NEWS_STATE.lastFetch) > 300000;
-  if (needsFetch && !NEWS_STATE.articles.length) NEWS_STATE.loading = true;
   _renderNewsList();
   _renderNewsStatus();
   if (needsFetch) _fetchNews(true);

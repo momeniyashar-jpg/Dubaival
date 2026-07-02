@@ -383,13 +383,17 @@ function setSection(sec,sub){
   render();
 }
 window.addEventListener("popstate",function(e){
-  if(e.state&&e.state.section){
-    _skipPush=true;
-    currentSection=e.state.section;
-    currentSubTab=e.state.sub||"";
-    render();
-    _skipPush=false;
+  if(!e.state||!e.state.section){
+    // No SPA state → stay on the app, don't exit the site
+    var stateObj={section:currentSection,sub:currentSubTab};
+    history.replaceState(stateObj,"","#"+currentSection+(currentSubTab?"/"+currentSubTab:""));
+    return;
   }
+  _skipPush=true;
+  currentSection=e.state.section;
+  currentSubTab=e.state.sub||"";
+  render();
+  _skipPush=false;
 });
 (function(){
   var stateObj={section:currentSection,sub:currentSubTab};
