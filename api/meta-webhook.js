@@ -1,6 +1,6 @@
 // Meta webhook — handles Instagram DM, Facebook DM, Facebook comments
 // Multi-tenant: routes each event to the DubaiVal user who owns that page
-var shared = require("./lib/shared.js");
+var shared = require("./_lib/shared.js");
 
 var VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN || "dubaival_meta_webhook_2026";
 var GROQ_KEY = process.env.GROQ_API_KEY;

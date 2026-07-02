@@ -1,6 +1,6 @@
 // Manual agent reply to an email — POST {messageId, replyTo, replyName, subject, body}
 // Called from the Inbox UI when an agent types and sends a reply
-var shared = require("./lib/shared.js");
+var shared = require("./_lib/shared.js");
 
 var FROM = process.env.ALERTS_FROM_EMAIL || "DubAIVal <hello@dubaival.com>";
 

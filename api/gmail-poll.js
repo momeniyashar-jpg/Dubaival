@@ -1,6 +1,6 @@
 // Hourly cron — polls Gmail for each connected user, stores new emails in email_inbox
 // Also sends AI auto-reply if email has been sitting > 8 hours unanswered
-var shared = require("./lib/shared.js");
+var shared = require("./_lib/shared.js");
 
 var GROQ_KEY = process.env.GROQ_API_KEY;
 var GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
