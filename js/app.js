@@ -1613,163 +1613,157 @@ function renderHome(){
 
 function renderProfilePanel(){
   var cl=C();
-  var panel=el("div",{style:{background:cl.surface,borderBottom:"1px solid "+cl.border,padding:"16px 20px",maxHeight:"80vh",overflowY:"auto"}});
+  var panel=el("div",{style:{background:cl.surface,borderBottom:"1px solid "+cl.border,padding:"20px 24px",maxHeight:"82vh",overflowY:"auto"}});
   var allSocialFields=[];
 
   function secLabel(text){
-    return div({color:"#D4AF37",fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"600",borderLeft:"3px solid #D4AF37",paddingLeft:"8px",marginBottom:"10px",marginTop:"4px"},text);
+    return div({color:"#D4AF37",fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"700",borderLeft:"3px solid #D4AF37",paddingLeft:"8px",marginBottom:"12px",marginTop:"8px"},text);
   }
   function inpStyle(){
-    return {width:"100%",background:"rgba(240,242,245,0.05)",border:"1px solid "+cl.border,color:"#F0F2F5",padding:"7px 10px",borderRadius:"7px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"};
+    return {width:"100%",background:"rgba(240,242,245,0.05)",border:"1px solid "+cl.border,color:"#F0F2F5",padding:"8px 11px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"};
+  }
+  function fieldBlock(labelText,inputEl){
+    var w=el("div",{});
+    w.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"5px"},labelText));
+    w.appendChild(inputEl);
+    return w;
   }
   function socialInp(key,label,ph,type){
-    var w=el("div",{style:{marginBottom:"2px"}});
-    w.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},label));
     var inp=el("input",{type:type||"text",placeholder:ph,style:Object.assign(inpStyle(),{fontFamily:"monospace",fontSize:"11px"})});
     inp.value=localStorage.getItem(key)||"";
     inp.addEventListener("focus",function(){this.style.borderColor="#D4AF37";});
     inp.addEventListener("blur",function(){this.style.borderColor=cl.border;});
-    w.appendChild(inp);
     allSocialFields.push({key:key,inp:inp});
-    return w;
+    return fieldBlock(label,inp);
   }
 
-  var maxW=el("div",{style:{maxWidth:"800px",margin:"0 auto"}});
+  var maxW=el("div",{style:{maxWidth:"760px",margin:"0 auto"}});
 
-  // ── PERSONAL INFO ─────────────────────────────────────────────
-  maxW.appendChild(secLabel("Personal Info"));
-  var contactGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:"12px",marginBottom:"16px"}});
+  // ── ACCOUNT ────────────────────────────────────────────────────
+  maxW.appendChild(secLabel("Account"));
+  var acctGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:"12px",marginBottom:"20px"}});
 
-  var nameBox=el("div",{});
-  nameBox.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"Name"));
-  var nameInp=el("input",{type:"text",placeholder:"e.g. Ahmed Al Mansouri",style:inpStyle()});
+  // Email (read-only)
+  var emailVal=(typeof DV_AUTH!=="undefined"&&DV_AUTH.user&&DV_AUTH.user.email)||"";
+  var emailInp=el("input",{type:"text",value:emailVal,readOnly:true,style:Object.assign(inpStyle(),{opacity:"0.55",cursor:"default"})});
+  acctGrid.appendChild(fieldBlock("Email",emailInp));
+
+  // Name
+  var nameInp=el("input",{type:"text",placeholder:"Your name",style:inpStyle()});
   nameInp.value=USER_PROFILE.name||"";
-  nameInp.addEventListener("input",function(){USER_PROFILE.name=this.value;saveProfile();});
-  nameBox.appendChild(nameInp);
-  contactGrid.appendChild(nameBox);
+  nameInp.addEventListener("input",function(){USER_PROFILE.name=this.value;});
+  nameInp.addEventListener("focus",function(){this.style.borderColor="#D4AF37";});
+  nameInp.addEventListener("blur",function(){this.style.borderColor=cl.border;});
+  acctGrid.appendChild(fieldBlock("Name",nameInp));
 
-  var phoneBox=el("div",{});
-  phoneBox.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"Phone"));
-  var phoneInp=el("input",{type:"tel",placeholder:"971501234567",style:inpStyle()});
+  // Phone
+  var phoneInp=el("input",{type:"tel",placeholder:"+971 50 000 0000",style:inpStyle()});
   phoneInp.value=localStorage.getItem("dv_phone")||"";
-  phoneInp.addEventListener("blur",function(){localStorage.setItem("dv_phone",this.value);});
-  phoneBox.appendChild(phoneInp);
-  contactGrid.appendChild(phoneBox);
+  phoneInp.addEventListener("focus",function(){this.style.borderColor="#D4AF37";});
+  phoneInp.addEventListener("blur",function(){this.style.borderColor=cl.border;});
+  acctGrid.appendChild(fieldBlock("Phone",phoneInp));
 
-  var waBox=el("div",{});
-  waBox.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"WhatsApp"));
-  var waInp=el("input",{type:"tel",placeholder:"971501234567",style:inpStyle()});
+  // WhatsApp
+  var waInp=el("input",{type:"tel",placeholder:"+971 50 000 0000",style:inpStyle()});
   waInp.value=localStorage.getItem("dv_whatsapp_number")||"";
-  waInp.addEventListener("blur",function(){localStorage.setItem("dv_whatsapp_number",this.value);});
-  waBox.appendChild(waInp);
-  contactGrid.appendChild(waBox);
+  waInp.addEventListener("focus",function(){this.style.borderColor="#D4AF37";});
+  waInp.addEventListener("blur",function(){this.style.borderColor=cl.border;});
+  acctGrid.appendChild(fieldBlock("WhatsApp",waInp));
 
-  maxW.appendChild(contactGrid);
+  maxW.appendChild(acctGrid);
 
-  // ── INVESTOR PROFILE ──────────────────────────────────────────
-  maxW.appendChild(secLabel("Investor Profile"));
-  var pGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:"16px",marginBottom:"16px"}});
+  // ── SOCIAL ACCOUNTS ────────────────────────────────────────────
+  maxW.appendChild(secLabel("Social Accounts"));
 
-  var typeBox=el("div",{});
-  typeBox.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Investor Type"));
-  var typeGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"5px"}});
-  [{k:"income",l:"Rental Income",ic:"R"},{k:"growth",l:"Capital Growth",ic:"G"},{k:"flip",l:"Flip / Resale",ic:"F"},{k:"enduse",l:"End Use",ic:"E"}].forEach(function(p){
-    var active=USER_PROFILE.investorType===p.k;
-    var b=el("button",{style:{padding:"7px 8px",borderRadius:"7px",fontSize:"11px",border:"1px solid "+(active?cl.gold:cl.border),background:active?(cl.goldFaint||"rgba(212,175,55,0.06)"):"transparent",color:active?"#F0F2F5":cl.sub,fontFamily:"'Inter',sans-serif",cursor:"pointer",textAlign:"left"}});
-    b.textContent=p.ic+" "+p.l;
-    b.addEventListener("click",function(){USER_PROFILE.investorType=p.k;saveProfile();render();});
-    typeGrid.appendChild(b);
-  });
-  typeBox.appendChild(typeGrid);
-  pGrid.appendChild(typeBox);
+  // Instagram
+  var igSection=el("div",{style:{marginBottom:"14px"}});
+  igSection.appendChild(div({color:"#E1306C",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"📸 Instagram"));
+  var igGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"10px"}});
+  igGrid.appendChild(socialInp("dv_ig_id","Account ID","e.g. 1234567890"));
+  igGrid.appendChild(socialInp("dv_ig_token","Access Token","EAAGm...","password"));
+  igSection.appendChild(igGrid);
+  maxW.appendChild(igSection);
 
-  var riskBox=el("div",{});
-  riskBox.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Risk Tolerance"));
-  var riskGrid=el("div",{style:{display:"flex",flexDirection:"column",gap:"5px"}});
-  [{k:"conservative",l:"Conservative"},{k:"moderate",l:"Moderate"},{k:"aggressive",l:"Aggressive"}].forEach(function(r){
-    var active=USER_PROFILE.risk===r.k;
-    var b=el("button",{style:{padding:"7px 10px",borderRadius:"7px",fontSize:"11px",border:"1px solid "+(active?cl.gold:cl.border),background:active?(cl.goldFaint||"rgba(212,175,55,0.06)"):"transparent",color:active?"#F0F2F5":cl.sub,fontFamily:"'Inter',sans-serif",cursor:"pointer",textAlign:"left"}});
-    b.textContent=r.l;
-    b.addEventListener("click",function(){USER_PROFILE.risk=r.k;saveProfile();render();});
-    riskGrid.appendChild(b);
-  });
-  riskBox.appendChild(riskGrid);
-  pGrid.appendChild(riskBox);
+  // Facebook
+  var fbSection=el("div",{style:{marginBottom:"14px"}});
+  fbSection.appendChild(div({color:"#1877F2",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"👥 Facebook"));
+  var fbGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"10px"}});
+  fbGrid.appendChild(socialInp("dv_fb_id","Page ID","pagename or page ID"));
+  fbSection.appendChild(fbGrid);
+  maxW.appendChild(fbSection);
 
-  var budgetBox=el("div",{});
-  budgetBox.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Budget Range (AED)"));
-  var bRow=el("div",{style:{display:"flex",gap:"8px",alignItems:"center"}});
-  var bMin=el("input",{type:"number",placeholder:"Min",style:{flex:"1",background:"rgba(240,242,245,0.05)",border:"1px solid "+cl.border,color:"#F0F2F5",padding:"7px 10px",borderRadius:"7px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",minWidth:"0"}});
-  bMin.value=USER_PROFILE.budgetMin?USER_PROFILE.budgetMin.toLocaleString():"";
-  bMin.addEventListener("change",function(){USER_PROFILE.budgetMin=parseInt(this.value.replace(/,/g,""))||0;saveProfile();});
-  var bMax=el("input",{type:"number",placeholder:"Max",style:{flex:"1",background:"rgba(240,242,245,0.05)",border:"1px solid "+cl.border,color:"#F0F2F5",padding:"7px 10px",borderRadius:"7px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",minWidth:"0"}});
-  bMax.value=USER_PROFILE.budgetMax?USER_PROFILE.budgetMax.toLocaleString():"";
-  bMax.addEventListener("change",function(){USER_PROFILE.budgetMax=parseInt(this.value.replace(/,/g,""))||0;saveProfile();});
-  bRow.appendChild(bMin);
-  bRow.appendChild(span({color:cl.sub,fontSize:"12px"},"—"));
-  bRow.appendChild(bMax);
-  budgetBox.appendChild(bRow);
-  pGrid.appendChild(budgetBox);
+  // LinkedIn
+  var liSection=el("div",{style:{marginBottom:"14px"}});
+  liSection.appendChild(div({color:"#0A66C2",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"💼 LinkedIn"));
+  var liGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"10px"}});
+  liGrid.appendChild(socialInp("dv_linkedin_token","Access Token","AQX...","password"));
+  liGrid.appendChild(socialInp("dv_linkedin_urn","Organization URN","urn:li:organization:123"));
+  liSection.appendChild(liGrid);
+  maxW.appendChild(liSection);
 
-  maxW.appendChild(pGrid);
+  // X / Twitter
+  var twSection=el("div",{style:{marginBottom:"14px"}});
+  twSection.appendChild(div({color:"#E8EDF5",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"𝕏 X / Twitter"));
+  var twGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"10px"}});
+  twGrid.appendChild(socialInp("dv_twitter_consumer_key","Consumer Key","API key"));
+  twGrid.appendChild(socialInp("dv_twitter_consumer_secret","Consumer Secret","API secret","password"));
+  twGrid.appendChild(socialInp("dv_twitter_access_token","Access Token","token","password"));
+  twGrid.appendChild(socialInp("dv_twitter_access_secret","Access Secret","secret","password"));
+  twSection.appendChild(twGrid);
+  maxW.appendChild(twSection);
 
-  // ── SOCIAL ACCOUNTS (collapsible) ─────────────────────────────
-  var socWrap=el("div",{style:{background:"rgba(240,242,245,0.02)",border:"1px solid "+cl.border,borderRadius:"10px",overflow:"hidden",marginBottom:"14px"}});
-  var socToggle=el("button",{style:{width:"100%",background:"transparent",border:"none",padding:"10px 14px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between"}});
-  socToggle.appendChild(span({style:{color:"#D4AF37",fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"600"}},"Social Accounts"));
-  var socArrow=span({style:{color:"#445566",fontSize:"11px",transition:"transform 0.2s"}},"▼");
-  socToggle.appendChild(socArrow);
+  // TikTok
+  var ttSection=el("div",{style:{marginBottom:"14px"}});
+  ttSection.appendChild(div({color:"#69C9D0",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"🎵 TikTok"));
+  var ttGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"10px"}});
+  ttGrid.appendChild(socialInp("dv_tiktok_token","Access Token","Bearer token...","password"));
+  ttSection.appendChild(ttGrid);
+  maxW.appendChild(ttSection);
 
-  var socBody=el("div",{style:{display:"none",padding:"14px",paddingTop:"4px"}});
-  socToggle.addEventListener("click",function(){
-    var open=socBody.style.display!=="none";
-    socBody.style.display=open?"none":"block";
-    socArrow.textContent=open?"▼":"▲";
-  });
+  // YouTube
+  var ytSection=el("div",{style:{marginBottom:"20px"}});
+  ytSection.appendChild(div({color:"#FF0000",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"▶ YouTube"));
+  var ytGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"10px"}});
+  ytGrid.appendChild(socialInp("dv_youtube_client_id","Client ID","client_id.apps.google..."));
+  ytGrid.appendChild(socialInp("dv_youtube_refresh","Refresh Token","refresh_token...","password"));
+  ytSection.appendChild(ytGrid);
+  maxW.appendChild(ytSection);
 
-  var socGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:"10px",marginBottom:"12px"}});
-  socGrid.appendChild(socialInp("dv_ig_id","Instagram Account ID","1234567890"));
-  socGrid.appendChild(socialInp("dv_ig_token","Instagram Access Token","EAAGm...","password"));
-  socGrid.appendChild(socialInp("dv_fb_id","Facebook Page ID","pagename_or_id"));
-  socGrid.appendChild(socialInp("dv_linkedin_token","LinkedIn Access Token","AQX...","password"));
-  socGrid.appendChild(socialInp("dv_linkedin_urn","LinkedIn URN","urn:li:organization:123"));
-  socGrid.appendChild(socialInp("dv_twitter_consumer_key","X Consumer Key","API key"));
-  socGrid.appendChild(socialInp("dv_twitter_consumer_secret","X Consumer Secret","API secret","password"));
-  socGrid.appendChild(socialInp("dv_twitter_access_token","X Access Token","token","password"));
-  socGrid.appendChild(socialInp("dv_twitter_access_secret","X Access Secret","secret","password"));
-  socGrid.appendChild(socialInp("dv_tiktok_token","TikTok Token","Bearer token","password"));
-  socGrid.appendChild(socialInp("dv_youtube_client_id","YouTube Client ID","client_id.apps.google..."));
-  socGrid.appendChild(socialInp("dv_youtube_refresh","YouTube Refresh Token","refresh_token","password"));
-  socBody.appendChild(socGrid);
+  // ── BUTTONS ────────────────────────────────────────────────────
+  var btnRow=el("div",{style:{display:"flex",gap:"10px",flexDirection:"column"}});
 
-  var saveBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#D4AF37,#A07D1C)",border:"none",borderRadius:"8px",padding:"10px",color:"#070B14",fontWeight:"700",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.06em"}});
-  saveBtn.textContent="SAVE SOCIAL ACCOUNTS";
+  var saveBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#D4AF37,#A07D1C)",border:"none",borderRadius:"8px",padding:"11px",color:"#070B14",fontWeight:"700",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.06em"}});
+  saveBtn.textContent="SAVE PROFILE";
   saveBtn.addEventListener("click",function(){
-    allSocialFields.forEach(function(f){if(f.inp.value)localStorage.setItem(f.key,f.inp.value);else localStorage.removeItem(f.key);});
+    // Save account fields
+    USER_PROFILE.name=nameInp.value.trim();
+    saveProfile();
+    localStorage.setItem("dv_phone",phoneInp.value.trim());
+    localStorage.setItem("dv_whatsapp_number",waInp.value.trim());
+    // Save social fields
+    allSocialFields.forEach(function(f){
+      if(f.inp.value.trim())localStorage.setItem(f.key,f.inp.value.trim());
+      else localStorage.removeItem(f.key);
+    });
     if(typeof _syncCredsToServer==="function")_syncCredsToServer();
     saveBtn.textContent="✓ SAVED";
     saveBtn.style.background="linear-gradient(135deg,#10B981,#059669)";
-    setTimeout(function(){saveBtn.textContent="SAVE SOCIAL ACCOUNTS";saveBtn.style.background="linear-gradient(135deg,#D4AF37,#A07D1C)";},2000);
+    setTimeout(function(){saveBtn.textContent="SAVE PROFILE";saveBtn.style.background="linear-gradient(135deg,#D4AF37,#A07D1C)";},2000);
   });
-  socBody.appendChild(saveBtn);
+  btnRow.appendChild(saveBtn);
 
-  socWrap.appendChild(socToggle);
-  socWrap.appendChild(socBody);
-  maxW.appendChild(socWrap);
+  if(typeof DV_AUTH!=="undefined"&&DV_AUTH.user){
+    var signOutBtn=el("button",{style:{width:"100%",background:"transparent",border:"1px solid rgba(239,68,68,0.3)",borderRadius:"8px",padding:"9px",color:"#EF4444",fontWeight:"600",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.04em"}});
+    signOutBtn.textContent="Sign Out";
+    signOutBtn.addEventListener("mouseenter",function(){this.style.background="rgba(239,68,68,0.08)";});
+    signOutBtn.addEventListener("mouseleave",function(){this.style.background="transparent";});
+    signOutBtn.addEventListener("click",function(){
+      if(typeof dvSignOut==="function")dvSignOut();
+    });
+    btnRow.appendChild(signOutBtn);
+  }
 
-  // ── SUMMARY CHIPS ─────────────────────────────────────────────
-  var summary=el("div",{style:{display:"flex",gap:"10px",flexWrap:"wrap",paddingTop:"10px",borderTop:"1px solid "+cl.border}});
-  var typeLabels={income:"Rental Income",growth:"Capital Growth",flip:"Flip / Resale",enduse:"End Use"};
-  var riskLabels={conservative:"Conservative",moderate:"Moderate",aggressive:"Aggressive"};
-  var chips=[{l:"Type",v:typeLabels[USER_PROFILE.investorType]||"Not set"},{l:"Risk",v:riskLabels[USER_PROFILE.risk]||"Moderate"},{l:"Budget",v:USER_PROFILE.budgetMax?"Up to AED "+(USER_PROFILE.budgetMax/1000000).toFixed(1)+"M":"Not set"}];
-  if(USER_PROFILE.name)chips.unshift({l:"Name",v:USER_PROFILE.name});
-  chips.forEach(function(item){
-    var chip=el("div",{style:{background:cl.goldFaint||"rgba(212,175,55,0.06)",border:"1px solid "+(cl.goldDim||"#8A6420"),borderRadius:"20px",padding:"3px 12px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",color:cl.gold}});
-    chip.textContent=item.l+": "+item.v;
-    summary.appendChild(chip);
-  });
-  maxW.appendChild(summary);
-
+  maxW.appendChild(btnRow);
   panel.appendChild(maxW);
   return panel;
 }
