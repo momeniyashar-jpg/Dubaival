@@ -1996,6 +1996,17 @@ function render(preserveScroll){
   header.appendChild(controls);
   main.appendChild(header);
 
+  // Demo Mode banner
+  if(typeof DV_AUTH!=="undefined"&&DV_AUTH.isDemo){
+    var demoBanner=el("div",{style:{background:"linear-gradient(90deg,rgba(139,92,246,0.15),rgba(139,92,246,0.05))",borderBottom:"1px solid rgba(139,92,246,0.2)",padding:"6px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"8px"}});
+    demoBanner.appendChild(span({color:"#A78BFA",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"✦ DEMO MODE — Data is simulated. Sign up to save your work."));
+    var exitDemo=el("button",{style:{background:"rgba(139,92,246,0.15)",border:"1px solid rgba(139,92,246,0.3)",color:"#A78BFA",borderRadius:"6px",padding:"3px 10px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",whiteSpace:"nowrap"}});
+    exitDemo.textContent="Sign Up Free";
+    exitDemo.addEventListener("click",function(){DV_AUTH.isDemo=false;DV_AUTH.user=null;DV_AUTH.profile=null;DV_AUTH.showModal=true;DV_AUTH.modalTab="signup";render();});
+    demoBanner.appendChild(exitDemo);
+    main.appendChild(demoBanner);
+  }
+
   if(showProfilePanel){
     main.appendChild(renderProfilePanel());
   }

@@ -1,6 +1,21 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- AUTH MODULE ---
-var DV_AUTH={user:null,profile:null,loading:true,showModal:false,modalTab:"signin",error:"",busy:false,resetSent:false,recoveryToken:null,passwordUpdated:false};
+var DV_AUTH={user:null,profile:null,loading:true,showModal:false,modalTab:"signin",error:"",busy:false,resetSent:false,recoveryToken:null,passwordUpdated:false,isDemo:false};
+
+function activateDemoMode(){
+  var DEMO_PORTFOLIO=[
+    {id:"demo1",building:"Burj Khalifa Residences",area:"Downtown Dubai",type:"Apartment",beds:2,size:1350,floor:45,view:"Burj Khalifa + Fountain View",purchasePrice:4200000,purchaseDate:"2023-01-15",serviceCharge:30,furnished:"Furnished"},
+    {id:"demo2",building:"Marina Gate 1",area:"Dubai Marina",type:"Apartment",beds:1,size:750,floor:22,view:"Marina View",purchasePrice:1650000,purchaseDate:"2022-06-10",serviceCharge:18,furnished:"Unfurnished"},
+    {id:"demo3",building:"Ellington House",area:"Dubai Hills Estate",type:"Apartment",beds:3,size:2100,floor:8,view:"Golf View",purchasePrice:5800000,purchaseDate:"2024-03-01",serviceCharge:22,furnished:"Semi-Furnished"}
+  ];
+  DV_AUTH.isDemo=true;
+  DV_AUTH.user={id:"demo-user",email:"demo@dubaival.com"};
+  DV_AUTH.profile={id:"demo-user",name:"Demo User",email:"demo@dubaival.com"};
+  DV_AUTH.showModal=false;
+  DV_AUTH.loading=false;
+  try{localStorage.setItem("dubaival_portfolio",JSON.stringify(DEMO_PORTFOLIO));}catch(e){}
+  render();
+}
 
 function sbHeaders(token){
   var h={"apikey":SUPABASE_KEY,"Content-Type":"application/json"};
@@ -319,6 +334,16 @@ function renderAuthModal(){
     forgotLink.textContent="Forgot password?";
     forgotLink.addEventListener("click",function(){DV_AUTH.modalTab="forgot";DV_AUTH.error="";DV_AUTH.resetSent=false;render();});
     modal.appendChild(forgotLink);
+  }
+
+  // Try Demo button (signin tab only)
+  if(DV_AUTH.modalTab==="signin"){
+    var orDiv=div({textAlign:"center",color:cl.muted,fontSize:"11px",fontFamily:"'Inter',sans-serif",margin:"8px 0"},"— or —");
+    modal.appendChild(orDiv);
+    var demoBtn=el("button",{style:{width:"100%",padding:"11px",borderRadius:"999px",border:"1px solid rgba(139,92,246,0.3)",background:"rgba(139,92,246,0.08)",color:"#A78BFA",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",marginBottom:"12px"}});
+    demoBtn.textContent="✦ Try Demo — No Sign Up Needed";
+    demoBtn.addEventListener("click",function(){activateDemoMode();});
+    modal.appendChild(demoBtn);
   }
 
   modal.appendChild(div({textAlign:"center",color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},t("auth_disclaimer")));
