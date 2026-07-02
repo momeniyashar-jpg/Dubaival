@@ -1688,7 +1688,6 @@ function renderProfilePanel(){
     btn.style.borderColor=connected?"#10B981":color;
     btn.style.color=connected?"#10B981":color;
     btn.addEventListener("click",function(){
-      var appId=process.env&&process.env.META_APP_ID;
       if(platform==="meta"){
         var metaAppId="";// filled by server below
         fetch("/api/oauth-config").then(function(r){return r.json();}).then(function(d){
