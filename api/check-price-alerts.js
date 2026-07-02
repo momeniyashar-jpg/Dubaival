@@ -55,6 +55,7 @@ module.exports = async function handler(req, res) {
   }
 
   const rapidKey = process.env.RAPIDAPI_KEY;
+  if (!rapidKey) return res.status(500).json({ ok: false, error: "RAPIDAPI_KEY not configured" });
   let checked = 0;
   let alerted = 0;
   let errors = 0;

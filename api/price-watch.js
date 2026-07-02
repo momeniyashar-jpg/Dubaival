@@ -1,5 +1,5 @@
 // Price watch — subscribe (POST) and unsubscribe (GET ?token=)
-var shared = require("./_lib/shared.js");
+var shared = require("./lib/shared.js");
 
 var UNSUB_BASE = "https://www.dubaival.com/api/price-watch?token=";
 
