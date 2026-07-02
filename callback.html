@@ -89,6 +89,8 @@ p{color:#94A3B8;margin-bottom:16px;font-size:14px;line-height:1.6;}
       })
     }).then(function(r){ return r.json(); }).then(function(d){
       if (d.ok) {
+        if (d.ig_id) localStorage.setItem("dv_ig_id", d.ig_id);
+        if (d.fb_id) localStorage.setItem("dv_fb_id", d.fb_id);
         var msg = "Instagram" + (d.ig_id ? " & Facebook" : "") + " connected!";
         if (d.page_name) msg += " Page: " + d.page_name;
         showSuccess(msg);
@@ -110,6 +112,7 @@ p{color:#94A3B8;margin-bottom:16px;font-size:14px;line-height:1.6;}
       })
     }).then(function(r){ return r.json(); }).then(function(d){
       if (d.ok) {
+        if (d.gmail) localStorage.setItem("dv_gmail_connected", d.gmail);
         showSuccess("Gmail connected!" + (d.gmail ? " (" + d.gmail + ")" : ""));
       } else {
         showError(d.error || "Gmail connection failed");
