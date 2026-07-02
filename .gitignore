@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build output
+www/
+
+# Android build artifacts
+android/app/build/
+android/.gradle/
+android/build/
+android/capacitor-cordova-android-plugins/build/
+
+# Capacitor-synced web assets (rebuilt via npm run build && cap sync)
+android/app/src/main/assets/public/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local
+get-youtube-token.ps1

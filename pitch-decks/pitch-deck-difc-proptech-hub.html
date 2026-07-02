@@ -1,0 +1,1254 @@
+<!--
+  DubAIVal / PropLens — Investor Pitch Deck
+  Copyright (c) 2024-2026 Mohammad Akbar Momenian. All Rights Reserved.
+  PROPRIETARY AND CONFIDENTIAL
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>DubAIVal — Pitch Deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#050A12;--card:#0A1628;--border:#152040;
+  --t1:#F0F4FF;--t2:#8B9CC0;--t3:#566A95;
+  --acc:#00D4AA;--acc2:#00B4FF;--gold:#FFD700;
+  --red:#FF4D6A;--green:#00E68A;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t1);overflow-x:hidden;}
+.slide{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:60px 80px;position:relative;border-bottom:1px solid var(--border);}
+@media(max-width:768px){.slide{padding:40px 24px;}}
+.slide-num{position:absolute;top:30px;right:40px;color:var(--t3);font-size:14px;font-family:'Space Grotesk',monospace;}
+h1{font-family:'Space Grotesk',monospace;font-size:clamp(36px,5vw,64px);font-weight:800;line-height:1.1;margin-bottom:24px;}
+h2{font-family:'Space Grotesk',monospace;font-size:clamp(28px,4vw,48px);font-weight:700;line-height:1.15;margin-bottom:20px;}
+h3{font-size:22px;font-weight:700;margin-bottom:12px;color:var(--acc);}
+p,.desc{font-size:18px;color:var(--t2);line-height:1.7;max-width:800px;}
+.highlight{color:var(--acc);font-weight:700;}
+.highlight2{color:var(--acc2);font-weight:700;}
+.gold{color:var(--gold);font-weight:700;}
+
+/* Grid layouts */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:40px;}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:40px;}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:40px;}
+@media(max-width:900px){.grid2,.grid3,.grid4{grid-template-columns:1fr;}}
+
+/* Cards */
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:32px;transition:transform 0.2s;}
+.card:hover{transform:translateY(-4px);}
+.card-icon{font-size:40px;margin-bottom:16px;}
+.card h3{color:var(--t1);}
+.card p{font-size:15px;color:var(--t2);}
+
+/* Stat blocks */
+.stat{text-align:center;padding:24px;}
+.stat-num{font-family:'Space Grotesk',monospace;font-size:clamp(36px,5vw,56px);font-weight:800;background:linear-gradient(135deg,var(--acc),var(--acc2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.stat-label{font-size:14px;color:var(--t2);margin-top:8px;text-transform:uppercase;letter-spacing:1px;}
+
+/* Tags */
+.tag{display:inline-block;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;margin:4px;}
+.tag-green{background:rgba(0,230,138,.12);color:var(--green);border:1px solid rgba(0,230,138,.25);}
+.tag-blue{background:rgba(0,180,255,.12);color:var(--acc2);border:1px solid rgba(0,180,255,.25);}
+.tag-gold{background:rgba(255,215,0,.12);color:var(--gold);border:1px solid rgba(255,215,0,.25);}
+
+/* Table */
+.tbl{width:100%;border-collapse:collapse;margin-top:24px;font-size:15px;}
+.tbl th{text-align:left;padding:12px 16px;color:var(--t3);font-weight:600;border-bottom:1px solid var(--border);font-size:13px;text-transform:uppercase;letter-spacing:1px;}
+.tbl td{padding:12px 16px;border-bottom:1px solid rgba(21,32,64,.5);color:var(--t2);}
+.tbl tr:hover td{background:rgba(0,212,170,.04);}
+
+/* Timeline */
+.timeline{margin-top:32px;position:relative;padding-left:32px;}
+.timeline::before{content:'';position:absolute;left:10px;top:8px;bottom:8px;width:2px;background:linear-gradient(var(--acc),var(--acc2));}
+.tl-item{position:relative;margin-bottom:28px;padding-left:24px;}
+.tl-item::before{content:'';position:absolute;left:-26px;top:8px;width:12px;height:12px;border-radius:50%;background:var(--acc);border:2px solid var(--bg);}
+.tl-item h4{font-size:16px;font-weight:700;color:var(--t1);}
+.tl-item p{font-size:14px;color:var(--t2);margin-top:4px;}
+
+/* Bars */
+.bar-row{display:flex;align-items:center;gap:16px;margin-bottom:12px;}
+.bar-label{width:140px;font-size:14px;color:var(--t2);text-align:right;flex-shrink:0;}
+.bar-track{flex:1;height:28px;background:rgba(255,255,255,.04);border-radius:14px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:14px;display:flex;align-items:center;padding-left:12px;font-size:12px;font-weight:600;color:#fff;}
+.bar-fill.green{background:linear-gradient(90deg,#00D4AA,#00E68A);}
+.bar-fill.blue{background:linear-gradient(90deg,#00B4FF,#6366F1);}
+.bar-fill.gold{background:linear-gradient(90deg,#FFD700,#FFA500);}
+
+/* Logo */
+.logo{font-family:'Space Grotesk',monospace;font-weight:800;font-size:28px;}
+.logo span{background:linear-gradient(135deg,var(--acc),var(--acc2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+
+/* Nav dots */
+.nav-dots{position:fixed;right:20px;top:50%;transform:translateY(-50%);z-index:100;display:flex;flex-direction:column;gap:8px;}
+.nav-dot{width:8px;height:8px;border-radius:50%;background:var(--t3);cursor:pointer;transition:all .3s;}
+.nav-dot.active{background:var(--acc);transform:scale(1.4);}
+@media(max-width:768px){.nav-dots{display:none;}}
+
+/* Print */
+@media print{.slide{min-height:auto;page-break-after:always;padding:40px;}.nav-dots{display:none;}}
+</style>
+</head>
+<body>
+
+<!-- NAV DOTS -->
+<div class="nav-dots" id="navDots"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 1: COVER -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="s1" style="justify-content:center;align-items:center;text-align:center;">
+  <div class="slide-num">01</div>
+  <div class="logo" style="font-size:48px;margin-bottom:16px;">Dub<span>AI</span>Val</div>
+  <h1 style="font-size:clamp(24px,3.5vw,44px);font-weight:500;color:var(--t2);max-width:700px;">
+    The First <span style="color:var(--acc);font-weight:700;">AI Real Estate Intelligence Platform</span><br/>Built for the World's Fastest-Growing Property Markets
+  </h1>
+  <div style="margin-top:40px;display:flex;gap:16px;flex-wrap:wrap;justify-content:center;">
+    <span class="tag tag-green">AI Platform</span>
+    <span class="tag tag-blue">Real-Time Intelligence</span>
+    <span class="tag tag-gold">PropTech</span>
+  </div>
+  <p style="margin-top:48px;font-size:15px;color:var(--t3);">Confidential — June 2026</p>
+  <p style="font-size:14px;color:var(--t3);">Mohammad Akbar Momenian &middot; Founder & CEO</p>
+  <p style="font-size:14px;color:var(--t3);">+971 54 454 1221 &middot; momeni.yashar@gmail.com</p>
+  <div style="margin-top:24px;padding:12px 28px;background:linear-gradient(135deg,rgba(0,212,170,.08),rgba(0,180,255,.06));border:1px solid rgba(0,212,170,.25);border-radius:10px;">
+    <p style="font-size:15px;color:var(--acc);font-weight:600;">Prepared for DIFC Innovation Hub — Dubai PropTech Hub</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE: STRATEGIC ALIGNMENT — DIFC PROPTECH HUB -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="s1b">
+  <div class="slide-num">02</div>
+  <p style="color:var(--gold);font-weight:600;font-size:14px;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">Strategic Alignment</p>
+  <h2>Why DubAIVal Belongs in the<br/><span class="gold">Dubai PropTech Hub</span></h2>
+  <p style="margin-top:8px;max-width:860px;">The DIFC PropTech Hub was created to accelerate exactly the kind of AI-driven innovation that DubAIVal delivers. Here's why we're a natural fit.</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:40px;">
+    <div class="card" style="border-top:3px solid var(--gold);">
+      <div class="card-icon">&#128202;</div>
+      <h3 style="color:var(--gold);font-size:18px;">PropTech Analytics — Core Focus</h3>
+      <p style="margin-top:12px;">DubAIVal is exactly what the Hub was created for — AI-driven property analytics. Our Cascade AVM engine with 10,880 properties is the most comprehensive independent valuation tool in Dubai.</p>
+    </div>
+    <div class="card" style="border-top:3px solid var(--acc);">
+      <div class="card-icon">&#127963;&#65039;</div>
+      <h3 style="color:var(--acc);font-size:18px;">DLD Partnership Synergy</h3>
+      <p style="margin-top:12px;">The PropTech Hub is a joint DLD + DIFC initiative. DubAIVal already uses DLD-verified data and is built to integrate DLD REST API. We're ready for pilot programs from Day 1.</p>
+    </div>
+    <div class="card" style="border-top:3px solid var(--acc2);">
+      <div class="card-icon">&#127959;&#65039;</div>
+      <h3 style="color:var(--acc2);font-size:18px;">Developer Founding Partners</h3>
+      <p style="margin-top:12px;">Binghatti, Majid Al Futtaim, Sobha Realty, Union Properties — all founding partners. DubAIVal already covers their buildings in our database. Joint pilots can validate our AVM against their portfolio data.</p>
+    </div>
+    <div class="card" style="border-top:3px solid var(--green);">
+      <div class="card-icon">&#128200;</div>
+      <h3 style="color:var(--green);font-size:18px;">$300M+ Investment Target</h3>
+      <p style="margin-top:12px;">The Hub targets $300M+ by 2030. DubAIVal's PropLens.ai global expansion plan (20+ countries) represents exactly the scale of opportunity the Hub is designed to support.</p>
+    </div>
+  </div>
+
+  <div style="margin-top:32px;padding:20px 28px;background:linear-gradient(135deg,rgba(255,215,0,.08),rgba(0,212,170,.08));border:1px solid rgba(255,215,0,.2);border-radius:16px;max-width:860px;">
+    <p style="font-size:16px;color:var(--t1);font-weight:500;line-height:1.8;">
+      <span class="gold">Bottom Line:</span> DubAIVal isn't applying to a generic accelerator — we're joining a purpose-built PropTech ecosystem
+      where our AI valuation technology, DLD data integration readiness, and developer partnership potential make us a <strong style="color:var(--acc);">Day 1 contributor</strong>, not just a participant.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 2: PROBLEM -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="s2">
+  <div class="slide-num">03</div>
+  <p style="color:var(--acc);font-weight:600;font-size:14px;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">The Problem</p>
+  <h2>Real Estate Valuation in Dubai<br/>is <span style="color:var(--red);">Broken</span></h2>
+  <div class="grid3" style="margin-top:48px;">
+    <div class="card">
+      <div class="card-icon">&#128679;&#65039;</div>
+      <h3>No Transparent Pricing</h3>
+      <p>Buyers rely on agent opinions and listing prices that can be 20-40% above or below actual market value. No independent, data-driven benchmark exists.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">&#9201;&#65039;</div>
+      <h3>Slow & Expensive</h3>
+      <p>Traditional valuations take 3-7 days and cost AED 2,500-15,000. Investors making quick decisions miss opportunities or overpay.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">&#128202;</div>
+      <h3>Agent-Driven Price Inflation</h3>
+      <p>Many owners set unrealistic high prices. Agents list them without correction on Property Finder and Bayut just to secure listings. This inflates market data, causes uninformed buyers to overpay, and creates a vicious cycle of price distortion across the entire market.</p>
+    </div>
+  </div>
+  <div style="margin-top:48px;padding:24px 32px;background:rgba(255,77,106,.08);border:1px solid rgba(255,77,106,.2);border-radius:12px;max-width:700px;">
+    <p style="font-size:16px;color:var(--t1);font-weight:500;">
+      <span style="color:var(--red);font-weight:700;">AED 761 billion</span> in Dubai real estate transactions in 2024 —
+      yet most buyers make the biggest financial decision of their life based on guesswork.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 3: SOLUTION -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="s3">
+  <div class="slide-num">04</div>
+  <p style="color:var(--acc);font-weight:600;font-size:14px;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">The Solution</p>
+  <h2>DubAIVal: An <span class="highlight">AI Intelligence Platform</span><br/>Not Just a Website</h2>
+  <p style="margin-top:16px;">DubAIVal is not a website with a search box. It's a full-stack AI platform where every feature — from valuation to portfolio management to deal matching — is powered by artificial intelligence. Enter a property, and our Cascade AVM engine cross-references 10,880 properties in under 5 seconds.</p>
+
+  <div class="grid2" style="margin-top:48px;">
+    <div>
+      <h3 style="color:var(--acc);">How It Works</h3>
+      <div class="timeline">
+        <div class="tl-item">
+          <h4>1. Enter Property Details</h4>
+          <p>Building name, size, asking price, floor, view</p>
+        </div>
+        <div class="tl-item">
+          <h4>2. Cascade AVM Engine Runs</h4>
+          <p>Cross-references 10,880 properties, 347 area benchmarks, cluster analysis, view premiums, and live market data</p>
+        </div>
+        <div class="tl-item">
+          <h4>3. Instant Valuation Report</h4>
+          <p>Fair value estimate, PSF range, confidence score, yield analysis, investment signal, growth projections</p>
+        </div>
+        <div class="tl-item">
+          <h4>4. AI-Powered Insights</h4>
+          <p>Groq-powered AI analysis provides contextual market commentary and actionable recommendations</p>
+        </div>
+      </div>
+    </div>
+    <div>
+      <h3 style="color:var(--acc);">Key Differentiators</h3>
+      <div style="margin-top:20px;">
+        <div style="padding:16px 20px;background:rgba(0,212,170,.06);border-radius:12px;margin-bottom:12px;border-left:3px solid var(--acc);">
+          <strong style="color:var(--t1);">Multi-Layer Data Fusion</strong>
+          <p style="font-size:14px;margin-top:4px;">Building-level → Area-level → Cluster-level → Live market. 4 data layers for maximum accuracy.</p>
+        </div>
+        <div style="padding:16px 20px;background:rgba(0,180,255,.06);border-radius:12px;margin-bottom:12px;border-left:3px solid var(--acc2);">
+          <strong style="color:var(--t1);">Confidence Scoring</strong>
+          <p style="font-size:14px;margin-top:4px;">Industry-standard confidence tiers (40-97%) — users instantly know how reliable each estimate is. Inspired by leading global AVM methodologies.</p>
+        </div>
+        <div style="padding:16px 20px;background:rgba(255,215,0,.06);border-radius:12px;margin-bottom:12px;border-left:3px solid var(--gold);">
+          <strong style="color:var(--t1);">Investment Intelligence</strong>
+          <p style="font-size:14px;margin-top:4px;">Price-to-Rent ratio, net yield, growth forecast, total return — not just a number, a full investment thesis.</p>
+        </div>
+        <div style="padding:16px 20px;background:rgba(0,230,138,.06);border-radius:12px;border-left:3px solid var(--green);">
+          <strong style="color:var(--t1);">Dubai-Native</strong>
+          <p style="font-size:14px;margin-top:4px;">Built specifically for Dubai's unique market: off-plan, freehold zones, DLD fees, RERA service charges.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 4: PRODUCT -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="s4">
+  <div class="slide-num">05</div>
+  <p style="color:var(--acc);font-weight:600;font-size:14px;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">AI Intelligence Platform</p>
+  <h2>12 AI-Powered Modules.<br/>One <span class="highlight">Unified Intelligence</span>.</h2>
+  <p>Every module is interconnected. The AI doesn't just sit in one tab — it flows through the entire platform, learning from each interaction and improving every result.</p>
+
+  <div class="grid4" style="margin-top:32px;">
+    <div class="card" style="text-align:center;padding:20px;">
+      <div class="card-icon">&#129504;</div>
+      <h3 style="font-size:15px;color:var(--acc);">AI Cascade AVM</h3>
+      <p style="font-size:12px;">4-layer data fusion engine: Building DB → Area Benchmark → Cluster Analysis → Live Market. Confidence scoring (40-97%), investment signals, hedonic pricing with 10+ factors</p>
+    </div>
+    <div class="card" style="text-align:center;padding:20px;">
+      <div class="card-icon">&#128200;</div>
+      <h3 style="font-size:15px;color:var(--acc);">AI Market Index</h3>
+      <p style="font-size:12px;">347 areas ranked by AI across 8 metrics. CSV export, area comparison tool with AI verdict, heatmap visualization, favorite tracking</p>
+    </div>
+    <div class="card" style="text-align:center;padding:20px;">
+      <div class="card-icon">&#128188;</div>
+      <h3 style="font-size:15px;color:var(--acc);">AI Portfolio Manager</h3>
+      <p style="font-size:12px;">Health Score (0-100), 6 opportunity alerts per asset, future projections, what-if swap simulator, AI portfolio analysis via Groq</p>
+    </div>
+    <div class="card" style="text-align:center;padding:20px;">
+      <div class="card-icon">&#129309;</div>
+      <h3 style="font-size:15px;color:var(--acc);">AI Deal Network</h3>
+      <p style="font-size:12px;">AI-ranked matching (1-100 score), title deed verification, privacy-first inquiry system, agent referral marketplace, auto-valuation on every listing</p>
+    </div>
+    <div class="card" style="text-align:center;padding:20px;">
+      <div class="card-icon">&#127758;</div>
+      <h3 style="font-size:15px;color:var(--acc);">AI Interactive Map</h3>
+      <p style="font-size:12px;">6 data layers (Growth, Yield, Price, Liquidity, Turnover, Location), 56 metro stations, color-coded area intelligence, real-time market visualization</p>
+    </div>
+    <div class="card" style="text-align:center;padding:20px;">
+      <div class="card-icon">&#9889;</div>
+      <h3 style="font-size:15px;color:var(--acc);">AI Market Intelligence</h3>
+      <p style="font-size:12px;">Groq AI analyzes 50 key areas weekly. Trend correction (±15%) applied to all valuations in real-time. Bull/Bear/Neutral sentiment per area</p>
+    </div>
+    <div class="card" style="text-align:center;padding:20px;">
+      <div class="card-icon">&#128490;</div>
+      <h3 style="font-size:15px;color:var(--acc);">AI Conversational Chat</h3>
+      <p style="font-size:12px;">Groq-powered assistant with full platform context — portfolio data, market benchmarks, analyzer state. Ask anything about Dubai real estate</p>
+    </div>
+    <div class="card" style="text-align:center;padding:20px;">
+      <div class="card-icon">&#128209;</div>
+      <h3 style="font-size:15px;color:var(--acc);">AI Report Builder</h3>
+      <p style="font-size:12px;">Smart text parsing, voice input (Web Speech API), 9 report sections, custom branding, multi-language (EN/AR), visual builder + PDF export</p>
+    </div>
+    <div class="card" style="text-align:center;padding:20px;">
+      <div class="card-icon">&#127968;</div>
+      <h3 style="font-size:15px;color:var(--acc);">AI Rental Analysis</h3>
+      <p style="font-size:12px;">Independent rental valuation engine with furnishing/view/floor adjustments. Verdict system: Below Market → Competitive → Market Rate → Overpriced</p>
+    </div>
+    <div class="card" style="text-align:center;padding:20px;">
+      <div class="card-icon">&#128197;</div>
+      <h3 style="font-size:15px;color:var(--acc);">AI Live Dashboard</h3>
+      <p style="font-size:12px;">Real-time market pulse: top areas, movers, volume, sentiment, rental snapshot, market intelligence status — all updating live</p>
+    </div>
+    <div class="card" style="text-align:center;padding:20px;">
+      <div class="card-icon">&#127970;</div>
+      <h3 style="font-size:15px;color:var(--acc);">AI Mortgage Engine</h3>
+      <p style="font-size:12px;">UAE bank rates (ENBD/FAB), expat vs national LTV limits, DLD fee calculation, total upfront cost breakdown, monthly payment analysis</p>
+    </div>
+    <div class="card" style="text-align:center;padding:20px;">
+      <div class="card-icon">&#128736;</div>
+      <h3 style="font-size:15px;color:var(--acc);">AI Workspace</h3>
+      <p style="font-size:12px;">14 customizable dashboard tools, 3 user presets (Investor/Agent/Buyer), drag-and-reorder interface, personalized intelligence hub</p>
+    </div>
+  </div>
+
+  <div style="margin-top:24px;padding:16px 24px;background:linear-gradient(135deg,rgba(0,212,170,.08),rgba(0,180,255,.06));border:1px solid rgba(0,212,170,.2);border-radius:12px;max-width:860px;">
+    <p style="font-size:15px;color:var(--t1);font-weight:500;text-align:center;">
+      <span class="highlight">This is not a website with features.</span> This is an AI intelligence platform where every module feeds data back into the system,
+      making the entire platform smarter with every property analyzed, every deal posted, and every portfolio tracked.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 5: DEAL NETWORK — ANTI-FRAUD & PRIVACY-FIRST -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="s5">
+  <div class="slide-num">06</div>
+  <p style="color:var(--red);font-weight:600;font-size:14px;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">Industry Problem We Solve</p>
+  <h2>The <span style="color:var(--red);">Fake Listing Crisis</span><br/>& Why Our Deal Network is Different</h2>
+
+  <div class="grid2" style="margin-top:40px;">
+    <!-- LEFT: The Problem -->
+    <div>
+      <h3 style="color:var(--red);font-size:20px;margin-bottom:20px;">The Problem with Current Platforms</h3>
+
+      <div style="padding:20px;background:rgba(255,77,106,.06);border:1px solid rgba(255,77,106,.2);border-radius:14px;margin-bottom:16px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <span style="color:var(--red);font-size:22px;flex-shrink:0;">&#10007;</span>
+          <div>
+            <strong style="color:var(--t1);font-size:16px;">Fake Listings Everywhere</strong>
+            <p style="font-size:14px;color:var(--t2);margin-top:6px;">Agents on Property Finder & Bayut create fake listings with <strong style="color:var(--red);">unrealistically low prices</strong> to attract buyers. Once a buyer calls, the agent redirects them to completely different properties. These misleading prices distort the market and confuse investors about real property values.</p>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:20px;background:rgba(255,77,106,.06);border:1px solid rgba(255,77,106,.2);border-radius:14px;margin-bottom:16px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <span style="color:var(--red);font-size:22px;flex-shrink:0;">&#10007;</span>
+          <div>
+            <strong style="color:var(--t1);font-size:16px;">Owner Privacy Violation</strong>
+            <p style="font-size:14px;color:var(--t2);margin-top:6px;">When an owner lists on Property Finder, <strong style="color:var(--red);">hundreds of agents see it</strong> and immediately start calling the owner — not to buy, but to get the listing for themselves. Owners are bombarded with unsolicited calls from agents trying to sign exclusive agreements.</p>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:20px;background:rgba(255,77,106,.06);border:1px solid rgba(255,77,106,.2);border-radius:14px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <span style="color:var(--red);font-size:22px;flex-shrink:0;">&#10007;</span>
+          <div>
+            <strong style="color:var(--t1);font-size:16px;">Market Price Distortion</strong>
+            <p style="font-size:14px;color:var(--t2);margin-top:6px;">Fake listings with artificial prices create a <strong style="color:var(--red);">false picture of the market</strong>. Buyers think properties are available at prices that don't exist. Sellers can't determine fair value. The entire market suffers from misinformation.</p>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:20px;background:rgba(255,77,106,.06);border:1px solid rgba(255,77,106,.2);border-radius:14px;margin-top:16px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <span style="color:var(--red);font-size:22px;flex-shrink:0;">&#10007;</span>
+          <div>
+            <strong style="color:var(--t1);font-size:16px;">Buyers Overpay Without Knowing</strong>
+            <p style="font-size:14px;color:var(--t2);margin-top:6px;">Due to lack of independent valuation data, many transactions close at prices <strong style="color:var(--red);">15-30% above actual market value</strong>. Buyers only discover they overpaid when they try to resell or refinance — by then it's too late.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Our Solution -->
+    <div>
+      <h3 style="color:var(--acc);font-size:20px;margin-bottom:20px;">DubAIVal Deal Network Solution</h3>
+
+      <div style="padding:20px;background:rgba(0,212,170,.06);border:1px solid rgba(0,212,170,.2);border-radius:14px;margin-bottom:16px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <span style="color:var(--gold);font-size:22px;flex-shrink:0;">&#9733;</span>
+          <div>
+            <strong style="color:var(--t1);font-size:16px;">Title Deed Verification — Zero Fakes</strong>
+            <p style="font-size:14px;color:var(--t2);margin-top:6px;">Every "I Have" listing <strong style="color:var(--acc);">requires a Title Deed number</strong> — the official DLD document proving ownership. Agents can also upload Title Deed photos. <strong style="color:var(--gold);">It is physically impossible to create a fake listing.</strong> No Title Deed = no listing. Period.</p>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:20px;background:rgba(0,212,170,.06);border:1px solid rgba(0,212,170,.2);border-radius:14px;margin-bottom:16px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <span style="color:var(--gold);font-size:22px;flex-shrink:0;">&#9733;</span>
+          <div>
+            <strong style="color:var(--t1);font-size:16px;">Privacy-First — Owner Protection</strong>
+            <p style="font-size:14px;color:var(--t2);margin-top:6px;">Owner contact details and property photos are <strong style="color:var(--acc);">hidden by default</strong>. Interested buyers must send an inquiry. The owner sees each request and <strong style="color:var(--acc);">manually approves or rejects</strong> every buyer. No more agent spam. No unsolicited calls. The owner controls who sees their property.</p>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:20px;background:rgba(0,212,170,.06);border:1px solid rgba(0,212,170,.2);border-radius:14px;margin-bottom:16px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <span style="color:var(--gold);font-size:22px;flex-shrink:0;">&#9733;</span>
+          <div>
+            <strong style="color:var(--t1);font-size:16px;">Real Prices Only — Market Integrity</strong>
+            <p style="font-size:14px;color:var(--t2);margin-top:6px;">Because every listing is tied to a verified Title Deed with real owner information, <strong style="color:var(--acc);">prices reflect actual market value</strong>. Combined with our AVM engine, buyers can instantly compare the listed price against our independent valuation — eliminating deception entirely.</p>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:20px;background:rgba(0,180,255,.06);border:1px solid rgba(0,180,255,.2);border-radius:14px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <span style="color:var(--acc2);font-size:22px;flex-shrink:0;">&#9733;</span>
+          <div>
+            <strong style="color:var(--t1);font-size:16px;">AVM + Deal Network = Trust Engine</strong>
+            <p style="font-size:14px;color:var(--t2);margin-top:6px;">Every listed property gets an <strong style="color:var(--acc2);">automatic DubAIVal verdict</strong>: is this price fair, undervalued, or overpriced? Buyers don't rely on agent claims — they have <strong style="color:var(--acc2);">independent AI-powered valuation</strong> right next to every listing.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:32px;padding:24px 32px;background:linear-gradient(135deg,rgba(0,212,170,.08),rgba(255,215,0,.08));border:1px solid rgba(0,212,170,.2);border-radius:16px;max-width:860px;">
+    <p style="font-size:16px;color:var(--t1);font-weight:500;line-height:1.8;">
+      <span class="gold">In Summary:</span> Property Finder is an open marketplace where anyone can post anything at any price.
+      DubAIVal is a <strong style="color:var(--acc);">verified marketplace</strong> where every listing is backed by a Title Deed,
+      every price is validated by AI, and every owner's privacy is protected.
+      <strong>This is how real estate platforms should work.</strong>
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 6: TRACTION / DATA MOAT -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="s6">
+  <div class="slide-num">07</div>
+  <p style="color:var(--acc);font-weight:600;font-size:14px;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">Traction & Data Moat</p>
+  <h2>Built with <span class="highlight">Zero External APIs</span> — Purely Our Own Assets</h2>
+
+  <div style="margin-top:24px;padding:20px 28px;background:linear-gradient(135deg,rgba(255,215,0,.1),rgba(0,212,170,.06));border:1px solid rgba(255,215,0,.25);border-radius:14px;max-width:860px;">
+    <p style="font-size:16px;color:var(--t1);font-weight:500;line-height:1.8;">
+      <span class="gold">Important:</span> Everything you see today was built <strong>without connecting to any government database, DLD feed, or third-party data API</strong>.
+      No external data pipeline. No paid data source. Every building, every PSF figure, every area benchmark was <strong>manually researched and curated</strong> by the founder.
+      This is our proprietary asset — and it already works.
+    </p>
+  </div>
+
+  <div class="grid4" style="margin-top:32px;">
+    <div class="stat">
+      <div class="stat-num">10,880</div>
+      <div class="stat-label">Properties — DLD Verified</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">347</div>
+      <div class="stat-label">Areas — Original Research</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">0</div>
+      <div class="stat-label">External APIs Used</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">100%</div>
+      <div class="stat-label">Proprietary Data</div>
+    </div>
+  </div>
+
+  <h3 style="margin-top:48px;color:var(--t1);">Data Coverage by Area</h3>
+  <div style="margin-top:16px;">
+    <div class="bar-row"><div class="bar-label">Downtown Dubai</div><div class="bar-track"><div class="bar-fill green" style="width:100%;">377 buildings</div></div></div>
+    <div class="bar-row"><div class="bar-label">Dubai Marina</div><div class="bar-track"><div class="bar-fill green" style="width:94%;">354 buildings</div></div></div>
+    <div class="bar-row"><div class="bar-label">Business Bay</div><div class="bar-track"><div class="bar-fill green" style="width:89%;">335 buildings</div></div></div>
+    <div class="bar-row"><div class="bar-label">Meydan</div><div class="bar-track"><div class="bar-fill blue" style="width:66%;">249 buildings</div></div></div>
+    <div class="bar-row"><div class="bar-label">Dubai Hills Estate</div><div class="bar-track"><div class="bar-fill blue" style="width:63%;">238 buildings</div></div></div>
+    <div class="bar-row"><div class="bar-label">Palm Jumeirah</div><div class="bar-track"><div class="bar-fill gold" style="width:61%;">230 buildings</div></div></div>
+    <div class="bar-row"><div class="bar-label">Dubai Creek Harbour</div><div class="bar-track"><div class="bar-fill gold" style="width:42%;">157 buildings</div></div></div>
+    <div class="bar-row"><div class="bar-label">+ 339 more areas</div><div class="bar-track"><div class="bar-fill blue" style="width:65%;">~6,582 buildings</div></div></div>
+  </div>
+
+  <div style="margin-top:40px;padding:20px 28px;background:rgba(0,212,170,.06);border:1px solid rgba(0,212,170,.15);border-radius:12px;max-width:860px;">
+    <p style="font-size:15px;color:var(--t1);">
+      <span class="highlight">Why this matters:</span> We've proven the entire valuation concept using only our own proprietary research.
+      This means our AVM engine, confidence scoring, and investment analysis are <strong>battle-tested on real data we own</strong>.
+      When we connect to official data sources (DLD, RERA, live market APIs), the platform doesn't start from scratch — it <strong>levels up exponentially</strong>.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 7: BUSINESS MODEL -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="s7">
+  <div class="slide-num">08</div>
+  <p style="color:var(--acc);font-weight:600;font-size:14px;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">Business Model</p>
+  <h2>Multiple Revenue Streams</h2>
+
+  <div class="grid3" style="margin-top:40px;">
+    <div class="card" style="border-top:3px solid var(--acc);">
+      <span class="tag tag-green" style="margin-bottom:16px;">B2C</span>
+      <h3 style="color:var(--t1);">Premium Subscriptions</h3>
+      <p style="font-size:28px;font-weight:800;color:var(--acc);margin:12px 0;">AED 99-249<span style="font-size:14px;color:var(--t2);font-weight:400;">/month</span></p>
+      <p>Unlimited valuations, portfolio manager, AI analysis, PDF reports, price alerts, advanced filters.</p>
+    </div>
+    <div class="card" style="border-top:3px solid var(--acc2);">
+      <span class="tag tag-blue" style="margin-bottom:16px;">B2B</span>
+      <h3 style="color:var(--t1);">API & Enterprise</h3>
+      <p style="font-size:28px;font-weight:800;color:var(--acc2);margin:12px 0;">AED 2,000+<span style="font-size:14px;color:var(--t2);font-weight:400;">/month</span></p>
+      <p>Valuation API for banks, mortgage companies, real estate agencies. Bulk valuations, white-label reports.</p>
+    </div>
+    <div class="card" style="border-top:3px solid var(--gold);">
+      <span class="tag tag-gold" style="margin-bottom:16px;">Marketplace</span>
+      <h3 style="color:var(--t1);">Deal Network Fees</h3>
+      <p style="font-size:28px;font-weight:800;color:var(--gold);margin:12px 0;">AED 249+<span style="font-size:14px;color:var(--t2);font-weight:400;">/month</span></p>
+      <p>Agent subscriptions (Gold/Platinum tiers), buyer referral access, featured listings, RERA-verified badge.</p>
+    </div>
+  </div>
+
+  <div style="margin-top:48px;">
+    <h3 style="color:var(--t1);">Revenue Projection</h3>
+    <table class="tbl">
+      <thead><tr><th></th><th>Year 1</th><th>Year 2</th><th>Year 3</th></tr></thead>
+      <tbody>
+        <tr><td style="color:var(--t1);font-weight:600;">Subscriptions</td><td>AED 600K</td><td>AED 2.4M</td><td>AED 7.2M</td></tr>
+        <tr><td style="color:var(--t1);font-weight:600;">API / Enterprise</td><td>AED 240K</td><td>AED 1.2M</td><td>AED 4.8M</td></tr>
+        <tr><td style="color:var(--t1);font-weight:600;">Deal Network</td><td>AED 600K</td><td>AED 2.4M</td><td>AED 7.2M</td></tr>
+        <tr style="border-top:2px solid var(--acc);"><td style="color:var(--acc);font-weight:800;">Total Revenue</td><td style="color:var(--acc);font-weight:700;">AED 1.02M</td><td style="color:var(--acc);font-weight:700;">AED 4.32M</td><td style="color:var(--acc);font-weight:700;">AED 14.4M</td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:12px;color:var(--t3);margin-top:12px;line-height:1.6;">
+      Assumptions: Y1: 1,000 subscribers (3% of 32K RERA brokers) avg AED 150/mo + 10 API clients + 50 agent subscriptions. Y2: 5,000 subscribers + 50 enterprise clients (banks, brokerages, developers). 4x growth (SaaS benchmark for product-led growth). Y3: 15,000 subscribers across Dubai + 3 PropLens markets + 200 enterprise clients + active deal marketplace with 2% commission.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 7B: GO-TO-MARKET + UNIT ECONOMICS -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="s7b">
+  <div class="slide-num">09</div>
+  <p style="color:var(--acc2);font-weight:600;font-size:14px;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">Go-to-Market Strategy</p>
+  <h2>How We Capture <span class="highlight2">32,000+ Agents</span><br/>and <span class="highlight2">110,000 Annual Investors</span></h2>
+
+  <div class="grid2" style="margin-top:36px;">
+    <div>
+      <h3 style="color:var(--t1);margin-bottom:20px;">Acquisition Funnel</h3>
+      <div style="margin-bottom:16px;">
+        <div style="padding:16px 20px;background:linear-gradient(90deg,rgba(0,212,170,.12),transparent);border-left:3px solid var(--acc);border-radius:0 12px 12px 0;">
+          <strong style="color:var(--acc);">1. Free Tier — Hook</strong>
+          <p style="font-size:13px;color:var(--t2);margin-top:4px;">Free instant valuation (3/day limit). Agent lands on DubAIVal → checks a property → sees the power. Zero barrier to entry.</p>
+        </div>
+      </div>
+      <div style="margin-bottom:16px;">
+        <div style="padding:16px 20px;background:linear-gradient(90deg,rgba(0,180,255,.12),transparent);border-left:3px solid var(--acc2);border-radius:0 12px 12px 0;">
+          <strong style="color:var(--acc2);">2. Premium — Convert</strong>
+          <p style="font-size:13px;color:var(--t2);margin-top:4px;">Unlimited valuations, portfolio manager, PDF reports, price alerts. AED 99-249/mo. Target: 8-12% free-to-paid conversion (SaaS benchmark: 5-7%).</p>
+        </div>
+      </div>
+      <div style="margin-bottom:16px;">
+        <div style="padding:16px 20px;background:linear-gradient(90deg,rgba(255,215,0,.12),transparent);border-left:3px solid var(--gold);border-radius:0 12px 12px 0;">
+          <strong style="color:var(--gold);">3. Deal Network — Monetize</strong>
+          <p style="font-size:13px;color:var(--t2);margin-top:4px;">Gold/Platinum agent tiers (AED 249-499/mo), verified listings, referral marketplace. Agents pay because verified deals close faster.</p>
+        </div>
+      </div>
+      <div>
+        <div style="padding:16px 20px;background:linear-gradient(90deg,rgba(16,185,129,.12),transparent);border-left:3px solid var(--green);border-radius:0 12px 12px 0;">
+          <strong style="color:var(--green);">4. Enterprise — Scale</strong>
+          <p style="font-size:13px;color:var(--t2);margin-top:4px;">API for banks, mortgage companies, developers. AED 2,000+/mo per client. Each bank integration = hundreds of end-users automatically.</p>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h3 style="color:var(--t1);margin-bottom:20px;">Growth Channels</h3>
+      <div style="display:grid;gap:12px;">
+        <div style="padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:12px;">
+          <strong style="color:var(--acc);font-size:14px;">&#128270; SEO / Content (40% of users)</strong>
+          <p style="font-size:12px;color:var(--t2);margin-top:4px;">"Dubai Marina apartment price" → DubAIVal ranks. Every building page = SEO landing page. 10,880 properties = 10,880 organic search targets.</p>
+        </div>
+        <div style="padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:12px;">
+          <strong style="color:var(--acc2);font-size:14px;">&#128101; Agent Viral Loop (30%)</strong>
+          <p style="font-size:12px;color:var(--t2);margin-top:4px;">Agent shares valuation report with buyer → buyer discovers DubAIVal → checks their own properties → shares with network. Built-in referral: each agent brings ~5 clients.</p>
+        </div>
+        <div style="padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:12px;">
+          <strong style="color:var(--gold);font-size:14px;">&#127919; RERA Direct Outreach (20%)</strong>
+          <p style="font-size:12px;color:var(--t2);margin-top:4px;">32,294 registered brokers. Email + WhatsApp campaigns with free valuation offers. Agency-level demos (one demo = 20-100 agents onboarded).</p>
+        </div>
+        <div style="padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:12px;">
+          <strong style="color:var(--green);font-size:14px;">&#129309; Strategic Partnerships (10%)</strong>
+          <p style="font-size:12px;color:var(--t2);margin-top:4px;">Banks integrate our API → their customers use DubAIVal. One bank partnership = thousands of users at zero CAC.</p>
+        </div>
+      </div>
+
+      <h3 style="color:var(--t1);margin-top:28px;margin-bottom:16px;">Unit Economics</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="padding:14px;background:rgba(0,212,170,.06);border:1px solid rgba(0,212,170,.15);border-radius:10px;text-align:center;">
+          <p style="font-size:24px;font-weight:800;color:var(--acc);">AED 35</p>
+          <p style="font-size:12px;color:var(--t2);margin-top:4px;">CAC (blended)</p>
+        </div>
+        <div style="padding:14px;background:rgba(255,215,0,.06);border:1px solid rgba(255,215,0,.15);border-radius:10px;text-align:center;">
+          <p style="font-size:24px;font-weight:800;color:var(--gold);">AED 3,600</p>
+          <p style="font-size:12px;color:var(--t2);margin-top:4px;">LTV (24mo × AED 150)</p>
+        </div>
+        <div style="padding:14px;background:rgba(0,180,255,.06);border:1px solid rgba(0,180,255,.15);border-radius:10px;text-align:center;">
+          <p style="font-size:24px;font-weight:800;color:var(--acc2);">103x</p>
+          <p style="font-size:12px;color:var(--t2);margin-top:4px;">LTV / CAC Ratio</p>
+        </div>
+        <div style="padding:14px;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.15);border-radius:10px;text-align:center;">
+          <p style="font-size:24px;font-weight:800;color:var(--green);">85%+</p>
+          <p style="font-size:12px;color:var(--t2);margin-top:4px;">Gross Margin (SaaS)</p>
+        </div>
+      </div>
+      <p style="font-size:11px;color:var(--t3);margin-top:8px;">CAC: mostly organic/SEO-driven (AED 0) + paid channels (AED 150). Blended ~AED 35. LTV assumes 24-month avg retention at AED 150/mo ARPU.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+
+<!-- SLIDE 8: MARKET SIZE -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="s8">
+  <div class="slide-num">10</div>
+  <p style="color:var(--acc);font-weight:600;font-size:14px;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">Market Opportunity</p>
+  <h2>An <span class="gold">AED 761B</span> Market with No Dominant AVM</h2>
+
+  <div class="grid3" style="margin-top:40px;">
+    <div class="stat" style="background:var(--card);border-radius:16px;border:1px solid var(--border);padding:40px;">
+      <div class="stat-num">AED 761B</div>
+      <div class="stat-label">Dubai Real Estate<br/>Transactions (2024)</div>
+    </div>
+    <div class="stat" style="background:var(--card);border-radius:16px;border:1px solid var(--border);padding:40px;">
+      <div class="stat-num">226K+</div>
+      <div class="stat-label">Annual Property<br/>Transactions</div>
+    </div>
+    <div class="stat" style="background:var(--card);border-radius:16px;border:1px solid var(--border);padding:40px;">
+      <div class="stat-num">32K+</div>
+      <div class="stat-label">RERA-Registered<br/>Real Estate Brokers</div>
+    </div>
+  </div>
+
+  <div class="grid2" style="margin-top:48px;">
+    <div>
+      <h3 style="color:var(--t1);">TAM / SAM / SOM</h3>
+      <div style="margin-top:20px;">
+        <div style="padding:16px;margin-bottom:12px;background:rgba(0,212,170,.06);border-radius:12px;border-left:3px solid var(--acc);">
+          <strong style="color:var(--acc);">TAM — $2.5B</strong>
+          <p style="font-size:13px;margin-top:4px;">Global PropTech AVM market (2024, growing 11.2% CAGR — including PropLens expansion to 20+ countries)</p>
+        </div>
+        <div style="padding:16px;margin-bottom:12px;background:rgba(0,180,255,.06);border-radius:12px;border-left:3px solid var(--acc2);">
+          <strong style="color:var(--acc2);">SAM — $650M</strong>
+          <p style="font-size:13px;margin-top:4px;">UAE PropTech market ($610-677M in 2024-2025, Mordor Intelligence) + GCC real estate data services</p>
+        </div>
+        <div style="padding:16px;background:rgba(255,215,0,.06);border-radius:12px;border-left:3px solid var(--gold);">
+          <strong style="color:var(--gold);">SOM — $4M (Year 3)</strong>
+          <p style="font-size:13px;margin-top:4px;">AED 14.4M revenue target: 15,000 subscribers + 200 enterprise clients + deal marketplace in Dubai + 3 PropLens markets</p>
+        </div>
+      </div>
+    </div>
+    <div>
+      <h3 style="color:var(--t1);">Why Now?</h3>
+      <div style="margin-top:20px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;">
+          <span style="color:var(--acc);font-size:20px;">&#10003;</span>
+          <p style="font-size:15px;"><strong style="color:var(--t1);">Dubai 2040 Master Plan</strong> — 5.8M population target, 110K new investors entered in 2024 (55% YoY increase, DLD)</p>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;">
+          <span style="color:var(--acc);font-size:20px;">&#10003;</span>
+          <p style="font-size:15px;"><strong style="color:var(--t1);">DLD Digitization Push</strong> — government mandating digital property services</p>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;">
+          <span style="color:var(--acc);font-size:20px;">&#10003;</span>
+          <p style="font-size:15px;"><strong style="color:var(--t1);">No Incumbent AVM</strong> — Zillow/CoreLogic don't cover Dubai. The market is wide open.</p>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <span style="color:var(--acc);font-size:20px;">&#10003;</span>
+          <p style="font-size:15px;"><strong style="color:var(--t1);">AI Cost Collapse</strong> — Groq/Claude APIs make real-time AI analysis viable at scale</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 9: VISION — PROPLENS -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="s9">
+  <div class="slide-num">11</div>
+  <p style="color:var(--gold);font-weight:600;font-size:14px;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">Global Vision</p>
+  <h2>Phase 2: <span class="gold">PropLens.ai</span><br/>One Platform, 20+ Countries</h2>
+  <p>DubAIVal is our beachhead. The same AI valuation engine — adapted for global markets — becomes <strong style="color:var(--gold);">PropLens.ai</strong>.</p>
+
+  <div style="margin-top:40px;">
+    <h3 style="color:var(--t1);">Identified Expansion Markets</h3>
+    <table class="tbl">
+      <thead><tr><th>Country</th><th>Data Source</th><th>Data Quality</th><th>Priority</th></tr></thead>
+      <tbody>
+        <tr><td style="color:var(--t1);">&#127466;&#127480; Spain</td><td>CASAFARI API — real transaction prices + cadastral data</td><td><span class="tag tag-green" style="font-size:11px;">Excellent</span></td><td><span class="tag tag-gold" style="font-size:11px;">Phase 2A</span></td></tr>
+        <tr><td style="color:var(--t1);">&#127477;&#127481; Portugal</td><td>CASAFARI API — transaction history</td><td><span class="tag tag-green" style="font-size:11px;">Excellent</span></td><td><span class="tag tag-gold" style="font-size:11px;">Phase 2A</span></td></tr>
+        <tr><td style="color:var(--t1);">&#127467;&#127479; France</td><td>DVF (official government transaction data)</td><td><span class="tag tag-green" style="font-size:11px;">Excellent</span></td><td><span class="tag tag-gold" style="font-size:11px;">Phase 2A</span></td></tr>
+        <tr><td style="color:var(--t1);">&#127468;&#127463; United Kingdom</td><td>CASAFARI — location intelligence</td><td><span class="tag tag-blue" style="font-size:11px;">Good</span></td><td><span class="tag tag-blue" style="font-size:11px;">Phase 2B</span></td></tr>
+        <tr><td style="color:var(--t1);">&#127470;&#127481; Italy</td><td>CASAFARI — listings + sold prices</td><td><span class="tag tag-blue" style="font-size:11px;">Good</span></td><td><span class="tag tag-blue" style="font-size:11px;">Phase 2B</span></td></tr>
+        <tr><td style="color:var(--t1);">&#127465;&#127466; Germany</td><td>CASAFARI — market data</td><td><span class="tag tag-blue" style="font-size:11px;">Good</span></td><td><span class="tag tag-blue" style="font-size:11px;">Phase 2B</span></td></tr>
+        <tr><td style="color:var(--t1);">&#127482;&#127480; United States</td><td>ATTOM / HouseCanary / BatchData — 155M+ properties</td><td><span class="tag tag-green" style="font-size:11px;">Excellent</span></td><td><span class="tag tag-blue" style="font-size:11px;">Phase 2B</span></td></tr>
+        <tr><td style="color:var(--t1);">&#127481;&#127479; Turkey</td><td>Alternative data sources</td><td><span class="tag tag-gold" style="font-size:11px;">Moderate</span></td><td><span class="tag tag-gold" style="font-size:11px;">Phase 3</span></td></tr>
+        <tr><td style="color:var(--t3);">+ 12 more countries</td><td>Via CASAFARI pan-European coverage</td><td></td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="margin-top:40px;padding:24px 32px;background:linear-gradient(135deg,rgba(255,215,0,.08),rgba(0,212,170,.08));border:1px solid rgba(255,215,0,.2);border-radius:16px;max-width:800px;">
+    <p style="font-size:17px;color:var(--t1);font-weight:500;">
+      <span class="gold">Key Insight:</span> CASAFARI's single API provides access to 20+ European countries.
+      Our AVM engine is market-agnostic — the same confidence scoring, investment signals, and portfolio tools work globally.
+      <strong>DubAIVal proves the model. PropLens scales it.</strong>
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 10: COMPETITIVE LANDSCAPE -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="s10">
+  <div class="slide-num">12</div>
+  <p style="color:var(--acc);font-weight:600;font-size:14px;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">Competitive Landscape</p>
+  <h2>The <span class="highlight">Only</span> AI Intelligence Platform for Dubai Real Estate</h2>
+
+  <table class="tbl" style="margin-top:40px;">
+    <thead>
+      <tr>
+        <th>Feature</th>
+        <th style="color:var(--acc);">DubAIVal</th>
+        <th>Property Finder</th>
+        <th>Bayut</th>
+        <th>DXB Interact</th>
+        <th>Traditional Valuers</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td style="color:var(--t1);font-weight:600;">Instant AVM</td><td style="color:var(--green);">&#10003; &lt;5 sec</td><td style="color:var(--red);">&#10007;</td><td style="color:var(--red);">&#10007;</td><td style="color:var(--red);">Post-deal only</td><td style="color:var(--red);">3-7 days</td></tr>
+      <tr><td style="color:var(--t1);font-weight:600;">Building-Level PSF</td><td style="color:var(--green);">&#10003; 10,880</td><td style="color:var(--red);">&#10007;</td><td style="color:var(--t2);">Partial</td><td style="color:var(--t2);">Historical avg</td><td style="color:var(--green);">&#10003;</td></tr>
+      <tr><td style="color:var(--t1);font-weight:600;">Confidence Score</td><td style="color:var(--green);">&#10003;</td><td style="color:var(--red);">&#10007;</td><td style="color:var(--red);">&#10007;</td><td style="color:var(--red);">&#10007;</td><td style="color:var(--red);">&#10007;</td></tr>
+      <tr><td style="color:var(--t1);font-weight:600;">Investment Signals</td><td style="color:var(--green);">&#10003;</td><td style="color:var(--red);">&#10007;</td><td style="color:var(--red);">&#10007;</td><td style="color:var(--red);">&#10007;</td><td style="color:var(--red);">&#10007;</td></tr>
+      <tr><td style="color:var(--t1);font-weight:600;">Portfolio Manager</td><td style="color:var(--green);">&#10003;</td><td style="color:var(--red);">&#10007;</td><td style="color:var(--red);">&#10007;</td><td style="color:var(--red);">&#10007;</td><td style="color:var(--red);">&#10007;</td></tr>
+      <tr><td style="color:var(--t1);font-weight:600;">AI Analysis</td><td style="color:var(--green);">&#10003; Groq</td><td style="color:var(--red);">&#10007;</td><td style="color:var(--red);">&#10007;</td><td style="color:var(--t2);">Basic stats</td><td style="color:var(--red);">&#10007;</td></tr>
+      <tr><td style="color:var(--t1);font-weight:600;">Title Deed Verification</td><td style="color:var(--green);">&#10003; Required</td><td style="color:var(--red);">&#10007;</td><td style="color:var(--red);">&#10007;</td><td style="color:var(--green);">&#10003; On-chain</td><td style="color:var(--green);">&#10003;</td></tr>
+      <tr><td style="color:var(--t1);font-weight:600;">Anti-Fake Listing</td><td style="color:var(--green);">&#10003; Impossible</td><td style="color:var(--red);">Rampant</td><td style="color:var(--red);">Rampant</td><td style="color:var(--red);">&#10007;</td><td style="color:var(--t2);">N/A</td></tr>
+      <tr><td style="color:var(--t1);font-weight:600;">Owner Privacy</td><td style="color:var(--green);">&#10003; Approval-based</td><td style="color:var(--red);">&#10007; Exposed</td><td style="color:var(--red);">&#10007; Exposed</td><td style="color:var(--t2);">N/A</td><td style="color:var(--t2);">Varies</td></tr>
+      <tr><td style="color:var(--t1);font-weight:600;">Deal Network</td><td style="color:var(--green);">&#10003; Verified</td><td style="color:var(--green);">&#10003;</td><td style="color:var(--green);">&#10003;</td><td style="color:var(--red);">&#10007;</td><td style="color:var(--red);">&#10007;</td></tr>
+      <tr><td style="color:var(--t1);font-weight:600;">Price</td><td style="color:var(--green);">Free / $49+</td><td style="color:var(--t2);">Free (listings)</td><td style="color:var(--t2);">Free (listings)</td><td style="color:var(--t2);">Free (gov)</td><td style="color:var(--red);">AED 5K-15K</td></tr>
+      <tr><td style="color:var(--t1);font-weight:600;">Global Expansion</td><td style="color:var(--green);">&#10003; PropLens</td><td style="color:var(--red);">&#10007;</td><td style="color:var(--red);">&#10007;</td><td style="color:var(--red);">&#10007;</td><td style="color:var(--red);">&#10007;</td></tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top:32px;padding:20px 28px;background:rgba(0,212,170,.06);border:1px solid rgba(0,212,170,.15);border-radius:12px;max-width:700px;">
+    <p style="font-size:15px;color:var(--t1);">
+      Property Finder and Bayut are <strong>listing portals</strong> — they show asking prices, not real values. DXB Interact provides post-transaction data.
+      <span class="highlight">DubAIVal is the only AI intelligence platform that tells you what a property is actually worth — before you buy, while you hold, and when you should sell.</span>
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 11: GROWTH CATALYST — THE KEY SLIDE -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="s11">
+  <div class="slide-num">13</div>
+  <p style="color:var(--gold);font-weight:600;font-size:14px;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">Growth Catalyst</p>
+  <h2>We've Proven the Road.<br/>Now Imagine the <span class="gold">Destination</span>.</h2>
+  <p style="margin-top:8px;max-width:860px;">Every feature you've seen was built using only our own proprietary research and assets — no government API, no DLD feed, no paid data source. We deliberately chose this path to prove the concept independently. With institutional support, here's what unlocks:</p>
+
+  <div class="grid2" style="margin-top:40px;">
+    <!-- LEFT: Current State -->
+    <div>
+      <div style="padding:20px 24px;background:rgba(0,212,170,.06);border:1px solid rgba(0,212,170,.2);border-radius:14px;margin-bottom:16px;">
+        <h3 style="color:var(--acc);margin-bottom:16px;font-size:18px;">TODAY — Built Independently</h3>
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;">
+          <span style="color:var(--acc);font-size:16px;flex-shrink:0;">&#9679;</span>
+          <p style="font-size:14px;"><strong style="color:var(--t1);">10,880 properties</strong> — DLD-verified PSF, service charges, grades, unit counts</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;">
+          <span style="color:var(--acc);font-size:16px;flex-shrink:0;">&#9679;</span>
+          <p style="font-size:14px;"><strong style="color:var(--t1);">347 area benchmarks</strong> — yield ranges, growth rates, liquidity scores, DLD-verified data</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;">
+          <span style="color:var(--acc);font-size:16px;flex-shrink:0;">&#9679;</span>
+          <p style="font-size:14px;"><strong style="color:var(--t1);">Cascade AVM Engine</strong> — 4-layer data fusion with confidence scoring, working on proprietary data only</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;">
+          <span style="color:var(--acc);font-size:16px;flex-shrink:0;">&#9679;</span>
+          <p style="font-size:14px;"><strong style="color:var(--t1);">Full platform</strong> — 12 tabs, deal network, portfolio manager, AI chat, interactive map, workspace</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;">
+          <span style="color:var(--acc);font-size:16px;flex-shrink:0;">&#9679;</span>
+          <p style="font-size:14px;"><strong style="color:var(--t1);">Live AI platform</strong> — dubaival.com, PWA + Android app, zero external dependencies</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <span style="color:var(--acc);font-size:16px;flex-shrink:0;">&#9679;</span>
+          <p style="font-size:14px;"><strong style="color:var(--t1);">AI throughout</strong> — Groq LLM, hedonic regression, NLP, voice recognition, trend intelligence — not just one feature, AI in every module</p>
+        </div>
+      </div>
+      <div style="text-align:center;padding:12px;color:var(--t3);font-size:28px;">&#x2193; &#x2193; &#x2193;</div>
+      <div style="text-align:center;padding:8px;font-size:13px;color:var(--t3);text-transform:uppercase;letter-spacing:2px;">With Your Support</div>
+      <div style="text-align:center;padding:12px;color:var(--gold);font-size:28px;">&#x2193; &#x2193; &#x2193;</div>
+    </div>
+
+    <!-- RIGHT: After Integration -->
+    <div>
+      <div style="padding:20px 24px;background:linear-gradient(135deg,rgba(255,215,0,.08),rgba(0,180,255,.08));border:1px solid rgba(255,215,0,.25);border-radius:14px;margin-bottom:16px;">
+        <h3 style="color:var(--gold);margin-bottom:16px;font-size:18px;">AFTER API INTEGRATION — Level Up</h3>
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;">
+          <span style="color:var(--gold);font-size:16px;flex-shrink:0;">&#9733;</span>
+          <p style="font-size:14px;"><strong style="color:var(--t1);">DLD REST API</strong> — Real-time transaction data, official sale prices, ownership records. Valuation accuracy jumps from ~80% to <strong style="color:var(--green);">95%+</strong></p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;">
+          <span style="color:var(--gold);font-size:16px;flex-shrink:0;">&#9733;</span>
+          <p style="font-size:14px;"><strong style="color:var(--t1);">RERA API</strong> — Official rental index, service charge registry, building permits. Automated data instead of manual research</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;">
+          <span style="color:var(--gold);font-size:16px;flex-shrink:0;">&#9733;</span>
+          <p style="font-size:14px;"><strong style="color:var(--t1);">Live Market Feeds</strong> — Real-time listings from Property Finder, Bayut, Dubizzle APIs. Price alerts, market pulse, trend detection</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;">
+          <span style="color:var(--gold);font-size:16px;flex-shrink:0;">&#9733;</span>
+          <p style="font-size:14px;"><strong style="color:var(--t1);">Bank & Mortgage APIs</strong> — Live rate comparison, pre-approval integration, affordability calculators with real rates</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <span style="color:var(--gold);font-size:16px;flex-shrink:0;">&#9733;</span>
+          <p style="font-size:14px;"><strong style="color:var(--t1);">AI Model Training</strong> — With official transaction data, our AVM engine evolves from rule-based to <strong style="color:var(--gold);">machine learning</strong> — self-improving accuracy over time</p>
+        </div>
+      </div>
+
+      <div style="padding:16px 20px;background:rgba(0,230,138,.08);border:1px solid rgba(0,230,138,.2);border-radius:12px;">
+        <p style="font-size:14px;color:var(--t1);font-weight:500;line-height:1.7;">
+          <span class="highlight">The bottom line:</span> We've already built a working product that delivers value.
+          API integrations don't create a new product — they <strong>supercharge</strong> an existing, validated one.
+          This is the difference between a startup with an idea and a startup with <strong style="color:var(--gold);">proven technology ready to scale</strong>.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 12: AI-FIRST EVOLUTION -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="s12">
+  <div class="slide-num">14</div>
+  <p style="color:var(--acc2);font-weight:600;font-size:14px;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">AI Architecture</p>
+  <h2>An <span class="highlight2">AI-First Platform</span> That Gets<br/>Smarter Every Day</h2>
+  <p style="max-width:860px;">DubAIVal is not a website with AI features bolted on. It's an AI platform from the ground up — every module, every calculation, every recommendation is powered by artificial intelligence. And it's designed to evolve as AI technology advances.</p>
+
+  <div class="grid3" style="margin-top:40px;">
+    <div class="card" style="border-top:3px solid var(--acc2);">
+      <div class="card-icon">&#129302;</div>
+      <h3 style="color:var(--t1);font-size:17px;">Today: AI Intelligence Platform</h3>
+      <p style="font-size:14px;">12 AI modules in production: Cascade AVM, Groq market intelligence, AI deal matching, portfolio health scoring, voice-powered report builder, conversational assistant, interactive map intelligence, rental analysis engine.</p>
+      <span class="tag tag-green" style="font-size:11px;margin-top:12px;">Live Now</span>
+    </div>
+    <div class="card" style="border-top:3px solid var(--gold);">
+      <div class="card-icon">&#9889;</div>
+      <h3 style="color:var(--t1);font-size:17px;">Next: AI-Powered</h3>
+      <p style="font-size:14px;">Machine learning models trained on DLD transaction data. Predictive pricing with &lt;5% error margin. Computer vision for property quality scoring from photos.</p>
+      <span class="tag tag-gold" style="font-size:11px;margin-top:12px;">After API Access</span>
+    </div>
+    <div class="card" style="border-top:3px solid var(--acc);">
+      <div class="card-icon">&#127793;</div>
+      <h3 style="color:var(--t1);font-size:17px;">Future: AI-Native</h3>
+      <p style="font-size:14px;">Self-improving valuation models. Autonomous market monitoring. Multi-agent AI for investment strategy. Natural language property search across 20+ countries.</p>
+      <span class="tag tag-blue" style="font-size:11px;margin-top:12px;">PropLens Era</span>
+    </div>
+  </div>
+
+  <div style="margin-top:40px;">
+    <h3 style="color:var(--t1);margin-bottom:16px;">Technology Stack Evolution</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:860px;">
+      <div style="padding:16px;background:var(--card);border:1px solid var(--border);border-radius:12px;">
+        <strong style="color:var(--acc2);font-size:14px;">AI & ML</strong>
+        <p style="font-size:13px;color:var(--t2);margin-top:6px;">Groq LPU &#8594; Fine-tuned models &#8594; Custom real estate LLM &#8594; Multi-modal AI (photos + floor plans + text)</p>
+      </div>
+      <div style="padding:16px;background:var(--card);border:1px solid var(--border);border-radius:12px;">
+        <strong style="color:var(--acc2);font-size:14px;">Data Pipeline</strong>
+        <p style="font-size:13px;color:var(--t2);margin-top:6px;">Manual research &#8594; API feeds &#8594; Real-time streaming &#8594; Automated data enrichment with AI validation</p>
+      </div>
+      <div style="padding:16px;background:var(--card);border:1px solid var(--border);border-radius:12px;">
+        <strong style="color:var(--acc2);font-size:14px;">Valuation Engine</strong>
+        <p style="font-size:13px;color:var(--t2);margin-top:6px;">Rule-based AVM &#8594; Hybrid (rules + ML) &#8594; Deep learning ensemble &#8594; Self-calibrating with live market feedback</p>
+      </div>
+      <div style="padding:16px;background:var(--card);border:1px solid var(--border);border-radius:12px;">
+        <strong style="color:var(--acc2);font-size:14px;">User Experience</strong>
+        <p style="font-size:13px;color:var(--t2);margin-top:6px;">Web app &#8594; PWA + mobile &#8594; Conversational AI interface &#8594; Proactive investment alerts powered by AI agents</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:32px;padding:20px 28px;background:rgba(0,180,255,.06);border:1px solid rgba(0,180,255,.15);border-radius:12px;max-width:860px;">
+    <p style="font-size:15px;color:var(--t1);font-weight:500;">
+      <span class="highlight2">This is Day One.</span> The platform you see today is the foundation — not the ceiling.
+      As AI technology advances globally, DubAIVal advances with it. Our architecture is built for continuous evolution:
+      new AI models plug in, new data sources connect, new markets open — <strong>without rebuilding from scratch</strong>.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE: GOVERNMENT ALIGNMENT -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="s12b">
+  <div class="slide-num">15</div>
+  <p style="color:var(--gold);font-weight:600;font-size:14px;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">Strategic Alignment</p>
+  <h2>Aligned with UAE's <span class="gold">National Vision</span></h2>
+  <p style="margin-top:8px;max-width:860px;">Every feature we build serves a dual purpose: value for users AND support for government objectives.</p>
+
+  <div class="grid2" style="margin-top:36px;">
+    <div class="card" style="border-top:3px solid var(--gold);">
+      <h3 style="color:var(--gold);font-size:18px;">&#127963;&#65039; Dubai Land Department</h3>
+      <div style="margin-top:16px;">
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:12px;">
+          <span style="color:var(--acc);font-size:16px;flex-shrink:0;">&#9679;</span>
+          <p style="font-size:14px;"><strong style="color:var(--t1);">Market transparency</strong> — independent, scientific fair value for every property eliminates inflated pricing by owners and agents. When buyers have access to real data, manipulative listings lose power and the market self-corrects toward true value</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:12px;">
+          <span style="color:var(--acc);font-size:16px;flex-shrink:0;">&#9679;</span>
+          <p style="font-size:14px;"><strong style="color:var(--t1);">Investor protection</strong> — new investors unfamiliar with Dubai's market are prime targets for opportunists who exploit their lack of knowledge with inflated prices and misleading data. DubaiVal's real-time market monitoring exposes these tactics — giving every investor, regardless of experience, the same intelligence that seasoned professionals rely on. The result: confident, informed buyers who enter the market without fear of being misled</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:12px;">
+          <span style="color:var(--acc);font-size:16px;flex-shrink:0;">&#9679;</span>
+          <p style="font-size:14px;"><strong style="color:var(--t1);">Attracting global capital</strong> — many potential investors hesitate to enter Dubai's real estate market due to information asymmetry and fear of overpaying. By providing transparent, data-backed valuations, DubaiVal removes this barrier — turning cautious observers into confident buyers and increasing the overall volume of foreign investment flowing into Dubai</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:12px;">
+          <span style="color:var(--acc);font-size:16px;flex-shrink:0;">&#9679;</span>
+          <p style="font-size:14px;"><strong style="color:var(--t1);">RERA alignment</strong> — verified agents, title deed requirement, agent accountability</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:12px;">
+          <span style="color:var(--acc);font-size:16px;flex-shrink:0;">&#9679;</span>
+          <p style="font-size:14px;"><strong style="color:var(--t1);">Owner privacy protection</strong> — when owners list on Property Finder or Bayut, agents discover them and bombard with calls to grab the listing or extract information. DubaiVal's approval-based inquiry system eliminates this harassment — owners control who contacts them, protecting their privacy and peace of mind</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <span style="color:var(--acc);font-size:16px;flex-shrink:0;">&#9679;</span>
+          <p style="font-size:14px;"><strong style="color:var(--t1);">REST API ready</strong> — infrastructure built to integrate with DLD transaction data</p>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="border-top:3px solid var(--acc2);">
+      <h3 style="color:var(--acc2);font-size:18px;">&#128187; Dubai Internet City / DIFC</h3>
+      <div style="margin-top:16px;">
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:12px;">
+          <span style="color:var(--acc2);font-size:16px;flex-shrink:0;">&#9679;</span>
+          <p style="font-size:14px;"><strong style="color:var(--t1);">AI-native platform, not a website</strong> — 12 interconnected AI modules, Groq-powered intelligence, hedonic regression, anomaly detection, voice input, NLP — all in production today</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:12px;">
+          <span style="color:var(--acc2);font-size:16px;flex-shrink:0;">&#9679;</span>
+          <p style="font-size:14px;"><strong style="color:var(--t1);">UAE National AI Strategy</strong> — real AI solving real economic problems. Not a chatbot wrapper — a proprietary Cascade AVM engine with self-calibrating accuracy across 10,880 properties</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:12px;">
+          <span style="color:var(--acc2);font-size:16px;flex-shrink:0;">&#9679;</span>
+          <p style="font-size:14px;"><strong style="color:var(--t1);">Privacy-first architecture</strong> — UAE data residency via Supabase, approval-based access control, no cross-border data sharing, owner privacy protection built into every interaction</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <span style="color:var(--acc2);font-size:16px;flex-shrink:0;">&#9679;</span>
+          <p style="font-size:14px;"><strong style="color:var(--t1);">Smart Dubai / D33</strong> — AI-powered governance tool: our interactive map, market index, and trend intelligence provide real-time data infrastructure for government policy-making</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:24px;">
+    <div style="padding:20px 24px;background:linear-gradient(135deg,rgba(0,212,170,.06),rgba(0,180,255,.04));border:1px solid rgba(0,212,170,.2);border-radius:14px;">
+      <h3 style="color:var(--acc);font-size:15px;margin-bottom:12px;">&#128200; Elevating Industry Standards</h3>
+      <p style="font-size:13px;color:var(--t2);line-height:1.7;">
+        When buyers have access to <strong style="color:var(--t1);">independent, scientific valuation reports</strong>, agents can no longer rely on vague claims or inflated pricing.
+        They must back their numbers with data. DubaiVal's detailed reports — with confidence scoring, comparable analysis, and AI market intelligence —
+        push the entire brokerage industry toward <strong style="color:var(--acc);">professionalism, specialization, and data-driven practices</strong>.
+        This is exactly what RERA envisions: a market where agents are knowledgeable professionals, not just listing aggregators.
+      </p>
+    </div>
+    <div style="padding:20px 24px;background:linear-gradient(135deg,rgba(16,185,129,.06),rgba(0,212,170,.04));border:1px solid rgba(16,185,129,.2);border-radius:14px;">
+      <h3 style="color:#10B981;font-size:15px;margin-bottom:12px;">&#128506; Interactive Investment Map</h3>
+      <p style="font-size:13px;color:var(--t2);line-height:1.7;">
+        DubaiVal's <strong style="color:var(--t1);">interactive map</strong> visualizes the most profitable areas ranked by yield, growth potential, and price trends —
+        all on a single, intuitive interface. Investors can instantly compare neighborhoods, identify emerging hotspots, and monitor areas of interest
+        without needing a broker's opinion. This kind of <strong style="color:#10B981;">data-driven market surveillance</strong> empowers even first-time investors
+        to make informed decisions based on real metrics, not marketing brochures.
+      </p>
+    </div>
+    <div style="padding:20px 24px;background:linear-gradient(135deg,rgba(255,215,0,.08),rgba(0,212,170,.06));border:1px solid rgba(255,215,0,.2);border-radius:14px;">
+      <h3 style="color:var(--gold);font-size:15px;margin-bottom:12px;">&#127891; Free Investment Education (Roadmap)</h3>
+      <p style="font-size:13px;color:var(--t2);line-height:1.7;">
+        DubaiVal plans to offer <strong style="color:var(--t1);">free real estate investment classes</strong> — democratizing market knowledge for new investors and residents.
+        Topics: how to read valuations, understanding yields, market cycle awareness, avoiding common buyer mistakes.
+        This aligns with <strong style="color:var(--gold);">UAE's vision for financial literacy</strong> and builds trust with the community.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 14: ROADMAP -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="s13">
+  <div class="slide-num">16</div>
+  <p style="color:var(--acc);font-weight:600;font-size:14px;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">Roadmap</p>
+  <h2>From Dubai to Global</h2>
+
+  <div class="grid2" style="margin-top:40px;">
+    <div>
+      <div class="timeline">
+        <div class="tl-item">
+          <h4>Q3 2026 — DubAIVal Launch <span class="tag tag-green" style="font-size:11px;">Now</span></h4>
+          <p>Live at dubaival.com. 10,880 properties. AVM engine, portfolio manager, deal network, market index, AI chat.</p>
+        </div>
+        <div class="tl-item">
+          <h4>Q4 2026 — Monetization</h4>
+          <p>Premium subscriptions, API access for brokerages, agent subscription tiers, price alert system.</p>
+        </div>
+        <div class="tl-item">
+          <h4>Q1 2027 — B2B Expansion</h4>
+          <p>Bank & mortgage company integrations. White-label AVM for real estate agencies. DLD partnership pursuit.</p>
+        </div>
+        <div class="tl-item">
+          <h4>Q2 2027 — PropLens Phase 2A</h4>
+          <p>Launch PropLens.ai brand. Spain, Portugal, France via CASAFARI API. Localized AVM models per market.</p>
+        </div>
+        <div class="tl-item">
+          <h4>Q4 2027 — PropLens Phase 2B</h4>
+          <p>UK, Italy, Germany, USA expansion. ATTOM/HouseCanary integration for US market (155M properties).</p>
+        </div>
+        <div class="tl-item">
+          <h4>2028 — PropLens Phase 3</h4>
+          <p>Turkey, emerging markets. Full 20+ country coverage. Series A target.</p>
+        </div>
+      </div>
+    </div>
+    <div>
+      <h3 style="color:var(--t1);">Key Milestones</h3>
+      <div style="margin-top:20px;">
+        <div style="padding:20px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:700;color:var(--t1);">10,880 Buildings</span>
+            <span class="tag tag-green" style="font-size:11px;">Done &#10003;</span>
+          </div>
+          <p style="font-size:13px;color:var(--t2);margin-top:4px;">Full Dubai building database — target 15,000 by Q4 2026</p>
+        </div>
+        <div style="padding:20px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:700;color:var(--t1);">1,000 Registered Users</span>
+            <span class="tag tag-blue" style="font-size:11px;">Q4 2026</span>
+          </div>
+          <p style="font-size:13px;color:var(--t2);margin-top:4px;">Early adopter agents + investors via waitlist &amp; demo</p>
+        </div>
+        <div style="padding:20px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:700;color:var(--t1);">DLD API Integration</span>
+            <span class="tag tag-blue" style="font-size:11px;">Q4 2026</span>
+          </div>
+          <p style="font-size:13px;color:var(--t2);margin-top:4px;">Official transaction data → accuracy from ~80% to 95%+</p>
+        </div>
+        <div style="padding:20px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:700;color:var(--t1);">PropLens Launch</span>
+            <span class="tag tag-gold" style="font-size:11px;">Q2 2027</span>
+          </div>
+          <p style="font-size:13px;color:var(--t2);margin-top:4px;">First 3 European markets live</p>
+        </div>
+        <div style="padding:20px;background:var(--card);border:1px solid var(--border);border-radius:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:700;color:var(--t1);">Series A</span>
+            <span class="tag tag-green" style="font-size:11px;">2028</span>
+          </div>
+          <p style="font-size:13px;color:var(--t2);margin-top:4px;">Target: $5-15M at 15,000 users + 20 countries</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 15: TEAM -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="s14">
+  <div class="slide-num">17</div>
+  <p style="color:var(--acc);font-weight:600;font-size:14px;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">Team</p>
+  <h2>One Founder. <span class="highlight">Complete Platform.</span></h2>
+
+  <div class="grid2" style="margin-top:48px;align-items:start;">
+    <div class="card" style="border-top:3px solid var(--acc);">
+      <div style="display:flex;align-items:center;gap:20px;margin-bottom:20px;">
+        <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--acc),var(--acc2));display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:800;color:var(--bg);">YM</div>
+        <div>
+          <h3 style="color:var(--t1);font-size:22px;margin-bottom:4px;">Mohammad Akbar Momenian</h3>
+          <p style="font-size:14px;color:var(--acc);">Founder & CEO</p>
+          <p style="font-size:13px;color:var(--t2);margin-top:2px;">+971 54 454 1221 &middot; momeni.yashar@gmail.com</p>
+        </div>
+      </div>
+      <div style="display:grid;gap:8px;margin-bottom:16px;">
+        <div style="display:flex;gap:8px;align-items:flex-start;">
+          <span style="color:var(--gold);flex-shrink:0;">&#9733;</span>
+          <p style="font-size:12px;"><strong style="color:var(--t1);">20+ years sales & management</strong> — leadership at two major corporations. B2B/B2C sales, marketing strategy.</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-start;">
+          <span style="color:var(--gold);flex-shrink:0;">&#9733;</span>
+          <p style="font-size:12px;"><strong style="color:var(--t1);">7 years in real estate</strong> — 4 years active sales + 3 years Dubai market research with agencies & developers.</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-start;">
+          <span style="color:var(--gold);flex-shrink:0;">&#9733;</span>
+          <p style="font-size:12px;"><strong style="color:var(--t1);">B.Sc. Industrial Engineering</strong> + Professional Sales Management certification.</p>
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+        <span class="tag tag-green" style="font-size:11px;">Dubai Real Estate</span>
+        <span class="tag tag-blue" style="font-size:11px;">Sales & Management</span>
+        <span class="tag tag-gold" style="font-size:11px;">Industrial Engineering</span>
+        <span class="tag tag-green" style="font-size:11px;">AI / PropTech</span>
+      </div>
+    </div>
+    <div>
+      <h3 style="color:var(--t1);margin-bottom:20px;">What We've Built Solo</h3>
+      <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;">
+        <span style="color:var(--acc);font-size:18px;">&#10003;</span>
+        <p style="font-size:15px;">Full-stack AVM engine with 4-layer data fusion</p>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;">
+        <span style="color:var(--acc);font-size:18px;">&#10003;</span>
+        <p style="font-size:15px;">10,880 property database — DLD verified</p>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;">
+        <span style="color:var(--acc);font-size:18px;">&#10003;</span>
+        <p style="font-size:15px;">Live production site at dubaival.com</p>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;">
+        <span style="color:var(--acc);font-size:18px;">&#10003;</span>
+        <p style="font-size:15px;">12-module AI platform: valuation, portfolio, deals, market intelligence, AI chat, interactive map, workspace, rental analysis</p>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start;">
+        <span style="color:var(--acc);font-size:18px;">&#10003;</span>
+        <p style="font-size:15px;">PWA + Android app, voice input, NLP smart search, real-time market data</p>
+      </div>
+
+      <div style="margin-top:32px;padding:20px;background:rgba(0,212,170,.06);border:1px solid rgba(0,212,170,.15);border-radius:12px;">
+        <p style="font-size:15px;color:var(--t1);">
+          <span class="highlight">Hiring Plan:</span> With in5/DIFC support, first hires will be a <strong>data engineer</strong> (building DB automation) and a <strong>growth marketer</strong> (agent acquisition).
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 16: THE ASK -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="s15" style="text-align:center;align-items:center;">
+  <div class="slide-num">18</div>
+  <p style="color:var(--acc);font-weight:600;font-size:14px;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">The Ask</p>
+  <h2>Partner with Us to Scale</h2>
+
+  <div style="margin-top:24px;padding:20px 28px;background:linear-gradient(135deg,rgba(0,180,255,.08),rgba(0,212,170,.06));border:1px solid rgba(0,180,255,.25);border-radius:14px;max-width:860px;text-align:left;">
+    <p style="font-size:15px;color:var(--t1);font-weight:500;line-height:1.8;">
+      <span class="highlight2">About the current platform:</span> What you see at dubaival.com today is a <strong>functional prototype</strong> — a working preview of the full vision.
+      The core AI engine, all 12 modules, and the 10,880-property database are fully operational, but the UI/UX design has not yet been professionally developed.
+      This is intentionally a <strong>technology-first approach</strong>: we built the intelligence engine and proved it works, so that partners and supporters
+      can evaluate the <strong style="color:var(--acc);">real capabilities</strong>, not just a polished mockup. The final product will have professional design, branding, and user experience —
+      built on top of this proven foundation.
+    </p>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:36px;max-width:900px;text-align:left;">
+    <div class="card" style="border-top:3px solid var(--acc);">
+      <div class="card-icon">&#127970;</div>
+      <h3 style="color:var(--t1);font-size:18px;">PropTech Licence</h3>
+      <p style="margin-top:12px;">90% subsidized DIFC PropTech licence ($1,500/yr) for AI analytics activities</p>
+    </div>
+    <div class="card" style="border-top:3px solid var(--gold);">
+      <div class="card-icon">&#128187;</div>
+      <h3 style="color:var(--t1);font-size:18px;">Hub Workspace & Incubation</h3>
+      <p style="margin-top:12px;">Purpose-built PropTech workspace, incubation program, venture building support</p>
+      <div style="margin-top:16px;padding:12px 16px;background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.15);border-radius:10px;">
+        <p style="font-size:14px;color:var(--acc);font-weight:600;">PropTech Hub Membership — The fastest path to becoming Dubai's official AI valuation standard</p>
+      </div>
+    </div>
+    <div class="card" style="border-top:3px solid var(--acc2);">
+      <div class="card-icon">&#128202;</div>
+      <h3 style="color:var(--t1);font-size:18px;">DLD Data Access</h3>
+      <p style="margin-top:12px;">PropTech Application Interface for real-time real estate data to supercharge our AVM</p>
+    </div>
+    <div class="card" style="border-top:3px solid var(--green);">
+      <div class="card-icon">&#129309;</div>
+      <h3 style="color:var(--t1);font-size:18px;">Joint Pilot Programs</h3>
+      <p style="margin-top:12px;">Pilot with founding partners (Binghatti, MAF, Sobha) to validate our AVM against real portfolios</p>
+    </div>
+  </div>
+
+  <div style="margin-top:32px;padding:20px 28px;background:linear-gradient(135deg,rgba(0,212,170,.08),rgba(255,215,0,.08));border:1px solid rgba(0,212,170,.2);border-radius:16px;max-width:860px;text-align:left;">
+    <p style="font-size:16px;color:var(--t1);font-weight:500;line-height:1.8;text-align:center;">
+      <em>"We chose to build the AI engine first and ask for support second — because we believe the best pitch is a working platform, not a PowerPoint. <strong style="color:var(--acc);">The technology is proven. Now we need the business infrastructure to take it to market.</strong>"</em>
+    </p>
+  </div>
+
+  <div style="margin-top:48px;">
+    <div class="logo" style="font-size:40px;margin-bottom:8px;">Dub<span>AI</span>Val</div>
+    <p style="color:var(--t3);font-size:16px;">An AI intelligence platform. Built. Proven. Ready to scale globally.</p>
+    <div style="margin-top:32px;display:flex;gap:24px;justify-content:center;flex-wrap:wrap;">
+      <div style="padding:12px 24px;background:var(--card);border:1px solid var(--border);border-radius:8px;">
+        <span style="color:var(--t3);font-size:13px;">Website</span><br/>
+        <span style="color:var(--acc);font-weight:600;">dubaival.com</span>
+      </div>
+      <div style="padding:12px 24px;background:var(--card);border:1px solid var(--border);border-radius:8px;">
+        <span style="color:var(--t3);font-size:13px;">Phone</span><br/>
+        <span style="color:var(--acc);font-weight:600;">+971 54 454 1221</span>
+      </div>
+      <div style="padding:12px 24px;background:var(--card);border:1px solid var(--border);border-radius:8px;">
+        <span style="color:var(--t3);font-size:13px;">Email</span><br/>
+        <span style="color:var(--acc);font-weight:600;">momeni.yashar@gmail.com</span>
+      </div>
+      <div style="padding:12px 24px;background:var(--card);border:1px solid var(--border);border-radius:8px;">
+        <span style="color:var(--t3);font-size:13px;">Vision</span><br/>
+        <span style="color:var(--gold);font-weight:600;">PropLens.ai — 20+ Countries</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<script>
+// Navigation dots
+(function(){
+  var slides=document.querySelectorAll('.slide');
+  var dots=document.getElementById('navDots');
+  slides.forEach(function(s,i){
+    var d=document.createElement('div');
+    d.className='nav-dot';
+    d.onclick=function(){s.scrollIntoView({behavior:'smooth'});};
+    dots.appendChild(d);
+  });
+  function updateDots(){
+    var ds=dots.querySelectorAll('.nav-dot');
+    var current=0;
+    slides.forEach(function(s,i){
+      var r=s.getBoundingClientRect();
+      if(r.top<window.innerHeight/2) current=i;
+    });
+    ds.forEach(function(d,i){d.className=i===current?'nav-dot active':'nav-dot';});
+  }
+  window.addEventListener('scroll',updateDots);
+  updateDots();
+})();
+</script>
+</body>
+</html>

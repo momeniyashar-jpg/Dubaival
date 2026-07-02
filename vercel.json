@@ -1,29 +1,54 @@
 {
-  "version": 2,
-  "builds": [
+  "buildCommand": "",
+  "installCommand": "",
+  "outputDirectory": ".",
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "functions": {
+    "api/refresh-market-data.js": { "maxDuration": 60 }
+  },
+  "headers": [
     {
-      "src": "index-6.html",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "api/*.js",
-      "use": "@vercel/node"
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), payment=()" },
+        { "key": "X-XSS-Protection", "value": "1; mode=block" },
+        { "key": "Content-Security-Policy", "value": "frame-ancestors 'none'; object-src 'none'; base-uri 'self';" },
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" }
+      ]
     }
   ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index-6.html"
-    }
+  "rewrites": [
+    { "source": "/callback", "destination": "/callback.html" },
+    { "source": "/((?!api/|callback).*)", "destination": "/index.html" }
   ],
   "crons": [
     {
       "path": "/api/check-price-alerts",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/send-email-replies",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/gmail-poll",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/refresh-market-data",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/auto-post",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/sync-engagement",
+      "schedule": "0 21 * * *"
     }
   ]
 }

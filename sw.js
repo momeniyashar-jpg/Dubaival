@@ -1,13 +1,14 @@
-var CACHE_NAME='dubaival-v2';
+var CACHE_NAME='dubaival-v17';
 var PRECACHE=[
   '/',
-  '/index-6.html',
+  '/index.html',
   '/logo.png',
-  '/js/data.js',
+  '/js/data-residential.js',
   '/js/valuation.js',
   '/js/api.js',
   '/js/core.js',
   '/js/auth.js',
+  '/js/inbox.js',
   '/js/app.js',
   '/js/market.js',
   '/js/mortgage.js',

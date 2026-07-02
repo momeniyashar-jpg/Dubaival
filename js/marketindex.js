@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- MARKET INDEX TAB ---------------------------------------------------------
 function renderMarketIndex(){
   var cl=C();
@@ -13,11 +14,11 @@ function renderMarketIndex(){
   wrap.appendChild(header);
 
   // Full Market Data CSV Export
-  wrap.appendChild(el("div",{style:{textAlign:"center",marginBottom:"16px"}},[csvExportBtn("Download Full Market Data (CSV)",cl,function(){
-    var hdrs=["area_name","avg_psf","service_charge","studio_rent","1br_rent","2br_rent","3br_rent","yield_low","yield_high","growth_1y","growth_3y","growth_5y","dom","tx_volume"];
+  wrap.appendChild(el("div",{style:{textAlign:"center",marginBottom:"16px",display:"none"}},[csvExportBtn("Download Full Market Data (CSV)",cl,function(){
+    var hdrs=["area_name","avg_psf","service_charge","1br_rent","2br_rent","3br_rent","yield_low","yield_high","growth_1y","growth_3y","growth_5y","dom","tx_volume"];
     var rows=[];AREA_NAMES.forEach(function(n){var a=AREAS[n];if(!a)return;var y=a.y||[0,0];var g=a.g||[0,0,0];
-      rows.push([n,a.psf||0,a.sc||0,a.r1||0,a.r2||0,a.r3||0,a.rv2||0,y[0],y[1],g[0],g[1],g[2],a.dom||0,a.txVol||0]);});
-    exportCSV("DubaiVal_Market_Data_"+csvDate()+".csv",hdrs,rows);
+      rows.push([n,a.psf||0,a.sc||0,a.r1||0,a.r2||0,a.r3||0,y[0],y[1],g[0],g[1],g[2],a.dom||0,a.txVol||0]);});
+    exportCSV("DubAIVal_Market_Data_"+csvDate()+".csv",hdrs,rows);
   })]));
 
   // Compute aggregates
@@ -27,7 +28,7 @@ function renderMarketIndex(){
     var a=AREAS[n];if(!a)return;
     totalPsf+=a.psf||0;
     var y=a.y||[5,7];totalYield+=(y[0]+y[1])/2;
-    var g=a.g||[10,18,28];totalG0+=g[0]||0;
+    var g=a.g||[3,9,16];totalG0+=g[0]||0;
     cnt++;
   });
   var avgPsf=cnt?Math.round(totalPsf/cnt):0;
@@ -40,7 +41,7 @@ function renderMarketIndex(){
     {n:avgYield+"%",l:"Avg Yield",icon:"◈"},
     {n:"+"+avgG0+"%",l:"Avg 1yr Growth",icon:"▲"},
     {n:String(cnt),l:"Areas",icon:"◇"},
-    {n:"6,162",l:"Buildings",icon:"◆"}
+    {n:"10,800+",l:"Properties",icon:"◆"}
   ];
   var sumRow=div({display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:"10px",marginBottom:"20px"});
   stats.forEach(function(s){
@@ -56,7 +57,7 @@ function renderMarketIndex(){
   var areaData=[];
   names.forEach(function(n){
     var a=AREAS[n];if(!a||!a.psf)return;
-    var y=a.y||[5,7];var g=a.g||[10,18,28];
+    var y=a.y||[5,7];var g=a.g||[3,9,16];
     var avgY=(y[0]+y[1])/2;
     var valueScore=avgY*2+(g[0]||0)*0.5-((a.psf||1500)/500);
     areaData.push({name:n,psf:a.psf,yield:avgY,g0:g[0]||0,g1:g[1]||0,dom:a.dom||60,sc:a.sc||15,r1:a.r1||0,r2:a.r2||0,txVol:a.txVol||0,valueScore:valueScore});
@@ -74,8 +75,10 @@ function renderMarketIndex(){
     card.appendChild(hRow);
     // Data rows
     data.forEach(function(d,i){
-      var row=div({display:"grid",gridTemplateColumns:columns.map(function(c){return c.w||"1fr";}).join(" "),gap:"6px",padding:"8px 10px",background:i%2===0?"transparent":cl.raised,borderRadius:"6px",cursor:"pointer"});
-      row.addEventListener("click",function(){analyzerState.f.area=d.name;currentTab="Analyzer";render();});
+      var row=div({display:"grid",gridTemplateColumns:columns.map(function(c){return c.w||"1fr";}).join(" "),gap:"6px",padding:"8px 10px",background:i%2===0?"transparent":cl.raised,borderRadius:"6px",cursor:"pointer",transition:"all 0.15s ease"});
+      row.addEventListener("mouseenter",function(){this.style.background="rgba(212,175,55,0.06)";this.style.transform="translateX(4px)";});
+      row.addEventListener("mouseleave",function(){this.style.background=i%2===0?"transparent":cl.raised;this.style.transform="";});
+      row.addEventListener("click",function(){analyzerState.f.area=d.name;setSection("Market","Analyzer");});
       columns.forEach(function(c){
         var val=c.render(d,i);
         var s=span({color:c.color?c.color(d):cl.text,fontSize:"11.5px",fontFamily:c.mono?"'Space Grotesk',monospace":"'Inter',sans-serif",fontWeight:c.bold?"700":"400",textAlign:c.align||"left"});
@@ -88,7 +91,7 @@ function renderMarketIndex(){
     var link=div({textAlign:"center",marginTop:"12px"});
     var lBtn=el("button",{style:{background:"transparent",border:"1px solid "+cl.goldDim,color:cl.gold,padding:"6px 16px",borderRadius:"8px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
     lBtn.textContent="Get detailed valuation →";
-    lBtn.addEventListener("click",function(){currentTab="Analyzer";render();});
+    lBtn.addEventListener("click",function(){setSection("Market","Analyzer");});
     link.appendChild(lBtn);
     card.appendChild(link);
     return card;
@@ -129,6 +132,47 @@ function renderMarketIndex(){
     {label:"Growth",w:"0.7fr",mono:true,align:"right",color:function(){return"#10B981";},render:function(d){return"+"+d.g0.toFixed(0)+"%";}},
     {label:"PSF",w:"0.8fr",mono:true,bold:true,align:"right",color:function(){return cl.gold;},render:function(d){return"AED "+d.psf.toLocaleString();}}
   ]));
+
+  // Top 10 Highest Rent (1BR)
+  var byRent=areaData.filter(function(a){return a.r1>0;}).sort(function(a,b){return b.r1-a.r1;}).slice(0,10);
+  wrap.appendChild(mkTable("◆ Highest Rent Areas","Top areas by 1BR annual rent",[].concat(byRent),[
+    rankCol,nameCol,
+    {label:"1BR Rent",w:"1.2fr",mono:true,bold:true,align:"right",color:function(){return"#8B5CF6";},render:function(d){return"AED "+d.r1.toLocaleString()+"/yr";}},
+    {label:"Monthly",w:"0.8fr",mono:true,align:"right",color:function(){return cl.sub;},render:function(d){return"AED "+Math.round(d.r1/12).toLocaleString();}}
+  ]));
+
+  // Top 10 Best Rental Value (highest rent-to-price ratio)
+  var byRentValue=areaData.filter(function(a){return a.r1>0&&a.psf>0;}).map(function(a){a.rentPsfRatio=a.r1/(a.psf*500)*100;return a;}).sort(function(a,b){return b.rentPsfRatio-a.rentPsfRatio;}).slice(0,10);
+  wrap.appendChild(mkTable("◆ Best Rental Value Areas","Highest rent relative to property price",[].concat(byRentValue),[
+    rankCol,nameCol,
+    {label:"Yield",w:"0.7fr",mono:true,bold:true,align:"right",color:function(){return"#10B981";},render:function(d){return d.yield.toFixed(1)+"%";}},
+    {label:"1BR Rent",w:"0.9fr",mono:true,align:"right",color:function(){return"#8B5CF6";},render:function(d){return"AED "+d.r1.toLocaleString();}},
+    {label:"PSF",w:"0.8fr",mono:true,align:"right",color:function(){return cl.sub;},render:function(d){return"AED "+d.psf.toLocaleString();}}
+  ]));
+
+  // Top Commercial Areas
+  if(typeof AREAS_COM!=="undefined"){
+    var comData=Object.entries(AREAS_COM).map(function(e){return{name:e[0],psf:e[1].psf,avgP:e[1].avgP,n:e[1].n};}).sort(function(a,b){return b.n-a.n;}).slice(0,10);
+    wrap.appendChild(mkTable("◆ Top Commercial Areas","By DLD transaction volume",[].concat(comData),[
+      {label:"#",w:"0.3fr",mono:true,align:"center",render:function(d,i){return String(i+1);}},
+      {label:"Area",w:"1.5fr",bold:true,render:function(d){return d.name;}},
+      {label:"PSF",w:"0.8fr",mono:true,align:"right",color:function(){return"#3B82F6";},render:function(d){return"AED "+d.psf.toLocaleString();}},
+      {label:"Avg Price",w:"1fr",mono:true,align:"right",color:function(){return cl.sub;},render:function(d){return"AED "+(d.avgP/1000).toFixed(0)+"K";}},
+      {label:"Txns",w:"0.6fr",mono:true,align:"right",color:function(){return"#3B82F6";},render:function(d){return d.n.toLocaleString();}}
+    ]));
+  }
+
+  // Top Land Areas
+  if(typeof AREAS_LAND!=="undefined"){
+    var landData=Object.entries(AREAS_LAND).map(function(e){return{name:e[0],psf:e[1].psf,avgP:e[1].avgP,avgSz:e[1].avgSz,n:e[1].n};}).sort(function(a,b){return b.n-a.n;}).slice(0,10);
+    wrap.appendChild(mkTable("◆ Top Land Areas","By DLD transaction volume",[].concat(landData),[
+      {label:"#",w:"0.3fr",mono:true,align:"center",render:function(d,i){return String(i+1);}},
+      {label:"Area",w:"1.5fr",bold:true,render:function(d){return d.name;}},
+      {label:"PSF",w:"0.8fr",mono:true,align:"right",color:function(){return"#10B981";},render:function(d){return"AED "+d.psf.toLocaleString();}},
+      {label:"Avg Size",w:"0.8fr",mono:true,align:"right",color:function(){return cl.sub;},render:function(d){return d.avgSz.toLocaleString()+" sqft";}},
+      {label:"Txns",w:"0.6fr",mono:true,align:"right",color:function(){return"#10B981";},render:function(d){return d.n.toLocaleString();}}
+    ]));
+  }
 
   // --- Advanced Area Comparison ---
   if(!window._idxCmp)window._idxCmp={areas:["","",""],aiVerdict:"",aiLoading:false};
@@ -189,9 +233,9 @@ function renderMarketIndex(){
       {l:"2BR Rent",fn:function(d){return d.r2||0;},fmt:function(v){return v?"AED "+v.toLocaleString():"—";},hi:true},
       {l:"3BR Rent",fn:function(d){return d.r3||0;},fmt:function(v){return v?"AED "+v.toLocaleString():"—";},hi:true},
       {l:"Gross Yield",fn:function(d){var y=d.y||[5,7];return(y[0]+y[1])/2;},fmt:function(v){return v.toFixed(1)+"%";},hi:true},
-      {l:"Growth 1yr",fn:function(d){return(d.g||[10,18,28])[0]||0;},fmt:function(v){return(v>=0?"+":"")+v+"%";},hi:true},
-      {l:"Growth 3yr",fn:function(d){return(d.g||[10,18,28])[1]||0;},fmt:function(v){return(v>=0?"+":"")+v+"%";},hi:true},
-      {l:"Growth 5yr",fn:function(d){return(d.g||[10,18,28])[2]||0;},fmt:function(v){return(v>=0?"+":"")+v+"%";},hi:true},
+      {l:"Growth 1yr",fn:function(d){return(d.g||[3,9,16])[0]||0;},fmt:function(v){return(v>=0?"+":"")+v+"%";},hi:true},
+      {l:"Growth 3yr",fn:function(d){return(d.g||[3,9,16])[1]||0;},fmt:function(v){return(v>=0?"+":"")+v+"%";},hi:true},
+      {l:"Growth 5yr",fn:function(d){return(d.g||[3,9,16])[2]||0;},fmt:function(v){return(v>=0?"+":"")+v+"%";},hi:true},
       {l:"Days on Market",fn:function(d){return d.dom||0;},fmt:function(v){return v?v+"d":"—";},hi:false},
       {l:"Tx Volume",fn:function(d){return d.txVol||0;},fmt:function(v){return v?v.toLocaleString()+"/yr":"—";},hi:true},
       {l:"Sustainability",fn:function(d,n){return GREEN_AREAS[n]||50;},fmt:function(v){return v+"/100";},hi:true},
@@ -254,12 +298,13 @@ function renderMarketIndex(){
       aiSection.appendChild(div({background:cl.raised,borderRadius:"10px",padding:"14px",color:cl.subHi,fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.7",whiteSpace:"pre-wrap"},cmp.aiVerdict));
     }else{
       var aiBtn=el("button",{style:{width:"100%",padding:"12px",background:cmp.aiLoading?"#4B5563":"linear-gradient(135deg,#C9A84C,#7A5E28)",color:cmp.aiLoading?"#9CA3AF":"#08090C",border:"none",borderRadius:"10px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:cmp.aiLoading?"not-allowed":"pointer"}});
-      aiBtn.textContent=cmp.aiLoading?"Analyzing…":"🤖 Get AI Verdict";
+      aiBtn.textContent=cmp.aiLoading?"Analyzing…":"Get AI Verdict";
       if(!cmp.aiLoading)aiBtn.addEventListener("click",function(){
         cmp.aiLoading=true;render();
-        var summary=activeAreas.map(function(n){var d=AREAS[n]||{};var y=d.y||[5,7];var g=d.g||[10,18,28];return n+": PSF "+d.psf+", SC "+d.sc+", yield "+(y[0]+y[1])/2+"%, 1yr growth "+g[0]+"%, 3yr "+g[1]+"%, DOM "+(d.dom||"?")+"d, txVol "+(d.txVol||"?")+" , buildings "+bldgCounts[n]+", sustainability "+(GREEN_AREAS[n]||50);}).join(". ");
+        var summary=activeAreas.map(function(n){var d=AREAS[n]||{};var y=d.y||[5,7];var g=d.g||[3,9,16];return n+": PSF "+d.psf+", SC "+d.sc+", yield "+(y[0]+y[1])/2+"%, 1yr growth "+g[0]+"%, 3yr "+g[1]+"%, DOM "+(d.dom||"?")+"d, txVol "+(d.txVol||"?")+" , buildings "+bldgCounts[n]+", sustainability "+(GREEN_AREAS[n]||50);}).join(". ");
         askAI([{role:"user",content:"Compare these Dubai areas for a real estate buyer:\n"+summary+"\n\nProvide: 1) For Investment: which is best and why (yield, growth, liquidity), 2) For Living: which is best and why (community, SC, grade), 3) Value Pick: which offers best value. Be specific with numbers. 3-4 sentences each."}],
-          "You are a Dubai real estate advisor. Give clear, data-backed area comparison advice. Use the numbers provided."
+          "You are DubAIVal AI — Dubai's leading property intelligence platform with 8,522 buildings and 347 areas in our DLD-verified database. June 2026 market expert.\nYou are a RICS-certified property analyst comparing areas for sophisticated investors.\nFor each comparison dimension: cite the EXACT numbers provided, calculate differences, and give a clear winner.\nConsider hidden factors: SC drag on net yield, DOM as exit risk, transaction volume as liquidity proxy, sustainability as future premium.\nBe decisive — rank areas and declare winners. Use specific AED figures and percentages.",
+          "Dubai real estate market comparison: "+activeAreas.join(", ")
         ).then(function(r){cmp.aiVerdict=r;cmp.aiLoading=false;render();}).catch(function(e){cmp.aiLoading=false;cmp.aiVerdict="Error: "+e.message;render();});
       });
       aiSection.appendChild(aiBtn);
@@ -269,10 +314,10 @@ function renderMarketIndex(){
     // --- Share button ---
     var shareRow=div({marginTop:"14px",display:"flex",gap:"8px"});
     var shareBtn=el("button",{style:{flex:"1",padding:"10px",background:hexAlpha("#3B82F6",0.12),border:"1px solid "+hexAlpha("#3B82F6",0.3),borderRadius:"8px",color:"#60A5FA",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
-    shareBtn.textContent="📤 Share Comparison";
+    shareBtn.textContent="Share Comparison";
     shareBtn.addEventListener("click",function(){
       var url=window.location.origin+window.location.pathname+"?compare="+encodeURIComponent(activeAreas.join(","));
-      if(navigator.clipboard){navigator.clipboard.writeText(url).then(function(){shareBtn.textContent="✓ Link Copied!";setTimeout(function(){shareBtn.textContent="📤 Share Comparison";},2000);});}
+      if(navigator.clipboard){navigator.clipboard.writeText(url).then(function(){shareBtn.textContent="✓ Link Copied!";setTimeout(function(){shareBtn.textContent="Share Comparison";},2000);});}
       else{prompt("Copy this link:",url);}
     });
     shareRow.appendChild(shareBtn);
@@ -280,7 +325,7 @@ function renderMarketIndex(){
       var expBtn=csvExportBtn("Export Comparison (CSV)",cl,function(){
         var hdrs=["metric"].concat(aa);
         var rows=ms.map(function(m){var r=[m.l];ds.forEach(function(dd){r.push(m.fn(dd.d,dd.name));});return r;});
-        exportCSV("DubaiVal_Comparison_"+csvDate()+".csv",hdrs,rows);
+        exportCSV("DubAIVal_Comparison_"+csvDate()+".csv",hdrs,rows);
       });
       expBtn.style.flex="1";shareRow.appendChild(expBtn);
     })(activeAreas,datas,metrics);
@@ -293,7 +338,7 @@ function renderMarketIndex(){
     cmpCard.appendChild(shareRow);
     // Social share
     var cmpUrl=window.location.origin+window.location.pathname+"?compare="+encodeURIComponent(activeAreas.join(","));
-    var cmpText="Comparing "+activeAreas.join(" vs ")+" on DubaiVal — "+activeAreas.length+" areas, 14 metrics, AI verdict. Check it out:";
+    var cmpText="Comparing "+activeAreas.join(" vs ")+" on DubAIVal — "+activeAreas.length+" areas, 14 metrics, AI verdict. Check it out:";
     cmpCard.appendChild(buildShareButtons(cl,{wa:cmpText+" "+cmpUrl,tw:cmpText+" "+cmpUrl,tg:cmpText,url:cmpUrl,copy:cmpUrl}));
   }else if(activeAreas.length===1){
     cmpCard.appendChild(div({textAlign:"center",padding:"20px",color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Select at least 2 areas to compare"));
@@ -309,9 +354,9 @@ function renderMarketIndex(){
     var favGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}});
     DV_SAVED.favAreas.forEach(function(aName){
       var a=AREAS[aName];if(!a)return;
-      var y=a.y||[5,7];var g=a.g||[10,18,28];
+      var y=a.y||[5,7];var g=a.g||[3,9,16];
       var fc=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"10px",padding:"10px",cursor:"pointer"}});
-      fc.addEventListener("click",function(){analyzerState.f.area=aName;currentTab="Analyzer";render();});
+      fc.addEventListener("click",function(){analyzerState.f.area=aName;setSection("Market","Analyzer");});
       fc.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"4px"},[
         span({color:cl.subHi,fontSize:"11px",fontWeight:"700",fontFamily:"'Inter',sans-serif"},aName.length>16?aName.substring(0,16)+"…":aName),
         span({color:cl.gold,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+(a.psf||0).toLocaleString())]));
@@ -363,7 +408,7 @@ function renderMarketIndex(){
     starBtn.textContent=isFavArea(d.name)?"★":"☆";
     (function(name){starBtn.addEventListener("click",function(e){e.stopPropagation();toggleFavArea(name);render();});})(d.name);
     row.appendChild(starBtn);
-    row.addEventListener("click",function(){analyzerState.f.area=d.name;currentTab="Analyzer";render();});
+    row.addEventListener("click",function(){analyzerState.f.area=d.name;setSection("Market","Analyzer");});
     row.appendChild(span({color:cl.text,fontSize:"11px",fontFamily:"'Inter',sans-serif",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},d.name));
     var barWrap=div({height:"6px",borderRadius:"3px",background:cl.border,overflow:"hidden"});
     barWrap.appendChild(div({height:"100%",width:barW+"%",borderRadius:"3px",background:barColor,transition:"width 0.3s ease"}));

@@ -1,21 +1,22 @@
+// Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- COMPARE TAB -------------------------------------------------------------
 function renderCompare(){
   const cl=C();const s=compareState;
   const wrap=div({padding:"20px",maxWidth:"640px",margin:"0 auto"});
   wrap.appendChild(div({marginBottom:"16px"},[span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ Area Comparison"),span({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"AI-powered side-by-side analysis")]));
-  const card=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px"});
+  const card=div({background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",boxShadow:cl.glassShadow});
   const g=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"14px"});
   const a1W=div({});a1W.appendChild(lbl("Area A"));a1W.appendChild(mkSelect(S(),["Select…",...AREA_NAMES],s.a1,function(v){compareState.a1=v;}));g.appendChild(a1W);
   const a2W=div({});a2W.appendChild(lbl("Area B"));a2W.appendChild(mkSelect(S(),["Select…",...AREA_NAMES],s.a2,function(v){compareState.a2=v;}));g.appendChild(a2W);
   const bW=div({});bW.appendChild(lbl("Budget (AED)"));bW.appendChild(inp(I(),"e.g. 3,000,000","number",s.budget,function(v){compareState.budget=v;}));g.appendChild(bW);
   const pW=div({});pW.appendChild(lbl("Purpose"));pW.appendChild(mkSelect(S(),["Investment","End-Use","Rental Income","Capital Appreciation","Off-Plan Flip"],s.purpose,function(v){compareState.purpose=v;}));g.appendChild(pW);
   card.appendChild(g);
-  card.appendChild(el("button",{style:{background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",color:"#070B14",border:"none",padding:"12px 28px",borderRadius:"8px",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:async function(){
+  card.appendChild(el("button",{style:{background:"rgba(212,175,55,0.15)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",color:cl.gold,border:"1px solid rgba(212,175,55,0.3)",padding:"12px 28px",borderRadius:"10px",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:async function(){
     if(!s.a1||!s.a2||s.a1==="Select…"||s.a2==="Select…")return;
     compareState.loading=true;compareState.result="";render();
     try{
       const d1=AREAS[s.a1]||{};const d2=AREAS[s.a2]||{};
-      const text=await askAI([{role:"user",content:"Compare for a client — Dubai June 2026:\nArea A: "+s.a1+" — avg PSF AED "+(d1.psf||"N/A")+", yield "+(d1.y||["N/A","N/A"]).join("-")+"%\nArea B: "+s.a2+" — avg PSF AED "+(d2.psf||"N/A")+", yield "+(d2.y||["N/A","N/A"]).join("-")+"%\nBudget: "+(s.budget?"AED "+parseInt(s.budget).toLocaleString():"not specified")+" | Purpose: "+s.purpose+"\n\nPSF · Yield · 3yr growth · Demand/liquidity · Risk · Decisive verdict"}],"You are DubAIVal AI. June 2026 Dubai market expert. Specific AED numbers only. No fluff. 5 sections, 2 sentences each.");
+      const text=await askAI([{role:"user",content:"Compare for a client — Dubai June 2026:\nArea A: "+s.a1+" — avg PSF AED "+(d1.psf||"N/A")+", yield "+(d1.y||["N/A","N/A"]).join("-")+"%\nArea B: "+s.a2+" — avg PSF AED "+(d2.psf||"N/A")+", yield "+(d2.y||["N/A","N/A"]).join("-")+"%\nBudget: "+(s.budget?"AED "+parseInt(s.budget).toLocaleString():"not specified")+" | Purpose: "+s.purpose+"\n\nPSF · Yield · 3yr growth · Demand/liquidity · Risk · Decisive verdict"}],"You are DubAIVal AI — Dubai's top property intelligence platform with 8,522 buildings and 347 areas in our DLD-verified database. June 2026 market expert.\nFor each area: cite EXACT PSF, yield range, 3yr growth %, DOM (days on market), service charge, and transaction volume from our data.\nCompare on: Value (PSF vs quality), Income (net yield after SC), Growth (3yr appreciation), Liquidity (DOM + volume), Risk (supply pipeline, developer exposure).\nGive a DECISIVE verdict: which is better for this budget and purpose, and by how much. Specific AED numbers only. No fluff. 5 sections, 2 sentences each.","Dubai real estate market comparison: "+s.a1+" vs "+s.a2);
       compareState.result=text;
     }catch(e){compareState.result="Error: "+e.message;}
     compareState.loading=false;render();
@@ -26,6 +27,42 @@ function renderCompare(){
     const r=div({background:cl.surface,border:"1px solid "+cl.goldDim,borderRadius:"14px",padding:"20px"});
     r.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"◆ "+s.a1+" vs "+s.a2));
     const t=div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.9",fontFamily:"'Inter',sans-serif",whiteSpace:"pre-wrap"});t.textContent=s.result;r.appendChild(t);wrap.appendChild(r);
+    // Google Map + Drive Times for each area
+    var _cmpA=typeof AREA_COORDS!=="undefined"?AREA_COORDS[s.a1]:null;
+    var _cmpB=typeof AREA_COORDS!=="undefined"?AREA_COORDS[s.a2]:null;
+    if(_cmpA||_cmpB){
+      var cmpCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginTop:"12px"});
+      cmpCard.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},"◆ Location Map & Drive Times"));
+      var cmpMapId="dv-cmp-gmap-"+Date.now();
+      cmpCard.appendChild(el("div",{style:{width:"100%",height:"200px",borderRadius:"10px",overflow:"hidden",marginBottom:"14px"},id:cmpMapId}));
+      var dtGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"});
+      var dtIdA="dv-cmp-dta"+Date.now(),dtIdB="dv-cmp-dtb"+Date.now()+"x";
+      dtGrid.appendChild(div({id:dtIdA},[span({color:"#60A5FA",fontSize:"9px",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"6px"},s.a1),span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Loading drive times…")]));
+      dtGrid.appendChild(div({id:dtIdB},[span({color:"#34D399",fontSize:"9px",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"6px"},s.a2),span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Loading drive times…")]));
+      cmpCard.appendChild(dtGrid);wrap.appendChild(cmpCard);
+      setTimeout(function(){
+        var c2=document.getElementById(cmpMapId);if(!c2||typeof _dvGmapLoad!=="function")return;
+        _dvGmapLoad(function(){
+          var c3=document.getElementById(cmpMapId);if(!c3)return;
+          var cLat=_cmpA?_cmpA[0]:_cmpB[0],cLng=_cmpA?_cmpA[1]:_cmpB[1];
+          if(_cmpA&&_cmpB){cLat=(_cmpA[0]+_cmpB[0])/2;cLng=(_cmpA[1]+_cmpB[1])/2;}
+          var gm=new google.maps.Map(c3,{center:{lat:cLat,lng:cLng},zoom:11,styles:typeof _GMAP_DARK_STYLES!=="undefined"?_GMAP_DARK_STYLES:[],zoomControl:true,mapTypeControl:false,streetViewControl:false,fullscreenControl:false,gestureHandling:"greedy"});
+          if(_cmpA)new google.maps.Marker({map:gm,position:{lat:_cmpA[0],lng:_cmpA[1]},title:s.a1,icon:{path:google.maps.SymbolPath.CIRCLE,scale:10,fillColor:"#60A5FA",fillOpacity:1,strokeColor:"#fff",strokeWeight:2},label:{text:"A",color:"#fff",fontSize:"10px",fontWeight:"700"}});
+          if(_cmpB)new google.maps.Marker({map:gm,position:{lat:_cmpB[0],lng:_cmpB[1]},title:s.a2,icon:{path:google.maps.SymbolPath.CIRCLE,scale:10,fillColor:"#34D399",fillOpacity:1,strokeColor:"#fff",strokeWeight:2},label:{text:"B",color:"#fff",fontSize:"10px",fontWeight:"700"}});
+          if(_cmpA&&_cmpB){var bnds=new google.maps.LatLngBounds();bnds.extend({lat:_cmpA[0],lng:_cmpA[1]});bnds.extend({lat:_cmpB[0],lng:_cmpB[1]});gm.fitBounds(bnds,50);}
+        });
+      },80);
+      function _cmpLoadDT(lat,lng,elId,aName,clr){
+        fetch("/api/proxy-maps?action=distances&lat="+lat+"&lng="+lng).then(function(rr){return rr.json();}).then(function(data){
+          var el2=document.getElementById(elId);if(!el2)return;
+          while(el2.firstChild)el2.removeChild(el2.firstChild);
+          el2.appendChild(span({color:clr,fontSize:"9px",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"6px"},aName));
+          (data.rows||[]).forEach(function(row){el2.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"4px"},[span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},row.label),span({color:cl.subHi,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},row.duration)]));});
+        }).catch(function(){});
+      }
+      if(_cmpA)_cmpLoadDT(_cmpA[0],_cmpA[1],dtIdA,s.a1,"#60A5FA");
+      if(_cmpB)_cmpLoadDT(_cmpB[0],_cmpB[1],dtIdB,s.a2,"#34D399");
+    }
   }
   return wrap;
 }
@@ -35,7 +72,7 @@ function renderPersonal(){
   const cl=C();const p=personalState;
   const wrap=div({padding:"20px",maxWidth:"640px",margin:"0 auto"});
   wrap.appendChild(div({marginBottom:"16px"},[span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ Personal Property Advisor"),span({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Tell us about yourself — get tailored recommendations")]));
-  const card=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px"});
+  const card=div({background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",boxShadow:cl.glassShadow});
   card.appendChild(fld("Budget (AED) *",inp(I(),"2,000,000","number",p.budget,function(v){personalState.budget=v;})));
   const g=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"14px"});
   const rW=div({});rW.appendChild(lbl("I am"));rW.appendChild(mkSelect(S(),["Investor","End-User","First-Time Buyer","Upgrader","Relocating"],p.role,function(v){personalState.role=v;}));g.appendChild(rW);
@@ -45,11 +82,11 @@ function renderPersonal(){
   const tlW=div({});tlW.appendChild(lbl("Timeline"));tlW.appendChild(mkSelect(S(),["1 month","3 months","6 months","1 year","2+ years"],p.timeline,function(v){personalState.timeline=v;}));g.appendChild(tlW);
   card.appendChild(g);
   card.appendChild(fld("Work Location",inp(I(),"DIFC, Downtown, Work from home…","text",p.work,function(v){personalState.work=v;})));
-  card.appendChild(el("button",{style:{width:"100%",padding:"13px",borderRadius:"10px",border:"none",background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",color:"#070B14",fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",cursor:"pointer"},onclick:async function(){
+  card.appendChild(el("button",{style:{width:"100%",padding:"13px",borderRadius:"10px",border:"1px solid rgba(212,175,55,0.3)",background:"rgba(212,175,55,0.15)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",color:cl.gold,fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",cursor:"pointer"},onclick:async function(){
     if(!p.budget)return;
     personalState.loading=true;personalState.result="";render();
     try{
-      const text=await askAI([{role:"user",content:"My profile:\nBudget: AED "+parseInt(p.budget).toLocaleString()+" | I am: "+p.role+" | Family: "+p.family+" | Children: "+p.children+"\nWork: "+(p.work||"flexible")+" | Purpose: "+p.purpose+" | Timeline: "+p.timeline+"\n\nGive me 3 specific area recommendations, 3 communities, and 3 buildings in Dubai.\nFor each: current PSF range, expected yield, lifestyle fit, why it matches my profile.\nBe specific with AED numbers."}],"You are DubAIVal Personal Advisor. June 2026 Dubai expert. Specific AED numbers, direct recommendations, no fluff.");
+      const text=await askAI([{role:"user",content:"My profile:\nBudget: AED "+parseInt(p.budget).toLocaleString()+" | I am: "+p.role+" | Family: "+p.family+" | Children: "+p.children+"\nWork: "+(p.work||"flexible")+" | Purpose: "+p.purpose+" | Timeline: "+p.timeline+"\n\nGive me 3 specific area recommendations, 3 communities, and 3 buildings in Dubai.\nFor each: current PSF range, expected yield, lifestyle fit, why it matches my profile.\nBe specific with AED numbers."}],"You are DubAIVal Personal Property Advisor — a senior relocation and investment consultant with 15 years in Dubai. June 2026.\nYou have placed 2,000+ clients in their ideal Dubai homes. You know every community intimately: schools, traffic, lifestyle, noise, construction, community feel.\nFor each recommendation provide:\n- AREA: name + why it fits this profile (commute, family, lifestyle, budget)\n- COMMUNITY: specific sub-community or tower cluster + what daily life looks like\n- BUILDING: specific building name from our 8,522-building DB + PSF + expected rent + yield\n- BUDGET MATH: budget ÷ PSF = sqft → unit type they can afford\n- LIFESTYLE FIT: schools nearby, metro access, beach/mall distance, community vibe\n- INVESTMENT ANGLE: yield, 3yr growth, Golden Visa eligibility if budget ≥ AED 2M\nBe specific with AED numbers. Match their language. 3 recommendations, ranked best-to-good.","Dubai real estate for "+p.role+", "+p.purpose+", budget AED "+p.budget);
       personalState.result=text;
     }catch(e){personalState.result="Error: "+e.message;}
     personalState.loading=false;render();
@@ -60,40 +97,72 @@ function renderPersonal(){
     const r=div({background:cl.surface,border:"1px solid "+cl.goldDim,borderRadius:"14px",padding:"20px"});
     r.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"◆ Your Recommendations"));
     const t=div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.9",fontFamily:"'Inter',sans-serif",whiteSpace:"pre-wrap"});t.textContent=p.result;r.appendChild(t);wrap.appendChild(r);
+    // Commute context: drive times from work location to 5 key Dubai hubs
+    if(p.work){
+      var paCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginTop:"12px"});
+      paCard.appendChild(span({color:"#818CF8",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ Commute Context"));
+      paCard.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",display:"block",marginBottom:"12px"},"Drive times from «"+p.work+"» to key Dubai hubs"));
+      var paBodyId="dv-pa-body-"+Date.now();
+      var paBody=div({id:paBodyId,textAlign:"center",padding:"12px"});
+      paBody.appendChild(div({width:"24px",height:"24px",borderRadius:"50%",border:"2px solid "+cl.border,borderTopColor:"#818CF8",animation:"spin 0.8s linear infinite",margin:"0 auto"}));
+      paCard.appendChild(paBody);wrap.appendChild(paCard);
+      fetch("/api/proxy-maps?action=geocode&address="+encodeURIComponent(p.work+", Dubai, UAE"))
+        .then(function(rr){return rr.json();})
+        .then(function(geo){if(!geo.lat)throw new Error("Not found");return fetch("/api/proxy-maps?action=distances&lat="+geo.lat+"&lng="+geo.lng);})
+        .then(function(rr){return rr.json();})
+        .then(function(data){
+          var bodyEl=document.getElementById(paBodyId);if(!bodyEl)return;
+          while(bodyEl.firstChild)bodyEl.removeChild(bodyEl.firstChild);
+          bodyEl.style.textAlign="";bodyEl.style.padding="";
+          (data.rows||[]).forEach(function(row){
+            bodyEl.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid "+cl.border},[
+              span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},row.label),
+              div({textAlign:"right"},[span({color:"#818CF8",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},row.duration),span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",display:"block"},row.distance)])
+            ]));
+          });
+          bodyEl.appendChild(span({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif",display:"block",marginTop:"8px",fontStyle:"italic"},"Use these times to compare with your recommended areas' hub proximity."));
+        })
+        .catch(function(){var bodyEl=document.getElementById(paBodyId);if(bodyEl){while(bodyEl.firstChild)bodyEl.removeChild(bodyEl.firstChild);bodyEl.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Could not load commute times."));}});
+    }
   }
   return wrap;
 }
 
 // --- PORTFOLIO TAB -----------------------------------------------------------
-var STR_DATA={"Dubai Marina":{nightly:650,occ:0.78},"Downtown Dubai":{nightly:850,occ:0.75},"JBR":{nightly:700,occ:0.80},"Business Bay":{nightly:550,occ:0.72},"Palm Jumeirah":{nightly:1200,occ:0.70},"JLT":{nightly:450,occ:0.75},"Dubai Hills":{nightly:600,occ:0.68},"Arabian Ranches":{nightly:800,occ:0.65},"Sports City":{nightly:350,occ:0.70},"Discovery Gardens":{nightly:250,occ:0.72},"International City":{nightly:200,occ:0.68},"Dubai Silicon Oasis":{nightly:350,occ:0.70},"Motor City":{nightly:400,occ:0.67},"Jumeirah Village Circle":{nightly:400,occ:0.73},"DAMAC Hills":{nightly:500,occ:0.65},"Town Square":{nightly:350,occ:0.70},"Mirdif":{nightly:450,occ:0.63},"Al Barsha":{nightly:400,occ:0.72},"Deira":{nightly:300,occ:0.74},"Bur Dubai":{nightly:280,occ:0.76},"Creek Harbour":{nightly:700,occ:0.68},"Emaar Beachfront":{nightly:900,occ:0.72},"City Walk":{nightly:750,occ:0.65},"MBR City":{nightly:600,occ:0.64},"Arjan":{nightly:350,occ:0.71},"Furjan":{nightly:400,occ:0.69},"Mudon":{nightly:500,occ:0.62},"Remraam":{nightly:300,occ:0.70},"Tecom":{nightly:400,occ:0.74},"Barsha Heights":{nightly:380,occ:0.73},"JVC":{nightly:400,occ:0.73}};
+var STR_DATA={"Downtown Dubai":{nightly:850,occ:0.75},"Dubai Marina":{nightly:650,occ:0.78},"Palm Jumeirah":{nightly:1200,occ:0.7},"Business Bay":{nightly:550,occ:0.72},"Emaar Beachfront":{nightly:900,occ:0.72},"Bluewaters Island":{nightly:960,occ:0.73},"Dubai Creek Harbour":{nightly:420,occ:0.67},"MBR City":{nightly:600,occ:0.64},"Sobha Hartland":{nightly:450,occ:0.74},"Jumeirah Village Circle":{nightly:400,occ:0.73},"Dubai Hills Estate":{nightly:680,occ:0.74},"DAMAC Lagoons":{nightly:650,occ:0.57},"Arabian Ranches":{nightly:800,occ:0.65},"Arabian Ranches 2":{nightly:680,occ:0.56},"Arabian Ranches 3":{nightly:630,occ:0.63},"Tilal Al Ghaf":{nightly:750,occ:0.61},"Al Furjan":{nightly:260,occ:0.75},"Dubai South":{nightly:190,occ:0.71},"Jumeirah Lake Towers":{nightly:300,occ:0.74},"The Springs":{nightly:700,occ:0.57},"The Meadows":{nightly:750,occ:0.57},"The Lakes":{nightly:800,occ:0.59},"Meydan":{nightly:410,occ:0.67},"Al Barsha":{nightly:400,occ:0.72},"Jumeirah Golf Estates":{nightly:730,occ:0.58},"Dubai Sports City":{nightly:190,occ:0.68},"DAMAC Hills":{nightly:500,occ:0.65},"DAMAC Hills 2":{nightly:450,occ:0.58},"Town Square":{nightly:350,occ:0.7},"The Valley":{nightly:450,occ:0.58},"Dubai Harbour":{nightly:750,occ:0.76},"DIFC":{nightly:750,occ:0.71},"City Walk":{nightly:750,occ:0.65},"Palm Jebel Ali":{nightly:980,occ:0.66},"Emirates Hills":{nightly:1100,occ:0.6},"Mudon":{nightly:500,occ:0.62},"Villanova":{nightly:480,occ:0.58},"Al Barari":{nightly:1000,occ:0.62},"Motor City":{nightly:400,occ:0.67},"Jumeirah Bay Island":{nightly:1850,occ:0.64},"Jumeirah Village Triangle":{nightly:250,occ:0.75},"Majan":{nightly:170,occ:0.68},"Polo Residences":{nightly:260,occ:0.71},"Wadi Al Safa":{nightly:300,occ:0.7},"Cherrywoods":{nightly:480,occ:0.61},"The Heights":{nightly:650,occ:0.61},"The Oasis":{nightly:1000,occ:0.6},"Jumeirah Park":{nightly:700,occ:0.63},"Jumeirah Islands":{nightly:1000,occ:0.63},"Victory Heights":{nightly:480,occ:0.58},"The Villa":{nightly:500,occ:0.57},"Mira":{nightly:480,occ:0.59},"Mira Oasis":{nightly:480,occ:0.58},"Serena":{nightly:480,occ:0.56},"Sustainable City":{nightly:450,occ:0.58},"Remraam":{nightly:300,occ:0.7},"Dubai Islands":{nightly:680,occ:0.79},"La Mer":{nightly:720,occ:0.73},"Pearl Jumeirah":{nightly:650,occ:0.77},"The Oasis by Emaar":{nightly:1200,occ:0.61},"Nad Al Sheba":{nightly:780,occ:0.63},"Falcon City":{nightly:300,occ:0.71},"Emaar South":{nightly:330,occ:0.72},"Living Legends":{nightly:260,occ:0.66},"International City":{nightly:200,occ:0.68},"Dubai Silicon Oasis":{nightly:350,occ:0.7},"Al Jaddaf":{nightly:410,occ:0.74},"Culture Village":{nightly:330,occ:0.74},"Arjan":{nightly:350,occ:0.71},"Dubailand":{nightly:250,occ:0.72},"Dubai Investment Park":{nightly:170,occ:0.65},"Dubai Studio City":{nightly:260,occ:0.74},"Dubai Production City":{nightly:220,occ:0.7},"Dubai Media City":{nightly:620,occ:0.75},"Barsha Heights":{nightly:380,occ:0.73},"Mirdif":{nightly:450,occ:0.63},"Liwan":{nightly:190,occ:0.72},"Dubai Festival City":{nightly:430,occ:0.71},"Discovery Gardens":{nightly:250,occ:0.72},"Bur Dubai":{nightly:280,occ:0.76},"Al Nahda":{nightly:140,occ:0.65},"Dubai":{nightly:390,occ:0.68},"Beachgate By Address":{nightly:680,occ:0.75},"Al Wasl":{nightly:450,occ:0.69},"Dubai Residence Complex":{nightly:240,occ:0.72},"Jebel Ali":{nightly:250,occ:0.72},"Dubai Science Park":{nightly:450,occ:0.73},"Dubai Maritime City":{nightly:750,occ:0.7},"Mina Rashid":{nightly:680,occ:0.72},"Ras Al Khor":{nightly:180,occ:0.66},"Wasl Gate":{nightly:300,occ:0.68},"Bukadra":{nightly:410,occ:0.7},"Za'Abeel":{nightly:890,occ:0.74},"Dubai Industrial City":{nightly:160,occ:0.51},"Palace Beach Residence":{nightly:680,occ:0.73},"Jumeirah":{nightly:650,occ:0.77},"Umm Suqeim":{nightly:810,occ:0.69},"Jumeirah Beach Residence (Jbr)":{nightly:650,occ:0.77},"Al Satwa":{nightly:380,occ:0.7},"The Greens":{nightly:380,occ:0.75},"Marina Vista":{nightly:680,occ:0.75},"World Trade Centre":{nightly:650,occ:0.72},"Al Sufouh":{nightly:650,occ:0.69},"Al Thanayah Fourth":{nightly:410,occ:0.74},"Expo City":{nightly:420,occ:0.76},"Al Quoz":{nightly:220,occ:0.69},"The Views":{nightly:480,occ:0.68},"Dubai Design District":{nightly:580,occ:0.7},"The Hills":{nightly:510,occ:0.72},"Dubai Internet City":{nightly:480,occ:0.72},"Muhaisnah":{nightly:170,occ:0.64},"Sheikh Zayed Road":{nightly:620,occ:0.7},"Green Community":{nightly:390,occ:0.6},"Jebel Ali Village":{nightly:350,occ:0.56},"Al Barsha South":{nightly:380,occ:0.71},"Dubai Creek":{nightly:330,occ:0.73},"Al Yufrah 1":{nightly:330,occ:0.7},"Al Goze Fourth":{nightly:220,occ:0.71},"Nadd Hessa":{nightly:260,occ:0.72},"Al Yelayiss 2":{nightly:350,occ:0.65},"Al Kheeran":{nightly:420,occ:0.7},"Al Barshaa South Second":{nightly:300,occ:0.69},"Warsan Fourth":{nightly:150,occ:0.68},"Jumeirah First":{nightly:700,occ:0.72},"Saih Shuaib 2":{nightly:190,occ:0.51},"Al Hebiah Second":{nightly:190,occ:0.69},"Al Safouh Second":{nightly:620,occ:0.71},"Al Yelayiss 1":{nightly:350,occ:0.66},"Madinat Dubai Almelaheyah":{nightly:650,occ:0.73},"Ras Al Khor Industrial First":{nightly:270,occ:0.48},"Madinat Hind 4":{nightly:330,occ:0.7},"Al Barsha South Fifth":{nightly:250,occ:0.74},"Zaabeel First":{nightly:540,occ:0.73},"Al Hebiah Sixth":{nightly:370,occ:0.74},"Al Safouh First":{nightly:620,occ:0.67},"Trade Center First":{nightly:480,occ:0.76},"Jabal Ali Industrial Second":{nightly:160,occ:0.49},"Al Kifaf":{nightly:650,occ:0.69},"Zaabeel Second":{nightly:890,occ:0.69},"Island 2":{nightly:1850,occ:0.79},"Trade Center Second":{nightly:580,occ:0.72},"Muhaisanah First":{nightly:160,occ:0.69},"Saih Shuaib 1":{nightly:140,occ:0.5},"Hessyan First":{nightly:260,occ:0.45},"Rega Al Buteen":{nightly:220,occ:0.72},"Al Hebiah Third":{nightly:410,occ:0.75},"Nad Al Hamar":{nightly:390,occ:0.69},"Jumeirah Second":{nightly:1220,occ:0.65},"Al Qusais Industrial Fourth":{nightly:160,occ:0.67},"World Islands":{nightly:1670,occ:0.44},"Al Yelayiss 4":{nightly:190,occ:0.71},"Al Qusais Industrial Fifth":{nightly:160,occ:0.72},"Deira":{nightly:300,occ:0.74},"Al Karama":{nightly:200,occ:0.67},"Al Mamzar":{nightly:190,occ:0.66},"Al Rashidiya":{nightly:170,occ:0.68},"Al Twar":{nightly:160,occ:0.66},"Al Warqaa":{nightly:170,occ:0.67},"Al Mizhar":{nightly:350,occ:0.56},"Al Khawaneej":{nightly:400,occ:0.59},"Al Garhoud":{nightly:220,occ:0.72},"Al Muraqqabat":{nightly:190,occ:0.65},"Al Rigga":{nightly:200,occ:0.68},"Hor Al Anz":{nightly:160,occ:0.7},"Abu Hail":{nightly:170,occ:0.65},"Al Muteena":{nightly:180,occ:0.67},"Port Saeed":{nightly:260,occ:0.75},"Naif":{nightly:150,occ:0.62},"Al Mankhool":{nightly:210,occ:0.67},"Al Raffa":{nightly:190,occ:0.68},"Oud Metha":{nightly:270,occ:0.71},"Umm Hurair":{nightly:240,occ:0.65},"Dubai Healthcare City":{nightly:280,occ:0.75},"Al Safa":{nightly:390,occ:0.75},"Jumeirah Third":{nightly:420,occ:0.73},"Madinat Jumeirah Living":{nightly:580,occ:0.68},"Jumeirah Heights":{nightly:300,occ:0.75},"The Gardens":{nightly:170,occ:0.66},"Umm Ramool":{nightly:190,occ:0.72},"Al Hamriya":{nightly:140,occ:0.68},"Al Fahidi":{nightly:190,occ:0.67},"Hatta":{nightly:150,occ:0.44},"Al Lisaili":{nightly:130,occ:0.46},"Al Awir":{nightly:150,occ:0.48},"Layan":{nightly:450,occ:0.57},"Rukan":{nightly:430,occ:0.61},"Sobha Hartland 2":{nightly:450,occ:0.74},"Mina Seyahi":{nightly:550,occ:0.76},"Dubai Knowledge Park":{nightly:270,occ:0.71},"Al Qusais":{nightly:160,occ:0.72},"Umm Al Sheif":{nightly:300,occ:0.71},"Al Hudaiba":{nightly:280,occ:0.69},"Nad Shamma":{nightly:140,occ:0.66},"Margham":{nightly:120,occ:0.49},"Lehbab":{nightly:130,occ:0.48},"Umm Nahad":{nightly:150,occ:0.49},"Al Rowaiyah":{nightly:150,occ:0.65},"Dubai Academic City":{nightly:190,occ:0.7},"Dubailand Oasis":{nightly:170,occ:0.72},"Al Hebiah First":{nightly:190,occ:0.65},"Al Hebiah Fourth":{nightly:190,occ:0.67},"Al Hebiah Fifth":{nightly:190,occ:0.72},"Al Thanayah First":{nightly:270,occ:0.73},"Al Thanayah Second":{nightly:270,occ:0.69},"Al Thanayah Third":{nightly:270,occ:0.72},"Al Thanayah Fifth":{nightly:270,occ:0.72},"Warsan":{nightly:150,occ:0.62},"Warsan First":{nightly:150,occ:0.62},"Warsan Second":{nightly:150,occ:0.66},"Warsan Third":{nightly:150,occ:0.63},"Al Barsha South Third":{nightly:260,occ:0.74},"Al Barsha South Fourth":{nightly:260,occ:0.75},"Wadi Al Safa 2":{nightly:140,occ:0.69},"Wadi Al Safa 3":{nightly:140,occ:0.62},"Wadi Al Safa 4":{nightly:140,occ:0.63},"Wadi Al Safa 5":{nightly:140,occ:0.64},"District One":{nightly:1500,occ:0.6},"Creek Beach":{nightly:620,occ:0.73},"Dubai Creek Golf":{nightly:300,occ:0.73},"Jumeirah Bay":{nightly:1370,occ:0.67},"Saadiyat Lagoons":{nightly:700,occ:0.61},"Dubai Outsource City":{nightly:210,occ:0.66},"Dubai Knowledge Village":{nightly:260,occ:0.71},"Dubai Techno Park":{nightly:190,occ:0.69},"Dubai Waterfront":{nightly:200,occ:0.72},"Jebel Ali Industrial First":{nightly:120,occ:0.51},"Jebel Ali Gardens":{nightly:140,occ:0.64},"Muhaisnah Fourth":{nightly:140,occ:0.62},"Al Qusais Second":{nightly:160,occ:0.7},"Al Qusais Third":{nightly:160,occ:0.65},"Ras Al Khor Industrial Second":{nightly:140,occ:0.52},"Ras Al Khor Industrial Third":{nightly:140,occ:0.55},"Jabal Ali Industrial First":{nightly:120,occ:0.53},"Jabal Ali Industrial Third":{nightly:120,occ:0.52},"Al Barshaa South Third":{nightly:260,occ:0.75},"Masakin Al Furjan":{nightly:260,occ:0.69},"Dubai World Central":{nightly:190,occ:0.65},"Rashid Yachts Marina":{nightly:680,occ:0.79},"Dubai Logistics City":{nightly:140,occ:0.55},"Muhaisanah Second":{nightly:140,occ:0.65},"Muhaisanah Third":{nightly:140,occ:0.68},"Muhaisanah Fourth":{nightly:140,occ:0.67},"Al Manara":{nightly:360,occ:0.72},"Umm Suqeim First":{nightly:360,occ:0.72},"Umm Suqeim Second":{nightly:360,occ:0.74},"Umm Suqeim Third":{nightly:420,occ:0.71},"Al Quoz First":{nightly:160,occ:0.69},"Al Quoz Second":{nightly:160,occ:0.65},"Al Quoz Third":{nightly:160,occ:0.7},"Al Quoz Fourth":{nightly:160,occ:0.67},"Al Quoz Industrial First":{nightly:120,occ:0.53},"Al Quoz Industrial Second":{nightly:120,occ:0.55},"Al Quoz Industrial Third":{nightly:120,occ:0.52},"Al Quoz Industrial Fourth":{nightly:120,occ:0.51},"Badrah":{nightly:160,occ:0.69},"Dubai Residence Complex 2":{nightly:160,occ:0.66},"Al Jadaf":{nightly:260,occ:0.71},"Akoya Oxygen":{nightly:150,occ:0.67},"Dubai Star":{nightly:270,occ:0.69},"Mina Rashid Marina":{nightly:580,occ:0.78},"Al Merkad":{nightly:250,occ:0.75},"Bukadra Second":{nightly:150,occ:0.68},"Saih Shuaib 3":{nightly:190,occ:0.44},"Saih Shuaib 4":{nightly:190,occ:0.45},"Hessyan Second":{nightly:200,occ:0.47},"Hessyan Third":{nightly:200,occ:0.44},"Nadd Hessa Second":{nightly:260,occ:0.68},"Al Barsha First":{nightly:280,occ:0.74},"Al Barsha Second":{nightly:260,occ:0.7},"Al Barsha Third":{nightly:250,occ:0.73},"Jebel Ali Hills":{nightly:450,occ:0.62},"Downtown Jebel Ali":{nightly:170,occ:0.65},"Damac Tower":{nightly:420,occ:0.7},"Burj Khalifa Zone":{nightly:750,occ:0.74},"Marsa Dubai":{nightly:580,occ:0.77},"Palm Deira":{nightly:420,occ:0.68},"The Lagoons":{nightly:550,occ:0.66},"Gardenia":{nightly:380,occ:0.59},"Azizi Riviera":{nightly:270,occ:0.69},"Dubai Hills View":{nightly:330,occ:0.7},"Burj Views":{nightly:430,occ:0.68},"Executive Towers":{nightly:390,occ:0.73},"Bay Square":{nightly:360,occ:0.7},"Hadaeq Sheikh Mohammed Bin Rashid":{nightly:700,occ:0.62},"Al Sufouh First":{nightly:320,occ:0.71},"Al Sufouh Second":{nightly:320,occ:0.75},"Mushrif Park":{nightly:400,occ:0.56}};
 if(!window.PORTFOLIO_STATE){
   var _pa;try{_pa=JSON.parse(localStorage.getItem("dubaival_portfolio"))||[];}catch(e){_pa=[];}
   var _pg;try{_pg=JSON.parse(localStorage.getItem("dubaival_portfolio_goals"))||{risk:"Moderate",horizon:"3-5 years",target:"Capital Growth"};}catch(e){_pg={risk:"Moderate",horizon:"3-5 years",target:"Capital Growth"};}
   window.PORTFOLIO_STATE={assets:_pa,goals:_pg,showAdd:false,aiAnalysis:"",aiLoading:false,aiErr:"",expandedId:null};
 }
 function computeAssetMetrics(asset){
-  var aData=AREAS[asset.area]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
+  var aData=AREAS[asset.area]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
   var bData=lookupBuilding(asset.building,asset.area);
-  var basePSF=bData?bData.p:aData.psf;
+  var bKey=(asset.building||"").toLowerCase().trim();
+  var vdbE=typeof VALUATION_DB!=="undefined"&&VALUATION_DB[bKey]?VALUATION_DB[bKey]:null;
+  var basePSF=vdbE?vdbE.p:(bData?bData.p:aData.psf);
   var vP=VIEW_P[asset.view]||0;
-  var floorN=parseInt(asset.floor)||20;
+  var floorN=parseInt(asset.floor)||0;
   var fP=floorN>10?(floorN-10)*0.005:0;
-  var furnP=asset.furnished==="Furnished"?0.15:asset.furnished==="Semi-Furnished"?0.07:0;
   var isV=asset.type==="Villa"||asset.type==="Townhouse";
-  var geoAdj=getAreaGeoAdj(asset.area);
-  var typeAdj=isV?MACRO_VARS.villaAdj:MACRO_VARS.aptAdj;
+  var isDevFurnished=!!(bData&&bData.df);
+  var furnP=isDevFurnished?(asset.furnished==="Unfurnished"?-0.10:asset.furnished==="Semi-Furnished"?-0.05:0):(asset.furnished==="Furnished"?0.15:asset.furnished==="Semi-Furnished"?0.07:0);
+  var geoAdj=getAreaGeoAdj(asset.area)||0;
+  var typeAdj=isV?(MACRO_VARS.villaAdj||0):(MACRO_VARS.aptAdj||0);
   var hedonicMult=(1+vP)*(1+fP)*(1+furnP)*(1+geoAdj+typeAdj);
+  var hCap=bData&&bData.g==="Ultra"?1.40:bData&&bData.g==="A+"?1.45:1.50;
+  if(hedonicMult>hCap)hedonicMult=hCap;
   var adjPSF=Math.round(basePSF*hedonicMult);
   var size=parseInt(asset.size)||0;
   var currentValue=adjPSF*size;
   var purchasePrice=parseInt(asset.purchasePrice)||0;
   var roi=purchasePrice>0?((currentValue-purchasePrice)/purchasePrice*100):0;
   var bn={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5}[asset.beds]!=null?{"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5}[asset.beds]:2;
-  var rent=isV?(bn<=3?aData.rv3||180000:aData.rv4||240000):bn===0?(aData.r1||65000)*0.65:bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
+  var rent=isV?(bn<=2?aData.rv2||130000:bn<=3?aData.rv3||180000:bn<=4?aData.rv4||240000:bn<=5?aData.rv5||350000:bn<=6?aData.rv6||500000:aData.rv7||650000):bn===0?(aData.rStudio||(aData.r1||65000)*0.65):bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
   var sc=(parseFloat(asset.serviceCharge)||(bData&&bData.sc)||aData.sc||15)*size;
   var grossYield=currentValue>0?(rent/currentValue*100):0;
   var netYield=currentValue>0?((rent-sc)/currentValue*100):0;
-  var gr=aData.g||[10,18,28];
+  var gr=aData.g||[3,9,16];
   var purchaseDate=new Date(asset.purchaseDate);
   var now=new Date();
   var holdingMonths=Math.max(1,Math.round((now-purchaseDate)/(30.44*24*60*60*1000)));
@@ -101,7 +170,7 @@ function computeAssetMetrics(asset){
   var annualizedROI=holdingYears>0&&purchasePrice>0?(Math.pow(currentValue/purchasePrice,1/holdingYears)-1)*100:roi;
   var prRatio=grossYield>0?(100/grossYield):20;
   var investSignal=prRatio<15?"Undervalued":prRatio<20?"Fair Value":prRatio<25?"Elevated":"Overheated";
-  var totalReturn=netYield+(gr[1]||18)/3;
+  var totalReturn=netYield+(gr[1]||9)/3;
   var domEst=aData.dom||60;
   var txVol=aData.txVol||100;
   var liqScore=domEst<=20?95:domEst<=30?85:domEst<=45?72:domEst<=65?55:domEst<=90?40:25;
@@ -115,11 +184,17 @@ function computeAssetMetrics(asset){
   var camVsPct=purchasePSF>0&&adjPSF>0?((purchasePSF-adjPSF)/adjPSF*100):0;
   var camPriceGap=camVsPct<=-20?95:camVsPct<=-12?85:camVsPct<=-5?72:camVsPct<=0?58:camVsPct<=5?42:camVsPct<=12?25:10;
   var camScPSF=parseFloat(asset.serviceCharge)||(bData&&bData.sc)||aData.sc||15;
-  var camScRatio=(aData.sc||15)>0?camScPSF/(aData.sc||15):1;
-  var camTimeDecay=camScRatio<=0.75?90:camScRatio<=0.95?75:camScRatio<=1.10?60:camScRatio<=1.35?40:20;
-  var camAreaPsf=aData.psf||1500;
-  var camPsfDev=camAreaPsf>0?Math.abs(adjPSF-camAreaPsf)/camAreaPsf:0.5;
-  var camMarketDepth=camPsfDev<=0.15?90:camPsfDev<=0.30?72:camPsfDev<=0.50?50:camPsfDev<=0.75?30:15;
+  var camExpectedSC=bData&&bData.sc?bData.sc:aData.sc||15;
+  var camScRatio=camExpectedSC>0?camScPSF/camExpectedSC:1;
+  var camScScore=camScRatio<=0.85?90:camScRatio<=1.05?80:camScRatio<=1.20?60:camScRatio<=1.50?40:20;
+  var camGrade=bData?bData.g:null;
+  var camGradeBonus=camGrade==="Ultra"?15:camGrade==="A+"?12:camGrade==="A"?8:camGrade==="A-"?5:camGrade==="B+"?2:0;
+  var camTimeDecay=Math.min(95,camScScore+camGradeBonus);
+  var camMdRef=vdbE?vdbE.p:(bData?bData.p:aData.psf||1500);
+  var camMdRange=vdbE?Math.max(1,vdbE.hi-vdbE.lo):(bData?Math.max(1,(bData.hi||camMdRef)-(bData.lo||camMdRef)):camMdRef*0.30);
+  var camMdMid=vdbE?(vdbE.lo+vdbE.hi)/2:(bData?(bData.lo+bData.hi)/2:camMdRef);
+  var camPsfDev=camMdRef>0?Math.abs(adjPSF-camMdMid)/(camMdRange||camMdRef*0.30):0.5;
+  var camMarketDepth=camPsfDev<=0.5?90:camPsfDev<=1.0?72:camPsfDev<=1.5?50:camPsfDev<=2.5?30:15;
   var camMosScore=Math.min(95,Math.max(5,Math.round(camPriceGap*0.50+camTimeDecay*0.20+camMarketDepth*0.30)));
   var camMosTier=camMosScore>=80?"Deep Value":camMosScore>=65?"Value Buy":camMosScore>=50?"Fair Entry":camMosScore>=35?"Thin Margin":"Speculative";
   return{currentPSF:adjPSF,currentValue:currentValue,purchasePrice:purchasePrice,roi:roi,rent:rent,sc:sc,grossYield:grossYield,netYield:netYield,holdingMonths:holdingMonths,annualizedROI:annualizedROI,g0:gr[0],g1:gr[1],g2:gr[2],inDB:!!bData,grade:bData?bData.g:"N/A",areaYield:aData.y||[5,7],investSignal:investSignal,totalReturn:totalReturn,domEst:domEst,txVol:txVol,liqScore:liqScore,liqLabel:liqLabel,turnoverRate:turnoverRate,turnoverLabel:turnoverLabel,bldgUnits:bldgUnits,bldgAnnualTx:bldgAnnualTx,mosScore:camMosScore,mosTier:camMosTier};
@@ -158,12 +233,15 @@ else if(weakest==="rr")insight="Risk-adjusted returns could improve — look for
 else insight="Growth outlook is your weakest dimension — consider areas with stronger appreciation trends";
 return{score:score,tier:tier,div:divSc,liq:liqSc,rr:rrSc,gr:grSc,insight:insight,nAreas:nA,hasBoth:hasBoth};
 }
-function renderPortfolio(){
+function renderPortfolio(mode){
+  mode=mode||"assets";
   var cl=C();var ps=window.PORTFOLIO_STATE;
   var wrap=div({padding:"20px",maxWidth:"640px",margin:"0 auto"});
+  var titles={assets:"Portfolio Manager",health:"Portfolio Health",projections:"Projections & What-If"};
+  var descs={assets:"Track assets, monitor performance & get AI-powered signals",health:"Health score, diversification analysis & opportunity alerts",projections:"Future projections, scenario analysis & swap simulator"};
   wrap.appendChild(div({marginBottom:"16px"},[
-    span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ Portfolio Manager"),
-    span({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Track assets, monitor performance & get AI-powered signals")
+    span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ "+(titles[mode]||titles.assets)),
+    span({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},descs[mode]||descs.assets)
   ]));
 
   var metrics=ps.assets.map(function(a){return Object.assign({},a,{m:computeAssetMetrics(a)});});
@@ -175,17 +253,19 @@ function renderPortfolio(){
   var avgGrossYield=totalValue>0?(totalRent/totalValue*100):0;
   var avgNetYield=totalValue>0?((totalRent-totalSC)/totalValue*100):0;
 
-  // Portfolio Overview
-  if(ps.assets.length>0){
-    var sumCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",position:"relative",overflow:"hidden"});
+  // Portfolio Overview (show on assets tab only)
+  if(ps.assets.length>0&&mode==="assets"){
+    var sumCard=div({background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"24px",marginBottom:"14px",position:"relative",overflow:"hidden",boxShadow:cl.glassShadow});
     sumCard.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,"+cl.gold+","+cl.gold+",transparent)",animation:"shimmer 3s ease infinite"}));
     sumCard.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"14px"},"◆ Portfolio Overview"));
 
     var g1=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"});
     [{l:"Total Value",v:"AED "+totalValue.toLocaleString(),c:cl.gold},{l:"Total ROI",v:(totalROI>=0?"+":"")+totalROI.toFixed(1)+"%",c:totalROI>=0?cl.green:cl.red},{l:"Gross Yield",v:avgGrossYield.toFixed(1)+"%",c:cl.green},{l:"Net Yield",v:avgNetYield.toFixed(1)+"%",c:cl.green}].forEach(function(item){
-      var box=div({background:cl.raised,borderRadius:"10px",padding:"12px 14px"});
+      var box=div({background:"rgba(255,255,255,0.03)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:"12px",padding:"12px 14px",transition:"transform 0.2s ease,box-shadow 0.2s ease,border-color 0.2s ease",cursor:"default"});
+      box.addEventListener("mouseenter",function(){box.style.transform="translateY(-2px)";box.style.boxShadow="0 6px 20px rgba(0,0,0,0.3)";box.style.borderColor="rgba(255,255,255,0.12)";});
+      box.addEventListener("mouseleave",function(){box.style.transform="translateY(0)";box.style.boxShadow="none";box.style.borderColor="rgba(255,255,255,0.06)";});
       box.appendChild(lbl(item.l));
-      box.appendChild(span({color:item.c,fontSize:"17px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},item.v));
+      box.appendChild(span({color:item.c,fontSize:"17px",fontWeight:"700",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'",display:"block"},item.v));
       g1.appendChild(box);
     });
     sumCard.appendChild(g1);
@@ -194,10 +274,10 @@ function renderPortfolio(){
     var pnl=totalValue-totalPurchase;
     var avgSus=Math.round(metrics.reduce(function(s,a){var bd=DB[(a.building||"").toLowerCase()]||null;var ad=AREAS[a.area]||{psf:1800,sc:15};return s+computeSustainabilityScore(a.building||"",a.area||"",bd,ad).score;},0)/Math.max(1,metrics.length));
     var avgSusC=avgSus>=75?"#10B981":avgSus>=50?"#EAB308":avgSus>=35?"#F97316":"#EF4444";
-    [{l:"Assets",v:String(ps.assets.length),c:cl.white},{l:"Annual Rent",v:"AED "+totalRent.toLocaleString(),c:cl.white},{l:"Unrealized P&L",v:(pnl>=0?"+":"")+"AED "+pnl.toLocaleString(),c:pnl>=0?cl.green:cl.red},{l:"🌿 Sustainability",v:avgSus+"/100",c:avgSusC}].forEach(function(item){
+    [{l:"Assets",v:String(ps.assets.length),c:cl.white},{l:"Annual Rent",v:"AED "+totalRent.toLocaleString(),c:cl.white},{l:"Unrealized P&L",v:(pnl>=0?"+":"")+"AED "+pnl.toLocaleString(),c:pnl>=0?cl.green:cl.red},{l:"Sustainability",v:avgSus+"/100",c:avgSusC}].forEach(function(item){
       var box=div({background:cl.raised,borderRadius:"10px",padding:"10px 12px"});
       box.appendChild(lbl(item.l));
-      box.appendChild(span({color:item.c,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},item.v));
+      box.appendChild(span({color:item.c,fontSize:"13px",fontWeight:"700",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'",display:"block"},item.v));
       g2.appendChild(box);
     });
     sumCard.appendChild(g2);
@@ -228,10 +308,13 @@ function renderPortfolio(){
       var hdrs=["building","area","type","beds","size_sqft","purchase_price","purchase_date","current_value","roi_pct","gross_yield","net_yield","growth_1y","sustainability_score"];
       var rows=metrics.map(function(a){var ss=typeof computeSustainabilityScore==="function"?computeSustainabilityScore(a.building,a.area,null,AREAS[a.area]):null;
         return[a.building||"",a.area,a.type||"Apartment",a.beds,a.size,a.purchasePrice||a.m.purchasePrice,a.purchaseDate||"",a.m.currentValue,a.m.roi.toFixed(1),a.m.grossYield.toFixed(1),a.m.netYield.toFixed(1),(AREAS[a.area]&&AREAS[a.area].g?AREAS[a.area].g[0]:0),ss?ss.score:""];});
-      exportCSV("DubaiVal_Portfolio_"+csvDate()+".csv",hdrs,rows);
+      exportCSV("DubAIVal_Portfolio_"+csvDate()+".csv",hdrs,rows);
     })]));
 
+  } // end assets overview
+
     // Portfolio Health Score
+  if(mode==="assets"||mode==="health"){
     var health=computePortfolioHealth(metrics,totalValue);
     if(health){
       var hCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",position:"relative",overflow:"hidden"});
@@ -275,12 +358,12 @@ function renderPortfolio(){
     if(metrics.length>0){
       var oaCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",position:"relative",overflow:"hidden"});
       oaCard.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,#F59E0B,#F59E0B,transparent)",animation:"shimmer 3s ease infinite"}));
-      oaCard.appendChild(span({color:"#F59E0B",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"⚡ Opportunity Alerts"));
+      oaCard.appendChild(span({color:"#F59E0B",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"Opportunity Alerts"));
       oaCard.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",display:"block",marginBottom:"16px"},"Hidden opportunities and actionable insights for your assets"));
 
       metrics.forEach(function(a){
-        var aData=AREAS[a.area]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
-        var gr=aData.g||[10,18,28];
+        var aData=AREAS[a.area]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
+        var gr=aData.g||[3,9,16];
         var alerts=[];
 
         // 1) DLD Fee Recovery Timer
@@ -296,7 +379,7 @@ function renderPortfolio(){
           var pct=Math.min(100,Math.round(holdMonths/recoveryMonths*100));
           alerts.push({
             type:recovered?"good":"warn",
-            icon:"🏛️",
+            icon:"",
             title:"DLD Fee Recovery",
             text:recovered?"DLD fees fully recovered after "+recoveryMonths+" months":recoveryMonths>120?"Recovery unlikely at current growth rate":recoveryMonths+" months to recover DLD fees ("+pct+"% done)",
             pct:pct
@@ -306,19 +389,19 @@ function renderPortfolio(){
         // 2) Rent Optimization Alert
         var bn={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5}[a.beds]!=null?{"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5}[a.beds]:2;
         var isV=a.type==="Villa"||a.type==="Townhouse";
-        var benchRent=isV?(bn<=3?aData.rv3||180000:aData.rv4||240000):bn===0?(aData.r1||65000)*0.65:bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
+        var benchRent=isV?(bn<=2?aData.rv2||130000:bn<=3?aData.rv3||180000:bn<=4?aData.rv4||240000:bn<=5?aData.rv5||350000:bn<=6?aData.rv6||500000:aData.rv7||650000):bn===0?(aData.rStudio||(aData.r1||65000)*0.65):bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
         var actualRent=a.m.rent||0;
         if(benchRent>0&&actualRent>0){
           var rentRatio=actualRent/benchRent*100;
           if(rentRatio<90){
-            alerts.push({type:"warn",icon:"📊",title:"Rent Optimization",text:"You may be under-renting by "+Math.round(100-rentRatio)+"% — benchmark: AED "+benchRent.toLocaleString()+"/yr vs current estimate AED "+actualRent.toLocaleString()+"/yr",pct:Math.round(rentRatio)});
+            alerts.push({type:"warn",icon:"",title:"Rent Optimization",text:"You may be under-renting by "+Math.round(100-rentRatio)+"% — benchmark: AED "+benchRent.toLocaleString()+"/yr vs current estimate AED "+actualRent.toLocaleString()+"/yr",pct:Math.round(rentRatio)});
           }else{
-            alerts.push({type:"good",icon:"📊",title:"Rent Optimization",text:"Rent is at "+Math.round(rentRatio)+"% of area benchmark — well optimized",pct:Math.min(100,Math.round(rentRatio))});
+            alerts.push({type:"good",icon:"",title:"Rent Optimization",text:"Rent is at "+Math.round(rentRatio)+"% of area benchmark — well optimized",pct:Math.min(100,Math.round(rentRatio))});
           }
         }
 
         // 3) Optimal Exit Window
-        var g0=gr[0]||10,g1=gr[1]||18,g2=gr[2]||28;
+        var g0=gr[0]||3,g1=gr[1]||9,g2=gr[2]||16;
         var ny=a.m.netYield||5;
         var tr1=ny+g0;
         var tr3=ny+g1/3;
@@ -326,7 +409,7 @@ function renderPortfolio(){
         var bestTR=Math.max(tr1,tr3,tr5);
         var bestWindow=bestTR===tr1?"1 year":bestTR===tr3?"3 years":"5 years";
         var exitType=bestTR>=12?"good":bestTR>=8?"neutral":"warn";
-        alerts.push({type:exitType,icon:"📅",title:"Optimal Exit Window",text:"Best exit: "+bestWindow+" (total return "+bestTR.toFixed(1)+"%/yr) — 1yr: "+tr1.toFixed(1)+"% · 3yr: "+tr3.toFixed(1)+"% · 5yr: "+tr5.toFixed(1)+"%",pct:-1});
+        alerts.push({type:exitType,icon:"",title:"Optimal Exit Window",text:"Best exit: "+bestWindow+" (total return "+bestTR.toFixed(1)+"%/yr) — 1yr: "+tr1.toFixed(1)+"% · 3yr: "+tr3.toFixed(1)+"% · 5yr: "+tr5.toFixed(1)+"%",pct:-1});
 
         // 4) Equity Release Calculator
         if(pp>0&&cv>pp){
@@ -334,12 +417,12 @@ function renderPortfolio(){
           var mortgage=parseInt(a.mortgage)||0;
           var releasable=equity75-mortgage;
           if(releasable>0){
-            alerts.push({type:"good",icon:"💰",title:"Equity Release",text:"Releasable equity: AED "+releasable.toLocaleString()+" (at 75% LTV). Property grew +"+(a.m.roi>=0?a.m.roi.toFixed(0):0)+"% since purchase.",pct:-1});
+            alerts.push({type:"good",icon:"",title:"Equity Release",text:"Releasable equity: AED "+releasable.toLocaleString()+" (at 75% LTV). Property grew +"+(a.m.roi>=0?a.m.roi.toFixed(0):0)+"% since purchase.",pct:-1});
           }else{
-            alerts.push({type:"neutral",icon:"💰",title:"Equity Release",text:"No releasable equity yet — current LTV headroom insufficient. Keep holding for appreciation.",pct:-1});
+            alerts.push({type:"neutral",icon:"",title:"Equity Release",text:"No releasable equity yet — current LTV headroom insufficient. Keep holding for appreciation.",pct:-1});
           }
         }else if(pp>0){
-          alerts.push({type:"neutral",icon:"💰",title:"Equity Release",text:"Property has not appreciated beyond purchase price yet. Equity release not recommended.",pct:-1});
+          alerts.push({type:"neutral",icon:"",title:"Equity Release",text:"Property has not appreciated beyond purchase price yet. Equity release not recommended.",pct:-1});
         }
 
         // 5) Airbnb vs Long-term Rent Comparison (Phase 2)
@@ -348,15 +431,15 @@ function renderPortfolio(){
           var strAnnual=Math.round(strInfo.nightly*365*strInfo.occ*0.80);
           var strDiff=Math.round((strAnnual-actualRent)/actualRent*100);
           if(strDiff>30){
-            alerts.push({type:"good",icon:"🏨",title:"Airbnb Opportunity",text:"Short-term rental could increase income by "+strDiff+"% — STR estimate: AED "+strAnnual.toLocaleString()+"/yr ("+strInfo.nightly+" AED/night × "+Math.round(strInfo.occ*100)+"% occ × 80% net) vs long-term: AED "+actualRent.toLocaleString()+"/yr",pct:-1});
+            alerts.push({type:"good",icon:"",title:"Airbnb Opportunity",text:"Short-term rental could increase income by "+strDiff+"% — STR estimate: AED "+strAnnual.toLocaleString()+"/yr ("+strInfo.nightly+" AED/night × "+Math.round(strInfo.occ*100)+"% occ × 80% net) vs long-term: AED "+actualRent.toLocaleString()+"/yr",pct:-1});
           }else if(strDiff>0){
-            alerts.push({type:"neutral",icon:"🏨",title:"Airbnb vs Long-term",text:"STR premium only "+strDiff+"% — marginal after management hassle. Long-term rental is optimal. STR: AED "+strAnnual.toLocaleString()+"/yr vs LTR: AED "+actualRent.toLocaleString()+"/yr",pct:-1});
+            alerts.push({type:"neutral",icon:"",title:"Airbnb vs Long-term",text:"STR premium only "+strDiff+"% — marginal after management hassle. Long-term rental is optimal. STR: AED "+strAnnual.toLocaleString()+"/yr vs LTR: AED "+actualRent.toLocaleString()+"/yr",pct:-1});
           }else{
-            alerts.push({type:"neutral",icon:"🏨",title:"Long-term Optimal",text:"Long-term rental is optimal for "+a.area+". STR estimate: AED "+strAnnual.toLocaleString()+"/yr vs LTR: AED "+actualRent.toLocaleString()+"/yr",pct:-1});
+            alerts.push({type:"neutral",icon:"",title:"Long-term Optimal",text:"Long-term rental is optimal for "+a.area+". STR estimate: AED "+strAnnual.toLocaleString()+"/yr vs LTR: AED "+actualRent.toLocaleString()+"/yr",pct:-1});
           }
         }else if(strInfo){
           var strEst=Math.round(strInfo.nightly*365*strInfo.occ*0.80);
-          alerts.push({type:"neutral",icon:"🏨",title:"STR Potential",text:a.area+" STR estimate: AED "+strEst.toLocaleString()+"/yr ("+strInfo.nightly+" AED/night × "+Math.round(strInfo.occ*100)+"% occ). Compare with your rental income.",pct:-1});
+          alerts.push({type:"neutral",icon:"",title:"STR Potential",text:a.area+" STR estimate: AED "+strEst.toLocaleString()+"/yr ("+strInfo.nightly+" AED/night × "+Math.round(strInfo.occ*100)+"% occ). Compare with your rental income.",pct:-1});
         }
 
         // 6) Renovation ROI Estimator (Phase 2)
@@ -370,7 +453,7 @@ function renderPortfolio(){
             {l:"Full Renovation",costLo:500,costHi:800,valLo:15,valHi:22,desc:"Complete interior overhaul"}
           ];
           if(bGrade==="A+"||bGrade==="Ultra"){
-            alerts.push({type:"neutral",icon:"🔧",title:"Renovation ROI",text:"Limited renovation upside for "+bGrade+" grade. Premium properties have minimal value-add from renovations.",pct:-1});
+            alerts.push({type:"neutral",icon:"",title:"Renovation ROI",text:"Limited renovation upside for "+bGrade+" grade. Premium properties have minimal value-add from renovations.",pct:-1});
           }else{
             var bestLvl=null,bestRoi=0;
             levels.forEach(function(lv){
@@ -378,14 +461,14 @@ function renderPortfolio(){
               var avgValPct=(lv.valLo+lv.valHi)/2*gradeMulti;
               var valAdd=Math.round(cv*avgValPct/100);
               var roi=Math.round(valAdd/avgCost*100);
-              if(roi>bestRoi){bestRoi=roi;bestLvl={name:lv.l,cost:avgCost,valAdd:valAdd,roi:roi,pct:avgValPct,payback:avgCost>0?Math.round(avgCost/(valAdd/12))+"mo":"—"};}
+              if(roi>bestRoi){bestRoi=roi;bestLvl={name:lv.l,cost:avgCost,valAdd:valAdd,roi:roi,pct:avgValPct,payback:(avgCost>0&&valAdd>0)?Math.round(avgCost/(valAdd/12))+"mo":"—"};}
             });
             if(bestLvl){
               var renoType=bestRoi>=200?"good":bestRoi>=120?"neutral":"warn";
               var renoLines=levels.map(function(lv){
                 var c=Math.round(sz*(lv.costLo+lv.costHi)/2);var v=Math.round(cv*(lv.valLo+lv.valHi)/2*gradeMulti/100);return lv.l+": AED "+c.toLocaleString()+" cost → +AED "+v.toLocaleString()+" value ("+Math.round(v/c*100)+"% ROI)";
               }).join(" · ");
-              alerts.push({type:renoType,icon:"🔧",title:"Renovation ROI — Best: "+bestLvl.name,text:renoLines+" · Grade "+bGrade+" "+(gradeMulti>1?"(higher upside)":"")+" · Payback: "+bestLvl.payback,pct:-1});
+              alerts.push({type:renoType,icon:"",title:"Renovation ROI — Best: "+bestLvl.name,text:renoLines+" · Grade "+bGrade+" "+(gradeMulti>1?"(higher upside)":"")+" · Payback: "+bestLvl.payback,pct:-1});
             }
           }
         }
@@ -396,7 +479,7 @@ function renderPortfolio(){
         if(Date.now()-prevNotifTs>86400000){
           alerts.forEach(function(al){
             if(al.type==="warn"&&al.title.indexOf("Rent")!==-1){
-              addNotification("📊","Rent optimization opportunity for your "+a.area+" property","portfolio");
+              addNotification("","Rent optimization opportunity for your "+a.area+" property","portfolio");
               try{localStorage.setItem(notifKey,String(Date.now()));}catch(e){}
             }
           });
@@ -429,7 +512,9 @@ function renderPortfolio(){
       });
       wrap.appendChild(oaCard);
     }
+  } // end health section
 
+  if(mode==="assets"||mode==="projections"){
     // Future Projection Simulator
     if(!ps._proj)ps._proj={growth:0,rate:0};
     var projCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",position:"relative",overflow:"hidden"});
@@ -497,18 +582,21 @@ function renderPortfolio(){
     wrap.appendChild(projCard);
   }
 
+  if(mode==="assets"){
   // Investment Profile
   var goalsCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"});
   goalsCard.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"◆ Investment Profile"));
   var goalsGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px"});
   [{l:"Risk Appetite",k:"risk",opts:["Conservative","Moderate","Aggressive"]},{l:"Horizon",k:"horizon",opts:["1-2 years","3-5 years","5-10 years","10+ years"]},{l:"Target",k:"target",opts:["Capital Growth","Rental Income","Balanced","Quick Flip"]}].forEach(function(item){
     var g=div({});g.appendChild(lbl(item.l));
-    g.appendChild(mkSelect(Object.assign({},S(),{fontSize:"11.5px",padding:"8px 10px"}),item.opts,ps.goals[item.k],function(v){ps.goals[item.k]=v;localStorage.setItem("dubaival_portfolio_goals",JSON.stringify(ps.goals));portfolioChanged();ps.aiAnalysis="";render();}));
+    g.appendChild(mkSelect(Object.assign({},S(),{fontSize:"11.5px",padding:"8px 10px"}),item.opts,ps.goals[item.k],function(v){ps.goals[item.k]=v;try{localStorage.setItem("dubaival_portfolio_goals",JSON.stringify(ps.goals));}catch(e){}portfolioChanged();ps.aiAnalysis="";render();}));
     goalsGrid.appendChild(g);
   });
   goalsCard.appendChild(goalsGrid);
   wrap.appendChild(goalsCard);
+  } // end assets-only investment profile
 
+  if(mode==="assets"||mode==="projections"){
   // What-If Scenario Simulator
   if(metrics.length>0){
     if(!ps._swap)ps._swap={sellId:"",buyArea:"",buyType:"Apartment",buyBeds:"2 BR",buySize:"",showResult:false};
@@ -544,22 +632,22 @@ function renderPortfolio(){
         var dldFee=Math.round(saleProceeds*0.04);
         var agentFee=Math.round(saleProceeds*0.02);
         var netProceeds=saleProceeds-dldFee-agentFee;
-        var buyAreaData=AREAS[sw.buyArea]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
+        var buyAreaData=AREAS[sw.buyArea]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
         var buyPSF=buyAreaData.psf;
         var buyIsV=sw.buyType==="Villa"||sw.buyType==="Townhouse";
         var buySize=Math.round(netProceeds/(buyPSF*1.04));
         var buyDLD=Math.round(netProceeds/(1+0.04)*0.04);
         var buyPrice=netProceeds-buyDLD;
         var bn2={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5}[sw.buyBeds]||2;
-        var buyRent=buyIsV?(bn2<=3?buyAreaData.rv3||180000:buyAreaData.rv4||240000):bn2===0?(buyAreaData.r1||65000)*0.65:bn2===1?buyAreaData.r1||65000:bn2===2?buyAreaData.r2||100000:bn2===3?buyAreaData.r3||150000:(buyAreaData.r3||150000)*1.4;
+        var buyRent=buyIsV?(bn2<=2?buyAreaData.rv2||130000:bn2<=3?buyAreaData.rv3||180000:bn2<=4?buyAreaData.rv4||240000:bn2<=5?buyAreaData.rv5||350000:bn2<=6?buyAreaData.rv6||500000:buyAreaData.rv7||650000):bn2===0?(buyAreaData.rStudio||(buyAreaData.r1||65000)*0.65):bn2===1?buyAreaData.r1||65000:bn2===2?buyAreaData.r2||100000:bn2===3?buyAreaData.r3||150000:(buyAreaData.r3||150000)*1.4;
         var buySC=(buyAreaData.sc||15)*buySize;
         var buyGrossY=buyPrice>0?(buyRent/buyPrice*100):0;
         var buyNetY=buyPrice>0?((buyRent-buySC)/buyPrice*100):0;
-        var buyGrowth=buyAreaData.g||[10,18,28];
-        var sellRent=sellAsset.m.rent;var sellNetY=sellAsset.m.netYield;var sellGrowth=sellAsset.m.g1||18;
+        var buyGrowth=buyAreaData.g||[3,9,16];
+        var sellRent=sellAsset.m.rent;var sellNetY=sellAsset.m.netYield;var sellGrowth=sellAsset.m.g1||9;
         var cashFlowDiff=Math.round((buyRent-buySC)-(sellRent-sellAsset.m.sc));
         var cashFlowPct=sellRent-sellAsset.m.sc>0?(cashFlowDiff/(sellRent-sellAsset.m.sc)*100):0;
-        var growthDiff=(buyGrowth[1]||18)-(sellGrowth||18);
+        var growthDiff=(buyGrowth[1]||9)-(sellGrowth||9);
         var resCard=div({background:cl.raised,borderRadius:"10px",padding:"14px"});
         resCard.appendChild(span({color:"#818CF8",fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"SWAP ANALYSIS"));
         var resG=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"});
@@ -593,13 +681,17 @@ function renderPortfolio(){
     }
     wrap.appendChild(swCard);
   }
+  } // end projections section
 
+  if(mode==="assets"){
   // Asset Cards
   metrics.forEach(function(a){
     var expanded=ps.expandedId===a.id;
     var roiColor=a.m.roi>=15?cl.green:a.m.roi>=0?cl.yellow:cl.red;
     var sigColor=a.m.investSignal==="Undervalued"||a.m.investSignal==="Fair Value"?cl.green:a.m.investSignal==="Elevated"?cl.yellow:cl.red;
-    var card=el("div",{style:{background:cl.surface,border:"1px solid "+(expanded?cl.goldDim:cl.border),borderRadius:"14px",padding:"16px",marginBottom:"10px",cursor:"pointer",transition:"all 0.2s"},onclick:function(){ps.expandedId=expanded?null:a.id;render();}});
+    var card=el("div",{style:{background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+(expanded?"rgba(212,175,55,0.3)":cl.border),borderRadius:"14px",padding:"18px",marginBottom:"10px",cursor:"pointer",transition:"all 0.25s ease",boxShadow:cl.glassShadow},onclick:function(){ps.expandedId=expanded?null:a.id;render();}});
+    card.addEventListener("mouseenter",function(){if(!expanded){card.style.borderColor="rgba(212,175,55,0.3)";card.style.transform="translateY(-2px)";card.style.boxShadow="0 8px 32px rgba(0,0,0,0.35),0 0 20px rgba(212,175,55,0.05)";}});
+    card.addEventListener("mouseleave",function(){if(!expanded){card.style.borderColor=cl.border;card.style.transform="translateY(0)";card.style.boxShadow=cl.glassShadow;}});
 
     var header=div({display:"flex",justifyContent:"space-between",alignItems:"flex-start"});
     var left=div({flex:"1"});
@@ -673,12 +765,12 @@ function renderPortfolio(){
 
       // Sustainability Score
       var susBd=DB[(a.building||"").toLowerCase()]||null;
-      var susAd=AREAS[a.area]||{psf:1800,sc:15,y:[5,7],g:[10,18,28]};
+      var susAd=AREAS[a.area]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
       var susS=computeSustainabilityScore(a.building||"",a.area||"",susBd,susAd);
       var susC=susS.score>=75?"#10B981":susS.score>=50?"#EAB308":susS.score>=35?"#F97316":"#EF4444";
       var susRow=div({background:hexAlpha(susC,0.06),border:"1px solid "+hexAlpha(susC,0.2),borderRadius:"10px",padding:"10px 12px",marginBottom:"10px"});
       susRow.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"},[
-        div({display:"flex",alignItems:"center",gap:"6px"},[span({fontSize:"13px"},"🌿"),span({color:susC,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"Sustainability Score")]),
+        div({display:"flex",alignItems:"center",gap:"6px"},[span({fontSize:"13px"},""),span({color:susC,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"Sustainability Score")]),
         div({display:"flex",alignItems:"center",gap:"6px"},[span({color:susC,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},String(susS.score)),span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},susS.tier)])
       ]));
       [{l:"Age/Grade",v:susS.age},{l:"SC Efficiency",v:susS.scEff},{l:"Green Area",v:susS.green},{l:"Liquidity",v:susS.liq}].forEach(function(fc){
@@ -693,7 +785,7 @@ function renderPortfolio(){
       });
       details.appendChild(susRow);
 
-      details.appendChild(btn({background:cl.redBg,border:"1px solid "+cl.redBo,color:cl.red,padding:"8px 16px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",fontWeight:"600"},"Remove Asset",function(e){e.stopPropagation();ps.assets=ps.assets.filter(function(x){return x.id!==a.id;});localStorage.setItem("dubaival_portfolio",JSON.stringify(ps.assets));portfolioChanged();if(ps.expandedId===a.id)ps.expandedId=null;ps.aiAnalysis="";render();}));
+      details.appendChild(btn({background:cl.redBg,border:"1px solid "+cl.redBo,color:cl.red,padding:"8px 16px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",fontWeight:"600"},"Remove Asset",function(e){e.stopPropagation();ps.assets=ps.assets.filter(function(x){return x.id!==a.id;});try{localStorage.setItem("dubaival_portfolio",JSON.stringify(ps.assets));}catch(e){}portfolioChanged();if(ps.expandedId===a.id)ps.expandedId=null;ps.aiAnalysis="";render();}));
       card.appendChild(details);
     }
     wrap.appendChild(card);
@@ -726,7 +818,7 @@ function renderPortfolio(){
 
     // AI Smart Bar for Portfolio
     formCard.appendChild(renderSmartBar({
-      stateKey:"_aiPortfolio",histKey:"dv_smart_portfolio",title:"✨ AI Portfolio Parser",subtitle:"Describe your investment — AI fills the form",
+      stateKey:"_aiPortfolio",histKey:"dv_smart_portfolio",title:"AI Portfolio Parser",subtitle:"Describe your investment — AI fills the form",
       placeholder:"e.g. Bought 2BR in Downtown for 2.5M in March 2023, furnished, floor 34, Burj view",
       examples:["Bought Studio in JLT for 650K, 2024","3BR villa DAMAC Hills, 3200sqft, 4.2M, 2022"],
       sysPrompt:'You are a Dubai real estate portfolio parser. Extract these fields and return ONLY a JSON object: {"building":null,"area":null,"propType":null,"beds":null,"size_sqft":null,"floor":null,"view":null,"furnished":null,"purchasePrice":null,"purchaseDate":null,"parking":null,"bathrooms":null,"serviceCharge":null}. propType: Apartment/Villa/Townhouse. beds: "Studio","1 BR","2 BR" etc. purchaseDate: YYYY-MM format. If not mentioned set to null. Parse Arabic: اشتريت=bought, غرفتين=2 BR, مفروش=Furnished, فيلا=Villa, مارينا=Dubai Marina.',
@@ -766,8 +858,8 @@ function renderPortfolio(){
     formCard.appendChild(bField);
 
     var isVilla=n.type==="Villa"||n.type==="Townhouse";
-    var aptViews=["Burj Khalifa View","Partial Burj View","Full Sea View","Partial Sea View","Full Canal View","Partial Canal View","Pool View","Garden/Park View","City Skyline","Road View","Not specified"];
-    var villaViews=["Beach Access View","Full Sea View","Lagoon View","Golf View","Garden/Park View","Pool View","City Skyline","Road View","Not specified"];
+    var aptViews=["Burj Khalifa + Fountain","Fountain View","Burj Khalifa View","Partial Burj View","Full Sea View","Partial Sea View","Palm View","Marina View","Full Canal View","Partial Canal View","Boulevard View","Creek Harbour View","Skyline View","Sheikh Zayed Road View","Pool View","Garden/Park View","Community View","Not specified"];
+    var villaViews=["Beach Access View","Full Sea View","Palm View","Lagoon View","Golf View","Creek Harbour View","Lake View","Garden/Park View","Pool View","Skyline View","Community View","Not specified"];
     var viewOpts=isVilla?villaViews:aptViews;
 
     var fg1=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"});
@@ -797,7 +889,7 @@ function renderPortfolio(){
       if(!canAdd)return;
       var asset=Object.assign({},n,{id:Date.now().toString(36)});
       ps.assets.push(asset);
-      localStorage.setItem("dubaival_portfolio",JSON.stringify(ps.assets));portfolioChanged();
+      try{localStorage.setItem("dubaival_portfolio",JSON.stringify(ps.assets));}catch(e){}portfolioChanged();
       ps._new={building:"",area:"",type:"Apartment",beds:"2 BR",floor:"",view:"Not specified",size:"",purchasePrice:"",purchaseDate:"",furnished:"Unfurnished",serviceCharge:"",parking:"1"};
       ps.showAdd=false;ps.aiAnalysis="";render();
     }));
@@ -815,7 +907,7 @@ function renderPortfolio(){
       var areaEntries2=Object.entries(areaDist2).sort(function(a,b){return b[1]-a[1];});
       var summary=metrics.map(function(a){return"- "+(a.building||"Unknown")+" in "+a.area+": "+a.beds+", "+parseInt(a.size).toLocaleString()+" sqft, bought AED "+a.m.purchasePrice.toLocaleString()+" ("+a.purchaseDate+"), now AED "+a.m.currentValue.toLocaleString()+" (ROI "+a.m.roi.toFixed(1)+"%), gross yield "+a.m.grossYield.toFixed(1)+"%, net "+a.m.netYield.toFixed(1)+"%, grade: "+a.m.grade+", signal: "+a.m.investSignal+", total return: "+a.m.totalReturn.toFixed(1)+"%";}).join("\n");
       var prompt="My Dubai real estate portfolio (June 2026):\n"+summary+"\n\nTotal value: AED "+totalValue.toLocaleString()+" | Total ROI: "+totalROI.toFixed(1)+"%\nAvg gross yield: "+avgGrossYield.toFixed(1)+"% | Avg net yield: "+avgNetYield.toFixed(1)+"%\nAreas: "+areaEntries2.map(function(e){return e[0]+" ("+(e[1]/totalValue*100).toFixed(0)+"%)"}).join(", ")+"\n\nInvestment goals: Risk: "+ps.goals.risk+" | Horizon: "+ps.goals.horizon+" | Target: "+ps.goals.target+"\nMarket: Post-geo correction, supply pressure H2 2026, buyer leverage window.\n\nFor EACH property give a signal: HOLD / SELL / BUY MORE with 1 sentence why.\nThen give 2-3 portfolio-level strategic recommendations.\nBe specific with AED numbers. Consider area growth forecasts and diversification.";
-      askAI([{role:"user",content:prompt}],"You are DubAIVal Portfolio Advisor. June 2026 Dubai expert. Analyze portfolios for UHNW investors. Specific AED numbers, decisive signals. Professional tone.").then(function(text){ps.aiAnalysis=text;ps.aiLoading=false;render();}).catch(function(e){ps.aiErr=e.message;ps.aiLoading=false;render();});
+      askAI([{role:"user",content:prompt}],"You are DubAIVal Portfolio Advisor — senior wealth manager specializing in Dubai real estate portfolios. June 2026.\nYou manage AED 500M+ in property assets. You think like a CFA: IRR, cash-on-cash return, risk-adjusted yield, concentration risk, liquidity.\nAnalyze this portfolio:\n1. HEALTH CHECK: Overall diversification (area, type, grade), concentration risk, yield efficiency\n2. WINNERS & LOSERS: Which assets outperform/underperform area benchmarks? Use our DB PSF data.\n3. OPTIMIZATION: What to sell (overvalued vs area), what to buy (underweight sectors), rebalancing moves\n4. RISK ALERTS: Over-leveraged? Single-area exposure? Low liquidity assets? SC drag on yield?\n5. 3-YEAR OUTLOOK: Capital appreciation projection based on area growth data, total return forecast\nUse EXACT AED numbers from our 8,522-building database. Decisive BUY/HOLD/SELL signals per asset. Professional tone.","Dubai real estate market trends: "+areaEntries2.map(function(e){return e[0];}).join(", ")).then(function(text){ps.aiAnalysis=text;ps.aiLoading=false;render();}).catch(function(e){ps.aiErr=e.message;ps.aiLoading=false;render();});
     }));
     if(ps.aiErr)wrap.appendChild(span({color:cl.red,fontSize:"11px",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},ps.aiErr));
   }
@@ -833,10 +925,23 @@ function renderPortfolio(){
     else{var aiText=div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.9",fontFamily:"'Inter',sans-serif",whiteSpace:"pre-wrap"});aiText.textContent=ps.aiAnalysis;aiCard.appendChild(aiText);}
     wrap.appendChild(aiCard);
   }
+  } // end assets section
+
+  // Empty state for Health/Projections when no assets
+  if(mode!=="assets"&&ps.assets.length===0){
+    var emptyCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"40px 20px",textAlign:"center",marginBottom:"14px"});
+    emptyCard.innerHTML='<i data-lucide="'+(mode==="health"?"heart-pulse":"trending-up")+'" style="width:48px;height:48px;color:'+cl.gold+';margin:0 auto 16px;display:block"></i>';
+    emptyCard.appendChild(div({color:cl.white,fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},mode==="health"?"Portfolio Health Dashboard":"Projections & What-If"));
+    emptyCard.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",marginBottom:"16px"},mode==="health"?"Add assets to see health score, diversification analysis & opportunity alerts":"Add assets to simulate future growth and swap scenarios"));
+    var goBtn=el("button",{style:{padding:"10px 24px",background:"rgba(212,175,55,0.15)",color:cl.gold,border:"1px solid rgba(212,175,55,0.3)",borderRadius:"10px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){setSection("Portfolio","Assets");}});
+    goBtn.textContent="+ Add Your First Asset";
+    emptyCard.appendChild(goBtn);
+    wrap.appendChild(emptyCard);
+  }
 
   // Disclaimer
   var disc=div({background:cl.goldFaint,border:"1px solid "+cl.goldDim,borderRadius:"8px",padding:"10px 14px",fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6",color:cl.subHi});
-  disc.innerHTML="<strong style='color:"+cl.gold+"'>Note:</strong> Valuations use DubAIVal's Cascade AVM with hedonic pricing (6,162 buildings · 287 areas). Portfolio data is stored locally on your device. Not financial advice — consult a licensed advisor for investment decisions.";
+  disc.innerHTML="<strong style='color:"+cl.gold+"'>Note:</strong> Valuations use DubAIVal's Cascade AVM with hedonic pricing (10,800+ properties · 348 areas). Portfolio data is stored locally on your device. Not financial advice — consult a licensed advisor for investment decisions.";
   wrap.appendChild(disc);
   return wrap;
 }

@@ -1,6 +1,6 @@
 {
-  "name": "DubaiVal — AI Property Valuation Dubai",
-  "short_name": "DubaiVal",
+  "name": "DubAIVal — AI Property Valuation Dubai",
+  "short_name": "DubAIVal",
   "description": "AI-powered property valuations for Dubai real estate. 6,162 buildings, Cascade AVM engine.",
   "start_url": "/",
   "display": "standalone",

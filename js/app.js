@@ -1,17 +1,74 @@
+// Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- RENDER -------------------------------------------------------------------
-const MARKET_SENTIMENT={"Downtown Dubai":{"chg":-20.1,"s":"bear"},"Dubai Marina":{"chg":-18.1,"s":"bear"},"Palm Jumeirah":{"chg":6.2,"s":"bull"},"Business Bay":{"chg":-14.1,"s":"bear"},"Dubai Hills":{"chg":-5.8,"s":"bear"},"Dubai Creek Harbour":{"chg":0.0,"s":"neutral"},"JVC":{"chg":8.6,"s":"bull"},"JLT":{"chg":-11.9,"s":"bear"},"MBR City":{"chg":-3.4,"s":"bear"},"DAMAC Hills":{"chg":59.6,"s":"bull"},"Meydan":{"chg":-36.8,"s":"bear"},"Dubai South":{"chg":5.9,"s":"bull"},"City Walk":{"chg":2.6,"s":"neutral"},"Jumeirah":{"chg":-12.3,"s":"bear"}};
+function wrapHScroll(scrollEl){
+  var wrap=el("div",{style:{position:"relative"}});
+  wrap.className="dv-hscroll-wrap";
+  wrap.appendChild(scrollEl);
+  var bar=el("div",{});bar.className="dv-hscroll-bar";
+  var thumb=el("div",{});thumb.className="dv-hscroll-thumb";
+  bar.appendChild(thumb);wrap.appendChild(bar);
+  function sync(){
+    var sw=scrollEl.scrollWidth,cw=scrollEl.clientWidth;
+    if(sw<=cw){bar.style.display="none";wrap.classList.add("scrolled-end");return;}
+    bar.style.display="block";
+    var ratio=cw/sw;var thumbW=Math.max(20,ratio*100);
+    thumb.style.width=thumbW+"%";
+    thumb.style.left=((scrollEl.scrollLeft/(sw-cw))*(100-thumbW))+"%";
+    wrap.classList.toggle("scrolled-end",scrollEl.scrollLeft+cw>=sw-2);
+  }
+  scrollEl.addEventListener("scroll",sync,{passive:true});
+  setTimeout(sync,100);
+  return wrap;
+}
+var _sentimentCache={};
+async function fetchMarketSentiment(area){
+  if(_sentimentCache[area]&&Date.now()-_sentimentCache[area].ts<3600000)return _sentimentCache[area].data;
+  try{
+    var rows=await fetchPriceHistory(area,180);
+    if(rows&&rows.length>=2){
+      var first=rows[0].psf,last=rows[rows.length-1].psf;
+      if(first>0){
+        var chg=parseFloat(((last-first)/first*100).toFixed(1));
+        var s=chg>3?"bull":chg<-3?"bear":"neutral";
+        var result={chg:chg,s:s,source:"dld",points:rows.length};
+        _sentimentCache[area]={data:result,ts:Date.now()};
+        return result;
+      }
+    }
+  }catch(e){}
+  try{
+    var ld=await fetchLiveData("",area,"2 BR");
+    if(ld&&ld.sales&&ld.sales.length>=3){
+      var sorted=ld.sales.slice().sort(function(a,b){return a.psf-b.psf;});
+      var mid=sorted[Math.floor(sorted.length/2)].psf;
+      var areaData=AREAS[area];
+      if(areaData&&areaData.psf>0){
+        var chg2=parseFloat(((mid-areaData.psf)/areaData.psf*100).toFixed(1));
+        var s2=chg2>5?"bull":chg2<-5?"bear":"neutral";
+        var result2={chg:chg2,s:s2,source:"live",points:ld.sales.length};
+        _sentimentCache[area]={data:result2,ts:Date.now()};
+        return result2;
+      }
+    }
+  }catch(e){}
+  return null;
+}
 // --- DEAL ALERTS ---
 function renderFind(){
   const cl=C();
   const wrap=el("div",{style:{padding:"16px",maxWidth:"640px",margin:"0 auto"}});
 
   wrap.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Property Search"));
-  wrap.appendChild(div({color:cl.sub,fontSize:"12px",marginBottom:"16px",fontFamily:"'Inter',sans-serif"},"Tell DubAIVal what you're looking for. AI searches PropertyFinder & market data."));
+  wrap.appendChild(div({color:cl.sub,fontSize:"12px",marginBottom:"16px",fontFamily:"'Inter',sans-serif"},"Tell DubAIVal what you're looking for. AI searches Bayut, PropertyFinder & market data."));
 
-  if(!window.FIND_STATE)window.FIND_STATE={area:"",beds:"2 BR",maxPrice:"",minYield:"",type:"Apartment",query:"",results:[],loading:false,searched:false,
-    sf:{area:"",grade:"",minYield:"",maxPSF:"",minPSF:"",minGrowth:"",maxDOM:"",minTurnover:"",type:"Apartment",beds:"Any",sort:"yield",showResults:false,results:[]}
+  if(!window.FIND_STATE)window.FIND_STATE={area:"",building:"",beds:"2 BR",maxPrice:"",minYield:"",type:"Apartment",query:"",results:[],loading:false,searched:false,sort:"score",
+    sf:{area:"",grade:"",minYield:"",maxPSF:"",minPSF:"",minGrowth:"",maxDOM:"",minTurnover:"",type:"Apartment",beds:"Any",sort:"yield",showResults:false,results:[],mapView:false}
   };
   var FS=window.FIND_STATE;
+
+  // Build area and building name lists for autocomplete
+  var _areaNames=Object.keys(AREAS).sort();
+  var _bldgNames=Object.keys(DB).sort();
 
   // Natural language search
   const nlWrap=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginBottom:"14px"}});
@@ -33,10 +90,15 @@ function renderFind(){
   filterWrap.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"Quick Filters"));
   const filterGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"10px"}});
 
-  // Area
+  // Area — smart autocomplete
   const aBox=el("div",{}); aBox.appendChild(lbl("Area"));
-  aBox.appendChild(mkSelect(S(),["Any Area"].concat(Object.keys(AREAS)||[]),FS.area||"Any Area",function(v){FS.area=v==="Any Area"?"":v;}));
+  aBox.appendChild(mkAuto(S(),_areaNames,FS.area,function(v){FS.area=v;},"Type area name..."));
   filterGrid.appendChild(aBox);
+
+  // Building — smart autocomplete
+  const bldgBox=el("div",{}); bldgBox.appendChild(lbl("Building"));
+  bldgBox.appendChild(mkAuto(S(),_bldgNames,FS.building,function(v){FS.building=v;},"Type building name..."));
+  filterGrid.appendChild(bldgBox);
 
   // Bedrooms
   const bBox=el("div",{}); bBox.appendChild(lbl("Bedrooms"));
@@ -53,6 +115,11 @@ function renderFind(){
   tBox.appendChild(mkSelect(S(),["Apartment","Villa","Townhouse","Any"],FS.type||"Apartment",function(v){FS.type=v;}));
   filterGrid.appendChild(tBox);
 
+  // Sort By
+  const sBox=el("div",{}); sBox.appendChild(lbl("Sort By"));
+  sBox.appendChild(mkSelect(S(),["Best Deal Score","Lowest PSF","Lowest Price","Highest PSF","Newest"],FS.sort==="psf_asc"?"Lowest PSF":FS.sort==="price_asc"?"Lowest Price":FS.sort==="psf_desc"?"Highest PSF":FS.sort==="newest"?"Newest":"Best Deal Score",function(v){FS.sort={"Best Deal Score":"score","Lowest PSF":"psf_asc","Lowest Price":"price_asc","Highest PSF":"psf_desc","Newest":"newest"}[v]||"score";}));
+  filterGrid.appendChild(sBox);
+
   filterWrap.appendChild(filterGrid);
 
   const filterBtn=el("button",{style:{width:"100%",padding:"11px",borderRadius:"8px",border:"none",background:"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#08090C",fontSize:"13px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
@@ -61,15 +128,15 @@ function renderFind(){
   filterWrap.appendChild(filterBtn);
   wrap.appendChild(filterWrap);
 
-  // Smart Discovery Filter — searches 6,008 buildings by financial criteria
+  // Smart Discovery Filter — searches buildings by financial criteria
   var sf=FS.sf;
   var sfCard=el("div",{style:{background:cl.surface,border:"1px solid "+(sf.showResults?cl.goldDim:cl.border),borderRadius:"14px",padding:"18px",marginBottom:"14px",position:"relative",overflow:"hidden"}});
   sfCard.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,#6366F1,#6366F1,transparent)",animation:"shimmer 3s ease infinite"}));
   sfCard.appendChild(span({color:"#818CF8",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ Smart Property Discovery"));
-  sfCard.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",display:"block",marginBottom:"14px"},"Filter 6,008 buildings by yield, growth, price, liquidity & more"));
+  sfCard.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",display:"block",marginBottom:"14px"},"Filter "+Object.keys(DB).length.toLocaleString()+" buildings by yield, growth, price, liquidity & more"));
 
   var sfG1=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"10px"});
-  var sfArea=div({});sfArea.appendChild(lbl("Area"));sfArea.appendChild(mkSelect(Object.assign({},S(),{fontSize:"11px",padding:"7px 8px"}),["All Areas"].concat(AREA_NAMES),sf.area||"All Areas",function(v){sf.area=v==="All Areas"?"":v;}));sfG1.appendChild(sfArea);
+  var sfArea=div({});sfArea.appendChild(lbl("Area"));sfArea.appendChild(mkAuto(Object.assign({},S(),{fontSize:"11px",padding:"7px 8px"}),_areaNames,sf.area,function(v){sf.area=v;},"All Areas"));sfG1.appendChild(sfArea);
   var sfGrade=div({});sfGrade.appendChild(lbl("Grade"));sfGrade.appendChild(mkSelect(Object.assign({},S(),{fontSize:"11px",padding:"7px 8px"}),["Any","Ultra","A+","A","A-","B+","B","C"],sf.grade||"Any",function(v){sf.grade=v==="Any"?"":v;}));sfG1.appendChild(sfGrade);
   var sfType=div({});sfType.appendChild(lbl("Type"));sfType.appendChild(mkSelect(Object.assign({},S(),{fontSize:"11px",padding:"7px 8px"}),["Any","Apartment","Villa"],sf.type||"Any",function(v){sf.type=v==="Any"?"":v;}));sfG1.appendChild(sfType);
   sfCard.appendChild(sfG1);
@@ -97,11 +164,13 @@ function renderFind(){
       var key=e[0],bData=e[1];
       if(sf.area&&bData.a!==sf.area)return;
       if(sf.grade&&bData.g!==sf.grade)return;
-      var aData=AREAS[bData.a]||{psf:1800,sc:15,y:[5,7],g:[10,18,28],dom:60,txVol:100};
-      if(bData.p<minP||bData.p>maxP)return;
+      var aData=AREAS[bData.a]||{psf:1800,sc:15,y:[5,7],g:[3,9,16],dom:60,txVol:100};
+      var _vdb=typeof VALUATION_DB!=="undefined"&&VALUATION_DB[key]?VALUATION_DB[key]:null;
+      var _psf=_vdb?_vdb.p:bData.p;
+      if(_psf<minP||_psf>maxP)return;
       var yi=aData.y||[5,7];var avgYield=(yi[0]+yi[1])/2;
       if(avgYield<minY)return;
-      var gr=aData.g||[10,18,28];
+      var gr=aData.g||[3,9,16];
       if(gr[1]<minG)return;
       var dom=aData.dom||60;
       if(dom>maxD)return;
@@ -112,11 +181,11 @@ function renderFind(){
       var bldgUnits=estimateBldgUnits(key,bData,isV);
       var bldgTx=estimateBldgTx(key,bData.a,aData,bData);
       var turnover=bldgUnits>0?Math.round(bldgTx/bldgUnits*1000)/10:0;
-      var netYield=avgYield-((bData.sc||aData.sc||15)/bData.p*100);
+      var netYield=avgYield-((bData.sc||aData.sc||15)/_psf*100);
       var totalReturn=netYield+gr[1]/3;
       var prRatio=avgYield>0?(100/avgYield):20;
       var signal=prRatio<15?"Undervalued":prRatio<20?"Fair Value":prRatio<25?"Elevated":"Overheated";
-      results.push({name:key,area:bData.a,psf:bData.p,lo:bData.lo,hi:bData.hi,sc:bData.sc||aData.sc||15,grade:bData.g||"N/A",yield:avgYield,netYield:netYield,growth3:gr[1],dom:dom,txVol:txVol,turnover:turnover,totalReturn:totalReturn,signal:signal});
+      results.push({name:key,area:bData.a,psf:_psf,lo:_vdb?_vdb.lo:bData.lo,hi:_vdb?_vdb.hi:bData.hi,sc:bData.sc||aData.sc||15,grade:bData.g||"N/A",yield:avgYield,netYield:netYield,growth3:gr[1],dom:dom,txVol:txVol,turnover:turnover,totalReturn:totalReturn,signal:signal});
     });
     if(sf.sort==="yield")results.sort(function(a,b){return b.yield-a.yield;});
     else if(sf.sort==="psfAsc")results.sort(function(a,b){return a.psf-b.psf;});
@@ -132,10 +201,13 @@ function renderFind(){
   // Smart Discovery Results
   if(sf.showResults&&sf.results.length>0){
     var sfResCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"});
-    sfResCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
-      span({color:"#818CF8",fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ "+sf.results.length+" Buildings Found"+(sf.results.length>=50?" (showing top 50)":"")),
-      btn({background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"4px 10px",borderRadius:"6px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},"Clear",function(){sf.showResults=false;sf.results=[];render();})
-    ]));
+    var _sfHdr=div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"});
+    _sfHdr.appendChild(span({color:"#818CF8",fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ "+sf.results.length+" Buildings Found"+(sf.results.length>=50?" (showing top 50)":"")));
+    var _sfHdrBtns=div({display:"flex",gap:"6px"});
+    _sfHdrBtns.appendChild(el("button",{style:{background:sf.mapView?"rgba(129,140,248,0.15)":"transparent",border:"1px solid "+(sf.mapView?"rgba(129,140,248,0.4)":cl.border),color:sf.mapView?"#818CF8":cl.sub,padding:"4px 10px",borderRadius:"6px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){sf.mapView=!sf.mapView;render();}},sf.mapView?"≡ List":"◆ Map"));
+    _sfHdrBtns.appendChild(btn({background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"4px 10px",borderRadius:"6px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},"Clear",function(){sf.showResults=false;sf.results=[];sf.mapView=false;render();}));
+    _sfHdr.appendChild(_sfHdrBtns);
+    sfResCard.appendChild(_sfHdr);
     var sfStats=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:"8px",marginBottom:"14px"});
     var avgY2=sf.results.reduce(function(s,r){return s+r.yield;},0)/sf.results.length;
     var avgG2=sf.results.reduce(function(s,r){return s+r.growth3;},0)/sf.results.length;
@@ -144,18 +216,19 @@ function renderFind(){
     [{l:"Avg Yield",v:avgY2.toFixed(1)+"%",c:cl.green},{l:"Avg Growth",v:"+"+avgG2.toFixed(0)+"%",c:cl.green},{l:"Avg PSF",v:"AED "+Math.round(avgP2).toLocaleString(),c:cl.gold},{l:"Avg DOM",v:Math.round(avgD2)+"d",c:avgD2<=30?cl.green:avgD2<=60?cl.yellow:cl.red}].forEach(function(item){
       var box=div({background:cl.raised,borderRadius:"8px",padding:"8px 10px",textAlign:"center"});
       box.appendChild(span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"2px"},item.l));
-      box.appendChild(span({color:item.c,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},item.v));
+      box.appendChild(span({color:item.c,fontSize:"13px",fontWeight:"700",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'"},item.v));
       sfStats.appendChild(box);
     });
     sfResCard.appendChild(sfStats);
+    if(!sf.mapView){
     sf.results.forEach(function(r,idx){
       var sigColor=r.signal==="Undervalued"||r.signal==="Fair Value"?cl.green:r.signal==="Elevated"?cl.yellow:cl.red;
-      var row=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px 14px",marginBottom:"6px",cursor:"pointer",border:"1px solid "+cl.border,transition:"border 0.2s"},onclick:function(){
+      var row=el("div",{style:{background:cl.raised,backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",borderRadius:"12px",padding:"12px 14px",marginBottom:"6px",cursor:"pointer",border:"1px solid "+cl.border,transition:"border-color 0.2s ease,transform 0.2s ease,box-shadow 0.2s ease"},onclick:function(){
         if(window.analyzerState){analyzerState.f.building=r.name;analyzerState.f.area=r.area;analyzerState.stage=0;}
-        currentTab="Analyzer";render();
+        setSection("Market","Analyzer");
       }});
-      row.addEventListener("mouseenter",function(){this.style.borderColor=cl.goldDim;});
-      row.addEventListener("mouseleave",function(){this.style.borderColor=cl.border;});
+      row.addEventListener("mouseenter",function(){this.style.borderColor=cl.goldDim;this.style.transform="translateX(4px)";this.style.boxShadow="0 2px 10px rgba(212,175,55,0.06)";});
+      row.addEventListener("mouseleave",function(){this.style.borderColor=cl.border;this.style.transform="translateX(0)";this.style.boxShadow="none";});
       var rTop=div({display:"flex",justifyContent:"space-between",alignItems:"flex-start"});
       var rLeft=div({flex:"1"});
       var nameRow=div({display:"flex",alignItems:"center",gap:"6px",marginBottom:"3px"});
@@ -178,7 +251,39 @@ function renderFind(){
       row.appendChild(rPills);
       sfResCard.appendChild(row);
     });
-    sfResCard.appendChild(div({marginTop:"10px",padding:"8px 10px",background:cl.goldFaint,borderRadius:"6px",fontSize:"10px",color:cl.sub,fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},"Click any building to open it in the Analyzer for full valuation."));
+      sfResCard.appendChild(div({marginTop:"10px",padding:"8px 10px",background:cl.goldFaint,borderRadius:"6px",fontSize:"10px",color:cl.sub,fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},"Click any building to open it in the Analyzer for full valuation."));
+    }else{
+      // Map view — group results by area and render Google Maps circles
+      var _sfAG={};
+      sf.results.forEach(function(r){
+        if(!_sfAG[r.area])_sfAG[r.area]={count:0,totalYield:0,buildings:[],coords:null};
+        _sfAG[r.area].count++;_sfAG[r.area].totalYield+=r.yield;_sfAG[r.area].buildings.push(r);
+        if(!_sfAG[r.area].coords&&typeof AREA_COORDS!=="undefined"&&AREA_COORDS[r.area])_sfAG[r.area].coords=AREA_COORDS[r.area];
+      });
+      var sfMapId2="dv-sf-gmap-"+Date.now();
+      sfResCard.appendChild(el("div",{style:{width:"100%",height:"380px",borderRadius:"10px",overflow:"hidden"},id:sfMapId2}));
+      sfResCard.appendChild(div({marginTop:"8px",fontSize:"10px",color:cl.sub,fontFamily:"'Inter',sans-serif",textAlign:"center"},"Click area circles to explore buildings · Circle size = buildings found"));
+      setTimeout(function(){
+        var sfc=document.getElementById(sfMapId2);if(!sfc||typeof _dvGmapLoad!=="function")return;
+        _dvGmapLoad(function(){
+          var sfc2=document.getElementById(sfMapId2);if(!sfc2)return;
+          var sfGm=new google.maps.Map(sfc2,{center:{lat:25.15,lng:55.22},zoom:11,styles:typeof _GMAP_DARK_STYLES!=="undefined"?_GMAP_DARK_STYLES:[],zoomControl:true,mapTypeControl:false,streetViewControl:false,fullscreenControl:false,gestureHandling:"greedy"});
+          var sfIW=new google.maps.InfoWindow();
+          Object.entries(_sfAG).forEach(function(ae){
+            var aName=ae[0],ag=ae[1];if(!ag.coords)return;
+            var avgY=ag.totalYield/ag.count;
+            var color=avgY>=8?"#00C896":avgY>=6?"#F0A030":"#F04060";
+            var radius=Math.max(200,Math.min(700,ag.count*180));
+            var circle=new google.maps.Circle({map:sfGm,center:{lat:ag.coords[0],lng:ag.coords[1]},radius:radius,strokeColor:color,strokeOpacity:0.9,strokeWeight:2,fillColor:color,fillOpacity:0.35,clickable:true});
+            var bHtml=ag.buildings.slice(0,5).map(function(b){return'<div style="font-size:10px;color:#E8EDF5;margin-bottom:3px;">'+b.name+' · AED '+b.psf.toLocaleString()+'/sqft</div>';}).join('')+(ag.buildings.length>5?'<div style="font-size:9px;color:#6B7A9E;margin-top:4px;">+'+(ag.buildings.length-5)+' more</div>':'');
+            var popHtml='<div style="font-family:\'Space Grotesk\',monospace;min-width:180px;color:#E8EDF5;padding:10px;"><div style="color:#D4A843;font-size:12px;font-weight:700;margin-bottom:6px;">'+aName+'</div><div style="font-size:10px;color:#8899AA;margin-bottom:8px;">'+ag.count+' building'+(ag.count>1?'s':'')+' · Avg Yield '+avgY.toFixed(1)+'%</div>'+bHtml+'</div>';
+            circle.addListener("click",function(){sfIW.setContent(popHtml);sfIW.setPosition({lat:ag.coords[0],lng:ag.coords[1]});sfIW.open(sfGm);});
+            circle.addListener("mouseover",function(){circle.setOptions({fillOpacity:0.65,strokeWeight:3});});
+            circle.addListener("mouseout",function(){circle.setOptions({fillOpacity:0.35,strokeWeight:2});});
+          });
+        });
+      },80);
+    }
     wrap.appendChild(sfResCard);
   }else if(sf.showResults&&sf.results.length===0){
     wrap.appendChild(div({background:cl.raised,borderRadius:"10px",padding:"20px",textAlign:"center",marginBottom:"14px"},[
@@ -203,16 +308,27 @@ function renderFind(){
     }
 
     FS.results.forEach(function(r,i){
-      var card=el("div",{style:{background:cl.raised,borderRadius:"12px",padding:"14px",marginBottom:"10px",border:"1px solid "+cl.border}});
+      var card=el("div",{style:{background:cl.raised,backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",borderRadius:"14px",padding:"14px",marginBottom:"10px",border:"1px solid "+cl.border,transition:"border-color 0.2s ease,transform 0.2s ease,box-shadow 0.2s ease",cursor:"pointer",boxShadow:"0 2px 16px rgba(0,0,0,0.15)"}});
+      card.addEventListener("mouseenter",function(){card.style.borderColor="rgba(212,175,55,0.3)";card.style.transform="translateY(-2px)";card.style.boxShadow="0 8px 30px rgba(0,0,0,0.3),0 0 16px rgba(212,175,55,0.04)";});
+      card.addEventListener("mouseleave",function(){card.style.borderColor=cl.border;card.style.transform="translateY(0)";card.style.boxShadow="0 2px 16px rgba(0,0,0,0.15)";});
       
       // Photo + Title row
       var topRow=el("div",{style:{display:"flex",gap:"12px",marginBottom:"10px"}});
-      if(r.photo){
-        var img=el("img",{style:{width:"80px",height:"60px",borderRadius:"8px",objectFit:"cover",flexShrink:"0"}});
-        img.src=r.photo;
-        img.onerror=function(){this.style.display="none";};
-        topRow.appendChild(img);
-      }
+      (function(){
+        var imgEl=el("img",{style:{width:"80px",height:"60px",borderRadius:"8px",objectFit:"cover",flexShrink:"0"}});
+        var _ac3=typeof AREA_COORDS!=="undefined"&&AREA_COORDS[r.area]?AREA_COORDS[r.area]:null;
+        var mapFallback=_ac3?"/api/proxy-maps?action=staticmap&lat="+_ac3[0]+"&lng="+_ac3[1]+"&zoom=15&size=80x60":"";
+        if(r.photo){
+          imgEl.src=r.photo;
+          imgEl.onerror=function(){if(mapFallback){this.src=mapFallback;this.onerror=function(){this.style.display="none";};}else{this.style.display="none";}};
+          topRow.appendChild(imgEl);
+        }else if(mapFallback){
+          imgEl.loading="lazy";
+          imgEl.src=mapFallback;
+          imgEl.onerror=function(){this.style.display="none";};
+          topRow.appendChild(imgEl);
+        }
+      })();
       var titleBlock=el("div",{style:{flex:"1",minWidth:"0"}});
       var titleEl=el("div",{style:{color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Inter',sans-serif",marginBottom:"2px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}});
       titleEl.textContent=r.title||r.name||"Property";
@@ -223,19 +339,27 @@ function renderFind(){
         srcBadge2.textContent=r.source;
         titleBlock.appendChild(srcBadge2);
       }
-      titleBlock.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},(r.area||"")+(r.size?" · "+Math.round(r.size*10.764).toLocaleString()+" sqft":"")+(r.beds?" · "+r.beds+"BR":"")));
+      titleBlock.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},(r.area||"")+(r.size?" · "+Math.round(r.size).toLocaleString()+" sqft":"")+(r.beds?" · "+r.beds+"BR":"")));
       topRow.appendChild(titleBlock);
       card.appendChild(topRow);
       
-      // PSF + Permit row
-      if(r.psf||r.permit){
-        var metaRow=el("div",{style:{display:"flex",gap:"8px",flexWrap:"wrap",marginBottom:"8px"}});
-        if(r.psf)metaRow.appendChild(el("span",{style:{background:"rgba(201,168,76,0.1)",border:"1px solid "+cl.goldDim,color:cl.gold,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"PSF: AED "+r.psf.toLocaleString()));
-        if(r.permit)metaRow.appendChild(el("span",{style:{background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.4)",color:cl.green,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"Permit: "+r.permit));
-        if(r.furnished)metaRow.appendChild(el("span",{style:{background:cl.raised,border:"1px solid "+cl.border,color:cl.sub,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},r.furnished));
-        card.appendChild(metaRow);
+      // Deal Score + PSF + Permit row
+      var metaRow=el("div",{style:{display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"8px"}});
+      if(r.dealScore!==undefined){
+        var dsColor=r.dealScore>=75?"#22C55E":r.dealScore>=55?"#EAB308":"#EF4444";
+        var dsLabel=r.dealScore>=80?"Excellent":r.dealScore>=65?"Good":r.dealScore>=50?"Fair":"Below Avg";
+        metaRow.appendChild(el("span",{style:{background:hexAlpha(dsColor,0.12),border:"1px solid "+hexAlpha(dsColor,0.4),color:dsColor,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"}},r.dealScore+"/100 "+dsLabel));
       }
-      
+      if(r.grade){
+        metaRow.appendChild(el("span",{style:{background:cl.goldFaint,border:"1px solid "+cl.goldDim,color:cl.gold,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"Grade: "+r.grade));
+      }
+      if(r.psf)metaRow.appendChild(el("span",{style:{background:"rgba(201,168,76,0.1)",border:"1px solid "+cl.goldDim,color:cl.gold,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"PSF: AED "+r.psf.toLocaleString()));
+      if(r.permit)metaRow.appendChild(el("span",{style:{background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.4)",color:cl.green,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"Permit: "+r.permit));
+      if(r.furnished)metaRow.appendChild(el("span",{style:{background:cl.raised,border:"1px solid "+cl.border,color:cl.sub,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},r.furnished));
+      if(r.estYield)metaRow.appendChild(el("span",{style:{background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.4)",color:"#10B981",padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"Yield ~"+r.estYield+"%"));
+      if(r.growth)metaRow.appendChild(el("span",{style:{background:"rgba(59,130,246,0.1)",border:"1px solid rgba(59,130,246,0.4)",color:"#3B82F6",padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"+"+r.growth+"% 1yr"));
+      card.appendChild(metaRow);
+
       // Agent info
       if(r.agentName||r.agencyName){
         var agentRow=el("div",{style:{display:"flex",alignItems:"center",gap:"8px",padding:"8px 10px",background:"rgba(255,255,255,0.03)",borderRadius:"8px",marginBottom:"8px"}});
@@ -264,7 +388,7 @@ function renderFind(){
       var btnRow=el("div",{style:{display:"flex",gap:"8px"}});
       
       // PropertyFinder / Bayut link
-      if(r.bayutUrl||r.pfUrl){
+      if(r.listingUrl||r.bayutUrl||r.pfUrl){
         var linkBtn=el("a",{style:{flex:"1",background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 10px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",textDecoration:"none",textAlign:"center"}});
         linkBtn.href=r.listingUrl||r.bayutUrl||r.pfUrl||"#";
         linkBtn.target="_blank";
@@ -280,88 +404,192 @@ function renderFind(){
         var areaName=r.area||"";
         analyzerState.f.building=name.toLowerCase();
         analyzerState.f.area=areaName;
-        analyzerState.f.beds=r.beds?(r.beds+" BR"):(FS.beds||"2 BR");
-        analyzerState.f.size=r.size?String(Math.round(r.size*10.764)):"";
+        analyzerState.f.beds=r.beds===0?"Studio":r.beds?(r.beds+" BR"):(FS.beds||"2 BR");
+        analyzerState.f.size=r.size?String(Math.round(r.size)):"";
         analyzerState.f.price=r.price?String(r.price):"";
         analyzerState.f.furnished=r.furnished||"Unfurnished";
         analyzerState.f.floor=r.floor?String(r.floor):"";
         analyzerState.f.propCategory=(r.type&&(r.type.toLowerCase().includes("villa")||r.type.toLowerCase().includes("townhouse")))?"villa":"apartment";
-        currentTab="Analyzer";
         analyzerState.stage=0;
-        render();
-        // Scroll to top
+        setSection("Market","Analyzer");
         window.scrollTo(0,0);
       });
       btnRow.appendChild(anaBtn);
       card.appendChild(btnRow);
       resWrap.appendChild(card);
     });
+    // Load More button
+    if(FS.hasMore){
+      var loadMoreBtn=el("button",{style:{width:"100%",padding:"12px",borderRadius:"10px",border:"1px solid "+cl.goldDim,background:"transparent",color:cl.gold,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",marginTop:"10px",letterSpacing:"0.06em"}});
+      loadMoreBtn.textContent=FS.loadingMore?"Loading...":"Load More Listings";
+      loadMoreBtn.addEventListener("click",function(){
+        if(FS.loadingMore)return;
+        FS.page=(FS.page||0)+1;
+        doSearch(true);
+      });
+      resWrap.appendChild(loadMoreBtn);
+    }
+    // Source summary
+    var bayutCount=FS.results.filter(function(r){return r.source==="Bayut";}).length;
+    var pfCount=FS.results.filter(function(r){return r.source==="PropertyFinder";}).length;
+    var aiCount=FS.results.filter(function(r){return r.source==="AI Estimate";}).length;
+    var srcParts=[];
+    if(bayutCount>0)srcParts.push("Bayut: "+bayutCount);
+    if(pfCount>0)srcParts.push("PropertyFinder: "+pfCount);
+    if(aiCount>0)srcParts.push("AI: "+aiCount);
+    if(srcParts.length>0){
+      resWrap.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",textAlign:"center",marginTop:"8px",opacity:"0.6"},srcParts.join(" · ")));
+    }
     wrap.appendChild(resWrap);
   }
 
-  async function doSearch(){
+  async function doSearch(loadMore){
     var query=FS.query||"";
     var area=FS.area||"";
     var beds=FS.beds||"";
     var maxPrice=parseInt(FS.maxPrice)||0;
     var type=FS.type||"Apartment";
-    
-    FS.loading=true;FS.results=[];FS.searched=false;FS.aiSummary="";
+
+    if(!loadMore){
+      FS.loading=true;FS.results=[];FS.searched=false;FS.aiSummary="";FS.page=0;FS.hasMore=false;
+    }else{
+      FS.loadingMore=true;
+    }
     render();
 
     try{
-      // Step 1: Try uae-real-estate2 for real live listings
       var bedsNumMap={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5};
       var bn=bedsNumMap[beds]||2;
       var searchTerm=query||(area?area:"Dubai");
+      var pageNum=FS.page||0;
+
+      // Fetch Bayut + PropertyFinder in parallel
+      var bayutResults=[];
+      var pfResults=[];
       var locId=await getUAELocationId(searchTerm);
       if(!locId&&area)locId=await getUAELocationId(area);
 
-      if(locId){
-        var params=new URLSearchParams({locationExternalIDs:locId,purpose:"for-sale",hitsPerPage:"25",page:"0"});
+      var bayutP=async function(){
+        if(!locId)return[];
+        var params=new URLSearchParams({locationExternalIDs:locId,purpose:"for-sale",hitsPerPage:"50",page:String(pageNum)});
         if(beds){params.set("rooms_min",String(bn));params.set("rooms_max",String(bn));}
         if(maxPrice>0)params.set("priceMax",String(maxPrice));
-        var listResp;
-        if(UAE_RE_KEY){listResp=await fetch("https://"+UAE_RE_HOST+"/properties/list?"+params,{headers:{"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":UAE_RE_HOST}});}
-        else{listResp=await fetch(API_BASE+"/proxy-rapidapi?endpoint=properties/list&"+params);}
-        if(listResp.ok){
-          var listData=await listResp.json();
-          var liveHits=listData.hits||[];
-          if(liveHits.length>0){
-            FS.results=liveHits.filter(function(p){return p.price&&p.area;}).map(function(p){
-              var psf=p.area>0?Math.round(p.price/p.area):0;
-              var locName=p.location&&p.location.length>0?p.location[p.location.length-1].name:(area||"Dubai");
-              return{
-                title:p.title||(p.rooms+" BR in "+locName),
-                area:locName,
-                price:p.price||0,
-                size:p.area||0,
-                psf:psf,
-                beds:p.rooms||bn,
-                baths:p.baths||0,
-                floor:p.floor||"",
-                furnished:p.furnishingStatus||"",
-                permit:p.permitNumber||"",
-                agentName:(p.agency&&p.agency.name)||"",
-                agencyName:(p.agency&&p.agency.name)||"",
-                agentPhone:"",
-                agentWA:"",
-                photo:(p.coverPhoto&&p.coverPhoto.url)||"",
-                listingUrl:p.externalURL||"https://www.bayut.com",
-                listingSource:"Bayut",
-                source:"Bayut"
-              };
-            }).filter(function(p){return p.psf>200&&p.psf<20000;});
-            if(FS.results.length>0){
-              var prices=FS.results.map(function(r){return r.price;});
-              FS.aiSummary="Found "+FS.results.length+" live listings"+(area?" in "+area:"")+". Prices: AED "+(Math.min.apply(null,prices)/1e6).toFixed(2)+"M – AED "+(Math.max.apply(null,prices)/1e6).toFixed(2)+"M. Source: Bayut via RapidAPI.";
-            }
-          }
-        }
+        var r;
+        if(UAE_RE_KEY){r=await fetch("https://"+UAE_RE_HOST+"/properties/list?"+params,{headers:{"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":UAE_RE_HOST}});}
+        else{r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=properties/list&"+params);}
+        if(!r.ok)return[];
+        var d=await r.json();
+        var hits=d.hits||[];
+        FS.hasMore=hits.length>=50;
+        return hits.filter(function(p){return p.price&&p.area;}).map(function(p){
+          var psf=p.area>0?Math.round(p.price/p.area):0;
+          var locName=p.location&&p.location.length>0?p.location[p.location.length-1].name:(area||"Dubai");
+          var imgUrl="";
+          if(p.coverPhoto){imgUrl=typeof p.coverPhoto==="string"?p.coverPhoto:(p.coverPhoto.url||p.coverPhoto.thumb||"");}
+          if(!imgUrl&&p.mainPhoto){imgUrl=typeof p.mainPhoto==="string"?p.mainPhoto:(p.mainPhoto.url||p.mainPhoto.thumb||"");}
+          if(!imgUrl&&p.photos&&p.photos.length>0){var ph0=p.photos[0];imgUrl=typeof ph0==="string"?ph0:(ph0.url||ph0.thumb||"");}
+          if(!imgUrl)imgUrl=p.thumbnail||p.image||"";
+          return{
+            title:p.title||(p.rooms+" BR in "+locName),
+            area:locName,
+            price:p.price||0,
+            size:p.area||0,
+            psf:psf,
+            beds:p.rooms||bn,
+            baths:p.baths||0,
+            floor:p.floor||"",
+            furnished:p.furnishingStatus||"",
+            permit:p.permitNumber||"",
+            agentName:(p.agency&&p.agency.name)||"",
+            agencyName:(p.agency&&p.agency.name)||"",
+            agentPhone:"",
+            agentWA:"",
+            photo:imgUrl,
+            listingUrl:p.externalURL||"https://www.bayut.com",
+            listingSource:"Bayut",
+            source:"Bayut"
+          };
+        }).filter(function(p){return p.psf>200&&p.psf<20000;});
+      };
+
+      var pfP=async function(){
+        if(pageNum>0)return[];
+        try{
+          var pfLocId=await getPFLocationId((area||searchTerm)+" Dubai");
+          if(!pfLocId)return[];
+          var params=new URLSearchParams({location_id:String(pfLocId),page:"1"});
+          if(beds)params.set("bedrooms",String(bn));
+          var r;
+          if(UAE_RE_KEY){r=await fetch("https://"+PF_HOST+"/search-sale?"+params,{headers:{"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":PF_HOST}});}
+          else{r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=search-sale&source=pf&"+params);}
+          if(!r.ok)return[];
+          var d=await r.json();
+          var rawPF=Array.isArray(d.data)?d.data:(d.data&&Array.isArray(d.data.data)?d.data.data:(d.data&&Array.isArray(d.data.properties)?d.data.properties:(d.hits||d.properties||d.results||[])));
+          var items=Array.isArray(rawPF)?rawPF:[];
+          return items.filter(function(p){
+            var price=p.price&&typeof p.price==="object"?p.price.value:p.price;
+            var size=typeof p.size==="number"?p.size:(typeof p.area==="number"?p.area:(typeof p.sqft==="number"?p.sqft:0));
+            return price&&size>0&&price>0;
+          }).map(function(p){
+            var price=p.price&&typeof p.price==="object"?p.price.value:p.price;
+            var size=typeof p.size==="number"?p.size:(typeof p.area==="number"?p.area:(typeof p.sqft==="number"?p.sqft:0));
+            var imgUrl=p.cover_photo||"";
+            if(!imgUrl){var imgs=p.images||p.photos||[];if(Array.isArray(imgs)&&imgs.length>0){imgUrl=typeof imgs[0]==="string"?imgs[0]:(imgs[0].url||imgs[0].src||imgs[0].thumb||"");}}
+            if(!imgUrl)imgUrl=p.thumbnail||p.image||p.photo||"";
+            var areaName=p.location_name||p.community_name||p.area_name||(typeof p.area==="string"?p.area:"")||area||"Dubai";
+            return{
+              title:p.title||"Property",
+              area:areaName,
+              price:price,
+              size:size,
+              psf:size>0?Math.round(price/size):0,
+              beds:p.bedrooms||p.rooms||p.beds||bn,
+              baths:p.bathrooms||p.baths||0,
+              floor:"",
+              furnished:p.furnishing||p.furnished||"",
+              permit:"",
+              agentName:p.agent_name||"",
+              agencyName:p.agency_name||"",
+              agentPhone:"",
+              agentWA:"",
+              photo:imgUrl,
+              listingUrl:p.url||p.link||p.property_url||"https://www.propertyfinder.ae",
+              listingSource:"PropertyFinder",
+              source:"PropertyFinder"
+            };
+          }).filter(function(p){return p.psf>200&&p.psf<20000;});
+        }catch(e){return[];}
+      };
+
+      var results=await Promise.allSettled([bayutP(),pfP()]);
+      bayutResults=results[0].status==="fulfilled"?results[0].value:[];
+      pfResults=results[1].status==="fulfilled"?results[1].value:[];
+
+      var combined=bayutResults.concat(pfResults);
+
+      // Building filter
+      var bldgFilter=(FS.building||"").toLowerCase().trim();
+      if(bldgFilter.length>1){
+        combined=combined.filter(function(r){return(r.title||"").toLowerCase().indexOf(bldgFilter)>=0;});
       }
 
-      // Step 2: Groq AI fallback if no live results
-      if(FS.results.length===0){
+      if(combined.length>0){
+        combined=scoreDealQuality(combined);
+        if(loadMore){
+          FS.results=FS.results.concat(combined);
+        }else{
+          FS.results=combined;
+        }
+        sortResults();
+        var sources=[];
+        if(bayutResults.length>0)sources.push("Bayut ("+bayutResults.length+")");
+        if(pfResults.length>0)sources.push("PropertyFinder ("+pfResults.length+")");
+        var prices=FS.results.map(function(r){return r.price;});
+        FS.aiSummary="Found "+FS.results.length+" live listings"+(area?" in "+area:"")+". Prices: AED "+(Math.min.apply(null,prices)/1e6).toFixed(2)+"M – AED "+(Math.max.apply(null,prices)/1e6).toFixed(2)+"M. Sources: "+sources.join(" + ")+".";
+      }
+
+      // Groq AI fallback if no live results
+      if(FS.results.length===0&&!loadMore){
         var searchQuery=(beds?beds+" ":"")+type+" for sale"+(area?" in "+area:"")+(maxPrice?" under AED "+(maxPrice/1e6).toFixed(1)+"M":"")+". June 2026. Dubai UAE.";
         var prompt="Provide market intelligence for: "+searchQuery+"\n\nReturn EXACTLY this JSON array (5-8 typical options based on June 2026 market data):\n[{\"title\":\"Building Name Type Beds\",\"area\":\"Area Name\",\"price\":2500000,\"size\":1200,\"beds\":2,\"baths\":2,\"floor\":15,\"furnished\":\"Unfurnished\",\"permit\":\"\",\"agentName\":\"DubAIVal AI\",\"agencyName\":\"Market Estimate\",\"agentPhone\":\"\",\"agentWA\":\"\",\"photo\":\"\",\"listingUrl\":\"https://www.bayut.com\",\"source\":\"AI Estimate\"}]\n\nUse real June 2026 market prices. Return ONLY the JSON array, no other text.";
         var resp=await callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:"You are a Dubai real estate market expert. Return ONLY valid JSON arrays based on June 2026 market data."},{role:"user",content:prompt}],max_tokens:2000,temperature:0.3});
@@ -376,6 +604,8 @@ function renderFind(){
             FS.results=parsed.map(function(p){
               return{title:p.title||"Property",area:p.area||area,price:p.price||0,size:p.size||0,psf:p.size>0?Math.round(p.price/p.size):0,beds:p.beds||0,baths:p.baths||0,floor:p.floor||"",furnished:p.furnished||"",permit:p.permit||"",agentName:p.agentName||"DubAIVal AI",agencyName:p.agencyName||"Market Estimate",agentPhone:p.agentPhone||"",agentWA:p.agentWA||"",photo:p.photo||"",listingUrl:p.listingUrl||"https://www.bayut.com",listingSource:p.source||"AI Estimate",source:p.source||"AI Estimate"};
             });
+            FS.results=scoreDealQuality(FS.results);
+            sortResults();
             FS.aiSummary="Live API unavailable — showing AI market estimates. Prices reflect typical June 2026 values for "+searchQuery;
           }
         }
@@ -383,29 +613,109 @@ function renderFind(){
     }catch(e){
       console.warn("Search failed:",e.message);
     }
-    
+
     // If no results, fallback to DB
-    if(FS.results.length===0){
+    if(FS.results.length===0&&!loadMore){
       doDBSearch(query,area,beds,maxPrice,type);
-      FS.aiSummary="Live search unavailable. Showing DubAIVal database results.";
+      FS.aiSummary="Live search unavailable. Showing "+FS.results.length+" buildings from DubAIVal database (8,500+ properties). Click 'Analyze Deal' for full valuation.";
     }
-    
-    FS.searched=true;FS.loading=false;
+
+    FS.searched=true;FS.loading=false;FS.loadingMore=false;
     render();
   }
+
+  function scoreDealQuality(listings){
+    return listings.map(function(r){
+      var areaKey=r.area||"";
+      var aData=AREAS[areaKey]||null;
+      var score=50;
+      if(aData){
+        // PSF vs area benchmark (lower = better deal, max 30 pts)
+        var benchPSF=aData.psf||1800;
+        var psfRatio=r.psf/benchPSF;
+        if(psfRatio<=0.85)score+=30;
+        else if(psfRatio<=0.95)score+=20;
+        else if(psfRatio<=1.05)score+=10;
+        else if(psfRatio<=1.15)score+=0;
+        else score-=10;
+        // Yield (max 25 pts)
+        var avgY=aData.y?((aData.y[0]+aData.y[1])/2):5;
+        if(avgY>=8)score+=25;
+        else if(avgY>=7)score+=20;
+        else if(avgY>=6)score+=15;
+        else if(avgY>=5)score+=10;
+        // Growth (max 15 pts)
+        var gr1=aData.g?aData.g[0]:3;
+        if(gr1>=8)score+=15;
+        else if(gr1>=5)score+=10;
+        else if(gr1>=3)score+=5;
+        // Liquidity — low DOM (max 10 pts)
+        var dom=aData.dom||60;
+        if(dom<=30)score+=10;
+        else if(dom<=45)score+=7;
+        else if(dom<=60)score+=4;
+        // Service charge efficiency (max 10 pts)
+        var sc=aData.sc||15;
+        if(sc<=12)score+=10;
+        else if(sc<=18)score+=7;
+        else if(sc<=25)score+=4;
+      }
+      // Building grade bonus (max 10 pts)
+      var bData=DB[(r.title||"").toLowerCase()];
+      if(bData){
+        var gradeScore={"Ultra":10,"A+":8,"A":6,"A-":4,"B+":2,"B":0,"C":-5};
+        score+=(gradeScore[bData.g]||0);
+        r.grade=bData.g;
+      }
+      r.dealScore=Math.max(0,Math.min(100,score));
+      return r;
+    });
+  }
+
+  function sortResults(){
+    var s=FS.sort||"score";
+    if(s==="score")FS.results.sort(function(a,b){return(b.dealScore||0)-(a.dealScore||0);});
+    else if(s==="psf_asc")FS.results.sort(function(a,b){return a.psf-b.psf;});
+    else if(s==="price_asc")FS.results.sort(function(a,b){return a.price-b.price;});
+    else if(s==="psf_desc")FS.results.sort(function(a,b){return b.psf-a.psf;});
+  }
+
   function doDBSearch(query,area,beds,maxPrice,type){
+    var bldgFilter=(FS.building||"").toLowerCase().trim();
+    var queryLower=(query||"").toLowerCase().trim();
+    var bedsNumMap={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5};
+    var bn=bedsNumMap[beds]||2;
+    var sizeEst=beds==="Studio"?500:beds==="1 BR"?750:beds==="2 BR"?1100:beds==="3 BR"?1600:2200;
     var dbResults=[];
     Object.entries(DB).forEach(function(e){
       var key=e[0],val=e[1];
-      if(dbResults.length>=12)return;
+      if(dbResults.length>=50)return;
       var areaMatch=!area||val.a===area;
+      if(bldgFilter.length>1&&key.indexOf(bldgFilter)<0)return;
+      if(queryLower.length>1&&!bldgFilter&&key.indexOf(queryLower)<0&&(val.a||"").toLowerCase().indexOf(queryLower)<0)return;
       if(areaMatch){
-        var estPrice=val.p*(beds==="Studio"?500:beds==="1 BR"?750:beds==="2 BR"?1100:beds==="3 BR"?1600:2200);
+        var estPrice=val.p*sizeEst;
         if(maxPrice&&estPrice>maxPrice)return;
-        dbResults.push({title:key,area:val.a,psf:val.p,price:estPrice,g:val.g,apiSource:"DubAIVal DB"});
+        var aData=AREAS[val.a];
+        var avgYield=aData&&aData.y?((aData.y[0]+aData.y[1])/2):6;
+        var estRent=Math.round(estPrice*avgYield/100);
+        var gr=aData&&aData.g?aData.g:[8,15,25];
+        dbResults.push({
+          title:key,area:val.a,psf:val.p,price:estPrice,
+          size:sizeEst,
+          beds:bn,baths:bn>0?bn:1,
+          grade:val.g,g:val.g,
+          source:"DubAIVal DB",
+          agentName:"",agencyName:"",agentPhone:"",agentWA:"",photo:"",
+          listingUrl:"",
+          estRent:estRent,estYield:avgYield.toFixed(1),
+          growth:gr[0],
+          apiSource:"DubAIVal DB"
+        });
       }
     });
-    FS.results=dbResults;
+    FS.results=scoreDealQuality(dbResults);
+    sortResults();
     FS.apiSource="DubAIVal DB";
   }
 
@@ -419,7 +729,7 @@ function renderAlerts(){
   // Header
   const hdr=el("div",{style:{marginBottom:"16px"}});
   hdr.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Deal Alerts"));
-  hdr.appendChild(div({color:cl.sub,fontSize:"12px",marginTop:"4px",fontFamily:"'Inter',sans-serif"},"Set your criteria. DubAIVal scans 6,162 buildings instantly."));
+  hdr.appendChild(div({color:cl.sub,fontSize:"12px",marginTop:"4px",fontFamily:"'Inter',sans-serif"},"Set your criteria. DubAIVal scans 10,800+ properties instantly."));
   wrap.appendChild(hdr);
 
   // Load saved alerts
@@ -527,7 +837,7 @@ function renderAlerts(){
       badge.textContent=m.d.g;
       row.appendChild(info);
       row.appendChild(badge);
-      row.addEventListener("click",function(){analyzerState.f.area=m.d.a;analyzerState.f.building=m.key;currentTab="Analyzer";render();});
+      row.addEventListener("click",function(){analyzerState.f.area=m.d.a;analyzerState.f.building=m.key;setSection("Market","Analyzer");});
       mWrap.appendChild(row);
     });
     wrap.appendChild(mWrap);
@@ -761,34 +1071,48 @@ function generateArabicPDF(){
 }
 
 // Update search suggestions without full re-render (keeps focus)
+function _dvNearestArea(lat,lng){
+  var best=null,bestDist=Infinity;
+  if(typeof AREA_COORDS==="undefined"||typeof AREAS==="undefined")return null;
+  Object.entries(AREA_COORDS).forEach(function(e){
+    var name=e[0],c=e[1];
+    if(!AREAS[name])return;
+    var dLat=(c[0]-lat)*Math.PI/180;
+    var dLng=(c[1]-lng)*Math.PI/180;
+    var a=Math.sin(dLat/2)*Math.sin(dLat/2)+
+          Math.cos(lat*Math.PI/180)*Math.cos(c[0]*Math.PI/180)*
+          Math.sin(dLng/2)*Math.sin(dLng/2);
+    var d=6371*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+    if(d<bestDist){bestDist=d;best=name;}
+  });
+  return bestDist<8?best:null;
+}
+
 function updateSearchSuggestions(query){
   var suggestEl=document.getElementById("dv-search-suggestions");
   if(!suggestEl)return;
-  if(!query||query.length<2){suggestEl.innerHTML="";return;}
+  if(!query||query.length<2){suggestEl.innerHTML="";clearTimeout(window._dvPlacesTimer);return;}
   var q=query.toLowerCase().trim();
   var results=[];
   var qWords=q.split(" ").filter(function(w){return w.length>0;});
-  
+
   // Score and search DB
   var scored=[];
   Object.entries(DB).forEach(function(e){
-    var key=e[0],val=e[1];
     var key=e[0],val=e[1];
     var score=0;
     var keyWords=key.split(" ");
     if(key.startsWith(q))score=100;
     else if(q.length<=2){
-      // Short query: ONLY match if KEY starts with query
       if(keyWords[0].startsWith(q))score=90;
     } else if(qWords.every(function(w){return keyWords.some(function(kw){return kw.startsWith(w);});})){
-      // All query words match START of some key word
       score=keyWords[0].startsWith(qWords[0])?85:70;
     } else if(q.length>=5&&qWords.every(function(w){return key.includes(w);}))score=20;
     if(score>0)scored.push({name:key,area:val.a,psf:val.p,g:val.g,sc:val.sc,score:score});
   });
   scored.sort(function(a,b){return b.score-a.score;});
   results=scored.slice(0,8);
-  
+
   // Search CLUSTERS
   if(results.length<8){
     Object.entries(CLUSTERS).forEach(function(e){
@@ -809,40 +1133,100 @@ function updateSearchSuggestions(query){
     });
   }
 
-  if(results.length===0){suggestEl.innerHTML="";return;}
-  
+  if(results.length===0&&query.length<3){suggestEl.innerHTML="";return;}
+
   var cl=C();
   suggestEl.innerHTML="";
-  suggestEl.style.cssText="background:"+cl.surface+";border:1px solid "+cl.gold+";border-radius:12px;margin-top:4px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.4);position:absolute;width:100%;z-index:100;";
-  
-  results.forEach(function(r,i){
-    var item=document.createElement("button");
-    item.style.cssText="width:100%;padding:12px 16px;background:transparent;border:none;border-bottom:"+(i<results.length-1?"1px solid "+cl.border:"none")+";color:#F0F2F5;font-size:13px;cursor:pointer;text-align:left;font-family:'Inter',sans-serif;display:block;";
-    var nameCap=r.name.split(" ").map(function(w){return w.charAt(0).toUpperCase()+w.slice(1);}).join(" ");
-    var typeLabel=r.type==="community"?" (Community)":r.type==="cluster"?" (Cluster)":"";
-    var info=r.area+(r.psf?" · AED "+r.psf.toLocaleString()+" PSF":"")+(r.g?" · "+r.g:"")+(r.type==="community"&&r.clusters?" · "+r.clusters.length+" clusters":"");
-    item.innerHTML="<div style='font-weight:600;margin-bottom:2px'>"+nameCap+typeLabel+"</div><div style='font-size:10px;color:"+cl.sub+";font-family:Space Grotesk,monospace'>"+info+"</div>";
-    item.addEventListener("mouseenter",function(){this.style.background=cl.raised;});
-    item.addEventListener("mouseleave",function(){this.style.background="transparent";});
-    item.addEventListener("mousedown",function(e){
-      e.preventDefault(); // Prevent input blur
-      analyzerState.f.building=r.name;
-      analyzerState.f.area=r.area||"";
-      if(r.sc)analyzerState.f.serviceCharge=String(r.sc);
-      if(r.type==="community"||r.type==="cluster"){
-        analyzerState.f.propCategory="villa";if(!analyzerState.f.beds)analyzerState.f.beds="4 BR";
-      } else {
-        var n=r.name.toLowerCase();
-        var isVA=typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(r.area);
-        var isVK=typeof VILLA_KEYWORDS!=="undefined"&&VILLA_KEYWORDS.some(function(kw){return n.includes(kw);});
-        analyzerState.f.propCategory=(isVA||isVK)?"villa":"apartment";
-        if(analyzerState.f.propCategory==="villa"&&!analyzerState.f.beds)analyzerState.f.beds="4 BR";
-      }
-      suggestEl.innerHTML="";
-      render();
+  suggestEl.dataset.dvQuery=query;
+
+  if(results.length>0){
+    suggestEl.style.cssText="background:"+cl.surface+";border:1px solid "+cl.gold+";border-radius:12px;margin-top:4px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.4);position:absolute;width:100%;z-index:100;";
+    results.forEach(function(r,i){
+      var item=document.createElement("button");
+      item.style.cssText="width:100%;padding:12px 16px;background:transparent;border:none;border-bottom:"+(i<results.length-1?"1px solid "+cl.border:"none")+";color:#F0F2F5;font-size:13px;cursor:pointer;text-align:left;font-family:'Inter',sans-serif;display:block;";
+      var nameCap=r.name.split(" ").map(function(w){return w.charAt(0).toUpperCase()+w.slice(1);}).join(" ");
+      var typeLabel=r.type==="community"?" (Community)":r.type==="cluster"?" (Cluster)":"";
+      var info=r.area+(r.psf?" · AED "+r.psf.toLocaleString()+" PSF":"")+(r.g?" · "+r.g:"")+(r.type==="community"&&r.clusters?" · "+r.clusters.length+" clusters":"");
+      item.innerHTML="<div style='font-weight:600;margin-bottom:2px'>"+nameCap+typeLabel+"</div><div style='font-size:10px;color:"+cl.sub+";font-family:Space Grotesk,monospace'>"+info+"</div>";
+      item.addEventListener("mouseenter",function(){this.style.background=cl.raised;});
+      item.addEventListener("mouseleave",function(){this.style.background="transparent";});
+      item.addEventListener("mousedown",function(e){
+        e.preventDefault();
+        analyzerState.f.building=r.name;
+        analyzerState.f.area=r.area||"";
+        if(r.sc)analyzerState.f.serviceCharge=String(r.sc);
+        if(r.type==="community"||r.type==="cluster"){
+          analyzerState.f.propCategory="villa";if(!analyzerState.f.beds)analyzerState.f.beds="4 BR";
+        } else {
+          var n=r.name.toLowerCase();
+          var isVA=typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(r.area);
+          var isVK=typeof VILLA_KEYWORDS!=="undefined"&&VILLA_KEYWORDS.some(function(kw){return n.includes(kw);});
+          analyzerState.f.propCategory=(isVA||isVK)?"villa":"apartment";
+          if(analyzerState.f.propCategory==="villa"&&!analyzerState.f.beds)analyzerState.f.beds="4 BR";
+        }
+        suggestEl.innerHTML="";
+        render();
+      });
+      suggestEl.appendChild(item);
     });
-    suggestEl.appendChild(item);
-  });
+  }
+
+  // Google Places tier: kick in when local results are sparse (< 4) and query >= 3 chars
+  if(query.length>=3&&results.length<4){
+    clearTimeout(window._dvPlacesTimer);
+    window._dvPlacesTimer=setTimeout(function(){
+      fetch("/api/proxy-maps?action=places&q="+encodeURIComponent(query))
+        .then(function(r){return r.json();})
+        .then(function(d){
+          if(suggestEl.dataset.dvQuery!==query)return; // Stale — user typed more
+          if(!d.predictions||!d.predictions.length)return;
+          // Filter out names already shown from local DB
+          var localNames=results.map(function(r){return r.name.toLowerCase();});
+          var extra=d.predictions.filter(function(p){
+            var pn=p.name.toLowerCase();
+            return !localNames.some(function(n){return n===pn||n.startsWith(pn)||pn.startsWith(n);});
+          }).slice(0,5);
+          if(!extra.length)return;
+
+          if(!suggestEl.children.length){
+            suggestEl.style.cssText="background:"+cl.surface+";border:1px solid "+cl.gold+";border-radius:12px;margin-top:4px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.4);position:absolute;width:100%;z-index:100;";
+          }
+
+          // Section divider
+          var div2=document.createElement("div");
+          div2.style.cssText="padding:5px 14px;background:rgba(212,175,55,0.07);border-top:"+(results.length?"1px solid "+cl.border:"none")+";display:flex;align-items:center;gap:7px;";
+          div2.innerHTML="<svg width='11' height='11' viewBox='0 0 48 48' style='flex-shrink:0'><path fill='#4285f4' d='M44.5 20H24v8.5h11.8C34.7 33.9 30.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z'/></svg><span style='font-size:9px;font-weight:700;letter-spacing:.09em;font-family:Space Grotesk,monospace;color:#D4AF37;text-transform:uppercase;'>Google</span><span style='font-size:9px;color:#6B7A9E;font-family:Space Grotesk,monospace;'>not yet in our database — area auto-detected</span>";
+          suggestEl.appendChild(div2);
+
+          extra.forEach(function(p){
+            var item=document.createElement("button");
+            item.style.cssText="width:100%;padding:10px 16px;background:transparent;border:none;border-top:1px solid "+cl.border+";color:#F0F2F5;font-size:13px;cursor:pointer;text-align:left;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:8px;";
+            item.innerHTML="<div style='flex:1;min-width:0'><div style='font-weight:600;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>"+escHtml(p.name)+"</div><div style='font-size:10px;color:#6B7A9E;font-family:Space Grotesk,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>"+escHtml(p.address)+"</div></div><div style='flex-shrink:0;font-size:9px;padding:2px 6px;background:rgba(66,133,244,0.12);border:1px solid rgba(66,133,244,0.25);border-radius:4px;color:#88aaee;font-family:Space Grotesk,monospace'>area detect</div>";
+            item.addEventListener("mouseenter",function(){this.style.background=cl.raised;});
+            item.addEventListener("mouseleave",function(){this.style.background="transparent";});
+            item.addEventListener("mousedown",function(e){
+              e.preventDefault();
+              var bldgName=p.name;
+              suggestEl.innerHTML="";
+              analyzerState.f.building=bldgName;
+              analyzerState.f._googleBuilding=true;
+              render();
+              // Geocode → nearest benchmark area
+              fetch("/api/proxy-maps?action=geocode&address="+encodeURIComponent(bldgName+", Dubai"))
+                .then(function(r){return r.json();})
+                .then(function(geo){
+                  if(!geo.lat)return;
+                  var area=_dvNearestArea(geo.lat,geo.lng);
+                  if(area){analyzerState.f.area=area;analyzerState.f._googleBuilding=true;render();}
+                })
+                .catch(function(){});
+            });
+            suggestEl.appendChild(item);
+          });
+        })
+        .catch(function(){});
+    },380);
+  }
 }
 
 
@@ -858,9 +1242,24 @@ function renderAdmin(){
     var pwInp=el("input",{type:"password",placeholder:"Enter admin password",style:{width:"100%",background:"rgba(240,242,245,0.05)",border:"1px solid "+cl.border,color:"#F0F2F5",padding:"12px",borderRadius:"8px",fontSize:"14px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"}});
     var pwBtn=el("button",{style:{width:"100%",padding:"12px",background:"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#08090C",border:"none",borderRadius:"8px",fontSize:"14px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
     pwBtn.textContent="Login";
-    pwBtn.addEventListener("click",function(){
-      if(pwInp.value==="dubaival2026"){window.ADMIN_UNLOCKED=true;render();}
-      else{pwInp.style.borderColor="#EF4444";pwInp.value="";}
+    pwBtn.addEventListener("click",async function(){
+      // Brute-force lockout: 5 failed attempts → 30 min lockout
+      var lockKey="dv_admin_lock";var attKey="dv_admin_att";
+      try{
+        var lockUntil=parseInt(sessionStorage.getItem(lockKey)||"0");
+        if(Date.now()<lockUntil){var rem=Math.ceil((lockUntil-Date.now())/60000);pwInp.placeholder="Locked — try again in "+rem+"m";pwInp.style.borderColor="#EF4444";return;}
+        var enc=new TextEncoder();var buf=await crypto.subtle.digest("SHA-256",enc.encode(pwInp.value));
+        var hash=Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");
+        if(hash==="67ed667fed4620ba36c09d97b542b81c39a5f63bcbdfe8d1931c234748498fc1"){
+          sessionStorage.removeItem(lockKey);sessionStorage.removeItem(attKey);
+          window.ADMIN_UNLOCKED=true;render();
+        } else {
+          var att=parseInt(sessionStorage.getItem(attKey)||"0")+1;
+          sessionStorage.setItem(attKey,att);
+          if(att>=5){sessionStorage.setItem(lockKey,Date.now()+30*60*1000);sessionStorage.removeItem(attKey);pwInp.placeholder="Too many attempts — locked 30 min";}
+          pwInp.style.borderColor="#EF4444";pwInp.value="";
+        }
+      }catch(e){pwInp.style.borderColor="#EF4444";pwInp.value="";}
     });
     pwWrap.appendChild(pwInp);
     pwWrap.appendChild(pwBtn);
@@ -897,8 +1296,8 @@ function renderAdmin(){
     return card;
   }
   
-  wrap.appendChild(makeSlider("🏢 Apartment Adjustment","aptAdj",-0.08,0.05,0.01,"Effect on all apartment valuations. DLD data: -3% geo pressure, supply pipeline risk."));
-  wrap.appendChild(makeSlider("🏡 Villa Adjustment","villaAdj",-0.05,0.08,0.01,"Effect on all villa valuations. DLD data: villas +16% YoY, end-user demand strong."));
+  wrap.appendChild(makeSlider("Apartment Adjustment","aptAdj",-0.08,0.05,0.01,"Effect on all apartment valuations. DLD data: -3% geo pressure, supply pipeline risk."));
+  wrap.appendChild(makeSlider("Villa Adjustment","villaAdj",-0.05,0.08,0.01,"Effect on all villa valuations. DLD data: villas +16% YoY, end-user demand strong."));
   
   // Save button
   var saveBtn=el("button",{style:{width:"100%",padding:"14px",background:"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#08090C",border:"none",borderRadius:"10px",fontSize:"14px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer",marginTop:"8px"}});
@@ -909,8 +1308,8 @@ function renderAdmin(){
     // Save to localStorage
     try{localStorage.setItem("dv_macro",JSON.stringify({aptAdj:MACRO_VARS.aptAdj,villaAdj:MACRO_VARS.villaAdj}));}catch(e){}
     // Save to Supabase
-    var label=(MACRO_VARS.aptAdj<-0.03?"Cautious":"MACRO_VARS.aptAdj"<0?"Stable":"Bullish")+" · "+new Date().toLocaleDateString("en-GB");
-    var ok=await saveSupabaseConfig(MACRO_VARS.aptAdj,MACRO_VARS.villaAdj,MACRO_VARS.label||"Market Update");
+    var label=(MACRO_VARS.aptAdj<-0.03?"Cautious":MACRO_VARS.aptAdj<0?"Stable":"Bullish")+" · "+new Date().toLocaleDateString("en-GB");
+    var ok=await saveSupabaseConfig(MACRO_VARS.aptAdj,MACRO_VARS.villaAdj,label);
     if(ok){
       saveBtn.textContent="✓ Saved to Cloud!";
       saveBtn.style.background="#10B981";
@@ -991,175 +1390,732 @@ function renderAdmin(){
   return wrap;
 }
 
-function render(){
-  // Show loading if DB not ready
+
+
+var TAB_TO_SECTION={
+  "Market":["Market","Dashboard"],"Index":["Market","Index"],"Analyzer":["Market","Analyzer"],
+  "Map":["Market","Map"],"Find":["Market","Find"],"Compare":["Market","Compare"],
+  "Portfolio":["Portfolio","Assets"],"Alerts":["Portfolio","Alerts"],
+  "Deals":["Network","Deals"],"AgentHub":["Network","AgentHub"],"Chat":["Network","Chat"],
+  "Health":["Portfolio","Health"],"Projections":["Portfolio","Projections"],
+  "Workspace":["More","Workspace"],"About":["More","About"],"Admin":["More","Admin"],
+  "Reports":["More","Reports"],
+  "SocialStudio":["SocialMedia","Studio"],"SocialAvatar":["SocialMedia","Avatar"],
+  "SocialVideo":["SocialMedia","VideoPlatform"],"SocialChat":["SocialMedia","SocialChat"],
+  "MediaStudio":["SocialMedia","Studio"],"Social":["SocialMedia","VideoPlatform"]
+};
+
+function renderHome(){
+  var cl=C();
+  var wrap=el("div",{style:{padding:"16px",maxWidth:"960px",margin:"0 auto",width:"100%",boxSizing:"border-box"}});
+
+  // --- Greeting + Avatar Row ---
+  var heroRow=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"24px"}});
+  var heroLeft=el("div",{});
+  var hr=new Date().getHours();
+  var greeting="Good "+(hr<12?"Morning":hr<18?"Afternoon":"Evening");
+  heroLeft.appendChild(div({fontSize:"13px",color:cl.sub,fontFamily:"'Inter',sans-serif",fontWeight:"500",marginBottom:"2px"},greeting));
+  var userName=USER_PROFILE.name||"Explorer";
+  heroLeft.appendChild(div({fontSize:"24px",fontWeight:"800",color:"#F0F2F5",fontFamily:"'Space Grotesk',monospace",letterSpacing:"-0.02em"},userName));
+  heroRow.appendChild(heroLeft);
+  wrap.appendChild(heroRow);
+
+  // --- Primary CTA: Analyze Property ---
+  var ctaBar=el("div",{style:{background:"rgba(255,255,255,0.04)",borderRadius:"16px",padding:"16px",marginBottom:"24px",cursor:"pointer",display:"flex",alignItems:"center",gap:"14px",transition:"all 0.2s ease",border:"1px solid rgba(255,255,255,0.06)"}});
+  ctaBar.addEventListener("click",function(){setSection("Market","Analyzer");});
+  var ctaIcon=el("div",{style:{width:"48px",height:"48px",borderRadius:"14px",background:"linear-gradient(135deg,rgba(212,175,55,0.2),rgba(212,175,55,0.05))",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
+  ctaIcon.innerHTML='<i data-lucide="search" style="width:22px;height:22px;color:#D4AF37"></i>';
+  ctaBar.appendChild(ctaIcon);
+  var ctaText=el("div",{style:{flex:"1"}});
+  ctaText.appendChild(div({fontSize:"15px",fontWeight:"700",color:"#F0F2F5",fontFamily:"'Inter',sans-serif",marginBottom:"2px"},"Analyze Property"));
+  ctaText.appendChild(div({fontSize:"12px",color:cl.sub,fontFamily:"'Inter',sans-serif"},"AI valuation for 10,880+ properties"));
+  ctaBar.appendChild(ctaText);
+  var ctaArrow=el("div",{style:{color:"#4A5568",flexShrink:"0"}});
+  ctaArrow.innerHTML='<i data-lucide="chevron-right" style="width:20px;height:20px"></i>';
+  ctaBar.appendChild(ctaArrow);
+  ctaBar.addEventListener("mouseenter",function(){ctaBar.style.background="rgba(255,255,255,0.06)";ctaBar.style.borderColor="rgba(212,175,55,0.15)";});
+  ctaBar.addEventListener("mouseleave",function(){ctaBar.style.background="rgba(255,255,255,0.04)";ctaBar.style.borderColor="rgba(255,255,255,0.06)";});
+  wrap.appendChild(ctaBar);
+
+  // --- Quick Actions Grid (app-style circular icons) ---
+  var qaLabel=el("div",{style:{fontSize:"12px",color:"#9AABBB",fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"}});
+  qaLabel.textContent="Quick Actions";
+  wrap.appendChild(qaLabel);
+  var qaScroll=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"12px",marginBottom:"28px"}});
+  var qaItems=[
+    {icon:"scan-search",l:"Search",c:"#3B82F6",sec:"Market",sub:"Find"},
+    {icon:"handshake",l:"Deals",c:"#10B981",sec:"Network",sub:"Deals"},
+    {icon:"bar-chart-3",l:"Index",c:"#8B5CF6",sec:"Market",sub:"Index"},
+    {icon:"scale",l:"Compare",c:"#F59E0B",sec:"Market",sub:"Compare"},
+    {icon:"briefcase",l:"Portfolio",c:"#3B82F6",sec:"Portfolio",sub:"Assets"},
+    {icon:"map",l:"Map",c:"#10B981",sec:"Market",sub:"Map"},
+    {icon:"video",l:"Studio",c:"#8B5CF6",sec:"Network",sub:"MediaStudio"},
+    {icon:"zap",l:"Quick Val",c:"#D4AF37",sec:"Market",sub:"QuickCheck"}
+  ];
+  qaItems.forEach(function(qa){
+    var qaBtn=el("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",gap:"8px",cursor:"pointer",padding:"8px 4px",borderRadius:"12px",transition:"all 0.2s ease"}});
+    var qaCircle=el("div",{style:{width:"48px",height:"48px",borderRadius:"14px",background:qa.c+"14",display:"flex",alignItems:"center",justifyContent:"center",transition:"transform 0.2s ease"}});
+    qaCircle.innerHTML='<i data-lucide="'+qa.icon+'" style="width:22px;height:22px;color:'+qa.c+'"></i>';
+    qaBtn.appendChild(qaCircle);
+    qaBtn.appendChild(div({fontSize:"11px",color:"#9BA8C8",fontWeight:"600",fontFamily:"'Inter',sans-serif",textAlign:"center"},qa.l));
+    qaBtn.addEventListener("click",function(){setSection(qa.sec,qa.sub);});
+    qaBtn.addEventListener("mouseenter",function(){qaCircle.style.transform="scale(1.08)";});
+    qaBtn.addEventListener("mouseleave",function(){qaCircle.style.transform="scale(1)";});
+    qaScroll.appendChild(qaBtn);
+  });
+  wrap.appendChild(qaScroll);
+
+  // --- Market Snapshot ---
+  var areaKeys=Object.keys(AREAS);
+  var totalPSF=0,totalYield=0,psfCount=0,yieldCount=0;
+  var movers=[];
+  areaKeys.forEach(function(k){
+    var a=AREAS[k];
+    if(a.psf>0){totalPSF+=a.psf;psfCount++;}
+    if(a.y&&a.y[0]>0){totalYield+=(a.y[0]+a.y[1])/2;yieldCount++;}
+    if(a.g&&a.g[0]!==undefined)movers.push({name:k,growth:a.g[0],psf:a.psf});
+  });
+  movers.sort(function(a,b){return b.growth-a.growth;});
+  var avgPSF=psfCount>0?Math.round(totalPSF/psfCount):0;
+  var avgYield=yieldCount>0?(totalYield/yieldCount).toFixed(1):0;
+  var dbCount=Object.keys(DB).length;
+
+  var snapLabel=el("div",{style:{fontSize:"12px",color:"#9AABBB",fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"}});
+  snapLabel.textContent="Market Snapshot";
+  wrap.appendChild(snapLabel);
+
+  var statsRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px",marginBottom:"20px"}});
+  [{l:"Avg PSF",v:"AED "+avgPSF.toLocaleString(),c:"#D4AF37"},{l:"Avg Yield",v:avgYield+"%",c:"#10B981"},{l:"Properties",v:dbCount.toLocaleString(),c:"#3B82F6"}].forEach(function(s){
+    var sc=el("div",{style:{background:"rgba(255,255,255,0.04)",borderRadius:"14px",padding:"14px 12px",border:"1px solid rgba(255,255,255,0.06)"}});
+    sc.appendChild(div({fontSize:"18px",fontWeight:"800",color:s.c,fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'",marginBottom:"4px"},s.v));
+    sc.appendChild(div({fontSize:"11px",color:"#9AABBB",fontWeight:"600",fontFamily:"'Inter',sans-serif",textTransform:"uppercase",letterSpacing:"0.04em"},s.l));
+    statsRow.appendChild(sc);
+  });
+  wrap.appendChild(statsRow);
+
+  // --- Top Movers ---
+  if(movers.length>0){
+    var moverCard=el("div",{style:{background:"rgba(255,255,255,0.04)",borderRadius:"16px",padding:"16px",marginBottom:"20px",border:"1px solid rgba(255,255,255,0.06)"}});
+    moverCard.appendChild(div({fontSize:"12px",color:"#9AABBB",fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"12px"},"Top Movers"));
+    movers.slice(0,5).forEach(function(m,i){
+      var row=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<4?"1px solid rgba(255,255,255,0.04)":"none"}});
+      var rowLeft=el("div",{style:{display:"flex",alignItems:"center",gap:"10px"}});
+      var rank=el("div",{style:{width:"24px",height:"24px",borderRadius:"8px",background:"rgba(255,255,255,0.04)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",fontWeight:"700",color:cl.sub,fontFamily:"'JetBrains Mono',monospace",flexShrink:"0"}});
+      rank.textContent=String(i+1);
+      rowLeft.appendChild(rank);
+      rowLeft.appendChild(span({color:"#E8EDF5",fontSize:"13px",fontFamily:"'Inter',sans-serif",fontWeight:"500"},m.name));
+      row.appendChild(rowLeft);
+      var rowRight=el("div",{style:{display:"flex",alignItems:"center",gap:"10px"}});
+      rowRight.appendChild(span({color:"#9AABBB",fontSize:"12px",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'"},m.psf.toLocaleString()+" PSF"));
+      var growthColor=m.growth>0?"#10B981":"#EF4444";
+      var growthBg=m.growth>0?"rgba(16,185,129,0.1)":"rgba(239,68,68,0.1)";
+      var growthBadge=el("div",{style:{background:growthBg,borderRadius:"8px",padding:"3px 8px",fontSize:"12px",fontWeight:"700",color:growthColor,fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'"}});
+      growthBadge.textContent=(m.growth>0?"+":"")+m.growth.toFixed(1)+"%";
+      rowRight.appendChild(growthBadge);
+      row.appendChild(rowRight);
+      moverCard.appendChild(row);
+    });
+    var viewAllMkt=el("div",{style:{display:"flex",justifyContent:"center",paddingTop:"12px"}});
+    var mktBtn=el("button",{style:{background:"transparent",border:"none",color:"#D4AF37",fontSize:"12px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer",padding:"8px 16px"}});
+    mktBtn.textContent="View Full Market Index";
+    mktBtn.addEventListener("click",function(){setSection("Market","Index");});
+    viewAllMkt.appendChild(mktBtn);
+    moverCard.appendChild(viewAllMkt);
+    wrap.appendChild(moverCard);
+  }
+
+  // --- Feature Cards (horizontal scroll) ---
+  var featLabel=el("div",{style:{fontSize:"12px",color:"#9AABBB",fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"}});
+  featLabel.textContent="Explore";
+  wrap.appendChild(featLabel);
+  var featScroll=el("div",{style:{display:"flex",gap:"12px",overflowX:"auto",paddingBottom:"8px",scrollSnapType:"x mandatory",WebkitOverflowScrolling:"touch"}});
+  featScroll.style.cssText+=";-ms-overflow-style:none;scrollbar-width:none";
+  var feats=[
+    {icon:"handshake",title:"Deal Board",desc:"Off-market listings",color:"#10B981",sec:"Network",sub:"Deals"},
+    {icon:"video",title:"AI Studio",desc:"35+ creative tools",color:"#8B5CF6",sec:"Network",sub:"MediaStudio"},
+    {icon:"layout-dashboard",title:"Workspace",desc:"Custom dashboard",color:"#D4AF37",sec:"More",sub:"Workspace"},
+    {icon:"user-check",title:"AI Advisor",desc:"Personalized picks",color:"#3B82F6",sec:"Market",sub:"Advisor"}
+  ];
+  feats.forEach(function(f){
+    var fc=el("div",{style:{background:"rgba(255,255,255,0.04)",borderRadius:"16px",padding:"16px",minWidth:"160px",flexShrink:"0",cursor:"pointer",border:"1px solid rgba(255,255,255,0.06)",transition:"all 0.2s ease",scrollSnapAlign:"start"}});
+    var fcIcon=el("div",{style:{width:"40px",height:"40px",borderRadius:"12px",background:f.color+"14",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:"12px"}});
+    fcIcon.innerHTML='<i data-lucide="'+f.icon+'" style="width:20px;height:20px;color:'+f.color+'"></i>';
+    fc.appendChild(fcIcon);
+    fc.appendChild(div({fontSize:"14px",fontWeight:"700",color:"#F0F2F5",fontFamily:"'Inter',sans-serif",marginBottom:"4px"},f.title));
+    fc.appendChild(div({fontSize:"12px",color:cl.sub,fontFamily:"'Inter',sans-serif"},f.desc));
+    fc.addEventListener("click",function(){setSection(f.sec,f.sub);});
+    fc.addEventListener("mouseenter",function(){fc.style.background="rgba(255,255,255,0.06)";fc.style.borderColor="rgba(255,255,255,0.12)";});
+    fc.addEventListener("mouseleave",function(){fc.style.background="rgba(255,255,255,0.04)";fc.style.borderColor="rgba(255,255,255,0.06)";});
+    featScroll.appendChild(fc);
+  });
+  wrap.appendChild(wrapHScroll(featScroll));
+
+  // --- Portfolio Summary ---
+  var portfolioAssets=[];
+  try{portfolioAssets=JSON.parse(localStorage.getItem("dubaival_portfolio")||"[]");}catch(e){}
+
+  var pfSection=el("div",{style:{marginTop:"24px"}});
+  pfSection.appendChild(div({fontSize:"12px",color:"#9AABBB",fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"},"Your Portfolio"));
+
+  var pfCard=el("div",{style:{background:"rgba(255,255,255,0.04)",borderRadius:"16px",padding:"18px",border:"1px solid rgba(255,255,255,0.06)",marginBottom:"20px"}});
+  if(portfolioAssets.length>0){
+    var totalVal=0,totalRent=0;
+    portfolioAssets.forEach(function(a){totalVal+=(parseFloat(a.price)||0);totalRent+=(parseFloat(a.rent)||0);});
+    var pfTop=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"16px"}});
+    var pfLeft=el("div",{});
+    pfLeft.appendChild(div({fontSize:"12px",color:cl.sub,fontFamily:"'Inter',sans-serif",marginBottom:"4px"},"Total Value"));
+    pfLeft.appendChild(div({fontSize:"22px",fontWeight:"800",color:"#F0F2F5",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'"},"AED "+(totalVal/1e6).toFixed(2)+"M"));
+    pfTop.appendChild(pfLeft);
+    var pfRight=el("div",{style:{textAlign:"right"}});
+    pfRight.appendChild(div({fontSize:"12px",color:cl.sub,fontFamily:"'Inter',sans-serif",marginBottom:"4px"},portfolioAssets.length+" Assets"));
+    if(totalRent>0)pfRight.appendChild(div({fontSize:"14px",fontWeight:"700",color:"#10B981",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'"},"AED "+(totalRent/12).toLocaleString(undefined,{maximumFractionDigits:0})+"/mo"));
+    pfTop.appendChild(pfRight);
+    pfCard.appendChild(pfTop);
+    var pfBtn=el("button",{style:{width:"100%",padding:"12px",background:"linear-gradient(135deg,rgba(212,175,55,0.15),rgba(212,175,55,0.05))",color:"#D4AF37",border:"none",borderRadius:"12px",fontSize:"13px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+    pfBtn.textContent="Manage Portfolio";
+    pfBtn.addEventListener("click",function(){setSection("Portfolio","Assets");});
+    pfCard.appendChild(pfBtn);
+  } else {
+    pfCard.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",marginBottom:"14px",lineHeight:"1.5"},"Track your properties and get real-time valuations."));
+    var addBtn=el("button",{style:{padding:"12px 20px",background:"linear-gradient(135deg,rgba(212,175,55,0.15),rgba(212,175,55,0.05))",color:"#D4AF37",border:"none",borderRadius:"12px",fontSize:"13px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+    addBtn.textContent="+ Add First Asset";
+    addBtn.addEventListener("click",function(){setSection("Portfolio","Assets");});
+    pfCard.appendChild(addBtn);
+  }
+  pfSection.appendChild(pfCard);
+  wrap.appendChild(pfSection);
+
+  // --- Recent Activity ---
+  var recent=[];
+  try{recent=JSON.parse(localStorage.getItem("dubaival_recent")||"[]");}catch(e){}
+  if(recent.length>0){
+    var recentSec=el("div",{style:{marginBottom:"20px"}});
+    recentSec.appendChild(div({fontSize:"12px",color:"#9AABBB",fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"},"Recent Activity"));
+    var recentCard=el("div",{style:{background:"rgba(255,255,255,0.04)",borderRadius:"16px",border:"1px solid rgba(255,255,255,0.06)",overflow:"hidden"}});
+    recent.slice(0,5).forEach(function(r,i){
+      var row=el("div",{style:{display:"flex",alignItems:"center",gap:"12px",padding:"14px 16px",borderBottom:i<Math.min(recent.length,5)-1?"1px solid rgba(255,255,255,0.04)":"none"}});
+      var rIcon=el("div",{style:{width:"32px",height:"32px",borderRadius:"10px",background:"rgba(212,175,55,0.08)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
+      rIcon.innerHTML='<i data-lucide="file-search" style="width:16px;height:16px;color:#D4AF37"></i>';
+      row.appendChild(rIcon);
+      var rText=el("div",{style:{flex:"1",minWidth:"0"}});
+      rText.appendChild(div({color:"#E8EDF5",fontSize:"13px",fontFamily:"'Inter',sans-serif",fontWeight:"500",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},r.label||r.building||r.area||"Valuation"));
+      if(r.ts){var ago=Date.now()-r.ts;var agoStr=ago<3600000?Math.round(ago/60000)+"m ago":ago<86400000?Math.round(ago/3600000)+"h ago":Math.round(ago/86400000)+"d ago";rText.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},agoStr));}
+      row.appendChild(rText);
+      row.appendChild(el("div",{style:{color:"#4A5568",flexShrink:"0"},innerHTML:'<i data-lucide="chevron-right" style="width:16px;height:16px"></i>'}));
+      recentCard.appendChild(row);
+    });
+    recentSec.appendChild(recentCard);
+    wrap.appendChild(recentSec);
+  }
+
+  return wrap;
+}
+
+function renderProfilePanel(){
+  var cl=C();
+  var panel=el("div",{style:{background:cl.surface,borderBottom:"1px solid "+cl.border,padding:"20px 24px",maxHeight:"82vh",overflowY:"auto"}});
+  var allSocialFields=[];
+
+  function secLabel(text){
+    return div({color:"#D4AF37",fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",fontWeight:"700",borderLeft:"3px solid #D4AF37",paddingLeft:"8px",marginBottom:"12px",marginTop:"8px"},text);
+  }
+  function inpStyle(){
+    return {width:"100%",background:"rgba(240,242,245,0.05)",border:"1px solid "+cl.border,color:"#F0F2F5",padding:"8px 11px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"};
+  }
+  function fieldBlock(labelText,inputEl){
+    var w=el("div",{});
+    w.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"5px"},labelText));
+    w.appendChild(inputEl);
+    return w;
+  }
+  function socialInp(key,label,ph,type){
+    var inp=el("input",{type:type||"text",placeholder:ph,style:Object.assign(inpStyle(),{fontFamily:"monospace",fontSize:"11px"})});
+    inp.value=localStorage.getItem(key)||"";
+    inp.addEventListener("focus",function(){this.style.borderColor="#D4AF37";});
+    inp.addEventListener("blur",function(){this.style.borderColor=cl.border;});
+    allSocialFields.push({key:key,inp:inp});
+    return fieldBlock(label,inp);
+  }
+
+  var maxW=el("div",{style:{maxWidth:"760px",margin:"0 auto"}});
+
+  // ── ACCOUNT ────────────────────────────────────────────────────
+  maxW.appendChild(secLabel("Account"));
+  var acctGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:"12px",marginBottom:"20px"}});
+
+  // Email (read-only)
+  var emailVal=(typeof DV_AUTH!=="undefined"&&DV_AUTH.user&&DV_AUTH.user.email)||"";
+  var emailInp=el("input",{type:"text",value:emailVal,readOnly:true,style:Object.assign(inpStyle(),{opacity:"0.55",cursor:"default"})});
+  acctGrid.appendChild(fieldBlock("Email",emailInp));
+
+  // Name
+  var nameInp=el("input",{type:"text",placeholder:"Your name",style:inpStyle()});
+  nameInp.value=USER_PROFILE.name||"";
+  nameInp.addEventListener("input",function(){USER_PROFILE.name=this.value;});
+  nameInp.addEventListener("focus",function(){this.style.borderColor="#D4AF37";});
+  nameInp.addEventListener("blur",function(){this.style.borderColor=cl.border;});
+  acctGrid.appendChild(fieldBlock("Name",nameInp));
+
+  // Phone
+  var phoneInp=el("input",{type:"tel",placeholder:"+971 50 000 0000",style:inpStyle()});
+  phoneInp.value=localStorage.getItem("dv_phone")||"";
+  phoneInp.addEventListener("focus",function(){this.style.borderColor="#D4AF37";});
+  phoneInp.addEventListener("blur",function(){this.style.borderColor=cl.border;});
+  acctGrid.appendChild(fieldBlock("Phone",phoneInp));
+
+  // WhatsApp
+  var waInp=el("input",{type:"tel",placeholder:"+971 50 000 0000",style:inpStyle()});
+  waInp.value=localStorage.getItem("dv_whatsapp_number")||"";
+  waInp.addEventListener("focus",function(){this.style.borderColor="#D4AF37";});
+  waInp.addEventListener("blur",function(){this.style.borderColor=cl.border;});
+  acctGrid.appendChild(fieldBlock("WhatsApp",waInp));
+
+  maxW.appendChild(acctGrid);
+
+  // ── SOCIAL ACCOUNTS ────────────────────────────────────────────
+  maxW.appendChild(secLabel("Social Accounts"));
+
+  // Helper: OAuth connect button
+  function oauthBtn(label,color,platform){
+    var userId=(typeof DV_AUTH!=="undefined"&&DV_AUTH.user)?(DV_AUTH.user.email||DV_AUTH.user.id):"default";
+    var state=platform+"_"+userId;
+    var btn=el("button",{style:{display:"flex",alignItems:"center",gap:"6px",background:color+"22",border:"1px solid "+color,borderRadius:"8px",padding:"7px 14px",color:color,fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",whiteSpace:"nowrap"}});
+    var connected=false;
+    if(platform==="meta"){connected=!!localStorage.getItem("dv_ig_token")||!!localStorage.getItem("dv_fb_id");}
+    else if(platform==="google"){connected=!!localStorage.getItem("dv_gmail_connected");}
+    btn.innerHTML=(connected?"✓ Connected":"Connect")+" "+label;
+    btn.style.background=connected?"#10B98122":color+"22";
+    btn.style.borderColor=connected?"#10B981":color;
+    btn.style.color=connected?"#10B981":color;
+    btn.addEventListener("click",function(){
+      var appId=process.env&&process.env.META_APP_ID;
+      if(platform==="meta"){
+        var metaAppId="";// filled by server below
+        fetch("/api/oauth-config").then(function(r){return r.json();}).then(function(d){
+          var url="https://www.facebook.com/dialog/oauth?client_id="+d.meta_app_id+
+            "&redirect_uri="+encodeURIComponent(window.location.origin+"/callback")+
+            "&scope=pages_show_list,pages_messaging,instagram_manage_messages,instagram_basic,pages_read_engagement,read_page_mailboxes"+
+            "&response_type=code&state="+encodeURIComponent(state);
+          window.location.href=url;
+        }).catch(function(){alert("Meta App ID not configured. Add META_APP_ID to Vercel env vars.");});
+      } else if(platform==="google"){
+        fetch("/api/oauth-config").then(function(r){return r.json();}).then(function(d){
+          var url="https://accounts.google.com/o/oauth2/v2/auth?client_id="+d.google_client_id+
+            "&redirect_uri="+encodeURIComponent(window.location.origin+"/callback")+
+            "&scope="+encodeURIComponent("https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send")+
+            "&response_type=code&access_type=offline&prompt=consent"+
+            "&state="+encodeURIComponent(state);
+          window.location.href=url;
+        }).catch(function(){alert("Google Client ID not configured. Add GOOGLE_CLIENT_ID to Vercel env vars.");});
+      }
+    });
+    return btn;
+  }
+
+  // Instagram + Facebook — one OAuth button connects both
+  var igSection=el("div",{style:{marginBottom:"14px"}});
+  var igHeader=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"8px"}});
+  var igLabel=div({color:"#E1306C",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"📸 Instagram & Facebook");
+  igHeader.appendChild(igLabel);
+  igHeader.appendChild(oauthBtn("Instagram + Facebook","#E1306C","meta"));
+  igSection.appendChild(igHeader);
+  var igGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"10px"}});
+  igGrid.appendChild(socialInp("dv_ig_id","Account ID (auto-filled after connect)","e.g. 1234567890"));
+  igGrid.appendChild(socialInp("dv_ig_token","Access Token (auto-filled after connect)","EAAGm...","password"));
+  igSection.appendChild(igGrid);
+  maxW.appendChild(igSection);
+
+  // Facebook manual (separate Page ID still shown for info)
+  var fbSection=el("div",{style:{marginBottom:"14px"}});
+  fbSection.appendChild(div({color:"#1877F2",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"👥 Facebook Page ID (auto-filled)"));
+  var fbGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"10px"}});
+  fbGrid.appendChild(socialInp("dv_fb_id","Page ID","auto-filled after Connect above"));
+  fbSection.appendChild(fbGrid);
+  maxW.appendChild(fbSection);
+
+  // Gmail
+  var gmailSection=el("div",{style:{marginBottom:"14px"}});
+  var gmailHeader=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"8px"}});
+  gmailHeader.appendChild(div({color:"#EA4335",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"📧 Gmail"));
+  gmailHeader.appendChild(oauthBtn("Gmail","#EA4335","google"));
+  gmailSection.appendChild(gmailHeader);
+  var gmailStatus=div({fontSize:"11px",color:"#8899AA",padding:"8px 12px",background:"#0D1220",borderRadius:"8px"},localStorage.getItem("dv_gmail_connected")?"Connected: "+localStorage.getItem("dv_gmail_connected"):"Not connected — click Connect Gmail to link your inbox");
+  gmailSection.appendChild(gmailStatus);
+  maxW.appendChild(gmailSection);
+
+  // LinkedIn
+  var liSection=el("div",{style:{marginBottom:"14px"}});
+  liSection.appendChild(div({color:"#0A66C2",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"💼 LinkedIn"));
+  var liGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"10px"}});
+  liGrid.appendChild(socialInp("dv_linkedin_token","Access Token","AQX...","password"));
+  liGrid.appendChild(socialInp("dv_linkedin_urn","Organization URN","urn:li:organization:123"));
+  liSection.appendChild(liGrid);
+  maxW.appendChild(liSection);
+
+  // X / Twitter
+  var twSection=el("div",{style:{marginBottom:"14px"}});
+  twSection.appendChild(div({color:"#E8EDF5",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"𝕏 X / Twitter"));
+  var twGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"10px"}});
+  twGrid.appendChild(socialInp("dv_twitter_consumer_key","Consumer Key","API key"));
+  twGrid.appendChild(socialInp("dv_twitter_consumer_secret","Consumer Secret","API secret","password"));
+  twGrid.appendChild(socialInp("dv_twitter_access_token","Access Token","token","password"));
+  twGrid.appendChild(socialInp("dv_twitter_access_secret","Access Secret","secret","password"));
+  twSection.appendChild(twGrid);
+  maxW.appendChild(twSection);
+
+  // TikTok
+  var ttSection=el("div",{style:{marginBottom:"14px"}});
+  ttSection.appendChild(div({color:"#69C9D0",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"🎵 TikTok"));
+  var ttGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"10px"}});
+  ttGrid.appendChild(socialInp("dv_tiktok_token","Access Token","Bearer token...","password"));
+  ttSection.appendChild(ttGrid);
+  maxW.appendChild(ttSection);
+
+  // YouTube
+  var ytSection=el("div",{style:{marginBottom:"20px"}});
+  ytSection.appendChild(div({color:"#FF0000",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"▶ YouTube"));
+  var ytGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"10px"}});
+  ytGrid.appendChild(socialInp("dv_youtube_client_id","Client ID","client_id.apps.google..."));
+  ytGrid.appendChild(socialInp("dv_youtube_refresh","Refresh Token","refresh_token...","password"));
+  ytSection.appendChild(ytGrid);
+  maxW.appendChild(ytSection);
+
+  // ── BUTTONS ────────────────────────────────────────────────────
+  var btnRow=el("div",{style:{display:"flex",gap:"10px",flexDirection:"column"}});
+
+  var saveBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#D4AF37,#A07D1C)",border:"none",borderRadius:"8px",padding:"11px",color:"#070B14",fontWeight:"700",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.06em"}});
+  saveBtn.textContent="SAVE PROFILE";
+  saveBtn.addEventListener("click",function(){
+    // Save account fields
+    USER_PROFILE.name=nameInp.value.trim();
+    saveProfile();
+    localStorage.setItem("dv_phone",phoneInp.value.trim());
+    localStorage.setItem("dv_whatsapp_number",waInp.value.trim());
+    // Save social fields
+    allSocialFields.forEach(function(f){
+      if(f.inp.value.trim())localStorage.setItem(f.key,f.inp.value.trim());
+      else localStorage.removeItem(f.key);
+    });
+    if(typeof _syncCredsToServer==="function")_syncCredsToServer();
+    saveBtn.textContent="✓ SAVED";
+    saveBtn.style.background="linear-gradient(135deg,#10B981,#059669)";
+    setTimeout(function(){saveBtn.textContent="SAVE PROFILE";saveBtn.style.background="linear-gradient(135deg,#D4AF37,#A07D1C)";},2000);
+  });
+  btnRow.appendChild(saveBtn);
+
+  if(typeof DV_AUTH!=="undefined"&&DV_AUTH.user){
+    var signOutBtn=el("button",{style:{width:"100%",background:"transparent",border:"1px solid rgba(239,68,68,0.3)",borderRadius:"8px",padding:"9px",color:"#EF4444",fontWeight:"600",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.04em"}});
+    signOutBtn.textContent="Sign Out";
+    signOutBtn.addEventListener("mouseenter",function(){this.style.background="rgba(239,68,68,0.08)";});
+    signOutBtn.addEventListener("mouseleave",function(){this.style.background="transparent";});
+    signOutBtn.addEventListener("click",function(){
+      if(typeof dvSignOut==="function")dvSignOut();
+    });
+    btnRow.appendChild(signOutBtn);
+  }
+
+  maxW.appendChild(btnRow);
+  panel.appendChild(maxW);
+  return panel;
+}
+
+function render(preserveScroll){
   if(!DB_LOADED){
-    const app=document.getElementById('app');
+    var app=document.getElementById('app');
     if(app&&(!app.innerHTML||app.innerHTML.indexOf('loading')>-1)){
       app.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#070B14;gap:16px"><div style="width:40px;height:40px;border-radius:50%;border:2px solid #1C2030;border-top-color:#C9A84C;animation:spin 0.8s linear infinite"></div><div style="color:#4B5563;font-size:12px;font-family:Space Grotesk,monospace;letter-spacing:0.1em">LOADING DATABASE...</div></div>';
     }
     return;
   }
+
+  // Auth is optional — no gate, app loads freely
+
   document.documentElement.dir=isRTL()?"rtl":"ltr";
   document.documentElement.lang=isRTL()?"ar":"en";
   if(isRTL())document.body.style.fontFamily="Cairo,'Space Grotesk',monospace";
   else document.body.style.fontFamily="";
-  const cl=C();
-  const app=document.getElementById("app");
+  var _scrollY=preserveScroll?window.scrollY:0;
+
+  if(currentTab&&TAB_TO_SECTION[currentTab]){
+    var mapped=TAB_TO_SECTION[currentTab];
+    currentSection=mapped[0];currentSubTab=mapped[1];
+    currentTab="";
+  }
+  if(!window._adminHashChecked&&window.location.hash==="#admin"){currentSection="More";currentSubTab="Admin";window._adminHashChecked=true;}
+
+  var cl=C();
+  var app=document.getElementById("app");
   app.innerHTML="";
-  app.style.background=cl.bg;app.style.minHeight="100vh";app.style.color=cl.white;
+  app.style.cssText="background:"+cl.bg+";min-height:100vh;color:"+cl.white+";overflow-x:hidden;max-width:100%;width:100%;";
 
-  // Ticker
-  const tickerItems=["Q1 2026: AED 252B · +31%","Villa PSF +16% YoY","Foreign Capital AED 148B","JVC Yield 9.5%","87% Cash Purchases","Off-Plan 77.8%","Buyer Window: 3-6 Months","May: AED 14B+/week","Q1 2026: AED 252B · +31%","Villa PSF +16% YoY","Foreign Capital AED 148B","JVC Yield 9.5%"];
-  const tickerInner=div({display:"flex",gap:"56px",whiteSpace:"nowrap",animation:"ticker 32s linear infinite",fontFamily:"'Space Grotesk',monospace",fontSize:"10.5px",color:"#070B14",fontWeight:"700"},tickerItems.map(function(t){return span({},"\u25C6 "+t)}));
-  app.appendChild(div({background:cl.gold,overflow:"hidden",padding:"4px 0"},[tickerInner]));
-
-  // Header
-  const header=div({background:cl.surface,borderBottom:"1px solid "+cl.border,padding:"0 20px",display:"flex",alignItems:"center",justifyContent:"space-between",height:"54px",position:"sticky",top:"0",zIndex:"100"},[
-    div({display:"flex",alignItems:"center",gap:"10px"},[
-      el("img",{src:"logo.png",alt:"dAIv",style:{width:"36px",height:"36px",borderRadius:"7px",flexShrink:"0",objectFit:"contain"}}),
-      div({},[div({fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",color:"#fff"},"DubAIVal"),div({color:cl.goldDim,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},t("hdr_subtitle"))])
-    ]),
-    div({display:"flex",alignItems:"center",gap:"8px"},[
-      div({display:"flex",alignItems:"center",gap:"5px",background:cl.greenBg,border:"1px solid "+cl.greenBo,borderRadius:"20px",padding:"4px 10px"},[div({width:"5px",height:"5px",borderRadius:"50%",background:cl.green,animation:"pulse 2s infinite",flexShrink:"0"}),(function(){var lb=el("span",{style:{color:cl.green,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"}});lb.textContent=LIVE_GEO.fetched?"LIVE ·"+LIVE_GEO.trend:"LIVE";return lb;})()]),
-      el("button",{style:{background:cl.raised,border:"1px solid "+cl.border,borderRadius:"20px",padding:"5px 10px",cursor:"pointer",color:cl.sub,fontSize:"14px"},onclick:function(){darkMode=!darkMode;render();}},darkMode?"☀️":"🌙"),
-      el("button",{style:{background:isRTL()?hexAlpha("#3B82F6",0.12):"transparent",border:"1px solid "+(isRTL()?"rgba(59,130,246,0.3)":cl.border),borderRadius:"20px",padding:"4px 10px",cursor:"pointer",color:isRTL()?"#3B82F6":cl.sub,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},onclick:function(){setLang(dvLang==="ar"?"en":"ar");}},dvLang==="ar"?"EN":"عر"),
-      // Notification bell
-      renderNotifBell(),
-      // Auth button
-      renderAuthButton(),
-      // Profile button
-      (function(){
-        var pb=el("button",{style:{background:showProfilePanel?cl.goldFaint:"transparent",border:"1px solid "+(showProfilePanel?cl.gold:cl.border),borderRadius:"20px",padding:"5px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:"5px",color:showProfilePanel?cl.gold:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace",marginLeft:"4px"}});
-        var typeIcons={income:"💰",growth:"📈",flip:"🔄",enduse:"🏠"};
-        pb.textContent=(typeIcons[USER_PROFILE.investorType]||"👤")+" Profile";
-        pb.addEventListener("click",function(){showProfilePanel=!showProfilePanel;render();});
-        return pb;
-      })(),
-    ])
-  ]);
-  app.appendChild(header);
-
-  // Profile Panel (slide down)
-  if(showProfilePanel){
-    var panel=el("div",{style:{background:cl.surface,borderBottom:"1px solid "+cl.border,padding:"16px 20px"}});
-    var pGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:"16px",maxWidth:"800px",margin:"0 auto"}});
-
-    // Investor Type
-    var typeBox=el("div",{});
-    typeBox.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Investor Type"));
-    var typeGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"5px"}});
-    [{k:"income",l:"Rental Income",ic:"💰"},{k:"growth",l:"Capital Growth",ic:"📈"},{k:"flip",l:"Flip / Resale",ic:"🔄"},{k:"enduse",l:"End Use",ic:"🏠"}].forEach(function(p){
-      var active=USER_PROFILE.investorType===p.k;
-      var b=el("button",{style:{padding:"7px 8px",borderRadius:"7px",fontSize:"11px",border:"1px solid "+(active?cl.gold:cl.border),background:active?cl.goldFaint:"transparent",color:active?"#F0F2F5":cl.sub,fontFamily:"'Inter',sans-serif",cursor:"pointer",textAlign:"left"}});
-      b.textContent=p.ic+" "+p.l;
-      b.addEventListener("click",function(){USER_PROFILE.investorType=p.k;saveProfile();render();});
-      typeGrid.appendChild(b);
-    });
-    typeBox.appendChild(typeGrid);
-    pGrid.appendChild(typeBox);
-
-    // Risk Tolerance
-    var riskBox=el("div",{});
-    riskBox.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Risk Tolerance"));
-    var riskGrid=el("div",{style:{display:"flex",flexDirection:"column",gap:"5px"}});
-    [{k:"conservative",l:"Conservative",ic:"🛡"},{k:"moderate",l:"Moderate",ic:"⚖️"},{k:"aggressive",l:"Aggressive",ic:"🚀"}].forEach(function(r){
-      var active=USER_PROFILE.risk===r.k;
-      var b=el("button",{style:{padding:"7px 10px",borderRadius:"7px",fontSize:"11px",border:"1px solid "+(active?cl.gold:cl.border),background:active?cl.goldFaint:"transparent",color:active?"#F0F2F5":cl.sub,fontFamily:"'Inter',sans-serif",cursor:"pointer",textAlign:"left"}});
-      b.textContent=r.ic+" "+r.l;
-      b.addEventListener("click",function(){USER_PROFILE.risk=r.k;saveProfile();render();});
-      riskGrid.appendChild(b);
-    });
-    riskBox.appendChild(riskGrid);
-    pGrid.appendChild(riskBox);
-
-    // Budget Range
-    var budgetBox=el("div",{});
-    budgetBox.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Budget Range (AED)"));
-    var bRow=el("div",{style:{display:"flex",gap:"8px",alignItems:"center"}});
-    var bMin=el("input",{type:"number",placeholder:"Min",style:{flex:"1",background:"rgba(240,242,245,0.05)",border:"1px solid "+cl.border,color:"#F0F2F5",padding:"7px 10px",borderRadius:"7px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",minWidth:"0"}});
-    bMin.value=USER_PROFILE.budgetMin?USER_PROFILE.budgetMin.toLocaleString():"";
-    bMin.addEventListener("change",function(){USER_PROFILE.budgetMin=parseInt(this.value.replace(/,/g,""))||0;saveProfile();});
-    var bMax=el("input",{type:"number",placeholder:"Max",style:{flex:"1",background:"rgba(240,242,245,0.05)",border:"1px solid "+cl.border,color:"#F0F2F5",padding:"7px 10px",borderRadius:"7px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",minWidth:"0"}});
-    bMax.value=USER_PROFILE.budgetMax?USER_PROFILE.budgetMax.toLocaleString():"";
-    bMax.addEventListener("change",function(){USER_PROFILE.budgetMax=parseInt(this.value.replace(/,/g,""))||0;saveProfile();});
-    bRow.appendChild(bMin);
-    bRow.appendChild(span({color:cl.sub,fontSize:"12px"},"–"));
-    bRow.appendChild(bMax);
-    budgetBox.appendChild(bRow);
-    pGrid.appendChild(budgetBox);
-
-    // Name
-    var nameBox=el("div",{});
-    nameBox.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Your Name (optional)"));
-    var nameInp=el("input",{type:"text",placeholder:"e.g. Ahmed Al Mansouri",style:{width:"100%",background:"rgba(240,242,245,0.05)",border:"1px solid "+cl.border,color:"#F0F2F5",padding:"7px 10px",borderRadius:"7px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
-    nameInp.value=USER_PROFILE.name||"";
-    nameInp.addEventListener("input",function(){USER_PROFILE.name=this.value;saveProfile();});
-    nameBox.appendChild(nameInp);
-    pGrid.appendChild(nameBox);
-
-    panel.appendChild(pGrid);
-
-    // Profile summary bar
-    var summary=el("div",{style:{display:"flex",gap:"10px",flexWrap:"wrap",marginTop:"12px",paddingTop:"10px",borderTop:"1px solid "+cl.border,maxWidth:"800px",margin:"12px auto 0"}});
-    var typeLabels={income:"Rental Income",growth:"Capital Growth",flip:"Flip / Resale",enduse:"End Use"};
-    var riskLabels={conservative:"Conservative",moderate:"Moderate",aggressive:"Aggressive"};
-    [{l:"Type",v:typeLabels[USER_PROFILE.investorType]||"Not set"},{l:"Risk",v:riskLabels[USER_PROFILE.risk]||"Moderate"},{l:"Budget",v:USER_PROFILE.budgetMax?"Up to AED "+(USER_PROFILE.budgetMax/1000000).toFixed(1)+"M":"Not set"}].forEach(function(item){
-      var chip=el("div",{style:{background:cl.goldFaint,border:"1px solid "+cl.goldDim,borderRadius:"20px",padding:"3px 12px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",color:cl.gold}});
-      chip.textContent=item.l+": "+item.v;
-      summary.appendChild(chip);
-    });
-    panel.appendChild(summary);
-    app.appendChild(panel);
+  if(!document.getElementById("dvGlobalStyles")){
+    var gs=document.createElement("style");gs.id="dvGlobalStyles";
+    gs.textContent="@keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}@keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(201,168,76,0.4)}70%{box-shadow:0 0 0 10px rgba(201,168,76,0)}100%{box-shadow:0 0 0 0 rgba(201,168,76,0)}}@keyframes fadeInUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}@keyframes countUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}";
+    document.head.appendChild(gs);
   }
 
-  // Nav
-  const tabs=[{id:"Market",icon:"📊",lk:"tab_market"},{id:"Index",icon:"📈",lk:"tab_index"},{id:"Analyzer",icon:"🔍",lk:"tab_analyzer"},{id:"Map",icon:"🗺️",lk:"tab_map"},{id:"Find",icon:"🔎",lk:"tab_find"},{id:"Deals",icon:"🤝",lk:"tab_deals"},{id:"Compare",icon:"⚖️",lk:"tab_compare"},{id:"Portfolio",icon:"💼",lk:"tab_portfolio"},{id:"Alerts",icon:"🔔",lk:"tab_alerts"},{id:"Chat",icon:"💬",lk:"tab_chat"},{id:"Workspace",icon:"🛠️",lk:"tab_workspace"},{id:"About",icon:"ℹ️",lk:"tab_about"}];
-  const nav=div({background:cl.surface,borderBottom:"1px solid "+cl.border,display:"flex",overflowX:"auto",padding:"0 20px"},
-    tabs.map(function(tab){
-      const active=currentTab===tab.id;
-      return el("button",{style:{background:"transparent",border:"none",borderBottom:"2px solid "+(active?cl.gold:"transparent"),color:active?cl.gold:cl.sub,padding:"11px 14px",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",fontSize:"12.5px",fontWeight:active?"700":"400",whiteSpace:"nowrap"},onclick:function(){currentTab=tab.id;render();}},tab.icon+" "+t(tab.lk));
-    })
-  );
-  app.appendChild(nav);
+  var layout=el("div",{style:{display:"flex",minHeight:"100vh",maxWidth:"100%",overflowX:"hidden",width:"100%",minWidth:"0"}});
 
-  const content=div({className:"tab-content"});
-  // Check URL for admin access
-  if(window.location.hash==="#admin"&&currentTab!=="Admin")currentTab="Admin";
-  
-  if(currentTab==="Market")content.appendChild(renderMarket());
-  else if(currentTab==="Index")content.appendChild(renderMarketIndex());
-  else if(currentTab==="Analyzer")content.appendChild(renderAnalyzer());
-  else if(currentTab==="Map")content.appendChild(renderMap());
-  else if(currentTab==="Find")content.appendChild(renderFind());
-  else if(currentTab==="Deals")content.appendChild(renderDeals());
-  else if(currentTab==="Admin")content.appendChild(renderAdmin());
-  else if(currentTab==="Compare")content.appendChild(renderCompare());
-  else if(currentTab==="Portfolio")content.appendChild(renderPortfolio());
-  else if(currentTab==="Alerts")content.appendChild(renderAlerts());
-  else if(currentTab==="Chat")content.appendChild(renderChat());
-  else if(currentTab==="Workspace")content.appendChild(renderWorkspace());
-  else if(currentTab==="About")content.appendChild(renderAbout());
-  app.appendChild(content);
+  // --- SIDEBAR (desktop) ---
+  var sbClass="dv-sidebar"+(sidebarCollapsed?" collapsed":"");
+  var sidebar=el("nav",{style:{}});
+  sidebar.className=sbClass;
 
-  app.appendChild(div({borderTop:"1px solid "+cl.border,padding:"10px 20px",display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:"4px"},[
-    span({color:cl.sub,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},t("footer_tag")),
-    span({color:cl.sub,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},t("not_advice")),
+  var logoWrap=el("div",{});
+  logoWrap.className="dv-sidebar-logo";
+  var logoSize=sidebarCollapsed?"28px":"36px";
+  logoWrap.appendChild(el("img",{src:"logo.png",alt:"DV",style:{width:logoSize,height:logoSize,borderRadius:"7px",flexShrink:"0",objectFit:"contain",transition:"width 0.2s ease,height 0.2s ease"}}));
+  var logoText=el("div",{});
+  logoText.className="dv-sidebar-logo-text";
+  logoText.appendChild(div({fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",color:"#fff"},"DubAIVal"));
+  logoText.appendChild(div({color:"#8899AA",fontSize:"9px",letterSpacing:"0.1em",fontFamily:"'Space Grotesk',monospace"},"AI PROPERTY INTEL"));
+  logoWrap.appendChild(logoText);
+  sidebar.appendChild(logoWrap);
+
+  NAV_SECTIONS.forEach(function(sec){
+    var isActive=currentSection===sec.id;
+    var isKey=sec.id==="Market"||sec.id==="Network";
+    var item=el("div",{});
+    item.className="dv-sidebar-item"+(isActive?" active":"");
+    if(isActive&&sec.accentColor)item.style.borderLeftColor=sec.accentColor;
+    var iconSize=isKey?"24px":"20px";
+    var iconSpan=el("span",{style:{flexShrink:"0",width:iconSize,height:iconSize,display:"inline-flex",alignItems:"center",justifyContent:"center",color:isActive&&sec.accentColor?sec.accentColor:""}});
+    iconSpan.innerHTML='<i data-lucide="'+sec.icon+'" style="width:'+iconSize+';height:'+iconSize+'"></i>';
+    item.appendChild(iconSpan);
+    var labelWrap=el("span",{style:{display:"flex",flexDirection:"column",overflow:"hidden"}});
+    labelWrap.className="dv-sidebar-label";
+    var labelMain=el("span",{});
+    labelMain.textContent=sec.label;
+    labelWrap.appendChild(labelMain);
+    if(sec.subtitle&&!sidebarCollapsed){
+      var sub=el("span",{style:{fontSize:"8px",color:sec.accentColor||"#6B7A9E",letterSpacing:"0.08em",fontFamily:"'Space Grotesk',monospace",opacity:"0.7",lineHeight:"1"}});
+      sub.textContent=sec.subtitle;
+      labelWrap.appendChild(sub);
+    }
+    item.appendChild(labelWrap);
+    if(sec.badgeKey==="deals"&&!sidebarCollapsed){
+      var dealCount=0;try{var dc=JSON.parse(localStorage.getItem("dv_deal_cache")||"[]");dealCount=dc.length;}catch(e){}
+      if(dealCount>0){var badge=el("span",{style:{background:"rgba(16,185,129,0.15)",color:"#10B981",fontSize:"8px",fontWeight:"700",fontFamily:"'JetBrains Mono',monospace",padding:"2px 6px",borderRadius:"999px",marginLeft:"auto",flexShrink:"0"}});badge.textContent=String(dealCount);item.appendChild(badge);}
+    }
+    if(sec.badgeKey==="autopost"&&!sidebarCollapsed){
+      var failCount=0;try{var acal=JSON.parse(localStorage.getItem("dv_content_calendar")||"[]");failCount=acal.filter(function(e){return e.status==="failed"||e.status==="partial";}).length;}catch(e){}
+      if(failCount>0){var fbadge=el("span",{style:{background:"rgba(239,68,68,0.15)",color:"#EF4444",fontSize:"8px",fontWeight:"700",fontFamily:"'JetBrains Mono',monospace",padding:"2px 6px",borderRadius:"999px",marginLeft:"auto",flexShrink:"0"}});fbadge.textContent=String(failCount);item.appendChild(fbadge);}
+    }
+    if(sec.id==="Network"&&!sidebarCollapsed){
+      var tbadge=el("span",{style:{background:"rgba(139,92,246,0.15)",color:"#8B5CF6",fontSize:"7px",fontWeight:"700",fontFamily:"'JetBrains Mono',monospace",padding:"2px 6px",borderRadius:"999px",marginLeft:"auto",flexShrink:"0"}});tbadge.textContent="35+";item.appendChild(tbadge);
+    }
+    item.addEventListener("click",function(){setSection(sec.id);});
+    sidebar.appendChild(item);
+  });
+
+  var sbControls=el("div",{style:{marginTop:"auto",borderTop:"1px solid #1C2540",padding:"8px 0"}});
+  var themeItem=el("div",{});
+  themeItem.className="dv-sidebar-item";
+  var themeIcon=el("span",{style:{flexShrink:"0",width:"20px",height:"20px",display:"inline-flex",alignItems:"center",justifyContent:"center"}});
+  themeIcon.innerHTML='<i data-lucide="'+(darkMode?"sun":"moon")+'"></i>';
+  themeItem.appendChild(themeIcon);
+  var themeLabel=el("span",{});
+  themeLabel.className="dv-sidebar-label";
+  themeLabel.textContent=darkMode?"Light Mode":"Dark Mode";
+  themeItem.appendChild(themeLabel);
+  themeItem.addEventListener("click",function(){darkMode=!darkMode;try{localStorage.setItem("dv_dark",darkMode?"1":"0");}catch(e){}render();});
+  sbControls.appendChild(themeItem);
+
+  var langItem=el("div",{});
+  langItem.className="dv-sidebar-item";
+  var langIcon=el("span",{style:{flexShrink:"0",width:"20px",height:"20px",display:"inline-flex",alignItems:"center",justifyContent:"center"}});
+  langIcon.innerHTML='<i data-lucide="globe"></i>';
+  langItem.appendChild(langIcon);
+  var langLabel=el("span",{});
+  langLabel.className="dv-sidebar-label";
+  langLabel.textContent=dvLang==="ar"?"English":dvLang==="fa"?"English":"Arabic";
+  langItem.appendChild(langLabel);
+  langItem.addEventListener("click",function(){setLang(dvLang==="en"?"ar":"en");});
+  sbControls.appendChild(langItem);
+  sidebar.appendChild(sbControls);
+
+  var collapseBtn=el("div",{});
+  collapseBtn.className="dv-sidebar-toggle";
+  collapseBtn.textContent=sidebarCollapsed?"»":"«";
+  collapseBtn.addEventListener("click",function(){
+    sidebarCollapsed=!sidebarCollapsed;
+    try{localStorage.setItem("dv_sidebar_collapsed",sidebarCollapsed?"1":"0");}catch(e){}
+    render();
+  });
+  sidebar.appendChild(collapseBtn);
+  layout.appendChild(sidebar);
+
+  // --- MAIN AREA ---
+  var main=el("div",{style:{width:"100%",maxWidth:"100%",overflowX:"hidden",boxSizing:"border-box",minWidth:"0"}});
+  main.className="dv-main"+(sidebarCollapsed?" sidebar-collapsed":"");
+
+  // Top bar — Modern native app header
+  var header=el("div",{});
+  header.className="dv-app-header";
+  var curSec=NAV_SECTIONS.find(function(n){return n.id===currentSection;});
+
+  var secTitle=el("div",{style:{display:"flex",alignItems:"center",gap:"10px"}});
+  var mobileLogo=el("img",{src:"logo.png",alt:"DV",style:{width:"26px",height:"26px",borderRadius:"8px",objectFit:"contain",display:"none"}});
+  mobileLogo.className="dv-mobile-logo";
+  secTitle.appendChild(mobileLogo);
+  var secIconWrap=el("span",{style:{width:"20px",height:"20px",display:"inline-flex",alignItems:"center",color:curSec&&curSec.accentColor?curSec.accentColor:cl.gold}});
+  secIconWrap.className="dv-header-sec-icon";
+  if(curSec)secIconWrap.innerHTML='<i data-lucide="'+curSec.icon+'"></i>';
+  secTitle.appendChild(secIconWrap);
+  secTitle.appendChild(span({fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",color:"#F0F2F5",letterSpacing:"-0.02em"},curSec?curSec.label:"DubAIVal"));
+  header.appendChild(secTitle);
+
+  var controls=el("div",{style:{display:"flex",alignItems:"center",gap:"6px"}});
+  // News icon button with new-article dot
+  var newsBtn=el("button",{});
+  newsBtn.className="dv-icon-btn";
+  newsBtn.style.position="relative";
+  newsBtn.title="Dubai Real Estate News";
+  newsBtn.innerHTML='<i data-lucide="newspaper" style="width:18px;height:18px"></i>';
+  var _hasNewNews=(function(){try{var nc=localStorage.getItem("dv_news_cache");if(!nc)return false;var np=JSON.parse(nc);var lv=parseInt(localStorage.getItem("dv_news_last_visit")||"0",10)||0;return np&&np.articles&&np.articles.some(function(a){return a.ts&&a.ts>lv;});}catch(e){return false;}})();
+  if(_hasNewNews){var newsDot=el("div",{style:{position:"absolute",top:"6px",right:"6px",width:"6px",height:"6px",borderRadius:"50%",background:"#EF4444",boxShadow:"0 0 6px #EF4444"}});newsBtn.appendChild(newsDot);}
+  newsBtn.addEventListener("click",function(){setSection("Market","News");});
+  controls.appendChild(newsBtn);
+  if(typeof renderNotifBell==="function")controls.appendChild(renderNotifBell());
+  var avatarBtn=el("div",{});
+  avatarBtn.className="dv-avatar";
+  var _dvLoggedIn=typeof DV_AUTH!=="undefined"&&DV_AUTH.user;
+  if(_dvLoggedIn){
+    var _dvNameStr=USER_PROFILE.name||(DV_AUTH.user.email||"");
+    var avatarInitial=_dvNameStr?_dvNameStr.charAt(0).toUpperCase():"U";
+    avatarBtn.innerHTML='<span style="font-size:13px;font-weight:700;color:#D4AF37;font-family:\'Inter\',sans-serif">'+avatarInitial+'</span>';
+    avatarBtn.title="My Profile";
+    avatarBtn.addEventListener("click",function(){showProfilePanel=!showProfilePanel;render();});
+  }else{
+    avatarBtn.innerHTML='<i data-lucide="user" style="width:16px;height:16px;color:#6B7A9E"></i>';
+    avatarBtn.title="Sign In";
+    avatarBtn.style.background="transparent";
+    avatarBtn.style.border="1px solid rgba(255,255,255,0.08)";
+    avatarBtn.addEventListener("click",function(){if(typeof DV_AUTH!=="undefined"){DV_AUTH.showModal=true;DV_AUTH.modalTab="signin";DV_AUTH.error="";}render();});
+  }
+  controls.appendChild(avatarBtn);
+  header.appendChild(controls);
+  main.appendChild(header);
+
+  if(showProfilePanel){
+    main.appendChild(renderProfilePanel());
+  }
+
+  // Sub-tab pills
+  if(curSec&&curSec.subs&&curSec.subs.length>0){
+    var pillBar=el("div",{});
+    pillBar.className="dv-subtabs";
+    curSec.subs.forEach(function(sub){
+      var isActive=currentSubTab===sub.id;
+      var p=el("button",{});
+      p.className="dv-pill"+(isActive?" active":"");
+      p.textContent=sub.label;
+      p.addEventListener("click",function(){setSection(currentSection,sub.id);});
+      pillBar.appendChild(p);
+    });
+    main.appendChild(wrapHScroll(pillBar));
+  }
+
+  if(!(currentSection==="Market"&&currentSubTab==="News")&&typeof stopNewsPolling==="function")stopNewsPolling();
+
+  // Content area
+  var content=el("div",{className:"dv-content",style:{flex:"1",overflow:"auto",width:"100%",maxWidth:"100%",boxSizing:"border-box",overflowX:"hidden"}});
+
+  if(currentSection==="Home"){
+    content.appendChild(renderHome());
+  } else if(currentSection==="Market"){
+    if(currentSubTab==="Dashboard")content.appendChild(renderMarket());
+    else if(currentSubTab==="QuickCheck")content.appendChild(renderQuickCheck());
+    else if(currentSubTab==="TrackRecord")content.appendChild(renderTrackRecord());
+    else if(currentSubTab==="Analyzer")content.appendChild(renderAnalyzer());
+    else if(currentSubTab==="Index")content.appendChild(renderMarketIndex());
+    else if(currentSubTab==="Compare")content.appendChild(renderCompare());
+    else if(currentSubTab==="Find")content.appendChild(renderFind());
+    else if(currentSubTab==="Map")content.appendChild(renderMap());
+    else if(currentSubTab==="Advisor")content.appendChild(renderPersonal());
+    else if(currentSubTab==="News"&&typeof renderNews==="function")content.appendChild(renderNews());
+    else content.appendChild(renderMarket());
+  } else if(currentSection==="Portfolio"){
+    if(currentSubTab==="Assets")content.appendChild(renderPortfolio("assets"));
+    else if(currentSubTab==="Health")content.appendChild(renderPortfolio("health"));
+    else if(currentSubTab==="Projections")content.appendChild(renderPortfolio("projections"));
+    else if(currentSubTab==="Alerts")content.appendChild(renderAlerts());
+    else content.appendChild(renderPortfolio("assets"));
+  } else if(currentSection==="Network"){
+    if(currentSubTab==="Inbox"&&typeof renderInbox==="function")content.appendChild(renderInbox());
+    else if(currentSubTab==="Deals")content.appendChild(renderDeals());
+    else if(currentSubTab==="AgentHub"){DEAL_STATE.mode="agents";if(typeof fetchAgents==="function")fetchAgents();content.appendChild(renderDeals());}
+    else if(currentSubTab==="Chat")content.appendChild(renderChat());
+    else if(typeof renderInbox==="function")content.appendChild(renderInbox());
+    else content.appendChild(renderDeals());
+  } else if(currentSection==="SocialMedia"){
+    if(currentSubTab==="Studio"&&typeof renderMediaStudio==="function")content.appendChild(renderMediaStudio("studio"));
+    else if(currentSubTab==="Avatar"&&typeof renderMediaStudio==="function")content.appendChild(renderMediaStudio("avatar"));
+    else if(currentSubTab==="VideoPlatform")content.appendChild(renderSocial());
+    else if(currentSubTab==="SocialChat")content.appendChild(renderChat());
+    else if(typeof renderMediaStudio==="function")content.appendChild(renderMediaStudio());
+    else content.appendChild(renderChat());
+  } else if(currentSection==="More"){
+    if(currentSubTab==="Workspace")content.appendChild(renderWorkspace());
+    else if(currentSubTab==="Reports"&&typeof renderReportBuilder==="function")content.appendChild(renderReportBuilder(el("div",{style:{padding:"20px",maxWidth:"900px",margin:"0 auto"}}),cl));
+    else if(currentSubTab==="About")content.appendChild(renderAbout());
+    else if(currentSubTab==="Admin")content.appendChild(renderAdmin());
+    else content.appendChild(renderWorkspace());
+  } else {
+    content.appendChild(renderHome());
+  }
+
+  main.appendChild(content);
+
+  main.appendChild(div({padding:"16px",textAlign:"center",boxSizing:"border-box",width:"100%",maxWidth:"100%"},[
+    span({color:"rgba(107,122,158,0.5)",fontSize:"9px",fontFamily:"'Inter',sans-serif"},t("footer_tag")),
   ]));
 
-  // Auth modal overlay
-  var authModal=renderAuthModal();
-  if(authModal)app.appendChild(authModal);
+  layout.appendChild(main);
+  app.appendChild(layout);
 
-  // Auto-valuate from shared URL
+  // --- BOTTOM TABS (mobile) — Modern floating nav ---
+  var bottomBar=el("div",{});
+  bottomBar.className="dv-bottom-tabs";
+  NAV_SECTIONS.forEach(function(sec){
+    var isActive=currentSection===sec.id;
+    var tab=el("div",{});
+    tab.className="dv-bottom-tab"+(isActive?" active":"");
+    var ic=el("span",{style:{display:"inline-flex",alignItems:"center",justifyContent:"center",width:"24px",height:"24px"}});
+    ic.innerHTML='<i data-lucide="'+sec.icon+'" style="width:22px;height:22px;stroke-width:'+(isActive?"2":"1.5")+'"></i>';
+    tab.appendChild(ic);
+    var label=el("span",{style:{fontSize:"9px",fontWeight:isActive?"700":"500",letterSpacing:"0.02em",opacity:isActive?"1":"0.7"}});
+    label.textContent=sec.label;
+    tab.appendChild(label);
+    tab.addEventListener("click",function(){setSection(sec.id);});
+    bottomBar.appendChild(tab);
+  });
+  app.appendChild(bottomBar);
+
+  if(typeof renderAuthModal==="function"){
+    var authModal=renderAuthModal();
+    if(authModal)app.appendChild(authModal);
+  }
+
   if(window._autoValuate&&analyzerState.f.area&&analyzerState.f.price){
     window._autoValuate=false;
-    currentTab="Analyzer";
+    currentSection="Market";currentSubTab="Analyzer";
     try{analyzerState.val=computeValuation(analyzerState.f);analyzerState.stage=2;}catch(e){}
     setTimeout(render,50);
   }
 
-  // Interactive tour for first-time users
   checkTourOnLoad();
-}
+  if(preserveScroll&&_scrollY)requestAnimationFrame(function(){window.scrollTo(0,_scrollY);});
+  if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
 
+  // Proactive news prefetch: start fetching in the background so News tab loads instantly
+  if(!window._newsPrefetchStarted){
+    window._newsPrefetchStarted=true;
+    setTimeout(function(){
+      if(typeof _fetchNews==="function"&&typeof NEWS_STATE!=="undefined"&&!NEWS_STATE.loading){
+        var stale=!NEWS_STATE.articles.length||(Date.now()-NEWS_STATE.lastFetch)>300000;
+        if(stale)_fetchNews(false);
+      }
+    },4000);
+  }
+}

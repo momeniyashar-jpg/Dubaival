@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DubAIVal</string>
+    <string name="title_activity_main">DubAIVal</string>
+    <string name="package_name">com.dubaival.app</string>
+    <string name="custom_url_scheme">com.dubaival.app</string>
+</resources>

@@ -1,8 +1,10 @@
+// Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- API ---------------------------------------------------------------------
-var API_BASE=(location.hostname==="localhost"||location.hostname==="127.0.0.1")?"":"/api";
-const UAE_RE_KEY=localStorage.getItem("dv_rapidapi")||"";
+var API_BASE="/api";
+var UAE_RE_KEY="";
 const UAE_RE_HOST="uae-real-estate2.p.rapidapi.com";
-const GROQ_KEY=localStorage.getItem("dv_groq")||"";
+const PF_HOST="uae-real-estate-api-propertyfinder-ae-data.p.rapidapi.com";
+var GROQ_KEY="";try{GROQ_KEY=localStorage.getItem("dv_groq")||"";}catch(e){}
 
 async function getUAELocationId(query){
   try{
@@ -16,35 +18,179 @@ async function getUAELocationId(query){
   }catch(e){return null;}
 }
 
+async function getPFLocationId(query){
+  try{
+    var r;
+    if(UAE_RE_KEY){r=await fetch("https://"+PF_HOST+"/autocomplete-location?query="+encodeURIComponent(query),{headers:{"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":PF_HOST}});}
+    else{r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=autocomplete-location&source=pf&query="+encodeURIComponent(query));}
+    if(!r.ok)return null;
+    var d=await r.json();
+    var hits=d.data||d.hits||d;
+    if(Array.isArray(hits)&&hits.length>0)return hits[0].id||hits[0].location_id||hits[0].objectID||null;
+    if(d.id)return d.id;
+    return null;
+  }catch(e){return null;}
+}
+
+async function fetchPFSales(area,beds){
+  try{
+    var locId=await getPFLocationId(area+" Dubai");
+    if(!locId)return[];
+    var params=new URLSearchParams({location_id:String(locId),page:"1"});
+    if(beds!==undefined&&beds!==null)params.set("bedrooms",String(beds));
+    var r;
+    if(UAE_RE_KEY){r=await fetch("https://"+PF_HOST+"/search-sale?"+params,{headers:{"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":PF_HOST}});}
+    else{r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=search-sale&source=pf&"+params);}
+    if(!r.ok)return[];
+    var d=await r.json();
+    var rawPF=Array.isArray(d.data)?d.data:(d.data&&Array.isArray(d.data.data)?d.data.data:(d.data&&Array.isArray(d.data.properties)?d.data.properties:(d.hits||d.properties||d.results||[])));
+    var items=Array.isArray(rawPF)?rawPF:[];
+    return items.filter(function(p){
+      var price=p.price&&typeof p.price==="object"?p.price.value:p.price;
+      var size=typeof p.size==="number"?p.size:(typeof p.area==="number"?p.area:(typeof p.sqft==="number"?p.sqft:0));
+      return price>0&&size>0;
+    }).map(function(p){
+      var price=p.price&&typeof p.price==="object"?p.price.value:p.price;
+      var size=typeof p.size==="number"?p.size:(typeof p.area==="number"?p.area:(typeof p.sqft==="number"?p.sqft:0));
+      var imgUrl=p.cover_photo||"";
+      if(!imgUrl){var imgs=p.images||p.photos||[];if(Array.isArray(imgs)&&imgs.length>0){imgUrl=typeof imgs[0]==="string"?imgs[0]:(imgs[0].url||imgs[0].src||imgs[0].thumb||"");}}
+      if(!imgUrl)imgUrl=p.thumbnail||p.image||"";
+      return{price:price,size:size,psf:Math.round(price/size),beds:p.bedrooms||p.rooms||p.beds||0,img:imgUrl,title:p.title||"",source:"pf"};
+    }).filter(function(p){return p.psf>400&&p.psf<15000;});
+  }catch(e){return[];}
+}
+
 async function fetchLiveData(building,area,beds){
   const bedsMap={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5};
   const bn=bedsMap[beds]||2;
   const q=(building&&building.length>2)?building+" "+area:area;
   try{
-    const locId=await getUAELocationId(q)||await getUAELocationId(area);
-    if(!locId)return{sales:[],txs:[]};
-    var listParams="endpoint=properties/list&locationExternalIDs="+locId+"&purpose=for-sale&hitsPerPage=15&page=0&rooms_min="+bn+"&rooms_max="+bn;
-    var txParams="endpoint=transactions/list&locationExternalIDs="+locId+"&page=1&hitsPerPage=12";
-    var fetchList,fetchTx;
-    if(UAE_RE_KEY){
-      const h={"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":UAE_RE_HOST};
-      const params=new URLSearchParams({locationExternalIDs:locId,purpose:"for-sale",hitsPerPage:"15",page:"0",rooms_min:String(bn),rooms_max:String(bn)});
-      fetchList=fetch("https://"+UAE_RE_HOST+"/properties/list?"+params,{headers:h}).then(function(r){return r.ok?r.json():null});
-      fetchTx=fetch("https://"+UAE_RE_HOST+"/transactions/list?locationExternalIDs="+locId+"&page=1&hitsPerPage=12",{headers:h}).then(function(r){return r.ok?r.json():null});
-    }else{
-      fetchList=fetch(API_BASE+"/proxy-rapidapi?"+listParams).then(function(r){return r.ok?r.json():null});
-      fetchTx=fetch(API_BASE+"/proxy-rapidapi?"+txParams).then(function(r){return r.ok?r.json():null});
-    }
-    const [sp,tp]=await Promise.allSettled([fetchList,fetchTx]);
-    const sales=sp.status==="fulfilled"&&sp.value&&sp.value.hits?sp.value.hits.filter(function(p){return p.price&&p.area}).map(function(p){return{price:p.price,size:p.area,psf:Math.round(p.price/p.area),beds:p.rooms}}).filter(function(p){return p.psf>400&&p.psf<15000}):[];
-    const txs=tp.status==="fulfilled"&&tp.value&&tp.value.hits?tp.value.hits.filter(function(t){return t.price&&t.area}).map(function(t){return{price:t.price,size:t.area,psf:Math.round(t.price/t.area)}}).filter(function(t){return t.psf>400&&t.psf<15000}):[];
-    return{sales,txs};
+    var bayutP=async function(){
+      var locId=await getUAELocationId(q)||await getUAELocationId(area);
+      if(!locId)return{sales:[],txs:[]};
+      var fetchList,fetchTx;
+      if(UAE_RE_KEY){
+        var h={"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":UAE_RE_HOST};
+        var params=new URLSearchParams({locationExternalIDs:locId,purpose:"for-sale",hitsPerPage:"24",page:"0",rooms_min:String(bn),rooms_max:String(bn)});
+        fetchList=fetch("https://"+UAE_RE_HOST+"/properties/list?"+params,{headers:h}).then(function(r){return r.ok?r.json():null});
+        fetchTx=fetch("https://"+UAE_RE_HOST+"/transactions/list?locationExternalIDs="+locId+"&page=1&hitsPerPage=20",{headers:h}).then(function(r){return r.ok?r.json():null});
+      }else{
+        var listParams="endpoint=properties/list&locationExternalIDs="+locId+"&purpose=for-sale&hitsPerPage=24&page=0&rooms_min="+bn+"&rooms_max="+bn;
+        var txParams="endpoint=transactions/list&locationExternalIDs="+locId+"&page=1&hitsPerPage=20";
+        fetchList=fetch(API_BASE+"/proxy-rapidapi?"+listParams).then(function(r){return r.ok?r.json():null});
+        fetchTx=fetch(API_BASE+"/proxy-rapidapi?"+txParams).then(function(r){return r.ok?r.json():null});
+      }
+      var [sp,tp]=await Promise.allSettled([fetchList,fetchTx]);
+      var sales=sp.status==="fulfilled"&&sp.value&&sp.value.hits?sp.value.hits.filter(function(p){return p.price&&p.area}).map(function(p){
+        var imgs=p.coverPhoto?[p.coverPhoto.url||""]:(p.photos||[]).map(function(ph){return ph.url||"";});
+        return{price:p.price,size:p.area,psf:Math.round(p.price/p.area),beds:p.rooms,img:imgs[0]||"",title:p.title||"",source:"bayut"};
+      }).filter(function(p){return p.psf>400&&p.psf<15000;}):[];
+      var txs=tp.status==="fulfilled"&&tp.value&&tp.value.hits?tp.value.hits.filter(function(t){return t.price&&t.area}).map(function(t){return{price:t.price,size:t.area,psf:Math.round(t.price/t.area)}}).filter(function(t){return t.psf>400&&t.psf<15000;}):[];
+      return{sales:sales,txs:txs};
+    };
+    var pfP=fetchPFSales(area,bn);
+    var [bayutRes,pfRes]=await Promise.allSettled([bayutP(),pfP]);
+    var bayut=bayutRes.status==="fulfilled"?bayutRes.value:{sales:[],txs:[]};
+    var pf=pfRes.status==="fulfilled"?pfRes.value:[];
+    var allSales=bayut.sales.concat(pf);
+    return{sales:allSales,txs:bayut.txs};
   }catch(e){return{sales:[],txs:[]};}
 }
 
-async function askAI(messages,system){
+// --- SMART RENTAL INTELLIGENCE ENGINE ----------------------------------------
+var _rentalCache={};
+async function fetchLiveRentals(building,area,beds){
+  var cacheKey=(building||"").toLowerCase().trim()+"|"+(area||"")+"|"+(beds||"2");
+  if(_rentalCache[cacheKey]&&Date.now()-_rentalCache[cacheKey].ts<1800000)return _rentalCache[cacheKey].data;
+  var bedsMap={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5};
+  var bn=bedsMap[beds]!==undefined?bedsMap[beds]:2;
+  var q=(building&&building.length>2)?building+" "+area:area;
+  try{
+    var bayutP=async function(){
+      var locId=await getUAELocationId(q)||await getUAELocationId(area);
+      if(!locId)return[];
+      var params=new URLSearchParams({locationExternalIDs:locId,purpose:"for-rent",hitsPerPage:"24",page:"0"});
+      if(bn>0){params.set("rooms_min",String(bn));params.set("rooms_max",String(bn));}
+      else{params.set("categoryExternalID","4");}
+      var r;
+      if(UAE_RE_KEY){r=await fetch("https://"+UAE_RE_HOST+"/properties/list?"+params,{headers:{"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":UAE_RE_HOST}});}
+      else{r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=properties/list&"+params);}
+      if(!r.ok)return[];
+      var d=await r.json();
+      return(d.hits||[]).filter(function(p){return p.price&&p.price>5000;}).map(function(p){
+        return{price:p.price,size:p.area||0,beds:p.rooms||0,title:(p.title||"").toLowerCase(),source:"bayut"};
+      });
+    };
+    var pfP=async function(){
+      var locId=await getPFLocationId(area+" Dubai");
+      if(!locId)return[];
+      var params=new URLSearchParams({location_id:String(locId),page:"1"});
+      if(bn!==undefined)params.set("bedrooms",String(bn));
+      var r;
+      if(UAE_RE_KEY){r=await fetch("https://"+PF_HOST+"/search-rent?"+params,{headers:{"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":PF_HOST}});}
+      else{r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=search-rent&source=pf&"+params);}
+      if(!r.ok)return[];
+      var d=await r.json();
+      var rawRentPF=Array.isArray(d.data)?d.data:(d.data&&Array.isArray(d.data.data)?d.data.data:(d.data&&Array.isArray(d.data.properties)?d.data.properties:(d.hits||d.properties||d.results||[])));
+      var items=Array.isArray(rawRentPF)?rawRentPF:[];
+      return items.filter(function(p){
+        var price=p.price&&typeof p.price==="object"?p.price.value:p.price;
+        return price&&price>5000;
+      }).map(function(p){
+        var size=typeof p.size==="number"?p.size:(typeof p.area==="number"?p.area:(typeof p.sqft==="number"?p.sqft:0));
+        return{price:p.price&&typeof p.price==="object"?p.price.value:p.price,size:size,beds:p.bedrooms||p.rooms||p.beds||0,title:(p.title||"").toLowerCase(),source:"pf"};
+      });
+    };
+    var[bayutRes,pfRes]=await Promise.allSettled([bayutP(),pfP()]);
+    var bayutData=bayutRes.status==="fulfilled"?bayutRes.value:[];
+    var pfData=pfRes.status==="fulfilled"?pfRes.value:[];
+    var all=bayutData.concat(pfData);
+    var buildingMatches=[];
+    if(building&&building.length>2){
+      var bWords=building.toLowerCase().split(/\s+/).filter(function(w){return w.length>2&&w!=="tower"&&w!=="the"&&w!=="residence"&&w!=="residences";});
+      buildingMatches=all.filter(function(l){
+        var matchCount=0;
+        bWords.forEach(function(w){if(l.title.indexOf(w)>=0)matchCount++;});
+        return matchCount>=Math.max(1,Math.floor(bWords.length*0.5));
+      });
+    }
+    var result={all:all,buildingMatches:buildingMatches,areaListings:all,bayutCount:bayutData.length,pfCount:pfData.length,ts:Date.now()};
+    _rentalCache[cacheKey]={data:result,ts:Date.now()};
+    return result;
+  }catch(e){return{all:[],buildingMatches:[],areaListings:[],bayutCount:0,pfCount:0,ts:Date.now()};}
+}
+
+// Pulls top semantically-relevant snippets from the growing RAG knowledge base
+// (live news + daily market snapshots) for a free-text query. Always resolves
+// (never throws) — returns "" if the knowledge base isn't configured yet or
+// the lookup fails, so callers can treat it as a pure best-effort enrichment.
+async function fetchKnowledgeContext(query,area){
+  try{
+    var body={query:query};
+    if(area)body.area=area;
+    var r=await fetch(API_BASE+"/knowledge-query",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(body)
+    });
+    if(!r.ok)return "";
+    var d=await r.json();
+    var results=d.results||[];
+    if(!results.length)return "";
+    return results.map(function(x){return "- "+(x.title?x.title+": ":"")+x.content;}).join("\n");
+  }catch(e){return "";}
+}
+
+async function askAI(messages,system,groundQuery){
   const groqMessages=[];
-  if(system)groqMessages.push({role:"system",content:system});
+  var sys=system||"";
+  if(groundQuery){
+    var context=await fetchKnowledgeContext(groundQuery);
+    if(context){
+      sys=(sys?sys+"\n\n":"")+"Relevant up-to-date Dubai real estate knowledge (from live news and daily market data — use only if genuinely helpful, ignore if irrelevant):\n"+context;
+    }
+  }
+  if(sys)groqMessages.push({role:"system",content:sys});
   messages.forEach(function(m){groqMessages.push({role:m.role,content:m.content})});
   var r;
   if(GROQ_KEY){

@@ -18,7 +18,7 @@ async function sendEmail(to, subject, html) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: process.env.ALERTS_FROM_EMAIL || "DubaiVal Alerts <onboarding@resend.dev>",
+      from: process.env.ALERTS_FROM_EMAIL || "DubAIVal Alerts <onboarding@resend.dev>",
       to: to,
       subject: subject,
       html: html,

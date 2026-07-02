@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DubAIVal — Connecting Account</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#070B14;color:#E2E8F0;font-family:'Space Grotesk',system-ui,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;}
+.card{background:#0D1220;border:1px solid #1C2540;border-radius:16px;padding:40px;max-width:520px;width:90%;text-align:center;}
+h1{font-size:22px;margin-bottom:8px;color:#D4AF37;}
+p{color:#94A3B8;margin-bottom:16px;font-size:14px;line-height:1.6;}
+.icon{font-size:48px;margin-bottom:16px;}
+.status{margin-top:16px;padding:14px;border-radius:10px;font-size:14px;}
+.success{background:#10B98120;border:1px solid #10B981;color:#10B981;}
+.error{background:#EF444420;border:1px solid #EF4444;color:#EF4444;}
+.loading{background:#D4AF3720;border:1px solid #D4AF37;color:#D4AF37;}
+.btn{background:#D4AF37;color:#000;border:none;padding:12px 28px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;margin-top:16px;display:inline-block;text-decoration:none;}
+.spinner{display:inline-block;width:20px;height:20px;border:2px solid #D4AF3740;border-top-color:#D4AF37;border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-right:8px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon" id="icon">🔗</div>
+  <h1 id="title">Connecting Account</h1>
+  <p id="desc">Please wait...</p>
+  <div id="status" class="status loading"><span class="spinner"></span> Processing...</div>
+  <div id="actions" style="display:none">
+    <a href="/#Network/Inbox" class="btn">Go to Inbox</a>
+  </div>
+</div>
+<script>
+(function(){
+  var params = new URLSearchParams(window.location.search);
+  var code = params.get("code");
+  var error = params.get("error");
+  var state = params.get("state") || ""; // e.g. "meta_userId123" or "google_userId123"
+
+  var icon = document.getElementById("icon");
+  var title = document.getElementById("title");
+  var desc = document.getElementById("desc");
+  var statusEl = document.getElementById("status");
+  var actions = document.getElementById("actions");
+
+  function showError(msg) {
+    icon.textContent = "❌";
+    title.textContent = "Connection Failed";
+    desc.textContent = msg;
+    statusEl.className = "status error";
+    statusEl.textContent = msg;
+    actions.style.display = "block";
+  }
+
+  function showSuccess(msg) {
+    icon.textContent = "✅";
+    title.textContent = "Connected!";
+    desc.textContent = msg;
+    statusEl.className = "status success";
+    statusEl.textContent = msg;
+    actions.style.display = "block";
+    // Auto-close after 3s
+    setTimeout(function(){ window.location.href = "/#Network/Inbox"; }, 3000);
+  }
+
+  if (error) { showError("Authorization denied: " + error); return; }
+  if (!code) { showError("No authorization code found."); return; }
+
+  // Parse state: "meta_userId" or "google_userId" or "linkedin_userId"
+  var parts = state.split("_");
+  var platform = parts[0];
+  var userId = parts.slice(1).join("_");
+
+  if (!userId) {
+    // Try to get userId from localStorage (fallback)
+    userId = localStorage.getItem("dv_user_id") || localStorage.getItem("dv_user_email") || "default";
+  }
+
+  if (platform === "meta" || platform === "instagram" || platform === "facebook") {
+    icon.textContent = "📱";
+    title.textContent = "Connecting Instagram & Facebook";
+    fetch("/api/oauth-meta", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code: code,
+        userId: userId,
+        redirectUri: window.location.origin + "/callback"
+      })
+    }).then(function(r){ return r.json(); }).then(function(d){
+      if (d.ok) {
+        var msg = "Instagram" + (d.ig_id ? " & Facebook" : "") + " connected!";
+        if (d.page_name) msg += " Page: " + d.page_name;
+        showSuccess(msg);
+      } else {
+        showError(d.error || "Connection failed");
+      }
+    }).catch(function(e){ showError(e.message); });
+
+  } else if (platform === "google" || platform === "gmail") {
+    icon.textContent = "📧";
+    title.textContent = "Connecting Gmail";
+    fetch("/api/oauth-google", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code: code,
+        userId: userId,
+        redirectUri: window.location.origin + "/callback"
+      })
+    }).then(function(r){ return r.json(); }).then(function(d){
+      if (d.ok) {
+        showSuccess("Gmail connected!" + (d.gmail ? " (" + d.gmail + ")" : ""));
+      } else {
+        showError(d.error || "Gmail connection failed");
+      }
+    }).catch(function(e){ showError(e.message); });
+
+  } else {
+    // Legacy: LinkedIn code display
+    icon.textContent = "💼";
+    title.textContent = "Authorization Code";
+    desc.textContent = "Copy this code and paste it in the DubAIVal Social Setup.";
+    statusEl.className = "status success";
+    statusEl.textContent = code;
+    localStorage.setItem("dv_linkedin_code", code);
+    actions.style.display = "block";
+  }
+})();
+</script>
+</body>
+</html>

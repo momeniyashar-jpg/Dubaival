@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- ABOUT TAB ---------------------------------------------------------------
 function renderAbout(){
   var cl=C();
@@ -12,14 +13,16 @@ function renderAbout(){
 
   // Stats row
   var stats=[
-    {n:"6,162",l:"Buildings Tracked"},
-    {n:"287",l:"Areas Covered"},
-    {n:"Cascade AVM",l:"AI Valuation Engine"},
-    {n:"24/7",l:"Real-Time Data"}
+    {n:"10,800+",l:"Properties Tracked"},
+    {n:"348",l:"Areas Covered"},
+    {n:"3 Sectors",l:"Residential · Commercial · Land"},
+    {n:"Cascade AVM",l:"AI Valuation Engine"}
   ];
   var statsRow=div({display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:"14px",marginBottom:"40px"});
   stats.forEach(function(s){
-    var card=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"20px 16px",textAlign:"center"});
+    var card=div({background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px 16px",textAlign:"center",transition:"transform 0.25s ease,border-color 0.25s ease,box-shadow 0.25s ease",cursor:"default",boxShadow:cl.glassShadow});
+    card.addEventListener("mouseenter",function(){card.style.transform="translateY(-3px)";card.style.borderColor="rgba(212,175,55,0.3)";card.style.boxShadow="0 8px 32px rgba(0,0,0,0.35),0 0 20px rgba(212,175,55,0.06)";});
+    card.addEventListener("mouseleave",function(){card.style.transform="translateY(0)";card.style.borderColor=cl.border;card.style.boxShadow=cl.glassShadow;});
     card.appendChild(el("div",{style:{color:cl.gold,fontSize:"22px",fontWeight:"700",marginBottom:"4px"}},s.n));
     card.appendChild(el("div",{style:{color:cl.sub,fontSize:"11px",letterSpacing:"0.06em",textTransform:"uppercase"}},s.l));
     statsRow.appendChild(card);
@@ -28,7 +31,9 @@ function renderAbout(){
 
   // Section helper
   function section(icon,title,body){
-    var sec=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"24px",marginBottom:"20px"});
+    var sec=div({background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"24px",marginBottom:"20px",transition:"border-color 0.25s ease,box-shadow 0.25s ease",boxShadow:cl.glassShadow});
+    sec.addEventListener("mouseenter",function(){sec.style.borderColor="rgba(212,175,55,0.2)";sec.style.boxShadow="0 8px 36px rgba(0,0,0,0.35)";});
+    sec.addEventListener("mouseleave",function(){sec.style.borderColor=cl.border;sec.style.boxShadow=cl.glassShadow;});
     sec.appendChild(el("div",{style:{color:cl.gold,fontSize:"13px",fontWeight:"700",marginBottom:"12px",letterSpacing:"0.06em"}},icon+" "+title));
     if(typeof body==="string"){
       var p=el("p",{style:{color:cl.text,fontSize:"12.5px",lineHeight:"1.75",margin:"0"}});
@@ -42,27 +47,33 @@ function renderAbout(){
 
   // What We Do
   var features=[
-    {icon:"🔍",title:"AI Property Valuation",desc:"Cascade AVM engine with hedonic pricing model — building-level data, view premiums, floor adjustments, location intelligence, and confidence scoring."},
-    {icon:"🤝",title:"Deal Network",desc:"Agent-to-agent marketplace with title deed verification, privacy-first media gallery, and buyer approval workflow."},
-    {icon:"💼",title:"Portfolio Manager",desc:"Track your assets, monitor ROI, run what-if simulations, and get AI-powered portfolio health analysis."},
-    {icon:"🗺️",title:"Interactive Map",desc:"Explore 287 areas with growth, yield, price, liquidity, and location intelligence metrics on a live map."},
-    {icon:"📈",title:"Market Intelligence",desc:"Real-time market data, comparable analysis, rental benchmarks, and investment signals for every area."},
-    {icon:"📍",title:"Location Intelligence",desc:"Metro proximity, amenity scoring, and geographic premiums powered by 56 metro stations and 30+ key POIs."}
+    {icon:"search",title:"AI Property Valuation",desc:"Cascade AVM engine with hedonic pricing model — building-level data, view premiums, floor adjustments, location intelligence, and confidence scoring."},
+    {icon:"handshake",title:"Deal Network",desc:"Agent-to-agent marketplace with title deed verification, privacy-first media gallery, and buyer approval workflow."},
+    {icon:"briefcase",title:"Portfolio Manager",desc:"Track your assets, monitor ROI, run what-if simulations, and get AI-powered portfolio health analysis."},
+    {icon:"map",title:"Interactive Map",desc:"Explore 348 areas with growth, yield, price, liquidity, and location intelligence metrics on a live map."},
+    {icon:"trending-up",title:"Market Intelligence",desc:"Real-time market data, comparable analysis, rental benchmarks, and investment signals for every area."},
+    {icon:"map-pin",title:"Location Intelligence",desc:"Metro proximity, amenity scoring, and geographic premiums powered by 56 metro stations and 30+ key POIs."},
+    {icon:"building-2",title:"Commercial Valuation",desc:"Office, retail, and warehouse valuation with commercial yield models, tenant analysis, and occupancy benchmarks across Dubai's business districts."},
+    {icon:"globe",title:"Land Valuation",desc:"Plot and land valuation with zoning analysis, FAR/plot ratio calculations, development feasibility, and comparable land transaction data."}
   ];
   var featGrid=div({display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"12px"});
   features.forEach(function(f){
-    var card=div({background:cl.bg,border:"1px solid "+cl.border,borderRadius:"10px",padding:"16px"});
-    card.appendChild(el("div",{style:{fontSize:"20px",marginBottom:"8px"}},f.icon));
+    var card=div({background:"rgba(255,255,255,0.03)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:"12px",padding:"16px",transition:"transform 0.25s ease,border-color 0.25s ease,box-shadow 0.25s ease",cursor:"default",boxShadow:"0 2px 16px rgba(0,0,0,0.15)"});
+    card.addEventListener("mouseenter",function(){card.style.transform="translateY(-2px)";card.style.borderColor="rgba(212,175,55,0.3)";card.style.boxShadow="0 8px 28px rgba(0,0,0,0.3),0 0 16px rgba(212,175,55,0.04)";});
+    card.addEventListener("mouseleave",function(){card.style.transform="translateY(0)";card.style.borderColor="rgba(255,255,255,0.06)";card.style.boxShadow="0 2px 16px rgba(0,0,0,0.15)";});
+    var iconWrap=el("div",{style:{fontSize:"20px",marginBottom:"8px",color:cl.gold}});
+    iconWrap.innerHTML='<i data-lucide="'+f.icon+'" style="width:20px;height:20px"></i>';
+    card.appendChild(iconWrap);
     card.appendChild(el("div",{style:{color:cl.text,fontSize:"12px",fontWeight:"700",marginBottom:"6px"}},f.title));
     card.appendChild(el("div",{style:{color:cl.sub,fontSize:"11px",lineHeight:"1.65"}},f.desc));
     featGrid.appendChild(card);
   });
-  wrap.appendChild(section("✨","What We Do",featGrid));
+  wrap.appendChild(section("","What We Do",featGrid));
 
   // Technology
   var techItems=[
     "<b style='color:"+cl.gold+"'>Cascade AVM Engine</b> — Multi-layer valuation: building database → area benchmarks → hedonic adjustments → comparable analysis → live market enrichment.",
-    "<b style='color:"+cl.gold+"'>6,162 Building Database</b> — DLD-verified transaction data covering apartments, villas, townhouses, and penthouses across Dubai.",
+    "<b style='color:"+cl.gold+"'>10,800+ Property Database</b> — DLD-verified transaction data: 8,500+ residential buildings, 1,930 commercial properties, and 428 land plots across Dubai.",
     "<b style='color:"+cl.gold+"'>Hedonic Pricing Model</b> — 10+ adjustment factors: view premium, floor level, loft, penthouse, maid’s room, furnishing, private pool, location score, and more.",
     "<b style='color:"+cl.gold+"'>Location Intelligence</b> — Haversine-based proximity scoring for 56 metro stations, 11 tram stops, 30+ POIs. Geographic premium from -3% to +8%.",
     "<b style='color:"+cl.gold+"'>Real-Time Market Data</b> — Live listings integration via UAE property APIs for price validation and comparable analysis."
@@ -76,7 +87,7 @@ function renderAbout(){
     row.appendChild(txt);
     techList.appendChild(row);
   });
-  wrap.appendChild(section("⚙️","Technology",techList));
+  wrap.appendChild(section("","Technology",techList));
 
   // For Partners & Government
   var partnerContent=div({});
@@ -97,23 +108,201 @@ function renderAbout(){
     partnerContent.appendChild(row);
   });
 
-  var contactBtn=el("a",{href:"mailto:momeni.yashar@gmail.com?subject=DubAIVal%20Partnership%20Inquiry",style:{display:"inline-flex",alignItems:"center",gap:"8px",marginTop:"18px",padding:"12px 28px",background:"linear-gradient(135deg,"+cl.gold+",#B8860B)",color:"#0D1220",borderRadius:"10px",fontSize:"12.5px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",textDecoration:"none",cursor:"pointer",border:"none",letterSpacing:"0.03em"}},"✉️ Contact Us for Partnership");
+  var contactBtn=el("a",{href:"mailto:momeni.yashar@gmail.com?subject=DubAIVal%20Partnership%20Inquiry",style:{display:"inline-flex",alignItems:"center",gap:"8px",marginTop:"18px",padding:"12px 28px",background:"linear-gradient(135deg,"+cl.gold+",#B8860B)",color:"#0D1220",borderRadius:"10px",fontSize:"12.5px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",textDecoration:"none",cursor:"pointer",border:"none",letterSpacing:"0.03em"}},"Contact Us for Partnership");
   partnerContent.appendChild(contactBtn);
 
   var apiBtn=el("button",{style:{display:"inline-flex",alignItems:"center",gap:"6px",marginTop:"10px",marginLeft:"10px",padding:"12px 24px",background:"transparent",border:"1px solid "+cl.goldDim,color:cl.gold,borderRadius:"10px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.03em"}});
-  apiBtn.textContent="📡 API Documentation →";
+  apiBtn.textContent="API Documentation →";
   apiBtn.addEventListener("click",function(){window._showApiDocs=true;render();});
   partnerContent.appendChild(apiBtn);
-  wrap.appendChild(section("🏛️",t("abt_partners"),partnerContent));
+  wrap.appendChild(section("",t("abt_partners"),partnerContent));
+
+  // Organic Market Promotion Engine
+  var promoContent=div({});
+  var promoText=el("p",{style:{color:cl.text,fontSize:"12.5px",lineHeight:"1.75",margin:"0 0 18px"}});
+  promoText.innerHTML="DubAIVal's <b style='color:"+cl.gold+"'>PropTech Social Platform</b> creates a self-sustaining content ecosystem that organically promotes Dubai's real estate market at zero cost to government — powered by the professionals who know it best.";
+  promoContent.appendChild(promoText);
+
+  // Flywheel diagram
+  var fwTitle=div({color:cl.gold,fontSize:"11px",fontWeight:"700",letterSpacing:"0.06em",marginBottom:"14px"},"THE DUBAIVAL FLYWHEEL");
+  promoContent.appendChild(fwTitle);
+
+  var flywheel=[
+    {icon:"video",title:"Agents Create Content",desc:"RERA-verified agents produce professional walkthrough videos, market updates, and property reviews on YouTube & Instagram to build their reputation on DubAIVal."},
+    {icon:"star",title:"Ranking & Visibility",desc:"Higher quality content and more engagement = higher agent ranking on DubAIVal = priority access to off-market deals and buyer referrals."},
+    {icon:"dollar-sign",title:"Premium Visibility",desc:"Top-ranked agents receive priority placement and direct buyer connections through our Deal Network — driving more leads and continued content production."},
+    {icon:"globe",title:"Organic Market Promotion",desc:"Hundreds of professionals producing daily content about Dubai properties creates a powerful, authentic narrative of market stability and opportunity — far more credible than traditional advertising."},
+    {icon:"trending-up",title:"Market Confidence",desc:"Authentic, data-driven content from verified professionals builds international investor confidence in Dubai real estate, supporting market stability and growth."},
+    {icon:"landmark",title:"Government Value",desc:"A self-sustaining promotional engine for Dubai's property market — organic, professional, credible content at zero cost to government agencies."}
+  ];
+
+  flywheel.forEach(function(fw,i){
+    var fwCard=div({display:"flex",gap:"14px",marginBottom:"14px",alignItems:"flex-start"});
+    var iconWrap=div({minWidth:"44px",height:"44px",borderRadius:"12px",background:hexAlpha(cl.gold,0.1),border:"1px solid "+cl.goldDim,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"20px",position:"relative",color:cl.gold});
+    iconWrap.innerHTML='<i data-lucide="'+fw.icon+'" style="width:20px;height:20px"></i>';
+    if(i<flywheel.length-1){
+      var arrow=div({position:"absolute",bottom:"-14px",left:"50%",transform:"translateX(-50%)",color:cl.goldDim,fontSize:"10px"});
+      arrow.textContent="▼";
+      iconWrap.appendChild(arrow);
+    }
+    fwCard.appendChild(iconWrap);
+    var textWrap=div({});
+    textWrap.appendChild(el("div",{style:{color:cl.text,fontSize:"12.5px",fontWeight:"700",marginBottom:"4px"}},fw.title));
+    textWrap.appendChild(el("div",{style:{color:cl.sub,fontSize:"11.5px",lineHeight:"1.65"}},fw.desc));
+    fwCard.appendChild(textWrap);
+    promoContent.appendChild(fwCard);
+  });
+
+  // Key metrics highlight
+  var metricsTitle=div({color:cl.gold,fontSize:"11px",fontWeight:"700",letterSpacing:"0.06em",marginTop:"24px",marginBottom:"12px"},"PROJECTED ECOSYSTEM IMPACT");
+  promoContent.appendChild(metricsTitle);
+
+  var metrics=[
+    {n:"500+",l:"Active Agent Content Creators",icon:"user"},
+    {n:"5,000+",l:"Property Videos Monthly",icon:"video"},
+    {n:"50M+",l:"Monthly Views Across Platforms",icon:"eye"},
+    {n:"$0",l:"Cost to Government",icon:"gem"}
+  ];
+  var metricGrid=div({display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:"10px",marginBottom:"20px"});
+  metrics.forEach(function(m){
+    var mCard=div({background:cl.bg,border:"1px solid "+cl.border,borderRadius:"10px",padding:"16px",textAlign:"center"});
+    var mIcon=el("div",{style:{fontSize:"18px",marginBottom:"6px",color:cl.gold}});
+    mIcon.innerHTML='<i data-lucide="'+m.icon+'" style="width:18px;height:18px"></i>';
+    mCard.appendChild(mIcon);
+    mCard.appendChild(el("div",{style:{color:cl.gold,fontSize:"20px",fontWeight:"800",marginBottom:"2px"}},m.n));
+    mCard.appendChild(el("div",{style:{color:cl.sub,fontSize:"10px",letterSpacing:"0.04em"}},m.l));
+    metricGrid.appendChild(mCard);
+  });
+  promoContent.appendChild(metricGrid);
+
+  // Value propositions for different stakeholders
+  var stakeholders=[
+    {title:"For DLD & RERA",color:"#00C896",points:["Real-time market transparency through professional content","Verified agents promoting regulated, data-driven valuations","Content moderation ensures only licensed professionals participate","Market sentiment data aggregated from agent activity"]},
+    {title:"For DTCM & DED",color:cl.gold,points:["Organic international promotion of Dubai property market","Authentic content counters negative narratives about regional stability","Attracts foreign direct investment through credible market intelligence","Positions Dubai as a global PropTech innovation hub"]},
+    {title:"For Dubai Future Foundation",color:"#818CF8",points:["AI-driven content curation and market analysis","First vertical social platform for real estate globally","Demonstrates Dubai's leadership in PropTech innovation","Scalable model for other sectors (hospitality, retail, logistics)"]}
+  ];
+
+  stakeholders.forEach(function(sh){
+    var shCard=div({background:cl.bg,border:"1px solid "+hexAlpha(sh.color,0.3),borderRadius:"12px",padding:"18px",marginBottom:"12px"});
+    shCard.appendChild(el("div",{style:{color:sh.color,fontSize:"12px",fontWeight:"700",marginBottom:"10px",letterSpacing:"0.04em"}},sh.title));
+    sh.points.forEach(function(pt){
+      var row=div({display:"flex",gap:"8px",marginBottom:"5px",alignItems:"flex-start"});
+      row.appendChild(el("div",{style:{color:sh.color,fontSize:"8px",marginTop:"4px",flexShrink:"0"}},"◆"));
+      row.appendChild(el("div",{style:{color:cl.sub,fontSize:"11px",lineHeight:"1.6"}},pt));
+      shCard.appendChild(row);
+    });
+    promoContent.appendChild(shCard);
+  });
+
+  // Call to action
+  var promoCtaText=el("p",{style:{color:cl.text,fontSize:"12.5px",lineHeight:"1.75",margin:"16px 0",fontStyle:"italic",padding:"16px",borderLeft:"3px solid "+cl.gold,background:hexAlpha(cl.gold,0.05),borderRadius:"0 8px 8px 0"}});
+  promoCtaText.innerHTML="<b style='color:"+cl.gold+"'>\"DubAIVal doesn't just value properties — it empowers hundreds of professionals to become ambassadors for Dubai's real estate market, creating an organic promotional engine that money can't buy.\"</b>";
+  promoContent.appendChild(promoCtaText);
+
+  var promoContact=el("a",{href:"mailto:momeni.yashar@gmail.com?subject=DubAIVal%20Government%20Partnership%20—%20Market%20Promotion%20Engine",style:{display:"inline-flex",alignItems:"center",gap:"8px",marginTop:"10px",padding:"12px 28px",background:"linear-gradient(135deg,#00C896,#008060)",color:"#FFFFFF",borderRadius:"10px",fontSize:"12.5px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",textDecoration:"none",cursor:"pointer",border:"none",letterSpacing:"0.03em"}},"Discuss Government Partnership");
+  promoContent.appendChild(promoContact);
+
+  wrap.appendChild(section("","Organic Market Promotion Engine",promoContent));
 
   // API Documentation (inline)
   if(window._showApiDocs){
     wrap.appendChild(renderApiDocs(cl));
   }
 
+  // Platform Roadmap
+  var roadmapContent=div({});
+  var roadmapIntro=el("p",{style:{color:cl.text,fontSize:"12.5px",lineHeight:"1.75",margin:"0 0 20px"}});
+  roadmapIntro.innerHTML="DubAIVal is expanding from residential into <b style='color:"+cl.gold+"'>commercial real estate</b> and <b style='color:"+cl.gold+"'>land valuation</b> — building the most comprehensive AI-powered property intelligence platform in the UAE.";
+  roadmapContent.appendChild(roadmapIntro);
+
+  var phases=[
+    {phase:"Phase 1",status:"Live",title:"Residential Valuation",color:"#00C896",items:["8,500+ residential buildings with DLD-verified data","Cascade AVM engine with hedonic pricing","348 area benchmarks with yield, growth & liquidity data","Portfolio Manager with health score & projections","Deal Network with agent marketplace","Interactive map, market index & live dashboard","PWA with offline support"]},
+    {phase:"Phase 2",status:"Live",title:"Commercial Property Valuation",color:"#3B82F6",items:["1,930 commercial properties (Office, Retail, Warehouse, Shop)","49 commercial area benchmarks from DLD data","Commercial yield models (gross & net)","Sub-type specific valuation (retail premium, warehouse discount)","Area transaction volume & average pricing","Confidence scoring based on data depth","Commercial deal network for brokers"]},
+    {phase:"Phase 3",status:"Live",title:"Land & Plot Valuation",color:"#10B981",items:["428 land plots with DLD transaction data","111 land area benchmarks","Zoning-based valuation (residential, commercial, mixed, industrial)","Development potential calculator","Plot price range analysis","Comparable land transaction database","Area average size & pricing benchmarks"]},
+    {phase:"Phase 4",status:"Planned",title:"Enterprise & Government Solutions",color:"#F0A030",items:["White-label valuation API for government platforms","Bulk AVM reports for institutional portfolios","Market transparency dashboards for DLD & RERA","Anti-money laundering (AML) property screening","Automated mortgage valuation for banks","Real-time market surveillance & anomaly detection"]}
+  ];
+
+  phases.forEach(function(ph){
+    var phCard=div({background:cl.bg,border:"1px solid "+cl.border,borderRadius:"12px",padding:"18px",marginBottom:"14px"});
+    var phHead=div({display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",flexWrap:"wrap"});
+    phHead.appendChild(span({color:ph.color,fontSize:"10px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",padding:"3px 10px",borderRadius:"6px",background:hexAlpha(ph.color,0.12),letterSpacing:"0.06em"},ph.phase));
+    phHead.appendChild(span({color:cl.text,fontSize:"13px",fontWeight:"700"},ph.title));
+    phHead.appendChild(span({color:ph.color,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},ph.status));
+    phCard.appendChild(phHead);
+    var phGrid=div({display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:"4px"});
+    ph.items.forEach(function(item){
+      var row=div({display:"flex",gap:"8px",alignItems:"center"});
+      row.appendChild(span({color:ph.color,fontSize:"8px"},"◆"));
+      row.appendChild(span({color:cl.sub,fontSize:"11px",lineHeight:"1.6"},item));
+      phGrid.appendChild(row);
+    });
+    phCard.appendChild(phGrid);
+    roadmapContent.appendChild(phCard);
+  });
+
+  wrap.appendChild(section("","Platform Roadmap",roadmapContent));
+
+  // Commercial Valuation Detail
+  var commContent=div({});
+  var commIntro=el("p",{style:{color:cl.text,fontSize:"12.5px",lineHeight:"1.75",margin:"0 0 16px"}});
+  commIntro.innerHTML="Our commercial valuation engine is designed for <b style='color:"+cl.gold+"'>offices, retail spaces, warehouses, and mixed-use properties</b> across Dubai's major business districts — DIFC, Business Bay, DMCC, DAFZ, Dubai South, and more.";
+  commContent.appendChild(commIntro);
+
+  var commFeatures=[
+    {icon:"landmark",t:"Office Valuation",d:"Shell & core, fitted, and furnished office valuations with per-sqft benchmarks, view premiums, and building grade analysis."},
+    {icon:"shopping-bag",t:"Retail Valuation",d:"Ground floor vs upper floor pricing, footfall analysis, street visibility scoring, and mall vs high-street benchmarks."},
+    {icon:"factory",t:"Industrial & Logistics",d:"Warehouse, cold storage, and logistics facility assessments with loading capacity, height clearance, and location scoring."},
+    {icon:"bar-chart-3",t:"Commercial Yield Analysis",d:"Net yield, gross yield, triple-net calculations, CAP rate benchmarks, and lease-adjusted valuations."}
+  ];
+  var commGrid=div({display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:"12px"});
+  commFeatures.forEach(function(cf){
+    var cCard=div({background:cl.bg,border:"1px solid "+cl.border,borderRadius:"10px",padding:"16px"});
+    var cfIcon=el("div",{style:{fontSize:"20px",marginBottom:"8px",color:cl.gold}});
+    cfIcon.innerHTML='<i data-lucide="'+cf.icon+'" style="width:20px;height:20px"></i>';
+    cCard.appendChild(cfIcon);
+    cCard.appendChild(el("div",{style:{color:cl.text,fontSize:"12px",fontWeight:"700",marginBottom:"6px"}},cf.t));
+    cCard.appendChild(el("div",{style:{color:cl.sub,fontSize:"11px",lineHeight:"1.65"}},cf.d));
+    commGrid.appendChild(cCard);
+  });
+  commContent.appendChild(commGrid);
+
+  var commBadge=div({display:"inline-flex",alignItems:"center",gap:"6px",marginTop:"16px",padding:"8px 16px",borderRadius:"8px",background:hexAlpha(cl.gold,0.1),border:"1px solid "+cl.goldDim});
+  commBadge.appendChild(span({color:"#3B82F6",fontSize:"11px",fontWeight:"700"},"Live — 1,930 Commercial Properties"));
+  commContent.appendChild(commBadge);
+
+  wrap.appendChild(section("","Commercial Property Valuation",commContent));
+
+  // Land Valuation Detail
+  var landContent=div({});
+  var landIntro=el("p",{style:{color:cl.text,fontSize:"12.5px",lineHeight:"1.75",margin:"0 0 16px"}});
+  landIntro.innerHTML="Comprehensive <b style='color:"+cl.gold+"'>land and plot valuation</b> covering freehold plots, leasehold land, mixed-use parcels, and development sites across all designated freehold areas in Dubai.";
+  landContent.appendChild(landIntro);
+
+  var landFeatures=[
+    {icon:"ruler",t:"Plot Analysis",d:"Size, shape factor, corner premium, road frontage, setback compliance, and buildable area calculations."},
+    {icon:"construction",t:"Development Feasibility",d:"FAR analysis, permitted floors, GFA calculations, estimated construction cost, and projected GDV (Gross Development Value)."},
+    {icon:"clipboard",t:"Zoning & Permits",d:"Land use classification, permitted activities, height restrictions, and master plan compliance verification."},
+    {icon:"trending-up",t:"Land Market Intelligence",d:"Comparable land transactions, price per sqft trends, absorption rates, and upcoming infrastructure impact analysis."}
+  ];
+  var landGrid=div({display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:"12px"});
+  landFeatures.forEach(function(lf){
+    var lCard=div({background:cl.bg,border:"1px solid "+cl.border,borderRadius:"10px",padding:"16px"});
+    lCard.appendChild(el("div",{style:{fontSize:"20px",marginBottom:"8px"}},lf.icon));
+    lCard.appendChild(el("div",{style:{color:cl.text,fontSize:"12px",fontWeight:"700",marginBottom:"6px"}},lf.t));
+    lCard.appendChild(el("div",{style:{color:cl.sub,fontSize:"11px",lineHeight:"1.65"}},lf.d));
+    landGrid.appendChild(lCard);
+  });
+  landContent.appendChild(landGrid);
+
+  var landBadge=div({display:"inline-flex",alignItems:"center",gap:"6px",marginTop:"16px",padding:"8px 16px",borderRadius:"8px",background:hexAlpha("#818CF8",0.1),border:"1px solid "+"#818CF840"});
+  landBadge.appendChild(span({color:"#10B981",fontSize:"11px",fontWeight:"700"},"Live — 428 Land Plots, 111 Areas"));
+  landContent.appendChild(landBadge);
+
+  wrap.appendChild(section("","Land & Plot Valuation",landContent));
+
   // Footer note
   var footer=div({textAlign:"center",marginTop:"30px",padding:"20px",borderTop:"1px solid "+cl.border});
-  footer.appendChild(el("div",{style:{color:cl.sub,fontSize:"10px",lineHeight:"1.7"}},"Built with ❤️ in Dubai · DubAIVal · June 2026"));
+  footer.appendChild(el("div",{style:{color:cl.sub,fontSize:"10px",lineHeight:"1.7"}},"Built in Dubai · DubAIVal · June 2026"));
   footer.appendChild(el("div",{style:{color:cl.sub,fontSize:"9px",marginTop:"4px"}},"Not financial advice — consult a licensed advisor for investment decisions."));
   wrap.appendChild(footer);
 
@@ -149,8 +338,8 @@ function renderApiDocs(cl){
 
   // API Header
   var apiHeader=div({textAlign:"center",marginBottom:"24px",paddingTop:"10px"});
-  apiHeader.appendChild(el("div",{style:{fontSize:"28px",marginBottom:"8px"}},"📡"));
-  apiHeader.appendChild(el("h2",{style:{color:cl.gold,fontSize:"18px",fontWeight:"800",margin:"0 0 4px",fontFamily:"'Space Grotesk',monospace"}},"DubaiVal API"));
+  apiHeader.appendChild(el("div",{style:{fontSize:"28px",marginBottom:"8px"}},""));
+  apiHeader.appendChild(el("h2",{style:{color:cl.gold,fontSize:"18px",fontWeight:"800",margin:"0 0 4px",fontFamily:"'Space Grotesk',monospace"}},"DubAIVal API"));
   apiHeader.appendChild(el("div",{style:{color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif"}},"Real Estate Intelligence for Developers"));
   wrap.appendChild(apiHeader);
 
@@ -174,13 +363,13 @@ function renderApiDocs(cl){
       method:"GET",path:"/api/market-index",
       desc:"Get market overview with area rankings, average metrics, and top performers.",
       params:[{n:"area",t:"string",r:false,d:"Filter by area (omit for city-wide)"}],
-      response:'{\n  "avg_psf": 1680,\n  "avg_yield": 6.2,\n  "avg_growth_1yr": 12.4,\n  "avg_dom": 52,\n  "total_areas": 287,\n  "top_yield": ["International City", ...],\n  "top_growth": ["Dubai Hills Estate", ...]\n}',
+      response:'{\n  "avg_psf": 1680,\n  "avg_yield": 6.2,\n  "avg_growth_1yr": 12.4,\n  "avg_dom": 52,\n  "total_areas": 348,\n  "top_yield": ["International City", ...],\n  "top_growth": ["Dubai Hills Estate", ...]\n}',
       curl:'curl "https://api.dubaival.com/v1/market-index" \\\n  -H "Authorization: Bearer YOUR_API_KEY"',
       js:'const res = await fetch(\n  "https://api.dubaival.com/v1/market-index",\n  { headers: { Authorization: "Bearer YOUR_API_KEY" } }\n);\nconst data = await res.json();'
     },
     {
       method:"GET",path:"/api/building-lookup",
-      desc:"Look up building data from our 6,162-building DLD-verified database.",
+      desc:"Look up building data from our 10,800+ property DLD-verified database.",
       params:[{n:"name",t:"string",r:true,d:"Building name (fuzzy matching)"}],
       response:'{\n  "name": "Marina Gate 1",\n  "area": "Dubai Marina",\n  "psf": 1850,\n  "low_psf": 1650,\n  "high_psf": 2100,\n  "grade": "A",\n  "service_charge": 18\n}',
       curl:'curl "https://api.dubaival.com/v1/building-lookup?name=marina+gate+1" \\\n  -H "Authorization: Bearer YOUR_API_KEY"',
@@ -292,7 +481,7 @@ function renderApiDocs(cl){
   submitBtn.addEventListener("click",function(e){
     e.preventDefault();
     if(!rq.name||!rq.email){alert("Please fill name and email");return;}
-    var subject=encodeURIComponent("DubaiVal API Access Request — "+rq.company);
+    var subject=encodeURIComponent("DubAIVal API Access Request — "+rq.company);
     var body=encodeURIComponent("Name: "+rq.name+"\nEmail: "+rq.email+"\nCompany: "+rq.company+"\nUse Case: "+rq.useCase);
     window.open("mailto:momeni.yashar@gmail.com?subject="+subject+"&body="+body,"_self");
   });
@@ -303,10 +492,10 @@ function renderApiDocs(cl){
   // Take Tour Again
   var tourRow=div({display:"flex",gap:"10px",justifyContent:"center",marginTop:"30px",flexWrap:"wrap"});
   var tqBtn=el("button",{style:{background:"transparent",border:"2px solid "+cl.gold,color:cl.gold,padding:"12px 22px",borderRadius:"12px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
-  tqBtn.textContent="🎯 Quick Tour (8 steps)";
+  tqBtn.textContent="Quick Tour (8 steps)";
   tqBtn.addEventListener("click",function(){try{localStorage.removeItem("dv_tour_done");}catch(e){}startTour("quick");});
   var tfBtn=el("button",{style:{background:"linear-gradient(135deg,"+cl.gold+",#7A5E28)",border:"none",color:"#08090C",padding:"12px 22px",borderRadius:"12px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
-  tfBtn.textContent="🚀 Full Tour (16 steps)";
+  tfBtn.textContent="Full Tour (16 steps)";
   tfBtn.addEventListener("click",function(){try{localStorage.removeItem("dv_full_tour_done");}catch(e){}startTour("full");});
   tourRow.appendChild(tqBtn);tourRow.appendChild(tfBtn);
   wrap.appendChild(tourRow);

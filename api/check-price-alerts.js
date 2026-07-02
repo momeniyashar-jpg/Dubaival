@@ -48,12 +48,10 @@ async function currentTrimmedPsf(targetName, area, key) {
 }
 
 module.exports = async function handler(req, res) {
-  if (process.env.CRON_SECRET) {
-    const auth = req.headers["authorization"] || "";
-    if (auth !== "Bearer " + process.env.CRON_SECRET) {
-      res.status(401).json({ ok: false, error: "Unauthorized" });
-      return;
-    }
+  const auth = req.headers["authorization"] || "";
+  if (!process.env.CRON_SECRET || auth !== "Bearer " + process.env.CRON_SECRET) {
+    res.status(401).json({ ok: false, error: "Unauthorized" });
+    return;
   }
 
   const rapidKey = process.env.RAPIDAPI_KEY;
@@ -85,7 +83,7 @@ module.exports = async function handler(req, res) {
                 "<h2 style=\"color:#C9A84C\">Price moved " + dir + "</h2>" +
                 "<p><b>" + w.target_name + "</b> is now averaging AED " + psf.toLocaleString() + "/sqft (" +
                 (pctChange > 0 ? "+" : "") + pctChange.toFixed(1) + "% since your last alert).</p>" +
-                "<p><a href=\"https://www.dubaival.com\" style=\"color:#C9A84C\">Check it on DubaiVal</a></p>" +
+                "<p><a href=\"https://www.dubaival.com\" style=\"color:#C9A84C\">Check it on DubAIVal</a></p>" +
                 "<p style=\"font-size:12px;color:#888\"><a href=\"" + unsubUrl + "\">Unsubscribe</a></p>" +
                 "</div>"
             );
