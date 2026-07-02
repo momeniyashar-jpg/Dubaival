@@ -1073,6 +1073,264 @@ function _renderChiefsPipeline() {
   return wrap;
 }
 
+// ── CO-PILOT ─────────────────────────────────────────────────────────────────
+var CHIEFS_COPILOT = {
+  open: false, text: "", source: "", senderName: "", senderContact: "",
+  analyzing: false, needs: null, matches: [], draft: null, drafting: false,
+  error: null, saving: false
+};
+
+async function chiefsCopilotAnalyze(text, source, senderName, senderContact) {
+  if (!text || !text.trim()) return;
+  CHIEFS_COPILOT.open = true;
+  CHIEFS_COPILOT.text = text;
+  CHIEFS_COPILOT.source = source || "message";
+  CHIEFS_COPILOT.senderName = senderName || "Prospect";
+  CHIEFS_COPILOT.senderContact = senderContact || "";
+  CHIEFS_COPILOT.analyzing = true;
+  CHIEFS_COPILOT.needs = null;
+  CHIEFS_COPILOT.matches = [];
+  CHIEFS_COPILOT.draft = null;
+  CHIEFS_COPILOT.error = null;
+  render();
+
+  // Ensure inventory is loaded
+  if (!CHIEFS_STATE.loaded.inventory) {
+    chiefsLoadInventory();
+    await new Promise(function(resolve) {
+      var deadline = Date.now() + 8000;
+      var poll = setInterval(function() {
+        if (CHIEFS_STATE.loaded.inventory || Date.now() > deadline) { clearInterval(poll); resolve(); }
+      }, 300);
+    });
+  }
+
+  try {
+    var r = await callGroqRaw({
+      model: "llama3-8b-8192",
+      response_format: { type: "json_object" },
+      temperature: 0.1, max_tokens: 400,
+      messages: [
+        { role: "system", content: "You are a Dubai real estate assistant. Extract property requirements from the message. Return JSON: purpose (\"sale\" or \"rent\"), prop_type (\"apartment\",\"villa\",\"townhouse\",\"penthouse\" or null), beds (\"Studio\",\"1\",\"2\",\"3\",\"4\",\"5\" or null), areas (array of Dubai area names, max 5), max_price (number AED or null), min_price (number AED or null), furnished (\"Furnished\",\"Unfurnished\",\"Semi-Furnished\" or null), summary (1-sentence)." },
+        { role: "user", content: "Message: " + text.substring(0, 2000) }
+      ]
+    });
+    var data = await r.json();
+    var raw = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+    var needs = raw ? JSON.parse(raw) : {};
+    CHIEFS_COPILOT.needs = needs;
+
+    // Score inventory against extracted needs
+    var scored = [];
+    (CHIEFS_STATE.inventory || []).forEach(function(listing) {
+      if (listing.status !== "available") return;
+      var score = 0; var reasons = [];
+      // Purpose: hard filter
+      if (needs.purpose && listing.purpose !== needs.purpose) return;
+      if (needs.purpose) { score += 20; reasons.push("purpose"); }
+      // Area: key signal
+      var listArea = (listing.area || "").toLowerCase();
+      var wantedAreas = (needs.areas || []).map(function(a) { return a.toLowerCase(); });
+      if (wantedAreas.length) {
+        var areaMatch = wantedAreas.some(function(a) { return listArea.includes(a) || a.includes(listArea); });
+        if (areaMatch) { score += 35; reasons.push("area match"); }
+      }
+      // Beds
+      if (needs.beds && listing.beds) {
+        if (listing.beds === needs.beds) { score += 25; reasons.push("beds match"); }
+        else { var nb = parseInt(needs.beds), lb = parseInt(listing.beds); if (!isNaN(nb)&&!isNaN(lb)&&Math.abs(nb-lb)<=1) { score += 10; reasons.push("beds close"); } }
+      }
+      // Budget
+      if (needs.max_price && listing.price) {
+        if (listing.price <= needs.max_price) { score += 15; reasons.push("within budget"); }
+        else if (listing.price <= needs.max_price * 1.1) { score += 5; reasons.push("near budget"); }
+        else score -= 10;
+      }
+      // Type + Furnished (bonus)
+      if (needs.prop_type && listing.prop_type === needs.prop_type) { score += 5; reasons.push("type match"); }
+      if (needs.furnished && listing.furnished === needs.furnished) { score += 5; reasons.push("furnished"); }
+      if (score < 15) return;
+      scored.push({ listing: listing, score: score, reasons: reasons });
+    });
+    scored.sort(function(a, b) { return b.score - a.score; });
+    CHIEFS_COPILOT.matches = scored.slice(0, 4);
+  } catch(e) {
+    CHIEFS_COPILOT.error = "Analysis failed: " + (e.message || "Unknown error");
+  }
+  CHIEFS_COPILOT.analyzing = false;
+  render();
+}
+
+async function chiefsCopilotDraft() {
+  if (!CHIEFS_COPILOT.needs) return;
+  CHIEFS_COPILOT.drafting = true;
+  CHIEFS_COPILOT.draft = null;
+  render();
+  try {
+    var n = CHIEFS_COPILOT.needs;
+    var matchLines = CHIEFS_COPILOT.matches.map(function(m) {
+      var l = m.listing;
+      return "- " + (l.beds ? l.beds + "BR " : "") + (l.prop_type || "apt") + " in " + l.area + (l.building ? " (" + l.building + ")" : "") + (l.price ? " — AED " + Number(l.price).toLocaleString() + (l.purpose === "rent" ? "/yr" : "") : "") + (l.dv_verdict ? " [" + l.dv_verdict + "]" : "") + (l.size_sqft ? " " + l.size_sqft + " sqft" : "");
+    }).join("\n");
+    var draft = await askAI(
+      [{ role: "user", content: "Draft a WhatsApp reply to " + (CHIEFS_COPILOT.senderName || "the prospect") + " who is looking for: " + (n.summary || JSON.stringify(n)) + "\n\nMy matching pocket listings:\n" + (matchLines || "None yet — I'll search the market.") + "\n\nWrite a warm, professional agent reply (max 130 words). No generic greetings. End with a clear call to action (e.g. 'When are you free for a viewing?')." }],
+      "You are a professional Dubai real estate agent writing a WhatsApp message. Be concise, warm and specific. Use the listing details naturally — don't just list them mechanically.",
+      null
+    );
+    CHIEFS_COPILOT.draft = draft || "";
+  } catch(e) {
+    CHIEFS_COPILOT.draft = "Could not generate draft. Please write your reply manually.";
+  }
+  CHIEFS_COPILOT.drafting = false;
+  render();
+}
+
+function chiefsCopilotSaveClient() {
+  if (!CHIEFS_COPILOT.needs) return;
+  var n = CHIEFS_COPILOT.needs;
+  CHIEFS_STATE.cliForm = {
+    open: true, editing: null,
+    client_name: CHIEFS_COPILOT.senderName || "Unknown",
+    client_phone: CHIEFS_COPILOT.senderContact && !CHIEFS_COPILOT.senderContact.includes("@") ? CHIEFS_COPILOT.senderContact : "",
+    client_email: CHIEFS_COPILOT.senderContact && CHIEFS_COPILOT.senderContact.includes("@") ? CHIEFS_COPILOT.senderContact : "",
+    purpose: n.purpose || "sale", prop_type: n.prop_type || "apartment",
+    beds_wanted: n.beds || "", areas_wanted: (n.areas || []).join(", "),
+    min_price: n.min_price || "", max_price: n.max_price || "",
+    furnished_pref: n.furnished || "", timeline: "flexible",
+    notes: "Captured from " + CHIEFS_COPILOT.source + ". " + (n.summary || ""), source: "whatsapp"
+  };
+  CHIEFS_STATE.view = "clients";
+  CHIEFS_COPILOT.open = false;
+  // Navigate to Chiefs sub-tab
+  if (window.APP_STATE) { window.APP_STATE.currentSection = "Network"; window.APP_STATE.currentSubTab = "Chiefs"; }
+  render();
+}
+
+function renderChiefsCopilotOverlay() {
+  if (!CHIEFS_COPILOT.open) return null;
+  var cl = C();
+
+  var backdrop = el("div", { id: "chiefs-copilot-backdrop", style: { position: "fixed", inset: "0", background: "rgba(0,0,0,0.65)", zIndex: "9990", backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)" } });
+  backdrop.addEventListener("click", function() { CHIEFS_COPILOT.open = false; render(); });
+
+  var sheet = el("div", { style: { position: "fixed", bottom: "0", left: "0", right: "0", background: cl.bg, borderTop: "1px solid " + cl.border, borderTopLeftRadius: "20px", borderTopRightRadius: "20px", zIndex: "9991", maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 -12px 40px rgba(0,0,0,0.7)" } });
+  sheet.addEventListener("click", function(e) { e.stopPropagation(); });
+
+  // Drag handle
+  var handle = el("div", { style: { display: "flex", justifyContent: "center", padding: "10px 0 4px" } });
+  handle.appendChild(el("div", { style: { width: "36px", height: "4px", background: cl.border, borderRadius: "2px" } }));
+  sheet.appendChild(handle);
+
+  // Header
+  var hdr = el("div", { style: { display: "flex", alignItems: "center", gap: "10px", padding: "0 16px 12px", flexShrink: "0", borderBottom: "1px solid " + cl.border } });
+  var hIcon = el("div", { style: { width: "36px", height: "36px", background: "rgba(212,175,55,0.15)", border: "1px solid rgba(212,175,55,0.35)", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", flexShrink: "0" } });
+  hIcon.textContent = "🤖";
+  hdr.appendChild(hIcon);
+  var hInfo = el("div", { style: { flex: "1", minWidth: "0" } });
+  hInfo.appendChild(div({ color: "#D4AF37", fontSize: "13px", fontWeight: "700", fontFamily: "'Space Grotesk',monospace" }, "AI Chief Co-pilot"));
+  var srcLabel = { email: "✉️ Email", instagram: "📸 Instagram", whatsapp: "💬 WhatsApp", facebook: "📘 Facebook" }[CHIEFS_COPILOT.source] || ("📨 " + CHIEFS_COPILOT.source);
+  hInfo.appendChild(div({ color: cl.muted, fontSize: "11px", marginTop: "2px", fontFamily: "'Inter',sans-serif" }, srcLabel + " · " + (CHIEFS_COPILOT.senderName || "Prospect")));
+  hdr.appendChild(hInfo);
+  var closeBtn = el("button", { style: { background: "rgba(255,255,255,0.06)", border: "1px solid " + cl.border, color: cl.sub, borderRadius: "8px", padding: "6px 12px", cursor: "pointer", fontSize: "14px", fontWeight: "600" } });
+  closeBtn.textContent = "✕";
+  closeBtn.addEventListener("click", function() { CHIEFS_COPILOT.open = false; render(); });
+  hdr.appendChild(closeBtn);
+  sheet.appendChild(hdr);
+
+  // Scrollable body
+  var body = el("div", { style: { flex: "1", overflowY: "auto", padding: "14px 16px 20px", WebkitOverflowScrolling: "touch" } });
+
+  if (CHIEFS_COPILOT.analyzing) {
+    var spin = el("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", padding: "36px 0", gap: "14px" } });
+    var sp = el("div", { style: { width: "34px", height: "34px", border: "3px solid rgba(212,175,55,0.2)", borderTop: "3px solid #D4AF37", borderRadius: "50%", animation: "spin 0.8s linear infinite" } });
+    spin.appendChild(sp);
+    spin.appendChild(div({ color: cl.sub, fontSize: "13px", fontFamily: "'Inter',sans-serif" }, "Analyzing message with AI..."));
+    body.appendChild(spin);
+  } else if (CHIEFS_COPILOT.error) {
+    var errBox = el("div", { style: { background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: "10px", padding: "14px", marginBottom: "12px" } });
+    errBox.appendChild(div({ color: "#EF4444", fontSize: "13px", fontFamily: "'Inter',sans-serif" }, CHIEFS_COPILOT.error));
+    body.appendChild(errBox);
+  } else if (CHIEFS_COPILOT.needs) {
+    var n = CHIEFS_COPILOT.needs;
+
+    // CLIENT WANTS card
+    var wCard = el("div", { style: { background: "rgba(212,175,55,0.06)", border: "1px solid rgba(212,175,55,0.2)", borderRadius: "12px", padding: "12px", marginBottom: "12px" } });
+    wCard.appendChild(div({ color: "#D4AF37", fontSize: "9px", fontWeight: "700", letterSpacing: "0.12em", marginBottom: "8px", fontFamily: "'Space Grotesk',monospace" }, "CLIENT WANTS"));
+    if (n.summary) wCard.appendChild(div({ color: cl.white, fontSize: "13px", lineHeight: "1.6", marginBottom: "10px", fontFamily: "'Inter',sans-serif" }, n.summary));
+    var tags = el("div", { style: { display: "flex", flexWrap: "wrap", gap: "6px" } });
+    var addTag = function(label, color) { if (!label) return; tags.appendChild(_chBadge(label, color)); };
+    addTag(n.purpose === "rent" ? "For Rent" : "For Sale", "#8B5CF6");
+    if (n.beds) addTag(n.beds === "Studio" ? "Studio" : n.beds + "BR", "#3B82F6");
+    if (n.prop_type) addTag(n.prop_type.charAt(0).toUpperCase() + n.prop_type.slice(1), "#6B7A9E");
+    if (n.furnished) addTag(n.furnished, "#6B7A9E");
+    if (n.max_price) addTag("≤ AED " + Number(n.max_price).toLocaleString(), "#10B981");
+    (n.areas || []).forEach(function(a) { addTag("📍 " + a, "#D4AF37"); });
+    wCard.appendChild(tags);
+    body.appendChild(wCard);
+
+    // MATCHING POCKET LISTINGS
+    var mSec = el("div", { style: { marginBottom: "12px" } });
+    mSec.appendChild(div({ color: cl.sub, fontSize: "9px", fontWeight: "700", letterSpacing: "0.12em", marginBottom: "8px", fontFamily: "'Space Grotesk',monospace" }, "YOUR POCKET LISTINGS (" + CHIEFS_COPILOT.matches.length + " matched)"));
+    if (CHIEFS_COPILOT.matches.length === 0) {
+      mSec.appendChild(div({ color: cl.muted, fontSize: "12px", fontStyle: "italic", fontFamily: "'Inter',sans-serif", padding: "8px 0" }, "No matching pocket listings. Add inventory in Chiefs › Inventory to surface matches here."));
+    } else {
+      CHIEFS_COPILOT.matches.forEach(function(m) {
+        var l = m.listing;
+        var scColor = m.score >= 60 ? "#10B981" : m.score >= 40 ? "#F59E0B" : "#6B7A9E";
+        var mc = el("div", { style: { background: cl.surface, border: "1px solid " + cl.border, borderRadius: "10px", padding: "10px 12px", marginBottom: "7px", display: "flex", alignItems: "center", gap: "10px" } });
+        var ring = el("div", { style: { width: "36px", height: "36px", borderRadius: "50%", background: scColor + "22", border: "2px solid " + scColor, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: "0" } });
+        ring.appendChild(span({ color: scColor, fontSize: "10px", fontWeight: "800" }, m.score + "%"));
+        mc.appendChild(ring);
+        var info = el("div", { style: { flex: "1", minWidth: "0" } });
+        info.appendChild(div({ color: cl.white, fontSize: "12px", fontWeight: "600", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "'Inter',sans-serif" }, (l.beds ? l.beds + "BR " : "") + (l.prop_type || "Apt") + " — " + l.area + (l.building ? " · " + l.building : "")));
+        var deets = [l.price ? "AED " + Number(l.price).toLocaleString() + (l.purpose === "rent" ? "/yr" : "") : null, l.size_sqft ? l.size_sqft + " sqft" : null, l.floor_num ? "Floor " + l.floor_num : null].filter(Boolean).join(" · ");
+        info.appendChild(div({ color: cl.sub, fontSize: "11px", marginTop: "2px", fontFamily: "'Inter',sans-serif" }, deets || "—"));
+        mc.appendChild(info);
+        var vColor = { "Undervalued": "#10B981", "Fair Value": "#F59E0B", "Elevated": "#EF4444", "Bubble Risk": "#7C3AED" }[l.dv_verdict] || null;
+        if (l.dv_verdict && vColor) mc.appendChild(_chBadge(l.dv_verdict, vColor));
+        mSec.appendChild(mc);
+      });
+    }
+    body.appendChild(mSec);
+
+    // DRAFT REPLY
+    var dSec = el("div", { style: { marginBottom: "14px" } });
+    dSec.appendChild(div({ color: cl.sub, fontSize: "9px", fontWeight: "700", letterSpacing: "0.12em", marginBottom: "8px", fontFamily: "'Space Grotesk',monospace" }, "AI DRAFT REPLY"));
+    if (!CHIEFS_COPILOT.draft && !CHIEFS_COPILOT.drafting) {
+      dSec.appendChild(_chBtn("🤖 Generate Reply Draft", "rgba(212,175,55,0.12)", "#D4AF37", function() { chiefsCopilotDraft(); }, { border: "1px solid rgba(212,175,55,0.3)", width: "100%", justifyContent: "center", textAlign: "center" }));
+    } else if (CHIEFS_COPILOT.drafting) {
+      var dSpin = el("div", { style: { display: "flex", alignItems: "center", gap: "8px", padding: "12px 0" } });
+      var dsp = el("div", { style: { width: "16px", height: "16px", border: "2px solid rgba(212,175,55,0.2)", borderTop: "2px solid #D4AF37", borderRadius: "50%", animation: "spin 0.8s linear infinite", flexShrink: "0" } });
+      dSpin.appendChild(dsp);
+      dSpin.appendChild(div({ color: cl.sub, fontSize: "12px", fontFamily: "'Inter',sans-serif" }, "Drafting personalized reply..."));
+      dSec.appendChild(dSpin);
+    } else {
+      var ta = el("textarea", { style: { width: "100%", boxSizing: "border-box", background: "#070B14", border: "1px solid rgba(212,175,55,0.3)", borderRadius: "10px", padding: "12px", color: "#fff", fontSize: "13px", fontFamily: "'Inter',sans-serif", lineHeight: "1.6", resize: "vertical", minHeight: "120px", outline: "none", display: "block", marginBottom: "8px" } });
+      ta.value = CHIEFS_COPILOT.draft;
+      ta.addEventListener("input", function() { CHIEFS_COPILOT.draft = this.value; });
+      dSec.appendChild(ta);
+      var actRow = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } });
+      actRow.appendChild(_chBtn("📋 Copy", "rgba(212,175,55,0.1)", "#D4AF37", function() { navigator.clipboard.writeText(CHIEFS_COPILOT.draft || "").catch(function(){}); }, { border: "1px solid rgba(212,175,55,0.25)", fontSize: "12px" }));
+      if (CHIEFS_COPILOT.senderContact && !CHIEFS_COPILOT.senderContact.includes("@")) {
+        actRow.appendChild(_chBtn("💬 WhatsApp", "rgba(37,211,102,0.1)", "#25D366", function() { var ph = CHIEFS_COPILOT.senderContact.replace(/\D/g,""); if(ph) window.open("https://wa.me/"+ph+"?text="+encodeURIComponent(CHIEFS_COPILOT.draft||""),"_blank"); }, { border: "1px solid rgba(37,211,102,0.25)", fontSize: "12px" }));
+      }
+      actRow.appendChild(_chBtn("🔄 Regenerate", "rgba(255,255,255,0.04)", cl.sub, function() { chiefsCopilotDraft(); }, { border: "1px solid " + cl.border, fontSize: "12px" }));
+      dSec.appendChild(actRow);
+    }
+    body.appendChild(dSec);
+
+    // Save to Client Memory
+    body.appendChild(_chBtn(CHIEFS_COPILOT.saving ? "Saving..." : "💾 Save to Client Memory", "rgba(139,92,246,0.1)", "#8B5CF6", function() { if(!CHIEFS_COPILOT.saving) chiefsCopilotSaveClient(); }, { border: "1px solid rgba(139,92,246,0.25)", width: "100%", textAlign: "center", justifyContent: "center", fontSize: "13px", padding: "10px 14px" }));
+  }
+
+  sheet.appendChild(body);
+
+  var wrap = el("div", {});
+  wrap.appendChild(backdrop);
+  wrap.appendChild(sheet);
+  return wrap;
+}
+
 // ── MAIN RENDER ───────────────────────────────────────────────────────────────
 function renderChiefs() {
   // Init: load data if not yet loaded

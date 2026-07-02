@@ -317,6 +317,30 @@ function _renderItem(item) {
       }
     }
 
+    // AI Chief Co-pilot button
+    if (typeof chiefsCopilotAnalyze === "function") {
+      var cpBtn = el("div", {style:{display:"flex",alignItems:"center",gap:"10px",background:"rgba(212,175,55,0.07)",border:"1px solid rgba(212,175,55,0.22)",borderRadius:"10px",padding:"10px 14px",cursor:"pointer",marginBottom:"14px",transition:"background 0.2s"}});
+      cpBtn.addEventListener("mouseenter", function(){this.style.background="rgba(212,175,55,0.13)";});
+      cpBtn.addEventListener("mouseleave", function(){this.style.background="rgba(212,175,55,0.07)";});
+      var cpIcon = el("div",{style:{width:"32px",height:"32px",borderRadius:"8px",background:"rgba(212,175,55,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"17px",flexShrink:"0"}});
+      cpIcon.textContent = "🤖";
+      cpBtn.appendChild(cpIcon);
+      var cpInfo = el("div",{style:{flex:"1",minWidth:"0"}});
+      cpInfo.appendChild(el("div",{style:{color:"#D4AF37",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"}},"AI Chief Co-pilot"));
+      cpInfo.appendChild(el("div",{style:{color:"#8899AA",fontSize:"11px",marginTop:"1px",fontFamily:"'Inter',sans-serif"}},"Analyze · Match listings · Draft reply"));
+      cpBtn.appendChild(cpInfo);
+      var cpArrow = el("div",{style:{color:"#D4AF37",fontSize:"16px",flexShrink:"0"}});
+      cpArrow.textContent = "→";
+      cpBtn.appendChild(cpArrow);
+      cpBtn.addEventListener("click", function() {
+        var msgText = isEmail ? ((d.body_text||"")||d.subject||"") : (d.message_text||"");
+        var senderName = isEmail ? (d.from_name||d.from_email||"") : (d.sender_name||d.sender_id||"");
+        var senderContact = isEmail ? (d.from_email||"") : (d.sender_id||"");
+        chiefsCopilotAnalyze(msgText, isEmail?"email":(d.platform||"social"), senderName, senderContact);
+      });
+      body.appendChild(cpBtn);
+    }
+
     // AI / agent reply shown if exists
     var shownReply = isEmail ? (d.agent_reply || d.ai_reply) : d.ai_reply;
     var replyLabel = isEmail ? (d.agent_reply ? "Agent Reply" : (d.ai_reply ? "AI Reply" : null)) : (d.ai_reply ? "AI Reply (sent)" : null);

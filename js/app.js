@@ -2078,6 +2078,14 @@ function render(preserveScroll){
 
   main.appendChild(content);
 
+  // Chiefs Co-pilot overlay (fixed, appended to body so it layers above everything)
+  if (typeof renderChiefsCopilotOverlay === "function") {
+    var _existingCp = document.getElementById("chiefs-copilot-container");
+    if (_existingCp) _existingCp.remove();
+    var _cpOverlay = renderChiefsCopilotOverlay();
+    if (_cpOverlay) { _cpOverlay.id = "chiefs-copilot-container"; document.body.appendChild(_cpOverlay); }
+  }
+
   main.appendChild(div({padding:"16px",textAlign:"center",boxSizing:"border-box",width:"100%",maxWidth:"100%"},[
     span({color:"rgba(107,122,158,0.5)",fontSize:"9px",fontFamily:"'Inter',sans-serif"},t("footer_tag")),
   ]));
