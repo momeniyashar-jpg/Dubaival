@@ -385,9 +385,8 @@ function setSection(sec,sub){
 }
 window.addEventListener("popstate",function(e){
   if(!e.state||!e.state.section){
-    // No SPA state → stay on the app, don't exit the site
-    var stateObj={section:currentSection,sub:currentSubTab};
-    history.replaceState(stateObj,"","#"+currentSection+(currentSubTab?"/"+currentSubTab:""));
+    // No SPA state → would exit the site; snap forward back into app
+    history.go(1);
     return;
   }
   _skipPush=true;
