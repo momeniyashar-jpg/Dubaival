@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — DubAIVal</title>
+  <meta name="description" content="DubAIVal Privacy Policy — how we collect, use, and protect your data.">
+  <link rel="canonical" href="https://www.dubaival.com/privacy">
+  <meta property="og:title" content="Privacy Policy — DubAIVal">
+  <meta property="og:url" content="https://www.dubaival.com/privacy">
+  <meta name="robots" content="noindex">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #070B14;
+      --surface:   #0E1422;
+      --inset:     #1B2340;
+      --border:    rgba(255,255,255,0.07);
+      --border-g:  rgba(212,175,55,0.2);
+      --gold:      #D4AF37;
+      --gold-dim:  rgba(212,175,55,0.1);
+      --text:      #B5C3D4;
+      --heading:   #E8EEF4;
+      --muted:     #4A5B72;
+      --link:      #C9A84C;
+      --nav-w:     210px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-size: 14.5px;
+      line-height: 1.78;
+    }
+
+    .page-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 28px 40px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .wordmark {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .wordmark-icon {
+      width: 32px; height: 32px;
+      background: var(--gold-dim);
+      border: 1px solid var(--border-g);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+    }
+
+    .wordmark-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--heading);
+      letter-spacing: -0.015em;
+    }
+
+    .header-meta {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+    }
+
+    .header-label {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gold);
+      font-weight: 700;
+    }
+
+    .header-date {
+      font-size: 12px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .layout {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+      display: flex;
+      gap: 52px;
+      align-items: flex-start;
+    }
+
+    .toc {
+      width: var(--nav-w);
+      flex-shrink: 0;
+      position: sticky;
+      top: 28px;
+    }
+
+    .toc-label {
+      font-size: 9.5px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 700;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .toc-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .toc-list a {
+      display: block;
+      padding: 6px 10px;
+      font-size: 12px;
+      color: var(--muted);
+      text-decoration: none;
+      border-radius: 5px;
+      border-left: 2px solid transparent;
+      line-height: 1.45;
+      transition: color 0.15s, background 0.15s, border-color 0.15s;
+    }
+
+    .toc-list a:hover,
+    .toc-list a:focus {
+      color: var(--heading);
+      background: rgba(255,255,255,0.04);
+      border-left-color: var(--gold);
+      outline: none;
+    }
+
+    .doc {
+      flex: 1;
+      min-width: 0;
+      max-width: 640px;
+    }
+
+    .doc-intro {
+      background: var(--inset);
+      border: 1px solid var(--border-g);
+      border-left: 3px solid var(--gold);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 40px;
+      font-size: 13.5px;
+      color: var(--text);
+      line-height: 1.65;
+    }
+
+    .doc-intro strong {
+      color: var(--heading);
+      font-weight: 600;
+    }
+
+    .doc-section {
+      margin-bottom: 44px;
+      scroll-margin-top: 28px;
+    }
+
+    .section-eyebrow {
+      font-size: 9px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--gold);
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .section-heading {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--heading);
+      letter-spacing: -0.02em;
+      line-height: 1.25;
+      text-wrap: balance;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .doc-section p {
+      margin-bottom: 14px;
+      color: var(--text);
+    }
+
+    .doc-section p:last-child { margin-bottom: 0; }
+
+    .data-table-wrap { overflow-x: auto; }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin: 14px 0;
+    }
+
+    .data-table th {
+      text-align: left;
+      font-size: 9.5px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 700;
+      padding: 8px 14px;
+      background: var(--inset);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .data-table td {
+      padding: 10px 14px;
+      vertical-align: top;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    .data-table tr:last-child td { border-bottom: none; }
+
+    .data-table td:first-child {
+      color: var(--heading);
+      font-weight: 500;
+      white-space: nowrap;
+      padding-right: 20px;
+    }
+
+    .data-table .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    .tag-yes  { background: rgba(212,175,55,0.12); color: var(--gold); }
+    .tag-opt  { background: rgba(139,92,246,0.12); color: #A78BFA; }
+
+    .doc-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 14px 0;
+    }
+
+    .doc-list li {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      font-size: 13.5px;
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .doc-list li::before {
+      content: '';
+      width: 5px;
+      height: 5px;
+      background: var(--gold);
+      border-radius: 50%;
+      margin-top: 8px;
+      flex-shrink: 0;
+    }
+
+    .rights-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    .right-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 13px 15px;
+    }
+
+    .right-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--heading);
+      margin-bottom: 4px;
+    }
+
+    .right-desc {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .contact-block {
+      background: var(--inset);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 18px 20px;
+      margin-top: 14px;
+    }
+
+    .contact-line {
+      font-size: 13px;
+      color: var(--text);
+      margin-bottom: 6px;
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+    }
+
+    .contact-line:last-child { margin-bottom: 0; }
+
+    .contact-key {
+      font-size: 10px;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 700;
+      min-width: 80px;
+    }
+
+    a { color: var(--link); text-decoration: none; }
+    a:hover, a:focus { text-decoration: underline; }
+
+    .hl { color: var(--heading); font-weight: 500; }
+
+    @media (max-width: 680px) {
+      .page-header { padding: 20px; }
+      .header-meta { align-items: flex-start; }
+      .layout { flex-direction: column; gap: 0; padding: 0 16px 60px; }
+
+      .toc {
+        width: 100%;
+        position: static;
+        padding: 20px 0 4px;
+        margin-bottom: 28px;
+      }
+
+      .toc-list {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .toc-list a {
+        border: 1px solid var(--border);
+        border-left: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 4px 10px;
+        font-size: 11px;
+      }
+
+      .toc-list a:hover {
+        border-color: var(--gold);
+        background: var(--gold-dim);
+      }
+
+      .rights-grid { grid-template-columns: 1fr; }
+      .doc { max-width: 100%; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="page-header">
+  <a class="wordmark" href="https://www.dubaival.com">
+    <div class="wordmark-icon">🏙️</div>
+    <span class="wordmark-name">DubAIVal</span>
+  </a>
+  <div class="header-meta">
+    <span class="header-label">Privacy Policy</span>
+    <span class="header-date">Effective July 2, 2026 &nbsp;·&nbsp; Last updated July 2, 2026</span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <nav class="toc" aria-label="Table of contents">
+    <div class="toc-label">Contents</div>
+    <ul class="toc-list">
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#collected">Information We Collect</a></li>
+      <li><a href="#use">How We Use It</a></li>
+      <li><a href="#third-party">Third-Party Services</a></li>
+      <li><a href="#storage">Storage &amp; Security</a></li>
+      <li><a href="#rights">Your Rights</a></li>
+      <li><a href="#local">Local Storage &amp; Caching</a></li>
+      <li><a href="#children">Children's Privacy</a></li>
+      <li><a href="#changes">Changes</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ul>
+  </nav>
+
+  <main class="doc">
+
+    <div class="doc-intro">
+      <strong>Plain-language summary:</strong> DubAIVal collects only what it needs to work — your email to create an account, and property data you enter yourself. We don't sell your data, don't run ads, and don't share your information with third parties beyond the services required to operate the app (listed in full below).
+    </div>
+
+    <section class="doc-section" id="overview">
+      <div class="section-eyebrow">Section 1</div>
+      <h2 class="section-heading">Overview</h2>
+      <p>DubAIVal ("we", "our", "the app") is a Dubai real estate intelligence platform operated by DubAIVal (contact: <a href="mailto:momeni.yashar@gmail.com">momeni.yashar@gmail.com</a>). The app is available at <a href="https://www.dubaival.com">dubaival.com</a> and on Google Play.</p>
+      <p>This Privacy Policy describes what information we collect when you use DubAIVal, how we use it, and the choices you have. It applies to the web app, the Android app (Google Play), and any API services operated under the dubaival.com domain.</p>
+      <p>By using DubAIVal, you agree to the practices described here. If you disagree with any part of this policy, please do not use the service.</p>
+    </section>
+
+    <section class="doc-section" id="collected">
+      <div class="section-eyebrow">Section 2</div>
+      <h2 class="section-heading">Information We Collect</h2>
+      <p>We collect only information that is necessary to provide our services.</p>
+
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>When collected</th>
+              <th>Required?</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Email address</td>
+              <td>When you create an account or subscribe to price alerts</td>
+              <td><span class="tag tag-yes">Required</span></td>
+            </tr>
+            <tr>
+              <td>Full name</td>
+              <td>When you complete your profile</td>
+              <td><span class="tag tag-opt">Optional</span></td>
+            </tr>
+            <tr>
+              <td>Phone &amp; WhatsApp</td>
+              <td>When you complete your profile for agent features</td>
+              <td><span class="tag tag-opt">Optional</span></td>
+            </tr>
+            <tr>
+              <td>Portfolio property data</td>
+              <td>When you add assets to Portfolio Manager</td>
+              <td><span class="tag tag-opt">Optional</span></td>
+            </tr>
+            <tr>
+              <td>Deal listings</td>
+              <td>When you post a deal to the Deal Network</td>
+              <td><span class="tag tag-opt">Optional</span></td>
+            </tr>
+            <tr>
+              <td>Title deed number</td>
+              <td>When you post an "I Have" deal listing (partial, for verification)</td>
+              <td><span class="tag tag-opt">Optional</span></td>
+            </tr>
+            <tr>
+              <td>RERA number</td>
+              <td>When you register as an agent</td>
+              <td><span class="tag tag-opt">Optional</span></td>
+            </tr>
+            <tr>
+              <td>OAuth tokens (Gmail, Meta)</td>
+              <td>When you connect social accounts for the Social Media Manager</td>
+              <td><span class="tag tag-opt">Optional</span></td>
+            </tr>
+            <tr>
+              <td>Price alert preferences</td>
+              <td>When you subscribe to a building price alert</td>
+              <td><span class="tag tag-opt">Optional</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p><span class="hl">We do not collect:</span> location data (you select your area manually), payment or financial account data, biometric data, or device identifiers beyond what Vercel's infrastructure logs for standard web traffic.</p>
+    </section>
+
+    <section class="doc-section" id="use">
+      <div class="section-eyebrow">Section 3</div>
+      <h2 class="section-heading">How We Use Your Information</h2>
+      <ul class="doc-list">
+        <li>To create and authenticate your account via Supabase Auth</li>
+        <li>To store and sync your portfolio data across your devices when you are signed in</li>
+        <li>To send price alert emails when a tracked building's average price moves past your threshold</li>
+        <li>To enable Deal Network listings and agent matching features</li>
+        <li>To send social media content on your behalf when you configure the Auto-Post engine (only with your explicit OAuth authorization)</li>
+        <li>To improve the AI valuation engine — we analyze aggregate, anonymized patterns in how the app is used, not individual property entries</li>
+        <li>To respond to support inquiries sent to our email address</li>
+      </ul>
+      <p>We do <span class="hl">not</span> use your data for advertising, profiling, or sale to third parties.</p>
+    </section>
+
+    <section class="doc-section" id="third-party">
+      <div class="section-eyebrow">Section 4</div>
+      <h2 class="section-heading">Third-Party Services</h2>
+      <p>DubAIVal relies on the following third-party services to operate. Each service receives only the minimum data necessary for its function.</p>
+
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Service</th>
+              <th>Purpose &amp; data shared</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Supabase<br><small style="color:var(--muted);font-size:11px;">supabase.com</small></td>
+              <td>Database and authentication. Stores your account, portfolio, deal listings, and price alert subscriptions. Hosted in EU (Frankfurt). <a href="https://supabase.com/privacy" target="_blank" rel="noopener">Privacy policy →</a></td>
+            </tr>
+            <tr>
+              <td>Vercel<br><small style="color:var(--muted);font-size:11px;">vercel.com</small></td>
+              <td>Web hosting and serverless functions. Receives standard web request logs (IP address, user agent, request path). Logs are retained for 30 days. <a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noopener">Privacy policy →</a></td>
+            </tr>
+            <tr>
+              <td>Groq<br><small style="color:var(--muted);font-size:11px;">groq.com</small></td>
+              <td>AI language model for chat agents, valuations commentary, and social content generation. Receives the text of your queries. No personal identifying information is included in AI prompts. <a href="https://groq.com/privacy-policy/" target="_blank" rel="noopener">Privacy policy →</a></td>
+            </tr>
+            <tr>
+              <td>Google Gemini API<br><small style="color:var(--muted);font-size:11px;">ai.google.dev</small></td>
+              <td>Text embeddings for the RAG knowledge base feature. Receives market news headlines and area benchmark text. No personal data. <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Privacy policy →</a></td>
+            </tr>
+            <tr>
+              <td>RapidAPI / UAE Real Estate<br><small style="color:var(--muted);font-size:11px;">rapidapi.com</small></td>
+              <td>Live market listing data. Receives search queries (area name, property type). No personal data. <a href="https://rapidapi.com/privacy/" target="_blank" rel="noopener">Privacy policy →</a></td>
+            </tr>
+            <tr>
+              <td>Resend<br><small style="color:var(--muted);font-size:11px;">resend.com</small></td>
+              <td>Transactional email delivery for price alert notifications. Receives your email address and the alert content. <a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener">Privacy policy →</a></td>
+            </tr>
+            <tr>
+              <td>Fal.ai<br><small style="color:var(--muted);font-size:11px;">fal.ai</small></td>
+              <td>AI video generation proxy (Kling, Pika, HeyGen engines). Receives video generation prompts and uploaded media when you use AI Video Studio. <a href="https://fal.ai/privacy" target="_blank" rel="noopener">Privacy policy →</a></td>
+            </tr>
+            <tr>
+              <td>OpenStreetMap / Leaflet<br><small style="color:var(--muted);font-size:11px;">openstreetmap.org</small></td>
+              <td>Map tiles for the interactive area map. Receives tile requests (area coordinates). No personal data. <a href="https://wiki.osmfoundation.org/wiki/Privacy_Policy" target="_blank" rel="noopener">Privacy policy →</a></td>
+            </tr>
+            <tr>
+              <td>Google (OAuth)</td>
+              <td>Gmail access for the Social Media Manager auto-post feature. We store your OAuth refresh token in Supabase to send posts on your behalf. You can revoke access at any time via <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Account Permissions</a> or from the app settings.</td>
+            </tr>
+            <tr>
+              <td>Meta (OAuth)</td>
+              <td>Facebook Page and Instagram access for social media auto-posting. We store your page access token in Supabase. You can revoke access from your <a href="https://www.facebook.com/settings?tab=applications" target="_blank" rel="noopener">Facebook App Settings</a> or from the app settings.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="doc-section" id="storage">
+      <div class="section-eyebrow">Section 5</div>
+      <h2 class="section-heading">Data Storage &amp; Security</h2>
+      <p>Account data, deal listings, and price alerts are stored in <span class="hl">Supabase</span> (EU-Frankfurt region), protected by row-level security policies that ensure you can only access your own data. Supabase encrypts data at rest using AES-256 and in transit using TLS 1.2+.</p>
+      <p>Portfolio data entered without signing in is stored <span class="hl">only in your browser's localStorage</span> and never transmitted to our servers. If you sign in, your portfolio syncs to Supabase and is then subject to the same protections above.</p>
+      <p>OAuth tokens (Google, Meta) are encrypted by Supabase at rest and only accessed server-side by Vercel serverless functions — never exposed to the browser.</p>
+      <p>We implement reasonable security measures, but no system is perfectly secure. In the event of a data breach affecting your personal information, we will notify affected users via the email address on file within 72 hours of becoming aware.</p>
+    </section>
+
+    <section class="doc-section" id="rights">
+      <div class="section-eyebrow">Section 6</div>
+      <h2 class="section-heading">Your Rights &amp; Choices</h2>
+      <p>Depending on your location, you may have rights under GDPR (EU/EEA), the UAE Personal Data Protection Law (PDPL, effective 2023), or similar regulations.</p>
+
+      <div class="rights-grid">
+        <div class="right-card">
+          <div class="right-title">Access</div>
+          <div class="right-desc">Request a copy of the personal data we hold about you</div>
+        </div>
+        <div class="right-card">
+          <div class="right-title">Correction</div>
+          <div class="right-desc">Update inaccurate or incomplete information in your profile</div>
+        </div>
+        <div class="right-card">
+          <div class="right-title">Deletion</div>
+          <div class="right-desc">Request deletion of your account and all associated data</div>
+        </div>
+        <div class="right-card">
+          <div class="right-title">Portability</div>
+          <div class="right-desc">Receive your portfolio and deal data in a machine-readable format</div>
+        </div>
+        <div class="right-card">
+          <div class="right-title">Withdraw Consent</div>
+          <div class="right-desc">Disconnect Google or Meta OAuth at any time without affecting your account</div>
+        </div>
+        <div class="right-card">
+          <div class="right-title">Unsubscribe</div>
+          <div class="right-desc">Cancel any price alert via the unsubscribe link in every alert email</div>
+        </div>
+      </div>
+
+      <p style="margin-top:16px;">To exercise any of these rights, email <a href="mailto:momeni.yashar@gmail.com">momeni.yashar@gmail.com</a>. We will respond within 30 days. We may need to verify your identity before fulfilling a request.</p>
+    </section>
+
+    <section class="doc-section" id="local">
+      <div class="section-eyebrow">Section 7</div>
+      <h2 class="section-heading">Local Storage &amp; Service Worker</h2>
+      <p>DubAIVal uses your browser's <span class="hl">localStorage</span> to store:</p>
+      <ul class="doc-list">
+        <li>Your portfolio assets (if not signed in)</li>
+        <li>App preferences (language, theme, recently visited sections)</li>
+        <li>Tour and onboarding state (so completed tours aren't shown again)</li>
+        <li>A session flag for Demo Mode</li>
+      </ul>
+      <p>DubAIVal registers a <span class="hl">service worker</span> (sw.js) to enable offline use and faster repeat loads as a Progressive Web App. The service worker caches static app files only — not your personal data or API responses.</p>
+      <p>We do not use advertising cookies or third-party tracking cookies. No data stored in localStorage is shared with third parties.</p>
+      <p>You can clear all locally stored data at any time via your browser's "Clear site data" function, or by uninstalling the Android app.</p>
+    </section>
+
+    <section class="doc-section" id="children">
+      <div class="section-eyebrow">Section 8</div>
+      <h2 class="section-heading">Children's Privacy</h2>
+      <p>DubAIVal is a financial intelligence tool intended for adults. We do not knowingly collect personal information from anyone under the age of 13 (or under the applicable minimum age in your jurisdiction).</p>
+      <p>If you believe a child has provided us with personal information, please contact us at <a href="mailto:momeni.yashar@gmail.com">momeni.yashar@gmail.com</a> and we will delete that information promptly.</p>
+    </section>
+
+    <section class="doc-section" id="changes">
+      <div class="section-eyebrow">Section 9</div>
+      <h2 class="section-heading">Changes to This Policy</h2>
+      <p>We may update this Privacy Policy from time to time. When we make material changes, we will update the "Last updated" date at the top of this page and, where appropriate, notify registered users by email.</p>
+      <p>Your continued use of DubAIVal after any changes constitutes acceptance of the updated policy. We encourage you to review this page periodically.</p>
+    </section>
+
+    <section class="doc-section" id="contact">
+      <div class="section-eyebrow">Section 10</div>
+      <h2 class="section-heading">Contact Us</h2>
+      <p>For any questions, data requests, or privacy concerns, reach us at:</p>
+      <div class="contact-block">
+        <div class="contact-line">
+          <span class="contact-key">Service</span>
+          <span class="contact-val">DubAIVal</span>
+        </div>
+        <div class="contact-line">
+          <span class="contact-key">Email</span>
+          <span class="contact-val"><a href="mailto:momeni.yashar@gmail.com">momeni.yashar@gmail.com</a></span>
+        </div>
+        <div class="contact-line">
+          <span class="contact-key">Website</span>
+          <span class="contact-val"><a href="https://www.dubaival.com">www.dubaival.com</a></span>
+        </div>
+        <div class="contact-line">
+          <span class="contact-key">Response time</span>
+          <span class="contact-val">Within 30 days for data requests</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+</body>
+</html>
