@@ -35,6 +35,7 @@ async function dvSignIn(email,password){
     await setAuthSession(data);
     DV_AUTH.showModal=false;
     await syncPortfolioFromCloud();
+    setTimeout(function(){if(typeof _syncCredsFromServer==="function")_syncCredsFromServer();},600);
   }catch(e){DV_AUTH.error=e.message;}
   DV_AUTH.busy=false;render();
 }
@@ -168,6 +169,8 @@ function portfolioChanged(){
         if(!t){DV_AUTH.user=null;DV_AUTH.profile=null;}
         DV_AUTH.loading=false;
         if(typeof render==="function")render();
+        // Pull social credentials from cloud after session confirmed
+        if(t)setTimeout(function(){if(typeof _syncCredsFromServer==="function")_syncCredsFromServer();},1200);
       });
     }else{DV_AUTH.loading=false;}
   }catch(e){DV_AUTH.loading=false;}

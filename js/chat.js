@@ -795,6 +795,34 @@ function _syncCredsToServer(){
   }catch(e){}
 }
 
+// Pull credentials FROM Supabase → localStorage (called on login/page load)
+async function _syncCredsFromServer(){
+  try{
+    var userId=_getPostUserId();
+    var COLS=["ig_token","ig_id","fb_id","linkedin_token","linkedin_urn",
+      "twitter_consumer_key","twitter_consumer_secret","twitter_access_token","twitter_access_secret",
+      "youtube_refresh","youtube_client_id","youtube_client_secret","pexels_key","tiktok_token"];
+    var LKEYS=["dv_ig_token","dv_ig_id","dv_fb_id","dv_linkedin_token","dv_linkedin_urn",
+      "dv_twitter_consumer_key","dv_twitter_consumer_secret","dv_twitter_access_token","dv_twitter_access_secret",
+      "dv_youtube_refresh","dv_youtube_client_id","dv_youtube_client_secret","dv_pexels_key","dv_tiktok_token"];
+    // Try user-specific first, then 'default' as legacy fallback
+    var tries=userId==="default"?["default"]:[userId,"default"];
+    for(var i=0;i<tries.length;i++){
+      var r=await fetch(SUPABASE_URL+"/rest/v1/social_credentials?user_id=eq."+encodeURIComponent(tries[i]),{
+        headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY}
+      });
+      var rows=await r.json();
+      if(rows&&rows.length>0){
+        var row=rows[0];
+        COLS.forEach(function(col,j){if(row[col])localStorage.setItem(LKEYS[j],row[col]);});
+        // If loaded from 'default', migrate to user-specific row
+        if(tries[i]==="default"&&userId!=="default")_syncCredsToServer();
+        break;
+      }
+    }
+  }catch(e){}
+}
+
 async function _syncCalEventToServer(evt,imageUrl){
   try{
     var userId=_getPostUserId();
