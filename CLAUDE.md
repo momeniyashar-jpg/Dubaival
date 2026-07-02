@@ -369,6 +369,24 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-02 (session 9)**: AI Chief of Staff — fully isolated agent workspace module.
+  - `js/chiefs.js` — New standalone module (~900 lines). 5 views: Dashboard, Inventory,
+    Clients, Matches, Pipeline. Zero dependency on any other module except shared globals.
+  - `supabase-chiefs-schema.sql` — 4 Supabase tables: `chiefs_inventory` (pocket listings),
+    `chiefs_clients` (client requirements), `chiefs_matches` (auto-matched pairs),
+    `chiefs_pipeline` (deal stages). All with RLS enabled.
+  - **Features**: Agent Inventory Bank (pocket listings with DubAIVal auto-valuation),
+    Client Memory Bank (store unfulfilled client requirements), WhatsApp Conversation
+    Scanner (AI extracts client requirements from pasted chat), Auto-Matching Engine
+    (pure JS scoring: area match, beds, budget, type), AI Message Drafter (Groq LLM
+    drafts personalized WhatsApp messages per match), Human-in-the-loop approval
+    (copy to clipboard or open WhatsApp directly), Deal Pipeline (8 stages: Lead→Closing),
+    Dashboard with stats + quick actions + upcoming pipeline actions.
+  - **Navigation**: Added `{id:"Chiefs",label:"AI Chief of Staff"}` sub-tab to Network section.
+  - **Isolation**: `CHIEFS_STATE` object, `_chiefsId()` for agent ID, `_chiefsH()` for
+    Supabase headers. No cross-dependencies. Safe against all future changes.
+  - **Manual setup required**: Run `supabase-chiefs-schema.sql` in Supabase SQL Editor.
+
 - **2026-06-30 (session 8)**: World-class RAG knowledge-base system ("AI brain").
   - `supabase-knowledge-base-schema.sql` — pgvector `knowledge_base` table, 768-dim
     Gemini embeddings, HNSW cosine-similarity index, `match_knowledge()` Postgres RPC.

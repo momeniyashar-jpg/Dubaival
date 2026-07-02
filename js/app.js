@@ -2056,6 +2056,7 @@ function render(preserveScroll){
     else if(currentSubTab==="Deals")content.appendChild(renderDeals());
     else if(currentSubTab==="AgentHub"){DEAL_STATE.mode="agents";if(typeof fetchAgents==="function")fetchAgents();content.appendChild(renderDeals());}
     else if(currentSubTab==="Chat")content.appendChild(renderChat());
+    else if(currentSubTab==="Chiefs"&&typeof renderChiefs==="function")content.appendChild(renderChiefs());
     else if(typeof renderInbox==="function")content.appendChild(renderInbox());
     else content.appendChild(renderDeals());
   } else if(currentSection==="SocialMedia"){

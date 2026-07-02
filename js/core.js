@@ -355,7 +355,8 @@ var NAV_SECTIONS=[
     {id:"Inbox",label:"Inbox",badgeKey:"inbox"},
     {id:"Deals",label:"Deal Board"},
     {id:"AgentHub",label:"Agent Hub"},
-    {id:"Chat",label:"AI Agents"}
+    {id:"Chat",label:"AI Agents"},
+    {id:"Chiefs",label:"AI Chief of Staff"}
   ]},
   {id:"SocialMedia",icon:"share-2",label:"Social",accentColor:"#EC4899",badgeKey:"autopost",subs:[
     {id:"Studio",label:"Media Studio"},
