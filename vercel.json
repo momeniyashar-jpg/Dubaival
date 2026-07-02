@@ -26,29 +26,10 @@
     { "source": "/((?!api/|callback).*)", "destination": "/index.html" }
   ],
   "crons": [
-    {
-      "path": "/api/check-price-alerts",
-      "schedule": "0 8 * * *"
-    },
-    {
-      "path": "/api/send-email-replies",
-      "schedule": "0 4 * * *"
-    },
-    {
-      "path": "/api/gmail-poll",
-      "schedule": "0 * * * *"
-    },
-    {
-      "path": "/api/refresh-market-data",
-      "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/auto-post",
-      "schedule": "0 9 * * *"
-    },
-    {
-      "path": "/api/sync-engagement",
-      "schedule": "0 21 * * *"
-    }
+    { "path": "/api/refresh-market-data", "schedule": "0 6 * * *" },
+    { "path": "/api/check-price-alerts", "schedule": "0 7 * * *" },
+    { "path": "/api/gmail-poll", "schedule": "0 8 * * *" },
+    { "path": "/api/auto-post", "schedule": "0 9 * * *" },
+    { "path": "/api/sync-engagement", "schedule": "0 21 * * *" }
   ]
 }

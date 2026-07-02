@@ -33,7 +33,7 @@ module.exports = async function handler(req, res) {
     const row = rows && rows[0];
 
     if (row && row.unsubscribe_token) {
-      const unsubUrl = "https://www.dubaival.com/api/unsubscribe?token=" + row.unsubscribe_token;
+      const unsubUrl = "https://www.dubaival.com/api/price-watch?token=" + row.unsubscribe_token;
       await sendEmail(
         email,
         "You're watching " + targetName + " on DubAIVal",

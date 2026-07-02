@@ -3201,7 +3201,7 @@ function renderAnalyzerResult(wrap){
         const email=inp.value.trim();
         if(!email||!email.includes("@")){inp.style.borderColor="#EF4444";return;}
         WS.busy=true;render();
-        fetch("/api/watch-subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:email,targetType:targetType,targetName:targetName,area:f.area})})
+        fetch("/api/price-watch",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:email,targetType:targetType,targetName:targetName,area:f.area})})
           .then(function(r){return r.json();})
           .then(function(d){
             WS.busy=false;

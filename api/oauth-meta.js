@@ -7,6 +7,13 @@ var GRAPH = "https://graph.facebook.com/v25.0";
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   if (req.method === "OPTIONS") return res.status(200).end();
+  // GET returns public client IDs for browser OAuth flows
+  if (req.method === "GET") {
+    return res.status(200).json({
+      meta_app_id: process.env.META_APP_ID || "",
+      google_client_id: process.env.GOOGLE_CLIENT_ID || ""
+    });
+  }
   if (req.method !== "POST") return res.status(405).end();
 
   var body = req.body || {};
@@ -52,8 +59,8 @@ module.exports = async function handler(req, res) {
     var igId = (d4.instagram_business_account && d4.instagram_business_account.id) || null;
 
     // Step 5: store in social_credentials for this user
-    var creds = { ig_token: pageToken, fb_id: fbId, updated_at: new Date().toISOString() };
-    if (igId) creds.ig_id = igId;
+    var creds = { meta_access_token: pageToken, meta_fb_page_id: fbId, updated_at: new Date().toISOString() };
+    if (igId) creds.meta_ig_id = igId;
 
     // Try update first, then insert
     var resp = await shared.supabaseRequest(

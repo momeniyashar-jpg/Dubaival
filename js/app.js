@@ -1688,10 +1688,9 @@ function renderProfilePanel(){
     btn.style.borderColor=connected?"#10B981":color;
     btn.style.color=connected?"#10B981":color;
     btn.addEventListener("click",function(){
-      var appId=process.env&&process.env.META_APP_ID;
       if(platform==="meta"){
         var metaAppId="";// filled by server below
-        fetch("/api/oauth-config").then(function(r){return r.json();}).then(function(d){
+        fetch("/api/oauth-meta").then(function(r){return r.json();}).then(function(d){
           var url="https://www.facebook.com/dialog/oauth?client_id="+d.meta_app_id+
             "&redirect_uri="+encodeURIComponent(window.location.origin+"/callback")+
             "&scope=pages_show_list,pages_messaging,instagram_manage_messages,instagram_basic,pages_read_engagement,read_page_mailboxes"+
@@ -1699,7 +1698,7 @@ function renderProfilePanel(){
           window.location.href=url;
         }).catch(function(){alert("Meta App ID not configured. Add META_APP_ID to Vercel env vars.");});
       } else if(platform==="google"){
-        fetch("/api/oauth-config").then(function(r){return r.json();}).then(function(d){
+        fetch("/api/oauth-meta").then(function(r){return r.json();}).then(function(d){
           var url="https://accounts.google.com/o/oauth2/v2/auth?client_id="+d.google_client_id+
             "&redirect_uri="+encodeURIComponent(window.location.origin+"/callback")+
             "&scope="+encodeURIComponent("https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send")+

@@ -74,7 +74,7 @@ module.exports = async function handler(req, res) {
         if (w.last_psf) {
           const pctChange = ((psf - w.last_psf) / w.last_psf) * 100;
           if (Math.abs(pctChange) >= (w.threshold_pct || 5)) {
-            const unsubUrl = "https://www.dubaival.com/api/unsubscribe?token=" + w.unsubscribe_token;
+            const unsubUrl = "https://www.dubaival.com/api/price-watch?token=" + w.unsubscribe_token;
             const dir = pctChange > 0 ? "up" : "down";
             const ok = await sendEmail(
               w.email,
