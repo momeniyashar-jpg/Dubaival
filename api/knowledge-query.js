@@ -8,7 +8,7 @@
 // rather than an error.
 
 var embeddings = require("../lib/embeddings.js");
-var shared = require("../lib/shared.js");
+var shared = require("./lib/shared.js");
 var { rateLimitExceeded } = require("../lib/ratelimit");
 
 module.exports = async function handler(req, res) {

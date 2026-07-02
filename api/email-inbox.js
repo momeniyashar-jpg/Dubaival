@@ -1,6 +1,6 @@
 // Receives inbound emails from Brevo (Sendinblue) inbound parsing webhook
 // Brevo sends JSON payload to this endpoint when an email arrives
-var shared = require("../lib/shared.js");
+var shared = require("./lib/shared.js");
 
 function stripHtml(html) {
   return String(html || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 5000);

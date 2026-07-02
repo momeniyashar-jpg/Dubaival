@@ -1,4 +1,4 @@
-const { supabaseRequest } = require("../lib/shared");
+const { supabaseRequest } = require("./lib/shared");
 
 module.exports = async function handler(req, res) {
   const token = req.query && req.query.token;

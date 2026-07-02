@@ -22,7 +22,7 @@ async function ingestNewsToKnowledgeBase(articles) {
   if (!fresh.length) return;
 
   var embeddings = require("../lib/embeddings.js");
-  var shared = require("../lib/shared.js");
+  var shared = require("./lib/shared.js");
 
   var texts = fresh.map(function (a) {
     return a.title + (a.description ? ". " + a.description : "");

@@ -1,6 +1,6 @@
 // Daily 8 AM cron — sends AI auto-replies to all unanswered emails in email_inbox
 // Runs as a Vercel cron (GET). Skips emails that already have agent_reply.
-var shared = require("../lib/shared.js");
+var shared = require("./lib/shared.js");
 
 var GROQ_KEY = process.env.GROQ_API_KEY;
 var FROM = process.env.ALERTS_FROM_EMAIL || "DubAIVal <hello@dubaival.com>";

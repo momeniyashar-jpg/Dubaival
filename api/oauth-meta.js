@@ -1,6 +1,6 @@
 // Meta OAuth — exchanges authorization code for page tokens, stores per user
 // POST { code, userId, redirectUri }
-var shared = require("../lib/shared.js");
+var shared = require("./lib/shared.js");
 
 var GRAPH = "https://graph.facebook.com/v25.0";
 

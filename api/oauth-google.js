@@ -1,6 +1,6 @@
 // Google OAuth — exchanges code for Gmail refresh token, stores per user
 // POST { code, userId, redirectUri }
-var shared = require("../lib/shared.js");
+var shared = require("./lib/shared.js");
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
