@@ -6,3 +6,5 @@ api/meta-webhook.js
 api/reply-email.js
 api/send-email-replies.js
 api/proxy-video.js
+api/proxy-instagram.js
+api/proxy-maps.js
