@@ -40,8 +40,8 @@ module.exports = async function handler(req, res) {
 
     // Store refresh token + gmail email in social_credentials
     var creds = {
-      gmail_refresh_token: tokens.refresh_token,
-      gmail_email: gmailEmail,
+      google_refresh_token: tokens.refresh_token,
+      google_email: gmailEmail,
       updated_at: new Date().toISOString()
     };
 

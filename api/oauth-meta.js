@@ -52,8 +52,8 @@ module.exports = async function handler(req, res) {
     var igId = (d4.instagram_business_account && d4.instagram_business_account.id) || null;
 
     // Step 5: store in social_credentials for this user
-    var creds = { ig_token: pageToken, fb_id: fbId, updated_at: new Date().toISOString() };
-    if (igId) creds.ig_id = igId;
+    var creds = { meta_access_token: pageToken, meta_fb_page_id: fbId, updated_at: new Date().toISOString() };
+    if (igId) creds.meta_ig_id = igId;
 
     // Try update first, then insert
     var resp = await shared.supabaseRequest(

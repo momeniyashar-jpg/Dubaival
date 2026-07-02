@@ -9,9 +9,9 @@ var GRAPH_BASE = "https://graph.facebook.com/v25.0";
 // ── FIND USER BY PAGE ID ───────────────────────────────────────────────────────
 async function findUserByPage(pageId, igId) {
   try {
-    var query = "/social_credentials?select=user_id,ig_token,ig_id,fb_id";
-    if (igId) query += "&or=(ig_id.eq." + igId + ",fb_id.eq." + pageId + ")";
-    else query += "&fb_id=eq." + pageId;
+    var query = "/social_credentials?select=user_id,meta_access_token,meta_ig_id,meta_fb_page_id";
+    if (igId) query += "&or=(meta_ig_id.eq." + igId + ",meta_fb_page_id.eq." + pageId + ")";
+    else query += "&meta_fb_page_id=eq." + pageId;
     var resp = await shared.supabaseRequest(query, { method: "GET" });
     if (!resp.ok) return null;
     var rows = await resp.json();
@@ -136,7 +136,7 @@ module.exports = async function handler(req, res) {
             var igId = msg.recipient && msg.recipient.id;
             var creds = await findUserByPage(pageId, igId);
             await handleEvent(
-              creds && creds.user_id, creds && creds.ig_token, creds && creds.ig_id,
+              creds && creds.user_id, creds && creds.meta_access_token, creds && creds.meta_ig_id,
               "instagram", "dm",
               String(msg.sender && msg.sender.id || ""), null,
               msg.message.text, msg.message.mid || null,
@@ -161,7 +161,7 @@ module.exports = async function handler(req, res) {
           var fbMsg = fbMessaging[fj];
           if (fbMsg.message && fbMsg.message.text) {
             await handleEvent(
-              fbCreds && fbCreds.user_id, fbCreds && fbCreds.ig_token, null,
+              fbCreds && fbCreds.user_id, fbCreds && fbCreds.meta_access_token, null,
               "facebook", "dm",
               String(fbMsg.sender && fbMsg.sender.id || ""), null,
               fbMsg.message.text, fbMsg.message.mid || null,
@@ -178,7 +178,7 @@ module.exports = async function handler(req, res) {
             var val = change.value;
             if ((val.item === "comment" || val.item === "post") && val.verb === "add" && val.message) {
               await handleEvent(
-                fbCreds && fbCreds.user_id, fbCreds && fbCreds.ig_token, null,
+                fbCreds && fbCreds.user_id, fbCreds && fbCreds.meta_access_token, null,
                 "facebook", "comment",
                 String(val.from && val.from.id || ""), val.from && val.from.name || null,
                 val.message, val.comment_id || val.post_id || null,

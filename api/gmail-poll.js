@@ -161,7 +161,7 @@ module.exports = async function handler(req, res) {
   try {
     // Fetch all users with Gmail connected
     var resp = await shared.supabaseRequest(
-      "/social_credentials?gmail_refresh_token=not.is.null&select=user_id,gmail_refresh_token,gmail_email",
+      "/social_credentials?google_refresh_token=not.is.null&select=user_id,google_refresh_token,google_email",
       { method: "GET" }
     );
     if (!resp.ok) return res.status(500).json({ error: "Failed to fetch credentials" });
@@ -170,7 +170,7 @@ module.exports = async function handler(req, res) {
     var count = 0;
     for (var i = 0; i < users.length; i++) {
       try {
-        await pollUserGmail(users[i].user_id, users[i].gmail_refresh_token, users[i].gmail_email);
+        await pollUserGmail(users[i].user_id, users[i].google_refresh_token, users[i].google_email);
         count++;
       } catch (e) { /* skip */ }
     }
