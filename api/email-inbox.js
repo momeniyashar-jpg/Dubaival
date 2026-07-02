@@ -1,17 +1,18 @@
-// Receives inbound emails from Mailgun webhook → stores in Supabase email_inbox
+// Receives inbound emails from Brevo (Sendinblue) inbound parsing webhook
+// Brevo sends JSON payload to this endpoint when an email arrives
 var shared = require("../lib/shared.js");
-var crypto = require("crypto");
-
-function verifyMailgunSignature(timestamp, token, signature) {
-  var key = process.env.MAILGUN_WEBHOOK_KEY;
-  if (!key) return true; // skip verification if key not configured yet
-  var value = timestamp + token;
-  var hash = crypto.createHmac("sha256", key).update(value).digest("hex");
-  return hash === signature;
-}
 
 function stripHtml(html) {
   return String(html || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 5000);
+}
+
+function parseFrom(fromStr) {
+  // "John Doe <john@example.com>" or "john@example.com"
+  fromStr = String(fromStr || "");
+  var match = fromStr.match(/<([^>]+)>/);
+  var email = match ? match[1] : fromStr.trim();
+  var name = fromStr.replace(/<[^>]+>/, "").replace(/"/g, "").trim() || null;
+  return { email: email, name: name };
 }
 
 module.exports = async function handler(req, res) {
@@ -22,26 +23,28 @@ module.exports = async function handler(req, res) {
   try {
     var body = req.body || {};
 
-    // Mailgun sends form-encoded data
-    var timestamp = body.timestamp || body["signature[timestamp]"] || "";
-    var token = body.token || body["signature[token]"] || "";
-    var signature = body.signature || body["signature[signature]"] || "";
+    // Brevo sends JSON with these fields
+    var fromRaw = body.From || body.from || body.sender || "";
+    var parsed = parseFrom(fromRaw);
+    var fromEmail = parsed.email;
+    var fromName = parsed.name;
 
-    if (!verifyMailgunSignature(timestamp, token, signature)) {
-      return res.status(401).json({ error: "Invalid signature" });
+    var toEmail = body.To || body.to || body.recipient || "";
+    // Extract just the email from "Name <email>" format
+    var toMatch = String(toEmail).match(/<([^>]+)>/);
+    if (toMatch) toEmail = toMatch[1];
+
+    var subject = body.Subject || body.subject || "(No subject)";
+    var bodyText = (body.TextBody || body.text_body || body.text || body["body-plain"] || "").slice(0, 8000);
+    var bodyHtml = body.HtmlBody || body.html_body || body["body-html"] || null;
+    if (bodyHtml) bodyHtml = stripHtml(bodyHtml);
+
+    var messageId = body.MessageID || body.message_id || body["Message-Id"] || body["Message-ID"] ||
+      (fromEmail + "_" + Date.now());
+
+    if (!fromEmail || fromEmail === "") {
+      return res.status(400).json({ error: "No sender" });
     }
-
-    var fromRaw = body.from || body.sender || "";
-    var fromName = fromRaw.replace(/<.*>/, "").trim().replace(/"/g, "") || null;
-    var fromEmail = (fromRaw.match(/<([^>]+)>/) || [])[1] || fromRaw.trim();
-    var toEmail = body.recipient || body.To || body.to || "";
-    var subject = body.subject || body.Subject || "(No subject)";
-    var bodyText = (body["body-plain"] || body.text || "").slice(0, 8000);
-    var bodyHtml = body["body-html"] ? stripHtml(body["body-html"]) : null;
-    var messageId = body["Message-Id"] || body["message-id"] || body["Message-ID"] ||
-      (fromEmail + "_" + timestamp);
-
-    if (!fromEmail) return res.status(400).json({ error: "No sender" });
 
     var row = {
       from_email: fromEmail,
@@ -64,6 +67,6 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ ok: true });
   } catch (e) {
     console.error("email-inbox error:", e.message);
-    return res.status(200).json({ ok: true }); // always 200 to Mailgun
+    return res.status(200).json({ ok: true }); // always 200
   }
 };
