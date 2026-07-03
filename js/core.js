@@ -216,7 +216,7 @@ function btn(style,text,onClick){
   return e;
 }
 function lbl(text){return span({color:C().sub,fontSize:"9.5px",letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:"5px",fontFamily:"'Space Grotesk',monospace",display:"block"},text)}
-function S(){return{width:"100%",background:"rgba(255,255,255,0.04)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",border:"1px solid rgba(255,255,255,0.08)",color:C().white,padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxShadow:"inset 0 1px 2px rgba(0,0,0,0.2)"}}
+function S(){var cl=C();return{width:"100%",background:cl.raised,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,color:cl.white,padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxShadow:"inset 0 1px 2px rgba(0,0,0,0.1)"}}
 function I(){return{...S(),caretColor:C().gold,boxSizing:"border-box"}}
 function fld(labelText,input){const w=div({marginBottom:"12px"});w.appendChild(lbl(labelText));w.appendChild(input);return w;}
 function pill(text,color){
