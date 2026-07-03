@@ -70,10 +70,10 @@ async function _fetchNews(initial) {
   if (_newsStatusEl) { _newsStatusEl.innerHTML = ""; _newsStatusEl.appendChild(span({ color: "#8899AA", fontSize: "11px" }, "Updating…")); }
   try {
     var r = await fetch("/api/proxy-news", { cache: "no-store" });
-    var data = r.ok ? await r.json() : null;
-    if (!data) throw new Error("HTTP " + r.status);
-    var incoming = Array.isArray(data.articles) ? data.articles : [];
-    // Set NEW badge based on knownLinks from previous session
+    // Always try to parse JSON — server returns HTTP 200 even on error
+    var data;
+    try { data = await r.json(); } catch (e) { data = { articles: [] }; }
+    var incoming = Array.isArray(data && data.articles) ? data.articles : [];
     var prevKnown = NEWS_STATE.knownLinks;
     var freshSet = {};
     incoming.forEach(function(a) {
@@ -81,14 +81,17 @@ async function _fetchNews(initial) {
       a.isNew = !!(prevKnown && !prevKnown[a.link] && a.ts && a.ts > NEWS_STATE.lastVisit);
     });
     NEWS_STATE.knownLinks = freshSet;
-    NEWS_STATE.articles = incoming;
-    NEWS_STATE.stale = !!(data.stale);
-    NEWS_STATE.error = incoming.length ? null : "No articles available right now.";
-    NEWS_STATE.lastFetch = data.fetchedAt || Date.now();
-    try { localStorage.setItem("dv_news_cache", JSON.stringify({ articles: incoming, ts: NEWS_STATE.lastFetch })); } catch (e) {}
+    if (incoming.length) NEWS_STATE.articles = incoming;
+    NEWS_STATE.stale = !!(data && data.stale);
+    NEWS_STATE.error = incoming.length ? null : (data && data.error) || null;
+    if (incoming.length) NEWS_STATE.lastFetch = (data && data.fetchedAt) || Date.now();
+    if (incoming.length) {
+      try { localStorage.setItem("dv_news_cache", JSON.stringify({ articles: incoming, ts: NEWS_STATE.lastFetch })); } catch (e) {}
+    }
   } catch (e) {
+    // True network failure (no connection at all)
     if (!NEWS_STATE.articles.length) {
-      NEWS_STATE.error = "Couldn't reach news service. Please check your connection.";
+      NEWS_STATE.error = "No connection to news service. Check your internet.";
     }
     NEWS_STATE.stale = true;
   }
