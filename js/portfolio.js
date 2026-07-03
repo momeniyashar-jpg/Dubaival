@@ -68,63 +68,448 @@ function renderCompare(){
 }
 
 // --- PERSONAL TAB ------------------------------------------------------------
-function renderPersonal(){
-  const cl=C();const p=personalState;
-  const wrap=div({padding:"20px",maxWidth:"640px",margin:"0 auto"});
-  wrap.appendChild(div({marginBottom:"16px"},[span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ Personal Property Advisor"),span({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Tell us about yourself — get tailored recommendations")]));
-  const card=div({background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",boxShadow:cl.glassShadow});
-  card.appendChild(fld("Budget (AED) *",inp(I(),"2,000,000","number",p.budget,function(v){personalState.budget=v;})));
-  const g=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"14px"});
-  const rW=div({});rW.appendChild(lbl("I am"));rW.appendChild(mkSelect(S(),["Investor","End-User","First-Time Buyer","Upgrader","Relocating"],p.role,function(v){personalState.role=v;}));g.appendChild(rW);
-  const puW=div({});puW.appendChild(lbl("Purpose"));puW.appendChild(mkSelect(S(),["Investment","End-Use","Rental Income","Golden Visa","Vacation Home"],p.purpose,function(v){personalState.purpose=v;}));g.appendChild(puW);
-  const fW=div({});fW.appendChild(lbl("Family"));fW.appendChild(mkSelect(S(),["Single","Couple","Family with Kids","Retiree"],p.family,function(v){personalState.family=v;}));g.appendChild(fW);
-  const cW=div({});cW.appendChild(lbl("Children"));cW.appendChild(mkSelect(S(),["0","1","2","3","4+"],p.children,function(v){personalState.children=v;}));g.appendChild(cW);
-  const tlW=div({});tlW.appendChild(lbl("Timeline"));tlW.appendChild(mkSelect(S(),["1 month","3 months","6 months","1 year","2+ years"],p.timeline,function(v){personalState.timeline=v;}));g.appendChild(tlW);
-  card.appendChild(g);
-  card.appendChild(fld("Work Location",inp(I(),"DIFC, Downtown, Work from home…","text",p.work,function(v){personalState.work=v;})));
-  card.appendChild(el("button",{style:{width:"100%",padding:"13px",borderRadius:"10px",border:"1px solid rgba(212,175,55,0.3)",background:"rgba(212,175,55,0.15)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",color:cl.gold,fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",cursor:"pointer"},onclick:async function(){
-    if(!p.budget)return;
-    personalState.loading=true;personalState.result="";render();
-    try{
-      const text=await askAI([{role:"user",content:"My profile:\nBudget: AED "+parseInt(p.budget).toLocaleString()+" | I am: "+p.role+" | Family: "+p.family+" | Children: "+p.children+"\nWork: "+(p.work||"flexible")+" | Purpose: "+p.purpose+" | Timeline: "+p.timeline+"\n\nGive me 3 specific area recommendations, 3 communities, and 3 buildings in Dubai.\nFor each: current PSF range, expected yield, lifestyle fit, why it matches my profile.\nBe specific with AED numbers."}],"You are DubAIVal Personal Property Advisor — a senior relocation and investment consultant with 15 years in Dubai. June 2026.\nYou have placed 2,000+ clients in their ideal Dubai homes. You know every community intimately: schools, traffic, lifestyle, noise, construction, community feel.\nFor each recommendation provide:\n- AREA: name + why it fits this profile (commute, family, lifestyle, budget)\n- COMMUNITY: specific sub-community or tower cluster + what daily life looks like\n- BUILDING: specific building name from our 8,522-building DB + PSF + expected rent + yield\n- BUDGET MATH: budget ÷ PSF = sqft → unit type they can afford\n- LIFESTYLE FIT: schools nearby, metro access, beach/mall distance, community vibe\n- INVESTMENT ANGLE: yield, 3yr growth, Golden Visa eligibility if budget ≥ AED 2M\nBe specific with AED numbers. Match their language. 3 recommendations, ranked best-to-good.","Dubai real estate for "+p.role+", "+p.purpose+", budget AED "+p.budget);
-      personalState.result=text;
-    }catch(e){personalState.result="Error: "+e.message;}
-    personalState.loading=false;render();
-  }},"GET RECOMMENDATIONS →"));
-  wrap.appendChild(card);
-  if(p.loading){wrap.appendChild(div({textAlign:"center",padding:"20px"},[div({width:"36px",height:"36px",borderRadius:"50%",border:"2px solid "+cl.border,borderTopColor:cl.gold,animation:"spin 0.8s linear infinite",margin:"0 auto"})]))}
-  if(p.result&&!p.loading){
-    const r=div({background:cl.surface,border:"1px solid "+cl.goldDim,borderRadius:"14px",padding:"20px"});
-    r.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"◆ Your Recommendations"));
-    const t=div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.9",fontFamily:"'Inter',sans-serif",whiteSpace:"pre-wrap"});t.textContent=p.result;r.appendChild(t);wrap.appendChild(r);
-    // Commute context: drive times from work location to 5 key Dubai hubs
-    if(p.work){
-      var paCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginTop:"12px"});
-      paCard.appendChild(span({color:"#818CF8",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ Commute Context"));
-      paCard.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",display:"block",marginBottom:"12px"},"Drive times from «"+p.work+"» to key Dubai hubs"));
-      var paBodyId="dv-pa-body-"+Date.now();
-      var paBody=div({id:paBodyId,textAlign:"center",padding:"12px"});
-      paBody.appendChild(div({width:"24px",height:"24px",borderRadius:"50%",border:"2px solid "+cl.border,borderTopColor:"#818CF8",animation:"spin 0.8s linear infinite",margin:"0 auto"}));
-      paCard.appendChild(paBody);wrap.appendChild(paCard);
-      fetch("/api/proxy-maps?action=geocode&address="+encodeURIComponent(p.work+", Dubai, UAE"))
-        .then(function(rr){return rr.json();})
-        .then(function(geo){if(!geo.lat)throw new Error("Not found");return fetch("/api/proxy-maps?action=distances&lat="+geo.lat+"&lng="+geo.lng);})
-        .then(function(rr){return rr.json();})
-        .then(function(data){
-          var bodyEl=document.getElementById(paBodyId);if(!bodyEl)return;
-          while(bodyEl.firstChild)bodyEl.removeChild(bodyEl.firstChild);
-          bodyEl.style.textAlign="";bodyEl.style.padding="";
-          (data.rows||[]).forEach(function(row){
-            bodyEl.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid "+cl.border},[
-              span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},row.label),
-              div({textAlign:"right"},[span({color:"#818CF8",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},row.duration),span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",display:"block"},row.distance)])
-            ]));
-          });
-          bodyEl.appendChild(span({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif",display:"block",marginTop:"8px",fontStyle:"italic"},"Use these times to compare with your recommended areas' hub proximity."));
-        })
-        .catch(function(){var bodyEl=document.getElementById(paBodyId);if(bodyEl){while(bodyEl.firstChild)bodyEl.removeChild(bodyEl.firstChild);bodyEl.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Could not load commute times."));}});
-    }
+// Re-init if state shape is from old version (no step property)
+if(typeof personalState!=="undefined"&&!("step" in personalState)){
+  personalState={step:0,goal:"",priority:"",timeline:"",budget:2000000,beds:"2 BR",prefAreas:[],work:"",loading:false,result:null,error:""};
+}
+
+function _paAdvise(){
+  var p=personalState;
+  p.loading=true;p.result=null;p.error="";p.step=6;render();
+  var sqftMap={"Studio":600,"1 BR":900,"2 BR":1300,"3 BR":1900,"4 BR":2700,"5+ BR":4000};
+  var sqft=sqftMap[p.beds]||1300;
+  var maxPSF=p.budget/sqft;
+  // Score weights by goal + priority
+  var wY=0.4,wG=0.35,wP=0.25;
+  if(p.goal==="Build Wealth"){
+    if(p.priority==="Stable Income"){wY=0.65;wG=0.2;wP=0.15;}
+    else if(p.priority==="Capital Growth"){wY=0.15;wG=0.65;wP=0.2;}
+    else if(p.priority==="Flip Off-Plan"){wY=0.1;wG=0.72;wP=0.18;}
+    else{wY=0.42;wG=0.38;wP=0.2;}
+  }else if(p.goal==="Own a Home"||p.goal==="Relocate to Dubai"){
+    wY=0.12;wG=0.22;wP=0.66;
+  }else if(p.goal==="Holiday Home"){
+    wY=0.62;wG=0.22;wP=0.16;
   }
+  function aYld(a){return a.y?((a.y[0]+a.y[1])/2):0;}
+  function aG3(a){return a.g?a.g[1]:0;}
+  var prefSet={};
+  (p.prefAreas||[]).forEach(function(a){prefSet[a]=true;});
+  var entries=Object.entries(AREAS).filter(function(e){
+    var a=e[1];return a.psf>0&&a.y&&a.g&&(a.psf<=maxPSF*1.4||prefSet[e[0]]);
+  });
+  var scored=entries.map(function(e){
+    var a=e[1];
+    var yScore=Math.min(aYld(a)/10,1);
+    var gScore=Math.min(aG3(a)/30,1);
+    var pScore=1-Math.min(Math.max(a.psf,0)/Math.max(maxPSF,1),1);
+    var bonus=prefSet[e[0]]?0.25:0;
+    return{name:e[0],psf:a.psf,yld:aYld(a),g3:aG3(a),sc:a.sc||15,dom:a.dom||90,score:wY*yScore+wG*gScore+wP*pScore+bonus};
+  }).sort(function(a,b){return b.score-a.score;}).slice(0,10);
+  var areaData=scored.map(function(a,i){
+    var canAfford=Math.floor(p.budget/a.psf);
+    return(i+1)+". "+a.name+": PSF AED "+a.psf+" | yield "+a.yld.toFixed(1)+"% | 3yr growth "+a.g3+"% | SC "+a.sc+" AED/sqft | DOM "+a.dom+"d | "+p.beds+" ≈ "+canAfford+" sqft";
+  }).join("\n");
+  var budStr="AED "+(p.budget||0).toLocaleString();
+  var userPrompt="MY PROFILE:\nBudget: "+budStr+" | Goal: "+p.goal+" | Style/Household: "+p.priority+" | Beds: "+p.beds+(p.work?" | Works at: "+p.work:"")+"\n"+(Object.keys(prefSet).length?"Interested in: "+Object.keys(prefSet).join(", ")+"\n":"")+"\nTOP 10 BUDGET-MATCHING DUBAI AREAS (ranked for this profile):\n"+areaData+'\n\nRespond ONLY with valid JSON — no markdown, no extra text, JSON.parse()-ready:\n{"profile":{"type":"<2-4 word investor archetype>","dna":"<2 sentences describing this buyer persona>","tagline":"<one punchy memorable line>"},"areas":[{"rank":1,"name":"<area name from list above>","thesis":"<2-3 sentence case for this area matching this profile>","whyNow":"<1 sentence time-sensitive trigger — July 2026>","bestEntry":"<AED range for '+p.beds+' here>","redFlag":"<1 key downside risk>","goldenVisa":<true if budget>=2000000 else false>,"buildingTip":"<1 specific building or cluster to target>","scenario":{"conservative":"<0% price growth scenario — AED/yr rental or % return>","base":"<realistic 3yr total return %>","optimistic":"<bull case 3yr total return %>"}},{"rank":2,...},{"rank":3,...}],"timing":"<2 sentence market timing assessment July 2026>","nextStep":"<1 specific concrete actionable next step>"}';
+  var sysPrompt="You are DubAIVal — Dubai's premier AI property advisor with verified data on 8,522 buildings across 347 DLD-verified areas. July 2026.\nCRITICAL: Return ONLY valid JSON. No markdown code fences, no preamble, no explanation. Output must be directly parseable with JSON.parse().\nUse EXACT numbers from the area data provided in the prompt. Do not invent PSF, yield, or growth figures.\nSet goldenVisa:true if and only if budget >= AED 2,000,000.\nprofile.type examples: 'Yield-First Investor', 'Capital Growth Seeker', 'Lifestyle Relocator', 'Off-Plan Flipper', 'AirBnB Income Maximizer', 'Safe-Haven Allocator', 'Family Value Buyer'.";
+  askAI([{role:"user",content:userPrompt}],sysPrompt,"Dubai "+p.goal+" "+budStr+" "+p.beds)
+  .then(function(txt){
+    try{
+      var c=txt.trim().replace(/^```json\s*/i,"").replace(/^```\s*/,"").replace(/```\s*$/,"").trim();
+      personalState.result=JSON.parse(c);
+    }catch(e){
+      personalState.error="Parse error: "+e.message.substring(0,100);
+    }
+    personalState.loading=false;personalState.step=7;render();
+  })
+  .catch(function(e){
+    personalState.error="AI error: "+e.message;
+    personalState.loading=false;personalState.step=7;render();
+  });
+}
+
+function renderPersonal(){
+  var cl=C();var p=personalState;
+  var wrap=div({padding:"20px",maxWidth:"640px",margin:"0 auto"});
+
+  // Header (always shown)
+  var hdr=div({marginBottom:"18px"});
+  hdr.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ AI Personal Property Advisor"));
+
+  // Progress bar for steps 1-5
+  if(p.step>=1&&p.step<=5){
+    var pbR=div({display:"flex",gap:"5px",marginBottom:"6px"});
+    for(var si=1;si<=5;si++){
+      pbR.appendChild(div({flex:"1",height:"3px",borderRadius:"2px",background:si<=p.step?"#D4AF37":"rgba(212,175,55,0.15)"},null));
+    }
+    hdr.appendChild(pbR);
+    var stepLabels=["","Goal","Profile","Budget","Areas","Location"];
+    hdr.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},(stepLabels[p.step]||"")+" · Step "+p.step+" of 5"));
+  }
+  wrap.appendChild(hdr);
+
+  // ── Step 0: Hero landing ──────────────────────────────────────────────────
+  if(p.step===0){
+    var hero=div({background:"linear-gradient(135deg,rgba(212,175,55,0.1) 0%,rgba(212,175,55,0.03) 100%)",border:"1px solid rgba(212,175,55,0.25)",borderRadius:"16px",padding:"28px 22px",textAlign:"center",marginBottom:"14px"});
+    hero.appendChild(div({fontSize:"38px",marginBottom:"14px",lineHeight:"1"},"🏙️"));
+    hero.appendChild(div({color:"#FFFFFF",fontSize:"19px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",lineHeight:"1.3",marginBottom:"10px"},"Your Personalised Dubai Property Report"));
+    hero.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",lineHeight:"1.7",marginBottom:"22px"},"5 questions. One data-backed investment thesis tailored to you — areas, buildings, and your personal 3-year scenario."));
+    var bWrap=div({textAlign:"left",marginBottom:"22px",display:"flex",flexDirection:"column",gap:"7px"});
+    [["✓","8,522 buildings & 347 DLD-verified areas"],["✓","3-year scenario: conservative · base · optimistic"],["✓","Golden Visa eligibility check (≥ AED 2M)"],["✓","Investor DNA profile + one concrete next step"]].forEach(function(b){
+      var row=div({display:"flex",gap:"10px",alignItems:"center"});
+      row.appendChild(span({color:"#D4AF37",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",fontSize:"12px"},b[0]));
+      row.appendChild(span({color:"#AABBCC",fontSize:"12px",fontFamily:"'Inter',sans-serif"},b[1]));
+      bWrap.appendChild(row);
+    });
+    hero.appendChild(bWrap);
+    var startBtn=el("button",{style:{width:"100%",padding:"15px",borderRadius:"12px",border:"none",background:"linear-gradient(135deg,#D4AF37,#B8960F)",color:"#000",fontSize:"15px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",cursor:"pointer"},onclick:function(){personalState.step=1;render();}});
+    startBtn.textContent="START MY REPORT →";
+    hero.appendChild(startBtn);
+    wrap.appendChild(hero);
+    var sp=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"14px 16px",display:"flex",gap:"12px",alignItems:"flex-start"});
+    sp.appendChild(div({fontSize:"22px",flexShrink:"0"},"💬"));
+    var spT=div({});
+    spT.appendChild(div({color:"#CCDDEE",fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.65",marginBottom:"4px"},'"The AI Advisor matched me with Dubai Hills Estate — closed a 3BR at AED 3.2M. Best decision I made this year."'));
+    spT.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},"— Family Buyer · Relocated from London · June 2026"));
+    sp.appendChild(spT);
+    wrap.appendChild(sp);
+    return wrap;
+  }
+
+  // Shared helpers (available from step 1 onward)
+  function addBack(prevStep){
+    var b=el("button",{style:{background:"none",border:"none",color:cl.sub,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"0 0 16px 0"},onclick:function(){personalState.step=prevStep;render();}});
+    b.textContent="← Back";
+    wrap.appendChild(b);
+  }
+  function mkOptCard(icon,title,desc,isSel,onClickFn){
+    var c=el("button",{style:{width:"100%",display:"flex",alignItems:"center",gap:"14px",padding:"15px 16px",borderRadius:"12px",border:"1px solid "+(isSel?"#D4AF37":"rgba(255,255,255,0.08)"),background:isSel?"rgba(212,175,55,0.1)":cl.surface,cursor:"pointer",marginBottom:"10px",textAlign:"left"},onclick:onClickFn});
+    c.appendChild(div({fontSize:"22px",flexShrink:"0",lineHeight:"1"},icon));
+    var ct=div({flex:"1"});
+    ct.appendChild(div({color:"#FFFFFF",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},title));
+    ct.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif"},desc));
+    c.appendChild(ct);
+    if(isSel)c.appendChild(div({color:"#D4AF37",fontSize:"16px",flexShrink:"0"},"✓"));
+    return c;
+  }
+
+  // ── Step 1: Goal ──────────────────────────────────────────────────────────
+  if(p.step===1){
+    wrap.appendChild(div({color:"#FFFFFF",fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px",lineHeight:"1.3"},"What's your property goal?"));
+    wrap.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",marginBottom:"18px"},"This shapes everything — your areas, buildings, and 3-year plan."));
+    [["🏠","Own a Home","I want to live in it — find my ideal community"],
+     ["📈","Build Wealth","Investment — yield, capital growth, or off-plan flip"],
+     ["🌍","Relocate to Dubai","Moving here — lifestyle match + best value for budget"],
+     ["🏖️","Holiday Home","Vacation + AirBnB — earn when I'm away"]].forEach(function(g){
+      wrap.appendChild(mkOptCard(g[0],g[1],g[2],p.goal===g[1],function(){
+        personalState.goal=g[1];personalState.priority="";personalState.step=2;render();
+      }));
+    });
+  }
+
+  // ── Step 2: Adaptive follow-up ────────────────────────────────────────────
+  else if(p.step===2){
+    addBack(1);
+    var q2,opts2;
+    if(p.goal==="Build Wealth"){
+      q2="What's your investment style?";
+      opts2=[["💰","Stable Income","High-yield rentals — predictable cash flow every month"],
+             ["🚀","Capital Growth","Appreciation play — buy low, sell high in 3-5 years"],
+             ["⚡","Both Income & Growth","Balanced — moderate yield + long-term appreciation"],
+             ["🔄","Flip Off-Plan","Buy at launch price, sell at handover for a premium"]];
+    }else if(p.goal==="Holiday Home"){
+      q2="How often will you visit?";
+      opts2=[["🗓️","Monthly visits","Lifestyle property — earns on months I travel"],
+             ["🌞","Quarterly","Seasonal use — AirBnB between my visits"],
+             ["✈️","Twice a year","Mostly investment — fully managed AirBnB"],
+             ["📦","Rarely — Pure AirBnB","Fully managed holiday rental from day one"]];
+    }else{
+      q2="Who are you moving with?";
+      opts2=[["👤","Just Me","Studio or 1BR — max location, minimal footprint"],
+             ["👫","Me & Partner","1-2BR — lifestyle and commute focused"],
+             ["👨‍👩‍👧‍👦","Family with Kids","2-4BR — schools, parks, community feel matters most"],
+             ["🧓","Retiree / Empty Nester","Quality of life, quiet, low maintenance, beach access"]];
+    }
+    wrap.appendChild(div({color:"#FFFFFF",fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px",lineHeight:"1.3"},q2));
+    wrap.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",marginBottom:"18px"},"Helps us weight yield, growth, and lifestyle in your report."));
+    opts2.forEach(function(o){
+      wrap.appendChild(mkOptCard(o[0],o[1],o[2],p.priority===o[1],function(){
+        personalState.priority=o[1];personalState.step=3;render();
+      }));
+    });
+  }
+
+  // ── Step 3: Budget & Beds ─────────────────────────────────────────────────
+  else if(p.step===3){
+    addBack(2);
+    wrap.appendChild(div({color:"#FFFFFF",fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"What's your budget?"));
+    wrap.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",marginBottom:"18px"},"We'll find areas where your money unlocks the best opportunities."));
+    var bCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px 20px",marginBottom:"12px"});
+    bCard.appendChild(div({color:cl.subHi,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"BUDGET (AED) — tap to select"));
+    var pg=div({display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"7px",marginBottom:"14px"});
+    [[500000,"500K"],[750000,"750K"],[1000000,"1M"],[1500000,"1.5M"],[2000000,"2M"],[3000000,"3M"],[5000000,"5M"],[10000000,"10M+"]].forEach(function(pr){
+      var isSel=p.budget===pr[0];
+      var pb=el("button",{style:{padding:"10px 2px",borderRadius:"8px",border:"1px solid "+(isSel?"#D4AF37":"rgba(255,255,255,0.08)"),background:isSel?"rgba(212,175,55,0.15)":"rgba(255,255,255,0.02)",color:isSel?"#D4AF37":"#8899AA",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){personalState.budget=pr[0];render();}});
+      pb.textContent=pr[1];
+      pg.appendChild(pb);
+    });
+    bCard.appendChild(pg);
+    bCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginBottom:"6px"},"Or type a custom amount:"));
+    var ci=el("input",{style:{width:"100%",boxSizing:"border-box",background:"rgba(255,255,255,0.04)",border:"1px solid "+cl.border,borderRadius:"8px",padding:"10px 12px",color:"#FFFFFF",fontSize:"14px",fontFamily:"'Inter',sans-serif",outline:"none"},type:"number",placeholder:"e.g. 2500000"});
+    ci.value=p.budget||"";
+    ci.oninput=function(){var v=parseInt(this.value)||0;personalState.budget=v;};
+    bCard.appendChild(ci);
+    if(p.budget>=2000000){
+      var gv=div({display:"flex",gap:"10px",alignItems:"center",marginTop:"12px",padding:"10px 12px",background:"rgba(212,175,55,0.08)",border:"1px solid rgba(212,175,55,0.25)",borderRadius:"8px"});
+      gv.appendChild(div({fontSize:"20px",flexShrink:"0",lineHeight:"1"},"🌟"));
+      var gvT=div({});
+      gvT.appendChild(div({color:"#D4AF37",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"Golden Visa Eligible"));
+      gvT.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"10-year UAE residency visa with property investment ≥ AED 2M"));
+      gv.appendChild(gvT);
+      bCard.appendChild(gv);
+    }
+    wrap.appendChild(bCard);
+    var bedsCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px 20px",marginBottom:"14px"});
+    bedsCard.appendChild(div({color:cl.subHi,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"BEDROOMS"));
+    var bedsRow=div({display:"flex",flexWrap:"wrap",gap:"8px"});
+    ["Studio","1 BR","2 BR","3 BR","4 BR","5+ BR"].forEach(function(b){
+      var isSel=p.beds===b;
+      var bb=el("button",{style:{padding:"9px 14px",borderRadius:"20px",border:"1px solid "+(isSel?"#D4AF37":"rgba(255,255,255,0.1)"),background:isSel?"rgba(212,175,55,0.12)":"transparent",color:isSel?"#D4AF37":"#8899AA",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){personalState.beds=b;render();}});
+      bb.textContent=b;
+      bedsRow.appendChild(bb);
+    });
+    bedsCard.appendChild(bedsRow);
+    wrap.appendChild(bedsCard);
+    if(p.budget&&p.beds){
+      var sqftMap2={"Studio":600,"1 BR":900,"2 BR":1300,"3 BR":1900,"4 BR":2700,"5+ BR":4000};
+      var sqft2=sqftMap2[p.beds]||1300;
+      var maxPSF2=Math.round(p.budget/sqft2);
+      var ins=div({background:"rgba(99,102,241,0.07)",border:"1px solid rgba(99,102,241,0.2)",borderRadius:"10px",padding:"12px 14px",marginBottom:"16px",display:"flex",gap:"10px",alignItems:"flex-start"});
+      ins.appendChild(div({fontSize:"18px",flexShrink:"0",lineHeight:"1"},"📐"));
+      var insT=div({});
+      insT.appendChild(div({color:"#818CF8",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"Your Budget Power"));
+      insT.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif"},"AED "+(p.budget||0).toLocaleString()+" ÷ ~"+sqft2+" sqft = max "+maxPSF2+" AED/sqft"));
+      insT.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},"We'll match "+p.beds+" options in areas within this range"));
+      ins.appendChild(insT);
+      wrap.appendChild(ins);
+    }
+    var nb=el("button",{style:{width:"100%",padding:"14px",borderRadius:"12px",border:"none",background:p.budget?"linear-gradient(135deg,#D4AF37,#B8960F)":"rgba(255,255,255,0.05)",color:p.budget?"#000":"#556677",fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",cursor:p.budget?"pointer":"not-allowed"},onclick:function(){if(personalState.budget){personalState.step=4;render();}}});
+    nb.textContent="NEXT →";
+    wrap.appendChild(nb);
+  }
+
+  // ── Step 4: Area preferences ──────────────────────────────────────────────
+  else if(p.step===4){
+    addBack(3);
+    wrap.appendChild(div({color:"#FFFFFF",fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"Any areas on your radar?"));
+    wrap.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",marginBottom:"16px"},"Optional — select all that interest you, or let the data pick for you."));
+    var prefArr=p.prefAreas||[];
+    var topA=["Downtown Dubai","Dubai Marina","Business Bay","Palm Jumeirah","Dubai Hills Estate","Dubai Creek Harbour","Jumeirah Village Circle","JBR","DIFC","Emaar Beachfront","MBR City","Dubai Harbour","Arabian Ranches","Sobha Hartland","Meydan","District One","Tilal Al Ghaf","Jumeirah Lake Towers"];
+    var chWrap=div({display:"flex",flexWrap:"wrap",gap:"8px",marginBottom:"20px"});
+    topA.forEach(function(a){
+      var isSel=prefArr.indexOf(a)>-1;
+      var ch=el("button",{style:{padding:"8px 14px",borderRadius:"20px",border:"1px solid "+(isSel?"#D4AF37":"rgba(255,255,255,0.1)"),background:isSel?"rgba(212,175,55,0.12)":"rgba(255,255,255,0.02)",color:isSel?"#D4AF37":"#8899AA",fontSize:"12px",fontFamily:"'Inter',sans-serif",cursor:"pointer"},onclick:function(){
+        var arr=(personalState.prefAreas||[]).slice();
+        var idx=arr.indexOf(a);
+        if(idx>-1)arr.splice(idx,1);else arr.push(a);
+        personalState.prefAreas=arr;render();
+      }});
+      ch.textContent=(isSel?"✓ ":"")+a;
+      chWrap.appendChild(ch);
+    });
+    wrap.appendChild(chWrap);
+    var aRow=div({display:"flex",gap:"10px"});
+    var skipA=el("button",{style:{flex:"1",padding:"12px",borderRadius:"10px",border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:cl.sub,fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){personalState.prefAreas=[];personalState.step=5;render();}});
+    skipA.textContent="Skip — Surprise Me";
+    aRow.appendChild(skipA);
+    var nextA=el("button",{style:{flex:"2",padding:"12px",borderRadius:"10px",border:"none",background:"linear-gradient(135deg,#D4AF37,#B8960F)",color:"#000",fontSize:"13px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){personalState.step=5;render();}});
+    nextA.textContent=(prefArr.length?"NEXT ("+prefArr.length+" selected)":"NEXT")+" →";
+    aRow.appendChild(nextA);
+    wrap.appendChild(aRow);
+  }
+
+  // ── Step 5: Work location ─────────────────────────────────────────────────
+  else if(p.step===5){
+    addBack(4);
+    wrap.appendChild(div({color:"#FFFFFF",fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"Where do you work?"));
+    wrap.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",marginBottom:"18px"},"Optional — optimises commute time in your recommendations."));
+    var wc=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px 20px",marginBottom:"16px"});
+    var wi=el("input",{style:{width:"100%",boxSizing:"border-box",background:"rgba(255,255,255,0.04)",border:"1px solid "+cl.border,borderRadius:"8px",padding:"12px 14px",color:"#FFFFFF",fontSize:"14px",fontFamily:"'Inter',sans-serif",outline:"none",marginBottom:"12px"},type:"text",placeholder:"e.g. DIFC, Downtown Dubai, Work from home…"});
+    wi.value=p.work||"";
+    wi.oninput=function(){personalState.work=this.value;};
+    wc.appendChild(wi);
+    var qps=["DIFC","Downtown Dubai","Business Bay","Dubai Media City","Jebel Ali","Work from home"];
+    var qpRow=div({display:"flex",flexWrap:"wrap",gap:"6px"});
+    qps.forEach(function(qp){
+      var qb=el("button",{style:{padding:"6px 12px",borderRadius:"16px",border:"1px solid rgba(255,255,255,0.08)",background:"rgba(255,255,255,0.02)",color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",cursor:"pointer"},onclick:function(){personalState.work=qp;wi.value=qp;}});
+      qb.textContent=qp;
+      qpRow.appendChild(qb);
+    });
+    wc.appendChild(qpRow);
+    wrap.appendChild(wc);
+    var wRow=div({display:"flex",gap:"10px"});
+    var wSkip=el("button",{style:{flex:"1",padding:"13px",borderRadius:"12px",border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:cl.sub,fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){personalState.work="";_paAdvise();}});
+    wSkip.textContent="Skip";
+    wRow.appendChild(wSkip);
+    var wGo=el("button",{style:{flex:"2",padding:"13px",borderRadius:"12px",border:"none",background:"linear-gradient(135deg,#D4AF37,#B8960F)",color:"#000",fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){_paAdvise();}});
+    wGo.textContent="BUILD MY REPORT →";
+    wRow.appendChild(wGo);
+    wrap.appendChild(wRow);
+  }
+
+  // ── Step 6: Loading ───────────────────────────────────────────────────────
+  else if(p.step===6){
+    var lc=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"16px",padding:"40px 24px",textAlign:"center"});
+    lc.appendChild(div({width:"52px",height:"52px",borderRadius:"50%",border:"3px solid rgba(212,175,55,0.2)",borderTopColor:"#D4AF37",animation:"spin 0.9s linear infinite",margin:"0 auto 20px"},null));
+    lc.appendChild(div({color:"#FFFFFF",fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Building your personalised report…"));
+    lc.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.65",marginBottom:"20px"},"Analysing "+Object.keys(AREAS).length+" areas · Matching "+p.beds+" under AED "+(p.budget?(p.budget).toLocaleString():"—")+" · Running 3-year scenarios"));
+    var lList=div({display:"flex",flexDirection:"column",gap:"8px",textAlign:"left"});
+    ["Filtering areas by your budget & goal…","Scoring by "+(p.goal==="Build Wealth"&&p.priority==="Stable Income"?"rental yield":"growth & value")+"…","Profiling your investor DNA…","Crafting 3-year conservative / base / optimistic scenarios…","Finalising your personalised report…"].forEach(function(s,i){
+      var li=div({display:"flex",alignItems:"center",gap:"10px"});
+      var dot=div({width:"14px",height:"14px",flexShrink:"0",borderRadius:"50%",border:"2px solid rgba(212,175,55,0.3)",borderTopColor:"#D4AF37",animation:"spin 0.8s linear infinite"},null);
+      dot.style.animationDelay=(i*0.13)+"s";
+      li.appendChild(dot);
+      li.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},s));
+      lList.appendChild(li);
+    });
+    lc.appendChild(lList);
+    wrap.appendChild(lc);
+  }
+
+  // ── Step 7: Results ───────────────────────────────────────────────────────
+  else if(p.step===7){
+    if(p.error){
+      var ec=div({background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:"14px",padding:"20px",marginBottom:"14px"});
+      ec.appendChild(div({color:"#EF4444",fontSize:"13px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6",marginBottom:"12px"},"Unable to generate report: "+p.error));
+      var rb=el("button",{style:{background:"rgba(212,175,55,0.12)",border:"1px solid rgba(212,175,55,0.3)",color:cl.gold,padding:"10px 20px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){personalState={step:0,goal:"",priority:"",timeline:"",budget:2000000,beds:"2 BR",prefAreas:[],work:"",loading:false,result:null,error:""};render();}});
+      rb.textContent="Start Over";
+      ec.appendChild(rb);
+      wrap.appendChild(ec);
+      return wrap;
+    }
+    var r=p.result;
+    if(!r)return wrap;
+
+    // — Profile card
+    var pc=div({background:"linear-gradient(135deg,rgba(212,175,55,0.12),rgba(212,175,55,0.04))",border:"1px solid rgba(212,175,55,0.3)",borderRadius:"16px",padding:"20px 22px",marginBottom:"16px"});
+    var ph=div({display:"flex",alignItems:"center",gap:"14px",marginBottom:"12px"});
+    ph.appendChild(div({fontSize:"32px",lineHeight:"1"},"🎯"));
+    var pm=div({});
+    pm.appendChild(div({color:"#D4AF37",fontSize:"9px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"YOUR INVESTOR PROFILE"));
+    pm.appendChild(div({color:"#FFFFFF",fontSize:"17px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},r.profile?(r.profile.type||"Property Buyer"):"Property Buyer"));
+    ph.appendChild(pm);
+    pc.appendChild(ph);
+    if(r.profile&&r.profile.dna)pc.appendChild(div({color:"#CCDDEE",fontSize:"13px",fontFamily:"'Inter',sans-serif",lineHeight:"1.75",marginBottom:"10px"},r.profile.dna));
+    if(r.profile&&r.profile.tagline)pc.appendChild(div({color:"#D4AF37",fontSize:"13px",fontStyle:"italic",fontFamily:"'Inter',sans-serif"},'"'+r.profile.tagline+'"'));
+    wrap.appendChild(pc);
+
+    // — Section label
+    wrap.appendChild(div({color:cl.gold,fontSize:"9px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"◆ YOUR TOP 3 MATCHES"));
+
+    var rankCls=["#D4AF37","#C0C0C0","#CD7F32"];
+    var rankLbl=["#1 TOP PICK","#2 STRONG MATCH","#3 SOLID BACKUP"];
+
+    (r.areas||[]).slice(0,3).forEach(function(area,i){
+      if(!area)return;
+      var ac=div({background:cl.surface,border:"1px solid "+(i===0?"rgba(212,175,55,0.3)":cl.border),borderRadius:"16px",padding:"20px",marginBottom:"14px"});
+      // Header
+      var ah=div({display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"12px"});
+      var at=div({});
+      at.appendChild(div({color:rankCls[i],fontSize:"8px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},rankLbl[i]));
+      at.appendChild(div({color:"#FFFFFF",fontSize:"17px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},area.name||"—"));
+      ah.appendChild(at);
+      if(area.goldenVisa)ah.appendChild(div({fontSize:"20px",lineHeight:"1",flexShrink:"0"},"🌟"));
+      ac.appendChild(ah);
+      // Thesis
+      if(area.thesis)ac.appendChild(div({color:"#CCDDEE",fontSize:"13px",fontFamily:"'Inter',sans-serif",lineHeight:"1.75",marginBottom:"12px"},area.thesis));
+      // Key metrics grid
+      var mg=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"12px"});
+      function mCell(label2,val2,col2){
+        var m=div({background:"rgba(255,255,255,0.025)",borderRadius:"8px",padding:"10px 11px"});
+        m.appendChild(div({color:cl.sub,fontSize:"8px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},label2));
+        m.appendChild(div({color:col2||"#FFFFFF",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},val2||"—"));
+        return m;
+      }
+      if(area.bestEntry)mg.appendChild(mCell("Best Entry",area.bestEntry,"#D4AF37"));
+      if(area.buildingTip)mg.appendChild(mCell("Focus On",area.buildingTip,"#60A5FA"));
+      if(mg.children.length)ac.appendChild(mg);
+      // 3-year scenario
+      if(area.scenario){
+        var sc=div({background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:"10px",padding:"12px 14px",marginBottom:"12px"});
+        sc.appendChild(div({color:cl.sub,fontSize:"8px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"3-YEAR SCENARIO"));
+        var sg=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"6px"});
+        [{l:"Conservative",v:area.scenario.conservative,c:"#8899AA"},{l:"Base",v:area.scenario.base,c:"#10B981"},{l:"Optimistic",v:area.scenario.optimistic,c:"#D4AF37"}].forEach(function(s){
+          var sd=div({textAlign:"center",padding:"9px 4px",background:"rgba(255,255,255,0.02)",borderRadius:"6px"});
+          sd.appendChild(div({color:s.c,fontSize:"12px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},s.v||"—"));
+          sd.appendChild(div({color:cl.sub,fontSize:"8px",textTransform:"uppercase",letterSpacing:"0.08em",fontFamily:"'Space Grotesk',monospace"},s.l));
+          sg.appendChild(sd);
+        });
+        sc.appendChild(sg);
+        ac.appendChild(sc);
+      }
+      // Why now / Red flag
+      if(area.whyNow||area.redFlag){
+        var fr=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"});
+        if(area.whyNow){
+          var wn=div({background:"rgba(16,185,129,0.07)",border:"1px solid rgba(16,185,129,0.18)",borderRadius:"8px",padding:"10px 11px"});
+          wn.appendChild(div({color:"#10B981",fontSize:"8px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"WHY NOW"));
+          wn.appendChild(div({color:"#CCDDEE",fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6"},area.whyNow));
+          fr.appendChild(wn);
+        }
+        if(area.redFlag){
+          var rf2=div({background:"rgba(239,68,68,0.05)",border:"1px solid rgba(239,68,68,0.18)",borderRadius:"8px",padding:"10px 11px"});
+          rf2.appendChild(div({color:"#EF4444",fontSize:"8px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"RED FLAG"));
+          rf2.appendChild(div({color:"#CCDDEE",fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6"},area.redFlag));
+          fr.appendChild(rf2);
+        }
+        ac.appendChild(fr);
+      }
+      if(area.goldenVisa)ac.appendChild(div({marginTop:"10px",padding:"8px 11px",background:"rgba(212,175,55,0.07)",border:"1px solid rgba(212,175,55,0.18)",borderRadius:"6px",color:"#D4AF37",fontSize:"11px",fontFamily:"'Inter',sans-serif"},"🌟 Golden Visa eligible — 10-year UAE residency with this investment"));
+      wrap.appendChild(ac);
+    });
+
+    // — Timing
+    if(r.timing){
+      var tc=div({background:"rgba(129,140,248,0.07)",border:"1px solid rgba(129,140,248,0.22)",borderRadius:"14px",padding:"16px 18px",marginBottom:"12px"});
+      tc.appendChild(div({color:"#818CF8",fontSize:"8px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"◆ MARKET TIMING — JULY 2026"));
+      tc.appendChild(div({color:"#CCDDEE",fontSize:"13px",fontFamily:"'Inter',sans-serif",lineHeight:"1.75"},r.timing));
+      wrap.appendChild(tc);
+    }
+
+    // — Next step
+    if(r.nextStep){
+      var ns=div({background:"linear-gradient(135deg,rgba(212,175,55,0.1),rgba(212,175,55,0.03))",border:"1px solid rgba(212,175,55,0.28)",borderRadius:"14px",padding:"16px 18px",marginBottom:"16px"});
+      ns.appendChild(div({color:"#D4AF37",fontSize:"8px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"◆ YOUR NEXT STEP"));
+      ns.appendChild(div({color:"#FFFFFF",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},r.nextStep));
+      wrap.appendChild(ns);
+    }
+
+    // — Actions
+    var actR=div({display:"flex",gap:"10px",marginBottom:"16px"});
+    var srBtn=el("button",{style:{flex:"1",padding:"12px",borderRadius:"10px",border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:cl.sub,fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){personalState={step:0,goal:"",priority:"",timeline:"",budget:2000000,beds:"2 BR",prefAreas:[],work:"",loading:false,result:null,error:""};render();}});
+    srBtn.textContent="Start Over";
+    actR.appendChild(srBtn);
+    var waBtn=el("button",{style:{flex:"1",padding:"12px",borderRadius:"10px",border:"1px solid rgba(37,211,102,0.3)",background:"rgba(37,211,102,0.08)",color:"#25D366",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){
+      var t="DubAIVal · My Dubai Property Report 🏙️\n\n";
+      if(r.profile)t+="Profile: "+r.profile.type+"\n"+r.profile.tagline+"\n\n";
+      if(r.areas&&r.areas[0])t+="#1 Pick: "+r.areas[0].name+"\n"+(r.areas[0].thesis||"")+"\n\n";
+      t+="Get your free report: https://www.dubaival.com";
+      window.open("https://wa.me/?text="+encodeURIComponent(t),"_blank");
+    }});
+    waBtn.textContent="📱 Share";
+    actR.appendChild(waBtn);
+    wrap.appendChild(actR);
+
+    // — CTA to full analyzer
+    var ca=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"});
+    ca.appendChild(div({color:"#AABBCC",fontSize:"12px",fontFamily:"'Inter',sans-serif"},"Have a specific property in mind?"));
+    var caBtn=el("button",{style:{padding:"8px 14px",borderRadius:"8px",border:"1px solid rgba(212,175,55,0.3)",background:"rgba(212,175,55,0.08)",color:cl.gold,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){window.APP_STATE.tab="Analyzer";render();}});
+    caBtn.textContent="Full Analyzer →";
+    ca.appendChild(caBtn);
+    wrap.appendChild(ca);
+  }
+
   return wrap;
 }
 
