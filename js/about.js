@@ -58,9 +58,9 @@ function renderAbout(){
   ];
   var featGrid=div({display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"12px"});
   features.forEach(function(f){
-    var card=div({background:"rgba(255,255,255,0.03)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:"12px",padding:"16px",transition:"transform 0.25s ease,border-color 0.25s ease,box-shadow 0.25s ease",cursor:"default",boxShadow:"0 2px 16px rgba(0,0,0,0.15)"});
+    var card=div({background:cl.surface,backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",border:"1px solid "+cl.border,borderRadius:"12px",padding:"16px",transition:"transform 0.25s ease,border-color 0.25s ease,box-shadow 0.25s ease",cursor:"default",boxShadow:cl.glassShadow});
     card.addEventListener("mouseenter",function(){card.style.transform="translateY(-2px)";card.style.borderColor="rgba(212,175,55,0.3)";card.style.boxShadow="0 8px 28px rgba(0,0,0,0.3),0 0 16px rgba(212,175,55,0.04)";});
-    card.addEventListener("mouseleave",function(){card.style.transform="translateY(0)";card.style.borderColor="rgba(255,255,255,0.06)";card.style.boxShadow="0 2px 16px rgba(0,0,0,0.15)";});
+    card.addEventListener("mouseleave",function(){card.style.transform="translateY(0)";card.style.borderColor=cl.border;card.style.boxShadow=cl.glassShadow;});
     var iconWrap=el("div",{style:{fontSize:"20px",marginBottom:"8px",color:cl.gold}});
     iconWrap.innerHTML='<i data-lucide="'+f.icon+'" style="width:20px;height:20px"></i>';
     card.appendChild(iconWrap);
@@ -318,7 +318,7 @@ function renderApiDocs(cl){
   var kw="#C9A84C";var str="#10B981";var cmt="#4B5563";var num="#818CF8";
 
   function codeBlock(lang,code){
-    var block=div({background:codeBg,border:"1px solid "+codeBorder,borderRadius:"10px",overflow:"hidden",marginBottom:"12px"});
+    var block=div({background:cl.raised,border:"1px solid "+cl.border,borderRadius:"10px",overflow:"hidden",marginBottom:"12px"});
     var header=div({display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 12px",borderBottom:"1px solid "+codeBorder,background:"rgba(255,255,255,0.02)"});
     header.appendChild(span({color:cmt,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",textTransform:"uppercase",letterSpacing:"0.08em"},lang));
     var copyBtn=el("button",{style:{background:"transparent",border:"none",color:cmt,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",padding:"2px 6px"}});
@@ -326,7 +326,7 @@ function renderApiDocs(cl){
     copyBtn.addEventListener("click",function(){try{navigator.clipboard.writeText(code);copyBtn.textContent="Copied ✓";setTimeout(function(){copyBtn.textContent="Copy";},1500);}catch(e){}});
     header.appendChild(copyBtn);
     block.appendChild(header);
-    var pre=el("pre",{style:{margin:"0",padding:"12px",overflow:"auto",fontSize:"11px",lineHeight:"1.7",fontFamily:"'SF Mono','Fira Code',monospace",color:"#E8EDF5",whiteSpace:"pre-wrap",wordBreak:"break-all"}});
+    var pre=el("pre",{style:{margin:"0",padding:"12px",overflow:"auto",fontSize:"11px",lineHeight:"1.7",fontFamily:"'SF Mono','Fira Code',monospace",color:cl.white,whiteSpace:"pre-wrap",wordBreak:"break-all"}});
     pre.textContent=code;
     block.appendChild(pre);
     return block;
@@ -464,7 +464,7 @@ function renderApiDocs(cl){
   function apiInput(label,key,ph,type){
     var w=div({marginBottom:"10px"});
     w.appendChild(el("div",{style:{color:cl.sub,fontSize:"9px",letterSpacing:"0.08em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"}},label));
-    var inp=el("input",{type:type||"text",placeholder:ph,style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"10px 12px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+    var inp=el("input",{type:type||"text",placeholder:ph,style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"10px 12px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
     inp.value=rq[key]||"";
     inp.addEventListener("input",function(){rq[key]=this.value;});
     w.appendChild(inp);

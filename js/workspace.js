@@ -239,7 +239,7 @@ function renderReportBuilder(wrap,cl){
     if(!window._wsTextInp)window._wsTextInp="";
     var textRow=div({display:"flex",gap:"8px",marginBottom:"12px"});
     var textInp=el("input",{type:"text",placeholder:"e.g. valuation + market + portfolio, arabic, blue",
-      style:{flex:"1",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"10px 14px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none"}});
+      style:{flex:"1",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"10px 14px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none"}});
     textInp.value=window._wsTextInp||WS_STATE.voiceText||"";
     textInp.addEventListener("input",function(){window._wsTextInp=this.value;WS_STATE.parsed=false;});
     textRow.appendChild(textInp);
@@ -328,7 +328,7 @@ function renderReportBuilder(wrap,cl){
   setCard.appendChild(colorRow);
   // Title
   var titleInp=el("input",{type:"text",placeholder:"Custom report title (optional)",
-    style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"8px 12px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"8px"}});
+    style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"8px 12px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"8px"}});
   titleInp.value=WS_STATE.reportTitle||"";
   titleInp.addEventListener("input",function(){WS_STATE.reportTitle=this.value;});
   setCard.appendChild(titleInp);

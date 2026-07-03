@@ -222,7 +222,7 @@ function renderAuthModal(){
   if(DV_AUTH.modalTab==="forgot"){
     modal.appendChild(div({textAlign:"center",marginBottom:"20px"},[
       div({fontSize:"24px",marginBottom:"6px"},"🔑"),
-      div({color:"#F0F2F5",fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"Reset Password"),
+      div({color:cl.white,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"Reset Password"),
       div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",marginTop:"4px"},"We'll send a reset link to your email")
     ]));
     if(DV_AUTH.resetSent){
@@ -233,7 +233,7 @@ function renderAuthModal(){
       ]));
     }else{
       if(DV_AUTH.error)modal.appendChild(div({background:hexAlpha("#EF4444",0.1),border:"1px solid "+hexAlpha("#EF4444",0.3),borderRadius:"8px",padding:"8px 12px",marginBottom:"12px",color:"#EF4444",fontSize:"11px",fontFamily:"'Inter',sans-serif"},DV_AUTH.error));
-      var resetInp=el("input",{type:"text",placeholder:"Your email address",autocomplete:"off",readonly:true,style:{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",color:"#F0F2F5",padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"14px"}});
+      var resetInp=el("input",{type:"text",placeholder:"Your email address",autocomplete:"off",readonly:true,style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"14px"}});
       resetInp.addEventListener("focus",function(){this.removeAttribute("readonly");});
       modal.appendChild(resetInp);
       var sendBtn=el("button",{style:{width:"100%",padding:"12px",borderRadius:"999px",border:"1px solid rgba(212,175,55,0.15)",background:"rgba(212,175,55,0.10)",color:"#D4A843",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",marginBottom:"12px"}});
@@ -253,11 +253,11 @@ function renderAuthModal(){
   if(DV_AUTH.modalTab==="setpassword"){
     modal.appendChild(div({textAlign:"center",marginBottom:"22px"},[
       div({fontSize:"26px",marginBottom:"8px"},"🔐"),
-      div({color:"#F0F2F5",fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Set New Password"),
+      div({color:cl.white,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Set New Password"),
       div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Enter and confirm your new password")
     ]));
     if(DV_AUTH.error)modal.appendChild(div({background:hexAlpha("#EF4444",0.1),border:"1px solid "+hexAlpha("#EF4444",0.3),borderRadius:"8px",padding:"8px 12px",marginBottom:"12px",color:"#EF4444",fontSize:"11px",fontFamily:"'Inter',sans-serif"},DV_AUTH.error));
-    var inpStyle2={width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",color:"#F0F2F5",padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"};
+    var inpStyle2={width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"};
     var newPassInp=el("input",{type:"password",placeholder:"New password (min. 8 characters)",style:inpStyle2});
     modal.appendChild(newPassInp);
     var confPassInp=el("input",{type:"password",placeholder:"Confirm new password",style:Object.assign({},inpStyle2,{marginBottom:"16px"})});
@@ -277,12 +277,12 @@ function renderAuthModal(){
 
   modal.appendChild(div({textAlign:"center",marginBottom:"20px"},[
     div({fontSize:"24px",marginBottom:"6px"},""),
-    div({color:"#F0F2F5",fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},DV_AUTH.modalTab==="signin"?t("auth_signin"):t("auth_signup")),
+    div({color:cl.white,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},DV_AUTH.modalTab==="signin"?t("auth_signin"):t("auth_signup")),
     div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",marginTop:"4px"},t("auth_cloud_sync"))
   ]));
 
   // Tabs
-  var tabs=el("div",{style:{display:"flex",gap:"4px",marginBottom:"20px",background:"rgba(255,255,255,0.04)",borderRadius:"10px",padding:"3px"}});
+  var tabs=el("div",{style:{display:"flex",gap:"4px",marginBottom:"20px",background:cl.surface,borderRadius:"10px",padding:"3px"}});
   ["signin","signup"].forEach(function(tabId){
     var active=DV_AUTH.modalTab===tabId;
     var tb=el("button",{style:{flex:"1",padding:"8px",borderRadius:"8px",border:active?"1px solid rgba(212,175,55,0.15)":"1px solid transparent",background:active?"rgba(212,175,55,0.10)":"transparent",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",color:active?"#D4A843":cl.sub,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",transition:"all 0.2s"}});
@@ -296,15 +296,15 @@ function renderAuthModal(){
   var nameInp,emailInp,passInp;
 
   if(DV_AUTH.modalTab==="signup"){
-    nameInp=el("input",{type:"text",placeholder:t("auth_name"),style:{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",color:"#F0F2F5",padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"}});
+    nameInp=el("input",{type:"text",placeholder:t("auth_name"),style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"}});
     modal.appendChild(nameInp);
   }
 
-  emailInp=el("input",{type:"text",placeholder:t("auth_email"),autocomplete:"off",readonly:true,style:{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",color:"#F0F2F5",padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"}});
+  emailInp=el("input",{type:"text",placeholder:t("auth_email"),autocomplete:"off",readonly:true,style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"}});
   emailInp.addEventListener("focus",function(){this.removeAttribute("readonly");});
   modal.appendChild(emailInp);
 
-  passInp=el("input",{type:"password",placeholder:t("auth_password"),autocomplete:"off",readonly:true,style:{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",color:"#F0F2F5",padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"16px"}});
+  passInp=el("input",{type:"password",placeholder:t("auth_password"),autocomplete:"off",readonly:true,style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"16px"}});
   passInp.addEventListener("focus",function(){this.removeAttribute("readonly");});
   passInp.addEventListener("keydown",function(e){if(e.key==="Enter")doSubmit();});
   modal.appendChild(passInp);

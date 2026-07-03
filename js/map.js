@@ -129,7 +129,7 @@ function renderMap() {
         var geoS = computeGeoScore(name);
         var geoLine = geoS ? '<div style="margin-top:6px;padding-top:6px;border-top:1px solid #1C2540;font-size:10px;"><span style="color:#818CF8;">'+geoS.metroName+'</span> <b>'+geoS.metroDist+'km</b> · <span style="color:#D4A843;">Location '+geoS.locationScore+'/10</span></div>' : '';
 
-        var popupHtml = '<div style="font-family:\'Space Grotesk\',monospace;min-width:200px;color:#E8EDF5;padding:12px;">'
+        var popupHtml = '<div style="font-family:\'Space Grotesk\',monospace;min-width:200px;color:'+cl.white+';padding:12px;">'
           +'<div style="color:#D4A843;font-size:12px;font-weight:700;margin-bottom:8px;">'+name+'</div>'
           +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;">'
           +'<div><span style="color:#6B7A9E;">PSF</span><br><b>AED '+aData.psf.toLocaleString()+'</b></div>'
@@ -181,7 +181,7 @@ function renderMap() {
               title: s.n
             });
             mk.addListener("click", function() {
-              infoWin.setContent('<div style="font-family:\'Space Grotesk\',monospace;color:#E8EDF5;padding:8px 10px;font-size:11px;"><span style="color:#818CF8;">M</span> <b>'+s.n+'</b><br><span style="color:#6B7A9E;">'+s.line+' Line</span></div>');
+              infoWin.setContent('<div style="font-family:\'Space Grotesk\',monospace;color:'+cl.white+';padding:8px 10px;font-size:11px;"><span style="color:#818CF8;">M</span> <b>'+s.n+'</b><br><span style="color:#6B7A9E;">'+s.line+' Line</span></div>');
               infoWin.open(gmap, mk);
             });
           });
@@ -195,7 +195,7 @@ function renderMap() {
               title: s.n
             });
             mk.addListener("click", function() {
-              infoWin.setContent('<div style="font-family:\'Space Grotesk\',monospace;color:#E8EDF5;padding:8px 10px;font-size:11px;"><span style="color:#D4A843;">T</span> <b>'+s.n+'</b><br><span style="color:#6B7A9E;">Dubai Tram</span></div>');
+              infoWin.setContent('<div style="font-family:\'Space Grotesk\',monospace;color:'+cl.white+';padding:8px 10px;font-size:11px;"><span style="color:#D4A843;">T</span> <b>'+s.n+'</b><br><span style="color:#6B7A9E;">Dubai Tram</span></div>');
               infoWin.open(gmap, mk);
             });
           });

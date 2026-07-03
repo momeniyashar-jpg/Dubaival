@@ -527,7 +527,7 @@ function renderDeals(){
     if(topAreas.length===0)topBox.push(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},"—"));
     topAreas.forEach(function(ta){
       topBox.push(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"2px"},[
-        span({color:"#F0F2F5",fontSize:"10.5px",fontFamily:"'Inter',sans-serif"},ta[0]),
+        span({color:cl.white,fontSize:"10.5px",fontFamily:"'Inter',sans-serif"},ta[0]),
         span({color:cl.gold,fontSize:"10.5px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},String(ta[1]))]));
     });
     row2.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"10px",padding:"10px 12px"},topBox));
@@ -733,7 +733,7 @@ function renderDeals(){
         var totalDays=Math.max(1,Math.ceil((new Date(d.expires_at).getTime()-new Date(d.created_at).getTime())/86400000));
         var pctLeft=Math.max(0,Math.min(100,Math.round(expDays/totalDays*100)));
         var barColor=isUrgentExp?"#EF4444":isWarnExp?"#F59E0B":"#10B981";
-        expBar.appendChild(div({width:"80px",height:"4px",background:"rgba(255,255,255,0.06)",borderRadius:"2px",overflow:"hidden",flexShrink:"0"},[
+        expBar.appendChild(div({width:"80px",height:"4px",background:cl.border,borderRadius:"2px",overflow:"hidden",flexShrink:"0"},[
           div({height:"100%",width:pctLeft+"%",background:barColor,borderRadius:"2px",transition:"width 0.3s"})]));
       }
       card.appendChild(expBar);
@@ -836,20 +836,20 @@ function renderDeals(){
       inqForm.appendChild(div({color:"#8B5CF6",fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",fontWeight:"700"},"Send Your Interest"));
       var inqRow1=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"8px"});
       var inqNameInp=el("input",{type:"text",placeholder:"Your Name *",value:DEAL_STATE.inquiry.name||"",
-        style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"8px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+        style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:cl.white,padding:"8px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
       inqNameInp.oninput=function(){DEAL_STATE.inquiry.name=this.value;};
       inqRow1.appendChild(inqNameInp);
       var inqPhoneInp=el("input",{type:"tel",placeholder:"WhatsApp / Phone *",value:DEAL_STATE.inquiry.phone||"",
-        style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"8px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+        style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:cl.white,padding:"8px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
       inqPhoneInp.oninput=function(){DEAL_STATE.inquiry.phone=this.value;};
       inqRow1.appendChild(inqPhoneInp);
       inqForm.appendChild(inqRow1);
       var inqEmailInp=el("input",{type:"email",placeholder:"Email (optional)",value:DEAL_STATE.inquiry.email||"",
-        style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"8px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"8px"}});
+        style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:cl.white,padding:"8px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"8px"}});
       inqEmailInp.oninput=function(){DEAL_STATE.inquiry.email=this.value;};
       inqForm.appendChild(inqEmailInp);
       var inqMsgInp=el("textarea",{placeholder:"Message (optional) — e.g. I have a client looking for this type of unit…",rows:"2",
-        style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"8px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",resize:"vertical",marginBottom:"8px"}});
+        style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:cl.white,padding:"8px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",resize:"vertical",marginBottom:"8px"}});
       inqMsgInp.value=DEAL_STATE.inquiry.message||"";inqMsgInp.oninput=function(){DEAL_STATE.inquiry.message=this.value;};
       inqForm.appendChild(inqMsgInp);
       var inqSendBtn=el("button",{style:{width:"100%",padding:"10px",background:"linear-gradient(135deg,#8B5CF6,#7C3AED)",color:"#fff",border:"none",borderRadius:"8px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",opacity:DEAL_STATE.inquiry.sending?"0.5":"1"},
@@ -1008,7 +1008,7 @@ function renderDeals(){
       cachedAI.data.slice(0,3).forEach(function(m){
         var sc=m.aiScore||m.score;
         var scColor=sc>=80?"#22C55E":sc>=60?"#EAB308":sc>=40?"#F97316":"#EF4444";
-        var mRow=div({display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",borderBottom:"1px solid rgba(255,255,255,0.04)"});
+        var mRow=div({display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",borderBottom:"1px solid "+cl.border});
         mRow.appendChild(div({display:"flex",alignItems:"center",gap:"6px"},[
           el("div",{style:{width:"22px",height:"22px",borderRadius:"50%",background:hexAlpha(scColor,0.15),border:"2px solid "+scColor,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"8px",fontWeight:"800",color:scColor,fontFamily:"'Space Grotesk',monospace",flexShrink:"0"},textContent:sc}),
           div({},[
@@ -1088,14 +1088,14 @@ function renderDealForm(wrap,cl){
     var g=div({marginBottom:"10px"});
     g.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",marginBottom:"4px"},label));
     var inp=el("input",{type:type||"text",placeholder:placeholder||"",value:f[key]||"",
-      style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"10px",borderRadius:"8px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+      style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"10px",borderRadius:"8px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
     inp.oninput=function(){f[key]=this.value;};
     g.appendChild(inp);return g;
   }
   function makeSelect(label,key,options){
     var g=div({marginBottom:"10px"});
     g.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",marginBottom:"4px"},label));
-    var sel=el("select",{style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"10px",borderRadius:"8px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+    var sel=el("select",{style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"10px",borderRadius:"8px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
     options.forEach(function(o){var opt=el("option",{value:o.v||o});opt.textContent=o.l||o;if(f[key]===(o.v||o))opt.selected=true;sel.appendChild(opt);});
     sel.onchange=function(){f[key]=this.value;render();};
     g.appendChild(sel);return g;
@@ -1125,7 +1125,7 @@ function renderDealForm(wrap,cl){
       span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginLeft:"8px"},"Paste text → auto-fill form")])
   ]));
   var waTextarea=el("textarea",{placeholder:"Paste WhatsApp listing text here…\n\ne.g. \"2BR in Marina Gate 1, 1200 sqft, high floor, sea view, asking 3.2M\"",rows:"3",
-    style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",resize:"vertical"}});
+    style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:cl.white,padding:"10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",resize:"vertical"}});
   waTextarea.value=DEAL_STATE.waParser.text||"";
   waTextarea.oninput=function(){DEAL_STATE.waParser.text=this.value;};
   waSection.appendChild(waTextarea);
@@ -1266,7 +1266,7 @@ function renderDealForm(wrap,cl){
     var vidG=div({marginBottom:"4px"});
     vidG.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",marginBottom:"4px"},"Video Link (YouTube / Google Drive)"));
     var vidInp=el("input",{type:"url",placeholder:"https://youtube.com/watch?v=… or Google Drive link",value:DEAL_STATE.videoUrl||"",
-      style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"10px",borderRadius:"8px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+      style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:cl.white,padding:"10px",borderRadius:"8px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
     vidInp.oninput=function(){DEAL_STATE.videoUrl=this.value;};
     vidG.appendChild(vidInp);
     mediaSection.appendChild(vidG);
@@ -1346,7 +1346,7 @@ function renderDealForm(wrap,cl){
   var notesG=div({marginBottom:"14px"});
   notesG.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",marginBottom:"4px"},"Notes"));
   var notesInp=el("textarea",{placeholder:"Additional details, special conditions…",rows:"3",
-    style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"10px",borderRadius:"8px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",resize:"vertical"}});
+    style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"10px",borderRadius:"8px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",resize:"vertical"}});
   notesInp.value=f.notes||"";notesInp.oninput=function(){f.notes=this.value;};
   notesG.appendChild(notesInp);
   card.appendChild(notesG);
@@ -1404,7 +1404,7 @@ function renderAgentHub(wrap,cl){
       var g=div({marginBottom:"10px"});
       g.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",marginBottom:"4px"},label));
       var inp=el("input",{type:type||"text",placeholder:placeholder||"",value:rf[key]||"",
-        style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"10px",borderRadius:"8px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+        style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"10px",borderRadius:"8px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
       inp.oninput=function(){rf[key]=this.value;};
       g.appendChild(inp);return g;
     }
@@ -1422,7 +1422,7 @@ function renderAgentHub(wrap,cl){
     var bioG=div({marginBottom:"14px"});
     bioG.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",marginBottom:"4px"},"Short Bio"));
     var bioInp=el("textarea",{placeholder:"Tell buyers about your experience and track record…",rows:"3",
-      style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"10px",borderRadius:"8px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",resize:"vertical"}});
+      style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"10px",borderRadius:"8px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",resize:"vertical"}});
     bioInp.value=rf.bio||"";bioInp.oninput=function(){rf.bio=this.value;};
     bioG.appendChild(bioInp);card.appendChild(bioG);
 
@@ -1514,17 +1514,17 @@ function renderAgentHub(wrap,cl){
             vaForm.appendChild(dSel);
             // Video URL
             var vUrlInp=el("input",{type:"url",placeholder:"YouTube or Instagram video URL",value:DEAL_STATE.videoForm.videoUrl||"",
-              style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"9px 10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"8px"}});
+              style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:cl.white,padding:"9px 10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"8px"}});
             vUrlInp.oninput=function(){DEAL_STATE.videoForm.videoUrl=this.value;};
             vaForm.appendChild(vUrlInp);
             // Title
             var vTitleInp=el("input",{type:"text",placeholder:"e.g. Marina Gate 1 — Full Unit Tour & Market Analysis",value:DEAL_STATE.videoForm.title||"",
-              style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"9px 10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"8px"}});
+              style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:cl.white,padding:"9px 10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"8px"}});
             vTitleInp.oninput=function(){DEAL_STATE.videoForm.title=this.value;};
             vaForm.appendChild(vTitleInp);
             // Summary
             var vSumInp=el("textarea",{placeholder:"Brief analysis summary (max 500 chars)",rows:"3",maxlength:"500",
-              style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"9px 10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",resize:"vertical",marginBottom:"4px"}});
+              style:{width:"100%",background:cl.surface,border:"1px solid "+cl.border,color:cl.white,padding:"9px 10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",resize:"vertical",marginBottom:"4px"}});
             vSumInp.value=DEAL_STATE.videoForm.summary||"";
             vSumInp.oninput=function(){if(this.value.length>500)this.value=this.value.substring(0,500);DEAL_STATE.videoForm.summary=this.value;};
             vaForm.appendChild(vSumInp);

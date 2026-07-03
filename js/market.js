@@ -12,7 +12,7 @@ function buildReportTypeSelector(cl,formCard){
   modes.forEach(function(m){
     var isActive=rm===m.v;
     var isLocked=m.v==="agent"&&!isRegisteredAgent();
-    var btn=el("button",{style:{flex:"1",padding:"10px 12px",borderRadius:"8px",border:"1px solid "+(isActive?cl.gold:cl.border),background:isActive?cl.goldFaint:"transparent",color:isActive?cl.gold:isLocked?"rgba(255,255,255,0.2)":cl.sub,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:isLocked?"not-allowed":"pointer",opacity:isLocked?"0.5":"1"}});
+    var btn=el("button",{style:{flex:"1",padding:"10px 12px",borderRadius:"8px",border:"1px solid "+(isActive?cl.gold:cl.border),background:isActive?cl.goldFaint:"transparent",color:isActive?cl.gold:isLocked?hexAlpha(cl.sub,0.4):cl.sub,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:isLocked?"not-allowed":"pointer",opacity:isLocked?"0.5":"1"}});
     btn.textContent=m.l;
     if(!isLocked){btn.addEventListener("click",function(){analyzerState.reportMode=m.v;render();});}
     else{btn.title="Register as agent in Deal Network to access";}
@@ -92,8 +92,8 @@ function renderMarket(){
     // Row 1: 5 stat cards with count-up
     var r1=el('div',{style:{display:'grid',gridTemplateColumns:window.innerWidth<500?'repeat(auto-fit,minmax(100px,1fr))':'1fr 1fr 1fr 1fr 1fr',gap:'8px',marginBottom:'14px'}});
     [{l:'Buildings Tracked',v:bCnt,fmt:function(v){return v.toLocaleString();}},{l:'Areas Covered',v:aCnt,fmt:String},{l:'Avg PSF',v:avgPsf,fmt:function(v){return 'AED '+v.toLocaleString();}},{l:'Avg Yield',v:parseFloat(avgYield),fmt:function(v){return v.toFixed(1)+'%';}},{l:'Avg Growth 1Y',v:parseFloat(avgGr),fmt:function(v){return v.toFixed(1)+'%';}}].forEach(function(s){
-      var card=el('div',{style:{background:'rgba(240,242,245,0.03)',border:'1px solid '+cl.border,borderRadius:'10px',padding:'10px 8px',textAlign:'center'}});
-      card.appendChild(div({color:'#9AABBB',fontSize:'10px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'4px'},s.l));
+      var card=el('div',{style:{background:cl.surface,border:'1px solid '+cl.border,borderRadius:'10px',padding:'10px 8px',textAlign:'center'}});
+      card.appendChild(div({color:cl.sub,fontSize:'10px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'4px'},s.l));
       var numEl=el('div',{style:{color:cl.gold,fontSize:'16px',fontWeight:'800',fontFamily:"'Space Grotesk',monospace"}});
       numEl.textContent='0';
       card.appendChild(numEl);
@@ -125,13 +125,13 @@ function renderMarket(){
     var psfBins=[0,0,0,0,0];var psfLabels=['<1K','1-1.5K','1.5-2K','2-3K','3K+'];
     aKeys.forEach(function(k){var p=AREAS[k].psf||0;if(p<1000)psfBins[0]++;else if(p<1500)psfBins[1]++;else if(p<2000)psfBins[2]++;else if(p<3000)psfBins[3]++;else psfBins[4]++;});
     var psfMax=Math.max.apply(null,psfBins)||1;
-    var psfCard=el('div',{style:{background:'rgba(240,242,245,0.03)',border:'1px solid '+cl.border,borderRadius:'10px',padding:'10px'}});
-    psfCard.appendChild(div({color:'#9AABBB',fontSize:'10px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'8px',textAlign:'center'},'PSF Distribution'));
+    var psfCard=el('div',{style:{background:cl.surface,border:'1px solid '+cl.border,borderRadius:'10px',padding:'10px'}});
+    psfCard.appendChild(div({color:cl.sub,fontSize:'10px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'8px',textAlign:'center'},'PSF Distribution'));
     var psfChart=el('div',{style:{display:'flex',alignItems:'flex-end',gap:'3px',height:'80px'}});
     psfBins.forEach(function(b,i){
       var col=el('div',{style:{flex:'1',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-end',height:'100%'}});
       col.appendChild(el('div',{style:{width:'100%',height:Math.max(3,b/psfMax*100)+'%',background:'linear-gradient(180deg,'+cl.gold+','+hexAlpha(cl.gold,0.3)+')',borderRadius:'3px 3px 0 0',transition:'height 0.5s'}}));
-      col.appendChild(span({color:'#9AABBB',fontSize:'9px',fontFamily:"'Space Grotesk',monospace",marginTop:'2px'},psfLabels[i]));
+      col.appendChild(span({color:cl.sub,fontSize:'9px',fontFamily:"'Space Grotesk',monospace",marginTop:'2px'},psfLabels[i]));
       psfChart.appendChild(col);
     });
     psfCard.appendChild(psfChart);
@@ -141,13 +141,13 @@ function renderMarket(){
     var yBins=[0,0,0,0,0];var yLabels=['<5%','5-6','6-7','7-8','8%+'];
     aKeys.forEach(function(k){var a=AREAS[k];if(!a.y)return;var y=(a.y[0]+a.y[1])/2;if(y<5)yBins[0]++;else if(y<6)yBins[1]++;else if(y<7)yBins[2]++;else if(y<8)yBins[3]++;else yBins[4]++;});
     var yMax=Math.max.apply(null,yBins)||1;
-    var yCard=el('div',{style:{background:'rgba(240,242,245,0.03)',border:'1px solid '+cl.border,borderRadius:'10px',padding:'10px'}});
-    yCard.appendChild(div({color:'#9AABBB',fontSize:'10px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'8px',textAlign:'center'},'Yield Distribution'));
+    var yCard=el('div',{style:{background:cl.surface,border:'1px solid '+cl.border,borderRadius:'10px',padding:'10px'}});
+    yCard.appendChild(div({color:cl.sub,fontSize:'10px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'8px',textAlign:'center'},'Yield Distribution'));
     var yChart=el('div',{style:{display:'flex',alignItems:'flex-end',gap:'3px',height:'80px'}});
     yBins.forEach(function(b,i){
       var col=el('div',{style:{flex:'1',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-end',height:'100%'}});
       col.appendChild(el('div',{style:{width:'100%',height:Math.max(3,b/yMax*100)+'%',background:'linear-gradient(180deg,#22C55E,'+hexAlpha('#22C55E',0.3)+')',borderRadius:'3px 3px 0 0',transition:'height 0.5s'}}));
-      col.appendChild(span({color:'#9AABBB',fontSize:'9px',fontFamily:"'Space Grotesk',monospace",marginTop:'2px'},yLabels[i]));
+      col.appendChild(span({color:cl.sub,fontSize:'9px',fontFamily:"'Space Grotesk',monospace",marginTop:'2px'},yLabels[i]));
       yChart.appendChild(col);
     });
     yCard.appendChild(yChart);
@@ -209,7 +209,7 @@ function renderMarket(){
      {title:'Best Value',data:bestVal,vFn:function(d){return d.y.toFixed(1)+'% @ '+d.psf;},color:'#22C55E'},
      {title:'Most Liquid',data:mostLiq,vFn:function(d){return d.dom+'d DOM';},color:'#3B82F6'},
      {title:'Highest Growth',data:highGr,vFn:function(d){return'+'+d.g.toFixed(1)+'%';},color:'#A78BFA'}].forEach(function(cat){
-      var card=el('div',{style:{background:'rgba(240,242,245,0.03)',border:'1px solid '+cl.border,borderRadius:'10px',padding:'10px',overflow:'hidden'}});
+      var card=el('div',{style:{background:cl.surface,border:'1px solid '+cl.border,borderRadius:'10px',padding:'10px',overflow:'hidden'}});
       card.appendChild(div({color:cat.color,fontSize:'10px',fontWeight:'700',letterSpacing:'0.06em',fontFamily:"'Space Grotesk',monospace",marginBottom:'6px'},cat.title));
       cat.data.forEach(function(d,i){
         var row=el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'2px 0',gap:'4px'}});
@@ -385,7 +385,7 @@ function renderMarket(){
   const selRow=el("div",{style:{display:"flex",gap:"6px",marginBottom:"12px",flexWrap:"wrap"}});
   
   // Area dropdown
-  const areaSel=el("select",{style:{flex:"1",background:cl.bg,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"6px 10px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace"}});
+  const areaSel=el("select",{style:{flex:"1",background:cl.bg,border:"1px solid "+cl.border,color:cl.white,padding:"6px 10px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace"}});
   areaNames.forEach(function(a){
     const opt=el("option",{value:a},a);
     if(a===window.CHART_STATE.area)opt.selected=true;
@@ -456,19 +456,21 @@ function renderMarket(){
   const fillD=pathD+" L"+xPos(n-1)+","+(padT+plotH)+" L"+padL+","+(padT+plotH)+" Z";
   
   // Y grid lines
+  const svgGridStroke=hexAlpha(cl.sub,0.2);
+  const svgTextFill=hexAlpha(cl.sub,0.6);
   const yStep=Math.round((yMax-yMin)/4/100)*100||500;
   const gridLines=[];
   for(let y=yMin;y<=yMax;y+=yStep){
     const py=yPos(y);
-    gridLines.push('<line x1="'+padL+'" y1="'+py+'" x2="'+(chartW-padR)+'" y2="'+py+'" stroke="rgba(240,242,245,0.08)" stroke-width="1"/>');
-    gridLines.push('<text x="'+(padL-4)+'" y="'+(py+4)+'" fill="rgba(240,242,245,0.4)" font-size="9" text-anchor="end" font-family="monospace">'+y+'</text>');
+    gridLines.push('<line x1="'+padL+'" y1="'+py+'" x2="'+(chartW-padR)+'" y2="'+py+'" stroke="'+svgGridStroke+'" stroke-width="1"/>');
+    gridLines.push('<text x="'+(padL-4)+'" y="'+(py+4)+'" fill="'+svgTextFill+'" font-size="9" text-anchor="end" font-family="monospace">'+y+'</text>');
   }
-  
+
   // X labels (every 6 months)
   const xLabels=[];
   for(let i=0;i<n;i+=Math.max(1,Math.floor(n/6))){
     const lbl=labels[i].slice(0,7);
-    xLabels.push('<text x="'+xPos(i)+'" y="'+(padT+plotH+16)+'" fill="rgba(240,242,245,0.4)" font-size="8" text-anchor="middle" font-family="monospace">'+lbl+'</text>');
+    xLabels.push('<text x="'+xPos(i)+'" y="'+(padT+plotH+16)+'" fill="'+svgTextFill+'" font-size="8" text-anchor="middle" font-family="monospace">'+lbl+'</text>');
   }
   
   const lineColor=isUp?"#10B981":"#EF4444";
@@ -482,7 +484,7 @@ function renderMarket(){
     xLabels.join('')+
     '</svg>';
   
-  const svgWrap=el("div",{style:{borderRadius:"8px",overflow:"hidden",background:"rgba(240,242,245,0.02)",border:"1px solid "+cl.border}});
+  const svgWrap=el("div",{style:{borderRadius:"8px",overflow:"hidden",background:cl.surface,border:"1px solid "+cl.border}});
   svgWrap.innerHTML=svgHTML;
   chartWrap.appendChild(svgWrap);
   
@@ -524,7 +526,7 @@ function renderMarket(){
 
   psfRows.forEach(function(r,i){
     const row=el("div",{style:{display:"grid",gridTemplateColumns:"2fr 0.8fr 0.8fr 0.9fr",gap:"4px",padding:"7px 0",borderBottom:i<psfRows.length-1?"1px solid "+cl.border:"none",alignItems:"center"}});
-    row.appendChild(span({color:"#F0F2F5",fontSize:"12px",fontFamily:"'Inter',sans-serif"},r.area));
+    row.appendChild(span({color:cl.white,fontSize:"12px",fontFamily:"'Inter',sans-serif"},r.area));
     row.appendChild(span({color:r.apt?cl.white:cl.sub,fontSize:"11px",fontWeight:r.apt?"600":"400",fontFamily:"'Space Grotesk',monospace"},r.apt?r.apt.toLocaleString():"—"));
     row.appendChild(span({color:r.villa?cl.white:cl.sub,fontSize:"11px",fontWeight:r.villa?"600":"400",fontFamily:"'Space Grotesk',monospace"},r.villa?r.villa.toLocaleString():"—"));
     row.appendChild(span({color:cl.green,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},r.yield));
@@ -546,10 +548,10 @@ function renderMarket(){
     span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"14px"},"Market Cycle · 20-Year History"),
     ...cycleRows.map(function(c,i){return div({display:"flex",alignItems:"center",gap:"12px",padding:"9px 0",borderBottom:i<6?"1px solid "+cl.border:"none"},[
       span({color:cl.gold,fontSize:"10.5px",fontFamily:"'Space Grotesk',monospace",minWidth:"60px"},c.yr),
-      span({color:"#F0F2F5",fontSize:"12.5px",fontFamily:"'Inter',sans-serif",flex:"1"},c.n),
+      span({color:cl.white,fontSize:"12.5px",fontFamily:"'Inter',sans-serif",flex:"1"},c.n),
       span({color:c.col,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},c.c),
     ]);}),
-    div({marginTop:"12px",background:cl.goldFaint,border:"1px solid "+cl.goldDim,borderRadius:"8px",padding:"10px 14px",color:"rgba(240,242,245,0.7)",fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.7"},
+    div({marginTop:"12px",background:cl.goldFaint,border:"1px solid "+cl.goldDim,borderRadius:"8px",padding:"10px 14px",color:cl.text,fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.7"},
       "June 2026: Post-geo correction. Buyer leverage open 3–6 months. Geo adjustment "+Math.round(LIVE_GEO.adj*100)+"% applied."
     ),
   ]));
@@ -616,7 +618,7 @@ function renderTrackRecord(){
       const errCol=r.absErr<=10?cl.green:r.absErr<=20?"#F59E0B":cl.red;
       return div({display:"flex",justifyContent:"space-between",alignItems:"center",gap:"8px",padding:"9px 0",borderBottom:i<csRows.length-1?"1px solid "+cl.border:"none"},[
         div({flex:"1",minWidth:"0"},[
-          div({color:"#F0F2F5",fontSize:"12px",fontFamily:"'Inter',sans-serif",fontWeight:"600",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"},r.label),
+          div({color:cl.white,fontSize:"12px",fontFamily:"'Inter',sans-serif",fontWeight:"600",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"},r.label),
           div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},[
             r.area+" · "+r.unitType+" · ",
             el("a",{href:r.source,target:"_blank",rel:"noopener",style:{color:cl.sub,textDecoration:"underline"}},"source"),
@@ -624,12 +626,12 @@ function renderTrackRecord(){
         ]),
         div({textAlign:"right",flexShrink:"0"},[
           div({color:cl.sub,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},"Sold AED "+r.sold.toLocaleString()),
-          div({color:"#F0F2F5",fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},"Est. AED "+r.fair.toLocaleString()),
+          div({color:cl.white,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},"Est. AED "+r.fair.toLocaleString()),
         ]),
         div({color:errCol,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",minWidth:"48px",textAlign:"right",flexShrink:"0"},(r.err>=0?"+":"")+r.err.toFixed(1)+"%"),
       ]);
     }),
-    div({marginTop:"12px",background:cl.goldFaint,border:"1px solid "+cl.goldDim,borderRadius:"8px",padding:"10px 14px",color:"rgba(240,242,245,0.7)",fontSize:"11.5px",fontFamily:"'Inter',sans-serif",lineHeight:"1.7"},
+    div({marginTop:"12px",background:cl.goldFaint,border:"1px solid "+cl.goldDim,borderRadius:"8px",padding:"10px 14px",color:cl.text,fontSize:"11.5px",fontFamily:"'Inter',sans-serif",lineHeight:"1.7"},
       "Accuracy varies by data depth — check the Confidence Score on each valuation (Verified Building Data vs. Area Benchmark) to gauge the expected range for your specific search."
     ),
   ]));
@@ -656,7 +658,7 @@ function renderQuickCheck(){
   });
   qc.appendChild(qcToggle);
   var qcAreaWrap=el("div",{style:{position:"relative",marginBottom:"10px"}});
-  var qcAreaInp=el("input",{type:"text",placeholder:t("qc_select_area"),style:{width:"100%",background:cl.raised,border:"1px solid "+(qs.area&&AREAS[qs.area]?cl.gold:cl.border),color:"#F0F2F5",padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+  var qcAreaInp=el("input",{type:"text",placeholder:t("qc_select_area"),style:{width:"100%",background:cl.raised,border:"1px solid "+(qs.area&&AREAS[qs.area]?cl.gold:cl.border),color:cl.white,padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
   qcAreaInp.value=qs.area||"";
   qcAreaInp.addEventListener("input",function(){
     qs.area=this.value;qs.result=null;
@@ -664,7 +666,7 @@ function renderQuickCheck(){
     var q=this.value.toLowerCase().trim();if(q.length<1)return;
     var hits=AREA_NAMES.filter(function(n){return n.toLowerCase().indexOf(q)>=0;});
     hits.slice(0,8).forEach(function(n){
-      var row=el("div",{style:{padding:"8px 12px",cursor:"pointer",fontSize:"12px",color:"#F0F2F5",borderBottom:"1px solid "+cl.border,fontFamily:"'Inter',sans-serif"}});
+      var row=el("div",{style:{padding:"8px 12px",cursor:"pointer",fontSize:"12px",color:cl.white,borderBottom:"1px solid "+cl.border,fontFamily:"'Inter',sans-serif"}});
       row.textContent=n;
       row.addEventListener("mousedown",function(e){e.preventDefault();qs.area=n;qs.result=null;render();});
       row.addEventListener("mouseenter",function(){this.style.background=cl.raised;});
@@ -678,7 +680,7 @@ function renderQuickCheck(){
   qcAreaWrap.appendChild(qcAreaSugg);
   qc.appendChild(qcAreaWrap);
   var bWrap=el("div",{style:{position:"relative",marginBottom:"10px"}});
-  var bInp=el("input",{type:"text",placeholder:"Building name",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+  var bInp=el("input",{type:"text",placeholder:"Building name",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
   bInp.value=qs.building||"";
   bInp.addEventListener("input",function(){qs.building=this.value;qs.result=null;
     var sg=document.getElementById("qc-bldg-sugg");if(!sg)return;sg.innerHTML="";
@@ -701,7 +703,7 @@ function renderQuickCheck(){
   var bSugg=el("div",{id:"qc-bldg-sugg",style:{position:"absolute",top:"100%",left:"0",right:"0",zIndex:"100",background:cl.surface,border:"1px solid "+cl.border,borderRadius:"0 0 10px 10px",maxHeight:"180px",overflowY:"auto",display:"block"}});
   bWrap.appendChild(bSugg);
   qc.appendChild(bWrap);
-  var pInp=el("input",{type:"text",inputMode:"numeric",placeholder:qs.mode==="rent"?"Asking rent (AED/year)":"Asking price (AED)",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"14px"}});
+  var pInp=el("input",{type:"text",inputMode:"numeric",placeholder:qs.mode==="rent"?"Asking rent (AED/year)":"Asking price (AED)",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"14px"}});
   pInp.value=qs.price||"";
   pInp.addEventListener("input",function(){qs.price=this.value.replace(/[^0-9]/g,"");this.value=qs.price?parseInt(qs.price).toLocaleString():"";qs.result=null;});
   qc.appendChild(pInp);
@@ -828,7 +830,7 @@ function renderAnalyzer(){
     aiBar.appendChild(aiLabel);
     var aiRow=div({display:"flex",gap:"6px",alignItems:"center"});
     var aiInp=el("input",{type:"text",placeholder:"e.g. 2BR Marina, 1200sqft, floor 25, sea view, 2.1M",
-      style:{flex:"1",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"10px 12px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+      style:{flex:"1",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"10px 12px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
     aiInp.value=ai.text||"";
     aiInp.addEventListener("input",function(){ai.text=this.value;ai.parsed=null;ai.missing=[];ai.filled=[];});
     aiInp.addEventListener("keydown",function(e){if(e.key==="Enter")doAiParse();});
@@ -925,7 +927,7 @@ function renderAnalyzer(){
 
     // Searchable area input
     var qcAreaWrap=el("div",{style:{position:"relative",marginBottom:"10px"}});
-    var qcAreaInp=el("input",{type:"text",placeholder:t("qc_select_area"),style:{width:"100%",background:cl.raised,border:"1px solid "+(qs.area&&AREAS[qs.area]?cl.gold:cl.border),color:"#F0F2F5",padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+    var qcAreaInp=el("input",{type:"text",placeholder:t("qc_select_area"),style:{width:"100%",background:cl.raised,border:"1px solid "+(qs.area&&AREAS[qs.area]?cl.gold:cl.border),color:cl.white,padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
     qcAreaInp.value=qs.area||"";
     qcAreaInp.addEventListener("input",function(){
       qs.area=this.value;qs.result=null;
@@ -933,7 +935,7 @@ function renderAnalyzer(){
       var q=this.value.toLowerCase().trim();if(q.length<1)return;
       var hits=AREA_NAMES.filter(function(n){return n.toLowerCase().indexOf(q)>=0;});
       hits.slice(0,8).forEach(function(n){
-        var row=el("div",{style:{padding:"8px 12px",cursor:"pointer",fontSize:"12px",color:"#F0F2F5",borderBottom:"1px solid "+cl.border,fontFamily:"'Inter',sans-serif"}});
+        var row=el("div",{style:{padding:"8px 12px",cursor:"pointer",fontSize:"12px",color:cl.white,borderBottom:"1px solid "+cl.border,fontFamily:"'Inter',sans-serif"}});
         row.textContent=n;
         row.addEventListener("mousedown",function(e){e.preventDefault();qs.area=n;qs.result=null;render();});
         row.addEventListener("mouseenter",function(){this.style.background=cl.raised;});
@@ -949,7 +951,7 @@ function renderAnalyzer(){
 
     // Building input with autocomplete
     var bWrap=el("div",{style:{position:"relative",marginBottom:"10px"}});
-    var bInp=el("input",{type:"text",placeholder:"Building name",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+    var bInp=el("input",{type:"text",placeholder:"Building name",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
     bInp.value=qs.building||"";
     bInp.addEventListener("input",function(){qs.building=this.value;qs.result=null;
       var sg=document.getElementById("qc-bldg-sugg");if(!sg)return;sg.innerHTML="";
@@ -974,7 +976,7 @@ function renderAnalyzer(){
     qc.appendChild(bWrap);
 
     // Price input
-    var pInp=el("input",{type:"text",inputMode:"numeric",placeholder:qs.mode==="rent"?"Asking rent (AED/year)":"Asking price (AED)",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"14px"}});
+    var pInp=el("input",{type:"text",inputMode:"numeric",placeholder:qs.mode==="rent"?"Asking rent (AED/year)":"Asking price (AED)",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"14px"}});
     pInp.value=qs.price||"";
     pInp.addEventListener("input",function(){qs.price=this.value.replace(/[^0-9]/g,"");this.value=qs.price?parseInt(qs.price).toLocaleString():"";qs.result=null;});
     qc.appendChild(pInp);
@@ -1088,7 +1090,7 @@ function renderAnalyzer(){
   
   const searchInp=el("input",{type:"text",id:"dv-search-input",placeholder:"e.g. Marina Gate, Venice, Address Kempinski, Sidra...",style:{
     width:"100%",background:cl.raised,border:"1px solid "+(f.building&&f.propCategory?cl.gold:cl.border),
-    color:"#F0F2F5",padding:"13px 16px",borderRadius:"12px",fontSize:"14px",
+    color:cl.white,padding:"13px 16px",borderRadius:"12px",fontSize:"14px",
     fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"
   }});
   // Restore value without losing cursor position
@@ -1163,7 +1165,7 @@ function renderAnalyzer(){
         const item=el("button",{style:{
           width:"100%",padding:"12px 16px",background:"transparent",
           border:"none",borderBottom:i<results.length-1?"1px solid "+cl.border:"none",
-          color:"#F0F2F5",fontSize:"13px",cursor:"pointer",textAlign:"left",
+          color:cl.white,fontSize:"13px",cursor:"pointer",textAlign:"left",
           fontFamily:"'Inter',sans-serif",display:"block"
         }});
         // Name line
@@ -1399,7 +1401,7 @@ function renderAnalyzer(){
     const typeRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"6px",marginBottom:"16px"}});
     ["Standalone Villa","Townhouse","Semi-Detached","Cluster Villa","Independent Villa"].forEach(function(t){
       const active=f.villaType===t;
-      const b=el("button",{style:{padding:"8px",borderRadius:"8px",fontSize:"12px",border:"1px solid "+(active?cl.gold:cl.border),background:active?cl.goldFaint:"transparent",color:active?"#F0F2F5":cl.sub,fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+      const b=el("button",{style:{padding:"8px",borderRadius:"8px",fontSize:"12px",border:"1px solid "+(active?cl.gold:cl.border),background:active?cl.goldFaint:"transparent",color:active?cl.white:cl.sub,fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
       b.textContent=t;
       b.addEventListener("click",function(){analyzerState.f.villaType=t;render();});
       typeRow.appendChild(b);
@@ -1416,7 +1418,7 @@ function renderAnalyzer(){
     ["G+1","G+2 (3F)","G+B+1","G+B+2","Other"].forEach(function(fl){
       if(floorRow.children.length>=5)return;
       const active=f.villaFloors===fl;
-      const b=el("button",{style:{padding:"7px 6px",borderRadius:"8px",fontSize:"11px",border:"1px solid "+(active?cl.gold:cl.border),background:active?cl.goldFaint:"transparent",color:active?"#F0F2F5":cl.sub,fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+      const b=el("button",{style:{padding:"7px 6px",borderRadius:"8px",fontSize:"11px",border:"1px solid "+(active?cl.gold:cl.border),background:active?cl.goldFaint:"transparent",color:active?cl.white:cl.sub,fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
       b.textContent=fl;
       b.addEventListener("click",function(){analyzerState.f.villaFloors=fl;render();});
       floorRow.appendChild(b);
@@ -1434,7 +1436,7 @@ function renderAnalyzer(){
     var ppChk=el("div",{style:{width:"16px",height:"16px",borderRadius:"4px",border:"2px solid "+(f.privatePool?cl.gold:cl.border),background:f.privatePool?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"10px",color:"#08090C"}});
     if(f.privatePool)ppChk.textContent="v";
     ppToggle.appendChild(ppChk);
-    var ppLbl=el("div",{style:{fontSize:"12px",fontFamily:"'Inter',sans-serif",color:f.privatePool?"#F0F2F5":cl.sub}});
+    var ppLbl=el("div",{style:{fontSize:"12px",fontFamily:"'Inter',sans-serif",color:f.privatePool?cl.white:cl.sub}});
     ppLbl.textContent="Private Pool (+12%)";
     ppToggle.appendChild(ppLbl);
     ppToggle.addEventListener("click",function(){analyzerState.f.privatePool=!analyzerState.f.privatePool;render();});
@@ -1445,7 +1447,7 @@ function renderAnalyzer(){
     var srChk=el("div",{style:{width:"16px",height:"16px",borderRadius:"4px",border:"2px solid "+(f.singleRow?cl.gold:cl.border),background:f.singleRow?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"10px",color:"#08090C"}});
     if(f.singleRow)srChk.textContent="v";
     srToggle.appendChild(srChk);
-    var srLbl=el("div",{style:{fontSize:"12px",fontFamily:"'Inter',sans-serif",color:f.singleRow?"#F0F2F5":cl.sub}});
+    var srLbl=el("div",{style:{fontSize:"12px",fontFamily:"'Inter',sans-serif",color:f.singleRow?cl.white:cl.sub}});
     srLbl.textContent="Single Row (+8%)";
     srToggle.appendChild(srLbl);
     srToggle.addEventListener("click",function(){analyzerState.f.singleRow=!analyzerState.f.singleRow;render();});
@@ -1455,7 +1457,7 @@ function renderAnalyzer(){
     var cvChk=el("div",{style:{width:"16px",height:"16px",borderRadius:"4px",border:"2px solid "+(f.cornerVilla?cl.gold:cl.border),background:f.cornerVilla?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"10px",color:"#08090C"}});
     if(f.cornerVilla)cvChk.textContent="v";
     cvToggle.appendChild(cvChk);
-    var cvLbl=el("div",{style:{fontSize:"12px",fontFamily:"'Inter',sans-serif",color:f.cornerVilla?"#F0F2F5":cl.sub}});
+    var cvLbl=el("div",{style:{fontSize:"12px",fontFamily:"'Inter',sans-serif",color:f.cornerVilla?cl.white:cl.sub}});
     cvLbl.textContent="Corner Villa (+5%)";
     cvToggle.appendChild(cvLbl);
     cvToggle.addEventListener("click",function(){analyzerState.f.cornerVilla=!analyzerState.f.cornerVilla;render();});
@@ -1473,7 +1475,7 @@ function renderAnalyzer(){
     var maidChkV=el("div",{style:{width:"18px",height:"18px",borderRadius:"4px",border:"2px solid "+(f.hasMaid?cl.gold:cl.border),background:f.hasMaid?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",color:"#08090C",fontWeight:"900"}});
     if(f.hasMaid)maidChkV.textContent="✓";
     var maidLblV=el("div",{});
-    maidLblV.appendChild(div({color:"#F0F2F5",fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Maid Room (+3%)"));
+    maidLblV.appendChild(div({color:cl.white,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Maid Room (+3%)"));
     maidLblV.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},"Dedicated maid quarters — value premium"));
     maidRowV.appendChild(maidChkV);
     maidRowV.appendChild(maidLblV);
@@ -1484,7 +1486,7 @@ function renderAnalyzer(){
     var studyChkV=el("div",{style:{width:"18px",height:"18px",borderRadius:"4px",border:"2px solid "+(f.hasStudy?cl.gold:cl.border),background:f.hasStudy?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",color:"#08090C",fontWeight:"900"}});
     if(f.hasStudy)studyChkV.textContent="✓";
     var studyLblV=el("div",{});
-    studyLblV.appendChild(div({color:"#F0F2F5",fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Study Room (+2%)"));
+    studyLblV.appendChild(div({color:cl.white,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Study Room (+2%)"));
     studyLblV.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},"Dedicated study/office — value premium"));
     studyRowV.appendChild(studyChkV);
     studyRowV.appendChild(studyLblV);
@@ -1495,7 +1497,7 @@ function renderAnalyzer(){
     var upgChkV=el("div",{style:{width:"18px",height:"18px",borderRadius:"4px",border:"2px solid "+(f.isUpgraded?cl.gold:cl.border),background:f.isUpgraded?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",color:"#08090C",fontWeight:"900"}});
     if(f.isUpgraded)upgChkV.textContent="✓";
     var upgLblV=el("div",{});
-    upgLblV.appendChild(div({color:"#F0F2F5",fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Upgraded (+5%)"));
+    upgLblV.appendChild(div({color:cl.white,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Upgraded (+5%)"));
     upgLblV.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},"Kitchen, bathrooms, flooring upgraded by owner"));
     upgRowV.appendChild(upgChkV);
     upgRowV.appendChild(upgLblV);
@@ -1631,7 +1633,7 @@ function renderAnalyzer(){
     const aptGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"5px",marginBottom:"16px"}});
     APTYPES.forEach(function(t){
       const active=f.aptSubtype===t||f.beds===t;
-      const b=el("button",{style:{padding:"7px 4px",borderRadius:"8px",fontSize:"11px",border:"1px solid "+(active?cl.gold:cl.border),background:active?cl.goldFaint:"transparent",color:active?"#F0F2F5":cl.sub,fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+      const b=el("button",{style:{padding:"7px 4px",borderRadius:"8px",fontSize:"11px",border:"1px solid "+(active?cl.gold:cl.border),background:active?cl.goldFaint:"transparent",color:active?cl.white:cl.sub,fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
       b.textContent=t;
       b.addEventListener("click",function(){analyzerState.f.aptSubtype=t;analyzerState.f.beds=t;render();});
       aptGrid.appendChild(b);
@@ -1666,7 +1668,7 @@ function renderAnalyzer(){
     const maidCheck=el("div",{style:{width:"18px",height:"18px",borderRadius:"4px",border:"2px solid "+(f.hasMaid?cl.gold:cl.border),background:f.hasMaid?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",color:"#08090C",fontWeight:"900"}});
     if(f.hasMaid)maidCheck.textContent="✓";
     const maidLabel=el("div",{});
-    maidLabel.appendChild(div({color:"#F0F2F5",fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Maid Room"));
+    maidLabel.appendChild(div({color:cl.white,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Maid Room"));
     maidLabel.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},isRentalA?"+AED 5-15K/yr rent premium":"+AED 50-100K value premium"));
     maidRow.appendChild(maidCheck);
     maidRow.appendChild(maidLabel);
@@ -1677,7 +1679,7 @@ function renderAnalyzer(){
     const studyChk=el("div",{style:{width:"18px",height:"18px",borderRadius:"4px",border:"2px solid "+(f.hasStudy?cl.gold:cl.border),background:f.hasStudy?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",color:"#08090C",fontWeight:"900"}});
     if(f.hasStudy)studyChk.textContent="✓";
     const studyLbl=el("div",{});
-    studyLbl.appendChild(div({color:"#F0F2F5",fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Study Room"));
+    studyLbl.appendChild(div({color:cl.white,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Study Room"));
     studyLbl.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},isRentalA?"+AED 3-8K/yr rent premium":"+2% value premium"));
     studyRow.appendChild(studyChk);
     studyRow.appendChild(studyLbl);
@@ -1688,7 +1690,7 @@ function renderAnalyzer(){
     const upgChk=el("div",{style:{width:"18px",height:"18px",borderRadius:"4px",border:"2px solid "+(f.isUpgraded?cl.gold:cl.border),background:f.isUpgraded?cl.gold:"transparent",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",color:"#08090C",fontWeight:"900"}});
     if(f.isUpgraded)upgChk.textContent="✓";
     const upgLbl=el("div",{});
-    upgLbl.appendChild(div({color:"#F0F2F5",fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Upgraded"));
+    upgLbl.appendChild(div({color:cl.white,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Upgraded"));
     upgLbl.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},isRentalA?"+5-10% rent premium":"+5% value premium"));
     upgRow.appendChild(upgChk);
     upgRow.appendChild(upgLbl);
@@ -1828,7 +1830,7 @@ function renderCommercialResult(wrap){
       div({fontSize:"11px",color:cl.sub,fontFamily:"'Inter',sans-serif"},vcfg.sub),
     ]),
     div({padding:"16px",display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px",textAlign:"center"},[
-      div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"ASKING PSF"),div({color:"#F0F2F5",fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.askPSF.toLocaleString())]),
+      div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"ASKING PSF"),div({color:cl.white,fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.askPSF.toLocaleString())]),
       div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"MARKET PSF"),div({color:accent,fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.adjPSF.toLocaleString())]),
       div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"DEVIATION"),div({color:v.deviation>0?"#EF4444":"#22C55E",fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.deviation>0?"+":"")+v.deviation+"%")]),
     ]),
@@ -1836,19 +1838,19 @@ function renderCommercialResult(wrap){
   wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginBottom:"14px"},[
     div({color:accent,fontSize:"10px",letterSpacing:"0.1em",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"COMMERCIAL METRICS"),
     div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"},[
-      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"FAIR VALUE"),div({color:"#F0F2F5",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.fairPrice.toLocaleString())]),
+      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"FAIR VALUE"),div({color:cl.white,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.fairPrice.toLocaleString())]),
       div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"CONFIDENCE"),div({color:v.confScore>=75?accent:v.confScore>=60?"#EAB308":"#EF4444",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},v.confScore+"%")]),
-      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"EST. GROSS YIELD"),div({color:"#F0F2F5",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},v.grossYield+"%")]),
-      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"EST. NET YIELD"),div({color:"#F0F2F5",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},v.netYield+"%")]),
+      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"EST. GROSS YIELD"),div({color:cl.white,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},v.grossYield+"%")]),
+      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"EST. NET YIELD"),div({color:cl.white,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},v.netYield+"%")]),
     ]),
   ]));
   if(v.areaTxns){
     wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginBottom:"14px"},[
       div({color:accent,fontSize:"10px",letterSpacing:"0.1em",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"AREA COMMERCIAL DATA · "+f.area),
       div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px"},[
-        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"AVG PRICE"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+(v.areaAvgPrice||0).toLocaleString())]),
-        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"AVG SIZE"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.areaAvgSize||0).toLocaleString()+" sqft")]),
-        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"TRANSACTIONS"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.areaTxns||0).toLocaleString())]),
+        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"AVG PRICE"),div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+(v.areaAvgPrice||0).toLocaleString())]),
+        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"AVG SIZE"),div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.areaAvgSize||0).toLocaleString()+" sqft")]),
+        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"TRANSACTIONS"),div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.areaTxns||0).toLocaleString())]),
       ]),
     ]));
   }
@@ -1878,7 +1880,7 @@ function renderLandResult(wrap){
       div({fontSize:"11px",color:cl.sub,fontFamily:"'Inter',sans-serif"},vcfg.sub),
     ]),
     div({padding:"16px",display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px",textAlign:"center"},[
-      div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"ASKING PSF"),div({color:"#F0F2F5",fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.askPSF.toLocaleString())]),
+      div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"ASKING PSF"),div({color:cl.white,fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.askPSF.toLocaleString())]),
       div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"MARKET PSF"),div({color:accent,fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.adjPSF.toLocaleString())]),
       div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"DEVIATION"),div({color:v.deviation>0?"#EF4444":"#22C55E",fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.deviation>0?"+":"")+v.deviation+"%")]),
     ]),
@@ -1886,10 +1888,10 @@ function renderLandResult(wrap){
   wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginBottom:"14px"},[
     div({color:accent,fontSize:"10px",letterSpacing:"0.1em",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"LAND VALUATION METRICS"),
     div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"},[
-      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"FAIR VALUE"),div({color:"#F0F2F5",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.fairPrice.toLocaleString())]),
+      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"FAIR VALUE"),div({color:cl.white,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.fairPrice.toLocaleString())]),
       div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"CONFIDENCE"),div({color:v.confScore>=70?accent:v.confScore>=55?"#EAB308":"#EF4444",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},v.confScore+"%")]),
-      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"PSF RANGE"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.psfLo.toLocaleString()+" — "+v.psfHi.toLocaleString())]),
-      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"ZONING"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.zoning||"Residential").charAt(0).toUpperCase()+(v.zoning||"residential").slice(1))]),
+      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"PSF RANGE"),div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+v.psfLo.toLocaleString()+" — "+v.psfHi.toLocaleString())]),
+      div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"ZONING"),div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.zoning||"Residential").charAt(0).toUpperCase()+(v.zoning||"residential").slice(1))]),
     ]),
   ]));
   wrap.appendChild(div({background:"rgba(16,185,129,0.04)",border:"1px solid rgba(16,185,129,0.2)",borderRadius:"14px",padding:"16px",marginBottom:"14px"},[
@@ -1904,9 +1906,9 @@ function renderLandResult(wrap){
     wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginBottom:"14px"},[
       div({color:accent,fontSize:"10px",letterSpacing:"0.1em",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"AREA LAND DATA · "+f.area),
       div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px"},[
-        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"AVG PLOT PRICE"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+(v.areaAvgPrice||0).toLocaleString())]),
-        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"AVG PLOT SIZE"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.areaAvgSize||0).toLocaleString()+" sqft")]),
-        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"TRANSACTIONS"),div({color:"#F0F2F5",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.areaTxns||0).toLocaleString())]),
+        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"AVG PLOT PRICE"),div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+(v.areaAvgPrice||0).toLocaleString())]),
+        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"AVG PLOT SIZE"),div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.areaAvgSize||0).toLocaleString()+" sqft")]),
+        div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"TRANSACTIONS"),div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(v.areaTxns||0).toLocaleString())]),
       ]),
     ]));
   }
@@ -2786,7 +2788,7 @@ function renderAnalyzerResult(wrap){
       span({color:liqC,fontSize:"12px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"6px",background:liqBg},val.liqTier.label)
     ]));
     // Liquidity score bar
-    var barOuter=el("div",{style:{background:"rgba(240,242,245,0.06)",borderRadius:"6px",height:"8px",marginBottom:"12px",overflow:"hidden"}});
+    var barOuter=el("div",{style:{background:cl.border,borderRadius:"6px",height:"8px",marginBottom:"12px",overflow:"hidden"}});
     var barInner=el("div",{style:{width:Math.min(100,val.liqScore)+"%",height:"100%",borderRadius:"6px",background:val.liqScore>=80?"linear-gradient(90deg,#22C55E,#10B981)":val.liqScore>=55?"linear-gradient(90deg,#EAB308,#F59E0B)":"linear-gradient(90deg,#EF4444,#F87171)",transition:"width 0.6s ease"}});
     barOuter.appendChild(barInner);
     liqWrap.appendChild(barOuter);
@@ -2826,7 +2828,7 @@ function renderAnalyzerResult(wrap){
     // Turnover gauge bar
     var gaugeMax=25;
     var gaugePct=Math.min(100,val.turnoverRate/gaugeMax*100);
-    var gaugeOuter=el("div",{style:{background:"rgba(240,242,245,0.06)",borderRadius:"6px",height:"8px",marginBottom:"12px",overflow:"hidden"}});
+    var gaugeOuter=el("div",{style:{background:cl.border,borderRadius:"6px",height:"8px",marginBottom:"12px",overflow:"hidden"}});
     var gaugeInner=el("div",{style:{width:gaugePct+"%",height:"100%",borderRadius:"6px",background:val.turnoverRate>=6?"linear-gradient(90deg,#22C55E,#10B981)":val.turnoverRate>=3?"linear-gradient(90deg,#EAB308,#F59E0B)":"linear-gradient(90deg,#EF4444,#F87171)",transition:"width 0.6s ease"}});
     gaugeOuter.appendChild(gaugeInner);
     trWrap.appendChild(gaugeOuter);
@@ -2905,7 +2907,7 @@ function renderAnalyzerResult(wrap){
       cBox.appendChild(div({color:compC,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},String(comp.v)));
       cBox.appendChild(div({color:cl.sub,fontSize:"7px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},"weight: "+comp.w));
       // Mini bar
-      var miniBar=el("div",{style:{background:"rgba(240,242,245,0.06)",borderRadius:"3px",height:"3px",marginTop:"6px",overflow:"hidden"}});
+      var miniBar=el("div",{style:{background:cl.border,borderRadius:"3px",height:"3px",marginTop:"6px",overflow:"hidden"}});
       var miniInner=el("div",{style:{width:comp.v+"%",height:"100%",borderRadius:"3px",background:compC,transition:"width 0.5s ease"}});
       miniBar.appendChild(miniInner);
       cBox.appendChild(miniBar);
@@ -2943,7 +2945,7 @@ function renderAnalyzerResult(wrap){
     ]));
 
     // Location Score visual gauge
-    var gaugeOuter=el("div",{style:{background:"rgba(240,242,245,0.06)",borderRadius:"8px",height:"10px",marginBottom:"16px",overflow:"hidden",position:"relative"}});
+    var gaugeOuter=el("div",{style:{background:cl.border,borderRadius:"8px",height:"10px",marginBottom:"16px",overflow:"hidden",position:"relative"}});
     var gaugeInner=el("div",{style:{width:(gs.locationScore*10)+"%",height:"100%",borderRadius:"8px",background:gs.locationScore>=7?"linear-gradient(90deg,#22C55E,#10B981)":gs.locationScore>=5?"linear-gradient(90deg,#EAB308,#F59E0B)":"linear-gradient(90deg,#EF4444,#F87171)",transition:"width 0.8s ease"}});
     gaugeOuter.appendChild(gaugeInner);locWrap.appendChild(gaugeOuter);
 
@@ -3068,8 +3070,8 @@ function renderAnalyzerResult(wrap){
           if(a.rating)box.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},"★ "+a.rating));
           // distance bar (max 2km)
           var pct=Math.max(3,Math.min(100,100-(a.dist/2000)*100));
-          var bar=el("div",{style:{background:"rgba(240,242,245,0.06)",borderRadius:"3px",height:"3px",marginTop:"6px",overflow:"hidden"}});
-          bar.appendChild(el("div",{style:{width:pct+"%",height:"100%",background:a.dist<=500?c:"rgba(240,242,245,0.2)",borderRadius:"3px"}}));
+          var bar=el("div",{style:{background:cl.border,borderRadius:"3px",height:"3px",marginTop:"6px",overflow:"hidden"}});
+          bar.appendChild(el("div",{style:{width:pct+"%",height:"100%",background:a.dist<=500?c:cl.border,borderRadius:"3px"}}));
           box.appendChild(bar);
         }else{
           var nm2=el("div",{style:{color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"}});
@@ -3194,7 +3196,7 @@ function renderAnalyzerResult(wrap){
     }else{
       wWrap.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"8px"},"Get an email if "+targetName+" pricing moves ±5% or more."));
       const row=el("div",{style:{display:"flex",gap:"8px"}});
-      const inp=el("input",{type:"email",placeholder:"your@email.com",style:{flex:"1",background:"rgba(240,242,245,0.05)",border:"1px solid "+cl.border,color:"#F0F2F5",padding:"10px 12px",borderRadius:"8px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+      const inp=el("input",{type:"email",placeholder:"your@email.com",style:{flex:"1",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"10px 12px",borderRadius:"8px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
       const btn=el("button",{style:{background:"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#08090C",border:"none",padding:"10px 16px",borderRadius:"8px",fontSize:"13px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer",whiteSpace:"nowrap"}});
       btn.textContent=WS.busy?"...":"Watch";
       btn.addEventListener("click",function(){
@@ -3341,7 +3343,7 @@ function renderAnalyzerResult(wrap){
     // Output metrics
     var metGrid=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginTop:'14px',marginBottom:'14px'}});
     function metCard(label,value,color){
-      var c=el('div',{style:{background:'rgba(240,242,245,0.03)',border:'1px solid '+cl.border,borderRadius:'10px',padding:'10px'}});
+      var c=el('div',{style:{background:cl.surface,border:'1px solid '+cl.border,borderRadius:'10px',padding:'10px'}});
       c.appendChild(span({color:cl.sub,fontSize:'8px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",display:'block',marginBottom:'4px'},label));
       c.appendChild(span({color:color||cl.text,fontSize:'15px',fontWeight:'700',fontFamily:"'Space Grotesk',monospace"},value));
       return c;
@@ -3492,7 +3494,7 @@ function renderAnalyzerResult(wrap){
   if(!window.PDF_BROKER){try{window.PDF_BROKER=JSON.parse(localStorage.getItem('dv_broker')||'null')||{name:'',company:'',rera:''};}catch(e){window.PDF_BROKER={name:'',company:'',rera:''};}}
   const bGrid=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'12px'}});
   [{k:'name',ph:'Your Name (optional)'},{k:'company',ph:'Company (optional)'},{k:'rera',ph:'RERA No. (optional)'}].forEach(function(fld){
-    const inp=el('input',{type:'text',placeholder:fld.ph,style:{background:'rgba(240,242,245,0.05)',border:'1px solid '+cl.border,color:'#F0F2F5',padding:'8px 10px',borderRadius:'8px',fontSize:'11px',fontFamily:"'Inter',sans-serif",width:'100%',outline:'none',boxSizing:'border-box'}});
+    const inp=el('input',{type:'text',placeholder:fld.ph,style:{background:cl.raised,border:'1px solid '+cl.border,color:cl.white,padding:'8px 10px',borderRadius:'8px',fontSize:'11px',fontFamily:"'Inter',sans-serif",width:'100%',outline:'none',boxSizing:'border-box'}});
     inp.value=window.PDF_BROKER[fld.k]||'';
     inp.addEventListener('input',function(){window.PDF_BROKER[fld.k]=this.value;try{localStorage.setItem('dv_broker',JSON.stringify(window.PDF_BROKER));}catch(e){}});
     bGrid.appendChild(inp);
@@ -3504,7 +3506,7 @@ function renderAnalyzerResult(wrap){
 
   if(!window.PDF_UNLOCKED){
     const gRow=el('div',{style:{display:'flex',gap:'8px'}});
-    const eInp=el('input',{type:'email',placeholder:'Enter email to unlock free PDF',style:{flex:'1',background:'rgba(240,242,245,0.05)',border:'1px solid '+cl.border,color:'#F0F2F5',padding:'10px 12px',borderRadius:'8px',fontSize:'13px',fontFamily:"'Inter',sans-serif",outline:'none'}});
+    const eInp=el('input',{type:'email',placeholder:'Enter email to unlock free PDF',style:{flex:'1',background:cl.raised,border:'1px solid '+cl.border,color:cl.white,padding:'10px 12px',borderRadius:'8px',fontSize:'13px',fontFamily:"'Inter',sans-serif",outline:'none'}});
     const uBtn=el('button',{style:{background:'linear-gradient(135deg,#C9A84C,#7A5E28)',color:'#08090C',border:'none',padding:'10px 16px',borderRadius:'8px',fontSize:'13px',fontWeight:'700',fontFamily:"'Inter',sans-serif",cursor:'pointer',whiteSpace:'nowrap'}});
     uBtn.textContent='Get Report';
     uBtn.addEventListener('click',function(){
