@@ -1405,6 +1405,149 @@ var TAB_TO_SECTION={
   "MediaStudio":["SocialMedia","Studio"],"Social":["SocialMedia","VideoPlatform"]
 };
 
+// ─── Market Moments Engine ────────────────────────────────────────────────────
+function generateMarketMoments(){
+  var entries=Object.entries(AREAS).filter(function(e){return e[1].psf>0;});
+  function aY(a){return a.y?((a.y[0]+a.y[1])/2):0;}
+  function g1(a){return a.g?a.g[0]:0;}
+  function g5(a){return a.g?a.g[2]:0;}
+
+  var byYield=entries.slice().sort(function(a,b){return aY(b[1])-aY(a[1]);});
+  var byG1=entries.filter(function(e){return g1(e[1])>0;}).sort(function(a,b){return g1(b[1])-g1(a[1]);});
+  var byG5=entries.filter(function(e){return g5(e[1])>0;}).sort(function(a,b){return g5(b[1])-g5(a[1]);});
+  var byDom=entries.filter(function(e){return e[1].dom>0;}).sort(function(a,b){return a[1].dom-b[1].dom;});
+  var byScore=entries.filter(function(e){return e[1].y&&e[1].g&&e[1].dom;}).map(function(e){
+    var a=e[1];
+    return {name:e[0],data:a,score:aY(a)*3+g1(a)*1.5+g5(a)*0.4+(30-Math.min(a.dom,30))*0.6};
+  }).sort(function(a,b){return b.score-a.score;});
+
+  var moments=[];
+  var usedAreas={};
+
+  if(byYield.length){
+    var t=byYield[0];
+    usedAreas[t[0]]=1;
+    moments.push({icon:"⚡",timing:"YIELD CHAMPION",timingColor:"#F59E0B",
+      text:t[0]+" averaging "+aY(t[1]).toFixed(1)+"% gross yield — highest in Dubai right now",
+      tag:"OPPORTUNITY",tagColor:"#10B981",area:t[0]});
+  }
+  if(byG1.length&&!usedAreas[byG1[0][0]]){
+    var t=byG1[0];usedAreas[t[0]]=1;
+    moments.push({icon:"📈",timing:"1-YEAR GROWTH LEADER",timingColor:"#3B82F6",
+      text:t[0]+" up "+g1(t[1]).toFixed(1)+"% this year — Dubai's fastest-growing area",
+      tag:"TRENDING",tagColor:"#3B82F6",area:t[0]});
+  }else if(byG1.length>1&&!usedAreas[byG1[1][0]]){
+    var t=byG1[1];usedAreas[t[0]]=1;
+    moments.push({icon:"📈",timing:"1-YEAR GROWTH LEADER",timingColor:"#3B82F6",
+      text:t[0]+" up "+g1(t[1]).toFixed(1)+"% this year — one of Dubai's fastest-growing areas",
+      tag:"TRENDING",tagColor:"#3B82F6",area:t[0]});
+  }
+  if(byG5.length&&!usedAreas[byG5[0][0]]){
+    var t=byG5[0];usedAreas[t[0]]=1;
+    var rate=(g5(t[1])/5).toFixed(1);
+    moments.push({icon:"🔥",timing:"5-YEAR CAPITAL STORY",timingColor:"#EF4444",
+      text:t[0]+": "+g5(t[1]).toFixed(0)+"% appreciation over 5 years — compounding at "+rate+"%/yr",
+      tag:"LONG-TERM",tagColor:"#8B5CF6",area:t[0]});
+  }
+  if(byScore.length&&!usedAreas[byScore[0].name]){
+    var t=byScore[0];usedAreas[t.name]=1;
+    moments.push({icon:"🎯",timing:"BEST COMBINED SCORE TODAY",timingColor:"#D4AF37",
+      text:t.name+": "+aY(t.data).toFixed(1)+"% yield + "+g1(t.data).toFixed(1)+"% growth — highest opportunity score in Dubai",
+      tag:"BEST VALUE",tagColor:"#D4AF37",area:t.name});
+  }
+  if(byDom.length&&!usedAreas[byDom[0][0]]){
+    var t=byDom[0];
+    moments.push({icon:"💎",timing:"FASTEST-SELLING MARKET",timingColor:"#10B981",
+      text:t[0]+" properties selling in avg "+t[1].dom+" days — most liquid market in Dubai",
+      tag:"LIQUID",tagColor:"#10B981",area:t[0]});
+  }
+
+  // Personalized "For You" — prepended if user has a recent area
+  var personalArea=null;
+  try{
+    if(window._qcState&&window._qcState.area&&AREAS[window._qcState.area])personalArea=window._qcState.area;
+    else if(window.analyzerState&&analyzerState.f&&analyzerState.f.area&&AREAS[analyzerState.f.area])personalArea=analyzerState.f.area;
+  }catch(ex){}
+  if(personalArea){
+    var pd=AREAS[personalArea];
+    moments.unshift({icon:"🎯",timing:"FOR YOU",timingColor:"#8B5CF6",
+      text:personalArea+": "+aY(pd).toFixed(1)+"% yield · "+g1(pd).toFixed(1)+"% YoY growth · AED "+pd.psf.toLocaleString()+" PSF — last area you checked",
+      tag:"PERSONAL",tagColor:"#8B5CF6",area:personalArea,isPersonal:true});
+  }
+
+  return moments.slice(0,5);
+}
+
+function renderMarketMoments(cl){
+  if(!document.getElementById("dv-moments-style")){
+    var s=document.createElement("style");s.id="dv-moments-style";
+    s.textContent="@keyframes dvFadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@keyframes dvPulseDot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.8)}}";
+    document.head.appendChild(s);
+  }
+  var moments=generateMarketMoments();
+  var sec=el("div",{style:{marginBottom:"24px"}});
+
+  // Header
+  var hdr=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"12px"}});
+  hdr.appendChild(div({fontSize:"12px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase"},"Market Moments"));
+  var liveRow=el("div",{style:{display:"flex",alignItems:"center",gap:"5px"}});
+  var dot=el("div",{style:{width:"7px",height:"7px",borderRadius:"50%",background:"#10B981",animation:"dvPulseDot 2s ease-in-out infinite"}});
+  liveRow.appendChild(dot);
+  liveRow.appendChild(span({color:"#10B981",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",fontWeight:"700",letterSpacing:"0.08em"},"LIVE"));
+  hdr.appendChild(liveRow);
+  sec.appendChild(hdr);
+
+  moments.forEach(function(m,i){
+    var borderCol=m.isPersonal?"rgba(139,92,246,0.35)":cl.border;
+    var card=el("div",{style:{
+      background:cl.surface,borderRadius:"14px",padding:"13px 15px",marginBottom:"8px",
+      border:"1px solid "+borderCol,cursor:"pointer",
+      display:"flex",alignItems:"flex-start",gap:"12px",
+      transition:"background 0.18s ease,border-color 0.18s ease",
+      opacity:"0",animation:"dvFadeUp 0.32s ease "+(i*0.07)+"s both"
+    }});
+    var iconEl=el("div",{style:{fontSize:"19px",lineHeight:"1.25",flexShrink:"0",marginTop:"1px"}});
+    iconEl.textContent=m.icon;
+    card.appendChild(iconEl);
+    var body=el("div",{style:{flex:"1",minWidth:"0"}});
+    var tEl=el("div",{style:{fontSize:"9px",fontWeight:"700",color:m.timingColor,fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.11em",marginBottom:"3px"}});
+    tEl.textContent=m.timing;
+    body.appendChild(tEl);
+    var txtEl=el("div",{style:{fontSize:"13px",color:cl.white,fontFamily:"'Inter',sans-serif",lineHeight:"1.45",fontWeight:"500"}});
+    txtEl.textContent=m.text;
+    body.appendChild(txtEl);
+    card.appendChild(body);
+    var badge=el("div",{style:{
+      background:m.tagColor+"18",color:m.tagColor,
+      border:"1px solid "+m.tagColor+"45",borderRadius:"6px",
+      padding:"3px 7px",fontSize:"9px",fontWeight:"700",
+      fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.05em",
+      flexShrink:"0",alignSelf:"flex-start",whiteSpace:"nowrap"
+    }});
+    badge.textContent=m.tag;
+    card.appendChild(badge);
+    card.addEventListener("click",function(){
+      if(m.area){
+        if(!window._qcState)window._qcState={area:"",beds:"2 BR",building:"",price:"",result:null,rangeResult:null,mode:"sale"};
+        window._qcState.area=m.area;window._qcState.rangeResult=null;window._qcState.result=null;
+      }
+      setSection("Market","Index");
+    });
+    card.addEventListener("mouseenter",function(){card.style.background=cl.raised;card.style.borderColor=cl.borderHi;});
+    card.addEventListener("mouseleave",function(){card.style.background=cl.surface;card.style.borderColor=borderCol;});
+    sec.appendChild(card);
+  });
+
+  // Footer CTA
+  var footer=el("div",{style:{display:"flex",justifyContent:"flex-end",paddingTop:"2px"}});
+  var fBtn=el("button",{style:{background:"transparent",border:"none",color:cl.gold,fontSize:"12px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer",padding:"8px 0",display:"flex",alignItems:"center",gap:"4px"}});
+  fBtn.innerHTML='View Full Market Index <i data-lucide="arrow-right" style="width:13px;height:13px;vertical-align:middle"></i>';
+  fBtn.addEventListener("click",function(){setSection("Market","Index");});
+  footer.appendChild(fBtn);
+  sec.appendChild(footer);
+  return sec;
+}
+
 function renderHome(){
   var cl=C();
   var wrap=el("div",{style:{padding:"16px",maxWidth:"960px",margin:"0 auto",width:"100%",boxSizing:"border-box"}});
@@ -1473,64 +1616,8 @@ function renderHome(){
   });
   wrap.appendChild(qaScroll);
 
-  // --- Market Snapshot ---
-  var areaKeys=Object.keys(AREAS);
-  var totalPSF=0,totalYield=0,psfCount=0,yieldCount=0;
-  var movers=[];
-  areaKeys.forEach(function(k){
-    var a=AREAS[k];
-    if(a.psf>0){totalPSF+=a.psf;psfCount++;}
-    if(a.y&&a.y[0]>0){totalYield+=(a.y[0]+a.y[1])/2;yieldCount++;}
-    if(a.g&&a.g[0]!==undefined)movers.push({name:k,growth:a.g[0],psf:a.psf});
-  });
-  movers.sort(function(a,b){return b.growth-a.growth;});
-  var avgPSF=psfCount>0?Math.round(totalPSF/psfCount):0;
-  var avgYield=yieldCount>0?(totalYield/yieldCount).toFixed(1):0;
-  var dbCount=Object.keys(DB).length;
-
-  var snapLabel=el("div",{style:{fontSize:"12px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"}});
-  snapLabel.textContent="Market Snapshot";
-  wrap.appendChild(snapLabel);
-
-  var statsRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px",marginBottom:"20px"}});
-  [{l:"Avg PSF",v:"AED "+avgPSF.toLocaleString(),c:"#D4AF37"},{l:"Avg Yield",v:avgYield+"%",c:"#10B981"},{l:"Properties",v:dbCount.toLocaleString(),c:"#3B82F6"}].forEach(function(s){
-    var sc=el("div",{style:{background:cl.surface,borderRadius:"14px",padding:"14px 12px",border:"1px solid "+cl.border}});
-    sc.appendChild(div({fontSize:"18px",fontWeight:"800",color:s.c,fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'",marginBottom:"4px"},s.v));
-    sc.appendChild(div({fontSize:"11px",color:cl.sub,fontWeight:"600",fontFamily:"'Inter',sans-serif",textTransform:"uppercase",letterSpacing:"0.04em"},s.l));
-    statsRow.appendChild(sc);
-  });
-  wrap.appendChild(statsRow);
-
-  // --- Top Movers ---
-  if(movers.length>0){
-    var moverCard=el("div",{style:{background:cl.surface,borderRadius:"16px",padding:"16px",marginBottom:"20px",border:"1px solid "+cl.border}});
-    moverCard.appendChild(div({fontSize:"12px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"12px"},"Top Movers"));
-    movers.slice(0,5).forEach(function(m,i){
-      var row=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<4?"1px solid "+cl.border:"none"}});
-      var rowLeft=el("div",{style:{display:"flex",alignItems:"center",gap:"10px"}});
-      var rank=el("div",{style:{width:"24px",height:"24px",borderRadius:"8px",background:cl.raised,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",fontWeight:"700",color:cl.sub,fontFamily:"'JetBrains Mono',monospace",flexShrink:"0"}});
-      rank.textContent=String(i+1);
-      rowLeft.appendChild(rank);
-      rowLeft.appendChild(span({color:cl.white,fontSize:"13px",fontFamily:"'Inter',sans-serif",fontWeight:"500"},m.name));
-      row.appendChild(rowLeft);
-      var rowRight=el("div",{style:{display:"flex",alignItems:"center",gap:"10px"}});
-      rowRight.appendChild(span({color:cl.sub,fontSize:"12px",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'"},m.psf.toLocaleString()+" PSF"));
-      var growthColor=m.growth>0?"#10B981":"#EF4444";
-      var growthBg=m.growth>0?"rgba(16,185,129,0.1)":"rgba(239,68,68,0.1)";
-      var growthBadge=el("div",{style:{background:growthBg,borderRadius:"8px",padding:"3px 8px",fontSize:"12px",fontWeight:"700",color:growthColor,fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'"}});
-      growthBadge.textContent=(m.growth>0?"+":"")+m.growth.toFixed(1)+"%";
-      rowRight.appendChild(growthBadge);
-      row.appendChild(rowRight);
-      moverCard.appendChild(row);
-    });
-    var viewAllMkt=el("div",{style:{display:"flex",justifyContent:"center",paddingTop:"12px"}});
-    var mktBtn=el("button",{style:{background:"transparent",border:"none",color:"#D4AF37",fontSize:"12px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer",padding:"8px 16px"}});
-    mktBtn.textContent="View Full Market Index";
-    mktBtn.addEventListener("click",function(){setSection("Market","Index");});
-    viewAllMkt.appendChild(mktBtn);
-    moverCard.appendChild(viewAllMkt);
-    wrap.appendChild(moverCard);
-  }
+  // --- Market Moments ---
+  wrap.appendChild(renderMarketMoments(cl));
 
   // --- Feature Cards (horizontal scroll) ---
   var featLabel=el("div",{style:{fontSize:"12px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"}});
