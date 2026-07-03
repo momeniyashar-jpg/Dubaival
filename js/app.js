@@ -1420,18 +1420,26 @@ function renderHome(){
   heroRow.appendChild(heroLeft);
   wrap.appendChild(heroRow);
 
-  // --- Primary CTA: Analyze Property ---
-  var ctaBar=el("div",{style:{background:cl.surface,borderRadius:"16px",padding:"16px",marginBottom:"24px",cursor:"pointer",display:"flex",alignItems:"center",gap:"14px",transition:"all 0.2s ease",border:"1px solid "+cl.border}});
+  // --- Quick Check Hero (Method D Grade-Weighted Range) ---
+  if(typeof renderQuickCheck==="function"){
+    var qcWrap=renderQuickCheck();
+    qcWrap.style.padding="0";
+    qcWrap.style.marginBottom="24px";
+    wrap.appendChild(qcWrap);
+  }
+
+  // --- Secondary CTA: Full Analyzer ---
+  var ctaBar=el("div",{style:{background:cl.surface,borderRadius:"14px",padding:"12px 14px",marginBottom:"24px",cursor:"pointer",display:"flex",alignItems:"center",gap:"12px",transition:"all 0.2s ease",border:"1px solid "+cl.border}});
   ctaBar.addEventListener("click",function(){setSection("Market","Analyzer");});
-  var ctaIcon=el("div",{style:{width:"48px",height:"48px",borderRadius:"14px",background:"linear-gradient(135deg,rgba(212,175,55,0.2),rgba(212,175,55,0.05))",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
-  ctaIcon.innerHTML='<i data-lucide="search" style="width:22px;height:22px;color:#D4AF37"></i>';
+  var ctaIcon=el("div",{style:{width:"38px",height:"38px",borderRadius:"10px",background:"linear-gradient(135deg,rgba(212,175,55,0.2),rgba(212,175,55,0.05))",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
+  ctaIcon.innerHTML='<i data-lucide="search" style="width:18px;height:18px;color:#D4AF37"></i>';
   ctaBar.appendChild(ctaIcon);
   var ctaText=el("div",{style:{flex:"1"}});
-  ctaText.appendChild(div({fontSize:"15px",fontWeight:"700",color:cl.white,fontFamily:"'Inter',sans-serif",marginBottom:"2px"},"Analyze Property"));
-  ctaText.appendChild(div({fontSize:"12px",color:cl.sub,fontFamily:"'Inter',sans-serif"},"AI valuation for 10,880+ properties"));
+  ctaText.appendChild(div({fontSize:"13px",fontWeight:"700",color:cl.white,fontFamily:"'Inter',sans-serif",marginBottom:"1px"},"Full Property Analyzer"));
+  ctaText.appendChild(div({fontSize:"11px",color:cl.sub,fontFamily:"'Inter',sans-serif"},"Size, floor, view, confidence score & yield"));
   ctaBar.appendChild(ctaText);
   var ctaArrow=el("div",{style:{color:"#4A5568",flexShrink:"0"}});
-  ctaArrow.innerHTML='<i data-lucide="chevron-right" style="width:20px;height:20px"></i>';
+  ctaArrow.innerHTML='<i data-lucide="chevron-right" style="width:18px;height:18px"></i>';
   ctaBar.appendChild(ctaArrow);
   ctaBar.addEventListener("mouseenter",function(){ctaBar.style.background=cl.raised;ctaBar.style.borderColor="rgba(212,175,55,0.15)";});
   ctaBar.addEventListener("mouseleave",function(){ctaBar.style.background=cl.surface;ctaBar.style.borderColor=cl.border;});
@@ -1450,7 +1458,7 @@ function renderHome(){
     {icon:"briefcase",l:"Portfolio",c:"#3B82F6",sec:"Portfolio",sub:"Assets"},
     {icon:"map",l:"Map",c:"#10B981",sec:"Market",sub:"Map"},
     {icon:"video",l:"Studio",c:"#8B5CF6",sec:"Network",sub:"MediaStudio"},
-    {icon:"zap",l:"Quick Val",c:"#D4AF37",sec:"Market",sub:"QuickCheck"}
+    {icon:"trending-up",l:"Market",c:"#D4AF37",sec:"Market",sub:"Dashboard"}
   ];
   qaItems.forEach(function(qa){
     var qaBtn=el("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",gap:"8px",cursor:"pointer",padding:"8px 4px",borderRadius:"12px",transition:"all 0.2s ease"}});
