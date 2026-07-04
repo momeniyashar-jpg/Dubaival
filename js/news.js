@@ -86,7 +86,11 @@ async function _fetchNews(initial) {
     NEWS_STATE.error = incoming.length ? null : (data && data.error) || null;
     if (incoming.length) NEWS_STATE.lastFetch = (data && data.fetchedAt) || Date.now();
     if (incoming.length) {
-      try { localStorage.setItem("dv_news_cache", JSON.stringify({ articles: incoming, ts: NEWS_STATE.lastFetch })); } catch (e) {}
+      try {
+        // Strip image data URLs before storing (too large for localStorage)
+        var forStorage = incoming.map(function(a) { return Object.assign({}, a, { image: a.image && a.image.startsWith("data:") ? null : a.image }); });
+        localStorage.setItem("dv_news_cache", JSON.stringify({ articles: forStorage, ts: NEWS_STATE.lastFetch }));
+      } catch (e) {}
     }
   } catch (e) {
     // True network failure (no connection at all)
@@ -253,29 +257,47 @@ function _renderNewsList() {
     });
     card.addEventListener("click", function() { window.open(a.link, "_blank", "noopener,noreferrer"); });
 
-    // AI-generated image banner via Pollinations.ai (free, no key, no copyright)
+    // AI image: Gemini (from server, data URL) or Pollinations fallback
     var isLaunch = a.tag === "launch";
-    var seed = _newsHash(a.link || a.title);
-    var prompt = (isLaunch
-      ? "Dubai luxury real estate new development launch tower skyline aerial photography "
-      : "Dubai property market real estate investment business professional photography ") + a.title.slice(0, 60);
-    var pollUrl = "https://image.pollinations.ai/prompt/" + encodeURIComponent(prompt) +
-      "?width=600&height=200&seed=" + seed + "&nologo=true&enhance=true";
     var fallbackBg = isLaunch
       ? "linear-gradient(135deg,#2a1f05,#1a1200,#070B14)"
       : "linear-gradient(135deg,#051428,#071830,#070B14)";
 
     var imgBanner = div({
-      width: "100%", height: "160px", overflow: "hidden",
+      width: "100%", height: "180px", overflow: "hidden",
       background: fallbackBg, position: "relative"
     });
 
-    // Actual AI image
+    // Loading shimmer (shown until image loads)
+    var shimmer = div({ style: {
+      position: "absolute", inset: "0",
+      background: "linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.04) 50%,transparent 100%)",
+      animation: "shimmer 1.5s infinite"
+    }});
+    imgBanner.appendChild(shimmer);
+
     var imgEl = document.createElement("img");
-    imgEl.style.cssText = "width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity 0.4s ease";
-    imgEl.onload = function() { imgEl.style.opacity = "1"; };
-    imgEl.onerror = function() { imgEl.style.display = "none"; };
-    imgEl.src = pollUrl;
+    imgEl.style.cssText = "width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity 0.5s ease;position:relative;z-index:1";
+    imgEl.onload = function() { imgEl.style.opacity = "1"; shimmer.style.display = "none"; };
+    imgEl.onerror = function() {
+      // Gemini failed — try Pollinations
+      if (!imgEl.dataset.pollinated) {
+        imgEl.dataset.pollinated = "1";
+        var seed = _newsHash(a.link || a.title);
+        var prompt = (isLaunch ? "Dubai luxury skyscraper real estate development aerial " : "Dubai property market skyline business ") + a.title.slice(0, 50);
+        imgEl.src = "https://image.pollinations.ai/prompt/" + encodeURIComponent(prompt) + "?width=600&height=200&seed=" + seed + "&nologo=true";
+      } else {
+        imgEl.style.display = "none";
+      }
+    };
+    // Use Gemini image if available, otherwise Pollinations directly
+    if (a.image) {
+      imgEl.src = a.image;
+    } else {
+      var seed = _newsHash(a.link || a.title);
+      var prompt = (isLaunch ? "Dubai luxury skyscraper real estate development aerial " : "Dubai property market skyline business ") + a.title.slice(0, 50);
+      imgEl.src = "https://image.pollinations.ai/prompt/" + encodeURIComponent(prompt) + "?width=600&height=200&seed=" + seed + "&nologo=true";
+    }
     imgBanner.appendChild(imgEl);
 
     // Dark overlay for text readability

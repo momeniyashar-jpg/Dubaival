@@ -224,6 +224,51 @@ function mergeDedup(lists) {
   return all.slice(0, 80);
 }
 
+// ── Gemini image generation for top articles ──────────────────────────────────
+async function generateGeminiImages(articles) {
+  var key = process.env.GEMINI_API_KEY;
+  if (!key) return;
+  var top = articles.slice(0, 8);
+  await Promise.all(top.map(function(a) {
+    return new Promise(function(resolve) {
+      var prompt = "Generate a photorealistic image of " +
+        (a.tag === "launch"
+          ? "Dubai luxury skyscraper real estate new development aerial view, modern architecture "
+          : "Dubai real estate property market skyline business district professional photography ") +
+        a.title.slice(0, 60) +
+        ". Wide angle, golden hour lighting, cinematic composition. No text, no watermarks.";
+      var ctrl = new AbortController();
+      var timer = setTimeout(function() { ctrl.abort(); resolve(); }, 12000);
+      fetch(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=" + key,
+        {
+          signal: ctrl.signal,
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { responseModalities: ["IMAGE", "TEXT"], imageMimeType: "image/jpeg" }
+          })
+        }
+      ).then(function(r) {
+        clearTimeout(timer);
+        if (!r.ok) { resolve(); return; }
+        return r.json();
+      }).then(function(data) {
+        if (!data) { resolve(); return; }
+        var parts = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
+        for (var i = 0; i < parts.length; i++) {
+          if (parts[i].inlineData && parts[i].inlineData.data) {
+            a.image = "data:" + (parts[i].inlineData.mimeType || "image/jpeg") + ";base64," + parts[i].inlineData.data;
+            break;
+          }
+        }
+        resolve();
+      }).catch(function() { clearTimeout(timer); resolve(); });
+    });
+  }));
+}
+
 // ── Rate limiter ──────────────────────────────────────────────────────────────
 var { rateLimitExceeded } = require("../lib/ratelimit");
 
@@ -261,6 +306,9 @@ module.exports = async function handler(req, res) {
     var gnewsOk = gnewsArticles.length > 0;
 
     if (all.length > 0) {
+      // Generate Gemini images for top articles (server-side, free, no copyright)
+      await generateGeminiImages(all);
+
       // Success — cache and return
       var payload = {
         articles: all,
