@@ -3,6 +3,60 @@
 Read this first. It exists so a fresh session doesn't have to re-read the whole
 single-file app or re-derive line numbers/history from scratch.
 
+---
+
+## 🔴 #0 CRITICAL — FROZEN NAVIGATION (DO NOT CHANGE WITHOUT USER APPROVAL)
+
+The navigation structure below is **locked**. No session may add, remove, rename,
+or move any tab/sub-tab without the user explicitly asking for it. Any change to
+`NAV_SECTIONS` in `js/core.js` or the routing block in `js/app.js` **must** be
+accompanied by an update to this table. Treat this as the single source of truth.
+
+### Complete Tab Map (locked 2026-07-04)
+
+| Section (id) | Sub-tab (id) | Label shown | Render function | File |
+|---|---|---|---|---|
+| **Home** | — | Home | `renderHome()` | `js/app.js` |
+| **Market** | Dashboard | Dashboard | `renderMarket()` | `js/market.js` |
+| | Analyzer | Analyzer | `renderAnalyzer()` | `js/market.js` |
+| | QuickCheck | Quick Check | `renderQuickCheck()` | `js/market.js` |
+| | TrackRecord | Track Record | `renderTrackRecord()` | `js/market.js` |
+| | Index | Market Index | `renderMarketIndex()` | `js/marketindex.js` |
+| | Compare | Compare | `renderCompare()` | `js/portfolio.js` |
+| | Find | Find | `renderFind()` | `js/app.js` |
+| | Map | Map | `renderMap()` | `js/map.js` |
+| | Advisor | Advisor | `renderPersonal()` | `js/portfolio.js` |
+| | News | News | `renderNews()` | `js/market.js` |
+| **Portfolio** | Assets | My Assets | `renderPortfolio("assets")` | `js/portfolio.js` |
+| | Health | Health | `renderPortfolio("health")` | `js/portfolio.js` |
+| | Projections | Projections | `renderPortfolio("projections")` | `js/portfolio.js` |
+| | Alerts | Alerts | `renderAlerts()` | `js/app.js` |
+| **Network** | Deals | Deal Board | `renderDeals()` | `js/deals.js` |
+| | Chat | AI Agents | `renderChat()` | `js/chat.js` |
+| | Chiefs | AI Chief of Staff | `renderChiefs()` | `js/chiefs.js` |
+| **SocialMedia** | Studio | Media Studio | `renderMediaStudio("studio")` | `js/chat.js` |
+| | Avatar | Avatar Studio | `renderMediaStudio("avatar")` | `js/chat.js` |
+| | VideoPlatform | Video Platform | `renderSocial()` | `js/social.js` |
+| | SocialChat | AI Assistant | `renderChat()` | `js/chat.js` |
+| **More** | Workspace | Workspace | `renderWorkspace()` | `js/workspace.js` |
+| | Reports | Reports | `renderReportBuilder()` | `js/workspace.js` |
+| | About | About | `renderAbout()` | `js/about.js` |
+
+### Hidden routes (not in nav, accessible via hash only)
+- `#admin` → `renderAdmin()` in `js/app.js` (password protected)
+
+### Rules for future sessions
+1. **DO NOT** add a new top-level section without user approval.
+2. **DO NOT** move a sub-tab from one section to another without user approval.
+3. **DO NOT** rename a sub-tab label without user approval.
+4. **DO NOT** change the render function a sub-tab calls without user approval.
+5. When adding a **new** sub-tab (user-approved), add it to: (a) this table, (b) `NAV_SECTIONS` in `js/core.js`, (c) routing in `js/app.js`. All three must stay in sync.
+6. **Agent Hub** lives inside Deal Board (OFM nav, `DEAL_STATE.mode="agents"`), NOT as a top-level Network sub-tab.
+7. **Inbox** lives inside AI Chief of Staff (internal `CHIEFS_STATE.view="inbox"`), NOT as a top-level Network sub-tab.
+8. **Mortgage Calculator** is a collapsible panel inside Analyzer — NOT a separate tab.
+
+---
+
 ## 🔴 #1 CRITICAL DIRECTIVE — Full Automation, Zero User Intervention
 
 **This is the HIGHEST PRIORITY directive — execute BEFORE all others.**

@@ -331,6 +331,13 @@ var currentSubTab="";
 var sidebarCollapsed=false;
 try{sidebarCollapsed=localStorage.getItem("dv_sidebar_collapsed")==="1";}catch(e){}
 
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║  FROZEN NAVIGATION — DO NOT MODIFY WITHOUT EXPLICIT USER APPROVAL       ║
+// ║  This is the canonical tab structure for DubAIVal.                      ║
+// ║  Any session that changes this array MUST also update CLAUDE.md and     ║
+// ║  the routing block in js/app.js. See CLAUDE.md § "Frozen Navigation".  ║
+// ║  Last locked: 2026-07-04                                                ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
 var NAV_SECTIONS=[
   {id:"Home",icon:"home",label:"Home",subs:[]},
   {id:"Market",icon:"bar-chart-3",label:"Market",subtitle:"AI Valuation",accentColor:"#D4AF37",subs:[

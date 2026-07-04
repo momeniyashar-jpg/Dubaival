@@ -2128,6 +2128,12 @@ function render(preserveScroll){
   // Content area
   var content=el("div",{className:"dv-content",style:{flex:"1",overflow:"auto",width:"100%",maxWidth:"100%",boxSizing:"border-box",overflowX:"hidden"}});
 
+  // ╔══════════════════════════════════════════════════════════════════════════╗
+  // ║  FROZEN ROUTING — DO NOT MODIFY WITHOUT EXPLICIT USER APPROVAL         ║
+  // ║  Each route MUST match NAV_SECTIONS in js/core.js and CLAUDE.md.       ║
+  // ║  Section→SubTab→renderFunction mapping is the single source of truth.  ║
+  // ║  Last locked: 2026-07-04                                               ║
+  // ╚══════════════════════════════════════════════════════════════════════════╝
   if(currentSection==="Home"){
     content.appendChild(renderHome());
   } else if(currentSection==="Market"){
