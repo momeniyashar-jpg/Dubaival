@@ -11,6 +11,74 @@ function renderAbout(){
   hero.appendChild(el("p",{style:{color:cl.sub,fontSize:"13px",lineHeight:"1.7",maxWidth:"560px",margin:"0 auto"}},"DubAIVal is an independent AI valuation platform built to bring data-driven clarity to one of the world’s most dynamic property markets."));
   wrap.appendChild(hero);
 
+  // ── Mascot showcase ──────────────────────────────────────────────────────────
+  var mascotSec=div({
+    background:"linear-gradient(135deg,#0A0E1A 0%,#0D1530 50%,#0A0E1A 100%)",
+    border:"1px solid rgba(212,175,55,0.25)",borderRadius:"20px",
+    padding:"40px 24px 32px",marginBottom:"40px",textAlign:"center",position:"relative",overflow:"hidden"
+  });
+  // Subtle background grid
+  var mascotBg=div({
+    position:"absolute",top:"0",left:"0",right:"0",bottom:"0",opacity:"0.04",
+    backgroundImage:"linear-gradient(rgba(212,175,55,0.6) 1px,transparent 1px),linear-gradient(90deg,rgba(212,175,55,0.6) 1px,transparent 1px)",
+    backgroundSize:"28px 28px",pointerEvents:"none"
+  });
+  mascotSec.appendChild(mascotBg);
+  // Falcon SVG
+  var mascotImgWrap=div({position:"relative",display:"inline-block",marginBottom:"24px",cursor:"pointer"});
+  var mascotSvgEl=div({
+    width:"180px",height:"180px",margin:"0 auto",
+    filter:"drop-shadow(0 0 24px rgba(212,175,55,0.22)) drop-shadow(0 0 8px rgba(0,200,255,0.15))",
+    transition:"filter 0.35s ease,transform 0.35s ease"
+  });
+  mascotSvgEl.innerHTML=getValSVG(180);
+  mascotImgWrap.appendChild(mascotSvgEl);
+  // Hover glow
+  mascotImgWrap.addEventListener("mouseenter",function(){
+    mascotSvgEl.style.filter="drop-shadow(0 0 36px rgba(212,175,55,0.4)) drop-shadow(0 0 16px rgba(0,200,255,0.3))";
+    mascotSvgEl.style.transform="scale(1.04)";
+  });
+  mascotImgWrap.addEventListener("mouseleave",function(){
+    mascotSvgEl.style.filter="drop-shadow(0 0 24px rgba(212,175,55,0.22)) drop-shadow(0 0 8px rgba(0,200,255,0.15))";
+    mascotSvgEl.style.transform="scale(1)";
+  });
+  mascotSec.appendChild(mascotImgWrap);
+  // Name + title
+  var mascotName=el("div",{style:{
+    color:cl.gold,fontSize:"28px",fontWeight:"800",letterSpacing:"0.08em",
+    fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"
+  }},"VAL");
+  mascotSec.appendChild(mascotName);
+  var mascotTitle=el("div",{style:{
+    color:"rgba(0,220,255,0.85)",fontSize:"11px",fontWeight:"600",letterSpacing:"0.2em",
+    textTransform:"uppercase",marginBottom:"16px",fontFamily:"'Space Grotesk',monospace"
+  }},"DubaiVal AI Mascot");
+  mascotSec.appendChild(mascotTitle);
+  var mascotDesc=el("p",{style:{
+    color:cl.sub,fontSize:"13px",lineHeight:"1.75",maxWidth:"520px",margin:"0 auto 24px",
+    fontFamily:"'Inter',sans-serif"
+  }});
+  mascotDesc.innerHTML="Meet <b style='color:"+cl.gold+"'>Val</b> — the AI-enhanced peregrine falcon who powers DubaiVal. Inspired by the UAE's national bird, Val combines the falcon's legendary precision and speed with cutting-edge artificial intelligence. One eye sees the real market. The other sees what the data reveals.";
+  mascotSec.appendChild(mascotDesc);
+  // Trait pills
+  var traitRow=div({display:"flex",flexWrap:"wrap",gap:"8px",justifyContent:"center"});
+  [
+    {label:"Data-Driven Precision",color:"#D4AF37"},
+    {label:"AI-Enhanced Vision",color:"#00CCFF"},
+    {label:"UAE Heritage",color:"#00C896"},
+    {label:"Real-Time Intelligence",color:"#8B5CF6"},
+    {label:"Market Authority",color:"#F59E0B"}
+  ].forEach(function(trait){
+    var pill=el("div",{style:{
+      background:hexAlpha(trait.color,0.1),border:"1px solid "+hexAlpha(trait.color,0.3),
+      color:trait.color,padding:"5px 14px",borderRadius:"20px",fontSize:"11px",
+      fontWeight:"600",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.04em"
+    }},trait.label);
+    traitRow.appendChild(pill);
+  });
+  mascotSec.appendChild(traitRow);
+  wrap.appendChild(mascotSec);
+
   // Stats row
   var stats=[
     {n:"10,800+",l:"Properties Tracked"},

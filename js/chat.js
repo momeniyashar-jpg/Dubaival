@@ -7307,8 +7307,8 @@ function renderChat(opts){
     var isA=m.role==="assistant";
     var row=div({display:"flex",justifyContent:isA?"flex-start":"flex-end",gap:"8px"});
     if(isA){
-      var av=div({width:"28px",height:"28px",borderRadius:"7px",background:hexAlpha(activeAgent.color,0.15),display:"flex",alignItems:"center",justifyContent:"center",fontSize:"14px",flexShrink:"0"});
-      av.textContent=activeAgent.icon;
+      var av=div({width:"28px",height:"28px",borderRadius:"50%",flexShrink:"0",overflow:"hidden",filter:"drop-shadow(0 0 4px rgba(212,175,55,0.3))"});
+      av.innerHTML=getValSVG(28,false);
       row.appendChild(av);
     }
     var bubble=div({maxWidth:"84%",background:isA?cl.surface:hexAlpha(activeAgent.color,0.08),border:"1px solid "+(isA?cl.border:hexAlpha(activeAgent.color,0.2)),borderRadius:isA?"14px 14px 14px 0":"14px 14px 0 14px",padding:"11px 15px",color:cl.subHi,fontSize:"13px",lineHeight:"1.8",fontFamily:"'Inter',sans-serif"});
@@ -7328,8 +7328,8 @@ function renderChat(opts){
   });
   if(chatState.loading){
     var row2=div({display:"flex",gap:"8px",alignItems:"center"});
-    var av2=div({width:"28px",height:"28px",borderRadius:"7px",background:hexAlpha(activeAgent.color,0.15),display:"flex",alignItems:"center",justifyContent:"center",fontSize:"14px"});
-    av2.textContent=activeAgent.icon;row2.appendChild(av2);
+    var av2=div({width:"28px",height:"28px",borderRadius:"50%",overflow:"hidden",filter:"drop-shadow(0 0 4px rgba(212,175,55,0.3))"});
+    av2.innerHTML=getValSVG(28,false);row2.appendChild(av2);
     var dots=div({display:"flex",gap:"4px"});
     [0,1,2].forEach(function(j){dots.appendChild(div({width:"7px",height:"7px",borderRadius:"50%",background:activeAgent.color,animation:"bounce 1.1s "+(j*0.18)+"s infinite"}))});
     row2.appendChild(dots);msgsDiv.appendChild(row2);

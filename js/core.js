@@ -1415,3 +1415,90 @@ function checkTourOnLoad(){
   setTimeout(function(){startTour("quick");},800);
 }
 
+// --- VAL MASCOT (DubaiVal AI Falcon) ------------------------------------------
+var _valId=0;
+function getValSVG(size,badge){
+  var s=size||200;
+  var u=++_valId;
+  var g='vg'+u,ae='vae'+u,ne='vne'+u,gf='vcg'+u;
+  var h='<svg width="'+s+'" height="'+s+'" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">';
+  h+='<defs>';
+  h+='<radialGradient id="'+g+'" cx="45%" cy="35%" r="65%"><stop offset="0%" stop-color="#F0D260"/><stop offset="55%" stop-color="#D4AF37"/><stop offset="100%" stop-color="#8B6914"/></radialGradient>';
+  h+='<radialGradient id="'+ae+'" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="18%" stop-color="#00EEFF"/><stop offset="62%" stop-color="#0055CC"/><stop offset="100%" stop-color="#001133"/></radialGradient>';
+  h+='<radialGradient id="'+ne+'" cx="35%" cy="35%" r="65%"><stop offset="0%" stop-color="#FFD040" stop-opacity="0.9"/><stop offset="55%" stop-color="#B07000"/><stop offset="100%" stop-color="#1A0500"/></radialGradient>';
+  h+='<filter id="'+gf+'" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>';
+  h+='</defs>';
+  // Background
+  h+='<circle cx="100" cy="100" r="98" fill="#07090F"/>';
+  h+='<circle cx="100" cy="100" r="98" fill="none" stroke="#D4AF37" stroke-width="1.5" opacity="0.7"/>';
+  // Tail (behind body)
+  h+='<path d="M78,173 L70,192 L80,183 L84,197 L92,181 L96,198 L100,184 L104,198 L108,181 L116,197 L120,183 L130,192 L122,173 Z" fill="url(#'+g+')" stroke="#8B6914" stroke-width="0.5"/>';
+  // Left wing
+  h+='<path d="M68,132 C47,121 15,134 3,160 C17,138 40,127 62,131 C44,137 30,148 22,163 C36,146 56,137 68,140 Z" fill="url(#'+g+')" opacity="0.9"/>';
+  h+='<path d="M3,160 C1,165 1,172 4,175 C9,164 7,159 3,160 Z" fill="#1A1200" opacity="0.65"/>';
+  // Right wing
+  h+='<path d="M132,132 C153,121 185,134 197,160 C183,138 160,127 138,131 C156,137 170,148 178,163 C164,146 144,137 132,140 Z" fill="url(#'+g+')" opacity="0.9"/>';
+  h+='<path d="M197,160 C199,165 199,172 196,175 C191,164 193,159 197,160 Z" fill="#1A1200" opacity="0.65"/>';
+  // Wing circuits — left
+  h+='<path d="M32,140 L25,148 L19,148 L19,156" stroke="#D4AF37" stroke-width="0.9" fill="none" opacity="0.48"/>';
+  h+='<circle cx="32" cy="140" r="1.8" fill="#D4AF37" opacity="0.55"/><circle cx="19" cy="156" r="1.4" fill="#D4AF37" opacity="0.5"/>';
+  // Wing circuits — right
+  h+='<path d="M168,140 L175,148 L181,148 L181,156" stroke="#D4AF37" stroke-width="0.9" fill="none" opacity="0.48"/>';
+  h+='<circle cx="168" cy="140" r="1.8" fill="#D4AF37" opacity="0.55"/><circle cx="181" cy="156" r="1.4" fill="#D4AF37" opacity="0.5"/>';
+  // Body/chest trapezoid
+  h+='<path d="M68,128 C68,119 74,113 83,111 L117,111 C126,113 132,119 132,128 L132,178 L68,178 Z" fill="url(#'+g+')"/>';
+  // Breast cream overlay + barring
+  h+='<rect x="76" y="118" width="48" height="57" rx="5" fill="#F0E070" opacity="0.38"/>';
+  h+='<path d="M80,129 C90,125 110,125 120,129" stroke="#7A5000" stroke-width="2.1" fill="none" stroke-linecap="round" opacity="0.48"/>';
+  h+='<path d="M79,141 C90,137 110,137 121,141" stroke="#7A5000" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.42"/>';
+  h+='<path d="M78,153 C90,149 110,149 122,153" stroke="#7A5000" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.36"/>';
+  h+='<path d="M78,165 C90,161 110,161 122,165" stroke="#7A5000" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.3"/>';
+  // AI chip badge on chest
+  h+='<rect x="88" y="128" width="24" height="13" rx="3" fill="#05080F" stroke="#D4AF37" stroke-width="0.8"/>';
+  h+='<text x="100" y="137.5" text-anchor="middle" font-family="monospace" font-size="7" font-weight="700" fill="#D4AF37" letter-spacing="0.8">AI</text>';
+  // Crown feathers
+  h+='<polygon points="83,52 89,25 99,57" fill="#180E00"/>';
+  h+='<polygon points="94,44 100,17 106,44" fill="#241800"/>';
+  h+='<polygon points="101,57 111,25 117,52" fill="#180E00"/>';
+  // Head main
+  h+='<ellipse cx="100" cy="82" rx="46" ry="42" fill="url(#'+g+')"/>';
+  // Dark hood (falcon dark cap)
+  h+='<path d="M57,67 C60,46 76,32 100,30 C124,32 140,46 143,67 C130,59 117,55 100,55 C83,55 70,59 57,67 Z" fill="#180E00"/>';
+  // Light cheeks
+  h+='<ellipse cx="78" cy="91" rx="17" ry="14" fill="#F5E090" opacity="0.82"/>';
+  h+='<ellipse cx="122" cy="91" rx="17" ry="14" fill="#F5E090" opacity="0.82"/>';
+  // Dark eye patches
+  h+='<ellipse cx="78" cy="82" rx="15" ry="12" fill="#180E00" opacity="0.88"/>';
+  h+='<ellipse cx="122" cy="82" rx="15" ry="12" fill="#180E00" opacity="0.88"/>';
+  // Malar stripes
+  h+='<path d="M67,93 C65,101 65,109 67,114" stroke="#180E00" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.82"/>';
+  h+='<path d="M133,93 C135,101 135,109 133,114" stroke="#180E00" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.82"/>';
+  // Natural left eye (amber)
+  h+='<circle cx="78" cy="82" r="11" fill="#080500"/>';
+  h+='<circle cx="78" cy="82" r="8.5" fill="url(#'+ne+')"/>';
+  h+='<circle cx="78" cy="82" r="4" fill="#0A0300"/>';
+  h+='<circle cx="75" cy="79" r="2" fill="rgba(255,240,170,0.62)"/>';
+  h+='<circle cx="78" cy="82" r="11" fill="none" stroke="#C8A020" stroke-width="1.4"/>';
+  // AI right eye (cyan)
+  h+='<circle cx="122" cy="82" r="13" fill="#000D20" opacity="0.65" filter="url(#'+gf+')"/>';
+  h+='<circle cx="122" cy="82" r="11" fill="#001528"/>';
+  h+='<circle cx="122" cy="82" r="8.5" fill="url(#'+ae+')" filter="url(#'+gf+')"/>';
+  h+='<circle cx="122" cy="82" r="5" fill="#003D99"/>';
+  h+='<circle cx="122" cy="82" r="2.5" fill="#00EEFF"/>';
+  h+='<line x1="111" y1="82" x2="133" y2="82" stroke="rgba(0,238,255,0.38)" stroke-width="0.8"/>';
+  h+='<line x1="122" y1="71" x2="122" y2="93" stroke="rgba(0,238,255,0.38)" stroke-width="0.8"/>';
+  h+='<circle cx="122" cy="82" r="7" fill="none" stroke="rgba(0,220,255,0.42)" stroke-width="0.8" stroke-dasharray="2.5,2"/>';
+  h+='<circle cx="122" cy="82" r="11" fill="none" stroke="#00CCFF" stroke-width="1.4" opacity="0.82"/>';
+  // Beak
+  h+='<path d="M90,105 C94,100 106,100 110,105 L106,119 C104,125 102,128 100,128 C98,128 96,125 94,119 Z" fill="#C8A020"/>';
+  h+='<path d="M92,119 C94,125 97,130 100,131 C103,130 106,125 108,119" fill="#8B6014"/>';
+  h+='<path d="M90,109 C94,112 106,112 110,109" stroke="#8B6014" stroke-width="0.8" fill="none"/>';
+  // VAL badge at bottom of circle
+  if(badge!==false){
+    h+='<rect x="83" y="188" width="34" height="13" rx="3.5" fill="#0C1020" stroke="#D4AF37" stroke-width="0.9"/>';
+    h+='<text x="100" y="197.5" text-anchor="middle" font-family="\'Space Grotesk\',monospace,sans-serif" font-size="7" font-weight="700" fill="#D4AF37" letter-spacing="1.5">VAL</text>';
+  }
+  h+='</svg>';
+  return h;
+}
+
