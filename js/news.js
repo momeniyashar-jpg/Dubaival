@@ -100,6 +100,13 @@ async function _fetchNews(initial) {
   _renderNewsStatus();
 }
 
+// ── Consistent hash for stable image seeds ────────────────────────────────────
+function _newsHash(s) {
+  var h = 0;
+  for (var i = 0; i < s.length; i++) { h = (Math.imul(31, h) + s.charCodeAt(i)) | 0; }
+  return Math.abs(h);
+}
+
 // ── Domain → readable source name ─────────────────────────────────────────────
 var SOURCE_NAMES = {
   "gulfnews.com": "Gulf News", "arabianbusiness.com": "Arabian Business",
@@ -246,69 +253,45 @@ function _renderNewsList() {
     });
     card.addEventListener("click", function() { window.open(a.link, "_blank", "noopener,noreferrer"); });
 
-    // Branded gradient banner
+    // AI-generated image banner via Pollinations.ai (free, no key, no copyright)
     var isLaunch = a.tag === "launch";
-    var bannerBg = isLaunch
-      ? "linear-gradient(135deg,#2a1f05 0%,#1a1200 40%,#0d0e16 100%)"
-      : "linear-gradient(135deg,#051428 0%,#071830 40%,#070B14 100%)";
-    var accentLine = isLaunch
-      ? "linear-gradient(90deg,#D4AF37,#F59E0B,rgba(212,175,55,0))"
-      : "linear-gradient(90deg,#3B82F6,#60A5FA,rgba(59,130,246,0))";
-    var bannerIcons = { launch: ["🏗","🚀","🏙","🌆","🏢"], general: ["📊","📈","🏠","💎","🔑"] };
-    var iconPool = bannerIcons[isLaunch ? "launch" : "general"];
-    var bannerIcon = iconPool[idx % iconPool.length];
+    var seed = _newsHash(a.link || a.title);
+    var prompt = (isLaunch
+      ? "Dubai luxury real estate new development launch tower skyline aerial photography "
+      : "Dubai property market real estate investment business professional photography ") + a.title.slice(0, 60);
+    var pollUrl = "https://image.pollinations.ai/prompt/" + encodeURIComponent(prompt) +
+      "?width=600&height=200&seed=" + seed + "&nologo=true&enhance=true";
+    var fallbackBg = isLaunch
+      ? "linear-gradient(135deg,#2a1f05,#1a1200,#070B14)"
+      : "linear-gradient(135deg,#051428,#071830,#070B14)";
 
     var imgBanner = div({
-      width: "100%", height: "130px", overflow: "hidden",
-      background: bannerBg,
-      position: "relative"
+      width: "100%", height: "160px", overflow: "hidden",
+      background: fallbackBg, position: "relative"
     });
 
-    // Accent line at top
-    var accentEl = div({
-      position: "absolute", top: "0", left: "0", right: "0", height: "3px",
-      background: accentLine
-    });
-    imgBanner.appendChild(accentEl);
+    // Actual AI image
+    var imgEl = document.createElement("img");
+    imgEl.style.cssText = "width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity 0.4s ease";
+    imgEl.onload = function() { imgEl.style.opacity = "1"; };
+    imgEl.onerror = function() { imgEl.style.display = "none"; };
+    imgEl.src = pollUrl;
+    imgBanner.appendChild(imgEl);
 
-    // Big emoji — right side
-    var iconWrap = div({ style: {
-      position: "absolute", right: "16px", top: "50%",
-      transform: "translateY(-50%) rotate(-10deg)",
-      fontSize: "72px", lineHeight: "1", opacity: "0.35",
-      userSelect: "none", pointerEvents: "none"
+    // Dark overlay for text readability
+    var overlay = div({ style: {
+      position: "absolute", inset: "0",
+      background: "linear-gradient(to top,rgba(7,11,20,0.85) 0%,rgba(7,11,20,0.2) 50%,transparent 100%)"
     }});
-    iconWrap.textContent = bannerIcon;
-    imgBanner.appendChild(iconWrap);
-
-    // Glow circle behind emoji
-    var glow = div({ style: {
-      position: "absolute", right: "10px", top: "50%",
-      transform: "translateY(-50%)",
-      width: "90px", height: "90px", borderRadius: "50%",
-      background: isLaunch ? "rgba(212,175,55,0.08)" : "rgba(59,130,246,0.08)",
-      filter: "blur(16px)"
-    }});
-    imgBanner.appendChild(glow);
-
-    // DUBAIVAL logo
-    var logoText = div({ style: {
-      position: "absolute", left: "14px", top: "14px",
-      fontSize: "9px", fontWeight: "800", letterSpacing: "0.14em",
-      fontFamily: "'Space Grotesk',monospace",
-      color: isLaunch ? "rgba(212,175,55,0.5)" : "rgba(96,165,250,0.45)"
-    }});
-    logoText.textContent = "DUBAIVAL";
-    imgBanner.appendChild(logoText);
+    imgBanner.appendChild(overlay);
 
     // Tag badge + NEW — bottom left
     var catLabel = div({ style: { position: "absolute", left: "14px", bottom: "12px", display: "flex", gap: "6px", alignItems: "center" }});
-    var tagBadgeImg = span({
+    catLabel.appendChild(span({
       fontSize: "10px", fontWeight: "700", padding: "4px 12px", borderRadius: "20px",
-      background: isLaunch ? "rgba(212,175,55,0.18)" : "rgba(59,130,246,0.15)",
-      color: meta.color, border: "1px solid " + meta.border, letterSpacing: "0.02em"
-    }, meta.label);
-    catLabel.appendChild(tagBadgeImg);
+      background: "rgba(0,0,0,0.55)", color: meta.color,
+      border: "1px solid " + meta.border, letterSpacing: "0.02em", backdropFilter: "blur(8px)"
+    }, meta.label));
     if (a.isNew) {
       catLabel.appendChild(span({
         fontSize: "10px", fontWeight: "700", padding: "4px 9px", borderRadius: "20px",
@@ -316,6 +299,11 @@ function _renderNewsList() {
       }, "NEW"));
     }
     imgBanner.appendChild(catLabel);
+
+    // Zoom on hover
+    card.addEventListener("mouseenter", function() { imgEl.style.transform = "scale(1.03)"; imgEl.style.transition = "transform 0.4s ease,opacity 0.4s ease"; });
+    card.addEventListener("mouseleave", function() { imgEl.style.transform = "scale(1)"; });
+
     card.appendChild(imgBanner);
 
     // Content area
