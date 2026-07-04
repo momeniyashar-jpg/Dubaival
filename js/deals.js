@@ -6,7 +6,7 @@
 // ── Backward-compat shell (app.js routes via DEAL_STATE.mode) ──────────────────
 var DEAL_STATE={mode:"browse",agentHub:{mode:"list",agents:[],referrals:[],
   regForm:{name:"",phone:"",email:"",company:"",rera:"",areas:"",specialties:"",bio:""},
-  loading:false},adminToken:null,
+  loading:false,loaded:false},adminToken:null,
   videoAnalyses:[],videoForm:{dealId:"",videoUrl:"",title:"",summary:"",agentId:null}};
 try{var _at=localStorage.getItem("dv_admin_token");
   if(_at==="67ed667fed4620ba36c09d97b542b81c39a5f63bcbdfe8d1931c234748498fc1")
@@ -2179,13 +2179,16 @@ async function registerAgent(formData){
 }
 
 async function fetchAgents(){
+  if(DEAL_STATE.agentHub.loading)return;
   DEAL_STATE.agentHub.loading=true;
   try{
     var resp=await fetch(SUPABASE_URL+"/rest/v1/dv_agents?active=eq.true&order=rating.desc,deals_closed.desc",
       {headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY}});
     if(resp.ok)DEAL_STATE.agentHub.agents=await resp.json();
   }catch(e){}
-  DEAL_STATE.agentHub.loading=false;render();
+  DEAL_STATE.agentHub.loading=false;
+  DEAL_STATE.agentHub.loaded=true;
+  render();
 }
 
 async function createReferral(buyerDealId,buyerName,buyerPhone,area,budget,propType){
