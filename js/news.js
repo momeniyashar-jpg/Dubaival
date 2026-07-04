@@ -221,7 +221,6 @@ function _renderNewsList() {
   filtered.forEach(function(a, idx) {
     var meta = _tagMeta(a.tag, cl);
     var srcLabel = _sourceLabel(a);
-    var hasImg = !!(a.image);
 
     var card = div({
       background: cl.surface,
@@ -247,68 +246,64 @@ function _renderNewsList() {
     });
     card.addEventListener("click", function() { window.open(a.link, "_blank", "noopener,noreferrer"); });
 
-    // Image banner (top of card)
-    if (hasImg) {
-      var imgBanner = div({
-        width: "100%", height: "160px", overflow: "hidden",
-        background: "linear-gradient(135deg,rgba(212,175,55,0.08),rgba(30,40,70,0.5))",
-        position: "relative"
-      });
-      var imgEl = el("img");
-      imgEl.src = a.image;
-      imgEl.style.cssText = "width:100%;height:100%;object-fit:cover;display:block;transition:transform 0.3s ease";
-      imgEl.onerror = function() { imgBanner.style.display = "none"; };
-      card.addEventListener("mouseenter", function() { imgEl.style.transform = "scale(1.03)"; });
-      card.addEventListener("mouseleave", function() { imgEl.style.transform = "scale(1)"; });
-      // Tag overlay on image
-      var imgOverlay = div({
-        position: "absolute", bottom: "10px", left: "12px",
-        display: "flex", gap: "6px", alignItems: "center"
-      });
-      var tagBadgeImg = span({
-        fontSize: "10px", fontWeight: "700", padding: "3px 10px", borderRadius: "20px",
-        background: "rgba(0,0,0,0.65)", color: meta.color,
-        border: "1px solid " + meta.border, letterSpacing: "0.02em", backdropFilter: "blur(8px)"
-      }, meta.label);
-      imgOverlay.appendChild(tagBadgeImg);
-      if (a.isNew) {
-        var newBadgeImg = span({
-          fontSize: "10px", fontWeight: "700", padding: "3px 9px", borderRadius: "20px",
-          background: "rgba(16,185,129,0.85)", color: "#fff",
-          animation: "pulse 2s infinite"
-        }, "NEW");
-        imgOverlay.appendChild(newBadgeImg);
-      }
-      imgBanner.appendChild(imgEl);
-      imgBanner.appendChild(imgOverlay);
-      card.appendChild(imgBanner);
+    // Branded gradient banner (always shown)
+    var gradients = a.tag === "launch"
+      ? ["135deg","rgba(212,175,55,0.25)","rgba(245,158,11,0.08)","rgba(13,18,32,0.95)"]
+      : ["135deg","rgba(96,165,250,0.18)","rgba(59,130,246,0.06)","rgba(13,18,32,0.95)"];
+    var bannerBg = "linear-gradient("+gradients[0]+","+gradients[1]+","+gradients[2]+")";
+    var bannerIcons = { launch: ["🏗️","🚀","🏙️","🌆","🏢"], general: ["📊","📈","🏠","💎","🔑"] };
+    var iconPool = bannerIcons[a.tag] || bannerIcons.general;
+    var bannerIcon = iconPool[idx % iconPool.length];
+
+    var imgBanner = div({
+      width: "100%", height: "120px", overflow: "hidden",
+      background: bannerBg,
+      borderBottom: "1px solid " + (a.tag === "launch" ? "rgba(212,175,55,0.15)" : "rgba(96,165,250,0.1)"),
+      position: "relative", display: "flex", alignItems: "center", justifyContent: "center"
+    });
+
+    // Big icon watermark
+    var iconWrap = div({
+      fontSize: "56px", opacity: "0.12", userSelect: "none", pointerEvents: "none",
+      position: "absolute", right: "20px", top: "50%", transform: "translateY(-50%) rotate(-8deg)"
+    }, bannerIcon);
+    imgBanner.appendChild(iconWrap);
+
+    // DubAIVal logo text
+    var logoText = div({
+      position: "absolute", left: "16px", top: "16px",
+      fontSize: "10px", fontWeight: "800", color: a.tag === "launch" ? "rgba(212,175,55,0.6)" : "rgba(96,165,250,0.5)",
+      letterSpacing: "0.12em", fontFamily: "'Space Grotesk',monospace"
+    }, "DUBAIVAL");
+    imgBanner.appendChild(logoText);
+
+    // Category label center
+    var catLabel = div({
+      position: "absolute", left: "16px", bottom: "14px",
+      display: "flex", gap: "6px", alignItems: "center"
+    });
+    var tagBadgeImg = span({
+      fontSize: "10px", fontWeight: "700", padding: "4px 12px", borderRadius: "20px",
+      background: a.tag === "launch" ? "rgba(212,175,55,0.15)" : "rgba(96,165,250,0.12)",
+      color: meta.color, border: "1px solid " + meta.border, letterSpacing: "0.02em"
+    }, meta.label);
+    catLabel.appendChild(tagBadgeImg);
+    if (a.isNew) {
+      catLabel.appendChild(span({
+        fontSize: "10px", fontWeight: "700", padding: "4px 9px", borderRadius: "20px",
+        background: "rgba(16,185,129,0.85)", color: "#fff", animation: "pulse 2s infinite"
+      }, "NEW"));
     }
+    imgBanner.appendChild(catLabel);
+    card.appendChild(imgBanner);
 
     // Content area
     var content = div({ padding: "14px 16px" });
 
-    // Top row (no image): tag badge + NEW + time
-    if (!hasImg) {
-      var topRow = div({ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px", flexWrap: "wrap" });
-      var tagBadge = span({
-        fontSize: "10px", fontWeight: "700", padding: "3px 10px", borderRadius: "20px",
-        background: meta.bg, color: meta.color, border: "1px solid " + meta.border, letterSpacing: "0.02em"
-      }, meta.label);
-      topRow.appendChild(tagBadge);
-      if (a.isNew) {
-        var newBadge = span({
-          fontSize: "10px", fontWeight: "700", padding: "3px 9px", borderRadius: "20px",
-          background: "rgba(16,185,129,0.12)", color: "#10B981",
-          border: "1px solid rgba(16,185,129,0.3)", animation: "pulse 2s infinite"
-        }, "NEW");
-        topRow.appendChild(newBadge);
-      }
-      topRow.appendChild(span({ fontSize: "11px", color: cl.sub, marginLeft: "auto", whiteSpace: "nowrap" }, timeAgo(a.pubDate)));
-      content.appendChild(topRow);
-    } else {
-      // Time below image
-      content.appendChild(div({ marginBottom: "6px" }, span({ fontSize: "11px", color: cl.sub }, timeAgo(a.pubDate))));
-    }
+    // Time row (below banner)
+    content.appendChild(div({ marginBottom: "8px" },
+      span({ fontSize: "11px", color: cl.sub }, timeAgo(a.pubDate))
+    ));
 
     // Title
     var title = el("div", {
