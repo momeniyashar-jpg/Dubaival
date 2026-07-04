@@ -2151,7 +2151,7 @@ function render(preserveScroll){
   } else if(currentSection==="Network"){
     if(currentSubTab==="Inbox"&&typeof renderInbox==="function")content.appendChild(renderInbox());
     else if(currentSubTab==="Deals")content.appendChild(renderDeals());
-    else if(currentSubTab==="AgentHub"){DEAL_STATE.mode="agents";if(typeof fetchAgents==="function")fetchAgents();content.appendChild(renderDeals());}
+    else if(currentSubTab==="AgentHub"){DEAL_STATE.mode="agents";if(typeof fetchAgents==="function"&&!DEAL_STATE.agentHub.loading&&!DEAL_STATE.agentHub.agents.length)fetchAgents();content.appendChild(renderDeals());}
     else if(currentSubTab==="Chat")content.appendChild(renderChat());
     else if(currentSubTab==="Chiefs"&&typeof renderChiefs==="function")content.appendChild(renderChiefs());
     else if(typeof renderInbox==="function")content.appendChild(renderInbox());
