@@ -1636,7 +1636,7 @@ function renderHome(){
     var topMover=byG1.length?byG1[0]:null;
     var stats=[
       {icon:"database",label:"Buildings",value:totalBldgs.toLocaleString(),sub:"in database",color:"#D4AF37"},
-      {icon:"map-pin",label:"Areas",value:totalAreas,sub:"tracked",color:"#3B82F6"},
+      {icon:"map-pin",label:"Areas",value:String(totalAreas),sub:"tracked",color:"#3B82F6"},
       {icon:"dollar-sign",label:"Avg PSF",value:"AED "+avgPsf.toLocaleString(),sub:"Dubai average",color:"#10B981"},
       {icon:"percent",label:"Avg Yield",value:avgYield+"%",sub:"gross rental yield",color:"#8B5CF6"}
     ];

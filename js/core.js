@@ -150,8 +150,9 @@ function el(tag,attrs,children){
   });
   if(children){
     if(Array.isArray(children))children.forEach(function(c){if(c!=null&&c!==false)e.appendChild(typeof c==="string"?document.createTextNode(c):c)});
-    else if(typeof children==="string")e.textContent=children;
-    else if(children)e.appendChild(children);
+    else if(typeof children==="string"||typeof children==="number")e.textContent=String(children);
+    else if(children instanceof Node)e.appendChild(children);
+    else if(children)console.warn("el(): invalid children type",typeof children,children);
   }
   return e;
 }
