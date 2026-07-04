@@ -17,8 +17,8 @@ async function ingestToKB(articles) {
   var fresh = articles.filter(function(a) { return a.link && !_ingestedLinks[a.link]; });
   if (!fresh.length) return;
   try {
-    var emb = require("./lib/embeddings.js");
-    var shared = require("./lib/shared.js");
+    var emb = require("../lib/embeddings.js");
+    var shared = require("../lib/shared.js");
     var texts = fresh.map(function(a) { return a.title + (a.description ? ". " + a.description : ""); });
     var vectors = await emb.embedTexts(texts, "RETRIEVAL_DOCUMENT");
     var rows = [];
