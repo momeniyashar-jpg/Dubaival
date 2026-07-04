@@ -1589,12 +1589,32 @@ function renderHome(){
 
   // ── 1. FULL PROPERTY ANALYZER ─────────────────────────────────
   wrap.appendChild(homeSectionLabel("Property Analyzer","Full valuation · confidence score · yield · investment signal"));
-  if(typeof renderAnalyzer==="function"){
-    var azWrap=renderAnalyzer();
-    azWrap.style.padding="0";
-    azWrap.style.marginBottom="28px";
-    wrap.appendChild(azWrap);
-  }
+  var azCard=el("div",{style:{background:"linear-gradient(135deg,rgba(212,175,55,0.08),rgba(212,175,55,0.02))",border:"1px solid rgba(212,175,55,0.25)",borderRadius:"18px",padding:"24px",marginBottom:"28px",cursor:"pointer",transition:"all 0.2s ease"}});
+  azCard.addEventListener("mouseenter",function(){azCard.style.borderColor="rgba(212,175,55,0.5)";azCard.style.background="linear-gradient(135deg,rgba(212,175,55,0.13),rgba(212,175,55,0.04))";});
+  azCard.addEventListener("mouseleave",function(){azCard.style.borderColor="rgba(212,175,55,0.25)";azCard.style.background="linear-gradient(135deg,rgba(212,175,55,0.08),rgba(212,175,55,0.02))";});
+  azCard.addEventListener("click",function(){setSection("Market","Analyzer");});
+  var azTop=el("div",{style:{display:"flex",alignItems:"center",gap:"16px",marginBottom:"18px"}});
+  var azIcon=el("div",{style:{width:"52px",height:"52px",borderRadius:"14px",background:"rgba(212,175,55,0.15)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
+  azIcon.innerHTML='<i data-lucide="scan-search" style="width:26px;height:26px;color:#D4AF37"></i>';
+  azTop.appendChild(azIcon);
+  var azInfo=el("div",{style:{flex:"1"}});
+  azInfo.appendChild(div({fontSize:"18px",fontWeight:"800",color:cl.white,fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Full Property Analyzer"));
+  azInfo.appendChild(div({fontSize:"12px",color:cl.sub,fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},"Building · Area · Size · Floor · View · Price → AVM estimate, confidence score, yield & investment signal"));
+  azTop.appendChild(azInfo);
+  azCard.appendChild(azTop);
+  var azFeats=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"10px",marginBottom:"18px"}});
+  [["🎯","Confidence Score"],["📊","Yield Analysis"],["💡","Investment Signal"],["📄","PDF Report"]].forEach(function(f){
+    var fc=el("div",{style:{background:"rgba(255,255,255,0.03)",borderRadius:"10px",padding:"10px",textAlign:"center"}});
+    fc.appendChild(div({fontSize:"18px",marginBottom:"4px"},f[0]));
+    fc.appendChild(div({fontSize:"10px",color:cl.sub,fontFamily:"'Inter',sans-serif",fontWeight:"600"},f[1]));
+    azFeats.appendChild(fc);
+  });
+  azCard.appendChild(azFeats);
+  var azBtn=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"center",gap:"8px",background:"linear-gradient(135deg,#D4AF37,#A07D1C)",borderRadius:"12px",padding:"13px",color:"#070B14",fontWeight:"700",fontSize:"13px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em"}});
+  azBtn.innerHTML='<i data-lucide="arrow-right" style="width:16px;height:16px"></i>';
+  azBtn.insertAdjacentText("afterbegin","OPEN ANALYZER → ");
+  azCard.appendChild(azBtn);
+  wrap.appendChild(azCard);
 
   // ── 2. MARKET SNAPSHOT ────────────────────────────────────────
   wrap.appendChild(homeSectionLabel("Market Snapshot","Live Dubai real estate overview"));
