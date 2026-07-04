@@ -150,6 +150,21 @@ function getTag(b, tag) {
   return m ? decodeEnt(unwrapCDATA(m[1].trim())) : "";
 }
 
+function extractRSSImage(b) {
+  var m;
+  m = /media:content[^>]+url=["']([^"']+)["']/i.exec(b);
+  if (m && /\.(jpe?g|png|webp|gif)/i.test(m[1])) return m[1];
+  m = /media:thumbnail[^>]+url=["']([^"']+)["']/i.exec(b);
+  if (m && /\.(jpe?g|png|webp|gif)/i.test(m[1])) return m[1];
+  m = /enclosure[^>]+url=["']([^"']+)["'][^>]*type=["']image/i.exec(b);
+  if (m) return m[1];
+  m = /enclosure[^>]+type=["']image[^"']*["'][^>]+url=["']([^"']+)["']/i.exec(b);
+  if (m) return m[1];
+  m = /<img[^>]+src=["']([^"']+)["']/i.exec(b);
+  if (m && /^https?:\/\//.test(m[1])) return m[1];
+  return null;
+}
+
 function parseRSS(xml) {
   var items = [];
   var re = /<item[^>]*>([\s\S]*?)<\/item>/g;
@@ -163,7 +178,8 @@ function parseRSS(xml) {
     var pubDate = getTag(b, "pubDate") || getTag(b, "dc:date");
     var desc = stripTags(getTag(b, "description")).slice(0, 300);
     var src = getTag(b, "source");
-    items.push({ title: title.slice(0, 250), link, pubDate, description: desc, source: src });
+    var image = extractRSSImage(b);
+    items.push({ title: title.slice(0, 250), link, pubDate, description: desc, source: src, image: image });
   }
   return items;
 }
@@ -182,7 +198,7 @@ async function fetchGNews(qObj) {
       return {
         title: it.title, link: it.link, pubDate: it.pubDate,
         ts: ts, source: it.source, description: it.description,
-        image: null,
+        image: it.image || null,
         tag: classifyTag(it.title, it.description, qObj.defaultTag)
       };
     }).filter(function(a) { return !a.ts || a.ts > Date.now() - 45 * 86400000; });

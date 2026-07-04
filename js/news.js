@@ -221,13 +221,14 @@ function _renderNewsList() {
   filtered.forEach(function(a, idx) {
     var meta = _tagMeta(a.tag, cl);
     var srcLabel = _sourceLabel(a);
+    var hasImg = !!(a.image);
 
     var card = div({
       background: cl.surface,
       backdropFilter: cl.blur, WebkitBackdropFilter: cl.blur,
       border: "1px solid " + (a.isNew ? meta.border : cl.border),
-      borderRadius: "14px", padding: "16px 18px", marginBottom: "10px",
-      cursor: "pointer",
+      borderRadius: "14px", marginBottom: "10px",
+      cursor: "pointer", overflow: "hidden",
       transition: "transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease",
       boxShadow: cl.glassShadow,
       animation: "newsSlideIn 0.3s ease both",
@@ -246,48 +247,91 @@ function _renderNewsList() {
     });
     card.addEventListener("click", function() { window.open(a.link, "_blank", "noopener,noreferrer"); });
 
-    // Top row: tag badge + NEW badge + time
-    var topRow = div({ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px", flexWrap: "wrap" });
-    var tagBadge = span({
-      fontSize: "10px", fontWeight: "700", padding: "3px 10px", borderRadius: "20px",
-      background: meta.bg, color: meta.color, border: "1px solid " + meta.border, letterSpacing: "0.02em"
-    }, meta.label);
-    topRow.appendChild(tagBadge);
-    if (a.isNew) {
-      var newBadge = span({
-        fontSize: "10px", fontWeight: "700", padding: "3px 9px", borderRadius: "20px",
-        background: "rgba(16,185,129,0.12)", color: "#10B981",
-        border: "1px solid rgba(16,185,129,0.3)", animation: "pulse 2s infinite"
-      }, "NEW");
-      topRow.appendChild(newBadge);
+    // Image banner (top of card)
+    if (hasImg) {
+      var imgBanner = div({
+        width: "100%", height: "160px", overflow: "hidden",
+        background: "linear-gradient(135deg,rgba(212,175,55,0.08),rgba(30,40,70,0.5))",
+        position: "relative"
+      });
+      var imgEl = el("img");
+      imgEl.src = a.image;
+      imgEl.style.cssText = "width:100%;height:100%;object-fit:cover;display:block;transition:transform 0.3s ease";
+      imgEl.onerror = function() { imgBanner.style.display = "none"; };
+      card.addEventListener("mouseenter", function() { imgEl.style.transform = "scale(1.03)"; });
+      card.addEventListener("mouseleave", function() { imgEl.style.transform = "scale(1)"; });
+      // Tag overlay on image
+      var imgOverlay = div({
+        position: "absolute", bottom: "10px", left: "12px",
+        display: "flex", gap: "6px", alignItems: "center"
+      });
+      var tagBadgeImg = span({
+        fontSize: "10px", fontWeight: "700", padding: "3px 10px", borderRadius: "20px",
+        background: "rgba(0,0,0,0.65)", color: meta.color,
+        border: "1px solid " + meta.border, letterSpacing: "0.02em", backdropFilter: "blur(8px)"
+      }, meta.label);
+      imgOverlay.appendChild(tagBadgeImg);
+      if (a.isNew) {
+        var newBadgeImg = span({
+          fontSize: "10px", fontWeight: "700", padding: "3px 9px", borderRadius: "20px",
+          background: "rgba(16,185,129,0.85)", color: "#fff",
+          animation: "pulse 2s infinite"
+        }, "NEW");
+        imgOverlay.appendChild(newBadgeImg);
+      }
+      imgBanner.appendChild(imgEl);
+      imgBanner.appendChild(imgOverlay);
+      card.appendChild(imgBanner);
     }
-    var timeStr = span({ fontSize: "11px", color: cl.sub, marginLeft: "auto", whiteSpace: "nowrap" }, timeAgo(a.pubDate));
-    topRow.appendChild(timeStr);
-    card.appendChild(topRow);
+
+    // Content area
+    var content = div({ padding: "14px 16px" });
+
+    // Top row (no image): tag badge + NEW + time
+    if (!hasImg) {
+      var topRow = div({ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px", flexWrap: "wrap" });
+      var tagBadge = span({
+        fontSize: "10px", fontWeight: "700", padding: "3px 10px", borderRadius: "20px",
+        background: meta.bg, color: meta.color, border: "1px solid " + meta.border, letterSpacing: "0.02em"
+      }, meta.label);
+      topRow.appendChild(tagBadge);
+      if (a.isNew) {
+        var newBadge = span({
+          fontSize: "10px", fontWeight: "700", padding: "3px 9px", borderRadius: "20px",
+          background: "rgba(16,185,129,0.12)", color: "#10B981",
+          border: "1px solid rgba(16,185,129,0.3)", animation: "pulse 2s infinite"
+        }, "NEW");
+        topRow.appendChild(newBadge);
+      }
+      topRow.appendChild(span({ fontSize: "11px", color: cl.sub, marginLeft: "auto", whiteSpace: "nowrap" }, timeAgo(a.pubDate)));
+      content.appendChild(topRow);
+    } else {
+      // Time below image
+      content.appendChild(div({ marginBottom: "6px" }, span({ fontSize: "11px", color: cl.sub }, timeAgo(a.pubDate))));
+    }
 
     // Title
     var title = el("div", {
       style: { color: cl.white, fontSize: "14px", fontWeight: "700", lineHeight: "1.45", marginBottom: a.description ? "6px" : "10px" }
     }, a.title);
-    card.appendChild(title);
+    content.appendChild(title);
 
     // Description
     if (a.description) {
       var desc = el("div", {
         style: { color: cl.sub, fontSize: "12px", lineHeight: "1.65", marginBottom: "10px", display: "-webkit-box", WebkitLineClamp: "2", WebkitBoxOrient: "vertical", overflow: "hidden" }
       }, a.description);
-      card.appendChild(desc);
+      content.appendChild(desc);
     }
 
     // Source row
     var srcRow = div({ display: "flex", alignItems: "center", gap: "6px" });
-    srcRow.appendChild(span({
-      fontSize: "11px", color: cl.gold, fontWeight: "600"
-    }, srcLabel));
+    srcRow.appendChild(span({ fontSize: "11px", color: cl.gold, fontWeight: "600" }, srcLabel));
     srcRow.appendChild(span({ color: cl.border, fontSize: "10px" }, "·"));
     srcRow.appendChild(span({ fontSize: "11px", color: cl.sub }, "Click to read"));
-    card.appendChild(srcRow);
+    content.appendChild(srcRow);
 
+    card.appendChild(content);
     _newsListEl.appendChild(card);
   });
 }
