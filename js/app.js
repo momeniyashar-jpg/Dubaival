@@ -1569,8 +1569,15 @@ function renderHome(){
   var cl=C();
   var wrap=el("div",{style:{padding:"16px",maxWidth:"960px",margin:"0 auto",width:"100%",boxSizing:"border-box"}});
 
-  // --- Greeting + Avatar Row ---
-  var heroRow=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"24px"}});
+  function homeSectionLabel(title,sub){
+    var row=el("div",{style:{marginBottom:"14px",marginTop:"8px"}});
+    row.appendChild(div({fontSize:"12px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase"},title));
+    if(sub)row.appendChild(div({fontSize:"11px",color:"#4A5568",fontFamily:"'Inter',sans-serif",marginTop:"2px"},sub));
+    return row;
+  }
+
+  // --- Greeting ---
+  var heroRow=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"20px"}});
   var heroLeft=el("div",{});
   var hr=new Date().getHours();
   var greeting="Good "+(hr<12?"Morning":hr<18?"Afternoon":"Evening");
@@ -1580,35 +1587,80 @@ function renderHome(){
   heroRow.appendChild(heroLeft);
   wrap.appendChild(heroRow);
 
-  // --- Quick Check Hero (Method D Grade-Weighted Range) ---
+  // ── 1. FULL PROPERTY ANALYZER ─────────────────────────────────
+  wrap.appendChild(homeSectionLabel("Property Analyzer","Full valuation · confidence score · yield · investment signal"));
+  if(typeof renderAnalyzer==="function"){
+    var azWrap=renderAnalyzer();
+    azWrap.style.padding="0";
+    azWrap.style.marginBottom="28px";
+    wrap.appendChild(azWrap);
+  }
+
+  // ── 2. MARKET SNAPSHOT ────────────────────────────────────────
+  wrap.appendChild(homeSectionLabel("Market Snapshot","Live Dubai real estate overview"));
+  (function(){
+    var aEntries=Object.entries(AREAS||{});
+    var totalBldgs=typeof DB!=="undefined"?Object.keys(DB).length:0;
+    var totalAreas=aEntries.length;
+    var avgPsf=0,avgYield=0,cnt=0;
+    aEntries.forEach(function(e){
+      var a=e[1];
+      if(a.psf>0&&a.y&&a.y[0]>0){
+        avgPsf+=a.psf;
+        avgYield+=(a.y[0]+a.y[1])/2;
+        cnt++;
+      }
+    });
+    if(cnt>0){avgPsf=Math.round(avgPsf/cnt);avgYield=(avgYield/cnt).toFixed(1);}
+    var byG1=aEntries.filter(function(e){return e[1].g&&e[1].g[0]>0;}).sort(function(a,b){return b[1].g[0]-a[1].g[0];});
+    var topMover=byG1.length?byG1[0]:null;
+    var stats=[
+      {icon:"database",label:"Buildings",value:totalBldgs.toLocaleString(),sub:"in database",color:"#D4AF37"},
+      {icon:"map-pin",label:"Areas",value:totalAreas,sub:"tracked",color:"#3B82F6"},
+      {icon:"dollar-sign",label:"Avg PSF",value:"AED "+avgPsf.toLocaleString(),sub:"Dubai average",color:"#10B981"},
+      {icon:"percent",label:"Avg Yield",value:avgYield+"%",sub:"gross rental yield",color:"#8B5CF6"}
+    ];
+    var grid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"10px",marginBottom:"12px"}});
+    stats.forEach(function(s){
+      var card=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"14px 16px",display:"flex",alignItems:"center",gap:"12px"}});
+      var ic=el("div",{style:{width:"36px",height:"36px",borderRadius:"10px",background:s.color+"14",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
+      ic.innerHTML='<i data-lucide="'+s.icon+'" style="width:17px;height:17px;color:'+s.color+'"></i>';
+      card.appendChild(ic);
+      var tx=el("div",{style:{minWidth:"0"}});
+      tx.appendChild(div({fontSize:"16px",fontWeight:"800",color:cl.white,fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'",lineHeight:"1.1"},s.value));
+      tx.appendChild(div({fontSize:"10px",color:cl.sub,fontFamily:"'Inter',sans-serif",marginTop:"2px"},s.label+" · "+s.sub));
+      card.appendChild(tx);
+      grid.appendChild(card);
+    });
+    wrap.appendChild(grid);
+    if(topMover){
+      var moverBar=el("div",{style:{background:"linear-gradient(135deg,rgba(16,185,129,0.06),rgba(16,185,129,0.02))",border:"1px solid rgba(16,185,129,0.15)",borderRadius:"12px",padding:"10px 14px",display:"flex",alignItems:"center",gap:"10px",marginBottom:"28px",cursor:"pointer"}});
+      moverBar.addEventListener("click",function(){setSection("Market","Index");});
+      var moverIc=el("div",{style:{width:"28px",height:"28px",borderRadius:"8px",background:"rgba(16,185,129,0.12)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
+      moverIc.innerHTML='<i data-lucide="trending-up" style="width:14px;height:14px;color:#10B981"></i>';
+      moverBar.appendChild(moverIc);
+      moverBar.appendChild(div({flex:"1",fontSize:"12px",color:"#E8EDF5",fontFamily:"'Inter',sans-serif"},"Top mover: "+span({color:"#10B981",fontWeight:"700"},topMover[0])+" +"+topMover[1].g[0].toFixed(1)+"% YoY growth — see full Market Index"));
+      var arr=el("div",{style:{color:"#4A5568",flexShrink:"0"}});
+      arr.innerHTML='<i data-lucide="chevron-right" style="width:15px;height:15px"></i>';
+      moverBar.appendChild(arr);
+      wrap.appendChild(moverBar);
+    }
+  })();
+
+  // ── 3. QUICK CHECK ────────────────────────────────────────────
+  wrap.appendChild(homeSectionLabel("Quick Check","Instant estimate — area & bedrooms only"));
   if(typeof renderQuickCheck==="function"){
     var qcWrap=renderQuickCheck();
     qcWrap.style.padding="0";
-    qcWrap.style.marginBottom="24px";
+    qcWrap.style.marginBottom="28px";
     wrap.appendChild(qcWrap);
   }
 
-  // --- Secondary CTA: Full Analyzer ---
-  var ctaBar=el("div",{style:{background:cl.surface,borderRadius:"14px",padding:"12px 14px",marginBottom:"24px",cursor:"pointer",display:"flex",alignItems:"center",gap:"12px",transition:"all 0.2s ease",border:"1px solid "+cl.border}});
-  ctaBar.addEventListener("click",function(){setSection("Market","Analyzer");});
-  var ctaIcon=el("div",{style:{width:"38px",height:"38px",borderRadius:"10px",background:"linear-gradient(135deg,rgba(212,175,55,0.2),rgba(212,175,55,0.05))",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
-  ctaIcon.innerHTML='<i data-lucide="search" style="width:18px;height:18px;color:#D4AF37"></i>';
-  ctaBar.appendChild(ctaIcon);
-  var ctaText=el("div",{style:{flex:"1"}});
-  ctaText.appendChild(div({fontSize:"13px",fontWeight:"700",color:cl.white,fontFamily:"'Inter',sans-serif",marginBottom:"1px"},"Full Property Analyzer"));
-  ctaText.appendChild(div({fontSize:"11px",color:cl.sub,fontFamily:"'Inter',sans-serif"},"Size, floor, view, confidence score & yield"));
-  ctaBar.appendChild(ctaText);
-  var ctaArrow=el("div",{style:{color:"#4A5568",flexShrink:"0"}});
-  ctaArrow.innerHTML='<i data-lucide="chevron-right" style="width:18px;height:18px"></i>';
-  ctaBar.appendChild(ctaArrow);
-  ctaBar.addEventListener("mouseenter",function(){ctaBar.style.background=cl.raised;ctaBar.style.borderColor="rgba(212,175,55,0.15)";});
-  ctaBar.addEventListener("mouseleave",function(){ctaBar.style.background=cl.surface;ctaBar.style.borderColor=cl.border;});
-  wrap.appendChild(ctaBar);
+  // ── 4. TOP OPPORTUNITIES ─────────────────────────────────────
+  wrap.appendChild(renderMarketMoments(cl));
 
-  // --- Quick Actions Grid (app-style circular icons) ---
-  var qaLabel=el("div",{style:{fontSize:"12px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"}});
-  qaLabel.textContent="Quick Actions";
-  wrap.appendChild(qaLabel);
+  // --- Quick Actions Grid ---
+  wrap.appendChild(homeSectionLabel("Quick Actions",""));
   var qaScroll=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"12px",marginBottom:"28px"}});
   var qaItems=[
     {icon:"scan-search",l:"Search",c:"#3B82F6",sec:"Market",sub:"Find"},
@@ -1617,7 +1669,7 @@ function renderHome(){
     {icon:"scale",l:"Compare",c:"#F59E0B",sec:"Market",sub:"Compare"},
     {icon:"briefcase",l:"Portfolio",c:"#3B82F6",sec:"Portfolio",sub:"Assets"},
     {icon:"map",l:"Map",c:"#10B981",sec:"Market",sub:"Map"},
-    {icon:"video",l:"Studio",c:"#8B5CF6",sec:"Network",sub:"MediaStudio"},
+    {icon:"video",l:"Studio",c:"#8B5CF6",sec:"SocialMedia",sub:"Studio"},
     {icon:"trending-up",l:"Market",c:"#D4AF37",sec:"Market",sub:"Dashboard"}
   ];
   qaItems.forEach(function(qa){
@@ -1632,9 +1684,6 @@ function renderHome(){
     qaScroll.appendChild(qaBtn);
   });
   wrap.appendChild(qaScroll);
-
-  // --- Top Opportunities ---
-  wrap.appendChild(renderMarketMoments(cl));
 
   // --- Feature Cards (horizontal scroll) ---
   var featLabel=el("div",{style:{fontSize:"12px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"}});
