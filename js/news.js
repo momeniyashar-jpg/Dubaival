@@ -246,52 +246,73 @@ function _renderNewsList() {
     });
     card.addEventListener("click", function() { window.open(a.link, "_blank", "noopener,noreferrer"); });
 
-    // Branded gradient banner (always shown)
-    var gradients = a.tag === "launch"
-      ? ["135deg","rgba(212,175,55,0.25)","rgba(245,158,11,0.08)","rgba(13,18,32,0.95)"]
-      : ["135deg","rgba(96,165,250,0.18)","rgba(59,130,246,0.06)","rgba(13,18,32,0.95)"];
-    var bannerBg = "linear-gradient("+gradients[0]+","+gradients[1]+","+gradients[2]+")";
-    var bannerIcons = { launch: ["🏗️","🚀","🏙️","🌆","🏢"], general: ["📊","📈","🏠","💎","🔑"] };
-    var iconPool = bannerIcons[a.tag] || bannerIcons.general;
+    // Branded gradient banner
+    var isLaunch = a.tag === "launch";
+    var bannerBg = isLaunch
+      ? "linear-gradient(135deg,#2a1f05 0%,#1a1200 40%,#0d0e16 100%)"
+      : "linear-gradient(135deg,#051428 0%,#071830 40%,#070B14 100%)";
+    var accentLine = isLaunch
+      ? "linear-gradient(90deg,#D4AF37,#F59E0B,rgba(212,175,55,0))"
+      : "linear-gradient(90deg,#3B82F6,#60A5FA,rgba(59,130,246,0))";
+    var bannerIcons = { launch: ["🏗","🚀","🏙","🌆","🏢"], general: ["📊","📈","🏠","💎","🔑"] };
+    var iconPool = bannerIcons[isLaunch ? "launch" : "general"];
     var bannerIcon = iconPool[idx % iconPool.length];
 
     var imgBanner = div({
-      width: "100%", height: "120px", overflow: "hidden",
+      width: "100%", height: "130px", overflow: "hidden",
       background: bannerBg,
-      borderBottom: "1px solid " + (a.tag === "launch" ? "rgba(212,175,55,0.15)" : "rgba(96,165,250,0.1)"),
-      position: "relative", display: "flex", alignItems: "center", justifyContent: "center"
+      position: "relative"
     });
 
-    // Big icon watermark
-    var iconWrap = div({
-      fontSize: "56px", opacity: "0.12", userSelect: "none", pointerEvents: "none",
-      position: "absolute", right: "20px", top: "50%", transform: "translateY(-50%) rotate(-8deg)"
-    }, bannerIcon);
+    // Accent line at top
+    var accentEl = div({
+      position: "absolute", top: "0", left: "0", right: "0", height: "3px",
+      background: accentLine
+    });
+    imgBanner.appendChild(accentEl);
+
+    // Big emoji — right side
+    var iconWrap = div({ style: {
+      position: "absolute", right: "16px", top: "50%",
+      transform: "translateY(-50%) rotate(-10deg)",
+      fontSize: "72px", lineHeight: "1", opacity: "0.35",
+      userSelect: "none", pointerEvents: "none"
+    }});
+    iconWrap.textContent = bannerIcon;
     imgBanner.appendChild(iconWrap);
 
-    // DubAIVal logo text
-    var logoText = div({
-      position: "absolute", left: "16px", top: "16px",
-      fontSize: "10px", fontWeight: "800", color: a.tag === "launch" ? "rgba(212,175,55,0.6)" : "rgba(96,165,250,0.5)",
-      letterSpacing: "0.12em", fontFamily: "'Space Grotesk',monospace"
-    }, "DUBAIVAL");
+    // Glow circle behind emoji
+    var glow = div({ style: {
+      position: "absolute", right: "10px", top: "50%",
+      transform: "translateY(-50%)",
+      width: "90px", height: "90px", borderRadius: "50%",
+      background: isLaunch ? "rgba(212,175,55,0.08)" : "rgba(59,130,246,0.08)",
+      filter: "blur(16px)"
+    }});
+    imgBanner.appendChild(glow);
+
+    // DUBAIVAL logo
+    var logoText = div({ style: {
+      position: "absolute", left: "14px", top: "14px",
+      fontSize: "9px", fontWeight: "800", letterSpacing: "0.14em",
+      fontFamily: "'Space Grotesk',monospace",
+      color: isLaunch ? "rgba(212,175,55,0.5)" : "rgba(96,165,250,0.45)"
+    }});
+    logoText.textContent = "DUBAIVAL";
     imgBanner.appendChild(logoText);
 
-    // Category label center
-    var catLabel = div({
-      position: "absolute", left: "16px", bottom: "14px",
-      display: "flex", gap: "6px", alignItems: "center"
-    });
+    // Tag badge + NEW — bottom left
+    var catLabel = div({ style: { position: "absolute", left: "14px", bottom: "12px", display: "flex", gap: "6px", alignItems: "center" }});
     var tagBadgeImg = span({
       fontSize: "10px", fontWeight: "700", padding: "4px 12px", borderRadius: "20px",
-      background: a.tag === "launch" ? "rgba(212,175,55,0.15)" : "rgba(96,165,250,0.12)",
+      background: isLaunch ? "rgba(212,175,55,0.18)" : "rgba(59,130,246,0.15)",
       color: meta.color, border: "1px solid " + meta.border, letterSpacing: "0.02em"
     }, meta.label);
     catLabel.appendChild(tagBadgeImg);
     if (a.isNew) {
       catLabel.appendChild(span({
         fontSize: "10px", fontWeight: "700", padding: "4px 9px", borderRadius: "20px",
-        background: "rgba(16,185,129,0.85)", color: "#fff", animation: "pulse 2s infinite"
+        background: "rgba(16,185,129,0.9)", color: "#fff", animation: "pulse 2s infinite"
       }, "NEW"));
     }
     imgBanner.appendChild(catLabel);
