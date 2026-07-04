@@ -6186,25 +6186,40 @@ function showAvatarBuilder(editId){
   var pillarsInp=mkField("Content Pillars (comma-separated)","pillars","Market Data, Investment Tips, Area Spotlights, Lifestyle",existing?(existing.pillars||[]).join(", "):"Market Data, Investment Tips, Area Spotlights, Lifestyle");
 
   var genAvatarBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#EC4899,#8B5CF6)",color:"#FFF",border:"none",borderRadius:"10px",padding:"12px",fontSize:"12px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
-    genAvatarBtn.textContent="Generating AI avatar image...";genAvatarBtn.disabled=true;
+    genAvatarBtn.textContent="⏳ Generating AI avatar...";genAvatarBtn.disabled=true;
     var style=AVATAR_STYLES.find(function(s){return s.id===selectedStyle;})||AVATAR_STYLES[0];
-    var prompt=customPromptInp.value.trim()||style.prompt;
-    var fullPrompt=prompt+", portrait headshot, high quality, 4k, face clearly visible, looking at camera, "+nameInp.value;
+    var basePrompt=customPromptInp.value.trim()||style.prompt;
+    var fullPrompt=basePrompt+", professional portrait headshot, photorealistic, 4k, face clearly visible, looking at camera, soft studio lighting, real estate agent Dubai";
     try{
-      var url=await generateGeminiImage(fullPrompt);
+      // Try Gemini first (if key set), otherwise use Pollinations.ai (free, no key)
+      var url=null;
+      var geminiKey=localStorage.getItem("dv_gemini_key");
+      if(geminiKey){url=await generateGeminiImage(fullPrompt);}
+      if(!url){
+        // Pollinations.ai — free, no API key, high quality
+        var encoded=encodeURIComponent(fullPrompt);
+        var seed=Math.floor(Math.random()*99999);
+        var polUrl="https://image.pollinations.ai/prompt/"+encoded+"?width=512&height=512&seed="+seed+"&nologo=true&enhance=true";
+        await new Promise(function(res){
+          var testImg=new Image();
+          testImg.onload=function(){url=polUrl;res();};
+          testImg.onerror=function(){res();};
+          testImg.src=polUrl;
+        });
+      }
       if(url){
         avatarPreview.innerHTML="";
-        var newImg=el("img",{style:{width:"100%",height:"100%",objectFit:"cover"}});
+        var newImg=el("img",{style:{width:"100%",height:"100%",objectFit:"cover",borderRadius:"50%"}});
         newImg.src=url;avatarPreview.appendChild(newImg);
         avatarPreview.dataset.url=url;
-        genAvatarBtn.textContent="Avatar generated! Click Save to keep it.";
+        genAvatarBtn.textContent="✅ Avatar generated! Click Save to keep.";
       }else{
-        genAvatarBtn.textContent="Failed — check Gemini API key in Setup";
+        genAvatarBtn.textContent="❌ Failed — try a different style";
       }
-    }catch(e){genAvatarBtn.textContent="Error: "+e.message;}
+    }catch(e){genAvatarBtn.textContent="❌ Error: "+e.message;}
     genAvatarBtn.disabled=false;
   }});
-  genAvatarBtn.textContent="Generate AI Avatar Image";card.appendChild(genAvatarBtn);
+  genAvatarBtn.textContent="✨ Generate AI Avatar Image (Free)";card.appendChild(genAvatarBtn);
 
   var btnRow=div({display:"flex",gap:"8px",marginTop:"14px"});
   var saveBtn=el("button",{style:{flex:1,background:"#10B981",color:"#FFF",border:"none",borderRadius:"10px",padding:"12px",fontSize:"13px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){
