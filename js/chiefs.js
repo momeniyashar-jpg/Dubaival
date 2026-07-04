@@ -60,51 +60,59 @@ function _verdictColor(v) {
 
 // ── DATA FETCHING ─────────────────────────────────────────────────────────────
 async function chiefsLoadInventory() {
-  if (CHIEFS_STATE.loading.inventory) return;
-  CHIEFS_STATE.loading.inventory = true; render();
+  if (CHIEFS_STATE.loading.inventory || CHIEFS_STATE.loaded.inventory) return;
+  CHIEFS_STATE.loading.inventory = true;
   try {
     var r = await fetch(SUPABASE_URL + "/rest/v1/chiefs_inventory?agent_id=eq." +
       encodeURIComponent(_chiefsId()) + "&order=created_at.desc&limit=200", { headers: _chiefsH() });
-    if (r.ok) { CHIEFS_STATE.inventory = await r.json(); CHIEFS_STATE.loaded.inventory = true; }
+    if (r.ok) CHIEFS_STATE.inventory = await r.json();
     else CHIEFS_STATE.inventory = [];
   } catch(e) { CHIEFS_STATE.inventory = []; }
-  CHIEFS_STATE.loading.inventory = false; render();
+  CHIEFS_STATE.loading.inventory = false;
+  CHIEFS_STATE.loaded.inventory = true;
+  render();
 }
 
 async function chiefsLoadClients() {
-  if (CHIEFS_STATE.loading.clients) return;
-  CHIEFS_STATE.loading.clients = true; render();
+  if (CHIEFS_STATE.loading.clients || CHIEFS_STATE.loaded.clients) return;
+  CHIEFS_STATE.loading.clients = true;
   try {
     var r = await fetch(SUPABASE_URL + "/rest/v1/chiefs_clients?agent_id=eq." +
       encodeURIComponent(_chiefsId()) + "&order=created_at.desc&limit=200", { headers: _chiefsH() });
-    if (r.ok) { CHIEFS_STATE.clients = await r.json(); CHIEFS_STATE.loaded.clients = true; }
+    if (r.ok) CHIEFS_STATE.clients = await r.json();
     else CHIEFS_STATE.clients = [];
   } catch(e) { CHIEFS_STATE.clients = []; }
-  CHIEFS_STATE.loading.clients = false; render();
+  CHIEFS_STATE.loading.clients = false;
+  CHIEFS_STATE.loaded.clients = true;
+  render();
 }
 
 async function chiefsLoadMatches() {
-  if (CHIEFS_STATE.loading.matches) return;
-  CHIEFS_STATE.loading.matches = true; render();
+  if (CHIEFS_STATE.loading.matches || CHIEFS_STATE.loaded.matches) return;
+  CHIEFS_STATE.loading.matches = true;
   try {
     var r = await fetch(SUPABASE_URL + "/rest/v1/chiefs_matches?agent_id=eq." +
       encodeURIComponent(_chiefsId()) + "&order=created_at.desc&limit=200", { headers: _chiefsH() });
-    if (r.ok) { CHIEFS_STATE.matches = await r.json(); CHIEFS_STATE.loaded.matches = true; }
+    if (r.ok) CHIEFS_STATE.matches = await r.json();
     else CHIEFS_STATE.matches = [];
   } catch(e) { CHIEFS_STATE.matches = []; }
-  CHIEFS_STATE.loading.matches = false; render();
+  CHIEFS_STATE.loading.matches = false;
+  CHIEFS_STATE.loaded.matches = true;
+  render();
 }
 
 async function chiefsLoadPipeline() {
-  if (CHIEFS_STATE.loading.pipeline) return;
-  CHIEFS_STATE.loading.pipeline = true; render();
+  if (CHIEFS_STATE.loading.pipeline || CHIEFS_STATE.loaded.pipeline) return;
+  CHIEFS_STATE.loading.pipeline = true;
   try {
     var r = await fetch(SUPABASE_URL + "/rest/v1/chiefs_pipeline?agent_id=eq." +
       encodeURIComponent(_chiefsId()) + "&order=updated_at.desc&limit=200", { headers: _chiefsH() });
-    if (r.ok) { CHIEFS_STATE.pipeline = await r.json(); CHIEFS_STATE.loaded.pipeline = true; }
+    if (r.ok) CHIEFS_STATE.pipeline = await r.json();
     else CHIEFS_STATE.pipeline = [];
   } catch(e) { CHIEFS_STATE.pipeline = []; }
-  CHIEFS_STATE.loading.pipeline = false; render();
+  CHIEFS_STATE.loading.pipeline = false;
+  CHIEFS_STATE.loaded.pipeline = true;
+  render();
 }
 
 async function chiefsLoadAll() {
@@ -1568,7 +1576,8 @@ function renderChiefs() {
     {id:"inventory",label:"Inventory",icon:"📦"},
     {id:"clients",label:"Clients",icon:"👥"},
     {id:"matches",label:"Matches",icon:"🔗"},
-    {id:"pipeline",label:"Pipeline",icon:"📋"}
+    {id:"pipeline",label:"Pipeline",icon:"📋"},
+    {id:"inbox",label:"Inbox",icon:"📬"}
   ];
   var tabBar = el("div",{style:{display:"flex",gap:"0",borderBottom:"1px solid "+cl.border,overflowX:"auto",flexShrink:"0",WebkitOverflowScrolling:"touch"}});
   VIEWS.forEach(function(v) {
@@ -1596,6 +1605,7 @@ function renderChiefs() {
   else if (CHIEFS_STATE.view==="clients") content.appendChild(_renderChiefsClients());
   else if (CHIEFS_STATE.view==="matches") content.appendChild(_renderChiefsMatches());
   else if (CHIEFS_STATE.view==="pipeline") content.appendChild(_renderChiefsPipeline());
+  else if (CHIEFS_STATE.view==="inbox" && typeof renderInbox==="function") content.appendChild(renderInbox());
   wrap.appendChild(content);
   return wrap;
 }
