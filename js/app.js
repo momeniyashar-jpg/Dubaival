@@ -1629,7 +1629,7 @@ function renderHome(){
   featScroll.style.cssText+=";-ms-overflow-style:none;scrollbar-width:none";
   var feats=[
     {icon:"handshake",title:"Deal Board",desc:"Off-market listings",color:"#10B981",sec:"Network",sub:"Deals"},
-    {icon:"video",title:"AI Studio",desc:"35+ creative tools",color:"#8B5CF6",sec:"Network",sub:"MediaStudio"},
+    {icon:"video",title:"AI Studio",desc:"35+ creative tools",color:"#8B5CF6",sec:"SocialMedia",sub:"Studio"},
     {icon:"layout-dashboard",title:"Workspace",desc:"Custom dashboard",color:"#D4AF37",sec:"More",sub:"Workspace"},
     {icon:"user-check",title:"AI Advisor",desc:"Personalized picks",color:"#3B82F6",sec:"Market",sub:"Advisor"}
   ];

@@ -7418,8 +7418,8 @@ function renderMediaStudio(mode){
       render();
     });
     compCard.appendChild(contBtn);
-    var skipLink=el("button",{style:{width:"100%",background:"transparent",border:"none",color:"#445566",fontSize:"11px",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
-    skipLink.textContent="Skip for now";
+    var skipLink=el("button",{style:{width:"100%",background:"transparent",border:"1px solid #1C2535",borderRadius:"10px",color:"#8899AA",fontSize:"12px",fontFamily:"'Inter',sans-serif",cursor:"pointer",padding:"10px"}});
+    skipLink.textContent="Skip for now — explore tools without connecting accounts";
     skipLink.addEventListener("click",function(){localStorage.setItem("dv_phone","skip");localStorage.setItem("dv_whatsapp_number","skip");render();});
     compCard.appendChild(skipLink);
     comp.appendChild(compCard);
