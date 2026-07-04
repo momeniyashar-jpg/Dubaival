@@ -111,14 +111,24 @@ function _newsHash(s) {
   return h || 1;
 }
 
+var _DUBAI_SPOTS = [
+  "Dubai Marina waterfront skyscrapers golden sunset",
+  "Burj Khalifa Downtown Dubai aerial view blue sky",
+  "Palm Jumeirah aerial view luxury villas Dubai",
+  "Dubai Creek Harbour tower modern architecture",
+  "DIFC financial district Dubai glass towers",
+  "Dubai Marina yacht canal luxury apartments sunset",
+  "Burj Al Arab beach luxury hotel Dubai coastline",
+  "Dubai skyline aerial view evening lights",
+  "Business Bay canal Dubai skyscrapers reflection",
+  "Emaar Beachfront Dubai sea view towers"
+];
+
 function _newsImageUrl(a, idx) {
   var seed = _newsHash((a.link || a.title || "") + idx);
-  // Build a prompt dominated by the specific article title — not a generic prefix
-  var titlePart = (a.title || "").replace(/[^\w\s]/g, " ").trim().slice(0, 70);
-  var contextPart = a.tag === "launch"
-    ? "Dubai real estate new launch tower skyscraper modern architecture"
-    : "Dubai property market business investment skyline";
-  var prompt = titlePart + " " + contextPart + " professional photography";
+  var spot = _DUBAI_SPOTS[idx % _DUBAI_SPOTS.length];
+  var titleWords = (a.title || "").replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim().split(" ").slice(0, 6).join(" ");
+  var prompt = spot + " " + titleWords + " professional real estate photography cinematic";
   return "https://image.pollinations.ai/prompt/" +
     encodeURIComponent(prompt) +
     "?model=flux&width=600&height=220&seed=" + seed + "&nologo=true";
