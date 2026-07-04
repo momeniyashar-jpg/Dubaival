@@ -1792,6 +1792,7 @@ function _ofmRenderReqDetails(container,req,match,cl){
 // ── Agent Hub (preserved from original) ────────────────────────────────────────
 function renderAgentHub(wrap,cl){
   var hub=DEAL_STATE.agentHub;
+  if(!hub.loaded&&!hub.loading)fetchAgents();
   var card=div({background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",boxShadow:cl.glassShadow});
   card.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"◆ Agent Referral Program"));
   card.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",marginBottom:"14px",lineHeight:"1.6"},
