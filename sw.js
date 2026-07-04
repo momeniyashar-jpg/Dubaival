@@ -1,25 +1,28 @@
-var CACHE_NAME='dubaival-v17';
+var CACHE_NAME='dubaival-v18';
 var PRECACHE=[
-  '/',
-  '/index.html',
   '/logo.png',
-  '/js/data-residential.js',
-  '/js/valuation.js',
-  '/js/api.js',
-  '/js/core.js',
-  '/js/auth.js',
-  '/js/inbox.js',
-  '/js/app.js',
-  '/js/market.js',
-  '/js/mortgage.js',
-  '/js/portfolio.js',
-  '/js/map.js',
-  '/js/deals.js',
-  '/js/chat.js',
-  '/js/about.js',
-  '/js/workspace.js',
-  '/js/marketindex.js',
-  '/manifest.json'
+  '/manifest.json',
+  '/js/data-residential.js?v=20260629b',
+  '/js/data-commercial.js?v=20260629b',
+  '/js/valuation-db.js?v=20260623',
+  '/js/valuation.js?v=20260623',
+  '/js/api.js?v=20260630i',
+  '/js/core.js?v=20260704d',
+  '/js/auth.js?v=20260703c',
+  '/js/inbox.js?v=20260704b',
+  '/js/app.js?v=20260704p',
+  '/js/market.js?v=20260703d',
+  '/js/mortgage.js?v=20260629b',
+  '/js/portfolio.js?v=20260703f',
+  '/js/map.js?v=20260704a',
+  '/js/deals.js?v=20260704c',
+  '/js/chat.js?v=20260704c',
+  '/js/social.js?v=20260701e',
+  '/js/about.js?v=20260703c',
+  '/js/workspace.js?v=20260703c',
+  '/js/marketindex.js?v=20260703c',
+  '/js/news.js?v=20260703b',
+  '/js/chiefs.js?v=20260704a'
 ];
 
 self.addEventListener('install',function(e){
@@ -43,9 +46,12 @@ self.addEventListener('activate',function(e){
 
 self.addEventListener('fetch',function(e){
   var url=new URL(e.request.url);
-  // Skip API calls and external requests — network only
-  if(url.pathname.startsWith('/api/')||url.origin!==self.location.origin){
-    // For fonts/CDN: cache-first
+
+  // Skip API calls — always network
+  if(url.pathname.startsWith('/api/')){return;}
+
+  // External requests: fonts/CDN — cache-first
+  if(url.origin!==self.location.origin){
     if(url.hostname==='fonts.googleapis.com'||url.hostname==='fonts.gstatic.com'||url.hostname==='unpkg.com'){
       e.respondWith(
         caches.match(e.request).then(function(r){
@@ -56,11 +62,27 @@ self.addEventListener('fetch',function(e){
           });
         })
       );
-      return;
     }
     return;
   }
-  // Cache-first for app shell
+
+  // HTML navigation — network-first (always get latest index.html)
+  if(e.request.mode==='navigate'||url.pathname.endsWith('.html')||url.pathname==='/'){
+    e.respondWith(
+      fetch(e.request).then(function(resp){
+        if(resp.status===200){
+          var clone=resp.clone();
+          caches.open(CACHE_NAME).then(function(c){c.put(e.request,clone);});
+        }
+        return resp;
+      }).catch(function(){
+        return caches.match(e.request).then(function(r){return r||caches.match('/');});
+      })
+    );
+    return;
+  }
+
+  // JS/CSS/images with ?v= version param — cache-first (immutable)
   e.respondWith(
     caches.match(e.request).then(function(r){
       return r||fetch(e.request).then(function(resp){
@@ -70,8 +92,6 @@ self.addEventListener('fetch',function(e){
         }
         return resp;
       });
-    }).catch(function(){
-      if(e.request.mode==='navigate')return caches.match('/');
-    })
+    }).catch(function(){return caches.match('/');})
   );
 });
