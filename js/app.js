@@ -1444,25 +1444,40 @@ function generateMarketMoments(){
       text:t[0]+" up "+g1(t[1]).toFixed(1)+"% this year — one of Dubai's fastest-growing areas",
       tag:"TRENDING",tagColor:"#3B82F6",area:t[0]});
   }
-  if(byG5.length&&!usedAreas[byG5[0][0]]){
-    var t=byG5[0];usedAreas[t[0]]=1;
-    var rate=(g5(t[1])/5).toFixed(1);
-    moments.push({icon:"🔥",timing:"5-YEAR CAPITAL STORY",timingColor:"#EF4444",
-      text:t[0]+": "+g5(t[1]).toFixed(0)+"% appreciation over 5 years — compounding at "+rate+"%/yr",
-      tag:"LONG-TERM",tagColor:"#8B5CF6",area:t[0]});
-  }
-  if(byScore.length&&!usedAreas[byScore[0].name]){
-    var t=byScore[0];usedAreas[t.name]=1;
-    moments.push({icon:"🎯",timing:"BEST COMBINED SCORE TODAY",timingColor:"#D4AF37",
-      text:t.name+": "+aY(t.data).toFixed(1)+"% yield + "+g1(t.data).toFixed(1)+"% growth — highest opportunity score in Dubai",
-      tag:"BEST VALUE",tagColor:"#D4AF37",area:t.name});
-  }
-  if(byDom.length&&!usedAreas[byDom[0][0]]){
-    var t=byDom[0];
-    moments.push({icon:"💎",timing:"FASTEST-SELLING MARKET",timingColor:"#10B981",
-      text:t[0]+" properties selling in avg "+t[1].dom+" days — most liquid market in Dubai",
-      tag:"LIQUID",tagColor:"#10B981",area:t[0]});
-  }
+  (function(){
+    for(var gi=0;gi<byG5.length;gi++){
+      if(!usedAreas[byG5[gi][0]]){
+        var t=byG5[gi];usedAreas[t[0]]=1;
+        var rate=(g5(t[1])/5).toFixed(1);
+        moments.push({icon:"🔥",timing:"5-YEAR CAPITAL STORY",timingColor:"#EF4444",
+          text:t[0]+": "+g5(t[1]).toFixed(0)+"% appreciation over 5 years — compounding at "+rate+"%/yr",
+          tag:"LONG-TERM",tagColor:"#8B5CF6",area:t[0]});
+        break;
+      }
+    }
+  })();
+  (function(){
+    for(var si=0;si<byScore.length;si++){
+      if(!usedAreas[byScore[si].name]){
+        var t=byScore[si];usedAreas[t.name]=1;
+        moments.push({icon:"🎯",timing:"BEST COMBINED SCORE TODAY",timingColor:"#D4AF37",
+          text:t.name+": "+aY(t.data).toFixed(1)+"% yield + "+g1(t.data).toFixed(1)+"% growth — highest opportunity score in Dubai",
+          tag:"BEST VALUE",tagColor:"#D4AF37",area:t.name});
+        break;
+      }
+    }
+  })();
+  (function(){
+    for(var di=0;di<byDom.length;di++){
+      if(!usedAreas[byDom[di][0]]){
+        var t=byDom[di];
+        moments.push({icon:"💎",timing:"FASTEST-SELLING MARKET",timingColor:"#10B981",
+          text:t[0]+" properties selling in avg "+t[1].dom+" days — most liquid market in Dubai",
+          tag:"LIQUID",tagColor:"#10B981",area:t[0]});
+        break;
+      }
+    }
+  })();
 
   // Personalized "For You" — prepended if user has a recent area
   var personalArea=null;
