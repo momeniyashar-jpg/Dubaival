@@ -15,7 +15,7 @@ echo   [HOME PAGE]
 echo   1.  Analyzer          — Full property valuation (sale + rent)
 echo   2.  Quick Check       — Rapid area-level valuation
 echo   3.  Market Pulse      — Live market dashboard
-echo   4.  Market Moments    — Market news + alerts
+echo   4.  Market Moments    — Real-time top 5 market insights (yield/growth/liquidity leaders from 347 areas)
 echo   5.  Off-Market Deal   — Blind private exchange (OFM)
 echo.
 echo   [MARKET]
