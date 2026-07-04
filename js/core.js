@@ -1420,83 +1420,132 @@ var _valId=0;
 function getValSVG(size,badge){
   var s=size||200;
   var u=++_valId;
-  var g='vg'+u,ae='vae'+u,ne='vne'+u,gf='vcg'+u;
+  var g='vg'+u,ae='vae'+u,ne='vne'+u,gf='vcg'+u,gg='vgg'+u;
   var h='<svg width="'+s+'" height="'+s+'" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">';
   h+='<defs>';
-  h+='<radialGradient id="'+g+'" cx="45%" cy="35%" r="65%"><stop offset="0%" stop-color="#F0D260"/><stop offset="55%" stop-color="#D4AF37"/><stop offset="100%" stop-color="#8B6914"/></radialGradient>';
-  h+='<radialGradient id="'+ae+'" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="18%" stop-color="#00EEFF"/><stop offset="62%" stop-color="#0055CC"/><stop offset="100%" stop-color="#001133"/></radialGradient>';
-  h+='<radialGradient id="'+ne+'" cx="35%" cy="35%" r="65%"><stop offset="0%" stop-color="#FFD040" stop-opacity="0.9"/><stop offset="55%" stop-color="#B07000"/><stop offset="100%" stop-color="#1A0500"/></radialGradient>';
-  h+='<filter id="'+gf+'" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>';
+  // Gold gradient for feathers
+  h+='<linearGradient id="'+g+'" x1="10%" y1="0%" x2="90%" y2="100%">';
+  h+='<stop offset="0%" stop-color="#F5DC68"/><stop offset="45%" stop-color="#D4AF37"/><stop offset="100%" stop-color="#9A7418"/>';
+  h+='</linearGradient>';
+  // Darker gold for wing undersides
+  h+='<linearGradient id="'+gg+'" x1="0%" y1="0%" x2="100%" y2="100%">';
+  h+='<stop offset="0%" stop-color="#C8A020"/><stop offset="100%" stop-color="#7A5A10"/>';
+  h+='</linearGradient>';
+  // AI eye (cyan)
+  h+='<radialGradient id="'+ae+'" cx="50%" cy="50%" r="50%">';
+  h+='<stop offset="0%" stop-color="#FFF"/><stop offset="18%" stop-color="#00EEFF"/>';
+  h+='<stop offset="62%" stop-color="#0050CC"/><stop offset="100%" stop-color="#001133"/>';
+  h+='</radialGradient>';
+  // Natural eye (amber)
+  h+='<radialGradient id="'+ne+'" cx="35%" cy="35%" r="60%">';
+  h+='<stop offset="0%" stop-color="#FFD040" stop-opacity="0.95"/>';
+  h+='<stop offset="50%" stop-color="#B07800"/><stop offset="100%" stop-color="#1A0500"/>';
+  h+='</radialGradient>';
+  // Cyan glow filter
+  h+='<filter id="'+gf+'" x="-120%" y="-120%" width="340%" height="340%">';
+  h+='<feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="b"/>';
+  h+='<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>';
+  h+='</filter>';
   h+='</defs>';
-  // Background
-  h+='<circle cx="100" cy="100" r="98" fill="#07090F"/>';
-  h+='<circle cx="100" cy="100" r="98" fill="none" stroke="#D4AF37" stroke-width="1.5" opacity="0.7"/>';
-  // Tail (behind body)
-  h+='<path d="M78,173 L70,192 L80,183 L84,197 L92,181 L96,198 L100,184 L104,198 L108,181 L116,197 L120,183 L130,192 L122,173 Z" fill="url(#'+g+')" stroke="#8B6914" stroke-width="0.5"/>';
-  // Left wing
-  h+='<path d="M68,132 C47,121 15,134 3,160 C17,138 40,127 62,131 C44,137 30,148 22,163 C36,146 56,137 68,140 Z" fill="url(#'+g+')" opacity="0.9"/>';
-  h+='<path d="M3,160 C1,165 1,172 4,175 C9,164 7,159 3,160 Z" fill="#1A1200" opacity="0.65"/>';
-  // Right wing
-  h+='<path d="M132,132 C153,121 185,134 197,160 C183,138 160,127 138,131 C156,137 170,148 178,163 C164,146 144,137 132,140 Z" fill="url(#'+g+')" opacity="0.9"/>';
-  h+='<path d="M197,160 C199,165 199,172 196,175 C191,164 193,159 197,160 Z" fill="#1A1200" opacity="0.65"/>';
-  // Wing circuits — left
-  h+='<path d="M32,140 L25,148 L19,148 L19,156" stroke="#D4AF37" stroke-width="0.9" fill="none" opacity="0.48"/>';
-  h+='<circle cx="32" cy="140" r="1.8" fill="#D4AF37" opacity="0.55"/><circle cx="19" cy="156" r="1.4" fill="#D4AF37" opacity="0.5"/>';
-  // Wing circuits — right
-  h+='<path d="M168,140 L175,148 L181,148 L181,156" stroke="#D4AF37" stroke-width="0.9" fill="none" opacity="0.48"/>';
-  h+='<circle cx="168" cy="140" r="1.8" fill="#D4AF37" opacity="0.55"/><circle cx="181" cy="156" r="1.4" fill="#D4AF37" opacity="0.5"/>';
-  // Body/chest trapezoid
-  h+='<path d="M68,128 C68,119 74,113 83,111 L117,111 C126,113 132,119 132,128 L132,178 L68,178 Z" fill="url(#'+g+')"/>';
-  // Breast cream overlay + barring
-  h+='<rect x="76" y="118" width="48" height="57" rx="5" fill="#F0E070" opacity="0.38"/>';
-  h+='<path d="M80,129 C90,125 110,125 120,129" stroke="#7A5000" stroke-width="2.1" fill="none" stroke-linecap="round" opacity="0.48"/>';
-  h+='<path d="M79,141 C90,137 110,137 121,141" stroke="#7A5000" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.42"/>';
-  h+='<path d="M78,153 C90,149 110,149 122,153" stroke="#7A5000" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.36"/>';
-  h+='<path d="M78,165 C90,161 110,161 122,165" stroke="#7A5000" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.3"/>';
-  // AI chip badge on chest
-  h+='<rect x="88" y="128" width="24" height="13" rx="3" fill="#05080F" stroke="#D4AF37" stroke-width="0.8"/>';
-  h+='<text x="100" y="137.5" text-anchor="middle" font-family="monospace" font-size="7" font-weight="700" fill="#D4AF37" letter-spacing="0.8">AI</text>';
-  // Crown feathers
-  h+='<polygon points="83,52 89,25 99,57" fill="#180E00"/>';
-  h+='<polygon points="94,44 100,17 106,44" fill="#241800"/>';
-  h+='<polygon points="101,57 111,25 117,52" fill="#180E00"/>';
-  // Head main
-  h+='<ellipse cx="100" cy="82" rx="46" ry="42" fill="url(#'+g+')"/>';
-  // Dark hood (falcon dark cap)
-  h+='<path d="M57,67 C60,46 76,32 100,30 C124,32 140,46 143,67 C130,59 117,55 100,55 C83,55 70,59 57,67 Z" fill="#180E00"/>';
-  // Light cheeks
-  h+='<ellipse cx="78" cy="91" rx="17" ry="14" fill="#F5E090" opacity="0.82"/>';
-  h+='<ellipse cx="122" cy="91" rx="17" ry="14" fill="#F5E090" opacity="0.82"/>';
-  // Dark eye patches
-  h+='<ellipse cx="78" cy="82" rx="15" ry="12" fill="#180E00" opacity="0.88"/>';
-  h+='<ellipse cx="122" cy="82" rx="15" ry="12" fill="#180E00" opacity="0.88"/>';
-  // Malar stripes
-  h+='<path d="M67,93 C65,101 65,109 67,114" stroke="#180E00" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.82"/>';
-  h+='<path d="M133,93 C135,101 135,109 133,114" stroke="#180E00" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.82"/>';
-  // Natural left eye (amber)
-  h+='<circle cx="78" cy="82" r="11" fill="#080500"/>';
-  h+='<circle cx="78" cy="82" r="8.5" fill="url(#'+ne+')"/>';
-  h+='<circle cx="78" cy="82" r="4" fill="#0A0300"/>';
-  h+='<circle cx="75" cy="79" r="2" fill="rgba(255,240,170,0.62)"/>';
-  h+='<circle cx="78" cy="82" r="11" fill="none" stroke="#C8A020" stroke-width="1.4"/>';
-  // AI right eye (cyan)
-  h+='<circle cx="122" cy="82" r="13" fill="#000D20" opacity="0.65" filter="url(#'+gf+')"/>';
-  h+='<circle cx="122" cy="82" r="11" fill="#001528"/>';
-  h+='<circle cx="122" cy="82" r="8.5" fill="url(#'+ae+')" filter="url(#'+gf+')"/>';
-  h+='<circle cx="122" cy="82" r="5" fill="#003D99"/>';
-  h+='<circle cx="122" cy="82" r="2.5" fill="#00EEFF"/>';
-  h+='<line x1="111" y1="82" x2="133" y2="82" stroke="rgba(0,238,255,0.38)" stroke-width="0.8"/>';
-  h+='<line x1="122" y1="71" x2="122" y2="93" stroke="rgba(0,238,255,0.38)" stroke-width="0.8"/>';
-  h+='<circle cx="122" cy="82" r="7" fill="none" stroke="rgba(0,220,255,0.42)" stroke-width="0.8" stroke-dasharray="2.5,2"/>';
-  h+='<circle cx="122" cy="82" r="11" fill="none" stroke="#00CCFF" stroke-width="1.4" opacity="0.82"/>';
-  // Beak
-  h+='<path d="M90,105 C94,100 106,100 110,105 L106,119 C104,125 102,128 100,128 C98,128 96,125 94,119 Z" fill="#C8A020"/>';
-  h+='<path d="M92,119 C94,125 97,130 100,131 C103,130 106,125 108,119" fill="#8B6014"/>';
-  h+='<path d="M90,109 C94,112 106,112 110,109" stroke="#8B6014" stroke-width="0.8" fill="none"/>';
-  // VAL badge at bottom of circle
+
+  // ── Background ──────────────────────────────────────────────────────────
+  h+='<circle cx="100" cy="100" r="96" fill="#07090F"/>';
+  h+='<circle cx="100" cy="100" r="96" fill="none" stroke="#D4AF37" stroke-width="1.5" opacity="0.7"/>';
+
+  // ── Tail feathers (fan, bottom-center, under body) ───────────────────────
+  h+='<path d="M88,172 L82,188 L90,179 L93,192 L100,178 L107,192 L110,179 L118,188 L112,172 Z" fill="url(#'+g+')" stroke="#9A7418" stroke-width="0.5"/>';
+
+  // ── Left wing ────────────────────────────────────────────────────────────
+  // Broad sweeping wing shape, clearly a bird wing
+  h+='<path d="M76,118 C68,110 46,100 18,108 C6,112 2,122 4,134 C10,122 24,116 42,116 C30,122 18,132 14,146 C24,130 42,122 62,122 C50,130 42,142 40,154 C50,138 66,130 76,132 Z" fill="url(#'+g+')" opacity="0.92"/>';
+  // Wing shading / feather divisions
+  h+='<path d="M62,122 C50,130 42,142 40,154" stroke="url(#'+gg+')" stroke-width="1" fill="none" opacity="0.5"/>';
+  h+='<path d="M42,116 C30,122 18,132 14,146" stroke="url(#'+gg+')" stroke-width="1" fill="none" opacity="0.5"/>';
+  // Wing tip (darker)
+  h+='<path d="M4,134 C2,140 2,148 6,150 C10,140 8,134 4,134 Z" fill="#1C1200"/>';
+  // Circuit trace on wing
+  h+='<path d="M30,122 L24,130 L18,130 L18,138" stroke="#D4AF37" stroke-width="0.9" fill="none" opacity="0.5"/>';
+  h+='<circle cx="30" cy="122" r="2" fill="#D4AF37" opacity="0.6"/>';
+  h+='<circle cx="18" cy="138" r="1.5" fill="#D4AF37" opacity="0.5"/>';
+
+  // ── Right wing (mirror) ──────────────────────────────────────────────────
+  h+='<path d="M124,118 C132,110 154,100 182,108 C194,112 198,122 196,134 C190,122 176,116 158,116 C170,122 182,132 186,146 C176,130 158,122 138,122 C150,130 158,142 160,154 C150,138 134,130 124,132 Z" fill="url(#'+g+')" opacity="0.92"/>';
+  h+='<path d="M138,122 C150,130 158,142 160,154" stroke="url(#'+gg+')" stroke-width="1" fill="none" opacity="0.5"/>';
+  h+='<path d="M158,116 C170,122 182,132 186,146" stroke="url(#'+gg+')" stroke-width="1" fill="none" opacity="0.5"/>';
+  h+='<path d="M196,134 C198,140 198,148 194,150 C190,140 192,134 196,134 Z" fill="#1C1200"/>';
+  h+='<path d="M170,122 L176,130 L182,130 L182,138" stroke="#D4AF37" stroke-width="0.9" fill="none" opacity="0.5"/>';
+  h+='<circle cx="170" cy="122" r="2" fill="#D4AF37" opacity="0.6"/>';
+  h+='<circle cx="182" cy="138" r="1.5" fill="#D4AF37" opacity="0.5"/>';
+
+  // ── Body / chest ─────────────────────────────────────────────────────────
+  // Teardrop body shape (wider at top, narrows to tail)
+  h+='<path d="M78,118 C74,128 74,148 82,164 C88,174 94,178 100,178 C106,178 112,174 118,164 C126,148 126,128 122,118 Z" fill="url(#'+g+')" />';
+  // Breast lighter area + barring
+  h+='<ellipse cx="100" cy="148" rx="16" ry="26" fill="#F0E070" opacity="0.32"/>';
+  h+='<path d="M87,130 C92,127 108,127 113,130" stroke="#7A5000" stroke-width="1.7" fill="none" stroke-linecap="round" opacity="0.5"/>';
+  h+='<path d="M85,141 C92,138 108,138 115,141" stroke="#7A5000" stroke-width="1.7" fill="none" stroke-linecap="round" opacity="0.44"/>';
+  h+='<path d="M84,152 C92,149 108,149 116,152" stroke="#7A5000" stroke-width="1.7" fill="none" stroke-linecap="round" opacity="0.38"/>';
+  h+='<path d="M84,163 C92,160 108,160 116,163" stroke="#7A5000" stroke-width="1.7" fill="none" stroke-linecap="round" opacity="0.3"/>';
+  // AI chip badge
+  h+='<rect x="90" y="132" width="20" height="12" rx="3" fill="#060912" stroke="#D4AF37" stroke-width="0.8"/>';
+  h+='<text x="100" y="141" text-anchor="middle" font-family="monospace" font-size="6.5" font-weight="700" fill="#D4AF37" letter-spacing="0.5">AI</text>';
+
+  // ── Head ─────────────────────────────────────────────────────────────────
+  // Clean egg-shaped head (wider at bottom, narrower at crown)
+  h+='<path d="M60,84 C60,56 76,38 100,36 C124,38 140,56 140,84 C140,104 128,118 100,118 C72,118 60,104 60,84 Z" fill="url(#'+g+')" />';
+
+  // Dark slate hood — top 45% of head (peregrine falcon helmet)
+  h+='<path d="M62,80 C64,58 78,42 100,40 C122,42 136,58 138,80 C128,70 116,65 100,65 C84,65 72,70 62,80 Z" fill="#1C1200"/>';
+  // Hood smoothing edge
+  h+='<path d="M62,80 C72,70 84,65 100,65 C116,65 128,70 138,80" stroke="#2A1C00" stroke-width="1" fill="none"/>';
+
+  // Pale cheeks (below eye patches, sides of face)
+  h+='<ellipse cx="78" cy="96" rx="15" ry="13" fill="#F0E088" opacity="0.8"/>';
+  h+='<ellipse cx="122" cy="96" rx="15" ry="13" fill="#F0E088" opacity="0.8"/>';
+
+  // Dark eye patches (in the dark hood area)
+  h+='<ellipse cx="80" cy="76" rx="16" ry="14" fill="#1C1200" opacity="0.88"/>';
+  h+='<ellipse cx="120" cy="76" rx="16" ry="14" fill="#1C1200" opacity="0.88"/>';
+
+  // Malar stripes — THICK and clear (defining falcon feature, goes diagonally down from eyes)
+  h+='<path d="M68,90 C66,98 66,108 68,115" stroke="#1C1200" stroke-width="7" stroke-linecap="round" fill="none" opacity="0.88"/>';
+  h+='<path d="M132,90 C134,98 134,108 132,115" stroke="#1C1200" stroke-width="7" stroke-linecap="round" fill="none" opacity="0.88"/>';
+
+  // ── Left eye — natural amber ──────────────────────────────────────────────
+  h+='<circle cx="80" cy="76" r="13" fill="#070400"/>';
+  h+='<circle cx="80" cy="76" r="10" fill="url(#'+ne+')"/>';
+  h+='<circle cx="80" cy="76" r="5" fill="#0A0300"/>';
+  h+='<circle cx="77" cy="73" r="2.5" fill="rgba(255,240,150,0.7)"/>'; // specular
+  h+='<circle cx="80" cy="76" r="13" fill="none" stroke="#C8A020" stroke-width="1.5"/>';
+
+  // ── Right eye — AI cyan glow ───────────────────────────────────────────────
+  h+='<circle cx="120" cy="76" r="16" fill="#000C1E" opacity="0.55" filter="url(#'+gf+')"/>';
+  h+='<circle cx="120" cy="76" r="13" fill="#001228"/>';
+  h+='<circle cx="120" cy="76" r="10" fill="url(#'+ae+')" filter="url(#'+gf+')"/>';
+  h+='<circle cx="120" cy="76" r="6" fill="#003A99"/>';
+  h+='<circle cx="120" cy="76" r="2.8" fill="#00EEFF"/>';
+  // HUD crosshairs
+  h+='<line x1="108" y1="76" x2="132" y2="76" stroke="rgba(0,238,255,0.42)" stroke-width="0.8"/>';
+  h+='<line x1="120" y1="64" x2="120" y2="88" stroke="rgba(0,238,255,0.42)" stroke-width="0.8"/>';
+  // HUD dashed ring
+  h+='<circle cx="120" cy="76" r="8" fill="none" stroke="rgba(0,220,255,0.48)" stroke-width="0.9" stroke-dasharray="2.5,2"/>';
+  // Glowing outer ring
+  h+='<circle cx="120" cy="76" r="13" fill="none" stroke="#00CCFF" stroke-width="1.5" opacity="0.85"/>';
+
+  // ── Beak (hooked, downward from center-bottom of face) ────────────────────
+  // Upper mandible
+  h+='<path d="M88,106 C93,101 107,101 112,106 L108,120 C106,126 103,129 100,130 C97,129 94,126 92,120 Z" fill="#C8A020"/>';
+  // Hook tip / lower mandible
+  h+='<path d="M92,120 C94,127 97,131 100,132 C103,131 106,127 108,120" fill="#8B6014"/>';
+  // Beak midline
+  h+='<path d="M88,110 C93,113 107,113 112,110" stroke="#8B6014" stroke-width="0.8" fill="none"/>';
+  // Cere (fleshy yellow at base of beak)
+  h+='<ellipse cx="100" cy="103" rx="10" ry="4" fill="rgba(200,158,0,0.45)"/>';
+
+  // ── VAL badge ─────────────────────────────────────────────────────────────
   if(badge!==false){
-    h+='<rect x="83" y="188" width="34" height="13" rx="3.5" fill="#0C1020" stroke="#D4AF37" stroke-width="0.9"/>';
-    h+='<text x="100" y="197.5" text-anchor="middle" font-family="\'Space Grotesk\',monospace,sans-serif" font-size="7" font-weight="700" fill="#D4AF37" letter-spacing="1.5">VAL</text>';
+    h+='<rect x="84" y="188" width="32" height="12" rx="3.5" fill="#0C1020" stroke="#D4AF37" stroke-width="0.9"/>';
+    h+='<text x="100" y="197" text-anchor="middle" font-family="\'Space Grotesk\',monospace,sans-serif" font-size="6.5" font-weight="700" fill="#D4AF37" letter-spacing="1.5">VAL</text>';
   }
   h+='</svg>';
   return h;
