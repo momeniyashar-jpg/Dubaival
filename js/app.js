@@ -1405,7 +1405,9 @@ var TAB_TO_SECTION={
   "MediaStudio":["SocialMedia","Studio"],"Social":["SocialMedia","VideoPlatform"]
 };
 
-// ─── Market Moments Engine ────────────────────────────────────────────────────
+// ─── Top Opportunities Engine ─────────────────────────────────────────────────
+// TODO: When DLD live API is integrated, rename to "Market Moments" and upgrade
+// to use real-time transaction data instead of static AREAS database.
 function generateMarketMoments(){
   var entries=Object.entries(AREAS).filter(function(e){return e[1].psf>0;});
   function aY(a){return a.y?((a.y[0]+a.y[1])/2):0;}
@@ -1489,7 +1491,7 @@ function renderMarketMoments(cl){
 
   // Header
   var hdr=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"12px"}});
-  hdr.appendChild(div({fontSize:"12px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase"},"Market Moments"));
+  hdr.appendChild(div({fontSize:"12px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase"},"Top Opportunities"));
   var liveRow=el("div",{style:{display:"flex",alignItems:"center",gap:"5px"}});
   var dot=el("div",{style:{width:"7px",height:"7px",borderRadius:"50%",background:"#10B981",animation:"dvPulseDot 2s ease-in-out infinite"}});
   liveRow.appendChild(dot);
@@ -1616,7 +1618,7 @@ function renderHome(){
   });
   wrap.appendChild(qaScroll);
 
-  // --- Market Moments ---
+  // --- Top Opportunities ---
   wrap.appendChild(renderMarketMoments(cl));
 
   // --- Feature Cards (horizontal scroll) ---

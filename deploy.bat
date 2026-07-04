@@ -15,7 +15,8 @@ echo   [HOME PAGE]
 echo   1.  Analyzer          — Full property valuation (sale + rent)
 echo   2.  Quick Check       — Rapid area-level valuation
 echo   3.  Market Pulse      — Live market dashboard
-echo   4.  Market Moments    — Real-time top 5 market insights (yield/growth/liquidity leaders from 347 areas)
+echo   4.  Top Opportunities — Top 5 market insights from 347 areas (yield/growth/liquidity leaders)
+                          [TODO: rename to "Market Moments" + upgrade when DLD live API is ready]
 echo   5.  Off-Market Deal   — Blind private exchange (OFM)
 echo.
 echo   [MARKET]
