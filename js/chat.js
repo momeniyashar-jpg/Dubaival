@@ -2872,59 +2872,126 @@ function showVideoGenUI(initialPrompt){
     // Media Uploads (collapsible)
     var mediaToggle=div({background:"rgba(255,255,255,0.02)",border:"1px solid #2A3040",borderRadius:"10px",marginBottom:"12px",overflow:"hidden"});
     var mediaHdr=div({display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",cursor:"pointer"});
-    mediaHdr.appendChild(div({color:"#C0C8D8",fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace"},"📎 Add Your Media (photos, videos, floor plans)"));
-    var mediaChevron=div({color:"#8899AA",fontSize:"12px",transition:"transform 0.2s"},"▼");
+    var mediaHdrL=el("div",{style:{display:"flex",alignItems:"center",gap:"8px"}});
+    mediaHdrL.innerHTML='<i data-lucide="paperclip" style="width:14px;height:14px;color:#C9A84C"></i>';
+    mediaHdrL.appendChild(div({color:"#C0C8D8",fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace"},"Add Your Media (photos, videos, floor plans)"));
+    mediaHdr.appendChild(mediaHdrL);
+    var mediaChevron=el("div",{style:{color:"#8899AA",transition:"transform 0.2s"}});
+    mediaChevron.innerHTML='<i data-lucide="chevron-down" style="width:14px;height:14px"></i>';
     mediaHdr.appendChild(mediaChevron);
-    var mediaBody=div({padding:"12px",borderTop:"1px solid #2A3040",display:"none"});
+    var mediaBody=div({padding:"14px",borderTop:"1px solid #2A3040",display:"none"});
 
     mediaHdr.onclick=function(){
       var open=mediaBody.style.display==="block";
       mediaBody.style.display=open?"none":"block";
       mediaChevron.style.transform=open?"":"rotate(180deg)";
+      if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
     };
 
+    // Styled upload slot — hidden input + clickable drop zone + previews
     function vgMakeUploadSlot(label,accept,multiple,onFiles){
-      var slot=div({marginBottom:"10px"});
-      slot.appendChild(div({color:"#8899AA",fontSize:"10px",marginBottom:"4px"},label));
-      var inp=el("input",{type:"file",accept:accept,multiple:multiple,style:{fontSize:"10px",color:"#8899AA",width:"100%"}});
-      var prev=div({display:"flex",gap:"4px",flexWrap:"wrap",marginTop:"4px"});
-      inp.onchange=function(){onFiles(Array.from(inp.files||[]),prev);};
-      slot.appendChild(inp);slot.appendChild(prev);
+      var slot=div({marginBottom:"14px"});
+      slot.appendChild(div({color:"#8899AA",fontSize:"10px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",marginBottom:"6px"},label));
+
+      var inp=el("input",{type:"file"});
+      if(accept)inp.setAttribute("accept",accept);
+      if(multiple)inp.setAttribute("multiple","");
+      inp.style.cssText="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;";
+      document.body.appendChild(inp);
+
+      var prev=div({display:"flex",gap:"6px",flexWrap:"wrap",marginTop:"8px"});
+
+      var zone=div({
+        border:"1.5px dashed #2A3040",borderRadius:"10px",padding:"16px 12px",
+        textAlign:"center",cursor:"pointer",background:"rgba(255,255,255,0.02)",
+        transition:"all 0.18s",userSelect:"none"
+      });
+      zone.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none"><i data-lucide="upload-cloud" style="width:22px;height:22px;color:#556677"></i><span style="color:#8899AA;font-size:11px;font-family:Inter,sans-serif">Click to browse</span><span style="color:#3A4560;font-size:9px">or drag & drop</span></div>';
+
+      zone.addEventListener("mouseenter",function(){zone.style.borderColor="#C9A84C";zone.style.background="rgba(201,168,76,0.05)";});
+      zone.addEventListener("mouseleave",function(){zone.style.borderColor="#2A3040";zone.style.background="rgba(255,255,255,0.02)";});
+      zone.addEventListener("dragover",function(e){e.preventDefault();zone.style.borderColor="#C9A84C";zone.style.background="rgba(201,168,76,0.07)";});
+      zone.addEventListener("dragleave",function(){zone.style.borderColor="#2A3040";zone.style.background="rgba(255,255,255,0.02)";});
+      zone.addEventListener("drop",function(e){
+        e.preventDefault();zone.style.borderColor="#2A3040";zone.style.background="rgba(255,255,255,0.02)";
+        var files=Array.from(e.dataTransfer.files);
+        if(accept){files=files.filter(function(f){
+          var a=accept.replace(/\*/g,"");return f.type.startsWith(a.replace("/",""))||a==="image/"||a==="video/"||a==="audio/";
+        });}
+        onFiles(files,prev);updateZoneLabel(files.length);
+      });
+      zone.addEventListener("click",function(){inp.click();});
+
+      function updateZoneLabel(n){
+        if(n>0){
+          zone.innerHTML='<div style="display:flex;align-items:center;justify-content:center;gap:6px;pointer-events:none"><i data-lucide="check-circle" style="width:16px;height:16px;color:#10B981"></i><span style="color:#10B981;font-size:11px;font-family:Inter,sans-serif;font-weight:600">'+n+' file'+(n>1?"s":"")+" selected</span></div>";
+          zone.style.borderColor="rgba(16,185,129,0.4)";zone.style.background="rgba(16,185,129,0.05)";
+        }
+        if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
+      }
+
+      inp.onchange=function(){
+        var files=Array.from(inp.files||[]);
+        onFiles(files,prev);updateZoneLabel(files.length);
+      };
+
+      slot.appendChild(zone);slot.appendChild(prev);
       return slot;
     }
 
-    mediaBody.appendChild(vgMakeUploadSlot("Photos (blended into slides)","image/*",true,function(files,prev){
+    mediaBody.appendChild(vgMakeUploadSlot("PHOTOS — blended into slides","image/*",true,function(files,prev){
       userPhotoFiles=files;prev.innerHTML="";
-      files.forEach(function(f){var img=el("img",{style:{width:"44px",height:"44px",objectFit:"cover",borderRadius:"6px",border:"1px solid #C9A84C"}});img.src=URL.createObjectURL(f);prev.appendChild(img);});
+      files.forEach(function(f){
+        var img=el("img",{style:{width:"48px",height:"48px",objectFit:"cover",borderRadius:"8px",border:"1px solid #C9A84C"}});
+        img.src=URL.createObjectURL(f);prev.appendChild(img);
+      });
     }));
-    mediaBody.appendChild(vgMakeUploadSlot("Your Videos (merged into final)","video/*",true,function(files,prev){
+    mediaBody.appendChild(vgMakeUploadSlot("VIDEOS — merged into final","video/*",true,function(files,prev){
       userVideoFiles=files;prev.innerHTML="";
-      files.forEach(function(f){var t=div({background:"#2A3040",borderRadius:"6px",padding:"4px 8px",fontSize:"9px",color:"#E0E0E0"});t.textContent=f.name.slice(0,18);prev.appendChild(t);});
+      files.forEach(function(f){
+        var t=div({background:"rgba(201,168,76,0.1)",border:"1px solid rgba(201,168,76,0.25)",borderRadius:"6px",padding:"4px 10px",fontSize:"10px",color:"#C9A84C",fontFamily:"Space Grotesk,monospace"});
+        t.textContent=f.name.length>20?f.name.slice(0,18)+"…":f.name;prev.appendChild(t);
+      });
     }));
-    mediaBody.appendChild(vgMakeUploadSlot("Floor Plans (shown as dedicated slide)","image/*",true,function(files,prev){
+    mediaBody.appendChild(vgMakeUploadSlot("FLOOR PLANS — shown as dedicated slide","image/*",true,function(files,prev){
       floorPlanFiles=files;prev.innerHTML="";
-      files.forEach(function(f){var img=el("img",{style:{width:"44px",height:"44px",objectFit:"contain",borderRadius:"6px",border:"1px solid #10B981",background:"#FFF"}});img.src=URL.createObjectURL(f);prev.appendChild(img);});
+      files.forEach(function(f){
+        var img=el("img",{style:{width:"48px",height:"48px",objectFit:"contain",borderRadius:"8px",border:"1px solid #10B981",background:"#FFF"}});
+        img.src=URL.createObjectURL(f);prev.appendChild(img);
+      });
     }));
 
     // Location
-    var locInp=el("input",{style:{width:"100%",background:"#0D1220",border:"1px solid #2A3040",borderRadius:"8px",padding:"7px 10px",color:"#E0E0E0",fontSize:"11px",boxSizing:"border-box"},placeholder:"e.g. Dubai Marina, Palm Jumeirah..."});
+    var locWrap=div({marginBottom:"14px"});
+    locWrap.appendChild(div({color:"#8899AA",fontSize:"10px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",marginBottom:"6px"},"LOCATION / AREA"));
+    var locInp=el("input",{style:{width:"100%",background:"#0D1220",border:"1px solid #2A3040",borderRadius:"8px",padding:"9px 12px",color:"#E0E0E0",fontSize:"12px",boxSizing:"border-box",fontFamily:"Inter,sans-serif"},placeholder:"e.g. Dubai Marina, Palm Jumeirah..."});
     locInp.oninput=function(){VG_STATE.locationText=locInp.value.trim();};
     if(VG_STATE.locationText)locInp.value=VG_STATE.locationText;
-    mediaBody.appendChild(vgMakeUploadSlot("Location / Map",null,false,function(){}));
-    mediaBody.lastChild.appendChild(locInp);
+    locWrap.appendChild(locInp);
+    mediaBody.appendChild(locWrap);
 
     // Music
-    var musicSel=el("select",{style:{width:"100%",background:"#0D1220",border:"1px solid #2A3040",borderRadius:"8px",padding:"7px 10px",color:"#E0E0E0",fontSize:"11px",marginBottom:"6px"}});
-    [["none","No Music"],["ambient","Ambient Piano"],["upbeat","Upbeat Corporate"],["luxury","Luxury Orchestral"],["chill","Chill Lofi"],["dramatic","Dramatic Cinematic"],["custom","Upload Your Music"]].forEach(function(o){
+    var musicWrap=div({marginBottom:"4px"});
+    musicWrap.appendChild(div({color:"#8899AA",fontSize:"10px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",marginBottom:"6px"},"BACKGROUND MUSIC"));
+    var musicSel=el("select",{style:{width:"100%",background:"#0D1220",border:"1px solid #2A3040",borderRadius:"8px",padding:"9px 12px",color:"#E0E0E0",fontSize:"12px",fontFamily:"Inter,sans-serif",marginBottom:"8px"}});
+    [["none","No Music"],["ambient","Ambient Piano"],["upbeat","Upbeat Corporate"],["luxury","Luxury Orchestral"],["chill","Chill Lofi"],["dramatic","Dramatic Cinematic"],["custom","Upload Your Own Music…"]].forEach(function(o){
       var opt=el("option");opt.value=o[0];opt.textContent=o[1];if(o[0]===VG_STATE.musicType)opt.selected=true;musicSel.appendChild(opt);
     });
-    musicSel.onchange=function(){VG_STATE.musicType=musicSel.value;};
-    var musicInp=el("input",{type:"file",accept:"audio/*",style:{fontSize:"10px",color:"#8899AA",display:"none",width:"100%",marginTop:"4px"}});
-    musicSel.onchange=function(){VG_STATE.musicType=musicSel.value;musicInp.style.display=musicSel.value==="custom"?"block":"none";};
-    musicInp.onchange=function(){musicFileRef=musicInp.files[0]||null;};
-    var musicWrap=div({marginBottom:"4px"});
-    musicWrap.appendChild(div({color:"#8899AA",fontSize:"10px",marginBottom:"4px"},"Background Music"));
-    musicWrap.appendChild(musicSel);musicWrap.appendChild(musicInp);
+    var musicInpHidden=el("input",{type:"file",accept:"audio/*"});
+    musicInpHidden.style.cssText="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;";
+    document.body.appendChild(musicInpHidden);
+    var musicUploadBtn=div({display:"none",background:"rgba(201,168,76,0.08)",border:"1.5px dashed rgba(201,168,76,0.3)",borderRadius:"8px",padding:"10px",textAlign:"center",cursor:"pointer",color:"#C9A84C",fontSize:"11px",fontFamily:"Inter,sans-serif"});
+    musicUploadBtn.textContent="Click to choose audio file";
+    musicUploadBtn.onclick=function(){musicInpHidden.click();};
+    musicInpHidden.onchange=function(){
+      musicFileRef=musicInpHidden.files[0]||null;
+      if(musicFileRef)musicUploadBtn.textContent="✓ "+musicFileRef.name;
+    };
+    musicSel.onchange=function(){
+      VG_STATE.musicType=musicSel.value;
+      musicUploadBtn.style.display=musicSel.value==="custom"?"block":"none";
+    };
+    musicWrap.appendChild(musicSel);musicWrap.appendChild(musicUploadBtn);
     mediaBody.appendChild(musicWrap);
 
     mediaToggle.appendChild(mediaHdr);mediaToggle.appendChild(mediaBody);
@@ -2932,7 +2999,7 @@ function showVideoGenUI(initialPrompt){
 
     // Generate Button
     var genBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#C9A84C,#F59E0B)",color:"#000",border:"none",borderRadius:"12px",padding:"16px",fontSize:"15px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.05em"}});
-    genBtn.textContent="🎬 Generate Video";
+    genBtn.innerHTML='<i data-lucide="video" style="width:16px;height:16px;vertical-align:middle;margin-right:8px"></i>Generate Video';
     genBtn.onclick=function(){
       var prompt=promptInp.value.trim();
       if(!prompt){alert("Please enter a video description or select a template");return;}
