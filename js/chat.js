@@ -2081,21 +2081,30 @@ function drawVideoProgressBar(ctx,w,h,progress,color){
 }
 
 async function parseVideoPromptAI(userPrompt){
+  // Try to extract building name and enrich prompt with DB data before sending to AI
+  var dbHint="";
+  var bNameGuess=(userPrompt.match(/(?:^|about|for|at|in)\s+([A-Z][A-Za-z0-9 ]+?)(?:\s+in|\s+at|\s+,|$)/)||[])[1]||"";
+  if(bNameGuess){
+    var bData=lookupBuilding(bNameGuess,"");
+    if(bData&&bData.p){
+      dbHint=" [DB: PSF=AED "+bData.p+", area="+bData.a+", grade="+bData.g+(bData.sc?", SC=AED "+bData.sc+"/sqft":"")+"]";
+    }
+  }
   var areaList=Object.keys(AREAS).slice(0,20).join(", ");
   var sysPrompt="You are a Dubai real estate video planner. Output ONLY valid JSON, no markdown, no extra text.";
-  var userMsg="Request: \""+userPrompt+"\"\nAreas: "+areaList+"\n\nOutput JSON:\n"+
-    "{\"building\":null,\"area\":\"area or null\",\"topic\":\"theme\",\"style\":\"luxury\",\"duration\":30,"+
+  var userMsg="Request: \""+userPrompt+dbHint+"\"\nAreas: "+areaList+"\n\nOutput JSON:\n"+
+    "{\"building\":\"exact building name or null\",\"area\":\"area or null\",\"topic\":\"theme\",\"style\":\"luxury\",\"duration\":30,"+
     "\"slides\":["+
-    "{\"type\":\"intro\",\"text\":\"hook\",\"subtext\":\"subtitle\"},"+
-    "{\"type\":\"image\",\"text\":\"caption\",\"searchQuery\":\"Dubai luxury real estate\"},"+
-    "{\"type\":\"stats\",\"title\":\"Stats\",\"items\":[{\"label\":\"PSF\",\"value\":\"AED 2800\"},{\"label\":\"Yield\",\"value\":\"7%\"}]},"+
-    "{\"type\":\"chart\",\"chartType\":\"bar\",\"title\":\"Growth\",\"data\":[{\"label\":\"1Y\",\"value\":15},{\"label\":\"3Y\",\"value\":42}]},"+
-    "{\"type\":\"image\",\"text\":\"text\",\"searchQuery\":\"Dubai property\"},"+
-    "{\"type\":\"quote\",\"text\":\"quote\"},"+
-    "{\"type\":\"cta\",\"text\":\"CTA\",\"subtext\":\"contact\"}"+
+    "{\"type\":\"intro\",\"text\":\"hook mentioning building/area name\",\"subtext\":\"subtitle\"},"+
+    "{\"type\":\"image\",\"text\":\"caption\",\"searchQuery\":\"Dubai luxury apartment tower interior\"},"+
+    "{\"type\":\"stats\",\"title\":\"Stats\",\"items\":[{\"label\":\"PSF\",\"value\":\"AED X\"},{\"label\":\"Yield\",\"value\":\"X%\"},{\"label\":\"Growth\",\"value\":\"X%\"}]},"+
+    "{\"type\":\"chart\",\"chartType\":\"bar\",\"title\":\"Price Growth\",\"data\":[{\"label\":\"1Y\",\"value\":15},{\"label\":\"3Y\",\"value\":42}]},"+
+    "{\"type\":\"image\",\"text\":\"amenities text\",\"searchQuery\":\"Dubai luxury pool amenities\"},"+
+    "{\"type\":\"quote\",\"text\":\"aspirational quote about the building/area\"},"+
+    "{\"type\":\"cta\",\"text\":\"Book a Viewing\",\"subtext\":\"DubAIVal.com\"}"+
     "],\"voiceover\":[\"line1\",\"line2\",\"line3\",\"line4\",\"line5\",\"line6\",\"line7\"],"+
-    "\"caption\":\"#Dubai #RealEstate\",\"music\":\"luxury\"}\n"+
-    "Fill in real values based on the request. 6-10 slides. Voiceover 1 line per slide.";
+    "\"caption\":\"#Dubai #RealEstate #Investing\",\"music\":\"luxury\"}\n"+
+    "IMPORTANT: Use the actual building/area name in text fields. Fill in real PSF/yield values if known. searchQuery must be specific (e.g. 'Dubai Marina tower luxury apartment'). 6-10 slides.";
 
   function extractJSON(txt){
     try{
@@ -3025,7 +3034,6 @@ function showVideoGenUI(initialPrompt){
     genBtn.onclick=function(){
       var prompt=promptInp.value.trim();
       if(!prompt){alert("Please enter a video description or select a template");return;}
-      if(!localStorage.getItem("dv_gemini_key")){alert("Add your Gemini API key in Setup first");return;}
       VG_STATE.prompt=prompt;
       vgSwitchTab("create");
       setTimeout(runVGPipeline,100);
@@ -3778,17 +3786,52 @@ async function findMultipleImages(caption,count){
 
   if(collected.length>0){console.log("[DubAIVal] "+collected.length+" images total");return collected;}
 
-  var fallbacks=[
-    "https://images.pexels.com/photos/3769312/pexels-photo-3769312.jpeg?auto=compress&w=1080",
-    "https://images.pexels.com/photos/2041556/pexels-photo-2041556.jpeg?auto=compress&w=1080",
-    "https://images.pexels.com/photos/1486222/pexels-photo-1486222.jpeg?auto=compress&w=1080",
+  // Curated Dubai real estate fallback pool — varied by keyword to avoid repetition
+  var q2=(query||"").toLowerCase();
+  var POOL_LUXURY=[
+    "https://images.pexels.com/photos/2102587/pexels-photo-2102587.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/276724/pexels-photo-276724.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/323780/pexels-photo-323780.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/1918291/pexels-photo-1918291.jpeg?auto=compress&w=1080"
+  ];
+  var POOL_SKYLINE=[
     "https://images.pexels.com/photos/2115367/pexels-photo-2115367.jpeg?auto=compress&w=1080",
     "https://images.pexels.com/photos/2193300/pexels-photo-2193300.jpeg?auto=compress&w=1080",
     "https://images.pexels.com/photos/1268871/pexels-photo-1268871.jpeg?auto=compress&w=1080",
-    "https://images.pexels.com/photos/1838640/pexels-photo-1838640.jpeg?auto=compress&w=1080",
-    "https://images.pexels.com/photos/3586966/pexels-photo-3586966.jpeg?auto=compress&w=1080"
+    "https://images.pexels.com/photos/3586966/pexels-photo-3586966.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/41949/earth-earth-at-night-night-lights-41949.jpeg?auto=compress&w=1080"
   ];
-  for(var f=0;f<Math.min(count,fallbacks.length);f++)collected.push(fallbacks[f]);
+  var POOL_MARINA=[
+    "https://images.pexels.com/photos/1838640/pexels-photo-1838640.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/2041556/pexels-photo-2041556.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/3881104/pexels-photo-3881104.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/1134166/pexels-photo-1134166.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/2090653/pexels-photo-2090653.jpeg?auto=compress&w=1080"
+  ];
+  var POOL_INTERIOR=[
+    "https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/2062426/pexels-photo-2062426.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/1080721/pexels-photo-1080721.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/1643384/pexels-photo-1643384.jpeg?auto=compress&w=1080"
+  ];
+  var POOL_CITY=[
+    "https://images.pexels.com/photos/3935702/pexels-photo-3935702.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/1117493/pexels-photo-1117493.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/1005417/pexels-photo-1005417.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/2304791/pexels-photo-2304791.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/374870/pexels-photo-374870.jpeg?auto=compress&w=1080"
+  ];
+  var pool=POOL_LUXURY;
+  if(q2.indexOf("marina")!==-1||q2.indexOf("sea")!==-1||q2.indexOf("water")!==-1||q2.indexOf("beach")!==-1)pool=POOL_MARINA;
+  else if(q2.indexOf("interior")!==-1||q2.indexOf("living")!==-1||q2.indexOf("bedroom")!==-1||q2.indexOf("kitchen")!==-1)pool=POOL_INTERIOR;
+  else if(q2.indexOf("skyline")!==-1||q2.indexOf("downtown")!==-1||q2.indexOf("burj")!==-1||q2.indexOf("city")!==-1)pool=POOL_SKYLINE;
+  else if(q2.indexOf("street")!==-1||q2.indexOf("road")!==-1||q2.indexOf("area")!==-1||q2.indexOf("community")!==-1)pool=POOL_CITY;
+  // shuffle pool with deterministic seed based on query length for variety
+  var seed=query.length%pool.length;
+  var shuffled=pool.slice(seed).concat(pool.slice(0,seed));
+  for(var f=0;f<Math.min(count,shuffled.length);f++)collected.push(shuffled[f]);
   return collected;
 }
 
