@@ -2081,31 +2081,21 @@ function drawVideoProgressBar(ctx,w,h,progress,color){
 }
 
 async function parseVideoPromptAI(userPrompt){
-  var areaList=Object.keys(AREAS).slice(0,50).join(", ");
-  var sysPrompt="You are a video planner for a Dubai real estate platform. Parse user requests and create structured video plans. Always respond with ONLY valid JSON, no extra text.";
-  var userMsg="User request: \""+userPrompt+"\"\n\n"+
-    "Available areas: "+areaList+"\n\n"+
-    "Respond with ONLY this JSON (no markdown, no extra text):\n{\n"+
-    "  \"building\": \"building name or null\",\n"+
-    "  \"area\": \"area name from available list or null\",\n"+
-    "  \"topic\": \"main topic/theme\",\n"+
-    "  \"style\": \"luxury\",\n"+
-    "  \"duration\": 30,\n"+
-    "  \"slideCount\": 8,\n"+
-    "  \"slides\": [\n"+
-    "    {\"type\": \"intro\", \"text\": \"hook text\", \"subtext\": \"subtitle\"},\n"+
-    "    {\"type\": \"image\", \"text\": \"overlay text\", \"searchQuery\": \"Dubai luxury real estate\"},\n"+
-    "    {\"type\": \"stats\", \"title\": \"Market Stats\", \"items\": [{\"label\": \"PSF\", \"value\": \"AED 2,800\"},{\"label\": \"Yield\", \"value\": \"6-8%\"}]},\n"+
-    "    {\"type\": \"chart\", \"chartType\": \"bar\", \"title\": \"Price Growth\", \"data\": [{\"label\": \"1Y\", \"value\": 15},{\"label\": \"3Y\", \"value\": 42}]},\n"+
-    "    {\"type\": \"image\", \"text\": \"text\", \"searchQuery\": \"Dubai property\"},\n"+
-    "    {\"type\": \"quote\", \"text\": \"inspirational quote\"},\n"+
-    "    {\"type\": \"cta\", \"text\": \"CTA text\", \"subtext\": \"contact info\"}\n"+
-    "  ],\n"+
-    "  \"voiceover\": [\"line 1\", \"line 2\", \"line 3\", \"line 4\", \"line 5\", \"line 6\", \"line 7\"],\n"+
-    "  \"caption\": \"Instagram caption with hashtags\",\n"+
-    "  \"music\": \"luxury\"\n"+
-    "}\n\n"+
-    "RULES: Make slides diverse (mix image/stats/chart/quote/cta). Voiceover 1 line per slide. Duration 20-60s. 6-10 slides. searchQuery specific for Dubai real estate images.";
+  var areaList=Object.keys(AREAS).slice(0,20).join(", ");
+  var sysPrompt="You are a Dubai real estate video planner. Output ONLY valid JSON, no markdown, no extra text.";
+  var userMsg="Request: \""+userPrompt+"\"\nAreas: "+areaList+"\n\nOutput JSON:\n"+
+    "{\"building\":null,\"area\":\"area or null\",\"topic\":\"theme\",\"style\":\"luxury\",\"duration\":30,"+
+    "\"slides\":["+
+    "{\"type\":\"intro\",\"text\":\"hook\",\"subtext\":\"subtitle\"},"+
+    "{\"type\":\"image\",\"text\":\"caption\",\"searchQuery\":\"Dubai luxury real estate\"},"+
+    "{\"type\":\"stats\",\"title\":\"Stats\",\"items\":[{\"label\":\"PSF\",\"value\":\"AED 2800\"},{\"label\":\"Yield\",\"value\":\"7%\"}]},"+
+    "{\"type\":\"chart\",\"chartType\":\"bar\",\"title\":\"Growth\",\"data\":[{\"label\":\"1Y\",\"value\":15},{\"label\":\"3Y\",\"value\":42}]},"+
+    "{\"type\":\"image\",\"text\":\"text\",\"searchQuery\":\"Dubai property\"},"+
+    "{\"type\":\"quote\",\"text\":\"quote\"},"+
+    "{\"type\":\"cta\",\"text\":\"CTA\",\"subtext\":\"contact\"}"+
+    "],\"voiceover\":[\"line1\",\"line2\",\"line3\",\"line4\",\"line5\",\"line6\",\"line7\"],"+
+    "\"caption\":\"#Dubai #RealEstate\",\"music\":\"luxury\"}\n"+
+    "Fill in real values based on the request. 6-10 slides. Voiceover 1 line per slide.";
 
   function extractJSON(txt){
     try{

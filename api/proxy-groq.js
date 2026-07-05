@@ -23,7 +23,7 @@ module.exports = async function handler(req, res) {
   for (var mi = 0; mi < body.messages.length; mi++) {
     var msg = body.messages[mi];
     if (!msg || typeof msg.content !== "string") return res.status(400).json({ error: "Invalid message" });
-    if (msg.content.length > 2000) return res.status(400).json({ error: "Message too long (max 2000 chars)" });
+    if (msg.content.length > 6000) return res.status(400).json({ error: "Message too long (max 6000 chars)" });
   }
 
   var allowed = ["llama-3.3-70b-versatile", "llama3-70b-8192", "llama3-8b-8192", "mixtral-8x7b-32768"];
