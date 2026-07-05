@@ -2081,44 +2081,70 @@ function drawVideoProgressBar(ctx,w,h,progress,color){
 }
 
 async function parseVideoPromptAI(userPrompt){
-  var geminiKey=localStorage.getItem("dv_gemini_key");
-  if(!geminiKey)return null;
   var areaList=Object.keys(AREAS).slice(0,50).join(", ");
-  var prompt="You are a video planner for a Dubai real estate platform. Parse this request and create a video plan.\n\n"+
-    "User request: \""+userPrompt+"\"\n\n"+
+  var sysPrompt="You are a video planner for a Dubai real estate platform. Parse user requests and create structured video plans. Always respond with ONLY valid JSON, no extra text.";
+  var userMsg="User request: \""+userPrompt+"\"\n\n"+
     "Available areas: "+areaList+"\n\n"+
-    "Respond with ONLY this JSON:\n```json\n{\n"+
+    "Respond with ONLY this JSON (no markdown, no extra text):\n{\n"+
     "  \"building\": \"building name or null\",\n"+
     "  \"area\": \"area name from available list or null\",\n"+
     "  \"topic\": \"main topic/theme\",\n"+
-    "  \"style\": \"luxury|investment|family|lifestyle|data\",\n"+
+    "  \"style\": \"luxury\",\n"+
     "  \"duration\": 30,\n"+
     "  \"slideCount\": 8,\n"+
     "  \"slides\": [\n"+
     "    {\"type\": \"intro\", \"text\": \"hook text\", \"subtext\": \"subtitle\"},\n"+
-    "    {\"type\": \"image\", \"text\": \"overlay text\", \"searchQuery\": \"image search terms\"},\n"+
-    "    {\"type\": \"stats\", \"title\": \"title\", \"items\": [{\"label\": \"PSF\", \"value\": \"AED 2,800\"}, ...]},\n"+
-    "    {\"type\": \"chart\", \"chartType\": \"bar|line|donut|gauge\", \"title\": \"title\", \"data\": [...]},\n"+
-    "    {\"type\": \"comparison\", \"title\": \"title\", \"left\": {\"label\": \"A\", \"values\": [...]}, \"right\": {\"label\": \"B\", \"values\": [...]}},\n"+
-    "    {\"type\": \"image\", \"text\": \"...\", \"searchQuery\": \"...\"},\n"+
-    "    {\"type\": \"quote\", \"text\": \"inspirational quote about the property/area\"},\n"+
+    "    {\"type\": \"image\", \"text\": \"overlay text\", \"searchQuery\": \"Dubai luxury real estate\"},\n"+
+    "    {\"type\": \"stats\", \"title\": \"Market Stats\", \"items\": [{\"label\": \"PSF\", \"value\": \"AED 2,800\"},{\"label\": \"Yield\", \"value\": \"6-8%\"}]},\n"+
+    "    {\"type\": \"chart\", \"chartType\": \"bar\", \"title\": \"Price Growth\", \"data\": [{\"label\": \"1Y\", \"value\": 15},{\"label\": \"3Y\", \"value\": 42}]},\n"+
+    "    {\"type\": \"image\", \"text\": \"text\", \"searchQuery\": \"Dubai property\"},\n"+
+    "    {\"type\": \"quote\", \"text\": \"inspirational quote\"},\n"+
     "    {\"type\": \"cta\", \"text\": \"CTA text\", \"subtext\": \"contact info\"}\n"+
     "  ],\n"+
-    "  \"voiceover\": [\"Script line 1\", \"Script line 2\", ...],\n"+
+    "  \"voiceover\": [\"line 1\", \"line 2\", \"line 3\", \"line 4\", \"line 5\", \"line 6\", \"line 7\"],\n"+
     "  \"caption\": \"Instagram caption with hashtags\",\n"+
-    "  \"music\": \"upbeat|calm|luxury|dramatic\"\n"+
-    "}\n```\n\n"+
-    "RULES:\n- Use REAL data if you know it (PSF, yields, growth for Dubai areas)\n- Make slides visually diverse (mix image/stats/chart/comparison)\n- Voiceover should be 1 line per slide, professional real estate narration\n- Duration 20-60 seconds, 6-12 slides\n- searchQuery should be specific for finding relevant images";
+    "  \"music\": \"luxury\"\n"+
+    "}\n\n"+
+    "RULES: Make slides diverse (mix image/stats/chart/quote/cta). Voiceover 1 line per slide. Duration 20-60s. 6-10 slides. searchQuery specific for Dubai real estate images.";
+
+  function extractJSON(txt){
+    try{
+      var jm=txt.match(/```json\s*([\s\S]*?)\s*```/);
+      if(jm)return JSON.parse(jm[1]);
+      var ob=txt.match(/\{[\s\S]*\}/);
+      if(ob)return JSON.parse(ob[0]);
+    }catch(e){}
+    return null;
+  }
+
+  // Try Gemini first if key available
+  var geminiKey=localStorage.getItem("dv_gemini_key");
+  if(geminiKey){
+    try{
+      var gr=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({contents:[{parts:[{text:sysPrompt+"\n\n"+userMsg}]}],generationConfig:{temperature:0.4}})
+      });
+      if(gr.ok){
+        var gd=await gr.json();
+        var gtxt=gd.candidates&&gd.candidates[0]&&gd.candidates[0].content.parts[0].text||"";
+        var gp=extractJSON(gtxt);
+        if(gp&&gp.slides&&gp.slides.length)return gp;
+      }
+    }catch(e){}
+  }
+
+  // Fallback: Groq via server proxy (always available)
   try{
-    var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
-      method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.4}})
-    });
+    var r=await callGroqRaw({model:"llama-3.3-70b-versatile",max_tokens:2000,temperature:0.4,messages:[
+      {role:"system",content:sysPrompt},
+      {role:"user",content:userMsg}
+    ]});
     if(!r.ok)return null;
     var d=await r.json();
-    var txt=d.candidates[0].content.parts[0].text;
-    var jm=txt.match(/```json\s*([\s\S]*?)\s*```/);
-    return jm?JSON.parse(jm[1]):JSON.parse(txt.match(/\{[\s\S]*\}/)[0]);
+    var txt=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||"";
+    var plan=extractJSON(txt);
+    return (plan&&plan.slides&&plan.slides.length)?plan:null;
   }catch(e){return null;}
 }
 
@@ -3093,7 +3119,7 @@ function showVideoGenUI(initialPrompt){
       // Step 1: Plan
       vgSetStep("plan","active");vgProgress(5,"AI planning your video...");
       var plan=await parseVideoPromptAI(fullPrompt);
-      if(!plan||!plan.slides)throw new Error("AI could not create video plan");
+      if(!plan||!plan.slides)throw new Error("AI could not parse your request. Please check your internet connection and try again.");
       VG_STATE.plan=plan;
       vgSetStep("plan","done");
 
@@ -3212,10 +3238,16 @@ function showVideoGenUI(initialPrompt){
     }catch(err){
       vgProgress(0,"Error: "+err.message);
       Object.keys(vgStepEls).forEach(function(k){if(vgStepEls[k].dot.style.background==="#F59E0B")vgSetStep(k,"error");});
-      var retryBtn=el("button",{style:{width:"100%",background:"#2A3040",color:"#E0E0E0",border:"none",borderRadius:"10px",padding:"12px",fontSize:"12px",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginTop:"12px"}});
-      retryBtn.textContent="← Back to Setup";
-      retryBtn.onclick=function(){vgSwitchTab("setup");};
-      vgBody.appendChild(retryBtn);
+      var errRow=div({display:"flex",gap:"8px",marginTop:"12px"});
+      var retryBtn=el("button",{style:{flex:"1",background:"#C9A84C",color:"#000",border:"none",borderRadius:"10px",padding:"12px",fontSize:"12px",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"}});
+      retryBtn.innerHTML='<i data-lucide="refresh-cw" style="width:13px;height:13px;margin-right:5px;vertical-align:middle"></i>Try Again';
+      retryBtn.onclick=function(){vgBody.innerHTML="";Object.keys(vgStepEls).forEach(function(k){delete vgStepEls[k];});renderVGCreate();runVGPipeline();};
+      var backBtn=el("button",{style:{flex:"1",background:"#2A3040",color:"#E0E0E0",border:"none",borderRadius:"10px",padding:"12px",fontSize:"12px",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+      backBtn.innerHTML='<i data-lucide="arrow-left" style="width:13px;height:13px;margin-right:5px;vertical-align:middle"></i>Back to Setup';
+      backBtn.onclick=function(){vgSwitchTab("setup");};
+      errRow.appendChild(retryBtn);errRow.appendChild(backBtn);
+      vgBody.appendChild(errRow);
+      if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
     }
   }
 
