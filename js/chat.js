@@ -2690,39 +2690,39 @@ function showVideoGenUI(initialPrompt){
   };
 
   var CONTENT_TEMPLATES={
-    property_tour:{icon:"🏠",label:"Property Tour",color:"#C9A84C",
+    property_tour:{icon:"home",label:"Property Tour",color:"#C9A84C",
       prompt:"Create a cinematic property tour video showcasing [building name] in [area], Dubai. Highlight the views, finishes, amenities, floor plan, and investment value. Include price per sqft and rental yield data.",
       hookType:"emotional",desc:"Show the full property experience"},
-    market_report:{icon:"📊",label:"Market Report",color:"#3B82F6",
+    market_report:{icon:"bar-chart-2",label:"Market Report",color:"#3B82F6",
       prompt:"Create a professional Dubai real estate market report video for [area]. Include current price per sqft, rental yields, price growth trends, and why investors should consider this area now.",
       hookType:"statistic",desc:"Data-driven area analysis"},
-    investment_pitch:{icon:"💰",label:"Investment Pitch",color:"#10B981",
+    investment_pitch:{icon:"dollar-sign",label:"Investment Pitch",color:"#10B981",
       prompt:"Create a compelling investment pitch video for [property/building] in Dubai. Focus on ROI, rental yield, capital appreciation, location advantages, and developer reputation. Target HNW investors.",
       hookType:"statistic",desc:"Convince investors to act now"},
-    area_guide:{icon:"🗺",label:"Area Guide",color:"#8B5CF6",
+    area_guide:{icon:"map",label:"Area Guide",color:"#8B5CF6",
       prompt:"Create an area guide video for [area], Dubai. Cover lifestyle, amenities, transport links, nearby schools, beaches, malls, and why families and professionals choose to live here.",
       hookType:"story",desc:"Complete lifestyle overview"},
-    luxury_showcase:{icon:"✨",label:"Luxury Showcase",color:"#EC4899",
+    luxury_showcase:{icon:"sparkles",label:"Luxury Showcase",color:"#EC4899",
       prompt:"Create a luxury property showcase video for [building/project] in Dubai. Emphasize exclusivity, world-class finishes, iconic views, premium amenities, and elite lifestyle. Brand: aspirational and prestigious.",
       hookType:"emotional",desc:"High-end aspirational content"},
-    deal_alert:{icon:"🔔",label:"Deal Alert",color:"#F59E0B",
+    deal_alert:{icon:"bell",label:"Deal Alert",color:"#F59E0B",
       prompt:"Create an urgent deal alert video for a limited-time opportunity at [building/area] in Dubai. Show the asking price vs market value, the discount, and why buyers must act fast before this deal is gone.",
       hookType:"question",desc:"Time-sensitive opportunity"}
   };
 
   var VG_PLATFORMS={
-    reel:{label:"Instagram Reel",icon:"📱",desc:"9:16 • up to 90s",w:1080,h:1920,maxSec:90},
-    story:{label:"Story / TikTok",icon:"🎵",desc:"9:16 • up to 60s",w:1080,h:1920,maxSec:60},
-    square:{label:"Square Post",icon:"⬜",desc:"1:1 • Feed",w:1080,h:1080,maxSec:60},
-    landscape:{label:"YouTube / LinkedIn",icon:"🖥",desc:"16:9 • up to 10min",w:1920,h:1080,maxSec:600},
-    whatsapp:{label:"WhatsApp Status",icon:"💬",desc:"9:16 • 30s max",w:1080,h:1920,maxSec:30}
+    reel:{label:"Instagram Reel",icon:"smartphone",desc:"9:16 • up to 90s",w:1080,h:1920,maxSec:90},
+    story:{label:"Story / TikTok",icon:"music",desc:"9:16 • up to 60s",w:1080,h:1920,maxSec:60},
+    square:{label:"Square Post",icon:"square",desc:"1:1 • Feed",w:1080,h:1080,maxSec:60},
+    landscape:{label:"YouTube / LinkedIn",icon:"monitor",desc:"16:9 • up to 10min",w:1920,h:1080,maxSec:600},
+    whatsapp:{label:"WhatsApp Status",icon:"message-square",desc:"9:16 • 30s max",w:1080,h:1920,maxSec:30}
   };
 
   var HOOK_TYPES={
-    emotional:{label:"Emotional",icon:"❤️",desc:"Triggers desire & aspiration"},
-    statistic:{label:"Statistic",icon:"📈",desc:"Opens with a surprising number"},
-    question:{label:"Question",icon:"❓",desc:"Asks something the viewer must answer"},
-    story:{label:"Story",icon:"📖",desc:"Opens with a narrative or journey"}
+    emotional:{label:"Emotional",icon:"heart",desc:"Triggers desire & aspiration"},
+    statistic:{label:"Statistic",icon:"trending-up",desc:"Opens with a surprising number"},
+    question:{label:"Question",icon:"help-circle",desc:"Asks something the viewer must answer"},
+    story:{label:"Story",icon:"book-open",desc:"Opens with a narrative or journey"}
   };
 
   var LANGUAGES={en:"English",ar:"العربية",ru:"Русский",fa:"فارسی"};
@@ -2748,8 +2748,9 @@ function showVideoGenUI(initialPrompt){
   var vgTabBtns={};
   VG_TABS.forEach(function(t){
     var btn=el("button",{style:{flex:"1",background:"transparent",border:"none",borderBottom:"2px solid transparent",padding:"12px",fontSize:"12px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",transition:"all 0.15s",color:"#556677"}});
-    var labels={setup:"⚙ Setup",create:"🎬 Create",results:"📤 Results"};
-    btn.textContent=labels[t];
+    var icons={setup:"settings",create:"video",results:"upload"};
+    var names={setup:"Setup",create:"Create",results:"Results"};
+    btn.innerHTML='<i data-lucide="'+icons[t]+'" style="width:12px;height:12px;vertical-align:middle;margin-right:5px"></i>'+names[t];
     btn.onclick=function(){vgSwitchTab(t);};
     vgTabBtns[t]=btn;
     vgTabBar.appendChild(btn);
@@ -2789,7 +2790,9 @@ function showVideoGenUI(initialPrompt){
       var t=CONTENT_TEMPLATES[key];
       var isSelected=VG_STATE.template===key;
       var btn=div({background:isSelected?"rgba("+hexToRgb(t.color)+",0.12)":"rgba(255,255,255,0.02)",border:"1px solid "+(isSelected?t.color:"#2A3040"),borderRadius:"10px",padding:"10px 8px",cursor:"pointer",textAlign:"center",transition:"all 0.15s"});
-      btn.appendChild(div({fontSize:"20px",marginBottom:"4px"},t.icon));
+      var tplIcon=div({marginBottom:"6px",display:"flex",justifyContent:"center"});
+      tplIcon.innerHTML='<i data-lucide="'+t.icon+'" style="width:22px;height:22px;color:'+t.color+'"></i>';
+      btn.appendChild(tplIcon);
       btn.appendChild(div({color:isSelected?t.color:"#C0C8D8",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},t.label));
       btn.appendChild(div({color:"#556677",fontSize:"9px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},t.desc));
       btn.onclick=function(){
@@ -2812,7 +2815,9 @@ function showVideoGenUI(initialPrompt){
       var p=VG_PLATFORMS[pkey];
       var isSel=VG_STATE.platform===pkey;
       var pb=div({background:isSel?"rgba(201,168,76,0.12)":"rgba(255,255,255,0.02)",border:"1px solid "+(isSel?"#C9A84C":"#2A3040"),borderRadius:"10px",padding:"10px 12px",cursor:"pointer",minWidth:"100px",textAlign:"center",flexShrink:"0",transition:"all 0.15s"});
-      pb.appendChild(div({fontSize:"18px",marginBottom:"3px"},p.icon));
+      var platIcon=div({marginBottom:"4px",display:"flex",justifyContent:"center"});
+      platIcon.innerHTML='<i data-lucide="'+p.icon+'" style="width:18px;height:18px;color:'+(isSel?"#C9A84C":"#8899AA")+'"></i>';
+      pb.appendChild(platIcon);
       pb.appendChild(div({color:isSel?"#C9A84C":"#C0C8D8",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},p.label));
       pb.appendChild(div({color:"#556677",fontSize:"9px",marginTop:"2px"},p.desc));
       pb.onclick=function(){VG_STATE.platform=pkey;renderVGSetup();};
@@ -2843,7 +2848,8 @@ function showVideoGenUI(initialPrompt){
       var h=HOOK_TYPES[hk];
       var isSel=VG_STATE.hookType===hk;
       var hb=div({background:isSel?"rgba(59,130,246,0.15)":"rgba(255,255,255,0.02)",border:"1px solid "+(isSel?"#3B82F6":"#2A3040"),borderRadius:"8px",padding:"5px 8px",cursor:"pointer",color:isSel?"#93C5FD":"#8899AA",fontSize:"10px",fontFamily:"'Inter',sans-serif",transition:"all 0.15s",title:h.desc});
-      hb.textContent=h.icon+" "+h.label;hb.onclick=function(){VG_STATE.hookType=hk;renderVGSetup();};
+      hb.innerHTML='<i data-lucide="'+h.icon+'" style="width:10px;height:10px;vertical-align:middle;margin-right:3px;color:inherit"></i>'+h.label;
+      hb.onclick=function(){VG_STATE.hookType=hk;renderVGSetup();};
       hookRow.appendChild(hb);
     });
     hookWrap.appendChild(hookRow);
@@ -3009,6 +3015,7 @@ function showVideoGenUI(initialPrompt){
       setTimeout(runVGPipeline,100);
     };
     vgBody.appendChild(genBtn);
+    if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
   }
 
   // ── CREATE TAB (pipeline) ─────────────────────────────────────────────────
@@ -3017,13 +3024,13 @@ function showVideoGenUI(initialPrompt){
 
   function renderVGCreate(){
     var steps=[
-      {key:"plan",icon:"🤖",label:"AI Planning",desc:"Analyzing prompt, creating script & slide structure"},
-      {key:"data",icon:"📊",label:"Market Data",desc:"Enriching with live Dubai property data"},
-      {key:"images",icon:"🖼",label:"Gathering Visuals",desc:"Finding the perfect images for each slide"},
-      {key:"brand",icon:"✦",label:"Applying Brand",desc:"Adding watermark, tone & brand elements"},
-      {key:"music",icon:"🎵",label:"Music & Audio",desc:"Composing background music"},
-      {key:"render",icon:"🎬",label:"Rendering Video",desc:"Compositing all elements frame by frame"},
-      {key:"voice",icon:"🎤",label:"Voiceover",desc:"Generating professional voiceover narration"}
+      {key:"plan",icon:"bot",label:"AI Planning",desc:"Analyzing prompt, creating script & slide structure"},
+      {key:"data",icon:"bar-chart-2",label:"Market Data",desc:"Enriching with live Dubai property data"},
+      {key:"images",icon:"image",label:"Gathering Visuals",desc:"Finding the perfect images for each slide"},
+      {key:"brand",icon:"sparkles",label:"Applying Brand",desc:"Adding watermark, tone & brand elements"},
+      {key:"music",icon:"music",label:"Music & Audio",desc:"Composing background music"},
+      {key:"render",icon:"clapperboard",label:"Rendering Video",desc:"Compositing all elements frame by frame"},
+      {key:"voice",icon:"mic",label:"Voiceover",desc:"Generating professional voiceover narration"}
     ];
 
     vgBody.appendChild(div({color:"#8899AA",fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"16px",textAlign:"center"},"Creating your world-class video..."));
@@ -3042,7 +3049,9 @@ function showVideoGenUI(initialPrompt){
       var row=div({background:"rgba(255,255,255,0.02)",border:"1px solid #1A1F2E",borderRadius:"10px",padding:"10px 12px",display:"flex",alignItems:"flex-start",gap:"10px"});
       var dot=div({width:"8px",height:"8px",borderRadius:"50%",background:"#2A3040",flexShrink:"0",marginTop:"3px",transition:"background 0.3s"});
       var txt=div({flex:"1"});
-      txt.appendChild(div({color:"#C0C8D8",fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace"},s.icon+" "+s.label));
+      var sLbl=div({color:"#C0C8D8",fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",display:"flex",alignItems:"center",gap:"5px"});
+      sLbl.innerHTML='<i data-lucide="'+s.icon+'" style="width:11px;height:11px;flex-shrink:0"></i>'+s.label;
+      txt.appendChild(sLbl);
       txt.appendChild(div({color:"#556677",fontSize:"9px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},s.desc));
       row.appendChild(dot);row.appendChild(txt);
       vgStepEls[s.key]={row:row,dot:dot};
@@ -3055,6 +3064,7 @@ function showVideoGenUI(initialPrompt){
     canvasWrap.appendChild(vgPreviewCanvas);
     vgBody.appendChild(canvasWrap);
     vgPreviewCanvas._wrap=canvasWrap;
+    if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
   }
 
   function vgSetStep(key,state){

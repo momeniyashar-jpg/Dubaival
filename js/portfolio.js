@@ -152,7 +152,7 @@ function renderPersonal(){
   // ── Step 0: Hero landing ──────────────────────────────────────────────────
   if(p.step===0){
     var hero=div({background:"linear-gradient(135deg,rgba(212,175,55,0.1) 0%,rgba(212,175,55,0.03) 100%)",border:"1px solid rgba(212,175,55,0.25)",borderRadius:"16px",padding:"28px 22px",textAlign:"center",marginBottom:"14px"});
-    hero.appendChild(div({fontSize:"38px",marginBottom:"14px",lineHeight:"1"},"🏙️"));
+    (function(){var e=div({width:"64px",height:"64px",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"16px",background:"rgba(212,175,55,0.12)",margin:"0 auto 14px"});e.innerHTML='<i data-lucide="building-2" style="width:32px;height:32px;color:#D4AF37"></i>';hero.appendChild(e);})();
     hero.appendChild(div({color:"#FFFFFF",fontSize:"19px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",lineHeight:"1.3",marginBottom:"10px"},"Your Personalised Dubai Property Report"));
     hero.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",lineHeight:"1.7",marginBottom:"22px"},"5 questions. One data-backed investment thesis tailored to you — areas, buildings, and your personal 3-year scenario."));
     var bWrap=div({textAlign:"left",marginBottom:"22px",display:"flex",flexDirection:"column",gap:"7px"});
@@ -168,7 +168,7 @@ function renderPersonal(){
     hero.appendChild(startBtn);
     wrap.appendChild(hero);
     var sp=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"14px 16px",display:"flex",gap:"12px",alignItems:"flex-start"});
-    sp.appendChild(div({fontSize:"22px",flexShrink:"0"},"💬"));
+    (function(){var e=div({width:"36px",height:"36px",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"10px",background:"rgba(139,92,246,0.12)"});e.innerHTML='<i data-lucide="message-circle" style="width:18px;height:18px;color:#8B5CF6"></i>';sp.appendChild(e);})();
     var spT=div({});
     spT.appendChild(div({color:"#CCDDEE",fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.65",marginBottom:"4px"},'"The AI Advisor matched me with Dubai Hills Estate — closed a 3BR at AED 3.2M. Best decision I made this year."'));
     spT.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},"— Family Buyer · Relocated from London · June 2026"));
@@ -185,7 +185,9 @@ function renderPersonal(){
   }
   function mkOptCard(icon,title,desc,isSel,onClickFn){
     var c=el("button",{style:{width:"100%",display:"flex",alignItems:"center",gap:"14px",padding:"15px 16px",borderRadius:"12px",border:"1px solid "+(isSel?"#D4AF37":"rgba(255,255,255,0.08)"),background:isSel?"rgba(212,175,55,0.1)":cl.surface,cursor:"pointer",marginBottom:"10px",textAlign:"left"},onclick:onClickFn});
-    c.appendChild(div({fontSize:"22px",flexShrink:"0",lineHeight:"1"},icon));
+    var icoBox=div({width:"40px",height:"40px",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"10px",background:isSel?"rgba(212,175,55,0.15)":"rgba(255,255,255,0.06)"});
+    icoBox.innerHTML='<i data-lucide="'+icon+'" style="width:20px;height:20px;color:'+(isSel?"#D4AF37":"#8899AA")+'"></i>';
+    c.appendChild(icoBox);
     var ct=div({flex:"1"});
     ct.appendChild(div({color:"#FFFFFF",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},title));
     ct.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif"},desc));
@@ -198,10 +200,10 @@ function renderPersonal(){
   if(p.step===1){
     wrap.appendChild(div({color:"#FFFFFF",fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px",lineHeight:"1.3"},"What's your property goal?"));
     wrap.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",marginBottom:"18px"},"This shapes everything — your areas, buildings, and 3-year plan."));
-    [["🏠","Own a Home","I want to live in it — find my ideal community"],
-     ["📈","Build Wealth","Investment — yield, capital growth, or off-plan flip"],
-     ["🌍","Relocate to Dubai","Moving here — lifestyle match + best value for budget"],
-     ["🏖️","Holiday Home","Vacation + AirBnB — earn when I'm away"]].forEach(function(g){
+    [["home","Own a Home","I want to live in it — find my ideal community"],
+     ["trending-up","Build Wealth","Investment — yield, capital growth, or off-plan flip"],
+     ["globe","Relocate to Dubai","Moving here — lifestyle match + best value for budget"],
+     ["sun","Holiday Home","Vacation + AirBnB — earn when I'm away"]].forEach(function(g){
       wrap.appendChild(mkOptCard(g[0],g[1],g[2],p.goal===g[1],function(){
         personalState.goal=g[1];personalState.priority="";personalState.step=2;render();
       }));
@@ -214,22 +216,22 @@ function renderPersonal(){
     var q2,opts2;
     if(p.goal==="Build Wealth"){
       q2="What's your investment style?";
-      opts2=[["💰","Stable Income","High-yield rentals — predictable cash flow every month"],
-             ["🚀","Capital Growth","Appreciation play — buy low, sell high in 3-5 years"],
-             ["⚡","Both Income & Growth","Balanced — moderate yield + long-term appreciation"],
-             ["🔄","Flip Off-Plan","Buy at launch price, sell at handover for a premium"]];
+      opts2=[["dollar-sign","Stable Income","High-yield rentals — predictable cash flow every month"],
+             ["rocket","Capital Growth","Appreciation play — buy low, sell high in 3-5 years"],
+             ["zap","Both Income & Growth","Balanced — moderate yield + long-term appreciation"],
+             ["refresh-cw","Flip Off-Plan","Buy at launch price, sell at handover for a premium"]];
     }else if(p.goal==="Holiday Home"){
       q2="How often will you visit?";
-      opts2=[["🗓️","Monthly visits","Lifestyle property — earns on months I travel"],
-             ["🌞","Quarterly","Seasonal use — AirBnB between my visits"],
-             ["✈️","Twice a year","Mostly investment — fully managed AirBnB"],
-             ["📦","Rarely — Pure AirBnB","Fully managed holiday rental from day one"]];
+      opts2=[["calendar","Monthly visits","Lifestyle property — earns on months I travel"],
+             ["sun","Quarterly","Seasonal use — AirBnB between my visits"],
+             ["plane","Twice a year","Mostly investment — fully managed AirBnB"],
+             ["package","Rarely — Pure AirBnB","Fully managed holiday rental from day one"]];
     }else{
       q2="Who are you moving with?";
-      opts2=[["👤","Just Me","Studio or 1BR — max location, minimal footprint"],
-             ["👫","Me & Partner","1-2BR — lifestyle and commute focused"],
-             ["👨‍👩‍👧‍👦","Family with Kids","2-4BR — schools, parks, community feel matters most"],
-             ["🧓","Retiree / Empty Nester","Quality of life, quiet, low maintenance, beach access"]];
+      opts2=[["user","Just Me","Studio or 1BR — max location, minimal footprint"],
+             ["users","Me & Partner","1-2BR — lifestyle and commute focused"],
+             ["users-2","Family with Kids","2-4BR — schools, parks, community feel matters most"],
+             ["user-check","Retiree / Empty Nester","Quality of life, quiet, low maintenance, beach access"]];
     }
     wrap.appendChild(div({color:"#FFFFFF",fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px",lineHeight:"1.3"},q2));
     wrap.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",marginBottom:"18px"},"Helps us weight yield, growth, and lifestyle in your report."));
@@ -262,7 +264,7 @@ function renderPersonal(){
     bCard.appendChild(ci);
     if(p.budget>=2000000){
       var gv=div({display:"flex",gap:"10px",alignItems:"center",marginTop:"12px",padding:"10px 12px",background:"rgba(212,175,55,0.08)",border:"1px solid rgba(212,175,55,0.25)",borderRadius:"8px"});
-      gv.appendChild(div({fontSize:"20px",flexShrink:"0",lineHeight:"1"},"🌟"));
+      (function(){var e=div({width:"32px",height:"32px",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"8px",background:"rgba(212,175,55,0.12)"});e.innerHTML='<i data-lucide="star" style="width:16px;height:16px;color:#D4AF37"></i>';gv.appendChild(e);})();
       var gvT=div({});
       gvT.appendChild(div({color:"#D4AF37",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"Golden Visa Eligible"));
       gvT.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"10-year UAE residency visa with property investment ≥ AED 2M"));
@@ -286,7 +288,7 @@ function renderPersonal(){
       var sqft2=sqftMap2[p.beds]||1300;
       var maxPSF2=Math.round(p.budget/sqft2);
       var ins=div({background:"rgba(99,102,241,0.07)",border:"1px solid rgba(99,102,241,0.2)",borderRadius:"10px",padding:"12px 14px",marginBottom:"16px",display:"flex",gap:"10px",alignItems:"flex-start"});
-      ins.appendChild(div({fontSize:"18px",flexShrink:"0",lineHeight:"1"},"📐"));
+      (function(){var e=div({width:"32px",height:"32px",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"8px",background:"rgba(99,102,241,0.12)"});e.innerHTML='<i data-lucide="ruler" style="width:16px;height:16px;color:#818CF8"></i>';ins.appendChild(e);})();
       var insT=div({});
       insT.appendChild(div({color:"#818CF8",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"Your Budget Power"));
       insT.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif"},"AED "+(p.budget||0).toLocaleString()+" ÷ ~"+sqft2+" sqft = max "+maxPSF2+" AED/sqft"));
@@ -394,7 +396,7 @@ function renderPersonal(){
     // — Profile card
     var pc=div({background:"linear-gradient(135deg,rgba(212,175,55,0.12),rgba(212,175,55,0.04))",border:"1px solid rgba(212,175,55,0.3)",borderRadius:"16px",padding:"20px 22px",marginBottom:"16px"});
     var ph=div({display:"flex",alignItems:"center",gap:"14px",marginBottom:"12px"});
-    ph.appendChild(div({fontSize:"32px",lineHeight:"1"},"🎯"));
+    (function(){var e=div({width:"52px",height:"52px",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"14px",background:"rgba(212,175,55,0.15)"});e.innerHTML='<i data-lucide="crosshair" style="width:26px;height:26px;color:#D4AF37"></i>';ph.appendChild(e);})();
     var pm=div({});
     pm.appendChild(div({color:"#D4AF37",fontSize:"9px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"YOUR INVESTOR PROFILE"));
     pm.appendChild(div({color:"#FFFFFF",fontSize:"17px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},r.profile?(r.profile.type||"Property Buyer"):"Property Buyer"));
@@ -419,7 +421,7 @@ function renderPersonal(){
       at.appendChild(div({color:rankCls[i],fontSize:"8px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},rankLbl[i]));
       at.appendChild(div({color:"#FFFFFF",fontSize:"17px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},area.name||"—"));
       ah.appendChild(at);
-      if(area.goldenVisa)ah.appendChild(div({fontSize:"20px",lineHeight:"1",flexShrink:"0"},"🌟"));
+      if(area.goldenVisa){var gvBadge=div({width:"32px",height:"32px",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"8px",background:"rgba(212,175,55,0.15)",flexShrink:"0"});gvBadge.innerHTML='<i data-lucide="star" style="width:16px;height:16px;color:#D4AF37"></i>';ah.appendChild(gvBadge);}
       ac.appendChild(ah);
       // Thesis
       if(area.thesis)ac.appendChild(div({color:"#CCDDEE",fontSize:"13px",fontFamily:"'Inter',sans-serif",lineHeight:"1.75",marginBottom:"12px"},area.thesis));
@@ -465,7 +467,7 @@ function renderPersonal(){
         }
         ac.appendChild(fr);
       }
-      if(area.goldenVisa)ac.appendChild(div({marginTop:"10px",padding:"8px 11px",background:"rgba(212,175,55,0.07)",border:"1px solid rgba(212,175,55,0.18)",borderRadius:"6px",color:"#D4AF37",fontSize:"11px",fontFamily:"'Inter',sans-serif"},"🌟 Golden Visa eligible — 10-year UAE residency with this investment"));
+      if(area.goldenVisa){var gvLine=div({marginTop:"10px",padding:"8px 11px",background:"rgba(212,175,55,0.07)",border:"1px solid rgba(212,175,55,0.18)",borderRadius:"6px",color:"#D4AF37",fontSize:"11px",fontFamily:"'Inter',sans-serif",display:"flex",alignItems:"center",gap:"6px"});gvLine.innerHTML='<i data-lucide="star" style="width:12px;height:12px;flex-shrink:0"></i>Golden Visa eligible — 10-year UAE residency with this investment';ac.appendChild(gvLine);}
       wrap.appendChild(ac);
     });
 
@@ -497,7 +499,7 @@ function renderPersonal(){
       t+="Get your free report: https://www.dubaival.com";
       window.open("https://wa.me/?text="+encodeURIComponent(t),"_blank");
     }});
-    waBtn.textContent="📱 Share";
+    waBtn.innerHTML='<i data-lucide="share-2" style="width:13px;height:13px;vertical-align:middle;margin-right:5px"></i>Share';
     actR.appendChild(waBtn);
     wrap.appendChild(actR);
 

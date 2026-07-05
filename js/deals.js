@@ -353,15 +353,15 @@ async function _ofmLoadStats(){
 }
 // ── Pipeline Stages ────────────────────────────────────────────────────────────
 var OFM_STAGES=[
-  {id:"matched",         label:"Matched",          icon:"🔍", lbl:"AI Match"},
-  {id:"lister_approved", label:"Seller Interested", icon:"✅", lbl:"Seller OK"},
-  {id:"chat_active",     label:"Chat Open",         icon:"💬", lbl:"Chat"},
-  {id:"media_shared",    label:"Photos Shared",     icon:"📷", lbl:"Media"},
-  {id:"id_submitted",    label:"ID Verified",       icon:"🪪", lbl:"ID"},
-  {id:"viewing_arranged",label:"Viewing Set",       icon:"🏠", lbl:"Viewing"},
-  {id:"offer_made",      label:"Offer Made",        icon:"📋", lbl:"Offer"},
-  {id:"closing",         label:"In Closing",        icon:"⚖️",  lbl:"DLD"},
-  {id:"completed",       label:"Completed",         icon:"🎉", lbl:"Done"},
+  {id:"matched",         label:"Matched",          icon:"search",        lbl:"AI Match"},
+  {id:"lister_approved", label:"Seller Interested", icon:"check-circle",  lbl:"Seller OK"},
+  {id:"chat_active",     label:"Chat Open",         icon:"message-circle",lbl:"Chat"},
+  {id:"media_shared",    label:"Photos Shared",     icon:"camera",        lbl:"Media"},
+  {id:"id_submitted",    label:"ID Verified",       icon:"credit-card",   lbl:"ID"},
+  {id:"viewing_arranged",label:"Viewing Set",       icon:"home",          lbl:"Viewing"},
+  {id:"offer_made",      label:"Offer Made",        icon:"clipboard-list",lbl:"Offer"},
+  {id:"closing",         label:"In Closing",        icon:"scale",         lbl:"DLD"},
+  {id:"completed",       label:"Completed",         icon:"party-popper",  lbl:"Done"},
 ];
 function _ofmStageIdx(stage){
   var i=OFM_STAGES.findIndex(function(s){return s.id===stage;});return i>=0?i:0;
@@ -383,10 +383,10 @@ function _ofmNav(cl){
   var lt=_ofmLt(),rt=_ofmRt();
   var hasListings=!!localStorage.getItem("ofm_lt");
   var hasRequests=!!localStorage.getItem("ofm_rt");
-  var tabs=[{v:"dashboard",l:"Exchange",ico:"⚡"}];
-  if(hasListings)tabs.push({v:"my_listings",l:"My Listings",ico:"📂"});
-  if(hasRequests)tabs.push({v:"my_requests",l:"My Requests",ico:"🔎"});
-  tabs.push({v:"agent_hub",l:"Agents",ico:"👥"});
+  var tabs=[{v:"dashboard",l:"Exchange",ico:"zap"}];
+  if(hasListings)tabs.push({v:"my_listings",l:"My Listings",ico:"folder-open"});
+  if(hasRequests)tabs.push({v:"my_requests",l:"My Requests",ico:"search"});
+  tabs.push({v:"agent_hub",l:"Agents",ico:"users"});
 
   var nav=div({display:"flex",gap:"4px",marginBottom:"16px",overflowX:"auto",
     padding:"2px 0",WebkitOverflowScrolling:"touch"});
@@ -401,7 +401,7 @@ function _ofmNav(cl){
       color:active?cl.gold:cl.sub,
       border:"1px solid "+(active?hexAlpha(cl.gold,0.4):cl.border)},
       onclick:function(){OFM_STATE.view=t.v;render();}});
-    btn.textContent=t.ico+" "+t.l;
+    btn.innerHTML='<i data-lucide="'+t.ico+'" style="width:11px;height:11px;vertical-align:middle;margin-right:4px"></i>'+t.l;
     nav.appendChild(btn);
   });
   return nav;
@@ -419,7 +419,10 @@ function _ofmPipelineBar(currentStage,cl){
       display:"flex",alignItems:"center",justifyContent:"center",fontSize:"13px",
       background:done?hexAlpha(cl.green,0.15):active?hexAlpha(cl.gold,0.18):"transparent",
       border:"2px solid "+(done?cl.green:active?cl.gold:cl.border),
-      color:done?cl.green:active?cl.gold:cl.sub},done?"✓":(active?s.icon:""+(i+1)));
+      color:done?cl.green:active?cl.gold:cl.sub});
+    if(done){dot.textContent="✓";}
+    else if(active){dot.innerHTML='<i data-lucide="'+s.icon+'" style="width:12px;height:12px;color:'+cl.gold+'"></i>';}
+    else{dot.textContent=""+(i+1);}
     var col=div({display:"flex",flexDirection:"column",alignItems:"center",gap:"4px",minWidth:"48px"});
     col.appendChild(dot);
     col.appendChild(span({color:done?cl.green:active?cl.gold:cl.sub,fontSize:"8px",
@@ -481,13 +484,13 @@ function _ofmDashboard(wrap,cl){
     border:"1px solid "+hexAlpha(cl.gold,0.4),color:cl.gold,fontFamily:"'Space Grotesk',monospace",
     fontWeight:"800",fontSize:"12px"},
     onclick:function(){OFM_STATE.view="post_listing";OFM_STATE.listStep=1;render();}});
-  haveBtn.innerHTML="🏠 I HAVE A<br>PROPERTY";
+  haveBtn.innerHTML='<i data-lucide="home" style="width:14px;height:14px;vertical-align:middle;margin-right:5px"></i>I HAVE A<br>PROPERTY';
   var needBtn=el("button",{style:{padding:"16px 12px",borderRadius:"12px",cursor:"pointer",
     background:"linear-gradient(135deg,rgba(59,130,246,0.12),rgba(59,130,246,0.05))",
     border:"1px solid rgba(59,130,246,0.35)",color:"#60A5FA",fontFamily:"'Space Grotesk',monospace",
     fontWeight:"800",fontSize:"12px"},
     onclick:function(){OFM_STATE.view="post_request";OFM_STATE.reqStep=1;render();}});
-  needBtn.innerHTML="🔎 I NEED A<br>PROPERTY";
+  needBtn.innerHTML='<i data-lucide="search" style="width:14px;height:14px;vertical-align:middle;margin-right:5px"></i>I NEED A<br>PROPERTY';
   ctaRow.appendChild(haveBtn);ctaRow.appendChild(needBtn);hero.appendChild(ctaRow);
 
   // Stats row (async load)
@@ -516,18 +519,20 @@ function _ofmDashboard(wrap,cl){
     textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",
     marginBottom:"14px",fontWeight:"700"},"◆ HOW IT WORKS"));
   var steps=[
-    {ico:"🔒",t:"List Privately","d":"Submit property + documents. Your listing is never public."},
-    {ico:"🤖",t:"AI Matching","d":"System finds buyers matching your building, beds & price (±15%)."},
-    {ico:"✅",t:"You Approve","d":"Review each buyer's requirements. Accept or decline anonymously."},
-    {ico:"💬",t:"Anonymous Chat","d":"Discuss via encrypted in-platform chat. No identity revealed yet."},
-    {ico:"🏛️",t:"DLD Closing","d":"Share ID, arrange viewing, submit offer, close through Trustee."},
+    {ico:"lock",t:"List Privately","d":"Submit property + documents. Your listing is never public."},
+    {ico:"bot",t:"AI Matching","d":"System finds buyers matching your building, beds & price (±15%)."},
+    {ico:"check-circle",t:"You Approve","d":"Review each buyer's requirements. Accept or decline anonymously."},
+    {ico:"message-circle",t:"Anonymous Chat","d":"Discuss via encrypted in-platform chat. No identity revealed yet."},
+    {ico:"landmark",t:"DLD Closing","d":"Share ID, arrange viewing, submit offer, close through Trustee."},
   ];
   steps.forEach(function(s,i){
     var row=div({display:"flex",gap:"12px",alignItems:"flex-start",
       marginBottom:i<steps.length-1?"12px":"0"});
-    row.appendChild(div({width:"32px",height:"32px",borderRadius:"50%",flexShrink:"0",
+    var icoCirc=div({width:"32px",height:"32px",borderRadius:"50%",flexShrink:"0",
       background:hexAlpha(cl.gold,0.1),border:"1px solid "+hexAlpha(cl.gold,0.25),
-      display:"flex",alignItems:"center",justifyContent:"center",fontSize:"14px"},s.ico));
+      display:"flex",alignItems:"center",justifyContent:"center"});
+    icoCirc.innerHTML='<i data-lucide="'+s.ico+'" style="width:14px;height:14px;color:'+cl.gold+'"></i>';
+    row.appendChild(icoCirc);
     var info=div({});
     info.appendChild(div({color:cl.subHi,fontSize:"12px",fontWeight:"700",
       fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},s.t));
@@ -698,11 +703,11 @@ function _ofmPostListing(wrap,cl){
     card.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",
       lineHeight:"1.6",marginBottom:"16px"},"Select your role as the lister. Each type requires specific documents."));
     var types=[
-      {id:"owner",icon:"🏠",title:"Owner",subtitle:"You own the property",
+      {id:"owner",icon:"home",title:"Owner",subtitle:"You own the property",
        docs:["Title Deed (required)","Emirates ID or Passport"]},
-      {id:"poa",icon:"📜",title:"Power of Attorney",subtitle:"You act on behalf of owner",
+      {id:"poa",icon:"scroll",title:"Power of Attorney",subtitle:"You act on behalf of owner",
        docs:["POA Agreement with owner","Your Emirates ID / Passport"]},
-      {id:"management",icon:"🏢",title:"Property Management Co.",subtitle:"Managing the property",
+      {id:"management",icon:"building-2",title:"Property Management Co.",subtitle:"Managing the property",
        docs:["Management Contract","Company RERA Card"]},
     ];
     types.forEach(function(t){
@@ -713,8 +718,10 @@ function _ofmPostListing(wrap,cl){
         border:"2px solid "+(active?cl.gold:cl.border),
         color:"inherit",transition:"all 0.15s"},
         onclick:function(){f.listerType=t.id;render();}});
+      var icoBox=div({width:"36px",height:"36px",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"10px",background:hexAlpha(cl.gold,0.12)});
+      icoBox.innerHTML='<i data-lucide="'+t.icon+'" style="width:18px;height:18px;color:'+cl.gold+'"></i>';
       tc.appendChild(div({display:"flex",gap:"12px",alignItems:"flex-start"},[
-        div({fontSize:"22px",flexShrink:"0"},t.icon),
+        icoBox,
         div({},[
           div({color:active?cl.gold:cl.subHi,fontSize:"13px",fontWeight:"700",
             fontFamily:"'Space Grotesk',monospace"},t.title),
@@ -953,8 +960,8 @@ function _ofmPostRequest(wrap,cl){
     card.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",
       lineHeight:"1.6",marginBottom:"16px"},
       "Identify yourself to receive off-market property matches. Your contact stays private until you choose to share it."));
-    [{id:"buyer",icon:"🏡",title:"Buyer",subtitle:"Looking to purchase a property",doc:"Emirates ID or Passport"},
-     {id:"agent",icon:"💼",title:"Agent",subtitle:"Searching on behalf of a client",doc:"RERA Card + Emirates ID"}]
+    [{id:"buyer",icon:"house",title:"Buyer",subtitle:"Looking to purchase a property",doc:"Emirates ID or Passport"},
+     {id:"agent",icon:"briefcase",title:"Agent",subtitle:"Searching on behalf of a client",doc:"RERA Card + Emirates ID"}]
       .forEach(function(t){
         var active=f.requesterType===t.id;
         var tc=el("button",{style:{width:"100%",textAlign:"left",padding:"14px",
@@ -963,8 +970,10 @@ function _ofmPostRequest(wrap,cl){
           border:"2px solid "+(active?"#60A5FA":cl.border),
           color:"inherit",transition:"all 0.15s"},
           onclick:function(){f.requesterType=t.id;render();}});
+        var bIco=div({width:"36px",height:"36px",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"10px",background:hexAlpha("#60A5FA",0.12)});
+        bIco.innerHTML='<i data-lucide="'+t.icon+'" style="width:18px;height:18px;color:#60A5FA"></i>';
         tc.appendChild(div({display:"flex",gap:"12px",alignItems:"center"},[
-          div({fontSize:"22px"},t.icon),
+          bIco,
           div({},[
             div({color:active?"#60A5FA":cl.subHi,fontSize:"13px",fontWeight:"700",
               fontFamily:"'Space Grotesk',monospace"},t.title),
@@ -1128,7 +1137,7 @@ function _ofmMyListings(wrap,cl){
     wrap.appendChild(div({background:hexAlpha(cl.green,0.08),border:"1px solid "+hexAlpha(cl.green,0.25),
       borderRadius:"10px",padding:"12px 14px",marginBottom:"12px",
       display:"flex",alignItems:"center",gap:"10px"},[
-      div({fontSize:"18px"},"🎉"),
+      (function(){var e=div({width:"30px",height:"30px",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"});e.innerHTML='<i data-lucide="party-popper" style="width:18px;height:18px;color:'+cl.green+'"></i>';return e;})(),
       div({},[
         div({color:cl.green,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},
           OFM_STATE.listMatchCount+" potential buyer"+(OFM_STATE.listMatchCount>1?"s":"")+" found!"),
@@ -1143,7 +1152,7 @@ function _ofmMyListings(wrap,cl){
   if(!OFM_STATE.myListings.length){
     wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,
       borderRadius:"14px",padding:"32px",textAlign:"center"},[
-      div({fontSize:"28px",marginBottom:"10px"},"🏠"),
+      (function(){var e=div({width:"52px",height:"52px",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"50%",background:hexAlpha(cl.gold,0.1),margin:"0 auto 12px"});e.innerHTML='<i data-lucide="home" style="width:24px;height:24px;color:'+cl.gold+'"></i>';return e;})(),
       div({color:cl.subHi,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",
         marginBottom:"6px"},"No listings yet"),
       div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"16px"},
@@ -1214,7 +1223,7 @@ function _ofmMyListings(wrap,cl){
             OFM_STATE.matchesForListing[lid]=matches;OFM_STATE.matchesLoading=false;render();
           }).catch(function(){OFM_STATE.matchesLoading=false;render();});
         };})(listing.id)});
-      matchLoadBtn.textContent="🔍 Load Buyer Matches";
+      matchLoadBtn.innerHTML='<i data-lucide="search" style="width:12px;height:12px;vertical-align:middle;margin-right:5px"></i>Load Buyer Matches';
       card.appendChild(matchLoadBtn);
     }else if(matchData.length===0){
       card.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",
@@ -1345,7 +1354,7 @@ function _ofmMyRequests(wrap,cl){
     wrap.appendChild(div({background:hexAlpha("#3B82F6",0.08),border:"1px solid "+hexAlpha("#3B82F6",0.25),
       borderRadius:"10px",padding:"12px 14px",marginBottom:"12px",
       display:"flex",alignItems:"center",gap:"10px"},[
-      div({fontSize:"18px"},"🔍"),
+      (function(){var e=div({width:"30px",height:"30px",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"});e.innerHTML='<i data-lucide="search" style="width:18px;height:18px;color:#60A5FA"></i>';return e;})(),
       div({},[
         div({color:"#60A5FA",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},
           OFM_STATE.reqMatchCount+" potential match"+(OFM_STATE.reqMatchCount>1?"es":"")+" found!"),
@@ -1360,7 +1369,7 @@ function _ofmMyRequests(wrap,cl){
   if(!OFM_STATE.myRequests.length){
     wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,
       borderRadius:"14px",padding:"32px",textAlign:"center"},[
-      div({fontSize:"28px",marginBottom:"10px"},"🔎"),
+      (function(){var e=div({width:"52px",height:"52px",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"50%",background:hexAlpha("#3B82F6",0.1),margin:"0 auto 12px"});e.innerHTML='<i data-lucide="search" style="width:24px;height:24px;color:#60A5FA"></i>';return e;})(),
       div({color:cl.subHi,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",
         marginBottom:"6px"},"No requests yet"),
       div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"16px"},
@@ -1394,7 +1403,7 @@ function _ofmMyRequests(wrap,cl){
             OFM_STATE.matchesForRequest[rid]=m;render();
           }).catch(function(){});
         };})(req.id)});
-      loadBtn.textContent="🔍 Check Match Status";card.appendChild(loadBtn);
+      loadBtn.innerHTML='<i data-lucide="search" style="width:12px;height:12px;vertical-align:middle;margin-right:5px"></i>Check Match Status';card.appendChild(loadBtn);
     }else if(!matchData.length){
       card.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",
         padding:"10px",background:cl.raised,borderRadius:"8px",textAlign:"center",marginBottom:"8px"},
@@ -1470,7 +1479,7 @@ function _ofmMatchView(wrap,cl){
     card.appendChild(div({background:hexAlpha(cl.gold,0.07),borderRadius:"10px",
       padding:"14px",marginBottom:"14px"},[
       div({color:cl.gold,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",
-        marginBottom:"10px"},"📋 BUYER REQUIREMENTS"),
+        marginBottom:"10px"},"◆ BUYER REQUIREMENTS"),
     ]));
     var reqBox=card.lastChild;
 
@@ -1520,7 +1529,7 @@ function _ofmMatchView(wrap,cl){
   else if(stage==="matched"&&!isLister){
     card.appendChild(div({background:hexAlpha("#3B82F6",0.07),borderRadius:"10px",padding:"14px",
       textAlign:"center"},[
-      div({fontSize:"24px",marginBottom:"8px"},"⏳"),
+      (function(){var e=div({width:"40px",height:"40px",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 8px"});e.innerHTML='<i data-lucide="hourglass" style="width:24px;height:24px;color:#60A5FA"></i>';return e;})(),
       div({color:cl.subHi,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",
         marginBottom:"6px"},"Waiting for Seller"),
       div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},
@@ -1532,7 +1541,7 @@ function _ofmMatchView(wrap,cl){
   else if(stage==="lister_approved"){
     card.appendChild(div({background:hexAlpha(cl.green,0.07),borderRadius:"10px",padding:"14px",
       marginBottom:"14px",textAlign:"center"},[
-      div({fontSize:"20px",marginBottom:"6px"},"✅"),
+      (function(){var e=div({width:"36px",height:"36px",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 6px"});e.innerHTML='<i data-lucide="check-circle" style="width:20px;height:20px;color:'+cl.green+'"></i>';return e;})(),
       div({color:cl.green,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",
         marginBottom:"4px"},isLister?"You accepted this match":"Seller accepted your match!"),
       div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},
@@ -1546,7 +1555,7 @@ function _ofmMatchView(wrap,cl){
           await _ofmAdvanceStage(m.id,"chat_active");
           m.stage="chat_active";render();
         }});
-      openChatBtn.textContent="💬 Open Chat Channel";
+      openChatBtn.innerHTML='<i data-lucide="message-circle" style="width:14px;height:14px;vertical-align:middle;margin-right:6px"></i>Open Chat Channel';
       card.appendChild(openChatBtn);
     }
   }
@@ -1556,19 +1565,21 @@ function _ofmMatchView(wrap,cl){
       "offer_made","closing","completed"].indexOf(stage)>=0){
     // Info box for current stage
     var stageInfo={
-      chat_active:{ico:"💬",t:"Anonymous Chat Active",d:"Discuss requirements. Identities remain hidden."},
-      media_shared:{ico:"📷",t:"Photos Shared",d:"Property photos have been shared. Continue discussions."},
-      id_submitted:{ico:"🪪",t:"IDs Verified",d:"Both parties have verified identity. Proceed to viewing."},
-      viewing_arranged:{ico:"🏠",t:"Viewing Arranged",d:"Property viewing is scheduled. Discuss offers afterward."},
-      offer_made:{ico:"📋",t:"Offer Submitted",d:"An offer is on the table. DLD closing to follow."},
-      closing:{ico:"⚖️",t:"In DLD Closing",d:"Transaction in progress via DLD Trustee."},
-      completed:{ico:"🎉",t:"Deal Completed!",d:"Congratulations! The deal has been successfully closed."}
+      chat_active:{ico:"message-circle",t:"Anonymous Chat Active",d:"Discuss requirements. Identities remain hidden."},
+      media_shared:{ico:"camera",t:"Photos Shared",d:"Property photos have been shared. Continue discussions."},
+      id_submitted:{ico:"credit-card",t:"IDs Verified",d:"Both parties have verified identity. Proceed to viewing."},
+      viewing_arranged:{ico:"home",t:"Viewing Arranged",d:"Property viewing is scheduled. Discuss offers afterward."},
+      offer_made:{ico:"clipboard-list",t:"Offer Submitted",d:"An offer is on the table. DLD closing to follow."},
+      closing:{ico:"scale",t:"In DLD Closing",d:"Transaction in progress via DLD Trustee."},
+      completed:{ico:"party-popper",t:"Deal Completed!",d:"Congratulations! The deal has been successfully closed."}
     };
     var si=stageInfo[stage];
     if(si){
+      var siIco=div({width:"30px",height:"30px",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center"});
+      siIco.innerHTML='<i data-lucide="'+si.ico+'" style="width:18px;height:18px;color:'+(stage==="completed"?cl.green:cl.gold)+'"></i>';
       card.appendChild(div({background:stage==="completed"?hexAlpha(cl.green,0.1):hexAlpha(cl.gold,0.07),
         borderRadius:"10px",padding:"12px 14px",marginBottom:"14px",display:"flex",gap:"10px",alignItems:"center"},[
-        div({fontSize:"18px"},si.ico),
+        siIco,
         div({},[
           div({color:stage==="completed"?cl.green:cl.gold,fontSize:"12px",fontWeight:"700",
             fontFamily:"'Space Grotesk',monospace"},si.t),
@@ -1580,12 +1591,12 @@ function _ofmMatchView(wrap,cl){
     // Stage advance actions (lister drives progression)
     if(isLister&&stage!=="completed"){
       var nextActions={
-        chat_active:{btn:"📷 Share Property Photos",next:"media_shared"},
-        media_shared:{btn:"🪪 Both IDs Verified",next:"id_submitted"},
-        id_submitted:{btn:"🏠 Confirm Viewing Set",next:"viewing_arranged"},
-        viewing_arranged:{btn:"📋 Offer Submitted",next:"offer_made"},
-        offer_made:{btn:"⚖️ Move to DLD Closing",next:"closing"},
-        closing:{btn:"🎉 Mark as Completed",next:"completed"}
+        chat_active:{ico:"camera",btn:"Share Property Photos",next:"media_shared"},
+        media_shared:{ico:"credit-card",btn:"Both IDs Verified",next:"id_submitted"},
+        id_submitted:{ico:"home",btn:"Confirm Viewing Set",next:"viewing_arranged"},
+        viewing_arranged:{ico:"clipboard-list",btn:"Offer Submitted",next:"offer_made"},
+        offer_made:{ico:"scale",btn:"Move to DLD Closing",next:"closing"},
+        closing:{ico:"party-popper",btn:"Mark as Completed",next:"completed"}
       };
       var na=nextActions[stage];
       if(na){
@@ -1598,9 +1609,9 @@ function _ofmMatchView(wrap,cl){
             var extra=na.next==="completed"?{completed_at:new Date().toISOString()}:{};
             var ok=await _ofmAdvanceStage(m.id,na.next,extra);
             if(ok){m.stage=na.next;render();}
-            else{advBtn.disabled=false;advBtn.textContent=na.btn;}
+            else{advBtn.disabled=false;advBtn.innerHTML='<i data-lucide="'+na.ico+'" style="width:13px;height:13px;vertical-align:middle;margin-right:6px"></i>'+na.btn;}
           }});
-        advBtn.textContent=na.btn;
+        advBtn.innerHTML='<i data-lucide="'+na.ico+'" style="width:13px;height:13px;vertical-align:middle;margin-right:6px"></i>'+na.btn;
         card.appendChild(advBtn);
       }
     }
@@ -1616,7 +1627,7 @@ function _ofmMatchView(wrap,cl){
         background:hexAlpha("#3B82F6",0.1),border:"1px solid "+hexAlpha("#3B82F6",0.3),
         color:"#60A5FA",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",fontWeight:"600"},
         onclick:function(){fileInp.click();}});
-      uploadBtn.textContent="📷 Upload Photos";
+      uploadBtn.innerHTML='<i data-lucide="camera" style="width:13px;height:13px;vertical-align:middle;margin-right:6px"></i>Upload Photos';
       fileInp.onchange=async function(){
         var files=Array.from(this.files||[]);
         uploadBtn.textContent="Uploading "+files.length+" photo(s)…";
@@ -1625,7 +1636,7 @@ function _ofmMatchView(wrap,cl){
           await _ofmUploadMedia(m.id,_ofmLt(),files[i]);
         }
         if(stage==="chat_active"){await _ofmAdvanceStage(m.id,"media_shared");m.stage="media_shared";}
-        uploadBtn.textContent="📷 Upload More Photos";
+        uploadBtn.innerHTML='<i data-lucide="camera" style="width:13px;height:13px;vertical-align:middle;margin-right:6px"></i>Upload More Photos';
         uploadBtn.disabled=false;
         render();
       };

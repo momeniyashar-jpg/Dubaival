@@ -1,4 +1,4 @@
-var CACHE_NAME='dubaival-v28';
+var CACHE_NAME='dubaival-v29';
 var PRECACHE=[
   '/logo.png',
   '/manifest.json',
@@ -13,16 +13,16 @@ var PRECACHE=[
   '/js/app.js?v=20260705a',
   '/js/market.js?v=20260703d',
   '/js/mortgage.js?v=20260629b',
-  '/js/portfolio.js?v=20260703f',
+  '/js/portfolio.js?v=20260705a',
   '/js/map.js?v=20260704a',
-  '/js/deals.js?v=20260704c',
-  '/js/chat.js?v=20260705c',
+  '/js/deals.js?v=20260705a',
+  '/js/chat.js?v=20260705d',
   '/js/social.js?v=20260701e',
   '/js/about.js?v=20260705a',
   '/js/workspace.js?v=20260703c',
   '/js/marketindex.js?v=20260703c',
   '/js/news.js?v=20260705e',
-  '/js/chiefs.js?v=20260704a'
+  '/js/chiefs.js?v=20260705a'
 ];
 
 self.addEventListener('install',function(e){

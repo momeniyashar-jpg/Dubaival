@@ -532,8 +532,9 @@ async function chiefsDeletePipeline(id) {
 function _chBtn(text, bg, fg, onClick, extra) {
   var b = el("button", {style:Object.assign({background:bg,color:fg||"#08090C",border:"none",
     padding:"8px 14px",borderRadius:"8px",fontSize:"12px",fontWeight:"700",
-    fontFamily:"'Space Grotesk',monospace",cursor:"pointer",whiteSpace:"nowrap"},extra||{})});
-  b.textContent = text; b.addEventListener("click", onClick); return b;
+    fontFamily:"'Space Grotesk',monospace",cursor:"pointer",whiteSpace:"nowrap",
+    display:"inline-flex",alignItems:"center",gap:"5px"},extra||{})});
+  b.innerHTML = text; b.addEventListener("click", onClick); return b;
 }
 function _chBadge(text, color) {
   var b = el("span",{style:{background:color+"22",color:color,border:"1px solid "+color+"44",
@@ -659,15 +660,17 @@ function _renderChiefsDashboard() {
   var pendingMatches = matches.filter(function(m){ return m.status==="new"||m.status==="draft_ready"; });
   var activeDeals = pipe.filter(function(p){ return p.stage!=="closed"&&p.stage!=="lost"; });
   var stats = [
-    {label:"My Listings",val:inv.length,color:"#D4AF37",icon:"📦"},
-    {label:"Active Clients",val:cli.filter(function(c){return c.status==="active";}).length,color:"#3B82F6",icon:"👥"},
-    {label:"Pending Matches",val:pendingMatches.length,color:"#10B981",icon:"🔗"},
-    {label:"Active Deals",val:activeDeals.length,color:"#8B5CF6",icon:"📋"}
+    {label:"My Listings",val:inv.length,color:"#D4AF37",icon:"package"},
+    {label:"Active Clients",val:cli.filter(function(c){return c.status==="active";}).length,color:"#3B82F6",icon:"users"},
+    {label:"Pending Matches",val:pendingMatches.length,color:"#10B981",icon:"link-2"},
+    {label:"Active Deals",val:activeDeals.length,color:"#8B5CF6",icon:"clipboard-list"}
   ];
   var statsRow = el("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"10px",marginBottom:"16px"}});
   stats.forEach(function(s) {
     var c = el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"14px",cursor:"pointer"}});
-    c.appendChild(span({fontSize:"20px",display:"block",marginBottom:"6px"},s.icon));
+    var sIco=el("div",{style:{width:"32px",height:"32px",borderRadius:"8px",background:s.color+"18",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:"8px"}});
+    sIco.innerHTML='<i data-lucide="'+s.icon+'" style="width:16px;height:16px;color:'+s.color+'"></i>';
+    c.appendChild(sIco);
     c.appendChild(div({color:s.color,fontSize:"22px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},String(s.val)));
     c.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},s.label));
     statsRow.appendChild(c);
@@ -860,9 +863,9 @@ function _renderChiefsInventory() {
       if (item.contact_name||item.contact_phone) { var dr3=_chRow(_chField("Contact",item.contact_name),_chField("Phone",item.contact_phone)); details.appendChild(dr3); }
       if (item.notes) details.appendChild(div({color:cl.sub,fontSize:"11px",marginTop:"8px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},item.notes));
       var abtn = el("div",{style:{display:"flex",gap:"6px",marginTop:"10px"}});
-      abtn.appendChild(_chBtn("✏️ Edit","rgba(255,255,255,0.06)","#8899AA",function(){chiefsEditInventory(item);},{border:"1px solid rgba(255,255,255,0.1)",fontSize:"11px",padding:"6px 10px"}));
-      abtn.appendChild(_chBtn("🔗 Find Matches","rgba(16,185,129,0.1)","#10B981",function(){_chiefsAutoMatch();CHIEFS_STATE.view="matches";render();},{border:"1px solid rgba(16,185,129,0.2)",fontSize:"11px",padding:"6px 10px"}));
-      abtn.appendChild(_chBtn("🗑️","rgba(239,68,68,0.1)","#EF4444",function(){chiefsDeleteInventory(item.id);},{border:"1px solid rgba(239,68,68,0.2)",fontSize:"11px",padding:"6px 10px"}));
+      abtn.appendChild(_chBtn('<i data-lucide="pencil" style="width:11px;height:11px"></i>Edit',"rgba(255,255,255,0.06)","#8899AA",function(){chiefsEditInventory(item);},{border:"1px solid rgba(255,255,255,0.1)",fontSize:"11px",padding:"6px 10px"}));
+      abtn.appendChild(_chBtn('<i data-lucide="link-2" style="width:11px;height:11px"></i>Find Matches',"rgba(16,185,129,0.1)","#10B981",function(){_chiefsAutoMatch();CHIEFS_STATE.view="matches";render();},{border:"1px solid rgba(16,185,129,0.2)",fontSize:"11px",padding:"6px 10px"}));
+      abtn.appendChild(_chBtn('<i data-lucide="trash-2" style="width:11px;height:11px"></i>',"rgba(239,68,68,0.1)","#EF4444",function(){chiefsDeleteInventory(item.id);},{border:"1px solid rgba(239,68,68,0.2)",fontSize:"11px",padding:"6px 10px"}));
       details.appendChild(abtn); card.appendChild(details);
     }
     wrap.appendChild(card);
@@ -881,7 +884,7 @@ function _renderChiefsClients() {
   hdr.appendChild(div({color:cl.white,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"Client Memory Bank"));
   var btnGrp = el("div",{style:{display:"flex",gap:"6px"}});
   if (!f.open && !sc.open) {
-    btnGrp.appendChild(_chBtn("📱 Scan Chat","rgba(37,211,102,0.15)","#25D366",function(){CHIEFS_STATE.scanner.open=true;render();},{border:"1px solid rgba(37,211,102,0.2)",fontSize:"11px"}));
+    btnGrp.appendChild(_chBtn('<i data-lucide="smartphone" style="width:11px;height:11px"></i>Scan Chat',"rgba(37,211,102,0.15)","#25D366",function(){CHIEFS_STATE.scanner.open=true;render();},{border:"1px solid rgba(37,211,102,0.2)",fontSize:"11px"}));
     btnGrp.appendChild(_chBtn("+ Add Client","#3B82F6","#fff",function(){CHIEFS_STATE.cliForm.open=true;CHIEFS_STATE.cliForm.editing=null;render();}));
   }
   hdr.appendChild(btnGrp); wrap.appendChild(hdr);
@@ -905,8 +908,8 @@ function _renderChiefsClients() {
     }
     var scanBtnRow = el("div",{style:{display:"flex",gap:"6px"}});
     scanBtnRow.appendChild(_chBtn("Cancel","rgba(255,255,255,0.06)","#8899AA",function(){CHIEFS_STATE.scanner={open:false,text:"",parsing:false,result:null,error:null};render();},{border:"1px solid rgba(255,255,255,0.1)"}));
-    if (sc.result) scanBtnRow.appendChild(_chBtn("✓ Use This Client","#10B981","#fff",function(){chiefsScannerApply();}));
-    else scanBtnRow.appendChild(_chBtn(sc.parsing?"Analyzing...":"🤖 Extract Requirements","#25D366",undefined,function(){if(!sc.parsing)chiefsScanConversation();}));
+    if (sc.result) scanBtnRow.appendChild(_chBtn('<i data-lucide="check" style="width:12px;height:12px"></i>Use This Client',"#10B981","#fff",function(){chiefsScannerApply();}));
+    else scanBtnRow.appendChild(_chBtn(sc.parsing?"Analyzing...":'<i data-lucide="bot" style="width:12px;height:12px"></i>Extract Requirements',"#25D366",undefined,function(){if(!sc.parsing)chiefsScanConversation();}));
     scCard.appendChild(scanBtnRow); wrap.appendChild(scCard);
   }
 
@@ -1012,10 +1015,10 @@ function _renderChiefsClients() {
       if (areas.length>0) { var arTags=el("div",{style:{marginTop:"8px"}}); arTags.appendChild(div({color:cl.muted,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:"4px"},"Preferred Areas")); var tags=el("div",{style:{display:"flex",flexWrap:"wrap",gap:"4px"}}); areas.forEach(function(a){tags.appendChild(_chBadge(a,"#3B82F6"));}); arTags.appendChild(tags); det.appendChild(arTags); }
       if (item.notes) det.appendChild(div({color:cl.sub,fontSize:"11px",marginTop:"8px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},item.notes));
       var abtn=el("div",{style:{display:"flex",gap:"6px",marginTop:"10px",flexWrap:"wrap"}});
-      abtn.appendChild(_chBtn("✏️ Edit","rgba(255,255,255,0.06)","#8899AA",function(){chiefsEditClient(item);},{border:"1px solid rgba(255,255,255,0.1)",fontSize:"11px",padding:"6px 10px"}));
-      abtn.appendChild(_chBtn("🔗 Find Matches","rgba(16,185,129,0.1)","#10B981",function(){_chiefsAutoMatch();CHIEFS_STATE.view="matches";render();},{border:"1px solid rgba(16,185,129,0.2)",fontSize:"11px",padding:"6px 10px"}));
-      if (item.client_phone) abtn.appendChild(_chBtn("💬 WhatsApp","rgba(37,211,102,0.1)","#25D366",function(){var p=item.client_phone.replace(/[^0-9+]/g,"");window.open("https://wa.me/"+p,"_blank","noopener,noreferrer");},{border:"1px solid rgba(37,211,102,0.2)",fontSize:"11px",padding:"6px 10px"}));
-      abtn.appendChild(_chBtn("🗑️","rgba(239,68,68,0.1)","#EF4444",function(){chiefsDeleteClient(item.id);},{border:"1px solid rgba(239,68,68,0.2)",fontSize:"11px",padding:"6px 10px"}));
+      abtn.appendChild(_chBtn('<i data-lucide="pencil" style="width:11px;height:11px"></i>Edit',"rgba(255,255,255,0.06)","#8899AA",function(){chiefsEditClient(item);},{border:"1px solid rgba(255,255,255,0.1)",fontSize:"11px",padding:"6px 10px"}));
+      abtn.appendChild(_chBtn('<i data-lucide="link-2" style="width:11px;height:11px"></i>Find Matches',"rgba(16,185,129,0.1)","#10B981",function(){_chiefsAutoMatch();CHIEFS_STATE.view="matches";render();},{border:"1px solid rgba(16,185,129,0.2)",fontSize:"11px",padding:"6px 10px"}));
+      if (item.client_phone) abtn.appendChild(_chBtn('<i data-lucide="message-circle" style="width:11px;height:11px"></i>WhatsApp',"rgba(37,211,102,0.1)","#25D366",function(){var p=item.client_phone.replace(/[^0-9+]/g,"");window.open("https://wa.me/"+p,"_blank","noopener,noreferrer");},{border:"1px solid rgba(37,211,102,0.2)",fontSize:"11px",padding:"6px 10px"}));
+      abtn.appendChild(_chBtn('<i data-lucide="trash-2" style="width:11px;height:11px"></i>',"rgba(239,68,68,0.1)","#EF4444",function(){chiefsDeleteClient(item.id);},{border:"1px solid rgba(239,68,68,0.2)",fontSize:"11px",padding:"6px 10px"}));
       det.appendChild(abtn); card.appendChild(det);
     }
     wrap.appendChild(card);
@@ -1111,11 +1114,11 @@ function _renderChiefsMatches() {
     // Action buttons
     var abtn = el("div",{style:{display:"flex",gap:"6px",flexWrap:"wrap"}});
     if (match.status==="new") {
-      abtn.appendChild(_chBtn(isDrafting?"Drafting...":"🤖 Draft Message","rgba(16,185,129,0.15)","#10B981",function(){if(!isDrafting)chiefsDraftMessage(match.id);},{border:"1px solid rgba(16,185,129,0.2)",fontSize:"11px"}));
+      abtn.appendChild(_chBtn(isDrafting?"Drafting...":'<i data-lucide="bot" style="width:11px;height:11px"></i>Draft Message',"rgba(16,185,129,0.15)","#10B981",function(){if(!isDrafting)chiefsDraftMessage(match.id);},{border:"1px solid rgba(16,185,129,0.2)",fontSize:"11px"}));
     }
     if (match.draft_message && match.status!=="approved" && match.status!=="sent") {
-      abtn.appendChild(_chBtn("📋 Copy & Approve","rgba(212,175,55,0.15)","#D4AF37",function(){chiefsApproveMatch(match.id);},{border:"1px solid rgba(212,175,55,0.2)",fontSize:"11px"}));
-      if (client.client_phone) abtn.appendChild(_chBtn("💬 Send via WhatsApp","rgba(37,211,102,0.15)","#25D366",function(){chiefsWhatsApp(match.id);},{border:"1px solid rgba(37,211,102,0.2)",fontSize:"11px"}));
+      abtn.appendChild(_chBtn('<i data-lucide="clipboard" style="width:11px;height:11px"></i>Copy & Approve',"rgba(212,175,55,0.15)","#D4AF37",function(){chiefsApproveMatch(match.id);},{border:"1px solid rgba(212,175,55,0.2)",fontSize:"11px"}));
+      if (client.client_phone) abtn.appendChild(_chBtn('<i data-lucide="message-circle" style="width:11px;height:11px"></i>Send via WhatsApp',"rgba(37,211,102,0.15)","#25D366",function(){chiefsWhatsApp(match.id);},{border:"1px solid rgba(37,211,102,0.2)",fontSize:"11px"}));
     }
     if (match.status==="new"||match.status==="draft_ready") abtn.appendChild(_chBtn("Dismiss","rgba(255,255,255,0.04)","#6B7A9E",function(){chiefsDismissMatch(match.id);},{border:"1px solid rgba(255,255,255,0.08)",fontSize:"11px"}));
     card.appendChild(abtn);
@@ -1245,8 +1248,8 @@ function _renderChiefsPipeline() {
         });
         stgRow.appendChild(stgBtns); det.appendChild(stgRow);
         var abtn=el("div",{style:{display:"flex",gap:"6px",marginTop:"10px"}});
-        abtn.appendChild(_chBtn("✏️ Edit","rgba(255,255,255,0.06)","#8899AA",function(){CHIEFS_STATE.pipeForm={open:true,editing:deal.id,client_name:deal.client_name||"",property_desc:deal.property_desc||"",stage:deal.stage||"lead",deal_value:deal.deal_value||"",next_action:deal.next_action||"",next_action_date:deal.next_action_date||"",notes:deal.notes||""};render();},{border:"1px solid rgba(255,255,255,0.1)",fontSize:"11px",padding:"6px 10px"}));
-        abtn.appendChild(_chBtn("🗑️","rgba(239,68,68,0.1)","#EF4444",function(){chiefsDeletePipeline(deal.id);},{border:"1px solid rgba(239,68,68,0.2)",fontSize:"11px",padding:"6px 10px"}));
+        abtn.appendChild(_chBtn('<i data-lucide="pencil" style="width:11px;height:11px"></i>Edit',"rgba(255,255,255,0.06)","#8899AA",function(){CHIEFS_STATE.pipeForm={open:true,editing:deal.id,client_name:deal.client_name||"",property_desc:deal.property_desc||"",stage:deal.stage||"lead",deal_value:deal.deal_value||"",next_action:deal.next_action||"",next_action_date:deal.next_action_date||"",notes:deal.notes||""};render();},{border:"1px solid rgba(255,255,255,0.1)",fontSize:"11px",padding:"6px 10px"}));
+        abtn.appendChild(_chBtn('<i data-lucide="trash-2" style="width:11px;height:11px"></i>',"rgba(239,68,68,0.1)","#EF4444",function(){chiefsDeletePipeline(deal.id);},{border:"1px solid rgba(239,68,68,0.2)",fontSize:"11px",padding:"6px 10px"}));
         det.appendChild(abtn); card.appendChild(det);
       }
       wrap.appendChild(card);
@@ -1452,11 +1455,11 @@ function renderChiefsCopilotOverlay() {
   // Header
   var hdr = el("div", { style: { display: "flex", alignItems: "center", gap: "10px", padding: "0 16px 12px", flexShrink: "0", borderBottom: "1px solid " + cl.border } });
   var hIcon = el("div", { style: { width: "36px", height: "36px", background: "rgba(212,175,55,0.15)", border: "1px solid rgba(212,175,55,0.35)", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", flexShrink: "0" } });
-  hIcon.textContent = "🤖";
+  hIcon.innerHTML = '<i data-lucide="bot" style="width:18px;height:18px;color:#D4AF37"></i>';
   hdr.appendChild(hIcon);
   var hInfo = el("div", { style: { flex: "1", minWidth: "0" } });
   hInfo.appendChild(div({ color: "#D4AF37", fontSize: "13px", fontWeight: "700", fontFamily: "'Space Grotesk',monospace" }, "AI Chief Co-pilot"));
-  var srcLabel = { email: "✉️ Email", instagram: "📸 Instagram", whatsapp: "💬 WhatsApp", facebook: "📘 Facebook" }[CHIEFS_COPILOT.source] || ("📨 " + CHIEFS_COPILOT.source);
+  var srcLabel = { email: "Email", instagram: "Instagram", whatsapp: "WhatsApp", facebook: "Facebook" }[CHIEFS_COPILOT.source] || CHIEFS_COPILOT.source;
   hInfo.appendChild(div({ color: cl.muted, fontSize: "11px", marginTop: "2px", fontFamily: "'Inter',sans-serif" }, srcLabel + " · " + (CHIEFS_COPILOT.senderName || "Prospect")));
   hdr.appendChild(hInfo);
   var closeBtn = el("button", { style: { background: "rgba(255,255,255,0.06)", border: "1px solid " + cl.border, color: cl.sub, borderRadius: "8px", padding: "6px 12px", cursor: "pointer", fontSize: "14px", fontWeight: "600" } });
@@ -1492,7 +1495,7 @@ function renderChiefsCopilotOverlay() {
     if (n.prop_type) addTag(n.prop_type.charAt(0).toUpperCase() + n.prop_type.slice(1), "#6B7A9E");
     if (n.furnished) addTag(n.furnished, "#6B7A9E");
     if (n.max_price) addTag("≤ AED " + Number(n.max_price).toLocaleString(), "#10B981");
-    (n.areas || []).forEach(function(a) { addTag("📍 " + a, "#D4AF37"); });
+    (n.areas || []).forEach(function(a) { addTag("◆ " + a, "#D4AF37"); });
     wCard.appendChild(tags);
     body.appendChild(wCard);
 
@@ -1525,7 +1528,7 @@ function renderChiefsCopilotOverlay() {
     var dSec = el("div", { style: { marginBottom: "14px" } });
     dSec.appendChild(div({ color: cl.sub, fontSize: "9px", fontWeight: "700", letterSpacing: "0.12em", marginBottom: "8px", fontFamily: "'Space Grotesk',monospace" }, "AI DRAFT REPLY"));
     if (!CHIEFS_COPILOT.draft && !CHIEFS_COPILOT.drafting) {
-      dSec.appendChild(_chBtn("🤖 Generate Reply Draft", "rgba(212,175,55,0.12)", "#D4AF37", function() { chiefsCopilotDraft(); }, { border: "1px solid rgba(212,175,55,0.3)", width: "100%", justifyContent: "center", textAlign: "center" }));
+      dSec.appendChild(_chBtn('<i data-lucide="bot" style="width:12px;height:12px"></i>Generate Reply Draft', "rgba(212,175,55,0.12)", "#D4AF37", function() { chiefsCopilotDraft(); }, { border: "1px solid rgba(212,175,55,0.3)", width: "100%", justifyContent: "center", textAlign: "center" }));
     } else if (CHIEFS_COPILOT.drafting) {
       var dSpin = el("div", { style: { display: "flex", alignItems: "center", gap: "8px", padding: "12px 0" } });
       var dsp = el("div", { style: { width: "16px", height: "16px", border: "2px solid rgba(212,175,55,0.2)", borderTop: "2px solid #D4AF37", borderRadius: "50%", animation: "spin 0.8s linear infinite", flexShrink: "0" } });
@@ -1538,17 +1541,17 @@ function renderChiefsCopilotOverlay() {
       ta.addEventListener("input", function() { CHIEFS_COPILOT.draft = this.value; });
       dSec.appendChild(ta);
       var actRow = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } });
-      actRow.appendChild(_chBtn("📋 Copy", "rgba(212,175,55,0.1)", "#D4AF37", function() { navigator.clipboard.writeText(CHIEFS_COPILOT.draft || "").catch(function(){}); }, { border: "1px solid rgba(212,175,55,0.25)", fontSize: "12px" }));
+      actRow.appendChild(_chBtn('<i data-lucide="copy" style="width:11px;height:11px"></i>Copy', "rgba(212,175,55,0.1)", "#D4AF37", function() { navigator.clipboard.writeText(CHIEFS_COPILOT.draft || "").catch(function(){}); }, { border: "1px solid rgba(212,175,55,0.25)", fontSize: "12px" }));
       if (CHIEFS_COPILOT.senderContact && !CHIEFS_COPILOT.senderContact.includes("@")) {
-        actRow.appendChild(_chBtn("💬 WhatsApp", "rgba(37,211,102,0.1)", "#25D366", function() { var ph = CHIEFS_COPILOT.senderContact.replace(/\D/g,""); if(ph) window.open("https://wa.me/"+ph+"?text="+encodeURIComponent(CHIEFS_COPILOT.draft||""),"_blank"); }, { border: "1px solid rgba(37,211,102,0.25)", fontSize: "12px" }));
+        actRow.appendChild(_chBtn('<i data-lucide="message-circle" style="width:11px;height:11px"></i>WhatsApp', "rgba(37,211,102,0.1)", "#25D366", function() { var ph = CHIEFS_COPILOT.senderContact.replace(/\D/g,""); if(ph) window.open("https://wa.me/"+ph+"?text="+encodeURIComponent(CHIEFS_COPILOT.draft||""),"_blank"); }, { border: "1px solid rgba(37,211,102,0.25)", fontSize: "12px" }));
       }
-      actRow.appendChild(_chBtn("🔄 Regenerate", "rgba(255,255,255,0.04)", cl.sub, function() { chiefsCopilotDraft(); }, { border: "1px solid " + cl.border, fontSize: "12px" }));
+      actRow.appendChild(_chBtn('<i data-lucide="refresh-cw" style="width:11px;height:11px"></i>Regenerate', "rgba(255,255,255,0.04)", cl.sub, function() { chiefsCopilotDraft(); }, { border: "1px solid " + cl.border, fontSize: "12px" }));
       dSec.appendChild(actRow);
     }
     body.appendChild(dSec);
 
     // Save to Client Memory
-    body.appendChild(_chBtn(CHIEFS_COPILOT.saving ? "Saving..." : "💾 Save to Client Memory", "rgba(139,92,246,0.1)", "#8B5CF6", function() { if(!CHIEFS_COPILOT.saving) chiefsCopilotSaveClient(); }, { border: "1px solid rgba(139,92,246,0.25)", width: "100%", textAlign: "center", justifyContent: "center", fontSize: "13px", padding: "10px 14px" }));
+    body.appendChild(_chBtn(CHIEFS_COPILOT.saving ? "Saving..." : '<i data-lucide="save" style="width:13px;height:13px"></i>Save to Client Memory', "rgba(139,92,246,0.1)", "#8B5CF6", function() { if(!CHIEFS_COPILOT.saving) chiefsCopilotSaveClient(); }, { border: "1px solid rgba(139,92,246,0.25)", width: "100%", textAlign: "center", justifyContent: "center", fontSize: "13px", padding: "10px 14px" }));
   }
 
   sheet.appendChild(body);
@@ -1572,12 +1575,12 @@ function renderChiefs() {
 
   // Internal view tabs
   var VIEWS = [
-    {id:"dashboard",label:"Dashboard",icon:"⌂"},
-    {id:"inventory",label:"Inventory",icon:"📦"},
-    {id:"clients",label:"Clients",icon:"👥"},
-    {id:"matches",label:"Matches",icon:"🔗"},
-    {id:"pipeline",label:"Pipeline",icon:"📋"},
-    {id:"inbox",label:"Inbox",icon:"📬"}
+    {id:"dashboard",label:"Dashboard",icon:"layout-dashboard"},
+    {id:"inventory",label:"Inventory",icon:"package"},
+    {id:"clients",label:"Clients",icon:"users"},
+    {id:"matches",label:"Matches",icon:"link-2"},
+    {id:"pipeline",label:"Pipeline",icon:"clipboard-list"},
+    {id:"inbox",label:"Inbox",icon:"inbox"}
   ];
   var tabBar = el("div",{style:{display:"flex",gap:"0",borderBottom:"1px solid "+cl.border,overflowX:"auto",flexShrink:"0",WebkitOverflowScrolling:"touch"}});
   VIEWS.forEach(function(v) {
@@ -1588,7 +1591,7 @@ function renderChiefs() {
       border:"none",color:isActive?"#D4AF37":cl.sub,padding:"10px 14px",
       fontSize:"12px",cursor:"pointer",whiteSpace:"nowrap",fontFamily:"'Space Grotesk',monospace",
       fontWeight:isActive?"700":"400",position:"relative",transition:"all 0.2s"}});
-    t.textContent = v.icon + " " + v.label;
+    t.innerHTML = '<i data-lucide="'+v.icon+'" style="width:12px;height:12px;vertical-align:middle;margin-right:4px"></i>'+v.label;
     if (pendingBadge > 0) {
       var badge = el("span",{style:{background:"#10B981",color:"#fff",borderRadius:"10px",
         padding:"1px 5px",fontSize:"9px",fontWeight:"700",marginLeft:"4px"}});
