@@ -1429,18 +1429,18 @@ function generateMarketMoments(){
   if(byYield.length){
     var t=byYield[0];
     usedAreas[t[0]]=1;
-    moments.push({icon:"⚡",timing:"YIELD CHAMPION",timingColor:"#F59E0B",
+    moments.push({icon:"zap",timing:"YIELD CHAMPION",timingColor:"#F59E0B",
       text:t[0]+" averaging "+aY(t[1]).toFixed(1)+"% gross yield — highest in Dubai right now",
       tag:"OPPORTUNITY",tagColor:"#10B981",area:t[0]});
   }
   if(byG1.length&&!usedAreas[byG1[0][0]]){
     var t=byG1[0];usedAreas[t[0]]=1;
-    moments.push({icon:"📈",timing:"1-YEAR GROWTH LEADER",timingColor:"#3B82F6",
+    moments.push({icon:"trending-up",timing:"1-YEAR GROWTH LEADER",timingColor:"#3B82F6",
       text:t[0]+" up "+g1(t[1]).toFixed(1)+"% this year — Dubai's fastest-growing area",
       tag:"TRENDING",tagColor:"#3B82F6",area:t[0]});
   }else if(byG1.length>1&&!usedAreas[byG1[1][0]]){
     var t=byG1[1];usedAreas[t[0]]=1;
-    moments.push({icon:"📈",timing:"1-YEAR GROWTH LEADER",timingColor:"#3B82F6",
+    moments.push({icon:"trending-up",timing:"1-YEAR GROWTH LEADER",timingColor:"#3B82F6",
       text:t[0]+" up "+g1(t[1]).toFixed(1)+"% this year — one of Dubai's fastest-growing areas",
       tag:"TRENDING",tagColor:"#3B82F6",area:t[0]});
   }
@@ -1449,7 +1449,7 @@ function generateMarketMoments(){
       if(!usedAreas[byG5[gi][0]]){
         var t=byG5[gi];usedAreas[t[0]]=1;
         var rate=(g5(t[1])/5).toFixed(1);
-        moments.push({icon:"🔥",timing:"5-YEAR CAPITAL STORY",timingColor:"#EF4444",
+        moments.push({icon:"flame",timing:"5-YEAR CAPITAL STORY",timingColor:"#EF4444",
           text:t[0]+": "+g5(t[1]).toFixed(0)+"% appreciation over 5 years — compounding at "+rate+"%/yr",
           tag:"LONG-TERM",tagColor:"#8B5CF6",area:t[0]});
         break;
@@ -1460,7 +1460,7 @@ function generateMarketMoments(){
     for(var si=0;si<byScore.length;si++){
       if(!usedAreas[byScore[si].name]){
         var t=byScore[si];usedAreas[t.name]=1;
-        moments.push({icon:"🎯",timing:"BEST COMBINED SCORE TODAY",timingColor:"#D4AF37",
+        moments.push({icon:"crosshair",timing:"BEST COMBINED SCORE TODAY",timingColor:"#D4AF37",
           text:t.name+": "+aY(t.data).toFixed(1)+"% yield + "+g1(t.data).toFixed(1)+"% growth — highest opportunity score in Dubai",
           tag:"BEST VALUE",tagColor:"#D4AF37",area:t.name});
         break;
@@ -1471,7 +1471,7 @@ function generateMarketMoments(){
     for(var di=0;di<byDom.length;di++){
       if(!usedAreas[byDom[di][0]]){
         var t=byDom[di];
-        moments.push({icon:"💎",timing:"FASTEST-SELLING MARKET",timingColor:"#10B981",
+        moments.push({icon:"gem",timing:"FASTEST-SELLING MARKET",timingColor:"#10B981",
           text:t[0]+" properties selling in avg "+t[1].dom+" days — most liquid market in Dubai",
           tag:"LIQUID",tagColor:"#10B981",area:t[0]});
         break;
@@ -1487,7 +1487,7 @@ function generateMarketMoments(){
   }catch(ex){}
   if(personalArea){
     var pd=AREAS[personalArea];
-    moments.unshift({icon:"🎯",timing:"FOR YOU",timingColor:"#8B5CF6",
+    moments.unshift({icon:"star",timing:"FOR YOU",timingColor:"#8B5CF6",
       text:personalArea+": "+aY(pd).toFixed(1)+"% yield · "+g1(pd).toFixed(1)+"% YoY growth · AED "+pd.psf.toLocaleString()+" PSF — last area you checked",
       tag:"PERSONAL",tagColor:"#8B5CF6",area:personalArea,isPersonal:true});
   }
@@ -1523,8 +1523,8 @@ function renderMarketMoments(cl){
       transition:"background 0.18s ease,border-color 0.18s ease",
       opacity:"0",animation:"dvFadeUp 0.32s ease "+(i*0.07)+"s both"
     }});
-    var iconEl=el("div",{style:{fontSize:"19px",lineHeight:"1.25",flexShrink:"0",marginTop:"1px"}});
-    iconEl.textContent=m.icon;
+    var iconEl=el("div",{style:{width:"34px",height:"34px",borderRadius:"10px",background:"rgba(255,255,255,0.05)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
+    iconEl.innerHTML='<i data-lucide="'+m.icon+'" style="width:18px;height:18px;color:'+m.timingColor+';stroke-width:1.8"></i>';
     card.appendChild(iconEl);
     var body=el("div",{style:{flex:"1",minWidth:"0"}});
     var tEl=el("div",{style:{fontSize:"9px",fontWeight:"700",color:m.timingColor,fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.11em",marginBottom:"3px"}});
@@ -1603,9 +1603,11 @@ function renderHome(){
   azTop.appendChild(azInfo);
   azCard.appendChild(azTop);
   var azFeats=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"10px",marginBottom:"18px"}});
-  [["🎯","Confidence Score"],["📊","Yield Analysis"],["💡","Investment Signal"],["📄","PDF Report"]].forEach(function(f){
-    var fc=el("div",{style:{background:"rgba(255,255,255,0.03)",borderRadius:"10px",padding:"10px",textAlign:"center"}});
-    fc.appendChild(div({fontSize:"18px",marginBottom:"4px"},f[0]));
+  [["gauge","Confidence Score","#D4AF37"],["trending-up","Yield Analysis","#10B981"],["zap","Investment Signal","#F59E0B"],["file-text","PDF Report","#8899AA"]].forEach(function(f){
+    var fc=el("div",{style:{background:"rgba(255,255,255,0.03)",borderRadius:"10px",padding:"10px 6px",textAlign:"center"}});
+    var iconWrap=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"center",marginBottom:"6px"}});
+    iconWrap.innerHTML='<i data-lucide="'+f[0]+'" style="width:20px;height:20px;color:'+f[2]+';stroke-width:1.8"></i>';
+    fc.appendChild(iconWrap);
     fc.appendChild(div({fontSize:"10px",color:cl.sub,fontFamily:"'Inter',sans-serif",fontWeight:"600"},f[1]));
     azFeats.appendChild(fc);
   });
