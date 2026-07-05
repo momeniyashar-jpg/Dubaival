@@ -754,8 +754,12 @@ These files contain critical business logic and data:
   1. Run `supabase-knowledge-base-schema.sql` in Supabase Dashboard → SQL Editor.
      Creates `knowledge_base` table with pgvector `vector(768)` column, HNSW index,
      `match_knowledge()` RPC function, and public-read RLS policy.
-  2. Get a free Gemini API key at https://aistudio.google.com/apikey and add it
-     as `GEMINI_API_KEY` in Vercel Dashboard → Project → Settings → Environment Variables.
+  2. `GEMINI_API_KEY` در Vercel set شده ✅ — اما دو چیز هنوز باید انجام بشه:
+     - **Supabase SQL** (قدم ۱ بالا) هنوز اجرا نشده → RAG غیرفعاله
+     - **Client-side key**: در اپ → Network → AI Agents → Setup → فیلد
+       `Gemini API Key` رو با همون key پر کن تا در localStorage ذخیره بشه.
+       بدون این، تولید تصویر در Video Studio و چندین feature دیگه در Chat
+       از Gemini استفاده نمی‌کنند (Groq fallback جایگزین می‌شه).
   Once done: news articles are auto-embedded every ~2.5min (on proxy-news cache-miss),
   area market snapshots are embedded daily at 06:00 UTC, and all 5 grounded AI
   features (Chat Agents, Area Comparison, Compare, Personal Advisor, Portfolio Analysis)
