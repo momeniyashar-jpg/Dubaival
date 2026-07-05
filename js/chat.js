@@ -2780,6 +2780,7 @@ function showVideoGenUI(initialPrompt){
 
   // ── SETUP TAB ─────────────────────────────────────────────────────────────
   function renderVGSetup(){
+    vgBody.innerHTML="";
     // Content Templates
     var tplSec=div({marginBottom:"20px"});
     tplSec.appendChild(div({color:"#8899AA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"10px"},"VIDEO TYPE"));
@@ -7466,8 +7467,10 @@ function renderMediaStudio(mode){
 
   // ── SETUP (Branding + Social — persistent configured state) ───────────────
   function makeConfigCard(isConfigured,configuredContent,emptyIcon,emptyLabel,emptyDesc,onEdit,onRemove,onSetup){
-    var card=el("div",{style:{background:cl.surface,border:"1px solid "+(isConfigured?"#10B981":cl.border),borderRadius:"12px",padding:"14px 12px",cursor:isConfigured?"default":"pointer",transition:"all 0.2s ease",minHeight:"90px",display:"flex",flexDirection:"column",justifyContent:"center",gap:"6px"}});
+    var card=el("div",{style:{background:cl.surface,border:"1px solid "+(isConfigured?"rgba(16,185,129,0.28)":cl.border),borderRadius:"12px",padding:"14px 12px",cursor:isConfigured?"default":"pointer",transition:"all 0.2s ease",minHeight:"90px",display:"flex",flexDirection:"column",justifyContent:"center",gap:"6px"}});
     if(isConfigured){
+      card.addEventListener("mouseenter",function(){this.style.borderColor="#10B981";this.style.boxShadow="0 0 8px rgba(16,185,129,0.18)";});
+      card.addEventListener("mouseleave",function(){this.style.borderColor="rgba(16,185,129,0.28)";this.style.boxShadow="none";});
       card.appendChild(div({color:"#10B981",fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em",marginBottom:"2px"},"✓ CONFIGURED"));
       configuredContent.forEach(function(c){card.appendChild(c);});
       var btnRow=el("div",{style:{display:"flex",gap:"6px",marginTop:"8px"}});
