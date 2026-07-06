@@ -1212,9 +1212,21 @@ function createVoiceMic(stateKey,onResult,opts){
   var fsz=inline?"16px":"24px";
 
   if(!hasSpeech){
-    var dis=el("button",{style:{width:sz,height:sz,borderRadius:"50%",border:"1px solid "+cl.border,background:cl.raised,color:cl.sub,fontSize:fsz,cursor:"not-allowed",opacity:"0.5",flexShrink:"0"},title:"Voice not supported"});
-    dis.textContent="";
-    return dis;
+    if(inline){
+      var dis=el("button",{style:{width:sz,height:sz,borderRadius:"50%",border:"1px solid "+cl.border,background:cl.raised,color:cl.sub,fontSize:fsz,cursor:"not-allowed",opacity:"0.4",flexShrink:"0"},title:"Voice not supported in this browser"});
+      dis.textContent="";
+      return dis;
+    }
+    // Non-inline fallback: textarea + submit so Firefox/mobile users can still use the feature
+    var fbWrap=div({display:"flex",flexDirection:"column",alignItems:"stretch",gap:"6px",width:"100%"});
+    fbWrap.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginBottom:"2px",textAlign:"left"},"Voice not supported in this browser — type instead:"));
+    var fbInp=el("textarea",{style:{background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"8px 10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",resize:"vertical",minHeight:"64px",boxSizing:"border-box",width:"100%"}});
+    fbInp.placeholder=opts.placeholder||"Type your query here...";
+    var fbBtn=el("button",{style:{padding:"7px 14px",borderRadius:"8px",border:"none",background:"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#08090C",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",alignSelf:"flex-end"}});
+    fbBtn.textContent="Submit";
+    fbBtn.addEventListener("click",function(){if(fbInp.value.trim()&&onResult)onResult(fbInp.value.trim());});
+    fbWrap.appendChild(fbInp);fbWrap.appendChild(fbBtn);
+    return fbWrap;
   }
 
   // Inject keyframes once

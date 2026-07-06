@@ -238,9 +238,20 @@ function _renderNewsList() {
 
   if (!filtered.length) {
     var empty = div({ textAlign: "center", padding: "60px 20px" });
-    empty.appendChild(div({ fontSize: "32px", marginBottom: "12px" }, "📰"));
-    empty.appendChild(div({ color: cl.sub, fontSize: "13px" }, NEWS_STATE.filter === "launch" ? "No new project launches found right now." : "No articles in this category right now."));
-    empty.appendChild(div({ color: cl.muted || cl.sub, fontSize: "11px", marginTop: "6px" }, "Check back soon — news refreshes every minute."));
+    if (NEWS_STATE.error && !NEWS_STATE.articles.length) {
+      empty.appendChild(div({ fontSize: "32px", marginBottom: "12px" }, "⚠"));
+      empty.appendChild(div({ color: "#F87171", fontSize: "13px", fontWeight: "600", fontFamily: "'Space Grotesk',monospace", marginBottom: "6px" }, "Unable to load news"));
+      empty.appendChild(div({ color: cl.sub, fontSize: "11px", marginBottom: "14px" }, NEWS_STATE.error));
+      var retryLarge = el("button", {
+        style: { background: "transparent", border: "1px solid #F87171", color: "#F87171", borderRadius: "8px", padding: "7px 18px", fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "'Space Grotesk',monospace" },
+        onclick: function() { _fetchNews(false); }
+      }, "Try Again");
+      empty.appendChild(retryLarge);
+    } else {
+      empty.appendChild(div({ fontSize: "32px", marginBottom: "12px" }, "📰"));
+      empty.appendChild(div({ color: cl.sub, fontSize: "13px" }, NEWS_STATE.filter === "launch" ? "No new project launches found right now." : "No articles in this category right now."));
+      empty.appendChild(div({ color: cl.muted || cl.sub, fontSize: "11px", marginTop: "6px" }, "Check back soon — news refreshes every minute."));
+    }
     _newsListEl.appendChild(empty);
     return;
   }
