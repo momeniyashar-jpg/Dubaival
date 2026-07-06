@@ -62,7 +62,7 @@ function renderFind(){
   wrap.appendChild(div({color:cl.sub,fontSize:"12px",marginBottom:"16px",fontFamily:"'Inter',sans-serif"},"Tell DubAIVal what you're looking for. AI searches Bayut, PropertyFinder & market data."));
 
   if(!window.FIND_STATE)window.FIND_STATE={area:"",building:"",beds:"2 BR",maxPrice:"",minYield:"",type:"Apartment",query:"",results:[],loading:false,searched:false,sort:"score",
-    sf:{area:"",grade:"",minYield:"",maxPSF:"",minPSF:"",minGrowth:"",maxDOM:"",minTurnover:"",type:"Apartment",beds:"Any",sort:"yield",showResults:false,results:[],mapView:false}
+    sf:{area:"",grade:"",minYield:"",maxPSF:"",minPSF:"",minGrowth:"",maxDOM:"",minTurnover:"",type:"Apartment",beds:"Any",sort:"yield",showResults:false,results:[],allResults:[],page:0,mapView:false}
   };
   var FS=window.FIND_STATE;
 
@@ -192,7 +192,7 @@ function renderFind(){
     else if(sf.sort==="growth")results.sort(function(a,b){return b.growth3-a.growth3;});
     else if(sf.sort==="liquidity")results.sort(function(a,b){return a.dom-b.dom;});
     else if(sf.sort==="turnover")results.sort(function(a,b){return b.turnover-a.turnover;});
-    sf.results=results.slice(0,50);
+    sf.allResults=results;sf.results=results.slice(0,50);sf.page=0;
     sf.showResults=true;
     render();
   }));
@@ -202,7 +202,7 @@ function renderFind(){
   if(sf.showResults&&sf.results.length>0){
     var sfResCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"});
     var _sfHdr=div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"});
-    _sfHdr.appendChild(span({color:"#818CF8",fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ "+sf.results.length+" Buildings Found"+(sf.results.length>=50?" (showing top 50)":"")));
+    _sfHdr.appendChild(span({color:"#818CF8",fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ "+sf.results.length+(sf.allResults&&sf.allResults.length>sf.results.length?" of "+sf.allResults.length:"")+" Buildings Found"));
     var _sfHdrBtns=div({display:"flex",gap:"6px"});
     _sfHdrBtns.appendChild(el("button",{style:{background:sf.mapView?"rgba(129,140,248,0.15)":"transparent",border:"1px solid "+(sf.mapView?"rgba(129,140,248,0.4)":cl.border),color:sf.mapView?"#818CF8":cl.sub,padding:"4px 10px",borderRadius:"6px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){sf.mapView=!sf.mapView;render();}},sf.mapView?"≡ List":"◆ Map"));
     _sfHdrBtns.appendChild(btn({background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"4px 10px",borderRadius:"6px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},"Clear",function(){sf.showResults=false;sf.results=[];sf.mapView=false;render();}));
@@ -251,6 +251,12 @@ function renderFind(){
       row.appendChild(rPills);
       sfResCard.appendChild(row);
     });
+    if(sf.allResults&&sf.allResults.length>sf.results.length){
+      var sfLoadMore=el("button",{style:{width:"100%",padding:"10px",marginTop:"8px",borderRadius:"10px",border:"1px solid rgba(129,140,248,0.4)",background:"rgba(99,102,241,0.08)",color:"#818CF8",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.06em"}});
+      sfLoadMore.textContent="Load More ("+(sf.allResults.length-sf.results.length)+" remaining)";
+      sfLoadMore.addEventListener("click",function(){sf.page=(sf.page||0)+1;sf.results=sf.allResults.slice(0,50*(sf.page+1));render();});
+      sfResCard.appendChild(sfLoadMore);
+    }
       sfResCard.appendChild(div({marginTop:"10px",padding:"8px 10px",background:cl.goldFaint,borderRadius:"6px",fontSize:"10px",color:cl.sub,fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},"Click any building to open it in the Analyzer for full valuation."));
     }else{
       // Map view — group results by area and render Google Maps circles
@@ -315,7 +321,7 @@ function renderFind(){
       // Photo + Title row
       var topRow=el("div",{style:{display:"flex",gap:"12px",marginBottom:"10px"}});
       (function(){
-        var imgEl=el("img",{style:{width:"80px",height:"60px",borderRadius:"8px",objectFit:"cover",flexShrink:"0"}});
+        var imgEl=el("img",{referrerpolicy:"no-referrer",crossorigin:"anonymous",style:{width:"80px",height:"60px",borderRadius:"8px",objectFit:"cover",flexShrink:"0"}});
         var _ac3=typeof AREA_COORDS!=="undefined"&&AREA_COORDS[r.area]?AREA_COORDS[r.area]:null;
         var mapFallback=_ac3?"/api/proxy-maps?action=staticmap&lat="+_ac3[0]+"&lng="+_ac3[1]+"&zoom=15&size=80x60":"";
         if(r.photo){
