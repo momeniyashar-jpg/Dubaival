@@ -711,6 +711,7 @@ if(typeof window!=="undefined"){
         generateFallbackMomentum();
       }
     }
+    render();
   },800);
 }
 
@@ -979,11 +980,20 @@ function toggleFavArea(area){
 function isFavArea(area){return DV_SAVED.favAreas.indexOf(area)!==-1;}
 
 // --- CSV EXPORT (disabled) ---
-function exportCSV(filename,headers,rows){return;}
+function exportCSV(filename,headers,rows){
+  var lines=[headers.join(",")].concat(rows.map(function(r){
+    return r.map(function(v){var s=String(v==null?"":v);return(s.indexOf(",")>=0||s.indexOf('"')>=0||s.indexOf('\n')>=0)?'"'+s.replace(/"/g,'""')+'"':s;}).join(",");
+  }));
+  var blob=new Blob([lines.join("\n")],{type:"text/csv"});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement("a");a.href=url;a.download=filename;a.style.display="none";
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},2000);
+}
 function csvDate(){return new Date().toISOString().slice(0,10);}
 function csvExportBtn(label,cl,onclick){
-  var b=el("button",{style:{background:"transparent",border:"1px solid "+cl.goldDim,color:cl.gold,padding:"8px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",display:"none",alignItems:"center",gap:"6px"}});
-  b.textContent=label;b.addEventListener("click",onclick);return b;
+  var b=el("button",{style:{background:"transparent",border:"1px solid "+cl.goldDim,color:cl.gold,padding:"8px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",display:"inline-flex",alignItems:"center",gap:"6px"}});
+  b.textContent="⬇ "+label;b.addEventListener("click",onclick);return b;
 }
 
 // --- NOTIFICATION SYSTEM ---

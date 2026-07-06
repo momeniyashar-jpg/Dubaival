@@ -841,7 +841,12 @@ function renderQuickCheck(){
   var checkBtn=el("button",{style:{width:"100%",padding:"14px",borderRadius:"12px",border:"none",background:qs.mode==="rent"?"linear-gradient(135deg,#8B5CF6,#6D28D9)":"linear-gradient(135deg,#C9A84C,#7A5E28)",color:qs.mode==="rent"?"#fff":"#08090C",fontSize:"15px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.03em"}});
   checkBtn.textContent=qs.mode==="rent"?"CHECK RENT RANGE":"CHECK PRICE RANGE";
   checkBtn.addEventListener("click",function(){
-    if(!qs.area){alert("Please select an area");return;}
+    if(!qs.area){
+      var _e=document.getElementById("_qc_area_err");
+      if(!_e){_e=el("div",{id:"_qc_area_err",style:{color:"#EF4444",fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"8px",padding:"8px 12px",background:"rgba(239,68,68,0.07)",borderRadius:"8px",border:"1px solid rgba(239,68,68,0.3)"}});_e.textContent="Please select an area first.";checkBtn.insertAdjacentElement("beforebegin",_e);}
+      return;
+    }
+    var _eOld=document.getElementById("_qc_area_err");if(_eOld)_eOld.remove();
     qs.rangeResult=computeAreaPriceRange(qs.area,qs.beds||"2 BR",qs.mode);
     var price=parseInt((qs.price||"").replace(/[^0-9]/g,""));
     qs.result=null;
@@ -1059,7 +1064,12 @@ function renderAnalyzer(){
     var checkBtn=el("button",{style:{width:"100%",padding:"14px",borderRadius:"12px",border:"none",background:qs.mode==="rent"?"linear-gradient(135deg,#8B5CF6,#6D28D9)":"linear-gradient(135deg,#C9A84C,#7A5E28)",color:qs.mode==="rent"?"#fff":"#08090C",fontSize:"15px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.03em"}});
     checkBtn.textContent=qs.mode==="rent"?"CHECK RENT RANGE":"CHECK PRICE RANGE";
     checkBtn.addEventListener("click",function(){
-      if(!qs.area){alert("Please select an area");return;}
+      if(!qs.area){
+        var _e2=document.getElementById("_qc_area_err");
+        if(!_e2){_e2=el("div",{id:"_qc_area_err",style:{color:"#EF4444",fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"8px",padding:"8px 12px",background:"rgba(239,68,68,0.07)",borderRadius:"8px",border:"1px solid rgba(239,68,68,0.3)"}});_e2.textContent="Please select an area first.";checkBtn.insertAdjacentElement("beforebegin",_e2);}
+        return;
+      }
+      var _e2Old=document.getElementById("_qc_area_err");if(_e2Old)_e2Old.remove();
       qs.rangeResult=computeAreaPriceRange(qs.area,qs.beds||"2 BR",qs.mode);
       var price=parseInt((qs.price||"").replace(/[^0-9]/g,""));
       qs.result=null;

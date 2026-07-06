@@ -21,8 +21,10 @@ var _GMAP_DARK_STYLES = [
   {featureType:"water",elementType:"labels.text.fill",stylers:[{color:"#445566"}]}
 ];
 
-function _dvGmapLoad(cb) {
+var _dvGmapErrCbs = [];
+function _dvGmapLoad(cb, onErr) {
   if (window.google && window.google.maps) { cb(); return; }
+  if (onErr) _dvGmapErrCbs.push(onErr);
   if (Array.isArray(window._dvGmapPending)) { window._dvGmapPending.push(cb); return; }
   window._dvGmapPending = [cb];
   fetch("/api/proxy-maps?action=config")
@@ -32,14 +34,24 @@ function _dvGmapLoad(cb) {
       window._dvGmapReady = function() {
         var cbs = window._dvGmapPending || [];
         window._dvGmapPending = null;
+        _dvGmapErrCbs = [];
         cbs.forEach(function(f) { f(); });
       };
       var s = document.createElement("script");
       s.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(d.key) + "&callback=_dvGmapReady";
+      s.onerror = function() {
+        window._dvGmapPending = null;
+        _dvGmapErrCbs.forEach(function(f){f();});
+        _dvGmapErrCbs = [];
+      };
       s.async = true;
       document.head.appendChild(s);
     })
-    .catch(function() { window._dvGmapPending = null; });
+    .catch(function() {
+      window._dvGmapPending = null;
+      _dvGmapErrCbs.forEach(function(f){f();});
+      _dvGmapErrCbs = [];
+    });
 }
 
 // Builds a metric-specific popup — each overlay shows its own relevant data
@@ -407,6 +419,13 @@ function renderMap() {
         legDiv.appendChild(row);
       });
       gmap.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(legDiv);
+    }, function() {
+      var c3 = document.getElementById(mapId);
+      if (!c3) return;
+      c3.style.cssText = "flex:1;width:100%;min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;";
+      c3.innerHTML = '<div style="font-size:36px;opacity:0.4">🗺️</div>'
+        + '<div style="color:#EF4444;font-size:13px;font-weight:600;font-family:Space Grotesk,monospace">Map unavailable</div>'
+        + '<div style="color:#556677;font-size:11px;font-family:Inter,sans-serif;text-align:center;max-width:240px;line-height:1.5">Google Maps API could not be loaded.<br>Check your connection and try again.</div>';
     });
   }, 80);
 
