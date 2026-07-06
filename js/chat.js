@@ -2711,7 +2711,7 @@ function showVideoGenUI(initialPrompt){
     template:null,platform:"reel",language:"en",hookType:"emotional",
     prompt:"",mediaPhotos:[],mediaVideos:[],floorPlans:[],musicType:"luxury",
     musicFile:null,locationText:"",processing:false,resultBlob:null,resultUrl:null,
-    plan:null,activeTab:"setup"
+    plan:null,activeTab:"setup",engine:null
   };
 
   var CONTENT_TEMPLATES={
@@ -3030,23 +3030,97 @@ function showVideoGenUI(initialPrompt){
 
     // Generate Button
     var genBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#C9A84C,#F59E0B)",color:"#000",border:"none",borderRadius:"12px",padding:"16px",fontSize:"15px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.05em"}});
-    genBtn.innerHTML='<i data-lucide="video" style="width:16px;height:16px;vertical-align:middle;margin-right:8px"></i>Generate Video';
+    genBtn.innerHTML='<i data-lucide="arrow-right" style="width:16px;height:16px;vertical-align:middle;margin-right:8px"></i>Next: Choose Engine';
     genBtn.onclick=function(){
       var prompt=promptInp.value.trim();
       if(!prompt){alert("Please enter a video description or select a template");return;}
       VG_STATE.prompt=prompt;
       vgSwitchTab("create");
-      setTimeout(runVGPipeline,100);
     };
     vgBody.appendChild(genBtn);
     if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
   }
 
-  // ── CREATE TAB (pipeline) ─────────────────────────────────────────────────
+  // ── CREATE TAB (engine selection → generate) ──────────────────────────────
   var vgStepEls={};
   var vgProgressFill,vgProgressLabel,vgPreviewCanvas;
+  var _AI_ENGINE_LABELS={kling:"Kling AI v2",runway:"Runway Gen-4",luma:"Luma Dream Machine",minimax:"Minimax Hailuo",pika:"Pika 2.2"};
+  var _AI_ENGINE_COLORS={kling:"#C9A84C",runway:"#EC4899",luma:"#3B82F6",minimax:"#8B5CF6",pika:"#F59E0B"};
 
   function renderVGCreate(){
+    vgBody.innerHTML="";
+    Object.keys(vgStepEls).forEach(function(k){delete vgStepEls[k];});
+
+    var engines=[
+      {key:"slideshow",label:"Slideshow",icon:"film",color:"#10B981",
+       desc:"Canvas-based with slides & overlays",note:"~30 sec · Instant"},
+      {key:"kling",label:"Kling AI v2",icon:"sparkles",color:"#C9A84C",
+       desc:"Best-quality AI cinematic footage",note:"~3–5 min"},
+      {key:"runway",label:"Runway Gen-4",icon:"clapperboard",color:"#EC4899",
+       desc:"Cinematic AI generation",note:"~2–3 min"},
+      {key:"luma",label:"Luma Dream Machine",icon:"moon",color:"#3B82F6",
+       desc:"Photorealistic AI scenes",note:"~2–4 min"},
+      {key:"minimax",label:"Minimax Hailuo",icon:"zap",color:"#8B5CF6",
+       desc:"High-quality AI video",note:"~2–3 min"},
+      {key:"pika",label:"Pika 2.2",icon:"play-circle",color:"#F59E0B",
+       desc:"Creative text-to-video",note:"~1–2 min"}
+    ];
+
+    var engSec=div({marginBottom:"20px"});
+    engSec.appendChild(div({color:"#8899AA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"10px"},"CHOOSE AI ENGINE"));
+    var engGrid=div({display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px"});
+    engines.forEach(function(eng){
+      var isSel=VG_STATE.engine===eng.key;
+      var btn=div({background:isSel?"rgba("+hexToRgb(eng.color)+",0.12)":"rgba(255,255,255,0.02)",border:"1px solid "+(isSel?eng.color:"#2A3040"),borderRadius:"10px",padding:"10px 8px",cursor:"pointer",textAlign:"center",transition:"all 0.15s"});
+      var eIcon=div({marginBottom:"5px",display:"flex",justifyContent:"center"});
+      eIcon.innerHTML='<i data-lucide="'+eng.icon+'" style="width:20px;height:20px;color:'+eng.color+'"></i>';
+      btn.appendChild(eIcon);
+      btn.appendChild(div({color:isSel?eng.color:"#C0C8D8",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},eng.label));
+      btn.appendChild(div({color:"#556677",fontSize:"9px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},eng.desc));
+      btn.appendChild(div({color:"#3A4560",fontSize:"8px",fontFamily:"'Inter',sans-serif",marginTop:"3px"},eng.note));
+      btn.onclick=function(){VG_STATE.engine=eng.key;renderVGCreate();};
+      engGrid.appendChild(btn);
+    });
+    engSec.appendChild(engGrid);
+    vgBody.appendChild(engSec);
+
+    var pSec=div({marginBottom:"16px"});
+    pSec.appendChild(div({color:"#8899AA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"8px"},"PROMPT"));
+    var editPromptEl=el("textarea",{style:{width:"100%",background:"#0D1220",border:"1px solid #2A3040",borderRadius:"10px",padding:"12px",color:"#E0E0E0",fontSize:"13px",fontFamily:"'Inter',sans-serif",resize:"vertical",minHeight:"80px",boxSizing:"border-box"}});
+    editPromptEl.placeholder="Describe the video you want to create...";
+    editPromptEl.value=VG_STATE.prompt||"";
+    editPromptEl.oninput=function(){VG_STATE.prompt=editPromptEl.value;};
+    pSec.appendChild(editPromptEl);
+    vgBody.appendChild(pSec);
+
+    var backLnk=el("button",{style:{background:"transparent",border:"none",color:"#8899AA",fontSize:"11px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"0",marginBottom:"10px",display:"flex",alignItems:"center",gap:"4px"}});
+    backLnk.innerHTML='<i data-lucide="arrow-left" style="width:11px;height:11px"></i> Back to Setup';
+    backLnk.onclick=function(){vgSwitchTab("setup");};
+    vgBody.appendChild(backLnk);
+
+    var hasEng=!!VG_STATE.engine;
+    var createBtn=el("button",{style:{width:"100%",background:hasEng?"linear-gradient(135deg,#C9A84C,#F59E0B)":"#1A1F2E",color:hasEng?"#000":"#3A4560",border:"1px solid "+(hasEng?"transparent":"#2A3040"),borderRadius:"12px",padding:"16px",fontSize:"15px",fontWeight:"700",cursor:hasEng?"pointer":"default",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.05em",transition:"all 0.2s"}});
+    createBtn.innerHTML='<i data-lucide="video" style="width:16px;height:16px;vertical-align:middle;margin-right:8px"></i>'+(hasEng?"Generate Video":"Select an Engine Above");
+    createBtn.onclick=function(){
+      if(!hasEng)return;
+      var finalPrompt=editPromptEl.value.trim()||VG_STATE.prompt;
+      if(!finalPrompt){alert("Please enter a video description or go back to Setup to select a template");return;}
+      VG_STATE.prompt=finalPrompt;
+      vgBody.innerHTML="";
+      Object.keys(vgStepEls).forEach(function(k){delete vgStepEls[k];});
+      if(VG_STATE.engine==="slideshow"){
+        _renderVGSlideshowProgress();
+        setTimeout(runVGPipeline,100);
+      }else{
+        _renderAIEngineProgress();
+        setTimeout(_runAIEngine,100);
+      }
+    };
+    vgBody.appendChild(createBtn);
+    if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
+  }
+
+  function _renderVGSlideshowProgress(){
     var steps=[
       {key:"plan",icon:"bot",label:"AI Planning",desc:"Analyzing prompt, creating script & slide structure"},
       {key:"data",icon:"bar-chart-2",label:"Market Data",desc:"Enriching with live Dubai property data"},
@@ -3056,18 +3130,15 @@ function showVideoGenUI(initialPrompt){
       {key:"render",icon:"clapperboard",label:"Rendering Video",desc:"Compositing all elements frame by frame"},
       {key:"voice",icon:"mic",label:"Voiceover",desc:"Generating professional voiceover narration"}
     ];
-
-    vgBody.appendChild(div({color:"#8899AA",fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"16px",textAlign:"center"},"Creating your world-class video..."));
-
+    vgBody.appendChild(div({color:"#8899AA",fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"16px",textAlign:"center"},"Creating your slideshow video..."));
     var pBarWrap=div({marginBottom:"20px"});
     var pBarOuter=div({width:"100%",height:"6px",background:"#1A1F2E",borderRadius:"3px",overflow:"hidden"});
-    vgProgressFill=div({width:"0%",height:"100%",background:"linear-gradient(90deg,#C9A84C,#F59E0B)",borderRadius:"3px",transition:"width 0.4s ease"});
+    vgProgressFill=div({width:"0%",height:"100%",background:"linear-gradient(90deg,#10B981,#C9A84C)",borderRadius:"3px",transition:"width 0.4s ease"});
     pBarOuter.appendChild(vgProgressFill);
     pBarWrap.appendChild(pBarOuter);
     vgProgressLabel=div({color:"#C9A84C",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",marginTop:"8px",textAlign:"center"});
     pBarWrap.appendChild(vgProgressLabel);
     vgBody.appendChild(pBarWrap);
-
     var stepsGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"16px"});
     steps.forEach(function(s){
       var row=div({background:"rgba(255,255,255,0.02)",border:"1px solid #1A1F2E",borderRadius:"10px",padding:"10px 12px",display:"flex",alignItems:"flex-start",gap:"10px"});
@@ -3082,13 +3153,108 @@ function showVideoGenUI(initialPrompt){
       stepsGrid.appendChild(row);
     });
     vgBody.appendChild(stepsGrid);
-
     var canvasWrap=div({textAlign:"center",marginBottom:"12px",display:"none"});
     vgPreviewCanvas=el("canvas",{style:{maxWidth:"200px",maxHeight:"200px",borderRadius:"10px",border:"1px solid #2A3040"}});
     canvasWrap.appendChild(vgPreviewCanvas);
     vgBody.appendChild(canvasWrap);
     vgPreviewCanvas._wrap=canvasWrap;
     if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
+  }
+
+  function _renderAIEngineProgress(){
+    var engine=VG_STATE.engine;
+    var engLabel=_AI_ENGINE_LABELS[engine]||engine;
+    var engColor=_AI_ENGINE_COLORS[engine]||"#C9A84C";
+    vgBody.innerHTML="";
+    var hdr=div({textAlign:"center",marginBottom:"24px"});
+    var engIconWrap=div({width:"52px",height:"52px",borderRadius:"50%",background:"rgba(201,168,76,0.1)",border:"2px solid "+engColor,margin:"0 auto 12px",display:"flex",alignItems:"center",justifyContent:"center"});
+    engIconWrap.innerHTML='<i data-lucide="video" style="width:24px;height:24px;color:'+engColor+'"></i>';
+    hdr.appendChild(engIconWrap);
+    hdr.appendChild(div({color:"#F0F2F5",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Creating with "+engLabel));
+    hdr.appendChild(div({color:"#8899AA",fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Real AI video — do not close this window"));
+    vgBody.appendChild(hdr);
+    var pBarOuter=div({width:"100%",height:"8px",background:"#1A1F2E",borderRadius:"4px",overflow:"hidden",marginBottom:"10px"});
+    var pBarFill=div({id:"vg-ai-progress",width:"5%",height:"100%",background:"linear-gradient(90deg,"+engColor+",#F59E0B)",borderRadius:"4px",transition:"width 0.6s ease"});
+    pBarOuter.appendChild(pBarFill);
+    vgBody.appendChild(pBarOuter);
+    var statusEl=div({id:"vg-ai-status",color:engColor,fontSize:"12px",fontFamily:"'Space Grotesk',monospace",textAlign:"center",marginBottom:"20px",minHeight:"18px"});
+    statusEl.textContent="Sending request...";
+    vgBody.appendChild(statusEl);
+    var infoGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"16px"});
+    var promptShort=VG_STATE.prompt.length>50?VG_STATE.prompt.slice(0,48)+"...":VG_STATE.prompt;
+    [["🤖 Engine",engLabel],["📝 Prompt",promptShort||"(none)"],["⏱ Est. Time","2–5 minutes"],["🎬 Platform",VG_PLATFORMS[VG_STATE.platform]?VG_PLATFORMS[VG_STATE.platform].label:"Reel"]].forEach(function(row){
+      var card=div({background:"rgba(255,255,255,0.02)",border:"1px solid #1A1F2E",borderRadius:"10px",padding:"10px 12px"});
+      card.appendChild(div({color:"#556677",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em",marginBottom:"4px"},row[0]));
+      card.appendChild(div({color:"#C0C8D8",fontSize:"11px",fontFamily:"'Inter',sans-serif",wordBreak:"break-word"},row[1]));
+      infoGrid.appendChild(card);
+    });
+    vgBody.appendChild(infoGrid);
+    vgBody.appendChild(div({color:"#3A4560",fontSize:"10px",fontFamily:"'Inter',sans-serif",textAlign:"center",lineHeight:"1.6"},"Generation runs on remote AI servers. The video will appear in Results when ready."));
+    if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
+  }
+
+  async function _runAIEngine(){
+    var engine=VG_STATE.engine;
+    var prompt=VG_STATE.prompt;
+    function _aiStatus(msg,pct){
+      var s=document.getElementById("vg-ai-status");
+      var p=document.getElementById("vg-ai-progress");
+      if(s)s.textContent=msg;
+      if(p&&pct!=null)p.style.width=Math.min(pct,95)+"%";
+    }
+    function _aiError(msg){
+      var s=document.getElementById("vg-ai-status");
+      var p=document.getElementById("vg-ai-progress");
+      if(s){s.textContent="Error: "+msg;s.style.color="#EF4444";}
+      if(p){p.style.background="#EF4444";p.style.width="100%";}
+      var errRow=div({display:"flex",gap:"8px",marginTop:"16px"});
+      var retBtn=el("button",{style:{flex:"1",background:"#C9A84C",color:"#000",border:"none",borderRadius:"10px",padding:"12px",fontSize:"12px",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"}});
+      retBtn.textContent="Try Again";
+      retBtn.onclick=function(){_renderAIEngineProgress();setTimeout(_runAIEngine,100);};
+      var bkBtn=el("button",{style:{flex:"1",background:"#2A3040",color:"#E0E0E0",border:"none",borderRadius:"10px",padding:"12px",fontSize:"12px",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+      bkBtn.textContent="← Choose Engine";
+      bkBtn.onclick=function(){renderVGCreate();};
+      errRow.appendChild(retBtn);errRow.appendChild(bkBtn);
+      vgBody.appendChild(errRow);
+      if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
+    }
+    try{
+      _aiStatus("Sending request to "+(_AI_ENGINE_LABELS[engine]||engine)+"...",5);
+      var genResult;
+      if(engine==="kling")genResult=await _klingGenVideo(prompt);
+      else if(engine==="runway")genResult=await _runwayGenVideo(prompt);
+      else if(engine==="luma")genResult=await _lumaGenVideo(prompt);
+      else if(engine==="minimax")genResult=await _minimaxGenVideo(prompt);
+      else if(engine==="pika")genResult=await _pikaGenVideo(prompt);
+      else throw new Error("Unknown engine: "+engine);
+      if(!genResult)throw new Error("No response from server");
+      if(genResult.error)throw new Error(genResult.error);
+      var taskId=genResult.task_id||genResult.id||genResult.gen_id||genResult.request_id;
+      if(!taskId)throw new Error("No task ID returned. Check your API key in Social Setup.");
+      _aiStatus("Queued — waiting for AI to process...",12);
+      var videoUrl=null;
+      for(var pi=0;pi<72;pi++){
+        await new Promise(function(r){setTimeout(r,5000);});
+        var elapsed=pi*5;
+        _aiStatus("Generating... "+Math.floor(elapsed/60)+"m "+elapsed%60+"s",12+Math.round(pi/72*80));
+        var sr;
+        if(engine==="kling")sr=await _klingCheckStatus(taskId);
+        else if(engine==="runway")sr=await _runwayCheckStatus(taskId);
+        else if(engine==="luma")sr=await _lumaCheckStatus(taskId);
+        else if(engine==="minimax")sr=await _minimaxCheckStatus(taskId);
+        else if(engine==="pika")sr=await _pikaCheckStatus(taskId,genResult._fal_model);
+        if(!sr)continue;
+        if(sr.done&&sr.url){videoUrl=sr.url;break;}
+        if(sr.error)throw new Error(sr.error);
+      }
+      if(!videoUrl)throw new Error("Timed out. The engine may still be processing — try again in a few minutes.");
+      _aiStatus("Video ready!",100);
+      var pb=document.getElementById("vg-ai-progress");if(pb)pb.style.width="100%";
+      VG_STATE.resultBlob=null;
+      VG_STATE.resultUrl=videoUrl;
+      VG_STATE.plan={slides:[],caption:""};
+      setTimeout(function(){vgSwitchTab("results");},800);
+    }catch(err){_aiError(err.message);}
   }
 
   function vgSetStep(key,state){
@@ -3251,7 +3417,7 @@ function showVideoGenUI(initialPrompt){
 
   // ── RESULTS TAB ───────────────────────────────────────────────────────────
   function renderVGResults(){
-    if(!VG_STATE.resultBlob){
+    if(!VG_STATE.resultBlob&&!VG_STATE.resultUrl){
       vgBody.appendChild(div({color:"#8899AA",fontSize:"13px",textAlign:"center",padding:"40px 0"},"No video yet — go to Setup to generate one."));
       var backBtn2=el("button",{style:{display:"block",margin:"16px auto",background:"#C9A84C",color:"#000",border:"none",borderRadius:"10px",padding:"12px 28px",fontSize:"12px",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
       backBtn2.textContent="← Back to Setup";backBtn2.onclick=function(){vgSwitchTab("setup");};
@@ -3261,7 +3427,7 @@ function showVideoGenUI(initialPrompt){
     var plan=VG_STATE.plan||{};
     var blob=VG_STATE.resultBlob;
     var voAudio=VG_STATE._voAudio;
-    var isMP4=blob.type.indexOf("mp4")!==-1;
+    var isMP4=blob?blob.type.indexOf("mp4")!==-1:true;
     var vidExt=isMP4?"mp4":"webm";
 
     // Video player
