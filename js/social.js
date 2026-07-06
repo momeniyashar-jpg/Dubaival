@@ -3,7 +3,7 @@
 
 // --- State -------------------------------------------------------------------
 var SOCIAL_STATE={
-  tab:"profile",  // profile | following | agents | explore
+  tab:"explore",  // explore | profile | following | agents
   // Explore
   videos:[],videosLoading:false,videosFetched:false,videosPage:0,videosHasMore:true,
   filter:{area:"",category:"",sort:"newest",myFeed:false},

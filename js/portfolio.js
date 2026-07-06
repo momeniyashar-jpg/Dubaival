@@ -11,9 +11,10 @@ function renderCompare(){
   const bW=div({});bW.appendChild(lbl("Budget (AED)"));bW.appendChild(inp(I(),"e.g. 3,000,000","number",s.budget,function(v){compareState.budget=v;}));g.appendChild(bW);
   const pW=div({});pW.appendChild(lbl("Purpose"));pW.appendChild(mkSelect(S(),["Investment","End-Use","Rental Income","Capital Appreciation","Off-Plan Flip"],s.purpose,function(v){compareState.purpose=v;}));g.appendChild(pW);
   card.appendChild(g);
+  if(s.err){card.appendChild(div({background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.35)",borderRadius:"8px",padding:"9px 12px",marginBottom:"10px",color:"#EF4444",fontSize:"12px",fontFamily:"'Inter',sans-serif"},s.err));}
   card.appendChild(el("button",{style:{background:"rgba(212,175,55,0.15)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",color:cl.gold,border:"1px solid rgba(212,175,55,0.3)",padding:"12px 28px",borderRadius:"10px",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:async function(){
-    if(!s.a1||!s.a2||s.a1==="Select…"||s.a2==="Select…")return;
-    compareState.loading=true;compareState.result="";render();
+    if(!s.a1||!s.a2||s.a1==="Select…"||s.a2==="Select…"){compareState.err="Please select both Area A and Area B before comparing.";render();return;}
+    compareState.err="";compareState.loading=true;compareState.result="";render();
     try{
       const d1=AREAS[s.a1]||{};const d2=AREAS[s.a2]||{};
       const text=await askAI([{role:"user",content:"Compare for a client — Dubai June 2026:\nArea A: "+s.a1+" — avg PSF AED "+(d1.psf||"N/A")+", yield "+(d1.y||["N/A","N/A"]).join("-")+"%\nArea B: "+s.a2+" — avg PSF AED "+(d2.psf||"N/A")+", yield "+(d2.y||["N/A","N/A"]).join("-")+"%\nBudget: "+(s.budget?"AED "+parseInt(s.budget).toLocaleString():"not specified")+" | Purpose: "+s.purpose+"\n\nPSF · Yield · 3yr growth · Demand/liquidity · Risk · Decisive verdict"}],"You are DubAIVal AI — Dubai's top property intelligence platform with 8,522 buildings and 347 areas in our DLD-verified database. June 2026 market expert.\nFor each area: cite EXACT PSF, yield range, 3yr growth %, DOM (days on market), service charge, and transaction volume from our data.\nCompare on: Value (PSF vs quality), Income (net yield after SC), Growth (3yr appreciation), Liquidity (DOM + volume), Risk (supply pipeline, developer exposure).\nGive a DECISIVE verdict: which is better for this budget and purpose, and by how much. Specific AED numbers only. No fluff. 5 sections, 2 sentences each.","Dubai real estate market comparison: "+s.a1+" vs "+s.a2);
@@ -384,9 +385,13 @@ function renderPersonal(){
     if(p.error){
       var ec=div({background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:"14px",padding:"20px",marginBottom:"14px"});
       ec.appendChild(div({color:"#EF4444",fontSize:"13px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6",marginBottom:"12px"},"Unable to generate report: "+p.error));
+      var btnRow2=div({display:"flex",gap:"10px",flexWrap:"wrap"});
+      var tryBtn=el("button",{style:{background:"rgba(16,185,129,0.12)",border:"1px solid rgba(16,185,129,0.3)",color:"#10B981",padding:"10px 20px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){personalState.error="";_paAdvise();}});
+      tryBtn.textContent="Try Again";
       var rb=el("button",{style:{background:"rgba(212,175,55,0.12)",border:"1px solid rgba(212,175,55,0.3)",color:cl.gold,padding:"10px 20px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){personalState={step:0,goal:"",priority:"",timeline:"",budget:2000000,beds:"2 BR",prefAreas:[],work:"",loading:false,result:null,error:""};render();}});
       rb.textContent="Start Over";
-      ec.appendChild(rb);
+      btnRow2.appendChild(tryBtn);btnRow2.appendChild(rb);
+      ec.appendChild(btnRow2);
       wrap.appendChild(ec);
       return wrap;
     }
@@ -630,6 +635,28 @@ function renderPortfolio(mode){
     span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ "+(titles[mode]||titles.assets)),
     span({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},descs[mode]||descs.assets)
   ]));
+
+  // Data loss warning — shown when assets exist but user isn't logged in
+  if(mode==="assets"&&ps.assets.length>0){
+    var isLoggedIn=typeof DV_AUTH!=="undefined"&&DV_AUTH.user;
+    var warnDismissed=localStorage.getItem("dv_portfolio_warn_dismissed")==="1";
+    if(!isLoggedIn&&!warnDismissed){
+      var warnBanner=div({background:"rgba(245,158,11,0.07)",border:"1px solid rgba(245,158,11,0.28)",borderRadius:"10px",padding:"10px 14px",marginBottom:"14px",display:"flex",gap:"10px",alignItems:"flex-start"});
+      warnBanner.appendChild(div({color:"#F59E0B",fontSize:"16px",lineHeight:"1",marginTop:"1px",flexShrink:"0"},"⚠"));
+      var warnTxt=div({flex:"1"});
+      warnTxt.appendChild(div({color:"#F59E0B",fontSize:"12px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"Data stored on this device only"));
+      warnTxt.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},"Your portfolio lives in browser storage. Sign in to sync across devices, or export a backup now."));
+      var warnBtns=div({display:"flex",gap:"8px",marginTop:"8px",flexWrap:"wrap"});
+      var expBtn=el("button",{style:{background:"rgba(212,175,55,0.12)",border:"1px solid rgba(212,175,55,0.3)",color:cl.gold,padding:"5px 12px",borderRadius:"6px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){
+        var blob=new Blob([JSON.stringify(ps.assets,null,2)],{type:"application/json"});
+        var url=URL.createObjectURL(blob);var a2=document.createElement("a");a2.href=url;a2.download="dubaival-portfolio-backup.json";a2.click();URL.revokeObjectURL(url);
+      }});expBtn.textContent="Export Backup";
+      var dimBtn=el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"5px 12px",borderRadius:"6px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){localStorage.setItem("dv_portfolio_warn_dismissed","1");render();}});dimBtn.textContent="Dismiss";
+      warnBtns.appendChild(expBtn);warnBtns.appendChild(dimBtn);
+      warnTxt.appendChild(warnBtns);warnBanner.appendChild(warnTxt);
+      wrap.appendChild(warnBanner);
+    }
+  }
 
   var metrics=ps.assets.map(function(a){return Object.assign({},a,{m:computeAssetMetrics(a)});});
   var totalValue=metrics.reduce(function(s,a){return s+a.m.currentValue;},0);

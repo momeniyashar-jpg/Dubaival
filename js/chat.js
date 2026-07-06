@@ -7675,6 +7675,22 @@ function renderMediaStudio(mode){
 
   var setupSec=el("div",{style:{marginBottom:"24px"}});
   setupSec.appendChild(makeSectionHeader("SETUP","#10B981"));
+
+  // Onboarding banner for new users — show if no platforms connected
+  if(!isSocialConfigured){
+    var onbBanner=el("div",{style:{background:"linear-gradient(135deg,rgba(16,185,129,0.08),rgba(16,185,129,0.03))",border:"1px solid rgba(16,185,129,0.3)",borderRadius:"12px",padding:"14px 16px",marginBottom:"12px",display:"flex",gap:"14px",alignItems:"flex-start"}});
+    onbBanner.appendChild(div({color:"#10B981",fontSize:"22px",lineHeight:"1",marginTop:"2px",flexShrink:"0"},"🔗"));
+    var onbTxt=el("div",{style:{flex:"1"}});
+    onbTxt.appendChild(div({color:"#10B981",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Connect your social accounts to get started"));
+    onbTxt.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6",marginBottom:"10px"},"Auto-post content directly to Instagram, Facebook, LinkedIn, YouTube, X and TikTok. Click 'Social Setup' below to add your API keys — it takes 2 minutes."));
+    var onbBtn=el("button",{style:{background:"rgba(16,185,129,0.15)",border:"1px solid rgba(16,185,129,0.4)",color:"#10B981",padding:"7px 18px",borderRadius:"8px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+    onbBtn.textContent="Open Social Setup →";
+    onbBtn.addEventListener("click",function(){showSocialSetup();});
+    onbTxt.appendChild(onbBtn);
+    onbBanner.appendChild(onbTxt);
+    setupSec.appendChild(onbBanner);
+  }
+
   setupGrid.appendChild(brandCard);
   setupGrid.appendChild(socialCard);
   setupSec.appendChild(setupGrid);
