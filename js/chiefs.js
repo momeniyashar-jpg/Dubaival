@@ -7,7 +7,7 @@
 var CHIEFS_STATE = {
   view: "dashboard",
   inventory: [], clients: [], matches: [], pipeline: [],
-  loading: {}, loaded: {},
+  loading: {}, loaded: {}, dbError: false,
   invForm: { open: false, editing: null, source: "pocket", building: "", area: "", unit_no: "",
     prop_type: "apartment", beds: "2 BR", size_sqft: "", floor_num: "", view_type: "",
     furnished: "Unfurnished", purpose: "sale", price: "", status: "available",
@@ -66,7 +66,7 @@ async function chiefsLoadInventory() {
     var r = await fetch(SUPABASE_URL + "/rest/v1/chiefs_inventory?agent_id=eq." +
       encodeURIComponent(_chiefsId()) + "&order=created_at.desc&limit=200", { headers: _chiefsH() });
     if (r.ok) CHIEFS_STATE.inventory = await r.json();
-    else CHIEFS_STATE.inventory = [];
+    else { CHIEFS_STATE.inventory = []; CHIEFS_STATE.dbError = true; }
   } catch(e) { CHIEFS_STATE.inventory = []; }
   CHIEFS_STATE.loading.inventory = false;
   CHIEFS_STATE.loaded.inventory = true;
@@ -1600,6 +1600,17 @@ function renderChiefs() {
     t.addEventListener("click",function(){CHIEFS_STATE.view=v.id;render();}); tabBar.appendChild(t);
   });
   wrap.appendChild(tabBar);
+
+  // DB setup banner
+  if (CHIEFS_STATE.dbError) {
+    var dbBanner = el("div",{style:{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.35)",borderRadius:"12px",margin:"14px",padding:"14px 16px"}});
+    dbBanner.appendChild(div({color:"#EF4444",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"⚠ Database setup required"));
+    dbBanner.appendChild(div({color:"#8899AA",fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6",marginBottom:"10px"},"The Chiefs tables don't exist yet in Supabase. Run the SQL migration to activate this feature:"));
+    var steps = ["1. Open Supabase Dashboard → SQL Editor","2. Open file: supabase-chiefs-schema.sql from the repo","3. Paste the full SQL content and click Run","4. Refresh this page"];
+    steps.forEach(function(s){dbBanner.appendChild(div({color:"#C0C8D8",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},s));});
+    wrap.appendChild(dbBanner);
+  }
+
 
   // Content
   var content = el("div",{style:{flex:"1",overflow:"auto",width:"100%",boxSizing:"border-box",overflowX:"hidden"}});

@@ -732,6 +732,15 @@ function renderAlerts(){
   hdr.appendChild(div({color:cl.sub,fontSize:"12px",marginTop:"4px",fontFamily:"'Inter',sans-serif"},"Set your criteria. DubAIVal scans 10,800+ properties instantly."));
   wrap.appendChild(hdr);
 
+  // Local-only notice
+  var localNote=el("div",{style:{background:"rgba(245,158,11,0.07)",border:"1px solid rgba(245,158,11,0.28)",borderRadius:"10px",padding:"10px 14px",marginBottom:"14px",display:"flex",gap:"10px",alignItems:"flex-start"}});
+  localNote.appendChild(div({color:"#F59E0B",fontSize:"16px",lineHeight:"1",marginTop:"1px",flexShrink:"0"},"⚠"));
+  var localTxt=el("div",{});
+  localTxt.appendChild(div({color:"#F59E0B",fontSize:"12px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"Alerts saved on this device only"));
+  localTxt.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},"Email notifications are in development. Alerts and matches are stored locally — they won't sync across devices or browsers."));
+  localNote.appendChild(localTxt);
+  wrap.appendChild(localNote);
+
   // Load saved alerts
   var alerts=[];
   try{alerts=JSON.parse(localStorage.getItem("dv_alerts")||"[]");}catch(e){}

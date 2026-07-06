@@ -1572,6 +1572,17 @@ function renderAnalyzer(){
     submitBtn.textContent=isRental?"ANALYZE THIS RENTAL ->":isAgentModeV?"GENERATE AGENT REPORT ->":"ANALYZE THIS DEAL ->";
     if(true){
       submitBtn.addEventListener("click",function(){
+        var _mis=[];
+        if(!f.area)_mis.push("Area");
+        if(!f.size)_mis.push("Property size (sqft)");
+        if(!f.price)_mis.push(isRental?"Asking annual rent":"Asking price");
+        if(_mis.length){
+          var _eExist=document.getElementById("_az_err");
+          if(!_eExist){_eExist=el("div",{id:"_az_err",style:{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.4)",borderRadius:"10px",padding:"10px 14px",marginTop:"10px",color:"#EF4444",fontSize:"12px",fontFamily:"'Inter',sans-serif"}});submitBtn.insertAdjacentElement("beforebegin",_eExist);}
+          _eExist.textContent="Please fill in: "+_mis.join(", ");
+          return;
+        }
+        var _eOld=document.getElementById("_az_err");if(_eOld)_eOld.remove();
         analyzerState.stage=1;
         render();
         setTimeout(function(){

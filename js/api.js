@@ -25,9 +25,11 @@ async function getPFLocationId(query){
     else{r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=autocomplete-location&source=pf&query="+encodeURIComponent(query));}
     if(!r.ok)return null;
     var d=await r.json();
-    var hits=d.data||d.hits||d;
-    if(Array.isArray(hits)&&hits.length>0)return hits[0].id||hits[0].location_id||hits[0].objectID||null;
-    if(d.id)return d.id;
+    var hits=d.data||d.hits||d.results||d;
+    // Handle nested wrappers: {data:{locations:[...]}} or {data:{data:[...]}}
+    if(hits&&!Array.isArray(hits)){if(hits.locations)hits=hits.locations;else if(hits.data)hits=hits.data;}
+    if(Array.isArray(hits)&&hits.length>0){var h0=hits[0];return h0.id||h0.location_id||h0.objectID||h0.external_id||h0.key||null;}
+    if(d.id||d.location_id)return d.id||d.location_id;
     return null;
   }catch(e){return null;}
 }
