@@ -1,3 +1,17 @@
+var crypto = require("crypto");
+
+// Kling AI requires JWT (HS256). KLING_API_KEY format: "access_key_id:access_key_secret"
+function _klingJWT(apiKey) {
+  var parts = apiKey.split(":");
+  var keyId = parts[0];
+  var keySecret = parts.length > 1 ? parts.slice(1).join(":") : parts[0];
+  var now = Math.floor(Date.now() / 1000);
+  var header  = Buffer.from(JSON.stringify({alg:"HS256",typ:"JWT"})).toString("base64url");
+  var payload = Buffer.from(JSON.stringify({iss:keyId,exp:now+1800,nbf:now-5})).toString("base64url");
+  var sig = crypto.createHmac("sha256", keySecret).update(header+"."+payload).digest("base64url");
+  return header+"."+payload+"."+sig;
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
@@ -11,31 +25,46 @@ module.exports = async function handler(req, res) {
 
   if (!engine || !action) return res.status(400).json({ error: "Missing engine or action" });
 
+  // Unified task-ID: accept whichever field the client sends
+  var tid = body.task_id || body.request_id || body.gen_id || body.job_id || body.talk_id || body.video_id;
+
   try {
-    // --- KLING AI 2.0 ---
+
+    // ── KLING AI 2.0 (JWT auth) ──────────────────────────────────────────────
     if (engine === "kling") {
       var kk = process.env.KLING_API_KEY;
       if (!kk) return res.status(500).json({ error: "KLING_API_KEY not configured" });
+      var kJWT = _klingJWT(kk);
 
       if (action === "generate") {
-        var kBody = { model_name: body.model || "kling-v2-master", prompt: body.prompt, duration: "5", mode: "std" };
+        var kBody = { model_name: "kling-v2-master", prompt: body.prompt, duration: "5", mode: "std" };
         if (body.image_url) kBody.image = body.image_url;
         var kr = await fetch("https://api.klingai.com/v1/videos/text2video", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + kk },
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + kJWT },
           body: JSON.stringify(kBody)
         });
-        return res.status(kr.status).json(await kr.json());
+        var kd = await kr.json();
+        // Kling: {"code":0,"data":{"task_id":"..."}}
+        if (kd.code !== 0) return res.status(400).json({ error: kd.message || ("Kling error code " + kd.code) });
+        return res.json({ task_id: kd.data.task_id });
       }
       if (action === "status") {
-        var kr2 = await fetch("https://api.klingai.com/v1/videos/text2video/" + body.task_id, {
-          headers: { "Authorization": "Bearer " + kk }
+        var kr2 = await fetch("https://api.klingai.com/v1/videos/text2video/" + tid, {
+          headers: { "Authorization": "Bearer " + kJWT }
         });
-        return res.status(kr2.status).json(await kr2.json());
+        var kd2 = await kr2.json();
+        // {"data":{"task_status":"succeed","task_result":{"videos":[{"url":"..."}]}}}
+        var ks = kd2.data || {};
+        var kDone = ks.task_status === "succeed";
+        var kErr  = ks.task_status === "failed" ? (ks.task_status_msg || "Generation failed") : null;
+        var kUrl  = kDone && ks.task_result && ks.task_result.videos && ks.task_result.videos[0]
+                    ? ks.task_result.videos[0].url : null;
+        return res.json({ done: kDone, url: kUrl, error: kErr, status: ks.task_status });
       }
     }
 
-    // --- LUMA DREAM MACHINE ---
+    // ── LUMA DREAM MACHINE ───────────────────────────────────────────────────
     if (engine === "luma") {
       var lk = process.env.LUMA_API_KEY;
       if (!lk) return res.status(500).json({ error: "LUMA_API_KEY not configured" });
@@ -48,18 +77,25 @@ module.exports = async function handler(req, res) {
           headers: { "Content-Type": "application/json", "Authorization": "Bearer " + lk },
           body: JSON.stringify(lBody)
         });
-        return res.status(lr.status).json(await lr.json());
+        var ld = await lr.json();
+        // Luma: {"id":"gen_id","state":"queued",...}
+        if (!ld.id) return res.status(lr.status).json({ error: ld.detail || ld.message || "Luma generation failed" });
+        return res.json({ task_id: ld.id });
       }
       if (action === "status") {
-        var lr2 = await fetch("https://api.lumalabs.ai/dream-machine/v1/generations/" + body.gen_id, {
+        var lr2 = await fetch("https://api.lumalabs.ai/dream-machine/v1/generations/" + tid, {
           headers: { "Authorization": "Bearer " + lk }
         });
-        return res.status(lr2.status).json(await lr2.json());
+        var ld2 = await lr2.json();
+        // {"state":"completed","video":{"url":"..."}} or {"state":"failed","failure_reason":"..."}
+        var lDone = ld2.state === "completed";
+        var lErr  = ld2.state === "failed" ? (ld2.failure_reason || "Generation failed") : null;
+        var lUrl  = lDone && ld2.video ? ld2.video.url : null;
+        return res.json({ done: lDone, url: lUrl, error: lErr, status: ld2.state });
       }
     }
 
-    // --- HEYGEN ---
-    // --- HEYGEN (via Fal.ai) ---
+    // ── HEYGEN (direct API or via Fal.ai) ───────────────────────────────────
     if (engine === "heygen") {
       var hk = process.env.HEYGEN_API_KEY || process.env.PIKA_API_KEY;
       if (!hk) return res.status(500).json({ error: "HEYGEN/FAL API key not configured" });
@@ -73,13 +109,18 @@ module.exports = async function handler(req, res) {
             headers: { "Content-Type": "application/json", "Authorization": "Key " + hk },
             body: JSON.stringify(hgBody)
           });
-          return res.status(hgr.status).json(await hgr.json());
+          var hgd = await hgr.json();
+          return res.json({ task_id: hgd.request_id });
         }
         if (action === "status") {
-          var hgr2 = await fetch("https://queue.fal.run/fal-ai/heygen/avatar4/image-to-video/requests/" + body.request_id, {
+          var hgr2 = await fetch("https://queue.fal.run/fal-ai/heygen/avatar4/image-to-video/requests/" + tid, {
             headers: { "Authorization": "Key " + hk }
           });
-          return res.status(hgr2.status).json(await hgr2.json());
+          var hgd2 = await hgr2.json();
+          var hgDone = hgd2.status === "COMPLETED";
+          var hgErr  = hgd2.status === "FAILED" ? (hgd2.error || "Generation failed") : null;
+          var hgUrl  = hgDone && hgd2.output ? (hgd2.output.video_url || hgd2.output.url) : null;
+          return res.json({ done: hgDone, url: hgUrl, error: hgErr, status: hgd2.status });
         }
       } else {
         if (action === "generate") {
@@ -94,24 +135,27 @@ module.exports = async function handler(req, res) {
               dimension: { width: 1280, height: 720 }
             })
           });
-          return res.status(hr.status).json(await hr.json());
+          var hd = await hr.json();
+          return res.json({ task_id: hd.data && hd.data.video_id });
         }
         if (action === "status") {
-          var hr2 = await fetch("https://api.heygen.com/v1/video_status.get?video_id=" + body.video_id, {
+          var hr2 = await fetch("https://api.heygen.com/v1/video_status.get?video_id=" + tid, {
             headers: { "X-Api-Key": hk }
           });
-          return res.status(hr2.status).json(await hr2.json());
+          var hd2 = await hr2.json();
+          var hvData = hd2.data || {};
+          var hvDone = hvData.status === "completed";
+          var hvErr  = hvData.status === "failed" ? (hvData.error || "Generation failed") : null;
+          return res.json({ done: hvDone, url: hvData.video_url || null, error: hvErr, status: hvData.status });
         }
         if (action === "list_avatars") {
-          var hr3 = await fetch("https://api.heygen.com/v2/avatars", {
-            headers: { "X-Api-Key": hk }
-          });
+          var hr3 = await fetch("https://api.heygen.com/v2/avatars", { headers: { "X-Api-Key": hk } });
           return res.status(hr3.status).json(await hr3.json());
         }
       }
     }
 
-    // --- HEDRA ---
+    // ── HEDRA ────────────────────────────────────────────────────────────────
     if (engine === "hedra") {
       var drk = process.env.HEDRA_API_KEY;
       if (!drk) return res.status(500).json({ error: "HEDRA_API_KEY not configured" });
@@ -124,40 +168,52 @@ module.exports = async function handler(req, res) {
           headers: { "Content-Type": "application/json", "X-API-KEY": drk },
           body: JSON.stringify(drBody)
         });
-        return res.status(dr.status).json(await dr.json());
+        var dd = await dr.json();
+        return res.json({ task_id: dd.jobId || dd.id || dd.job_id });
       }
       if (action === "status") {
-        var dr2 = await fetch("https://mercury.dev.dream-ai.com/api/v2/characters/" + body.job_id, {
+        var dr2 = await fetch("https://mercury.dev.dream-ai.com/api/v2/characters/" + tid, {
           headers: { "X-API-KEY": drk }
         });
-        return res.status(dr2.status).json(await dr2.json());
+        var dd2 = await dr2.json();
+        var dDone = dd2.status === "complete" || dd2.status === "completed";
+        var dErr  = (dd2.status === "failed" || dd2.status === "error") ? (dd2.errorMessage || "Generation failed") : null;
+        return res.json({ done: dDone, url: dd2.videoUrl || dd2.video_url || null, error: dErr, status: dd2.status });
       }
     }
 
-    // --- RUNWAY GEN-4 ---
+    // ── RUNWAY GEN-4 ─────────────────────────────────────────────────────────
     if (engine === "runway") {
       var rk = process.env.RUNWAY_API_KEY;
       if (!rk) return res.status(500).json({ error: "RUNWAY_API_KEY not configured" });
 
       if (action === "generate") {
         var rwBody = { promptText: body.prompt, model: "gen4_turbo", duration: 5, ratio: "16:9" };
-        if (body.image_url) { rwBody.promptImage = body.image_url; }
+        if (body.image_url) rwBody.promptImage = body.image_url;
         var rwr = await fetch("https://api.dev.runwayml.com/v1/image_to_video", {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": "Bearer " + rk, "X-Runway-Version": "2024-11-06" },
           body: JSON.stringify(rwBody)
         });
-        return res.status(rwr.status).json(await rwr.json());
+        var rd = await rwr.json();
+        // Runway: {"id":"task_id"}
+        if (!rd.id) return res.status(rwr.status).json({ error: rd.error || rd.message || "Runway generation failed" });
+        return res.json({ task_id: rd.id });
       }
       if (action === "status") {
-        var rwr2 = await fetch("https://api.dev.runwayml.com/v1/tasks/" + body.task_id, {
+        var rwr2 = await fetch("https://api.dev.runwayml.com/v1/tasks/" + tid, {
           headers: { "Authorization": "Bearer " + rk, "X-Runway-Version": "2024-11-06" }
         });
-        return res.status(rwr2.status).json(await rwr2.json());
+        var rd2 = await rwr2.json();
+        // {"status":"SUCCEEDED","output":["url"]} or {"status":"FAILED","failure":"reason"}
+        var rDone = rd2.status === "SUCCEEDED";
+        var rErr  = rd2.status === "FAILED" ? (rd2.failure || "Generation failed") : null;
+        var rUrl  = rDone && rd2.output && rd2.output[0] ? rd2.output[0] : null;
+        return res.json({ done: rDone, url: rUrl, error: rErr, status: rd2.status });
       }
     }
 
-    // --- MINIMAX (HAILUO) ---
+    // ── MINIMAX (HAILUO) ─────────────────────────────────────────────────────
     if (engine === "minimax") {
       var mk = process.env.MINIMAX_API_KEY;
       if (!mk) return res.status(500).json({ error: "MINIMAX_API_KEY not configured" });
@@ -170,17 +226,34 @@ module.exports = async function handler(req, res) {
           headers: { "Content-Type": "application/json", "Authorization": "Bearer " + mk },
           body: JSON.stringify(mmBody)
         });
-        return res.status(mmr.status).json(await mmr.json());
+        var mmd = await mmr.json();
+        // {"task_id":"xxx","base_resp":{"status_code":0}}
+        if (!mmd.task_id) return res.status(mmr.status).json({ error: (mmd.base_resp && mmd.base_resp.status_msg) || "Minimax generation failed" });
+        return res.json({ task_id: mmd.task_id });
       }
       if (action === "status") {
-        var mmr2 = await fetch("https://api.minimaxi.chat/v1/query/video_generation?task_id=" + body.task_id, {
+        var mmr2 = await fetch("https://api.minimaxi.chat/v1/query/video_generation?task_id=" + tid, {
           headers: { "Authorization": "Bearer " + mk }
         });
-        return res.status(mmr2.status).json(await mmr2.json());
+        var mmd2 = await mmr2.json();
+        // {"status":"Success","file_id":"xxx"} — need to fetch download URL from file_id
+        var mmDone = mmd2.status === "Success";
+        var mmErr  = mmd2.status === "Fail" ? ((mmd2.base_resp && mmd2.base_resp.status_msg) || "Generation failed") : null;
+        var mmUrl  = null;
+        if (mmDone && mmd2.file_id) {
+          try {
+            var mmFile = await fetch("https://api.minimaxi.chat/v1/files/retrieve?file_id=" + mmd2.file_id, {
+              headers: { "Authorization": "Bearer " + mk }
+            });
+            var mmFd = await mmFile.json();
+            mmUrl = (mmFd.file && mmFd.file.download_url) || null;
+          } catch(e2) { /* file URL fetch failed — url stays null */ }
+        }
+        return res.json({ done: mmDone, url: mmUrl, error: mmErr, status: mmd2.status });
       }
     }
 
-    // --- PIKA LABS (via Fal.ai) ---
+    // ── PIKA LABS (via Fal.ai) ───────────────────────────────────────────────
     if (engine === "pika") {
       var pk = process.env.PIKA_API_KEY;
       if (!pk) return res.status(500).json({ error: "PIKA_API_KEY not configured" });
@@ -194,18 +267,29 @@ module.exports = async function handler(req, res) {
           headers: { "Content-Type": "application/json", "Authorization": "Key " + pk },
           body: JSON.stringify(pkBody)
         });
-        return res.status(pkr.status).json(await pkr.json());
+        var pkd = await pkr.json();
+        // Fal: {"request_id":"xxx","status":"IN_QUEUE"}
+        if (!pkd.request_id) return res.status(pkr.status).json({ error: pkd.detail || pkd.message || "Pika generation failed" });
+        // Return both task_id and request_id for client compatibility
+        return res.json({ task_id: pkd.request_id, request_id: pkd.request_id, model_path: pikaModel });
       }
       if (action === "status") {
         var pikaModel2 = body.model_path || "fal-ai/pika/v2.2/text-to-video";
-        var pkr2 = await fetch("https://queue.fal.run/" + pikaModel2 + "/requests/" + body.request_id, {
+        var pkr2 = await fetch("https://queue.fal.run/" + pikaModel2 + "/requests/" + tid, {
           headers: { "Authorization": "Key " + pk }
         });
-        return res.status(pkr2.status).json(await pkr2.json());
+        var pkd2 = await pkr2.json();
+        // {"status":"COMPLETED","output":{"video":{"url":"..."}}} or {"status":"FAILED","error":"..."}
+        var pkDone = pkd2.status === "COMPLETED";
+        var pkErr  = pkd2.status === "FAILED" ? (pkd2.error || "Generation failed") : null;
+        var pkUrl  = pkDone && pkd2.output
+                     ? (pkd2.output.video && pkd2.output.video.url || pkd2.output.video_url || pkd2.output.url)
+                     : null;
+        return res.json({ done: pkDone, url: pkUrl, error: pkErr, status: pkd2.status });
       }
     }
 
-    // --- D-ID ---
+    // ── D-ID ─────────────────────────────────────────────────────────────────
     if (engine === "did") {
       var dk = process.env.DID_API_KEY;
       if (!dk) return res.status(500).json({ error: "DID_API_KEY not configured" });
@@ -220,13 +304,20 @@ module.exports = async function handler(req, res) {
             config: { fluent: true, stitch: true }
           })
         });
-        return res.status(dr3.status).json(await dr3.json());
+        var did3d = await dr3.json();
+        // D-ID: {"id":"talk_id",...}
+        if (!did3d.id) return res.status(dr3.status).json({ error: did3d.message || "D-ID generation failed" });
+        return res.json({ task_id: did3d.id });
       }
       if (action === "status") {
-        var dr4 = await fetch("https://api.d-id.com/talks/" + body.talk_id, {
+        var dr4 = await fetch("https://api.d-id.com/talks/" + tid, {
           headers: { "Authorization": "Basic " + dk }
         });
-        return res.status(dr4.status).json(await dr4.json());
+        var did4d = await dr4.json();
+        // {"status":"done","result_url":"..."} or {"status":"error","description":"..."}
+        var didDone = did4d.status === "done";
+        var didErr  = did4d.status === "error" ? (did4d.description || "Generation failed") : null;
+        return res.json({ done: didDone, url: did4d.result_url || null, error: didErr, status: did4d.status });
       }
     }
 
