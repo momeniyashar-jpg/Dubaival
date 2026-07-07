@@ -3244,8 +3244,13 @@ function showVideoGenUI(initialPrompt){
       else if(engine==="luma")genResult=await _lumaGenVideo(prompt);
       else if(engine==="minimax")genResult=await _minimaxGenVideo(prompt);
       else if(engine==="pika")genResult=await _pikaGenVideo(prompt);
-      else if(engine==="heygen")genResult=await _heygenCreateAvatar(prompt,null,null,VG_STATE.presenterImageUrl||null);
-      else if(engine==="did")genResult=await _didGenTalk(VG_STATE.presenterImageUrl||"https://clips-presenters.d-id.com/amy/image.jpeg",prompt,null);
+      else if(engine==="heygen"){
+        if(!VG_STATE.presenterImageUrl)throw new Error("HeyGen Avatar needs a Presenter Photo URL. Go back (← Choose Engine), enter a public face photo URL in the field shown, then try again.");
+        genResult=await _heygenCreateAvatar(prompt,null,null,VG_STATE.presenterImageUrl);
+      }
+      else if(engine==="did"){
+        genResult=await _didGenTalk(VG_STATE.presenterImageUrl||"https://clips-presenters.d-id.com/amy/image.jpeg",prompt,null);
+      }
       else throw new Error("Unknown engine: "+engine);
       if(!genResult)throw new Error("No response from server");
       if(genResult.error)throw new Error(genResult.error);

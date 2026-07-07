@@ -30,9 +30,10 @@ module.exports = async function handler(req, res) {
           headers: { "Content-Type": "application/json", "Authorization": "Bearer " + kk },
           body: JSON.stringify(kBody)
         });
-        var kd = await kr.json();
-        // Kling: {"code":0,"data":{"task_id":"..."}}
-        if (kd.code !== 0) return res.status(400).json({ error: kd.message || ("Kling error code " + kd.code) });
+        var kRaw = await kr.text();
+        var kd; try { kd = JSON.parse(kRaw); } catch(e) { return res.status(502).json({ error: "Kling non-JSON response (HTTP " + kr.status + "): " + kRaw.slice(0, 200) }); }
+        if (kd.code !== 0) return res.status(400).json({ error: "Kling: " + (kd.message || JSON.stringify(kd)) });
+        if (!kd.data || !kd.data.task_id) return res.status(502).json({ error: "Kling: no task_id in response: " + JSON.stringify(kd) });
         return res.json({ task_id: kd.data.task_id });
       }
       if (action === "status") {
@@ -96,6 +97,7 @@ module.exports = async function handler(req, res) {
             body: JSON.stringify(hgBody)
           });
           var hgd = await hgr.json();
+          if (!hgd.request_id) return res.status(422).json({ error: hgd.detail || hgd.message || "HeyGen/Fal.ai requires a valid face image_url" });
           return res.json({ task_id: hgd.request_id });
         }
         if (action === "status") {
