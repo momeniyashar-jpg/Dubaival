@@ -178,7 +178,7 @@ module.exports = async function handler(req, res) {
       if (action === "generate") {
         // gen4_turbo requires a reference image; use gen3a_turbo for text-only
         var rwModel = body.image_url ? "gen4_turbo" : "gen3a_turbo";
-        var rwBody = { promptText: body.prompt, model: rwModel, duration: 5, ratio: "16:9" };
+        var rwBody = { model: rwModel, promptText: body.prompt };
         if (body.image_url) rwBody.promptImage = body.image_url;
         var rwr = await fetch("https://api.dev.runwayml.com/v1/image_to_video", {
           method: "POST",
