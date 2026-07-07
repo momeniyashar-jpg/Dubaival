@@ -805,8 +805,27 @@ These files contain critical business logic and data:
   347 areas have benchmarks. Target areas listed in "Building research gaps" below.
   **IMPORTANT**: Buildings go in `js/data-residential.js`, NOT in `index-6.html`.
 - **Agent video analysis & upload**: not built yet, deferred to future.
-- **Deploy method**: User deploys manually by copying files to dubaival folder
-  and deploying via Node.js/Vercel CLI. NOT via git merge to main.
+- **Deploy method**: User deploys from local folder `C:\Users\momen\dubaival\dubaival-deploy`
+  using the Vercel CLI. The deploy folder is a git repo. After each Claude session,
+  user runs these exact commands in that folder to deploy:
+
+  ```
+  git fetch origin
+  git reset --hard origin/claude/dubaival-portfolio-manager-5bgbjk
+  vercel --prod
+  ```
+
+  If a previous merge left conflicts (`unmerged files` error), run this first:
+  ```
+  git merge --abort
+  ```
+
+  **NEVER tell the user to `git merge origin/...` without `git reset --hard` first.**
+  `git reset --hard` is the correct and safe method — it avoids merge conflicts entirely.
+
+  **Always give the user BOTH commands at end of each task:**
+  1. The git reset + vercel command block above
+  2. Nothing else — no git checkout main, no git push origin main
 - **🟡 Analyzer enhancements (deferred to after redesign)**:
   1. **Price History Chart** — 1-5 year price trend graph per area/building
      (need DLD transaction history data or Bayut historical).
