@@ -59,7 +59,7 @@ module.exports = async function handler(req, res) {
       if (action === "generate") {
         var kBody = { model_name: "kling-v2-master", prompt: body.prompt, duration: "5", mode: "std" };
         if (body.image_url) kBody.image = body.image_url;
-        var kr = await fetch("https://api.klingai.com/v1/videos/text2video", {
+        var kr = await fetch("https://api-singapore.klingai.com/v1/videos/text2video", {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": "Bearer " + kJWT },
           body: JSON.stringify(kBody)
@@ -70,7 +70,7 @@ module.exports = async function handler(req, res) {
         return res.json({ task_id: kd.data.task_id });
       }
       if (action === "status") {
-        var kr2 = await fetch("https://api.klingai.com/v1/videos/text2video/" + tid, {
+        var kr2 = await fetch("https://api-singapore.klingai.com/v1/videos/text2video/" + tid, {
           headers: { "Authorization": "Bearer " + kJWT }
         });
         var kd2 = await kr2.json();
