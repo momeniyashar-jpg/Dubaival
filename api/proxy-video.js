@@ -1,15 +1,35 @@
 var crypto = require("crypto");
 
-// Kling AI requires JWT (HS256). KLING_API_KEY format: "access_key_id:access_key_secret"
-function _klingJWT(apiKey) {
-  var parts = apiKey.split(":");
-  var keyId = parts[0];
-  var keySecret = parts.length > 1 ? parts.slice(1).join(":") : parts[0];
+// Manual base64url — works on all Node.js versions (no .toString("base64url") needed)
+function _b64url(buf) {
+  return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+// Kling AI requires JWT (HS256).
+// Supports two formats:
+//   KLING_API_KEY = "access_key_id:access_key_secret"   (colon-separated)
+//   OR separate KLING_ACCESS_KEY_ID + KLING_ACCESS_KEY_SECRET env vars
+function _klingJWT(keyId, keySecret) {
   var now = Math.floor(Date.now() / 1000);
-  var header  = Buffer.from(JSON.stringify({alg:"HS256",typ:"JWT"})).toString("base64url");
-  var payload = Buffer.from(JSON.stringify({iss:keyId,exp:now+1800,nbf:now-5})).toString("base64url");
-  var sig = crypto.createHmac("sha256", keySecret).update(header+"."+payload).digest("base64url");
+  var header  = _b64url(Buffer.from(JSON.stringify({alg:"HS256",typ:"JWT"})));
+  var payload = _b64url(Buffer.from(JSON.stringify({iss:keyId,exp:now+1800,nbf:now-5})));
+  var sig = _b64url(crypto.createHmac("sha256", keySecret).update(header+"."+payload).digest());
   return header+"."+payload+"."+sig;
+}
+
+// Resolve Kling credentials from env vars
+function _klingCreds() {
+  // Option 1: separate env vars
+  if (process.env.KLING_ACCESS_KEY_ID && process.env.KLING_ACCESS_KEY_SECRET) {
+    return { id: process.env.KLING_ACCESS_KEY_ID, secret: process.env.KLING_ACCESS_KEY_SECRET };
+  }
+  // Option 2: combined KLING_API_KEY = "id:secret"
+  var kk = process.env.KLING_API_KEY || "";
+  var idx = kk.indexOf(":");
+  if (idx > 0) {
+    return { id: kk.slice(0, idx), secret: kk.slice(idx + 1) };
+  }
+  return null;
 }
 
 module.exports = async function handler(req, res) {
@@ -32,9 +52,9 @@ module.exports = async function handler(req, res) {
 
     // ── KLING AI 2.0 (JWT auth) ──────────────────────────────────────────────
     if (engine === "kling") {
-      var kk = process.env.KLING_API_KEY;
-      if (!kk) return res.status(500).json({ error: "KLING_API_KEY not configured" });
-      var kJWT = _klingJWT(kk);
+      var kCreds = _klingCreds();
+      if (!kCreds) return res.status(400).json({ error: "Kling API key not configured. Add KLING_ACCESS_KEY_ID + KLING_ACCESS_KEY_SECRET (or KLING_API_KEY=id:secret) to Vercel env vars." });
+      var kJWT = _klingJWT(kCreds.id, kCreds.secret);
 
       if (action === "generate") {
         var kBody = { model_name: "kling-v2-master", prompt: body.prompt, duration: "5", mode: "std" };
