@@ -64,9 +64,9 @@ module.exports = async function handler(req, res) {
           headers: { "Content-Type": "application/json", "Authorization": "Bearer " + lk },
           body: JSON.stringify(lBody)
         });
-        var ld = await lr.json();
-        // Luma: {"id":"gen_id","state":"queued",...}
-        if (!ld.id) return res.status(lr.status).json({ error: ld.detail || ld.message || "Luma generation failed" });
+        var lRaw = await lr.text();
+        var ld; try { ld = JSON.parse(lRaw); } catch(e) { return res.status(502).json({ error: "Luma non-JSON (HTTP " + lr.status + "): " + lRaw.slice(0, 200) }); }
+        if (!ld.id) return res.status(lr.status).json({ error: "Luma: " + (ld.detail || ld.message || lRaw.slice(0, 200)) });
         return res.json({ task_id: ld.id });
       }
       if (action === "status") {
@@ -176,16 +176,18 @@ module.exports = async function handler(req, res) {
       if (!rk) return res.status(500).json({ error: "RUNWAY_API_KEY not configured" });
 
       if (action === "generate") {
-        var rwBody = { promptText: body.prompt, model: "gen4_turbo", duration: 5, ratio: "16:9" };
+        // gen4_turbo requires a reference image; use gen3a_turbo for text-only
+        var rwModel = body.image_url ? "gen4_turbo" : "gen3a_turbo";
+        var rwBody = { promptText: body.prompt, model: rwModel, duration: 5, ratio: "1280:768" };
         if (body.image_url) rwBody.promptImage = body.image_url;
         var rwr = await fetch("https://api.dev.runwayml.com/v1/image_to_video", {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": "Bearer " + rk, "X-Runway-Version": "2024-11-06" },
           body: JSON.stringify(rwBody)
         });
-        var rd = await rwr.json();
-        // Runway: {"id":"task_id"}
-        if (!rd.id) return res.status(rwr.status).json({ error: rd.error || rd.message || "Runway generation failed" });
+        var rwRaw = await rwr.text();
+        var rd; try { rd = JSON.parse(rwRaw); } catch(e) { return res.status(502).json({ error: "Runway non-JSON (HTTP " + rwr.status + "): " + rwRaw.slice(0, 200) }); }
+        if (!rd.id) return res.status(rwr.status).json({ error: "Runway: " + (rd.error || rd.message || rwRaw.slice(0, 200)) });
         return res.json({ task_id: rd.id });
       }
       if (action === "status") {
