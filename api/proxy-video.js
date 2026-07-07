@@ -23,7 +23,7 @@ module.exports = async function handler(req, res) {
       if (!kk) return res.status(400).json({ error: "KLING_API_KEY not configured in Vercel env vars" });
 
       if (action === "generate") {
-        var kBody = { model_name: "kling-v2-master", prompt: body.prompt, duration: "5", mode: "std" };
+        var kBody = { model: "kling-v2-master", prompt: body.prompt, duration: "5", mode: "std", cfg_scale: 0.5 };
         if (body.image_url) kBody.image = body.image_url;
         var kr = await fetch("https://api-singapore.klingai.com/v1/videos/text2video", {
           method: "POST",

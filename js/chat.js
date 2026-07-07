@@ -2711,7 +2711,7 @@ function showVideoGenUI(initialPrompt){
     template:null,platform:"reel",language:"en",hookType:"emotional",
     prompt:"",mediaPhotos:[],mediaVideos:[],floorPlans:[],musicType:"luxury",
     musicFile:null,locationText:"",processing:false,resultBlob:null,resultUrl:null,
-    plan:null,activeTab:"setup",engine:null
+    plan:null,activeTab:"setup",engine:null,presenterImageUrl:""
   };
 
   var CONTENT_TEMPLATES={
@@ -3044,8 +3044,8 @@ function showVideoGenUI(initialPrompt){
   // ── CREATE TAB (engine selection → generate) ──────────────────────────────
   var vgStepEls={};
   var vgProgressFill,vgProgressLabel,vgPreviewCanvas;
-  var _AI_ENGINE_LABELS={kling:"Kling AI v2",runway:"Runway Gen-4",luma:"Luma Dream Machine",minimax:"Minimax Hailuo",pika:"Pika 2.2"};
-  var _AI_ENGINE_COLORS={kling:"#C9A84C",runway:"#EC4899",luma:"#3B82F6",minimax:"#8B5CF6",pika:"#F59E0B"};
+  var _AI_ENGINE_LABELS={kling:"Kling AI v2",runway:"Runway Gen-4",luma:"Luma Dream Machine",minimax:"Minimax Hailuo",pika:"Pika 2.2",heygen:"HeyGen Avatar",did:"D-ID Presenter"};
+  var _AI_ENGINE_COLORS={kling:"#C9A84C",runway:"#EC4899",luma:"#3B82F6",minimax:"#8B5CF6",pika:"#F59E0B",heygen:"#06B6D4",did:"#10B981"};
 
   function renderVGCreate(){
     vgBody.innerHTML="";
@@ -3063,7 +3063,11 @@ function showVideoGenUI(initialPrompt){
       {key:"minimax",label:"Minimax Hailuo",icon:"zap",color:"#8B5CF6",
        desc:"High-quality AI video",note:"~2–3 min"},
       {key:"pika",label:"Pika 2.2",icon:"play-circle",color:"#F59E0B",
-       desc:"Creative text-to-video",note:"~1–2 min"}
+       desc:"Creative text-to-video",note:"~1–2 min"},
+      {key:"heygen",label:"HeyGen Avatar",icon:"user-circle",color:"#06B6D4",
+       desc:"AI avatar speaks your script",note:"~3–5 min · Needs photo"},
+      {key:"did",label:"D-ID Presenter",icon:"video",color:"#10B981",
+       desc:"Real photo that talks",note:"~1–2 min · Needs photo"}
     ];
 
     var engSec=div({marginBottom:"20px"});
@@ -3092,6 +3096,20 @@ function showVideoGenUI(initialPrompt){
     editPromptEl.oninput=function(){VG_STATE.prompt=editPromptEl.value;};
     pSec.appendChild(editPromptEl);
     vgBody.appendChild(pSec);
+
+    // Presenter image URL — shown only for heygen / did engines
+    if(VG_STATE.engine==="heygen"||VG_STATE.engine==="did"){
+      var piSec=div({marginBottom:"16px"});
+      piSec.appendChild(div({color:"#8899AA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"8px"},"PRESENTER PHOTO URL (optional)"));
+      var piInp=el("input",{style:{width:"100%",background:"#0D1220",border:"1px solid #2A3040",borderRadius:"10px",padding:"12px",color:"#E0E0E0",fontSize:"12px",fontFamily:"'Inter',sans-serif",boxSizing:"border-box"}});
+      piInp.type="url";
+      piInp.placeholder="https://… (leave blank to use a default avatar)";
+      piInp.value=VG_STATE.presenterImageUrl||"";
+      piInp.oninput=function(){VG_STATE.presenterImageUrl=piInp.value.trim();};
+      piSec.appendChild(piInp);
+      piSec.appendChild(div({color:"#3A4560",fontSize:"9px",fontFamily:"'Inter',sans-serif",marginTop:"4px"},"Use a direct link to a face photo (JPG/PNG). Must be publicly accessible."));
+      vgBody.appendChild(piSec);
+    }
 
     var backLnk=el("button",{style:{background:"transparent",border:"none",color:"#8899AA",fontSize:"11px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"0",marginBottom:"10px",display:"flex",alignItems:"center",gap:"4px"}});
     backLnk.innerHTML='<i data-lucide="arrow-left" style="width:11px;height:11px"></i> Back to Setup';
@@ -3226,6 +3244,8 @@ function showVideoGenUI(initialPrompt){
       else if(engine==="luma")genResult=await _lumaGenVideo(prompt);
       else if(engine==="minimax")genResult=await _minimaxGenVideo(prompt);
       else if(engine==="pika")genResult=await _pikaGenVideo(prompt);
+      else if(engine==="heygen")genResult=await _heygenCreateAvatar(prompt,null,null,VG_STATE.presenterImageUrl||null);
+      else if(engine==="did")genResult=await _didGenTalk(VG_STATE.presenterImageUrl||"https://clips-presenters.d-id.com/amy/image.jpeg",prompt,null);
       else throw new Error("Unknown engine: "+engine);
       if(!genResult)throw new Error("No response from server");
       if(genResult.error)throw new Error(genResult.error);
@@ -3243,6 +3263,8 @@ function showVideoGenUI(initialPrompt){
         else if(engine==="luma")sr=await _lumaCheckStatus(taskId);
         else if(engine==="minimax")sr=await _minimaxCheckStatus(taskId);
         else if(engine==="pika")sr=await _pikaCheckStatus(taskId,genResult._fal_model);
+        else if(engine==="heygen")sr=await _heygenCheckStatus(taskId,!!(genResult&&genResult.request_id));
+        else if(engine==="did")sr=await _didCheckStatus(taskId);
         if(!sr)continue;
         if(sr.done&&sr.url){videoUrl=sr.url;break;}
         if(sr.error)throw new Error(sr.error);
