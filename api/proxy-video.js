@@ -177,9 +177,8 @@ module.exports = async function handler(req, res) {
 
       if (action === "generate") {
         // gen4_turbo requires a reference image; use gen3a_turbo for text-only
-        var rwModel = body.image_url ? "gen4_turbo" : "gen3a_turbo";
-        var rwBody = { model: rwModel, promptText: body.prompt };
-        if (body.image_url) rwBody.promptImage = body.image_url;
+        if (!body.image_url) return res.status(400).json({ error: "Runway needs a Reference Image URL. Go back (← Choose Engine) and enter a property photo URL above the prompt." });
+        var rwBody = { model: "gen4_turbo", promptText: body.prompt, promptImage: body.image_url, duration: 5, ratio: "1280:768" };
         var rwr = await fetch("https://api.dev.runwayml.com/v1/image_to_video", {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": "Bearer " + rk, "X-Runway-Version": "2024-11-06" },

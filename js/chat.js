@@ -3097,17 +3097,21 @@ function showVideoGenUI(initialPrompt){
     pSec.appendChild(editPromptEl);
     vgBody.appendChild(pSec);
 
-    // Presenter image URL — shown only for heygen / did engines
-    if(VG_STATE.engine==="heygen"||VG_STATE.engine==="did"){
+    // Image / photo URL — required for runway; required for heygen/did
+    if(VG_STATE.engine==="runway"||VG_STATE.engine==="heygen"||VG_STATE.engine==="did"){
       var piSec=div({marginBottom:"16px"});
-      piSec.appendChild(div({color:"#8899AA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"8px"},"PRESENTER PHOTO URL (optional)"));
-      var piInp=el("input",{style:{width:"100%",background:"#0D1220",border:"1px solid #2A3040",borderRadius:"10px",padding:"12px",color:"#E0E0E0",fontSize:"12px",fontFamily:"'Inter',sans-serif",boxSizing:"border-box"}});
+      var piLabel=VG_STATE.engine==="runway"?"REFERENCE IMAGE URL (required)":"PRESENTER PHOTO URL (required)";
+      var piHint=VG_STATE.engine==="runway"
+        ?"Paste a direct link to a property photo (JPG/PNG). Runway animates from this image."
+        :"Paste a direct link to a face photo (JPG/PNG). Must be publicly accessible.";
+      piSec.appendChild(div({color:VG_STATE.engine==="runway"?"#EF4444":"#8899AA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"8px"},"★ "+piLabel));
+      var piInp=el("input",{style:{width:"100%",background:"#0D1220",border:"1px solid "+(VG_STATE.engine==="runway"?"#EF4444":"#2A3040"),borderRadius:"10px",padding:"12px",color:"#E0E0E0",fontSize:"12px",fontFamily:"'Inter',sans-serif",boxSizing:"border-box"}});
       piInp.type="url";
-      piInp.placeholder="https://… (leave blank to use a default avatar)";
+      piInp.placeholder="https://…";
       piInp.value=VG_STATE.presenterImageUrl||"";
       piInp.oninput=function(){VG_STATE.presenterImageUrl=piInp.value.trim();};
       piSec.appendChild(piInp);
-      piSec.appendChild(div({color:"#3A4560",fontSize:"9px",fontFamily:"'Inter',sans-serif",marginTop:"4px"},"Use a direct link to a face photo (JPG/PNG). Must be publicly accessible."));
+      piSec.appendChild(div({color:"#3A4560",fontSize:"9px",fontFamily:"'Inter',sans-serif",marginTop:"4px"},piHint));
       vgBody.appendChild(piSec);
     }
 
@@ -3240,7 +3244,10 @@ function showVideoGenUI(initialPrompt){
       _aiStatus("Sending request to "+(_AI_ENGINE_LABELS[engine]||engine)+"...",5);
       var genResult;
       if(engine==="kling")genResult=await _klingGenVideo(prompt);
-      else if(engine==="runway")genResult=await _runwayGenVideo(prompt);
+      else if(engine==="runway"){
+        if(!VG_STATE.presenterImageUrl)throw new Error("Runway needs a Reference Image URL. Enter a property photo URL in the field above the prompt, then try again.");
+        genResult=await _runwayGenVideo(prompt,VG_STATE.presenterImageUrl);
+      }
       else if(engine==="luma")genResult=await _lumaGenVideo(prompt);
       else if(engine==="minimax")genResult=await _minimaxGenVideo(prompt);
       else if(engine==="pika")genResult=await _pikaGenVideo(prompt);
