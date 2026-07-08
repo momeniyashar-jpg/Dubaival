@@ -215,9 +215,13 @@ module.exports = async function handler(req, res) {
           headers: { "Content-Type": "application/json", "Authorization": "Bearer " + mk },
           body: JSON.stringify(mmBody)
         });
-        var mmd = await mmr.json();
+        var mmRaw = await mmr.text();
+        var mmd; try { mmd = JSON.parse(mmRaw); } catch(e) { return res.status(502).json({ error: "Minimax non-JSON (HTTP " + mmr.status + "): " + mmRaw.slice(0, 300) }); }
         // {"task_id":"xxx","base_resp":{"status_code":0}}
-        if (!mmd.task_id) return res.status(mmr.status).json({ error: (mmd.base_resp && mmd.base_resp.status_msg) || "Minimax generation failed" });
+        if (!mmd.task_id) {
+          var mmErrMsg = (mmd.base_resp && mmd.base_resp.status_msg) ? mmd.base_resp.status_msg : JSON.stringify(mmd).slice(0, 300);
+          return res.status(400).json({ error: "Minimax API error (HTTP " + mmr.status + "): " + mmErrMsg });
+        }
         return res.json({ task_id: mmd.task_id });
       }
       if (action === "status") {
