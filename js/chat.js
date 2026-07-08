@@ -2709,7 +2709,7 @@ function showVideoGenUI(initialPrompt, propertyCtx){
   // ── World-Class AI Video Studio ────────────────────────────────────────────
   var VG_STATE={
     template:null,platform:"reel",language:"en",hookType:"emotional",
-    prompt:"",mediaPhotos:[],mediaVideos:[],floorPlans:[],musicType:"luxury",
+    prompt:"",mediaPhotos:[],mediaVideos:[],floorPlans:[],musicType:"none",
     musicFile:null,locationText:"",processing:false,resultBlob:null,resultUrl:null,
     plan:null,activeTab:"setup",engine:"slideshow",presenterImageUrl:"",
     propertyCtx:propertyCtx||null,_autoPromptDone:false
@@ -3014,16 +3014,48 @@ function showVideoGenUI(initialPrompt, propertyCtx){
     vgBody.appendChild(promptSec);
 
     // Media Uploads (collapsible)
+    // ── Property photos CTA (always visible, above the collapsible) ────────────
+    var photoCTA=div({background:"linear-gradient(135deg,rgba(201,168,76,0.1),rgba(201,168,76,0.04))",border:"1.5px solid rgba(201,168,76,0.35)",borderRadius:"12px",padding:"12px 14px",marginBottom:"10px",display:"flex",alignItems:"flex-start",gap:"12px"});
+    var photoCtaIco=div({width:"36px",height:"36px",flexShrink:"0",borderRadius:"8px",background:"rgba(201,168,76,0.15)",display:"flex",alignItems:"center",justifyContent:"center"});
+    photoCtaIco.innerHTML='<i data-lucide="image" style="width:18px;height:18px;color:#C9A84C"></i>';
+    var photoCtaTxt=div({flex:"1"});
+    photoCtaTxt.appendChild(div({color:"#C9A84C",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},"📸 Upload Property Photos = Better Video"));
+    photoCtaTxt.appendChild(div({color:"#8899AA",fontSize:"10px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},"Without your photos, the video uses generic stock images. Upload 3–5 property photos below for a professional marketing video."));
+    var photoCtaBtn=el("button",{style:{marginTop:"8px",background:"rgba(201,168,76,0.15)",border:"1px solid rgba(201,168,76,0.4)",borderRadius:"7px",padding:"5px 12px",color:"#C9A84C",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+    photoCtaBtn.innerHTML='<i data-lucide="upload" style="width:10px;height:10px;vertical-align:middle;margin-right:4px"></i>Add Photos';
+    photoCTA.appendChild(photoCtaIco);photoCTA.appendChild(photoCtaTxt);
+    var photoQuickInp=el("input",{type:"file",accept:"image/*",multiple:true});
+    photoQuickInp.style.cssText="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;";
+    document.body.appendChild(photoQuickInp);
+    photoCtaBtn.onclick=function(){photoQuickInp.click();};
+    photoCtaTxt.appendChild(photoCtaBtn);
+    photoCTA.appendChild(photoCtaTxt);
+    vgBody.appendChild(photoCTA);
+
     var mediaToggle=div({background:"rgba(255,255,255,0.02)",border:"1px solid #2A3040",borderRadius:"10px",marginBottom:"12px",overflow:"hidden"});
     var mediaHdr=div({display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",cursor:"pointer"});
     var mediaHdrL=el("div",{style:{display:"flex",alignItems:"center",gap:"8px"}});
     mediaHdrL.innerHTML='<i data-lucide="paperclip" style="width:14px;height:14px;color:#C9A84C"></i>';
-    mediaHdrL.appendChild(div({color:"#C0C8D8",fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace"},"Add Your Media (photos, videos, floor plans)"));
+    mediaHdrL.appendChild(div({color:"#C0C8D8",fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace"},"Add Media (photos, videos, floor plans, music)"));
     mediaHdr.appendChild(mediaHdrL);
     var mediaChevron=el("div",{style:{color:"#8899AA",transition:"transform 0.2s"}});
     mediaChevron.innerHTML='<i data-lucide="chevron-down" style="width:14px;height:14px"></i>';
     mediaHdr.appendChild(mediaChevron);
     var mediaBody=div({padding:"14px",borderTop:"1px solid #2A3040",display:"none"});
+
+    // Quick-add photos from CTA button also updates userPhotoFiles + mediaBody
+    photoQuickInp.onchange=function(){
+      var files=Array.from(photoQuickInp.files||[]);
+      if(!files.length)return;
+      userPhotoFiles=files;
+      // Open media section and update its preview
+      mediaBody.style.display="block";mediaChevron.style.transform="rotate(180deg)";
+      var photoPreviewRow=mediaBody.querySelector("[data-photoprev]");
+      if(photoPreviewRow){photoPreviewRow.innerHTML="";files.forEach(function(f){var img=el("img",{style:{width:"48px",height:"48px",objectFit:"cover",borderRadius:"8px",border:"1px solid #C9A84C"}});img.src=URL.createObjectURL(f);photoPreviewRow.appendChild(img);});}
+      photoCtaBtn.innerHTML='<i data-lucide="check-circle" style="width:10px;height:10px;vertical-align:middle;margin-right:4px"></i>'+files.length+' Photo'+(files.length>1?"s":"")+" Added";
+      photoCtaBtn.style.background="rgba(16,185,129,0.15)";photoCtaBtn.style.borderColor="rgba(16,185,129,0.4)";photoCtaBtn.style.color="#10B981";
+      if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
+    };
 
     mediaHdr.onclick=function(){
       var open=mediaBody.style.display==="block";
@@ -3083,13 +3115,17 @@ function showVideoGenUI(initialPrompt, propertyCtx){
       return slot;
     }
 
-    mediaBody.appendChild(vgMakeUploadSlot("PHOTOS — blended into slides","image/*",true,function(files,prev){
-      userPhotoFiles=files;prev.innerHTML="";
+    var photoSlot=vgMakeUploadSlot("PHOTOS — blended into slides","image/*",true,function(files,prev){
+      userPhotoFiles=files;prev.innerHTML="";prev.setAttribute("data-photoprev","1");
       files.forEach(function(f){
         var img=el("img",{style:{width:"48px",height:"48px",objectFit:"cover",borderRadius:"8px",border:"1px solid #C9A84C"}});
         img.src=URL.createObjectURL(f);prev.appendChild(img);
       });
-    }));
+    });
+    // tag the preview element so quick-add CTA can update it
+    var photoSlotPrev=photoSlot.querySelector("[data-photoprev]")||photoSlot.lastElementChild;
+    if(photoSlotPrev)photoSlotPrev.setAttribute("data-photoprev","1");
+    mediaBody.appendChild(photoSlot);
     mediaBody.appendChild(vgMakeUploadSlot("VIDEOS — merged into final","video/*",true,function(files,prev){
       userVideoFiles=files;prev.innerHTML="";
       files.forEach(function(f){
@@ -4109,7 +4145,9 @@ async function findSmartImage(caption){
   return imgs[0];
 }
 
+var _imgCallIdx=0; // global counter so each slide gets a different pool image
 async function findMultipleImages(caption,count){
+  _imgCallIdx++;
   var query=extractImageKeywords(caption);
   var collected=[];
 
@@ -4134,52 +4172,76 @@ async function findMultipleImages(caption,count){
 
   if(collected.length>0){console.log("[DubAIVal] "+collected.length+" images total");return collected;}
 
-  // Curated Dubai real estate fallback pool — varied by keyword to avoid repetition
+  // Curated fallback — different image per slide via _imgCallIdx counter
   var q2=(query||"").toLowerCase();
   var POOL_LUXURY=[
     "https://images.pexels.com/photos/2102587/pexels-photo-2102587.jpeg?auto=compress&w=1080",
     "https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&w=1080",
     "https://images.pexels.com/photos/276724/pexels-photo-276724.jpeg?auto=compress&w=1080",
     "https://images.pexels.com/photos/323780/pexels-photo-323780.jpeg?auto=compress&w=1080",
-    "https://images.pexels.com/photos/1918291/pexels-photo-1918291.jpeg?auto=compress&w=1080"
+    "https://images.pexels.com/photos/1918291/pexels-photo-1918291.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/2635038/pexels-photo-2635038.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/1571468/pexels-photo-1571468.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/2121121/pexels-photo-2121121.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/3626568/pexels-photo-3626568.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/261327/pexels-photo-261327.jpeg?auto=compress&w=1080"
   ];
   var POOL_SKYLINE=[
     "https://images.pexels.com/photos/2115367/pexels-photo-2115367.jpeg?auto=compress&w=1080",
     "https://images.pexels.com/photos/2193300/pexels-photo-2193300.jpeg?auto=compress&w=1080",
     "https://images.pexels.com/photos/1268871/pexels-photo-1268871.jpeg?auto=compress&w=1080",
     "https://images.pexels.com/photos/3586966/pexels-photo-3586966.jpeg?auto=compress&w=1080",
-    "https://images.pexels.com/photos/41949/earth-earth-at-night-night-lights-41949.jpeg?auto=compress&w=1080"
+    "https://images.pexels.com/photos/3244513/pexels-photo-3244513.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/2263436/pexels-photo-2263436.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/1105766/pexels-photo-1105766.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/466685/pexels-photo-466685.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/2096622/pexels-photo-2096622.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/1470405/pexels-photo-1470405.jpeg?auto=compress&w=1080"
   ];
   var POOL_MARINA=[
     "https://images.pexels.com/photos/1838640/pexels-photo-1838640.jpeg?auto=compress&w=1080",
     "https://images.pexels.com/photos/2041556/pexels-photo-2041556.jpeg?auto=compress&w=1080",
     "https://images.pexels.com/photos/3881104/pexels-photo-3881104.jpeg?auto=compress&w=1080",
     "https://images.pexels.com/photos/1134166/pexels-photo-1134166.jpeg?auto=compress&w=1080",
-    "https://images.pexels.com/photos/2090653/pexels-photo-2090653.jpeg?auto=compress&w=1080"
+    "https://images.pexels.com/photos/2090653/pexels-photo-2090653.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/994605/pexels-photo-994605.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/1174732/pexels-photo-1174732.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/753626/pexels-photo-753626.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/3042278/pexels-photo-3042278.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/1371360/pexels-photo-1371360.jpeg?auto=compress&w=1080"
   ];
   var POOL_INTERIOR=[
     "https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&w=1080",
     "https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&w=1080",
     "https://images.pexels.com/photos/2062426/pexels-photo-2062426.jpeg?auto=compress&w=1080",
     "https://images.pexels.com/photos/1080721/pexels-photo-1080721.jpeg?auto=compress&w=1080",
-    "https://images.pexels.com/photos/1643384/pexels-photo-1643384.jpeg?auto=compress&w=1080"
+    "https://images.pexels.com/photos/1643384/pexels-photo-1643384.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/1457847/pexels-photo-1457847.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/1743227/pexels-photo-1743227.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/2440471/pexels-photo-2440471.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/3288103/pexels-photo-3288103.jpeg?auto=compress&w=1080"
   ];
   var POOL_CITY=[
     "https://images.pexels.com/photos/3935702/pexels-photo-3935702.jpeg?auto=compress&w=1080",
     "https://images.pexels.com/photos/1117493/pexels-photo-1117493.jpeg?auto=compress&w=1080",
     "https://images.pexels.com/photos/1005417/pexels-photo-1005417.jpeg?auto=compress&w=1080",
     "https://images.pexels.com/photos/2304791/pexels-photo-2304791.jpeg?auto=compress&w=1080",
-    "https://images.pexels.com/photos/374870/pexels-photo-374870.jpeg?auto=compress&w=1080"
+    "https://images.pexels.com/photos/374870/pexels-photo-374870.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/220769/pexels-photo-220769.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/2360673/pexels-photo-2360673.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/1486785/pexels-photo-1486785.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/3617457/pexels-photo-3617457.jpeg?auto=compress&w=1080",
+    "https://images.pexels.com/photos/2549018/pexels-photo-2549018.jpeg?auto=compress&w=1080"
   ];
   var pool=POOL_LUXURY;
   if(q2.indexOf("marina")!==-1||q2.indexOf("sea")!==-1||q2.indexOf("water")!==-1||q2.indexOf("beach")!==-1)pool=POOL_MARINA;
   else if(q2.indexOf("interior")!==-1||q2.indexOf("living")!==-1||q2.indexOf("bedroom")!==-1||q2.indexOf("kitchen")!==-1)pool=POOL_INTERIOR;
   else if(q2.indexOf("skyline")!==-1||q2.indexOf("downtown")!==-1||q2.indexOf("burj")!==-1||q2.indexOf("city")!==-1)pool=POOL_SKYLINE;
   else if(q2.indexOf("street")!==-1||q2.indexOf("road")!==-1||q2.indexOf("area")!==-1||q2.indexOf("community")!==-1)pool=POOL_CITY;
-  // shuffle pool with deterministic seed based on query length for variety
-  var seed=query.length%pool.length;
-  var shuffled=pool.slice(seed).concat(pool.slice(0,seed));
-  for(var f=0;f<Math.min(count,shuffled.length);f++)collected.push(shuffled[f]);
+  // counter-based: each slide call gets a DIFFERENT image — no more same image repeated
+  var startIdx=(_imgCallIdx-1)%pool.length;
+  for(var f=0;f<Math.min(count,pool.length);f++)collected.push(pool[(startIdx+f)%pool.length]);
   return collected;
 }
 
