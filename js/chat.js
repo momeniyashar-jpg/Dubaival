@@ -2711,7 +2711,7 @@ function showVideoGenUI(initialPrompt, propertyCtx){
     template:null,platform:"reel",language:"en",hookType:"emotional",
     prompt:"",mediaPhotos:[],mediaVideos:[],floorPlans:[],musicType:"none",
     musicFile:null,locationText:"",processing:false,resultBlob:null,resultUrl:null,
-    plan:null,activeTab:"setup",engine:"slideshow",presenterImageUrl:"",
+    plan:null,activeTab:"setup",engine:"minimax",presenterImageUrl:"",
     propertyCtx:propertyCtx||null,_autoPromptDone:false
   };
 
@@ -3219,50 +3219,34 @@ function showVideoGenUI(initialPrompt, propertyCtx){
        desc:"Real photo that talks",note:"~1–2 min · Needs photo"}
     ];
 
-    // ── Engine: Recommended card + collapsed Advanced picker ─────────────────
-    var selEng=engines.find(function(e){return e.key===VG_STATE.engine;})||engines[0];
+    // ── Engine: Always-visible selection grid ────────────────────────────────
     var needsPhoto=VG_STATE.engine==="runway"||VG_STATE.engine==="heygen"||VG_STATE.engine==="did";
-    var isSlideshow=VG_STATE.engine==="slideshow";
     var engSec=div({marginBottom:"20px"});
-    var engHdrRow=div({display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"8px"});
-    engHdrRow.appendChild(div({color:"#8899AA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em"},"AI ENGINE"));
-    if(isSlideshow){var recBadge=div({background:"rgba(16,185,129,0.12)",border:"1px solid rgba(16,185,129,0.3)",borderRadius:"20px",padding:"2px 8px",color:"#10B981",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"});recBadge.textContent="⚡ FREE & INSTANT";engHdrRow.appendChild(recBadge);}
+    var engHdrRow=div({display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"10px"});
+    engHdrRow.appendChild(div({color:"#8899AA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em"},"CHOOSE AI ENGINE"));
     engSec.appendChild(engHdrRow);
-    var selCard=div({background:"rgba("+hexToRgb(selEng.color)+",0.07)",border:"2px solid "+selEng.color,borderRadius:"12px",padding:"12px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"});
-    var selLeft=div({display:"flex",alignItems:"center",gap:"12px",flex:"1"});
-    var selIco=div({width:"38px",height:"38px",flexShrink:"0",borderRadius:"10px",background:"rgba("+hexToRgb(selEng.color)+",0.15)",display:"flex",alignItems:"center",justifyContent:"center"});
-    selIco.innerHTML='<i data-lucide="'+selEng.icon+'" style="width:20px;height:20px;color:'+selEng.color+'"></i>';
-    selLeft.appendChild(selIco);
-    var selInfo=div({});
-    selInfo.appendChild(div({color:selEng.color,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},selEng.label));
-    selInfo.appendChild(div({color:"#8899AA",fontSize:"10px",fontFamily:"'Inter',sans-serif",marginTop:"1px"},selEng.desc+" · "+selEng.note));
-    if(isSlideshow)selInfo.appendChild(div({color:"#10B981",fontSize:"9px",fontFamily:"'Inter',sans-serif",marginTop:"3px"},"✓ No API key needed · Works immediately · Professional quality"));
-    else if(!needsPhoto)selInfo.appendChild(div({color:"#10B981",fontSize:"9px",fontFamily:"'Inter',sans-serif",marginTop:"3px"},"✓ Text prompt only — no image required"));
-    selLeft.appendChild(selInfo);selCard.appendChild(selLeft);
-    var chgBtn=el("button",{style:{background:"rgba(255,255,255,0.04)",border:"1px solid #2A3040",borderRadius:"8px",padding:"6px 12px",color:"#8899AA",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",flexShrink:"0",whiteSpace:"nowrap"}});
-    chgBtn.textContent="Change";selCard.appendChild(chgBtn);
-    engSec.appendChild(selCard);
-    var advPanel=div({display:"none",marginTop:"10px",background:"rgba(255,255,255,0.01)",border:"1px solid #2A3040",borderRadius:"10px",padding:"10px"});
-    advPanel.appendChild(div({color:"#556677",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em",marginBottom:"4px",textAlign:"center"},"SELECT ENGINE:"));
-    advPanel.appendChild(div({color:"#3A4560",fontSize:"8px",fontFamily:"'Inter',sans-serif",marginBottom:"10px",textAlign:"center"},"AI engines require separate API keys & credits"));
-    var engGrid=div({display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"6px"});
+    var engGrid=div({display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"8px"});
     engines.forEach(function(eng){
       var isSel=VG_STATE.engine===eng.key;
-      var btn=div({background:isSel?"rgba("+hexToRgb(eng.color)+",0.12)":"rgba(255,255,255,0.02)",border:"1px solid "+(isSel?eng.color:"#2A3040"),borderRadius:"10px",padding:"8px 6px",cursor:"pointer",textAlign:"center",transition:"all 0.15s",position:"relative"});
-      var eIcon=div({marginBottom:"4px",display:"flex",justifyContent:"center"});
-      eIcon.innerHTML='<i data-lucide="'+eng.icon+'" style="width:16px;height:16px;color:'+(isSel?eng.color:"#556677")+'"></i>';
-      btn.appendChild(eIcon);
-      btn.appendChild(div({color:isSel?eng.color:"#C0C8D8",fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},eng.label));
-      btn.appendChild(div({color:"#3A4560",fontSize:"8px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},eng.key==="slideshow"?"⚡ Free":eng.note));
-      btn.onclick=function(){VG_STATE.engine=eng.key;advPanel.style.display="none";chgBtn.textContent="Change";renderVGCreate();};
+      var isSlide=eng.key==="slideshow";
+      var btn=div({background:isSel?"rgba("+hexToRgb(eng.color)+",0.13)":"rgba(255,255,255,0.02)",border:"2px solid "+(isSel?eng.color:"#2A3040"),borderRadius:"12px",padding:"10px 12px",cursor:"pointer",transition:"all 0.15s",position:"relative",boxSizing:"border-box"});
+      var topRow=div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"3px"});
+      var eIco=div({width:"28px",height:"28px",flexShrink:"0",borderRadius:"7px",background:"rgba("+hexToRgb(eng.color)+","+(isSel?"0.2":"0.08")+")",display:"flex",alignItems:"center",justifyContent:"center"});
+      eIco.innerHTML='<i data-lucide="'+eng.icon+'" style="width:14px;height:14px;color:'+eng.color+'"></i>';
+      topRow.appendChild(eIco);
+      var nameEl=div({color:isSel?eng.color:"#C0C8D8",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",lineHeight:"1.2"});
+      nameEl.textContent=eng.label;
+      topRow.appendChild(nameEl);
+      if(isSlide){var freeBadge=div({background:"rgba(16,185,129,0.15)",border:"1px solid rgba(16,185,129,0.3)",borderRadius:"8px",padding:"1px 5px",color:"#10B981",fontSize:"8px",fontFamily:"'Space Grotesk',monospace",fontWeight:"700",flexShrink:"0"});freeBadge.textContent="FREE";topRow.appendChild(freeBadge);}
+      btn.appendChild(topRow);
+      btn.appendChild(div({color:"#556677",fontSize:"9px",fontFamily:"'Inter',sans-serif",lineHeight:"1.3",marginLeft:"36px"},isSlide?"⚡ Instant · No API key":eng.note));
+      if(isSel){var chk=div({position:"absolute",top:"8px",right:"8px",width:"16px",height:"16px",borderRadius:"50%",background:eng.color,display:"flex",alignItems:"center",justifyContent:"center"});chk.innerHTML='<i data-lucide="check" style="width:10px;height:10px;color:#000"></i>';btn.appendChild(chk);}
+      btn.onmouseover=function(){if(!isSel)btn.style.borderColor="#3A4560";};
+      btn.onmouseout=function(){if(!isSel)btn.style.borderColor="#2A3040";};
+      btn.onclick=function(){VG_STATE.engine=eng.key;renderVGCreate();};
       engGrid.appendChild(btn);
     });
-    advPanel.appendChild(engGrid);engSec.appendChild(advPanel);
-    chgBtn.onclick=function(){
-      var open=advPanel.style.display==="block";
-      advPanel.style.display=open?"none":"block";chgBtn.textContent=open?"Change":"✕ Close";
-      if(!open&&typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
-    };
+    engSec.appendChild(engGrid);
     vgBody.appendChild(engSec);
 
     var pSec=div({marginBottom:"16px"});
