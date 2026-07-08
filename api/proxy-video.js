@@ -202,11 +202,44 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // ── MINIMAX (HAILUO) ─────────────────────────────────────────────────────
+    // ── MINIMAX (HAILUO) — direct API or via Fal.ai gateway ─────────────────
     if (engine === "minimax") {
       var mk = process.env.MINIMAX_API_KEY;
-      if (!mk) return res.status(500).json({ error: "MINIMAX_API_KEY not configured" });
+      var falKey = process.env.PIKA_API_KEY; // Fal.ai key — also powers Minimax on Fal
+      if (!mk && !falKey) return res.status(500).json({ error: "MINIMAX_API_KEY not configured in Vercel env vars" });
 
+      // Prefer direct Minimax API; fall back to Fal.ai gateway (uses PIKA_API_KEY)
+      var mmUseDirect = !!mk;
+      var mmFalModel = "fal-ai/minimax/video-01";
+
+      if (!mmUseDirect) {
+        // ── Fal.ai gateway ─────────────────────────────────────────────────
+        if (action === "generate") {
+          var mmFBody = { prompt: body.prompt, aspect_ratio: "16:9" };
+          if (body.image_url) mmFBody.image_url = body.image_url;
+          var mmFr = await fetch("https://queue.fal.run/" + mmFalModel, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": "Key " + falKey },
+            body: JSON.stringify(mmFBody)
+          });
+          var mmFRaw = await mmFr.text();
+          var mmFd; try { mmFd = JSON.parse(mmFRaw); } catch(e) { return res.status(502).json({ error: "Minimax/Fal non-JSON (HTTP " + mmFr.status + "): " + mmFRaw.slice(0, 200) }); }
+          if (!mmFd.request_id) return res.status(mmFr.status).json({ error: mmFd.detail || mmFd.message || "Minimax via Fal.ai failed: " + mmFRaw.slice(0, 200) });
+          return res.json({ task_id: mmFd.request_id, request_id: mmFd.request_id });
+        }
+        if (action === "status") {
+          var mmFr2 = await fetch("https://queue.fal.run/" + mmFalModel + "/requests/" + tid, {
+            headers: { "Authorization": "Key " + falKey }
+          });
+          var mmFd2 = await mmFr2.json();
+          var mmFDone = mmFd2.status === "COMPLETED";
+          var mmFErr = mmFd2.status === "FAILED" ? (mmFd2.error || "Generation failed") : null;
+          var mmFUrl = mmFDone && mmFd2.output ? (mmFd2.output.video && mmFd2.output.video.url || mmFd2.output.video_url || mmFd2.output.url) : null;
+          return res.json({ done: mmFDone, url: mmFUrl, error: mmFErr, status: mmFd2.status });
+        }
+      }
+
+      // ── Direct Minimax API ──────────────────────────────────────────────
       if (action === "generate") {
         var mmBody = { model: "T2V-01-HD", prompt: body.prompt };
         if (body.image_url) { mmBody.model = "I2V-01-HD"; mmBody.first_frame_image = body.image_url; }
@@ -217,7 +250,6 @@ module.exports = async function handler(req, res) {
         });
         var mmRaw = await mmr.text();
         var mmd; try { mmd = JSON.parse(mmRaw); } catch(e) { return res.status(502).json({ error: "Minimax non-JSON (HTTP " + mmr.status + "): " + mmRaw.slice(0, 300) }); }
-        // {"task_id":"xxx","base_resp":{"status_code":0}}
         if (!mmd.task_id) {
           var mmErrMsg = (mmd.base_resp && mmd.base_resp.status_msg) ? mmd.base_resp.status_msg : JSON.stringify(mmd).slice(0, 300);
           return res.status(400).json({ error: "Minimax API error (HTTP " + mmr.status + "): " + mmErrMsg });
@@ -229,7 +261,6 @@ module.exports = async function handler(req, res) {
           headers: { "Authorization": "Bearer " + mk }
         });
         var mmd2 = await mmr2.json();
-        // {"status":"Success","file_id":"xxx"} — need to fetch download URL from file_id
         var mmDone = mmd2.status === "Success";
         var mmErr  = mmd2.status === "Fail" ? ((mmd2.base_resp && mmd2.base_resp.status_msg) || "Generation failed") : null;
         var mmUrl  = null;
