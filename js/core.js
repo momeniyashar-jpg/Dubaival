@@ -593,17 +593,10 @@ function getMomentumFactor(area){
 }
 
 var MI_TOP_AREAS=["Downtown Dubai","Dubai Marina","Palm Jumeirah","Business Bay",
-  "Jumeirah Village Circle","Dubai Hills Estate","Jumeirah Beach Residence (Jbr)",
-  "Dubai Creek Harbour","MBR City","Emaar Beachfront","DIFC","City Walk",
-  "Sobha Hartland","Arabian Ranches","Arabian Ranches 2","Dubai Silicon Oasis",
-  "Dubai Sports City","Jumeirah Lake Towers","Motor City","Al Furjan",
-  "Dubai South","Meydan","International City","Discovery Gardens",
-  "Jumeirah Golf Estates","The Springs","The Meadows","Damac Hills",
-  "Damac Hills 2","Town Square","Dubai Land","Jumeirah Islands",
-  "Jumeirah Park","Mudon","Nad Al Sheba","Tilal Al Ghaf",
-  "Bluewaters Island","Palm Jebel Ali","Dubai Islands","Madinat Jumeirah Living",
-  "Emirates Hills","District One","Al Barari","Za'Abeel",
-  "Dubailand","The Valley","Remraam","Arjan","Dubai Investment Park","Wadi Al Safa"];
+  "Jumeirah Village Circle","Dubai Hills Estate","Dubai Creek Harbour",
+  "MBR City","Emaar Beachfront","DIFC","Sobha Hartland","Jumeirah Lake Towers",
+  "Arabian Ranches","Damac Hills","Tilal Al Ghaf","Bluewaters Island",
+  "Palm Jebel Ali","Dubai Islands","Emirates Hills","District One"];
 
 async function runMarketIntelligence(){
   var areaList=MI_TOP_AREAS.join(", ");
