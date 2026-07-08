@@ -1870,6 +1870,15 @@ function renderProfilePanel(){
 
   maxW.appendChild(acctGrid);
 
+  // ── AI API KEYS ────────────────────────────────────────────────
+  maxW.appendChild(secLabel("AI API Keys"));
+  var aiGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"12px",marginBottom:"20px"}});
+  aiGrid.appendChild(socialInp("dv_groq","Groq API Key (AI Chat)","gsk_... — free at console.groq.com","password"));
+  aiGrid.appendChild(socialInp("dv_gemini_key","Gemini API Key (AI Image + RAG Memory)","AIza... — free at aistudio.google.com/apikey","password"));
+  aiGrid.appendChild(socialInp("dv_unsplash_key","Unsplash API Key (Property Photos)","Free at unsplash.com/developers"));
+  aiGrid.appendChild(socialInp("dv_pexels_key","Pexels API Key (Property Photos)","Free at pexels.com/api"));
+  maxW.appendChild(aiGrid);
+
   // ── SOCIAL ACCOUNTS ────────────────────────────────────────────
   maxW.appendChild(secLabel("Social Accounts"));
 
