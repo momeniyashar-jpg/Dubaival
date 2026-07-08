@@ -2895,7 +2895,64 @@ function showVideoGenUI(initialPrompt){
 
     // Prompt
     var promptSec=div({marginBottom:"16px"});
-    promptSec.appendChild(div({color:"#8899AA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"8px"},"VIDEO DESCRIPTION"));
+    var promptHdrRow=div({display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"8px"});
+    promptHdrRow.appendChild(div({color:"#8899AA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em"},"VIDEO DESCRIPTION"));
+    var aiWriterToggle=el("button",{style:{background:"rgba(139,92,246,0.1)",border:"1px solid rgba(139,92,246,0.35)",borderRadius:"7px",padding:"4px 10px",color:"#A78BFA",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",fontWeight:"600",cursor:"pointer",display:"flex",alignItems:"center",gap:"5px",transition:"all 0.15s"}});
+    aiWriterToggle.innerHTML='<i data-lucide="wand-2" style="width:11px;height:11px;color:#A78BFA"></i> AI Prompt Writer';
+    promptHdrRow.appendChild(aiWriterToggle);
+    promptSec.appendChild(promptHdrRow);
+
+    // AI Prompt Writer panel (hidden by default)
+    var aiWriterPanel=div({display:"none",background:"rgba(139,92,246,0.05)",border:"1px solid rgba(139,92,246,0.2)",borderRadius:"10px",padding:"14px",marginBottom:"10px"});
+    aiWriterPanel.appendChild(div({color:"#A78BFA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em",marginBottom:"4px"},"DESCRIBE IN YOUR OWN WORDS — ANY LANGUAGE"));
+    aiWriterPanel.appendChild(div({color:"#556677",fontSize:"10px",fontFamily:"'Inter',sans-serif",marginBottom:"10px"},"No prompt expertise needed. Write simply what you want — AI writes the professional prompt for you."));
+    var simpleDescInp=el("textarea",{style:{width:"100%",background:"#0D1220",border:"1px solid rgba(139,92,246,0.3)",borderRadius:"8px",padding:"10px",color:"#E0E0E0",fontSize:"12px",fontFamily:"'Inter',sans-serif",resize:"vertical",minHeight:"72px",boxSizing:"border-box",lineHeight:"1.5"}});
+    simpleDescInp.placeholder="e.g.  'آپارتمان ۲ خوابه در دبی مارینا با منظره دریا — می‌خوام بفروشم ۳ میلیون درهم'  •  'My listing: 2BR Business Bay 1.5M AED, 7% yield, good investment'";
+    aiWriterPanel.appendChild(simpleDescInp);
+    var aiWriterRow=div({display:"flex",alignItems:"center",gap:"10px",marginTop:"10px"});
+    var aiWriterBtn=el("button",{style:{flex:"1",background:"linear-gradient(135deg,#7C3AED,#8B5CF6)",color:"#FFF",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",display:"flex",alignItems:"center",justifyContent:"center",gap:"6px",transition:"opacity 0.15s"}});
+    aiWriterBtn.innerHTML='<i data-lucide="sparkles" style="width:13px;height:13px"></i> Generate Prompt';
+    var aiWriterStatus=div({fontSize:"10px",fontFamily:"'Inter',sans-serif",color:"#8899AA",minWidth:"0",flex:"0 0 auto"});
+    aiWriterRow.appendChild(aiWriterBtn);
+    aiWriterRow.appendChild(aiWriterStatus);
+    aiWriterPanel.appendChild(aiWriterRow);
+
+    aiWriterBtn.onclick=async function(){
+      var desc=simpleDescInp.value.trim();
+      if(!desc){simpleDescInp.focus();return;}
+      aiWriterBtn.style.opacity="0.6";aiWriterBtn.disabled=true;
+      aiWriterStatus.style.color="#A78BFA";aiWriterStatus.textContent="Writing…";
+      var tplLabel=VG_STATE.template?CONTENT_TEMPLATES[VG_STATE.template].label:"Property video";
+      var platLabel=VG_PLATFORMS[VG_STATE.platform].label;
+      var hookLabel=HOOK_TYPES[VG_STATE.hookType].label;
+      var langLabel=LANGUAGES[VG_STATE.language];
+      var bp=getBrandProfile();
+      var brandCtx=bp&&bp.name?"Agency: "+bp.name+(bp.tagline?" · "+bp.tagline:""):"";
+      var sys="You are a world-class Dubai real estate video marketing expert and AI video prompt engineer.\nTransform a simple property description from a real estate agent into a professional, cinematic AI video generation prompt.\nRules:\n- Output ONLY the final prompt — no intro, no labels, no explanation\n- Write the prompt in English (video AI engines perform best with English)\n- Be cinematic: include camera movements (drone shot, slow pan, close-up), lighting (golden hour, luxury interior lighting), mood\n- Include Dubai context where relevant\n- Match hook style: "+hookLabel+"\n- Optimize for platform: "+platLabel+"\n- Video type: "+tplLabel+(brandCtx?"\n- "+brandCtx:"")+"\n- Keep under 180 words but rich and specific\n- Start with the strongest visual element";
+      var msgs=[{role:"user",content:"Simple description from agent:\n\""+desc+"\"\n\nPlatform: "+platLabel+" | Type: "+tplLabel+" | Hook: "+hookLabel+" | Captions language: "+langLabel+"\n\nWrite the professional AI video prompt:"}];
+      try{
+        var result=await askAI(msgs,sys);
+        if(result&&result.trim()){
+          promptInp.value=result.trim();promptInp.setAttribute("data-auto","0");VG_STATE.prompt=result.trim();
+          aiWriterStatus.style.color="#10B981";aiWriterStatus.textContent="✓ Done!";
+          promptInp.style.boxShadow="0 0 0 2px rgba(139,92,246,0.4)";
+          setTimeout(function(){promptInp.style.boxShadow="";},2200);
+          setTimeout(function(){aiWriterPanel.style.display="none";aiWriterToggle.style.background="rgba(139,92,246,0.08)";},1400);
+        }else{aiWriterStatus.style.color="#EF4444";aiWriterStatus.textContent="Failed — try again";}
+      }catch(e){aiWriterStatus.style.color="#EF4444";aiWriterStatus.textContent="Error: "+(e.message||"try again");}
+      aiWriterBtn.style.opacity="1";aiWriterBtn.disabled=false;
+      if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
+    };
+
+    aiWriterToggle.onclick=function(){
+      var open=aiWriterPanel.style.display==="block";
+      aiWriterPanel.style.display=open?"none":"block";
+      aiWriterToggle.style.background=open?"rgba(139,92,246,0.1)":"rgba(139,92,246,0.18)";
+      aiWriterToggle.style.borderColor=open?"rgba(139,92,246,0.35)":"rgba(139,92,246,0.6)";
+      if(!open&&typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
+    };
+
+    promptSec.appendChild(aiWriterPanel);
     promptInp.style.display="block";
     promptSec.appendChild(promptInp);
     vgBody.appendChild(promptSec);
