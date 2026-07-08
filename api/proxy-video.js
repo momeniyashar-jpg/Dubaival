@@ -249,7 +249,7 @@ module.exports = async function handler(req, res) {
 
       if (action === "generate") {
         var pikaModel = body.image_url ? "fal-ai/pika/v2.2/image-to-video" : "fal-ai/pika/v2.2/text-to-video";
-        var pkBody = { prompt: body.prompt, aspect_ratio: "16:9", duration: "5s" };
+        var pkBody = { prompt: body.prompt, aspect_ratio: "16:9", duration: 5 };
         if (body.image_url) pkBody.image_url = body.image_url;
         var pkr = await fetch("https://queue.fal.run/" + pikaModel, {
           method: "POST",
