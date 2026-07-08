@@ -2702,7 +2702,7 @@ function speakVoiceoverFallback(lines,secPerSlide){
   });
 }
 
-function showVideoGenUI(initialPrompt){
+function showVideoGenUI(initialPrompt, propertyCtx){
   var existing=document.getElementById("video-gen-modal");
   if(existing)existing.remove();
 
@@ -2711,7 +2711,8 @@ function showVideoGenUI(initialPrompt){
     template:null,platform:"reel",language:"en",hookType:"emotional",
     prompt:"",mediaPhotos:[],mediaVideos:[],floorPlans:[],musicType:"luxury",
     musicFile:null,locationText:"",processing:false,resultBlob:null,resultUrl:null,
-    plan:null,activeTab:"setup",engine:null,presenterImageUrl:""
+    plan:null,activeTab:"setup",engine:"minimax",presenterImageUrl:"",
+    propertyCtx:propertyCtx||null,_autoPromptDone:false
   };
 
   var CONTENT_TEMPLATES={
@@ -2807,6 +2808,61 @@ function showVideoGenUI(initialPrompt){
   // ── SETUP TAB ─────────────────────────────────────────────────────────────
   function renderVGSetup(){
     vgBody.innerHTML="";
+
+    // ── Property Context Banner ────────────────────────────────────────────────
+    if(VG_STATE.propertyCtx){
+      var pc=VG_STATE.propertyCtx;
+      if(!VG_STATE.locationText&&pc.area)VG_STATE.locationText=pc.area;
+      if(!VG_STATE.template){
+        VG_STATE.template=(pc.grossYield&&parseFloat(pc.grossYield)>=6)?"investment_pitch":"property_tour";
+        VG_STATE.hookType=CONTENT_TEMPLATES[VG_STATE.template].hookType;
+      }
+      var pcBanner=div({background:"rgba(201,168,76,0.08)",border:"1px solid rgba(201,168,76,0.3)",borderRadius:"12px",padding:"12px 14px",marginBottom:"14px",display:"flex",alignItems:"center",gap:"12px"});
+      var pcIco=div({width:"32px",height:"32px",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center"});
+      pcIco.innerHTML='<i data-lucide="home" style="width:18px;height:18px;color:#C9A84C"></i>';
+      pcBanner.appendChild(pcIco);
+      var pcText=div({flex:"1"});
+      pcText.appendChild(div({color:"#C9A84C",fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"2px"},"PROPERTY DATA LOADED"));
+      var pcDetails=[(pc.building||pc.area),pc.beds,pc.psf?"AED "+Number(pc.psf).toLocaleString()+"/sqft":"",pc.grossYield?pc.grossYield+"% yield":""].filter(Boolean).join(" · ");
+      pcText.appendChild(div({color:"#E0E0E0",fontSize:"11px",fontFamily:"'Inter',sans-serif"},pcDetails));
+      if(pc.price)pcText.appendChild(div({color:"#8899AA",fontSize:"10px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},"Asking: AED "+(parseInt(pc.price)||0).toLocaleString()));
+      pcBanner.appendChild(pcText);
+      vgBody.appendChild(pcBanner);
+
+      // Auto-generate prompt from property data (once, async)
+      if(!VG_STATE._autoPromptDone&&!VG_STATE.prompt){
+        VG_STATE._autoPromptDone=true;
+        var autoBar=div({background:"rgba(139,92,246,0.06)",border:"1px solid rgba(139,92,246,0.2)",borderRadius:"10px",padding:"10px 14px",marginBottom:"12px",display:"flex",alignItems:"center",gap:"10px",id:"vg-auto-prompt"});
+        var autoIco=div({flexShrink:"0"});autoIco.innerHTML='<i data-lucide="loader" style="width:14px;height:14px;color:#A78BFA;animation:spin 1s linear infinite"></i>';
+        autoBar.appendChild(autoIco);
+        autoBar.appendChild(div({color:"#A78BFA",fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Generating your video script from property data…"));
+        vgBody.appendChild(autoBar);
+        var _tplLabel=CONTENT_TEMPLATES[VG_STATE.template||"property_tour"].label;
+        var _platLabel=VG_PLATFORMS[VG_STATE.platform].label;
+        var _hookLabel=HOOK_TYPES[VG_STATE.hookType].label;
+        var _bp=getBrandProfile();var _brandCtx=_bp&&_bp.name?"Agency: "+_bp.name+(_bp.tagline?" · "+_bp.tagline:""):"";
+        var _pcDesc="Property: "+(pc.building||pc.area)+(pc.area&&pc.building?", "+pc.area:"")+
+          "\nType: "+(pc.txnType==="rent"?"For Rent":"For Sale")+(pc.beds?" · "+pc.beds:"")+
+          (pc.size?" · "+pc.size+" sqft":"")+(pc.psf?" · AED "+Number(pc.psf).toLocaleString()+"/sqft":"")+
+          (pc.price?" · Asking AED "+(parseInt(pc.price)||0).toLocaleString():"")+
+          (pc.grossYield?" · "+pc.grossYield+"% gross yield":"")+(pc.signal?" · Market: "+pc.signal:"");
+        var _sys="You are a world-class Dubai real estate video marketing expert and AI video prompt engineer.\nTransform this property data into a professional, cinematic AI video generation prompt.\n- Output ONLY the final prompt, nothing else\n- Write in English (video engines perform best in English)\n- Be cinematic: include camera movements (drone, slow pan), lighting (golden hour, luxury), mood\n- Include Dubai-specific context where relevant\n- Match hook style: "+_hookLabel+"\n- Optimize for: "+_platLabel+"\n- Video type: "+_tplLabel+(_brandCtx?"\n- "+_brandCtx:"")+"\n- Under 180 words, rich and specific\n- Start with the strongest visual element";
+        askAI([{role:"user",content:"Generate a professional AI video prompt for this Dubai property:\n\n"+_pcDesc+"\n\nPlatform: "+_platLabel+" | Type: "+_tplLabel+" | Hook: "+_hookLabel}],_sys).then(function(result){
+          if(result&&result.trim()){
+            VG_STATE.prompt=result.trim();
+            var bar=document.getElementById("vg-auto-prompt");
+            if(bar){bar.innerHTML="";bar.style.borderColor="rgba(16,185,129,0.3)";bar.style.background="rgba(16,185,129,0.05)";
+              var dIco=div({flexShrink:"0"});dIco.innerHTML='<i data-lucide="check-circle" style="width:14px;height:14px;color:#10B981"></i>';
+              bar.appendChild(dIco);bar.appendChild(div({color:"#10B981",fontSize:"11px",fontFamily:"'Inter',sans-serif"},"✓ Video script ready! Edit the description below if needed, then click Next."));
+              var ta=document.querySelector("#video-gen-modal textarea[placeholder*='Showcase']");
+              if(ta){ta.value=VG_STATE.prompt;ta.setAttribute("data-auto","0");}
+              if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
+            }
+          }else{var bar=document.getElementById("vg-auto-prompt");if(bar)bar.remove();}
+        }).catch(function(){var bar=document.getElementById("vg-auto-prompt");if(bar)bar.remove();});
+      }
+    }
+
     // Content Templates
     var tplSec=div({marginBottom:"20px"});
     tplSec.appendChild(div({color:"#8899AA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"10px"},"VIDEO TYPE"));
@@ -3127,22 +3183,44 @@ function showVideoGenUI(initialPrompt){
        desc:"Real photo that talks",note:"~1–2 min · Needs photo"}
     ];
 
+    // ── Engine: Recommended card + collapsed Advanced picker ─────────────────
+    var selEng=engines.find(function(e){return e.key===VG_STATE.engine;})||engines[4];
+    var needsPhoto=VG_STATE.engine==="runway"||VG_STATE.engine==="heygen"||VG_STATE.engine==="did";
     var engSec=div({marginBottom:"20px"});
-    engSec.appendChild(div({color:"#8899AA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"10px"},"CHOOSE AI ENGINE"));
-    var engGrid=div({display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px"});
+    engSec.appendChild(div({color:"#8899AA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"8px"},"AI ENGINE"));
+    var selCard=div({background:"rgba("+hexToRgb(selEng.color)+",0.07)",border:"2px solid "+selEng.color,borderRadius:"12px",padding:"12px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"});
+    var selLeft=div({display:"flex",alignItems:"center",gap:"12px",flex:"1"});
+    var selIco=div({width:"38px",height:"38px",flexShrink:"0",borderRadius:"10px",background:"rgba("+hexToRgb(selEng.color)+",0.15)",display:"flex",alignItems:"center",justifyContent:"center"});
+    selIco.innerHTML='<i data-lucide="'+selEng.icon+'" style="width:20px;height:20px;color:'+selEng.color+'"></i>';
+    selLeft.appendChild(selIco);
+    var selInfo=div({});
+    selInfo.appendChild(div({color:selEng.color,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},selEng.label));
+    selInfo.appendChild(div({color:"#8899AA",fontSize:"10px",fontFamily:"'Inter',sans-serif",marginTop:"1px"},selEng.desc+" · "+selEng.note));
+    if(!needsPhoto)selInfo.appendChild(div({color:"#10B981",fontSize:"9px",fontFamily:"'Inter',sans-serif",marginTop:"3px"},"✓ Text prompt only — no image required"));
+    selLeft.appendChild(selInfo);selCard.appendChild(selLeft);
+    var chgBtn=el("button",{style:{background:"rgba(255,255,255,0.04)",border:"1px solid #2A3040",borderRadius:"8px",padding:"6px 12px",color:"#8899AA",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",flexShrink:"0",whiteSpace:"nowrap"}});
+    chgBtn.textContent="Change";selCard.appendChild(chgBtn);
+    engSec.appendChild(selCard);
+    var advPanel=div({display:"none",marginTop:"10px",background:"rgba(255,255,255,0.01)",border:"1px solid #2A3040",borderRadius:"10px",padding:"10px"});
+    advPanel.appendChild(div({color:"#556677",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em",marginBottom:"8px",textAlign:"center"},"SELECT A DIFFERENT ENGINE:"));
+    var engGrid=div({display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"6px"});
     engines.forEach(function(eng){
       var isSel=VG_STATE.engine===eng.key;
-      var btn=div({background:isSel?"rgba("+hexToRgb(eng.color)+",0.12)":"rgba(255,255,255,0.02)",border:"1px solid "+(isSel?eng.color:"#2A3040"),borderRadius:"10px",padding:"10px 8px",cursor:"pointer",textAlign:"center",transition:"all 0.15s"});
-      var eIcon=div({marginBottom:"5px",display:"flex",justifyContent:"center"});
-      eIcon.innerHTML='<i data-lucide="'+eng.icon+'" style="width:20px;height:20px;color:'+eng.color+'"></i>';
+      var btn=div({background:isSel?"rgba("+hexToRgb(eng.color)+",0.12)":"rgba(255,255,255,0.02)",border:"1px solid "+(isSel?eng.color:"#2A3040"),borderRadius:"10px",padding:"8px 6px",cursor:"pointer",textAlign:"center",transition:"all 0.15s"});
+      var eIcon=div({marginBottom:"4px",display:"flex",justifyContent:"center"});
+      eIcon.innerHTML='<i data-lucide="'+eng.icon+'" style="width:16px;height:16px;color:'+(isSel?eng.color:"#556677")+'"></i>';
       btn.appendChild(eIcon);
-      btn.appendChild(div({color:isSel?eng.color:"#C0C8D8",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},eng.label));
-      btn.appendChild(div({color:"#556677",fontSize:"9px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},eng.desc));
-      btn.appendChild(div({color:"#3A4560",fontSize:"8px",fontFamily:"'Inter',sans-serif",marginTop:"3px"},eng.note));
-      btn.onclick=function(){VG_STATE.engine=eng.key;renderVGCreate();};
+      btn.appendChild(div({color:isSel?eng.color:"#C0C8D8",fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},eng.label));
+      btn.appendChild(div({color:"#3A4560",fontSize:"8px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},eng.note));
+      btn.onclick=function(){VG_STATE.engine=eng.key;advPanel.style.display="none";chgBtn.textContent="Change";renderVGCreate();};
       engGrid.appendChild(btn);
     });
-    engSec.appendChild(engGrid);
+    advPanel.appendChild(engGrid);engSec.appendChild(advPanel);
+    chgBtn.onclick=function(){
+      var open=advPanel.style.display==="block";
+      advPanel.style.display=open?"none":"block";chgBtn.textContent=open?"Change":"✕ Close";
+      if(!open&&typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
+    };
     vgBody.appendChild(engSec);
 
     var pSec=div({marginBottom:"16px"});

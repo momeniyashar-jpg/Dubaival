@@ -1310,7 +1310,21 @@ function _ofmMyListings(wrap,cl){
     }
 
     // Reload / archive
-    var bottomRow=div({display:"flex",gap:"6px",justifyContent:"flex-end"});
+    var bottomRow=div({display:"flex",gap:"6px",justifyContent:"flex-end",alignItems:"center"});
+    if(typeof showVideoGenUI==="function"){
+      var vidBtn=el("button",{style:{padding:"6px 12px",borderRadius:"6px",
+        background:"rgba(139,92,246,0.1)",border:"1px solid rgba(139,92,246,0.3)",color:"#A78BFA",
+        fontSize:"9px",fontFamily:"'Space Grotesk',monospace",fontWeight:"600",cursor:"pointer",
+        display:"flex",alignItems:"center",gap:"4px"},
+        onclick:(function(lst){return function(){
+          showVideoGenUI("",{
+            building:lst.building,area:lst.area,price:lst.asking_price,
+            beds:lst.beds,size:lst.size_sqft,txnType:lst.purpose||"sale"
+          });
+        };})(listing)});
+      vidBtn.innerHTML='<i data-lucide="video" style="width:10px;height:10px"></i>Create Video';
+      bottomRow.appendChild(vidBtn);
+    }
     var reloadBtn=el("button",{style:{padding:"6px 12px",borderRadius:"6px",
       background:"transparent",border:"1px solid "+cl.border,color:cl.sub,
       fontSize:"9px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},

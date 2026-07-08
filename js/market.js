@@ -3723,6 +3723,28 @@ function renderAnalyzerResult(wrap){
   apDisclaim.appendChild(div({color:hexAlpha(cl.sub,0.5),fontSize:"8.5px",fontFamily:"'Inter',sans-serif",marginTop:"8px",fontStyle:"italic",borderTop:"1px solid "+hexAlpha(cl.sub,0.1),paddingTop:"6px"},"Market-independent metrics (Market PSF, Fair Price, Rent Estimate, Confidence Score, Area Benchmarks) remain unchanged regardless of asking price."));
   wrap.appendChild(apDisclaim);
 
+  // Create Marketing Video button
+  if(typeof showVideoGenUI==="function"){
+    var vidBannerSale=div({background:"linear-gradient(135deg,rgba(139,92,246,0.08),rgba(201,168,76,0.06))",border:"1px solid rgba(139,92,246,0.3)",borderRadius:"14px",padding:"16px 18px",marginTop:"14px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"12px"});
+    var vidBannerL=div({flex:"1"});
+    vidBannerL.appendChild(div({color:"#A78BFA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"3px"},"AI VIDEO STUDIO"));
+    vidBannerL.appendChild(div({color:cl.subHi,fontSize:"12px",fontFamily:"'Inter',sans-serif"},"Create a marketing video for this property in 3 clicks — no video editing skills needed."));
+    vidBannerSale.appendChild(vidBannerL);
+    var vidBtnSale=el("button",{style:{background:"linear-gradient(135deg,#7C3AED,#8B5CF6)",color:"#FFF",border:"none",borderRadius:"10px",padding:"11px 18px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",flexShrink:"0",whiteSpace:"nowrap"}});
+    vidBtnSale.innerHTML='<i data-lucide="video" style="width:13px;height:13px;vertical-align:middle;margin-right:6px"></i>Create Video';
+    vidBtnSale.onclick=function(){
+      showVideoGenUI("",{
+        building:f.building,area:f.area,psf:val.adjPSF,
+        price:f.price,beds:f.beds,grossYield:val.grossYield,
+        signal:val.investSignal?val.investSignal.label:"",
+        size:f.size||f.buaSize,txnType:f.txnType||"sale"
+      });
+    };
+    vidBannerSale.appendChild(vidBtnSale);
+    wrap.appendChild(vidBannerSale);
+    if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
+  }
+
   return wrap;
 }
 
@@ -3872,6 +3894,27 @@ function renderRentalResult(wrap){
   });
   shareRow.appendChild(waBtn);
   wrap.appendChild(shareRow);
+
+  // Create Marketing Video button (rental)
+  if(typeof showVideoGenUI==="function"){
+    var vidBannerRent=div({background:"linear-gradient(135deg,rgba(139,92,246,0.08),rgba(139,92,246,0.04))",border:"1px solid rgba(139,92,246,0.3)",borderRadius:"14px",padding:"16px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"12px"});
+    var vidBannerRL=div({flex:"1"});
+    vidBannerRL.appendChild(div({color:"#A78BFA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"3px"},"AI VIDEO STUDIO"));
+    vidBannerRL.appendChild(div({color:cl.subHi,fontSize:"12px",fontFamily:"'Inter',sans-serif"},"Create a rental listing video for this property in 3 clicks."));
+    vidBannerRent.appendChild(vidBannerRL);
+    var vidBtnRent=el("button",{style:{background:"linear-gradient(135deg,#7C3AED,#8B5CF6)",color:"#FFF",border:"none",borderRadius:"10px",padding:"11px 18px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",flexShrink:"0",whiteSpace:"nowrap"}});
+    vidBtnRent.innerHTML='<i data-lucide="video" style="width:13px;height:13px;vertical-align:middle;margin-right:6px"></i>Create Video';
+    vidBtnRent.onclick=function(){
+      showVideoGenUI("",{
+        building:f.building,area:f.area,
+        price:rv.askRent,beds:rv.beds,
+        size:f.size||f.buaSize,txnType:"rent"
+      });
+    };
+    vidBannerRent.appendChild(vidBtnRent);
+    wrap.appendChild(vidBannerRent);
+    if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
+  }
 
   return wrap;
 }
