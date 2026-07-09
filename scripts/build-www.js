@@ -126,6 +126,13 @@ html = html.replace(
   function capBoot(){
     var P=window.Capacitor.Plugins;
 
+    // Hard fallback: hide splash after 3s no matter what (prevents stuck splash on JS error)
+    if(P.SplashScreen){
+      setTimeout(function(){P.SplashScreen.hide().catch(function(){});},3000);
+    }
+
+    try{
+
     // StatusBar
     if(P.StatusBar){
       P.StatusBar.setBackgroundColor({color:'#070B14'}).catch(function(){});
@@ -145,9 +152,9 @@ html = html.replace(
       });
     }
 
-    // SplashScreen: hide after render
+    // SplashScreen: hide after render (normal path, faster than fallback)
     if(P.SplashScreen){
-      setTimeout(function(){P.SplashScreen.hide().catch(function(){});},500);
+      setTimeout(function(){P.SplashScreen.hide().catch(function(){});},600);
     }
 
     // Share: expose native share
@@ -215,6 +222,11 @@ html = html.replace(
     document.addEventListener('scroll',function(){
       if(window.scrollX!==0)window.scrollTo(0,window.scrollY);
     },{passive:true});
+
+    }catch(e){
+      // If any plugin init fails, app still runs — splash hides via the 3s fallback above
+      console.error('capBoot error:',e);
+    }
   }
 
   if(document.readyState==='loading'){
