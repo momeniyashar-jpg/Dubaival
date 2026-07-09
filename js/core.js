@@ -698,9 +698,10 @@ if(typeof window!=="undefined"){
     await fetchMarketMomentum();
     if(shouldRunIntelligence()){
       console.log("[DubaiVal] Market intelligence stale/missing — running AI update...");
-      var result=await runMarketIntelligence();
+      var timeout=new Promise(function(res){setTimeout(function(){res({success:false,error:"timeout"});},12000);});
+      var result=await Promise.race([runMarketIntelligence(),timeout]);
       if(!result||!result.success){
-        console.log("[DubaiVal] AI intelligence failed, generating fallback from AREAS growth data...");
+        console.log("[DubaiVal] AI intelligence failed/timed out, generating fallback from AREAS growth data...");
         generateFallbackMomentum();
       }
     }

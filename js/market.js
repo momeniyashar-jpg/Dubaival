@@ -276,8 +276,15 @@ function renderMarket(){
       var overall=MARKET_MOMENTUM["_overall"];
       if(momKeys.length===0){
         var emptyNote=el('div',{style:{background:'rgba(245,158,11,0.04)',border:'1px solid rgba(245,158,11,0.15)',borderRadius:'10px',padding:'16px',textAlign:'center',marginBottom:'12px'}});
-        emptyNote.appendChild(div({color:'#F59E0B',fontSize:'11px',fontFamily:"'Space Grotesk',monospace",marginBottom:'4px'},'Connecting to AI...'));
-        emptyNote.appendChild(div({color:cl.sub,fontSize:'9px',fontFamily:"'Inter',sans-serif"},'Market momentum data loads from Groq AI. Check back shortly.'));
+        emptyNote.appendChild(div({color:'#F59E0B',fontSize:'11px',fontFamily:"'Space Grotesk',monospace",marginBottom:'4px'},'Loading AI Market Intelligence...'));
+        emptyNote.appendChild(div({color:cl.sub,fontSize:'9px',fontFamily:"'Inter',sans-serif",marginBottom:'10px'},'Fetching trend data from Groq AI. This usually takes a few seconds.'));
+        var retryBtn=el('button',{style:{background:'rgba(245,158,11,0.1)',border:'1px solid rgba(245,158,11,0.3)',color:'#F59E0B',padding:'6px 16px',borderRadius:'6px',fontSize:'11px',fontWeight:'600',fontFamily:"'Space Grotesk',monospace",cursor:'pointer'}});
+        retryBtn.textContent='Retry';
+        retryBtn.addEventListener('click',function(){
+          generateFallbackMomentum();
+          render();
+        });
+        emptyNote.appendChild(retryBtn);
         dSec.appendChild(emptyNote);
         return;
       }
