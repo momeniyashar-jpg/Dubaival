@@ -917,7 +917,7 @@ function renderAlerts(){
     if(!tgt){PW.err="Please select a "+(PW.type==="area"?"area":"building");PW.status="";render();return;}
     if(!em||!em.includes("@")){PW.err="Please enter a valid email address.";PW.status="";render();return;}
     PW.err="";pwBtn.disabled=true;pwBtn.textContent="Setting up…";
-    fetch("/api/watch-subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:em,targetName:tgt,targetType:PW.type,area:PW.type==="building"?null:tgt})})
+    fetch("/api/price-alerts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:em,targetName:tgt,targetType:PW.type,area:PW.type==="building"?null:tgt})})
       .then(function(r){return r.json();})
       .then(function(d){
         if(d.ok){PW.status="Watch set! Check your email for confirmation.";PW.target="";PW.email="";}
