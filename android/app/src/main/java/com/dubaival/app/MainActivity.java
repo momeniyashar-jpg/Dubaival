@@ -20,6 +20,9 @@ public class MainActivity extends BridgeActivity {
         WebView webView = getBridge().getWebView();
         WebSettings settings = webView.getSettings();
 
+        // Always fetch fresh content from server — prevents stale cached version showing
+        settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
+
         // MUST keep this — without it, WebView ignores <meta viewport> and uses 980px default
         settings.setUseWideViewPort(true);
 
