@@ -2,7 +2,7 @@
 // POST /api/price-alerts          → subscribe to a price watch
 // GET  /api/price-alerts?action=unsubscribe&token=xxx → unsubscribe
 // GET  /api/price-alerts?action=check  → cron: check & email alerts
-const { supabaseRequest, sendEmail } = require("./lib/shared");
+const { supabaseRequest, sendEmail } = require("./_lib/shared");
 
 const UAE_RE_HOST = "uae-real-estate2.p.rapidapi.com";
 

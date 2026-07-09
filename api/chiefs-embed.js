@@ -11,8 +11,8 @@
 // Fails soft: if GEMINI_API_KEY is not configured, returns { embedding: null }
 // so callers gracefully degrade to rule-based matching.
 
-var { embedText } = require("../lib/embeddings.js");
-var { rateLimitExceeded } = require("../lib/ratelimit");
+var { embedText } = require("../_lib/embeddings.js");
+var { rateLimitExceeded } = require("../_lib/ratelimit");
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");

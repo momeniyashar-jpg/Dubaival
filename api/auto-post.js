@@ -1,4 +1,4 @@
-const { supabaseRequest } = require("../lib/shared");
+const { supabaseRequest } = require("../_lib/shared");
 
 var GRAPH_BASE = "https://graph.facebook.com/v25.0/";
 
