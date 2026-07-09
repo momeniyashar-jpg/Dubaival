@@ -104,13 +104,6 @@ async function _fetchNews(initial) {
   _renderNewsStatus();
 }
 
-// ── Consistent hash for stable image seeds ────────────────────────────────────
-function _newsHash(s) {
-  var h = 5381;
-  for (var i = 0; i < s.length; i++) { h = ((h << 5) + h + s.charCodeAt(i)) & 0x7fffffff; }
-  return h || 1;
-}
-
 var _DUBAI_SPOTS = [
   "Dubai Marina waterfront skyscrapers golden sunset",
   "Burj Khalifa Downtown Dubai aerial view blue sky",
@@ -124,14 +117,45 @@ var _DUBAI_SPOTS = [
   "Emaar Beachfront Dubai sea view towers"
 ];
 
-function _newsImageUrl(a, idx) {
-  var seed = _newsHash((a.link || a.title || "") + idx);
-  var spot = _DUBAI_SPOTS[idx % _DUBAI_SPOTS.length];
-  var titleWords = (a.title || "").replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim().split(" ").slice(0, 6).join(" ");
-  var prompt = spot + " " + titleWords + " professional real estate photography cinematic";
-  return "https://image.pollinations.ai/prompt/" +
-    encodeURIComponent(prompt) +
-    "?model=flux&width=600&height=220&seed=" + seed + "&nologo=true";
+// Async image fallback chain: RSS feed → Gemini AI → Unsplash → hide
+// No Pollinations.ai — removed in favour of higher-quality sources.
+async function _loadNewsImage(imgEl, a, idx, shimmer, banner) {
+  function _show(src) { imgEl.src = src; }
+  function _hide() { if (banner) banner.style.display = "none"; }
+
+  // 1. RSS feed image (already set as imgEl.src by caller — handled via onload/onerror)
+  // We only enter here after RSS image fails or was absent.
+
+  // 2. Gemini AI generated image (if key available)
+  if (typeof generateGeminiImage === "function") {
+    var gKey = localStorage.getItem("dv_gemini_key");
+    if (gKey) {
+      var spot = _DUBAI_SPOTS[idx % _DUBAI_SPOTS.length];
+      var titleWords = (a.title || "").replace(/[^\w\s]/g, " ").trim().split(" ").slice(0, 5).join(" ");
+      var gUrl = await generateGeminiImage(spot + " " + titleWords + " professional real estate photography");
+      if (gUrl) { _show(gUrl); return; }
+    }
+  }
+
+  // 3. Unsplash real photos (if API key available)
+  var uKey = localStorage.getItem("dv_unsplash_key");
+  if (uKey) {
+    try {
+      var q = "dubai real estate " + _DUBAI_SPOTS[idx % _DUBAI_SPOTS.length].split(" ").slice(0, 3).join(" ");
+      var r = await fetch(
+        "https://api.unsplash.com/search/photos?query=" + encodeURIComponent(q) + "&per_page=5&orientation=landscape",
+        { headers: { "Authorization": "Client-ID " + uKey } }
+      );
+      var d = await r.json();
+      if (d.results && d.results.length) {
+        _show(d.results[idx % Math.min(d.results.length, 5)].urls.regular);
+        return;
+      }
+    } catch (e) {}
+  }
+
+  // 4. No image available — hide the banner entirely
+  _hide();
 }
 
 // ── Domain → readable source name ─────────────────────────────────────────────
@@ -314,14 +338,15 @@ function _renderNewsList() {
     imgEl.style.cssText = "width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity 0.5s ease;position:relative;z-index:1";
     imgEl.onload = function() { imgEl.style.opacity = "1"; shimmer.style.display = "none"; };
     imgEl.onerror = function() {
-      if (!imgEl.dataset.pollinated) {
-        imgEl.dataset.pollinated = "1";
-        imgEl.src = _newsImageUrl(a, idx);
+      if (!imgEl.dataset.fallback) {
+        imgEl.dataset.fallback = "1";
+        _loadNewsImage(imgEl, a, idx, shimmer, imgBanner);
       } else {
-        imgEl.style.display = "none";
+        imgBanner.style.display = "none";
       }
     };
-    imgEl.src = a.image || _newsImageUrl(a, idx);
+    imgEl.src = a.image || "";
+    if (!a.image) setTimeout(function() { imgEl.dispatchEvent(new Event("error")); }, 0);
     imgBanner.appendChild(imgEl);
 
     // Dark overlay for text readability

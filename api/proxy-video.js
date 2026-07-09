@@ -345,6 +345,29 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // ── FAL.AI IMAGE GENERATION (FLUX — photo-realistic, no expiry) ────────────
+    if (engine === "fal-image") {
+      var fk = process.env.PIKA_API_KEY;
+      if (!fk) return res.status(500).json({ error: "PIKA_API_KEY not configured" });
+
+      if (action === "generate") {
+        // Portrait/avatar → flux-realism (photorealistic people)
+        // Landscape/banner → flux/schnell (fast, free)
+        var fiModel = body.portrait ? "fal-ai/flux-realism" : "fal-ai/flux/schnell";
+        var fiSize  = body.portrait ? "square_hd" : "landscape_16_9";
+        var fir = await fetch("https://fal.run/" + fiModel, {
+          method: "POST",
+          headers: { "Authorization": "Key " + fk, "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: body.prompt || "", image_size: fiSize, num_images: 1, sync_mode: true })
+        });
+        if (!fir.ok) return res.status(502).json({ error: "Fal.ai image error: " + fir.status });
+        var fid = await fir.json();
+        var fiUrl = fid.images && fid.images[0] && fid.images[0].url;
+        if (!fiUrl) return res.status(502).json({ error: "No image returned from Fal.ai" });
+        return res.json({ image_url: fiUrl });
+      }
+    }
+
     return res.status(400).json({ error: "Unknown engine: " + engine });
   } catch (e) {
     return res.status(502).json({ error: "Upstream failed: " + e.message });

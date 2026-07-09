@@ -4072,6 +4072,16 @@ function showImagePublishBar(blobOrFn,caption,container){
   container.appendChild(section);
 }
 
+// ── Fal.ai image generation (FLUX — fallback when Gemini key unavailable) ────
+async function generateFalImage(prompt,portrait){
+  try{
+    var r=await fetch("/api/proxy-video",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({engine:"fal-image",action:"generate",prompt:prompt,portrait:!!portrait})});
+    if(!r.ok)return null;
+    var d=await r.json();return d.image_url||null;
+  }catch(e){return null;}
+}
+
 async function generateGeminiImage(query){
   var key=localStorage.getItem("dv_gemini_key");
   if(!key)return null;
@@ -6728,21 +6738,12 @@ function showAvatarBuilder(editId){
     var basePrompt=customPromptInp.value.trim()||style.prompt;
     var fullPrompt=basePrompt+", professional portrait headshot, photorealistic, 4k, face clearly visible, looking at camera, soft studio lighting, real estate agent Dubai";
     try{
-      // Try Gemini first (if key set), otherwise use Pollinations.ai (free, no key)
       var url=null;
       var geminiKey=localStorage.getItem("dv_gemini_key");
       if(geminiKey){url=await generateGeminiImage(fullPrompt);}
       if(!url){
-        // Pollinations.ai — free, no API key, high quality
-        var encoded=encodeURIComponent(fullPrompt);
-        var seed=Math.floor(Math.random()*99999);
-        var polUrl="https://image.pollinations.ai/prompt/"+encoded+"?width=512&height=512&seed="+seed+"&nologo=true&enhance=true";
-        await new Promise(function(res){
-          var testImg=new Image();
-          testImg.onload=function(){url=polUrl;res();};
-          testImg.onerror=function(){res();};
-          testImg.src=polUrl;
-        });
+        genAvatarBtn.textContent="⏳ Generating via Fal.ai FLUX...";
+        url=await generateFalImage(fullPrompt,true);
       }
       if(url){
         avatarPreview.innerHTML="";
