@@ -1,68 +1,181 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- COMPARE TAB -------------------------------------------------------------
+// Helper: get comparison data for any item type
+function _cmpItemData(item){
+  var t=item.type,v=item.value;
+  if(!v)return null;
+  if(t==="area"){
+    var a=AREAS[v]||{};
+    return{label:v,type:"Area",psf:a.psf||0,yLow:a.y?a.y[0]:0,yHigh:a.y?a.y[1]:0,g1:a.g?a.g[0]:0,g3:a.g?a.g[1]:0,sc:a.sc||15,dom:a.dom||90,txVol:a.txVol||0,grade:"—"};
+  }
+  if(t==="cluster"){
+    var a=AREAS[v]||{};
+    var clusterList=typeof CLUSTERS!=="undefined"?CLUSTERS[v]:null;
+    return{label:v,type:"Community",psf:a.psf||0,yLow:a.y?a.y[0]:0,yHigh:a.y?a.y[1]:0,g1:a.g?a.g[0]:0,g3:a.g?a.g[1]:0,sc:a.sc||15,dom:a.dom||90,txVol:a.txVol||0,grade:"Villa/TH Community",extra:clusterList?"("+clusterList.length+" sub-clusters)":""};
+  }
+  if(t==="building"){
+    var bKey=v.toLowerCase();
+    var b=typeof DB!=="undefined"?DB[bKey]:null;
+    if(!b)return null;
+    var aData=AREAS[b.a]||{};
+    return{label:v,type:"Building",psf:b.p||0,psfLo:b.lo||0,psfHi:b.hi||0,sc:b.sc||aData.sc||15,yLow:aData.y?aData.y[0]:0,yHigh:aData.y?aData.y[1]:0,g1:aData.g?aData.g[0]:0,g3:aData.g?aData.g[1]:0,dom:aData.dom||90,grade:b.g||"N/A",area:b.a};
+  }
+  return null;
+}
+
+// Building search dropdown for Compare
+function _cmpBuildingSearch(idx,currentVal,cl){
+  var wrap=el("div",{style:{position:"relative"}});
+  var inp2=el("input",{style:Object.assign({},S(),{fontSize:"12px"}),placeholder:"Type building name…",value:currentVal||""});
+  var drop=el("div",{style:{position:"absolute",top:"100%",left:0,right:0,background:"#1A1F2E",border:"1px solid #2A3040",borderRadius:"8px",zIndex:200,maxHeight:"180px",overflowY:"auto",display:"none"}});
+  inp2.addEventListener("input",function(){
+    var q=this.value.toLowerCase().trim();
+    compareState.items[idx].value=this.value;
+    while(drop.firstChild)drop.removeChild(drop.firstChild);
+    if(q.length<2){drop.style.display="none";return;}
+    var matches=[];
+    Object.keys(DB).forEach(function(k){if(k.includes(q)&&matches.length<8)matches.push({k:k,d:DB[k]});});
+    if(!matches.length){drop.style.display="none";return;}
+    matches.forEach(function(m){
+      var row=el("div",{style:{padding:"8px 12px",cursor:"pointer",fontSize:"12px",color:"#E0E0E0",fontFamily:"'Inter',sans-serif",borderBottom:"1px solid #2A3040"}});
+      row.innerHTML='<span style="color:#D4AF37;font-weight:700">'+m.k.replace(/\b\w/g,function(c){return c.toUpperCase();})+'</span><span style="color:#8899AA;font-size:10px;margin-left:6px">'+m.d.a+'</span>';
+      row.addEventListener("mousedown",function(e){e.preventDefault();compareState.items[idx].value=m.k.replace(/\b\w/g,function(c){return c.toUpperCase();});inp2.value=compareState.items[idx].value;drop.style.display="none";});
+      drop.appendChild(row);
+    });
+    drop.style.display="block";
+  });
+  inp2.addEventListener("blur",function(){setTimeout(function(){drop.style.display="none";},150);});
+  wrap.appendChild(inp2);wrap.appendChild(drop);
+  return wrap;
+}
+
 function renderCompare(){
   const cl=C();const s=compareState;
-  const wrap=div({padding:"20px",maxWidth:"640px",margin:"0 auto"});
-  wrap.appendChild(div({marginBottom:"16px"},[span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ Area Comparison"),span({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"AI-powered side-by-side analysis")]));
+  const wrap=div({padding:"20px",maxWidth:"680px",margin:"0 auto"});
+  wrap.appendChild(div({marginBottom:"16px"},[span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ Multi-Item Comparison"),span({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Compare up to 10 areas, communities, or buildings side by side")]));
   const card=div({background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",boxShadow:cl.glassShadow});
-  const g=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"14px"});
-  const a1W=div({});a1W.appendChild(lbl("Area A"));a1W.appendChild(mkSelect(S(),["Select…",...AREA_NAMES],s.a1,function(v){compareState.a1=v;}));g.appendChild(a1W);
-  const a2W=div({});a2W.appendChild(lbl("Area B"));a2W.appendChild(mkSelect(S(),["Select…",...AREA_NAMES],s.a2,function(v){compareState.a2=v;}));g.appendChild(a2W);
-  const bW=div({});bW.appendChild(lbl("Budget (AED)"));bW.appendChild(inp(I(),"e.g. 3,000,000","number",s.budget,function(v){compareState.budget=v;}));g.appendChild(bW);
-  const pW=div({});pW.appendChild(lbl("Purpose"));pW.appendChild(mkSelect(S(),["Investment","End-Use","Rental Income","Capital Appreciation","Off-Plan Flip"],s.purpose,function(v){compareState.purpose=v;}));g.appendChild(pW);
-  card.appendChild(g);
+
+  // Comparison items
+  var CLUSTER_NAMES=typeof CLUSTERS!=="undefined"?Object.keys(CLUSTERS):[];
+  s.items.forEach(function(item,idx){
+    var row=div({display:"flex",gap:"8px",alignItems:"flex-start",marginBottom:"10px"});
+    // Type selector
+    var typeW=div({flexShrink:0,width:"110px"});
+    typeW.appendChild(mkSelect({width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px 10px",color:"#E0E0E0",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",outline:"none"},["area","cluster","building"].map(function(t){return t==="area"?"Area":t==="cluster"?"Community":"Building";}),item.type==="area"?"Area":item.type==="cluster"?"Community":"Building",function(v){
+      compareState.items[idx].type=v==="Area"?"area":v==="Community"?"cluster":"building";
+      compareState.items[idx].value="";render();
+    }));
+    row.appendChild(typeW);
+    // Value selector
+    var valW=div({flex:1,minWidth:0});
+    if(item.type==="area"){
+      valW.appendChild(mkSelect(Object.assign({},S(),{fontSize:"12px"}),["Select area…",...AREA_NAMES],item.value,function(v){compareState.items[idx].value=v==="Select area…"?"":v;}));
+    }else if(item.type==="cluster"){
+      valW.appendChild(mkSelect(Object.assign({},S(),{fontSize:"12px"}),["Select community…",...CLUSTER_NAMES],item.value,function(v){compareState.items[idx].value=v==="Select community…"?"":v;}));
+    }else{
+      valW.appendChild(_cmpBuildingSearch(idx,item.value,cl));
+    }
+    row.appendChild(valW);
+    // Remove button (only if more than 2 items)
+    if(s.items.length>2){
+      var rmBtn=el("button",{style:{flexShrink:0,background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.3)",color:"#EF4444",borderRadius:"8px",padding:"8px 10px",fontSize:"13px",cursor:"pointer",lineHeight:1},onclick:function(){compareState.items.splice(idx,1);render();}});
+      rmBtn.textContent="×";
+      row.appendChild(rmBtn);
+    }
+    card.appendChild(row);
+  });
+
+  // Add button
+  if(s.items.length<10){
+    var addBtn=el("button",{style:{display:"flex",alignItems:"center",gap:"6px",background:"transparent",border:"1px dashed #2A3040",color:cl.sub,borderRadius:"8px",padding:"7px 14px",fontSize:"12px",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"16px"},onclick:function(){compareState.items.push({type:"area",value:""});render();}});
+    addBtn.innerHTML='<span style="font-size:16px;line-height:1">+</span> Add item';
+    card.appendChild(addBtn);
+  }
+
+  // Options row
+  var optRow=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px",marginBottom:"14px"});
+  var bW=div({});bW.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Budget (AED)"));bW.appendChild(inp(I(),"e.g. 3,000,000","number",s.budget,function(v){compareState.budget=v;}));optRow.appendChild(bW);
+  var pW=div({});pW.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Purpose"));pW.appendChild(mkSelect(S(),["Investment","End-Use","Rental Income","Capital Appreciation","Off-Plan Flip"],s.purpose,function(v){compareState.purpose=v;}));optRow.appendChild(pW);
+  var ptW=div({});ptW.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Property Type"));ptW.appendChild(mkSelect(S(),["All","Apartment","Villa","Townhouse","Penthouse"],s.propType||"All",function(v){compareState.propType=v;}));optRow.appendChild(ptW);
+  card.appendChild(optRow);
+
   if(s.err){card.appendChild(div({background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.35)",borderRadius:"8px",padding:"9px 12px",marginBottom:"10px",color:"#EF4444",fontSize:"12px",fontFamily:"'Inter',sans-serif"},s.err));}
-  card.appendChild(el("button",{style:{background:"rgba(212,175,55,0.15)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",color:cl.gold,border:"1px solid rgba(212,175,55,0.3)",padding:"12px 28px",borderRadius:"10px",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:async function(){
-    if(!s.a1||!s.a2||s.a1==="Select…"||s.a2==="Select…"){compareState.err="Please select both Area A and Area B before comparing.";render();return;}
+
+  // Compare button
+  var cmpBtn=el("button",{style:{width:"100%",background:"rgba(212,175,55,0.15)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",color:cl.gold,border:"1px solid rgba(212,175,55,0.3)",padding:"13px",borderRadius:"10px",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:async function(){
+    var filled=s.items.filter(function(it){return it.value&&it.value!=="Select area…"&&it.value!=="Select community…";});
+    if(filled.length<2){compareState.err="Please select at least 2 items to compare.";render();return;}
     compareState.err="";compareState.loading=true;compareState.result="";render();
     try{
-      const d1=AREAS[s.a1]||{};const d2=AREAS[s.a2]||{};
-      const text=await askAI([{role:"user",content:"Compare for a client — Dubai June 2026:\nArea A: "+s.a1+" — avg PSF AED "+(d1.psf||"N/A")+", yield "+(d1.y||["N/A","N/A"]).join("-")+"%\nArea B: "+s.a2+" — avg PSF AED "+(d2.psf||"N/A")+", yield "+(d2.y||["N/A","N/A"]).join("-")+"%\nBudget: "+(s.budget?"AED "+parseInt(s.budget).toLocaleString():"not specified")+" | Purpose: "+s.purpose+"\n\nPSF · Yield · 3yr growth · Demand/liquidity · Risk · Decisive verdict"}],"You are DubAIVal AI — Dubai's top property intelligence platform with 8,522 buildings and 347 areas in our DLD-verified database. June 2026 market expert.\nFor each area: cite EXACT PSF, yield range, 3yr growth %, DOM (days on market), service charge, and transaction volume from our data.\nCompare on: Value (PSF vs quality), Income (net yield after SC), Growth (3yr appreciation), Liquidity (DOM + volume), Risk (supply pipeline, developer exposure).\nGive a DECISIVE verdict: which is better for this budget and purpose, and by how much. Specific AED numbers only. No fluff. 5 sections, 2 sentences each.","Dubai real estate market comparison: "+s.a1+" vs "+s.a2);
+      var lines=filled.map(function(it,i){
+        var d=_cmpItemData(it);
+        if(!d)return(i+1)+". "+it.value+" — (no data)";
+        var base=(i+1)+". "+d.label+" ("+d.type+(d.area?" — in "+d.area:"")+")";
+        var stats=" | PSF: AED "+(d.psf||"N/A");
+        if(d.psfLo)stats+=" (range "+d.psfLo+"–"+d.psfHi+")";
+        stats+=" | Yield: "+d.yLow+"–"+d.yHigh+"% | 3yr growth: "+d.g3+"% | SC: "+d.sc+" AED/sqft";
+        if(d.dom)stats+=" | DOM: "+d.dom+"d";
+        if(d.grade&&d.grade!=="—")stats+=" | Grade: "+d.grade;
+        if(d.extra)stats+=" "+d.extra;
+        return base+stats;
+      }).join("\n");
+      var prompt="Compare these options for a Dubai buyer — July 2026:\n\n"+lines+"\n\nBudget: "+(s.budget?"AED "+parseInt(s.budget).toLocaleString():"not specified")+" | Purpose: "+s.purpose+" | Property type: "+(s.propType||"All")+"\n\nFor each option: assess Value (PSF vs quality), Income (net yield), Growth (3yr), Liquidity & Risk.\nGive a DECISIVE ranked verdict: which is #1, #2, etc. for this buyer and why. Specific AED numbers only. No fluff.";
+      var groundQ="Dubai real estate comparison: "+filled.map(function(it){return it.value;}).join(" vs ");
+      var text=await askAI([{role:"user",content:prompt}],"You are DubAIVal AI — Dubai's top property intelligence platform with 8,522 buildings and 347 DLD-verified areas. July 2026 expert.\nRank each option clearly. Use EXACT PSF, yield, growth data. Cite specific AED numbers. 1 section per option (3 sentences), then a final RANKING table.",groundQ);
       compareState.result=text;
     }catch(e){compareState.result="Error: "+e.message;}
     compareState.loading=false;render();
-  }},"▶ Compare"));
+  }});
+  cmpBtn.textContent="▶ Compare "+(s.items.filter(function(it){return it.value;}).length||"")+" Items";
+  card.appendChild(cmpBtn);
   wrap.appendChild(card);
   if(s.loading){wrap.appendChild(div({textAlign:"center",padding:"20px"},[div({width:"36px",height:"36px",borderRadius:"50%",border:"2px solid "+cl.border,borderTopColor:cl.gold,animation:"spin 0.8s linear infinite",margin:"0 auto"})]))}
   if(s.result&&!s.loading){
-    const r=div({background:cl.surface,border:"1px solid "+cl.goldDim,borderRadius:"14px",padding:"20px"});
-    r.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"◆ "+s.a1+" vs "+s.a2));
-    const t=div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.9",fontFamily:"'Inter',sans-serif",whiteSpace:"pre-wrap"});t.textContent=s.result;r.appendChild(t);wrap.appendChild(r);
-    // Google Map + Drive Times for each area
-    var _cmpA=typeof AREA_COORDS!=="undefined"?AREA_COORDS[s.a1]:null;
-    var _cmpB=typeof AREA_COORDS!=="undefined"?AREA_COORDS[s.a2]:null;
-    if(_cmpA||_cmpB){
-      var cmpCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginTop:"12px"});
-      cmpCard.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},"◆ Location Map & Drive Times"));
+    var filledItems=s.items.filter(function(it){return it.value;});
+    var resCard=div({background:cl.surface,border:"1px solid "+cl.goldDim,borderRadius:"14px",padding:"20px"});
+    resCard.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"◆ "+filledItems.map(function(it){return it.value;}).join(" vs ")));
+    var resText=div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.9",fontFamily:"'Inter',sans-serif",whiteSpace:"pre-wrap"});resText.textContent=s.result;resCard.appendChild(resText);wrap.appendChild(resCard);
+    // Map — show area/cluster items only
+    var MAP_COLORS=["#60A5FA","#34D399","#FBBF24","#F87171","#A78BFA","#FB923C","#2DD4BF","#E879F9","#4ADE80","#F472B6"];
+    var mappableItems=filledItems.filter(function(it){return it.type!=="building"&&typeof AREA_COORDS!=="undefined"&&AREA_COORDS[it.value];});
+    if(mappableItems.length>0){
+      var mapCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginTop:"12px"});
+      mapCard.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},"◆ Location Map & Drive Times"));
       var cmpMapId="dv-cmp-gmap-"+Date.now();
-      cmpCard.appendChild(el("div",{style:{width:"100%",height:"200px",borderRadius:"10px",overflow:"hidden",marginBottom:"14px"},id:cmpMapId}));
-      var dtGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"});
-      var dtIdA="dv-cmp-dta"+Date.now(),dtIdB="dv-cmp-dtb"+Date.now()+"x";
-      dtGrid.appendChild(div({id:dtIdA},[span({color:"#60A5FA",fontSize:"9px",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"6px"},s.a1),span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Loading drive times…")]));
-      dtGrid.appendChild(div({id:dtIdB},[span({color:"#34D399",fontSize:"9px",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"6px"},s.a2),span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Loading drive times…")]));
-      cmpCard.appendChild(dtGrid);wrap.appendChild(cmpCard);
+      mapCard.appendChild(el("div",{style:{width:"100%",height:"220px",borderRadius:"10px",overflow:"hidden",marginBottom:"14px"},id:cmpMapId}));
+      var cols=Math.min(mappableItems.length,3);
+      var dtGrid2=div({display:"grid",gridTemplateColumns:"repeat("+cols+",1fr)",gap:"8px"});
+      mappableItems.forEach(function(it,mi){
+        var dtId="dv-cmp-dt"+mi+Date.now();
+        var clr=MAP_COLORS[mi%MAP_COLORS.length];
+        dtGrid2.appendChild(div({id:dtId},[span({color:clr,fontSize:"9px",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},it.value),span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Loading…")]));
+        setTimeout(function(itCopy,dtIdCopy,clrCopy){
+          fetch("/api/proxy-maps?action=distances&lat="+AREA_COORDS[itCopy.value][0]+"&lng="+AREA_COORDS[itCopy.value][1]).then(function(rr){return rr.json();}).then(function(data){
+            var el2=document.getElementById(dtIdCopy);if(!el2)return;
+            while(el2.firstChild)el2.removeChild(el2.firstChild);
+            el2.appendChild(span({color:clrCopy,fontSize:"9px",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},itCopy.value));
+            (data.rows||[]).forEach(function(row){el2.appendChild(div({display:"flex",justifyContent:"space-between",marginBottom:"3px"},[span({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif"},row.label),span({color:cl.subHi,fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},row.duration)]));});
+          }).catch(function(){});
+        },100,it,dtId,clr);
+      });
+      mapCard.appendChild(dtGrid2);wrap.appendChild(mapCard);
       setTimeout(function(){
         var c2=document.getElementById(cmpMapId);if(!c2||typeof _dvGmapLoad!=="function")return;
         _dvGmapLoad(function(){
           var c3=document.getElementById(cmpMapId);if(!c3)return;
-          var cLat=_cmpA?_cmpA[0]:_cmpB[0],cLng=_cmpA?_cmpA[1]:_cmpB[1];
-          if(_cmpA&&_cmpB){cLat=(_cmpA[0]+_cmpB[0])/2;cLng=(_cmpA[1]+_cmpB[1])/2;}
+          var coords=mappableItems.map(function(it){return AREA_COORDS[it.value];});
+          var cLat=coords.reduce(function(s,c){return s+c[0];},0)/coords.length;
+          var cLng=coords.reduce(function(s,c){return s+c[1];},0)/coords.length;
           var gm=new google.maps.Map(c3,{center:{lat:cLat,lng:cLng},zoom:11,styles:typeof _GMAP_DARK_STYLES!=="undefined"?_GMAP_DARK_STYLES:[],zoomControl:true,mapTypeControl:false,streetViewControl:false,fullscreenControl:false,gestureHandling:"greedy"});
-          if(_cmpA)new google.maps.Marker({map:gm,position:{lat:_cmpA[0],lng:_cmpA[1]},title:s.a1,icon:{path:google.maps.SymbolPath.CIRCLE,scale:10,fillColor:"#60A5FA",fillOpacity:1,strokeColor:"#fff",strokeWeight:2},label:{text:"A",color:"#fff",fontSize:"10px",fontWeight:"700"}});
-          if(_cmpB)new google.maps.Marker({map:gm,position:{lat:_cmpB[0],lng:_cmpB[1]},title:s.a2,icon:{path:google.maps.SymbolPath.CIRCLE,scale:10,fillColor:"#34D399",fillOpacity:1,strokeColor:"#fff",strokeWeight:2},label:{text:"B",color:"#fff",fontSize:"10px",fontWeight:"700"}});
-          if(_cmpA&&_cmpB){var bnds=new google.maps.LatLngBounds();bnds.extend({lat:_cmpA[0],lng:_cmpA[1]});bnds.extend({lat:_cmpB[0],lng:_cmpB[1]});gm.fitBounds(bnds,50);}
+          var bnds=new google.maps.LatLngBounds();
+          mappableItems.forEach(function(it,mi){
+            var coord=AREA_COORDS[it.value];var clr=MAP_COLORS[mi%MAP_COLORS.length];
+            bnds.extend({lat:coord[0],lng:coord[1]});
+            new google.maps.Marker({map:gm,position:{lat:coord[0],lng:coord[1]},title:it.value,icon:{path:google.maps.SymbolPath.CIRCLE,scale:10,fillColor:clr,fillOpacity:1,strokeColor:"#fff",strokeWeight:2},label:{text:String(mi+1),color:"#fff",fontSize:"10px",fontWeight:"700"}});
+          });
+          if(mappableItems.length>1)gm.fitBounds(bnds,40);
         });
       },80);
-      function _cmpLoadDT(lat,lng,elId,aName,clr){
-        fetch("/api/proxy-maps?action=distances&lat="+lat+"&lng="+lng).then(function(rr){return rr.json();}).then(function(data){
-          var el2=document.getElementById(elId);if(!el2)return;
-          while(el2.firstChild)el2.removeChild(el2.firstChild);
-          el2.appendChild(span({color:clr,fontSize:"9px",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"6px"},aName));
-          (data.rows||[]).forEach(function(row){el2.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"4px"},[span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},row.label),span({color:cl.subHi,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},row.duration)]));});
-        }).catch(function(){});
-      }
-      if(_cmpA)_cmpLoadDT(_cmpA[0],_cmpA[1],dtIdA,s.a1,"#60A5FA");
-      if(_cmpB)_cmpLoadDT(_cmpB[0],_cmpB[1],dtIdB,s.a2,"#34D399");
     }
   }
   return wrap;
