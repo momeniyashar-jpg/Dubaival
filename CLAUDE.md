@@ -919,17 +919,17 @@ has free tier so companies can test easily).
 
 بررسی کامل از input تا output برای همه تب‌ها. هدف: آیا چیدمان هر تب با نتیجه‌ای که از آن انتظار داریم مطابقت دارد؟
 
-### نتایج کلی
+### نتایج کلی (به‌روز شده 2026-07-09)
 
 | تب | وضعیت | اولویت |
 |---|---|---|
 | Home | ✅ Complete | Low |
 | Market Dashboard | ✅ Complete | Low |
-| **Analyzer** | ⚠️ Partial | **High** |
+| Analyzer | ✅ Complete | — |
 | QuickCheck | ✅ Complete | Low |
 | TrackRecord | ✅ Complete | Low |
 | Market Index | ⚠️ Partial | Low |
-| Compare | ⚠️ Partial | Medium |
+| Compare | ✅ Complete | — |
 | Find | ⚠️ Partial | **High** |
 | Map | ✅ Complete | Low |
 | Advisor | ✅ Complete | Medium |
@@ -937,12 +937,12 @@ has free tier so companies can test easily).
 | Portfolio — Assets | ✅ Complete | Medium |
 | Portfolio — Health | ✅ Complete | Low |
 | Portfolio — Projections | ✅ Complete | Low |
-| **Alerts** | ❌ Broken | **High** |
+| Alerts | ✅ Complete | — |
 | Deals | ⚠️ Partial | Medium |
 | AI Agents / Chat | ✅ Complete | Medium |
-| **Chiefs** | ❌ Broken | **High** |
-| Studio / Avatar | ⚠️ Partial | Medium |
-| Video Platform | ⚠️ Partial | Medium |
+| Chiefs | ✅ Complete | — |
+| Studio / Avatar | ✅ Complete | — |
+| Video Platform | ✅ Complete | — |
 | AI Assistant (SocialChat) | ✅ Complete | Low |
 | Workspace | ✅ Complete | Low |
 | Reports | ⚠️ Partial | Medium |
@@ -950,71 +950,50 @@ has free tier so companies can test easily).
 
 ---
 
-### 🔴 مشکلات HIGH — اولویت اول
+### 🔴 باقی‌مانده HIGH
 
-**1. Analyzer — فرم خالی submit می‌شه**
-- `canSubmit` همیشه `true` است — بدون validation
-- Submit بدون area/size/price می‌رسد به `computeValuation()` که null برمی‌گرداند و خطای generic می‌دهد
-- AI Smart Search اگر یکی از area/price/size parse نشد، بدون feedback فرم را نیمه پر می‌کند
-- **فایل**: `js/market.js` → `renderAnalyzer()`
-
-**2. Find — PropertyFinder Parser شکسته**
+**1. Find — PropertyFinder Parser شکسته**
 - فقط Bayut listings نمایش می‌دهد (PropertyFinder parser `pfP()` با ساختار واقعی API تطابق ندارد)
 - عکس‌های listing نمایش نمی‌یابند
 - Smart Discovery سقف ۵۰ نتیجه دارد بدون pagination
 - **فایل**: `js/api.js` → `fetchLiveData()`, `js/market.js` → rendering
 
-**3. Alerts — Email notification کار نمی‌کند**
-- `/api/watch-subscribe.js` روی Vercel 404 برمی‌گرداند
-- کاربر هیچ نشانه‌ای نمی‌بیند که ایمیل ارسال نمی‌شود — alerts فقط local هستند
-- Yield formula در alerts با engine اصلی تفاوت دارد: `aData.r2/(d.p*1000)*100`
-- **فایل**: `js/app.js` → `renderAlerts()`, `api/watch-subscribe.js`
+---
 
-**4. Chiefs — بدون SQL migration کاملاً broken است**
-- `supabase-chiefs-schema.sql` هنوز اجرا نشده → تمام fetch calls خطا می‌دهند
-- همه view‌ها empty state نشان می‌دهند بدون هیچ پیام راهنمایی
-- **فایل**: `js/chiefs.js`, `supabase-chiefs-schema.sql` (باید در Supabase SQL Editor اجرا شود)
+### ✅ موارد حل‌شده (2026-07-09)
+
+**Analyzer — validation** ✅ هر دو submit button (آپارتمان + ویلا) چک می‌کنند area/size/price — inline error نشان می‌دهد.
+
+**Alerts — Email** ✅ `api/price-alerts.js` جایگزین سه فایل جداگانه شد. POST=subscribe, GET?action=unsubscribe, GET?action=check. Vercel 12-function limit حل شد با `api/_lib/` rename.
+
+**Chiefs — SQL migration** ✅ `supabase-chiefs-schema.sql` قبلاً اجرا شده بود.
+
+**Compare — validation** ✅ از قبل inline error داشت (`portfolio.js` line 107).
+
+**Advisor — Try Again** ✅ از قبل پیاده شده بود (`portfolio.js` lines 502-503).
+
+**Video Platform default tab** ✅ از قبل `"explore"` بود (`social.js` line 6).
+
+**Portfolio data loss warning** ✅ از قبل warning banner + Export + Dismiss داشت (`portfolio.js` lines 755-770).
+
+**Studio OAuth onboarding** ✅ از قبل پیاده شده بود (`chat.js`).
+
+**Market Dashboard AI hang** ✅ 12s timeout + fallback momentum + Retry button اضافه شد (`js/core.js`, `js/market.js`).
+
+**Map blank on proxy fail** ✅ از قبل error handler با پیام "Map unavailable" داشت (`map.js` lines 449-455).
+
+**News empty state** ✅ از قبل error message + Retry button داشت (`news.js` lines 219-273).
+
+**QuickCheck alert()** ✅ در QuickCheck خود alert() native وجود ندارد.
+
+**Workspace widget reset** ✅ از قبل در localStorage ذخیره می‌شد (`saveWS()`).
 
 ---
 
-### 🟡 مشکلات MEDIUM — اولویت دوم
+### ℹ️ مشکلات LOW — باقی‌مانده
 
-**5. Compare — Silent validation**
-- اگر Area A یا B انتخاب نشود، دکمه Compare بدون هیچ feedback‌ای کار نمی‌کند
-- **فیکس**: یک inline error message اضافه کن
-- **فایل**: `js/portfolio.js` → `renderCompare()`
-
-**6. Advisor — بعد از خطای JSON parse، restart اجباری**
-- اگر Groq JSON نادرست برگرداند، کاربر باید wizard 5 مرحله‌ای را از اول شروع کند
-- **فیکس**: دکمه "Try Again" اضافه کن بدون reset wizard
-- **فایل**: `js/portfolio.js` → `renderPersonal()` → `_paAdvise()`
-
-**7. Video Platform — Tab اشتباه به عنوان default**
-- `SOCIAL_STATE.tab` پیش‌فرض روی `"profile"` است — کاربر جدید با profile خالی روبرو می‌شود
-- **فیکس**: default را به `"explore"` تغییر بده
-- **فایل**: `js/social.js`
-
-**8. Portfolio — Data loss هشدار ندارد**
-- همه داده‌های portfolio در localStorage است — پاک شدن browser = از دست رفتن همه چیز
-- هیچ هشدار یا prompt برای export وجود ندارد
-- **فایل**: `js/portfolio.js`
-
-**9. Studio — OAuth onboarding غایب است**
-- ابزارهایی که نیاز به social OAuth دارند بدون راهنمایی در دسترس هستند
-- کاربر باید خودش "Social Setup" را پیدا کند
-- **فایل**: `js/chat.js` → `renderMediaStudio()`
-
----
-
-### ℹ️ مشکلات LOW — مشکل اما غیرضروری
-
-- **Market Dashboard**: AI block اگر Groq fail شود، "Connecting..." می‌ماند بدون retry
 - **Market Index**: CSV Export button در کد وجود دارد اما `display:none` — dead feature
-- **Map**: اگر Google Maps proxy fail شود، map blank می‌ماند بدون پیام
-- **QuickCheck**: validation با `alert()` native — inconsistent با بقیه app
 - **TrackRecord**: case studies hardcoded، لینک‌های Bayut/PropertyFinder ممکن است stale شوند
-- **News**: اگر proxy-news fail شود، tab کاملاً خالی می‌ماند بدون پیام خطا
-- **Workspace**: widget arrangement پس از refresh reset می‌شود — in-memory only
 - **Reports**: Voice input در Firefox و برخی mobile browsers کار نمی‌کند بدون fallback
 
 ---
@@ -1022,6 +1001,5 @@ has free tier so companies can test easily).
 ### نکات کلی معماری
 
 1. **RAG grounding** در ۵ جای app غیرفعال است تا Supabase SQL + Gemini key client-side تنظیم نشود — کاربر هیچ نشانه‌ای نمی‌بیند
-2. **Chiefs** کاملاً نیاز به `supabase-chiefs-schema.sql` دارد — تا اجرا نشود همه چیز broken است
-3. **localStorage** برای Portfolio و Reports بدون cloud sync — ریسک data loss
-4. **Admin password** در `deals.js` client-side چک می‌شود (`"DubaiVal2025!"`) — نیاز به بررسی امنیتی
+2. **localStorage** برای Portfolio و Reports بدون cloud sync — ریسک data loss
+3. **Admin password** در `deals.js` client-side چک می‌شود (`"DubaiVal2025!"`) — نیاز به بررسی امنیتی
