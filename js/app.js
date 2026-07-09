@@ -738,14 +738,11 @@ function renderAlerts(){
   hdr.appendChild(div({color:cl.sub,fontSize:"12px",marginTop:"4px",fontFamily:"'Inter',sans-serif"},"Set your criteria. DubAIVal scans 10,800+ properties instantly."));
   wrap.appendChild(hdr);
 
-  // Local-only notice
-  var localNote=el("div",{style:{background:"rgba(245,158,11,0.07)",border:"1px solid rgba(245,158,11,0.28)",borderRadius:"10px",padding:"10px 14px",marginBottom:"14px",display:"flex",gap:"10px",alignItems:"flex-start"}});
-  localNote.appendChild(div({color:"#F59E0B",fontSize:"16px",lineHeight:"1",marginTop:"1px",flexShrink:"0"},"⚠"));
-  var localTxt=el("div",{});
-  localTxt.appendChild(div({color:"#F59E0B",fontSize:"12px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"Alerts saved on this device only"));
-  localTxt.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},"Email notifications are in development. Alerts and matches are stored locally — they won't sync across devices or browsers."));
-  localNote.appendChild(localTxt);
-  wrap.appendChild(localNote);
+  // Two-column layout hint
+  var twoColNote=el("div",{style:{background:"rgba(212,175,55,0.05)",border:"1px solid rgba(212,175,55,0.18)",borderRadius:"10px",padding:"9px 13px",marginBottom:"14px",display:"flex",gap:"10px",alignItems:"center"}});
+  twoColNote.appendChild(div({color:"#D4AF37",fontSize:"14px",flexShrink:"0"},"💡"));
+  twoColNote.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},"Deal Alerts scan the database instantly. Price Watch sends you an email when a specific building or area price moves 5%+."));
+  wrap.appendChild(twoColNote);
 
   // Load saved alerts
   var alerts=[];
@@ -859,6 +856,79 @@ function renderAlerts(){
   } else {
     wrap.appendChild(div({background:cl.raised,borderRadius:"10px",padding:"20px",textAlign:"center",color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif"},"Add an alert above to scan matching buildings."));
   }
+
+  // ── EMAIL PRICE WATCH ──────────────────────────────────────────────────────
+  var pwWrap=el("div",{style:{marginTop:"20px"}});
+  pwWrap.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px",borderLeft:"3px solid rgba(139,92,246,0.6)",paddingLeft:"10px"},"Email Price Watch"));
+  var pwCard=el("div",{style:{background:cl.surface,border:"1px solid rgba(139,92,246,0.22)",borderRadius:"14px",padding:"16px"}});
+  pwCard.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6",marginBottom:"12px"},"Get an email when a building or area price moves 5%+. Powered by live market data, checked daily."));
+
+  if(!window.PW_FORM)window.PW_FORM={type:"area",target:"",email:"",status:"",err:""};
+  var PW=window.PW_FORM;
+
+  // Target type toggle
+  var pwTypeRow=el("div",{style:{display:"flex",gap:"6px",marginBottom:"10px"}});
+  ["area","building"].forEach(function(t){
+    var tb=el("button",{style:{flex:"1",padding:"7px",borderRadius:"7px",border:"1px solid "+(PW.type===t?"rgba(139,92,246,0.6)":"rgba(139,92,246,0.2)"),background:PW.type===t?"rgba(139,92,246,0.12)":"transparent",color:PW.type===t?"#A78BFA":cl.sub,fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+    tb.textContent=t==="area"?"Area":"Building";
+    tb.addEventListener("click",function(){PW.type=t;PW.target="";PW.status="";PW.err="";render();});
+    pwTypeRow.appendChild(tb);
+  });
+  pwCard.appendChild(pwTypeRow);
+
+  // Target selector
+  var pwTgtLabel=div({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},PW.type==="area"?"Area":"Building");
+  pwCard.appendChild(pwTgtLabel);
+  if(PW.type==="area"){
+    var pwAreaSel=mkSelect({width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"8px 10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",outline:"none",marginBottom:"8px"},["Select area…"].concat(Object.keys(AREAS)),PW.target||"Select area…",function(v){PW.target=v==="Select area…"?"":v;});
+    pwCard.appendChild(pwAreaSel);
+  }else{
+    var pwBldgInp=el("input",{type:"text",placeholder:"Building name…",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"8px 10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"8px"}});
+    pwBldgInp.value=PW.target||"";
+    pwBldgInp.addEventListener("input",function(){PW.target=this.value;});
+    pwCard.appendChild(pwBldgInp);
+  }
+
+  // Email input
+  pwCard.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Email"));
+  var pwEmailInp=el("input",{type:"email",placeholder:"your@email.com",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"8px 10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"}});
+  pwEmailInp.value=PW.email||"";
+  pwEmailInp.addEventListener("input",function(){PW.email=this.value;});
+  pwCard.appendChild(pwEmailInp);
+
+  // Status messages
+  if(PW.status){
+    var pwOk=el("div",{style:{background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.3)",borderRadius:"8px",padding:"8px 12px",marginBottom:"8px",color:"#10B981",fontSize:"11px",fontFamily:"'Inter',sans-serif"}});
+    pwOk.textContent="✓ "+PW.status;
+    pwCard.appendChild(pwOk);
+  }
+  if(PW.err){
+    var pwErr=el("div",{style:{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.3)",borderRadius:"8px",padding:"8px 12px",marginBottom:"8px",color:"#EF4444",fontSize:"11px",fontFamily:"'Inter',sans-serif"}});
+    pwErr.textContent=PW.err;
+    pwCard.appendChild(pwErr);
+  }
+
+  // Submit
+  var pwBtn=el("button",{style:{width:"100%",padding:"11px",borderRadius:"8px",border:"none",background:"linear-gradient(135deg,#8B5CF6,#6D28D9)",color:"#FFF",fontSize:"13px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+  pwBtn.textContent="Set Price Watch";
+  pwBtn.addEventListener("click",function(){
+    var em=(PW.email||"").trim().toLowerCase();
+    var tgt=(PW.target||"").trim();
+    if(!tgt){PW.err="Please select a "+(PW.type==="area"?"area":"building");PW.status="";render();return;}
+    if(!em||!em.includes("@")){PW.err="Please enter a valid email address.";PW.status="";render();return;}
+    PW.err="";pwBtn.disabled=true;pwBtn.textContent="Setting up…";
+    fetch("/api/watch-subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:em,targetName:tgt,targetType:PW.type,area:PW.type==="building"?null:tgt})})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(d.ok){PW.status="Watch set! Check your email for confirmation.";PW.target="";PW.email="";}
+        else{PW.err="Error: "+(d.error||"Please try again");}
+        render();
+      })
+      .catch(function(){PW.err="Network error — please try again.";render();});
+  });
+  pwCard.appendChild(pwBtn);
+  pwWrap.appendChild(pwCard);
+  wrap.appendChild(pwWrap);
 
   return wrap;
 }
