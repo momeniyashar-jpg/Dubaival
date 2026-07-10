@@ -291,4 +291,18 @@ if (fs.existsSync(androidDir)) {
     console.error('⚠️  cap sync failed:', e.message);
     console.log('Run manually: npx cap sync android');
   }
+
+  // Force server.url into baked assets config — cap sync may strip it but the app MUST load from live URL
+  const assetsConfig = path.join(androidDir, 'app', 'src', 'main', 'assets', 'capacitor.config.json');
+  if (fs.existsSync(assetsConfig)) {
+    try {
+      const cfg = JSON.parse(fs.readFileSync(assetsConfig, 'utf8'));
+      if (!cfg.server) cfg.server = {};
+      cfg.server.url = 'https://www.dubaival.com';
+      fs.writeFileSync(assetsConfig, JSON.stringify(cfg, null, '\t'));
+      console.log('✅ Patched assets config: server.url = https://www.dubaival.com');
+    } catch (e) {
+      console.error('⚠️  Failed to patch assets config:', e.message);
+    }
+  }
 }
