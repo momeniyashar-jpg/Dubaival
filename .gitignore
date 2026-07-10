@@ -1,8 +1,8 @@
 # Dependencies
 node_modules/
 
-# Build output
-www/
+# Build output (www/ is now tracked — APK always has latest content without npm run build)
+# www/
 
 # Android build artifacts
 android/app/build/
