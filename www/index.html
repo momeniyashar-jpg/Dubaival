@@ -310,51 +310,124 @@ a,button,.dv-sidebar-item,.dv-pill,.dv-bottom-tab,.dv-tool-btn{
 <body>
 <!-- Google Analytics -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-DUBAIVAL01"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-window.dataLayer=window.dataLayer||[];
-function gtag(){dataLayer.push(arguments);}
-gtag('js',new Date());
-gtag('config','G-DUBAIVAL01',{page_title:'DubAIVal App',page_location:'https://dubaival.com/app'});
-window.dvTrack=function(event,params){try{gtag('event',event,params||{});}catch(e){}};
-</script>
-<script>
-if('serviceWorker' in navigator){
-  var _hadSWController=!!navigator.serviceWorker.controller;
-  navigator.serviceWorker.register('/sw.js').catch(function(){});
-  navigator.serviceWorker.addEventListener('controllerchange',function(){
-    if(_hadSWController)window.location.reload();
-    _hadSWController=true;
-  });
-}
-</script>
-<div id="app"></div><div id="print-report"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
+(function(){
+  var isNative=typeof window.Capacitor!=='undefined'&&window.Capacitor.isNativePlatform();
+  window.IS_NATIVE_APP=isNative;
+  if(!isNative){render();return;}
 
-<!-- App Modules -->
-<script src="js/data-residential.js?v=20260629b"></script>
-<script src="js/data-commercial.js?v=20260629b"></script>
-<script src="js/valuation-db.js?v=20260623"></script>
-<script src="js/valuation.js?v=20260623"></script>
-<script src="js/api.js?v=20260706a"></script>
-<script src="js/core.js?v=20260709d"></script>
-<script src="js/auth.js?v=20260703c"></script>
-<script src="js/inbox.js?v=20260704b"></script>
-<script src="js/app.js?v=20260709e"></script>
-<script src="js/market.js?v=20260709c"></script>
-<script src="js/mortgage.js?v=20260629b"></script>
-<script src="js/portfolio.js?v=20260709d"></script>
-<script src="js/map.js?v=20260706b"></script>
-<script src="js/deals.js?v=20260708b"></script>
-<script src="js/chat.js?v=20260709a"></script>
-<script src="js/social.js?v=20260706b"></script>
-<script src="js/about.js?v=20260705a"></script>
-<script src="js/workspace.js?v=20260703c"></script>
-<script src="js/marketindex.js?v=20260706b"></script>
-<script src="js/news.js?v=20260709a"></script>
-<script src="js/chiefs.js?v=20260706a"></script>
-<script>
-window.onerror=function(m,s,l,c,e){document.getElementById("app").innerHTML='<div style="padding:40px;color:#EF4444;font-family:monospace;font-size:12px;background:#070B14;min-height:100vh"><h2 style="color:#EF4444">JS Crash — Copy this and send to Claude:</h2><pre style="white-space:pre-wrap;background:#0D1220;padding:16px;border-radius:8px;margin-top:12px">'+m+"\n"+s+":"+l+":"+c+'</pre></div>';return false;};
-try{render();}catch(e){document.getElementById("app").innerHTML='<div style="padding:40px;color:#EF4444;font-family:monospace;font-size:12px;background:#070B14;min-height:100vh"><h2>JS Crash:</h2><pre style="white-space:pre-wrap;background:#0D1220;padding:16px;border-radius:8px;margin-top:12px">'+e.message+"\n"+e.stack+"</pre></div>";}
+  function capBoot(){
+    var P=window.Capacitor.Plugins;
+
+    // Hard fallback: hide splash after 3s no matter what (prevents stuck splash on JS error)
+    if(P.SplashScreen){
+      setTimeout(function(){P.SplashScreen.hide().catch(function(){});},3000);
+    }
+
+    try{
+
+    // StatusBar
+    if(P.StatusBar){
+      P.StatusBar.setBackgroundColor({color:'#070B14'}).catch(function(){});
+      P.StatusBar.setStyle({style:'DARK'}).catch(function(){});
+      P.StatusBar.setOverlaysWebView({overlay:false}).catch(function(){});
+    }
+
+    // Keyboard: detect open/close to adjust layout
+    if(P.Keyboard){
+      P.Keyboard.setResizeMode({mode:'ionic'}).catch(function(){});
+      P.Keyboard.addListener('keyboardWillShow',function(){
+        document.body.classList.add('keyboard-open');
+      });
+      P.Keyboard.addListener('keyboardWillHide',function(){
+        document.body.classList.remove('keyboard-open');
+        window.scrollTo(0,window.scrollY);
+      });
+    }
+
+    // SplashScreen: hide after render (normal path, faster than fallback)
+    if(P.SplashScreen){
+      setTimeout(function(){P.SplashScreen.hide().catch(function(){});},600);
+    }
+
+    // Share: expose native share
+    if(P.Share){
+      window.nativeShare=function(o){
+        P.Share.share({
+          title:o.title||'DubAIVal',
+          text:o.text||'',
+          url:o.url||'https://www.dubaival.com',
+          dialogTitle:'Share via'
+        }).catch(function(){});
+      };
+    }
+
+    // Haptics: expose for UI feedback
+    if(P.Haptics){
+      window.nativeHaptic=function(type){
+        var t=type||'Medium';
+        P.Haptics.impact({style:t}).catch(function(){});
+      };
+    }
+
+    // Back button: use History API (matches web SPA behavior)
+    if(P.App){
+      P.App.addListener('backButton',function(ev){
+        if(window.history.length>1){
+          window.history.back();
+        }else{
+          if(ev.canGoBack===false){
+            P.App.exitApp();
+          }
+        }
+      });
+    }
+
+    // Deep link handling
+    if(P.App){
+      P.App.addListener('appUrlOpen',function(data){
+        if(data.url){
+          var hash=data.url.split('#')[1];
+          if(hash){window.location.hash='#'+hash;render();}
+        }
+      });
+    }
+
+    render();
+
+    // Fix viewport overflow: clamp elements + fix grids
+    setTimeout(function(){
+      var vw=document.documentElement.clientWidth;
+      document.querySelectorAll('*').forEach(function(el){
+        if(el.scrollWidth>vw){
+          el.style.maxWidth='100%';
+          el.style.overflowX='hidden';
+        }
+        var cs=window.getComputedStyle(el);
+        if((cs.display==='grid'||cs.display==='inline-grid')&&el.scrollWidth>vw){
+          el.style.gridTemplateColumns='repeat(auto-fit,minmax(min(140px,100%),1fr))';
+        }
+      });
+      window.scrollTo(0,window.scrollY);
+    },300);
+
+    // Lock horizontal scroll
+    document.addEventListener('scroll',function(){
+      if(window.scrollX!==0)window.scrollTo(0,window.scrollY);
+    },{passive:true});
+
+    }catch(e){
+      // If any plugin init fails, app still runs — splash hides via the 3s fallback above
+      console.error('capBoot error:',e);
+    }
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',capBoot);
+  }else{
+    capBoot();
+  }
+})();
 </script>
 </body>
 </html>

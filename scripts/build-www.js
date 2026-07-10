@@ -114,9 +114,10 @@ a,button,.dv-sidebar-item,.dv-pill,.dv-bottom-tab,.dv-tool-btn{
 </head>`
 );
 
-// Replace render() with Capacitor-aware bootstrap
+// Replace render() block with Capacitor-aware bootstrap
+// Match any <script>...</script>\n</body> ending (try-catch or plain render)
 html = html.replace(
-  '<script>render();</script>\n</body>',
+  /\n?<script>[^]*?<\/script>\n<\/body>/,
   `<script>
 (function(){
   var isNative=typeof window.Capacitor!=='undefined'&&window.Capacitor.isNativePlatform();
