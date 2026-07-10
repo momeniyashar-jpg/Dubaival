@@ -3,7 +3,6 @@
 	"appName": "DubAIVal",
 	"webDir": "www",
 	"server": {
-		"url": "https://www.dubaival.com",
 		"androidScheme": "https",
 		"allowNavigation": [
 			"*.dubaival.com",
@@ -19,8 +18,8 @@
 	},
 	"plugins": {
 		"SplashScreen": {
-			"launchShowDuration": 1500,
-			"launchAutoHide": false,
+			"launchShowDuration": 2000,
+			"launchAutoHide": true,
 			"backgroundColor": "#070B14",
 			"androidSplashResourceName": "splash",
 			"androidScaleType": "CENTER_CROP",

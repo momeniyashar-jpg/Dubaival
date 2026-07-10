@@ -293,15 +293,17 @@ if (fs.existsSync(androidDir)) {
     console.log('Run manually: npx cap sync android');
   }
 
-  // Force server.url into baked assets config — cap sync may strip it but the app MUST load from live URL
+  // Ensure launchAutoHide=true so splash never gets stuck
   const assetsConfig = path.join(androidDir, 'app', 'src', 'main', 'assets', 'capacitor.config.json');
   if (fs.existsSync(assetsConfig)) {
     try {
       const cfg = JSON.parse(fs.readFileSync(assetsConfig, 'utf8'));
-      if (!cfg.server) cfg.server = {};
-      cfg.server.url = 'https://www.dubaival.com';
+      delete cfg.server.url; // never load from remote URL — local assets have Capacitor bootstrap, live site doesn't
+      if (!cfg.plugins) cfg.plugins = {};
+      if (!cfg.plugins.SplashScreen) cfg.plugins.SplashScreen = {};
+      cfg.plugins.SplashScreen.launchAutoHide = true;
       fs.writeFileSync(assetsConfig, JSON.stringify(cfg, null, '\t'));
-      console.log('✅ Patched assets config: server.url = https://www.dubaival.com');
+      console.log('✅ Patched assets config: launchAutoHide=true, server.url removed');
     } catch (e) {
       console.error('⚠️  Failed to patch assets config:', e.message);
     }
