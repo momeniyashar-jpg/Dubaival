@@ -3,6 +3,7 @@
   "appName": "DubAIVal",
   "webDir": "www",
   "server": {
+    "url": "https://www.dubaival.com",
     "androidScheme": "https",
     "allowNavigation": [
       "*.dubaival.com",

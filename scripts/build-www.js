@@ -298,12 +298,12 @@ if (fs.existsSync(androidDir)) {
   if (fs.existsSync(assetsConfig)) {
     try {
       const cfg = JSON.parse(fs.readFileSync(assetsConfig, 'utf8'));
-      delete cfg.server.url; // never load from remote URL — local assets have Capacitor bootstrap, live site doesn't
+      cfg.server.url = 'https://www.dubaival.com'; // always load from live site for auto-updates
       if (!cfg.plugins) cfg.plugins = {};
       if (!cfg.plugins.SplashScreen) cfg.plugins.SplashScreen = {};
       cfg.plugins.SplashScreen.launchAutoHide = true;
       fs.writeFileSync(assetsConfig, JSON.stringify(cfg, null, '\t'));
-      console.log('✅ Patched assets config: launchAutoHide=true, server.url removed');
+      console.log('✅ Patched assets config: launchAutoHide=true, server.url=https://www.dubaival.com');
     } catch (e) {
       console.error('⚠️  Failed to patch assets config:', e.message);
     }

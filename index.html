@@ -279,5 +279,44 @@ if('serviceWorker' in navigator){
 window.onerror=function(m,s,l,c,e){document.getElementById("app").innerHTML='<div style="padding:40px;color:#EF4444;font-family:monospace;font-size:12px;background:#070B14;min-height:100vh"><h2 style="color:#EF4444">JS Crash — Copy this and send to Claude:</h2><pre style="white-space:pre-wrap;background:#0D1220;padding:16px;border-radius:8px;margin-top:12px">'+m+"\n"+s+":"+l+":"+c+'</pre></div>';return false;};
 try{render();}catch(e){document.getElementById("app").innerHTML='<div style="padding:40px;color:#EF4444;font-family:monospace;font-size:12px;background:#070B14;min-height:100vh"><h2>JS Crash:</h2><pre style="white-space:pre-wrap;background:#0D1220;padding:16px;border-radius:8px;margin-top:12px">'+e.message+"\n"+e.stack+"</pre></div>";}
 </script>
+<script>
+(function(){
+  if(typeof window.Capacitor==='undefined'||!window.Capacitor.isNativePlatform())return;
+  window.IS_NATIVE_APP=true;
+  var P=window.Capacitor.Plugins;
+  try{
+    if(P.SplashScreen){
+      setTimeout(function(){P.SplashScreen.hide().catch(function(){});},600);
+      setTimeout(function(){P.SplashScreen.hide().catch(function(){});},3000);
+    }
+    if(P.StatusBar){
+      P.StatusBar.setBackgroundColor({color:'#070B14'}).catch(function(){});
+      P.StatusBar.setStyle({style:'DARK'}).catch(function(){});
+      P.StatusBar.setOverlaysWebView({overlay:false}).catch(function(){});
+    }
+    if(P.Keyboard){
+      P.Keyboard.setResizeMode({mode:'ionic'}).catch(function(){});
+      P.Keyboard.addListener('keyboardWillShow',function(){document.body.classList.add('keyboard-open');});
+      P.Keyboard.addListener('keyboardWillHide',function(){document.body.classList.remove('keyboard-open');window.scrollTo(0,window.scrollY);});
+    }
+    if(P.Share){
+      window.nativeShare=function(o){P.Share.share({title:o.title||'DubAIVal',text:o.text||'',url:o.url||'https://www.dubaival.com',dialogTitle:'Share via'}).catch(function(){});};
+    }
+    if(P.Haptics){
+      window.nativeHaptic=function(t){P.Haptics.impact({style:t||'Medium'}).catch(function(){});};
+    }
+    if(P.App){
+      P.App.addListener('backButton',function(ev){
+        if(window.history.length>1){window.history.back();}
+        else if(ev.canGoBack===false){P.App.exitApp();}
+      });
+      P.App.addListener('appUrlOpen',function(data){
+        if(data.url){var h=data.url.split('#')[1];if(h){window.location.hash='#'+h;render();}}
+      });
+    }
+    document.addEventListener('scroll',function(){if(window.scrollX!==0)window.scrollTo(0,window.scrollY);},{passive:true});
+  }catch(e){console.error('Capacitor init error:',e);}
+})();
+</script>
 </body>
 </html>
