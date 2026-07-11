@@ -1349,18 +1349,28 @@ function renderAdmin(){
       try{
         var lockUntil=parseInt(sessionStorage.getItem(lockKey)||"0");
         if(Date.now()<lockUntil){var rem=Math.ceil((lockUntil-Date.now())/60000);pwInp.placeholder="Locked — try again in "+rem+"m";pwInp.style.borderColor="#EF4444";return;}
-        var enc=new TextEncoder();var buf=await crypto.subtle.digest("SHA-256",enc.encode(pwInp.value));
-        var hash=Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");
-        if(hash==="67ed667fed4620ba36c09d97b542b81c39a5f63bcbdfe8d1931c234748498fc1"){
+        var pwVal=pwInp.value;
+        pwBtn.textContent="Verifying...";
+        // Password is verified server-side (Supabase RPC) — never hashed/compared
+        // client-side, so the credential can't be read out of the JS bundle.
+        var vResp=await fetch(SUPABASE_URL+"/rest/v1/rpc/admin_verify",{
+          method:"POST",
+          headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
+          body:JSON.stringify({p_admin_password:pwVal})
+        });
+        var verified=vResp.ok&&(await vResp.json())===true;
+        if(verified){
           sessionStorage.removeItem(lockKey);sessionStorage.removeItem(attKey);
+          window._adminPw=pwVal;
           window.ADMIN_UNLOCKED=true;render();
         } else {
           var att=parseInt(sessionStorage.getItem(attKey)||"0")+1;
           sessionStorage.setItem(attKey,att);
           if(att>=5){sessionStorage.setItem(lockKey,Date.now()+30*60*1000);sessionStorage.removeItem(attKey);pwInp.placeholder="Too many attempts — locked 30 min";}
+          pwBtn.textContent="Login";
           pwInp.style.borderColor="#EF4444";pwInp.value="";
         }
-      }catch(e){pwInp.style.borderColor="#EF4444";pwInp.value="";}
+      }catch(e){pwBtn.textContent="Login";pwInp.style.borderColor="#EF4444";pwInp.value="";}
     });
     pwWrap.appendChild(pwInp);
     pwWrap.appendChild(pwBtn);
@@ -1410,7 +1420,7 @@ function renderAdmin(){
     try{localStorage.setItem("dv_macro",JSON.stringify({aptAdj:MACRO_VARS.aptAdj,villaAdj:MACRO_VARS.villaAdj}));}catch(e){}
     // Save to Supabase
     var label=(MACRO_VARS.aptAdj<-0.03?"Cautious":MACRO_VARS.aptAdj<0?"Stable":"Bullish")+" · "+new Date().toLocaleDateString("en-GB");
-    var ok=await saveSupabaseConfig(MACRO_VARS.aptAdj,MACRO_VARS.villaAdj,label);
+    var ok=await saveSupabaseConfig(MACRO_VARS.aptAdj,MACRO_VARS.villaAdj,label,window._adminPw);
     if(ok){
       saveBtn.textContent="✓ Saved to Cloud!";
       saveBtn.style.background="#10B981";

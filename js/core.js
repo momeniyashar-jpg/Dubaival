@@ -537,17 +537,19 @@ async function fetchMarketIntelligence(){
   }
 }
 
-async function saveSupabaseConfig(aptAdj, villaAdj, label){
+async function saveSupabaseConfig(aptAdj, villaAdj, label, adminPw){
+  // Writes go through a password-gated RPC (admin_update_market_config) —
+  // direct anon PATCH to market_config is no longer permitted server-side,
+  // see supabase-admin-security-fix.sql.
   try{
-    var resp=await fetch(SUPABASE_URL+"/rest/v1/market_config?id=eq.1",{
-      method:"PATCH",
+    var resp=await fetch(SUPABASE_URL+"/rest/v1/rpc/admin_update_market_config",{
+      method:"POST",
       headers:{
         "apikey":SUPABASE_KEY,
         "Authorization":"Bearer "+SUPABASE_KEY,
-        "Content-Type":"application/json",
-        "Prefer":"return=minimal"
+        "Content-Type":"application/json"
       },
-      body:JSON.stringify({apt_adj:aptAdj,villa_adj:villaAdj,geo_label:label,updated_at:new Date().toISOString()})
+      body:JSON.stringify({p_admin_password:adminPw,p_apt_adj:aptAdj,p_villa_adj:villaAdj,p_label:label})
     });
     return resp.ok;
   }catch(e){
