@@ -390,9 +390,12 @@ function renderMarket(){
     wrap.appendChild(div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginBottom:"14px"},[
     div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"},[
       span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Dubai Market · Q1 2026"),
-      div({display:"flex",alignItems:"center",gap:"5px",background:cl.greenBg,border:"1px solid "+cl.greenBo,borderRadius:"20px",padding:"3px 10px"},[
-        div({width:"5px",height:"5px",borderRadius:"50%",background:cl.green,animation:"pulse 2s infinite",flexShrink:"0"}),
-        span({color:cl.green,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},"DLD DATA"),
+      // Not animated/pulsing like the genuinely-live dashboard above — this
+      // grid is a fixed quarterly DLD snapshot, not a live feed, and showing
+      // it with the same "LIVE" visual language as the computed stats above
+      // was misleading about how fresh this data actually is.
+      div({display:"flex",alignItems:"center",gap:"5px",background:cl.raised,border:"1px solid "+cl.border,borderRadius:"20px",padding:"3px 10px"},[
+        span({color:cl.sub,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},"DLD SNAPSHOT"),
       ]),
     ]),
     statsGrid,
@@ -819,28 +822,24 @@ function _renderQCResult(qc, qs, cl){
   qc.appendChild(fullBtn);
 }
 
-function renderQuickCheck(){
-  var cl=C();
-  var wrap=el("div",{style:{padding:"16px",maxWidth:"640px",margin:"0 auto"}});
-
-  // Premium header
-  var _qcH=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'16px',paddingBottom:'14px',borderBottom:'1px solid rgba(255,255,255,0.06)'}});
-  var _qcHL=el('div',{});
-  _qcHL.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'4px'},'Instant Valuation'));
-  _qcHL.appendChild(div({fontSize:'22px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},'Quick Check'));
-  _qcH.appendChild(_qcHL);
-  var _qcBadge=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:'rgba(212,168,67,0.08)',border:'1px solid rgba(212,168,67,0.20)',borderRadius:'20px',padding:'5px 11px',flexShrink:'0'}});
-  _qcBadge.appendChild(span({fontSize:'10px',color:'#D4A843',fontFamily:"'Space Grotesk',sans-serif",fontWeight:'700',letterSpacing:'0.08em'},'FAST'));
-  _qcH.appendChild(_qcBadge);
-  wrap.appendChild(_qcH);
-
+// Shared Quick Check widget (area+beds+optional price -> instant range).
+// Used both by the standalone Quick Check tab and embedded inside the
+// Analyzer's "Quick Price Check" accordion — factored into one function
+// so the two call sites can't drift out of sync with each other.
+// opts.showTitle:false skips the widget's own internal title, for the
+// Analyzer embed where the accordion toggle bar already shows a title.
+function _renderQuickCheckWidget(cl, opts){
+  opts=opts||{};
   var qc=el("div",{style:{background:"rgba(201,168,76,0.04)",border:"1px solid "+cl.goldDim,borderRadius:"16px",padding:"24px 20px",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)"}});
-  qc.appendChild(el("div",{style:{textAlign:"center",marginBottom:"16px"}},[
-    el("div",{style:{color:cl.gold,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"}},t("qc_title")),
-    el("div",{style:{color:cl.sub,fontSize:"11.5px",fontFamily:"'Inter',sans-serif"}},"Select area & bedrooms — see real market range instantly")
-  ]));
+  if(opts.showTitle!==false){
+    qc.appendChild(el("div",{style:{textAlign:"center",marginBottom:"16px"}},[
+      el("div",{style:{color:cl.gold,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"}},t("qc_title")),
+      el("div",{style:{color:cl.sub,fontSize:"11.5px",fontFamily:"'Inter',sans-serif"}},"Select area & bedrooms — see real market range instantly")
+    ]));
+  }
   if(!window._qcState)window._qcState={area:"",beds:"2 BR",building:"",price:"",result:null,rangeResult:null,mode:"sale"};
   if(!window._qcState.beds)window._qcState.beds="2 BR";
+  if(!("rangeResult" in window._qcState))window._qcState.rangeResult=null;
   var qs=window._qcState;
   // Sale/Rent toggle
   var qcToggle=el("div",{style:{display:"flex",gap:"0",marginBottom:"14px",background:cl.raised,borderRadius:"8px",overflow:"hidden",border:"1px solid "+cl.border}});
@@ -928,7 +927,25 @@ function renderQuickCheck(){
   qc.appendChild(checkBtn);
   _renderQCResult(qc,qs,cl);
   window._qcElement=qc;
-  wrap.appendChild(qc);
+  return qc;
+}
+
+function renderQuickCheck(){
+  var cl=C();
+  var wrap=el("div",{style:{padding:"16px",maxWidth:"640px",margin:"0 auto"}});
+
+  // Premium header
+  var _qcH=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'16px',paddingBottom:'14px',borderBottom:'1px solid rgba(255,255,255,0.06)'}});
+  var _qcHL=el('div',{});
+  _qcHL.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'4px'},'Instant Valuation'));
+  _qcHL.appendChild(div({fontSize:'22px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},'Quick Check'));
+  _qcH.appendChild(_qcHL);
+  var _qcBadge=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:'rgba(212,168,67,0.08)',border:'1px solid rgba(212,168,67,0.20)',borderRadius:'20px',padding:'5px 11px',flexShrink:'0'}});
+  _qcBadge.appendChild(span({fontSize:'10px',color:'#D4A843',fontFamily:"'Space Grotesk',sans-serif",fontWeight:'700',letterSpacing:'0.08em'},'FAST'));
+  _qcH.appendChild(_qcBadge);
+  wrap.appendChild(_qcH);
+
+  wrap.appendChild(_renderQuickCheckWidget(cl));
   return wrap;
 }
 
@@ -1071,102 +1088,12 @@ function renderAnalyzer(){
   }
 
   // --- QUICK CHECK (Method D — Grade-Weighted Hedonic Range) ---
+  // Built via the shared _renderQuickCheckWidget() (also used by the standalone
+  // Quick Check tab) so the two never drift out of sync. showTitle:false because
+  // this copy is embedded inside a "Quick Price Check" accordion further down
+  // (search QUICK_CHECK_ACCORDION) whose own toggle bar already carries a title.
   if(analyzerState.stage===0){
-    var qc=el("div",{style:{background:"rgba(201,168,76,0.04)",border:"1px solid "+cl.goldDim,borderRadius:"16px",padding:"24px 20px",marginBottom:"20px",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)"}});
-    qc.appendChild(el("div",{style:{textAlign:"center",marginBottom:"16px"}},[
-      el("div",{style:{color:cl.gold,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"}},t("qc_title")),
-      el("div",{style:{color:cl.sub,fontSize:"11.5px",fontFamily:"'Inter',sans-serif"}},"Select area & bedrooms — see real market range instantly")
-    ]));
-    if(!window._qcState)window._qcState={area:"",beds:"2 BR",building:"",price:"",result:null,rangeResult:null,mode:"sale"};
-    if(!window._qcState.beds)window._qcState.beds="2 BR";
-    if(!("rangeResult" in window._qcState))window._qcState.rangeResult=null;
-    var qs=window._qcState;
-    // Sale/Rent toggle
-    var qcToggle=el("div",{style:{display:"flex",gap:"0",marginBottom:"14px",background:cl.raised,borderRadius:"8px",overflow:"hidden",border:"1px solid "+cl.border}});
-    ["sale","rent"].forEach(function(m){
-      var act=qs.mode===m;
-      var tb=el("button",{style:{flex:"1",padding:"9px",border:"none",background:act?(m==="rent"?"linear-gradient(135deg,#8B5CF6,#6D28D9)":"linear-gradient(135deg,#C9A84C,#7A5E28)"):"transparent",color:act?(m==="rent"?"#fff":"#08090C"):cl.sub,fontSize:"12px",fontWeight:act?"700":"500",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.06em"}});
-      tb.textContent=m==="sale"?"SALE RANGE":"RENT RANGE";
-      tb.addEventListener("click",function(){qs.mode=m;qs.result=null;qs.rangeResult=null;render();});
-      qcToggle.appendChild(tb);
-    });
-    qc.appendChild(qcToggle);
-    // Area input
-    var qcAreaWrap=el("div",{style:{position:"relative",marginBottom:"10px"}});
-    var qcAreaInp=el("input",{type:"text",placeholder:t("qc_select_area"),style:{width:"100%",background:cl.raised,border:"1px solid "+(qs.area&&AREAS[qs.area]?cl.gold:cl.border),color:cl.white,padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
-    qcAreaInp.value=qs.area||"";
-    qcAreaInp.addEventListener("input",function(){
-      qs.area=this.value;qs.result=null;qs.rangeResult=null;
-      var sg=document.getElementById("qc-area-sugg");if(!sg)return;sg.innerHTML="";
-      var q=this.value.toLowerCase().trim();if(q.length<1)return;
-      var hits=AREA_NAMES.filter(function(n){return n.toLowerCase().indexOf(q)>=0;});
-      hits.slice(0,8).forEach(function(n){
-        var row=el("div",{style:{padding:"8px 12px",cursor:"pointer",fontSize:"12px",color:cl.white,borderBottom:"1px solid "+cl.border,fontFamily:"'Inter',sans-serif"}});
-        row.textContent=n;
-        row.addEventListener("mousedown",function(e){e.preventDefault();qs.area=n;qs.result=null;qs.rangeResult=null;render();});
-        row.addEventListener("mouseenter",function(){this.style.background=cl.raised;});
-        row.addEventListener("mouseleave",function(){this.style.background="transparent";});
-        sg.appendChild(row);
-      });
-    });
-    qcAreaInp.addEventListener("blur",function(){setTimeout(function(){var sg=document.getElementById("qc-area-sugg");if(sg)sg.innerHTML="";},200);});
-    qcAreaWrap.appendChild(qcAreaInp);
-    var qcAreaSugg=el("div",{id:"qc-area-sugg",style:{position:"absolute",top:"100%",left:"0",right:"0",zIndex:"100",background:cl.surface,border:"1px solid "+cl.border,borderRadius:"0 0 10px 10px",maxHeight:"180px",overflowY:"auto"}});
-    qcAreaWrap.appendChild(qcAreaSugg);
-    qc.appendChild(qcAreaWrap);
-    // Beds selector
-    var bedsRow=el("div",{style:{display:"flex",gap:"5px",marginBottom:"12px",flexWrap:"wrap"}});
-    ["Studio","1 BR","2 BR","3 BR","4 BR","5+ BR"].forEach(function(b){
-      var act=qs.beds===b;
-      var bb=el("button",{style:{flex:"1",minWidth:"55px",padding:"8px 2px",border:"1px solid "+(act?cl.gold:cl.border),background:act?"rgba(201,168,76,0.12)":"transparent",color:act?cl.gold:cl.sub,fontSize:"11px",fontWeight:act?"700":"400",fontFamily:"'Space Grotesk',monospace",borderRadius:"8px",cursor:"pointer"}});
-      bb.textContent=b;
-      bb.addEventListener("click",function(){qs.beds=b;qs.result=null;qs.rangeResult=null;render();});
-      bedsRow.appendChild(bb);
-    });
-    qc.appendChild(bedsRow);
-    // Optional price input
-    var pLabel=el("div",{style:{color:cl.muted,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:"4px"}});
-    pLabel.textContent=qs.mode==="rent"?"YOUR ASKING RENT — optional, adds deal check":"YOUR BUDGET — optional, adds deal check";
-    qc.appendChild(pLabel);
-    var pInp=el("input",{type:"text",inputMode:"numeric",placeholder:qs.mode==="rent"?"e.g. 150,000 /yr":"e.g. 2,500,000",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"12px"}});
-    pInp.value=qs.price?parseInt(qs.price).toLocaleString():"";
-    pInp.addEventListener("input",function(){qs.price=this.value.replace(/[^0-9]/g,"");this.value=qs.price?parseInt(qs.price).toLocaleString():"";qs.result=null;});
-    qc.appendChild(pInp);
-    // Check button
-    var checkBtn=el("button",{style:{width:"100%",padding:"14px",borderRadius:"12px",border:"none",background:qs.mode==="rent"?"linear-gradient(135deg,#8B5CF6,#6D28D9)":"linear-gradient(135deg,#C9A84C,#7A5E28)",color:qs.mode==="rent"?"#fff":"#08090C",fontSize:"15px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.03em"}});
-    checkBtn.textContent=qs.mode==="rent"?"CHECK RENT RANGE":"CHECK PRICE RANGE";
-    checkBtn.addEventListener("click",function(){
-      if(!qs.area){
-        var _e2=document.getElementById("_qc_area_err");
-        if(!_e2){_e2=el("div",{id:"_qc_area_err",style:{color:"#EF4444",fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"8px",padding:"8px 12px",background:"rgba(239,68,68,0.07)",borderRadius:"8px",border:"1px solid rgba(239,68,68,0.3)"}});_e2.textContent="Please select an area first.";checkBtn.insertAdjacentElement("beforebegin",_e2);}
-        return;
-      }
-      var _e2Old=document.getElementById("_qc_area_err");if(_e2Old)_e2Old.remove();
-      qs.rangeResult=computeAreaPriceRange(qs.area,qs.beds||"2 BR",qs.mode);
-      var price=parseInt((qs.price||"").replace(/[^0-9]/g,""));
-      qs.result=null;
-      if(price>0){
-        if(qs.mode==="rent"&&price>=5000){
-          var aData=AREAS[qs.area]||{r1:65000,r2:100000};
-          var estSize=Math.round((aData.r2||100000)/(aData.psf||1500)*12);
-          if(estSize<300)estSize=900;
-          var fakeF={area:qs.area,building:qs.building||"",price:String(price),size:String(estSize),buaSize:"",beds:qs.beds||"2 BR",propCategory:"apartment",txnType:"rent",floor:"15",view:"Not specified",furnished:"Unfurnished"};
-          var rv=computeRentalValuation(fakeF);
-          if(rv){qs.result=rv;qs.result._isRental=true;}
-        }else if(qs.mode==="sale"&&price>=50000){
-          var aData=AREAS[qs.area]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
-          var estSize=Math.round(price/(aData.psf||1800));
-          if(estSize<200)estSize=800;if(estSize>10000)estSize=Math.round(price/1200);
-          var fakeF={area:qs.area,building:qs.building||"",price:String(price),size:String(estSize),buaSize:"",beds:qs.beds||"2 BR",propCategory:"apartment",txnType:"sale",floor:"15",view:"Not specified",furnished:"Unfurnished",condition:"Used"};
-          var sv=computeValuation(fakeF);
-          if(sv)qs.result=sv;
-        }
-      }
-      render();
-    });
-    qc.appendChild(checkBtn);
-    _renderQCResult(qc,qs,cl);
-    window._qcElement=qc;
+    _renderQuickCheckWidget(cl,{showTitle:false});
   }
 
   if(analyzerState.stage===1){
@@ -1224,96 +1151,6 @@ function renderAnalyzer(){
     setTimeout(function(){updateSearchSuggestions(f.building);},10);
   }
   
-  // REMOVED: old inline suggestions (now handled by updateSearchSuggestions)
-  if(false&&f.building&&f.building.length>=2){
-    const q=f.building.toLowerCase().trim();
-    const results=[];
-    
-    // Search DB entries - smart word-start matching
-    var qWords=q.split(" ").filter(function(w){return w.length>0;});
-    var scored=[];
-    Object.entries(DB).forEach(function(e){
-      var key=e[0],val=e[1];
-      var score=0;
-      var keyWords=key.split(" ");
-      // Best: key starts with full query
-      if(key.startsWith(q))score=100;
-      // Good: every query word matches start of a key word
-      else if(qWords.every(function(w){return keyWords.some(function(kw){return kw.startsWith(w);});}))score=80;
-      // OK: query is start of key
-      else if(key.startsWith(qWords[0]))score=60;
-      // Weak: all words appear somewhere (only for long queries)
-      else if(q.length>=4&&qWords.every(function(w){return key.includes(w);}))score=30;
-      if(score>0)scored.push({name:key,area:val.a,psf:val.p,g:val.g,type:"building",sc:val.sc,score:score});
-    });
-    scored.sort(function(a,b){return b.score-a.score;});
-    scored.slice(0,8).forEach(function(r){results.push(r);});
-    
-    // Search CLUSTERS
-    if(results.length<10){
-      Object.entries(CLUSTERS).forEach(function(e){
-        const community=e[0],clusters=e[1];
-        // Search community name
-        if(community.toLowerCase().includes(q)&&results.length<10){
-          results.push({name:community,area:community,psf:null,g:null,type:"community",clusters:clusters});
-        }
-        // Search cluster names
-        clusters.forEach(function(c){
-          if(results.length>=10)return;
-          if(c.toLowerCase().includes(q)){
-            results.push({name:c,area:community,psf:null,g:null,type:"cluster"});
-          }
-        });
-      });
-    }
-
-    if(results.length>0){
-      const sugg=el("div",{style:{background:cl.surface,border:"1px solid "+cl.gold,borderRadius:"12px",marginTop:"4px",overflow:"hidden",boxShadow:"0 8px 24px rgba(0,0,0,0.4)"}});
-      results.forEach(function(r,i){
-        const item=el("button",{style:{
-          width:"100%",padding:"12px 16px",background:"transparent",
-          border:"none",borderBottom:i<results.length-1?"1px solid "+cl.border:"none",
-          color:cl.white,fontSize:"13px",cursor:"pointer",textAlign:"left",
-          fontFamily:"'Inter',sans-serif",display:"block"
-        }});
-        // Name line
-        const nameLine=el("div",{style:{fontWeight:"600",marginBottom:"2px"}});
-        nameLine.textContent=(r.name.charAt(0).toUpperCase()+r.name.slice(1))+(r.type==="community"?" (Community)":r.type==="cluster"?" (Cluster)":"");
-        item.appendChild(nameLine);
-        // Info line
-        const infoLine=el("div",{style:{fontSize:"10px",color:cl.sub,fontFamily:"'Space Grotesk',monospace"}});
-        var infoText=r.area;
-        if(r.psf)infoText+=" · AED "+r.psf.toLocaleString()+" PSF";
-        if(r.g)infoText+=" · Grade "+r.g;
-        if(r.type==="community")infoText+=" · "+r.clusters.length+" clusters";
-        infoLine.textContent=infoText;
-        item.appendChild(infoLine);
-        
-        item.addEventListener("mouseenter",function(){this.style.background=cl.raised;});
-        item.addEventListener("mouseleave",function(){this.style.background="transparent";});
-        item.addEventListener("click",function(){
-          analyzerState.f.building=r.name;
-          analyzerState.f.area=r.area;
-          if(r.sc)analyzerState.f.serviceCharge=String(r.sc);
-          // Auto-detect category
-          if(r.type==="community"||r.type==="cluster"){
-            analyzerState.f.propCategory="villa";
-          } else {
-            // Detect from name
-            const n=r.name.toLowerCase();
-            if(n.includes("villa")||n.includes("townhouse")||n.includes("cluster")||n.includes("phase")){
-              analyzerState.f.propCategory="villa";
-            } else {
-              analyzerState.f.propCategory="apartment";
-            }
-          }
-          render();
-        });
-        sugg.appendChild(item);
-      });
-      searchWrap.appendChild(sugg);
-    }
-  }
   wrap.appendChild(searchWrap);
 
   // Show selected property info
@@ -1388,7 +1225,7 @@ function renderAnalyzer(){
     chipWrap.appendChild(chips);
     wrap.appendChild(chipWrap);
 
-    // Quick Price Check — collapsible secondary tool
+    // QUICK_CHECK_ACCORDION — collapsible secondary tool
     if(window._qcElement){
       if(window._qcState&&window._qcState.result)window._qcExpanded=true;
       var qcSection=el("div",{style:{marginTop:"16px"}});
