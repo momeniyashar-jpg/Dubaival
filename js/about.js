@@ -66,7 +66,7 @@ function renderAbout(){
     {label:"Data-Driven Precision",color:"#D4AF37"},
     {label:"AI-Enhanced Vision",color:"#00CCFF"},
     {label:"UAE Heritage",color:"#00C896"},
-    {label:"Real-Time Intelligence",color:"#8B5CF6"},
+    {label:"Real-Time Intelligence",color:"#3B82F6"},
     {label:"Market Authority",color:"#F59E0B"}
   ].forEach(function(trait){
     var pill=el("div",{style:{
@@ -81,7 +81,7 @@ function renderAbout(){
 
   // Stats row
   var stats=[
-    {n:"10,800+",l:"Properties Tracked"},
+    {n:"11,400+",l:"Properties Tracked"},
     {n:"348",l:"Areas Covered"},
     {n:"3 Sectors",l:"Residential · Commercial · Land"},
     {n:"Cascade AVM",l:"AI Valuation Engine"}
@@ -141,7 +141,7 @@ function renderAbout(){
   // Technology
   var techItems=[
     "<b style='color:"+cl.gold+"'>Cascade AVM Engine</b> — Multi-layer valuation: building database → area benchmarks → hedonic adjustments → comparable analysis → live market enrichment.",
-    "<b style='color:"+cl.gold+"'>10,800+ Property Database</b> — DLD-verified transaction data: 8,500+ residential buildings, 1,930 commercial properties, and 428 land plots across Dubai.",
+    "<b style='color:"+cl.gold+"'>Full Property Database</b> — DLD-verified transaction data spanning residential, commercial, and land across Dubai (see stats above).",
     "<b style='color:"+cl.gold+"'>Hedonic Pricing Model</b> — 10+ adjustment factors: view premium, floor level, loft, penthouse, maid’s room, furnishing, private pool, location score, and more.",
     "<b style='color:"+cl.gold+"'>Location Intelligence</b> — Haversine-based proximity scoring for 56 metro stations, 11 tram stops, 30+ POIs. Geographic premium from -3% to +8%.",
     "<b style='color:"+cl.gold+"'>Real-Time Market Data</b> — Live listings integration via UAE property APIs for price validation and comparable analysis."
@@ -267,7 +267,7 @@ function renderAbout(){
   promoCtaText.innerHTML="<b style='color:"+cl.gold+"'>\"DubAIVal doesn't just value properties — it empowers hundreds of professionals to become ambassadors for Dubai's real estate market, creating an organic promotional engine that money can't buy.\"</b>";
   promoContent.appendChild(promoCtaText);
 
-  var promoContact=el("a",{href:"mailto:momeni.yashar@gmail.com?subject=DubAIVal%20Government%20Partnership%20—%20Market%20Promotion%20Engine",style:{display:"inline-flex",alignItems:"center",gap:"8px",marginTop:"10px",padding:"12px 28px",background:"linear-gradient(135deg,#00C896,#008060)",color:"#FFFFFF",borderRadius:"10px",fontSize:"12.5px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",textDecoration:"none",cursor:"pointer",border:"none",letterSpacing:"0.03em"}},"Discuss Government Partnership");
+  var promoContact=el("a",{href:"mailto:momeni.yashar@gmail.com?subject=DubAIVal%20Government%20Partnership%20—%20Market%20Promotion%20Engine",style:{display:"inline-flex",alignItems:"center",gap:"8px",marginTop:"10px",padding:"12px 28px",background:"linear-gradient(135deg,"+cl.gold+",#B8860B)",color:"#0D1220",borderRadius:"10px",fontSize:"12.5px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",textDecoration:"none",cursor:"pointer",border:"none",letterSpacing:"0.03em"}},"Discuss Government Partnership");
   promoContent.appendChild(promoContact);
 
   wrap.appendChild(section("","Organic Market Promotion Engine",promoContent));
@@ -284,9 +284,9 @@ function renderAbout(){
   roadmapContent.appendChild(roadmapIntro);
 
   var phases=[
-    {phase:"Phase 1",status:"Live",title:"Residential Valuation",color:"#00C896",items:["8,500+ residential buildings with DLD-verified data","Cascade AVM engine with hedonic pricing","348 area benchmarks with yield, growth & liquidity data","Portfolio Manager with health score & projections","Deal Network with agent marketplace","Interactive map, market index & live dashboard","PWA with offline support"]},
-    {phase:"Phase 2",status:"Live",title:"Commercial Property Valuation",color:"#3B82F6",items:["1,930 commercial properties (Office, Retail, Warehouse, Shop)","49 commercial area benchmarks from DLD data","Commercial yield models (gross & net)","Sub-type specific valuation (retail premium, warehouse discount)","Area transaction volume & average pricing","Confidence scoring based on data depth","Commercial deal network for brokers"]},
-    {phase:"Phase 3",status:"Live",title:"Land & Plot Valuation",color:"#10B981",items:["428 land plots with DLD transaction data","111 land area benchmarks","Zoning-based valuation (residential, commercial, mixed, industrial)","Development potential calculator","Plot price range analysis","Comparable land transaction database","Area average size & pricing benchmarks"]},
+    {phase:"Phase 1",status:"Live",title:"Residential Valuation",color:"#00C896",items:["Residential buildings with DLD-verified data","Cascade AVM engine with hedonic pricing","348 area benchmarks with yield, growth & liquidity data","Portfolio Manager with health score & projections","Deal Network with agent marketplace","Interactive map, market index & live dashboard","PWA with offline support"]},
+    {phase:"Phase 2",status:"Live",title:"Commercial Property Valuation",color:"#3B82F6",items:["Commercial properties across Office, Retail, Warehouse & Shop types","49 commercial area benchmarks from DLD data","Commercial yield models (gross & net)","Sub-type specific valuation (retail premium, warehouse discount)","Area transaction volume & average pricing","Confidence scoring based on data depth","Commercial deal network for brokers"]},
+    {phase:"Phase 3",status:"Live",title:"Land & Plot Valuation",color:"#10B981",items:["Land plots with DLD transaction data","111 land area benchmarks","Zoning-based valuation (residential, commercial, mixed, industrial)","Development potential calculator","Plot price range analysis","Comparable land transaction database","Area average size & pricing benchmarks"]},
     {phase:"Phase 4",status:"Planned",title:"Enterprise & Government Solutions",color:"#F0A030",items:["White-label valuation API for government platforms","Bulk AVM reports for institutional portfolios","Market transparency dashboards for DLD & RERA","Anti-money laundering (AML) property screening","Automated mortgage valuation for banks","Real-time market surveillance & anomaly detection"]}
   ];
 
@@ -335,7 +335,7 @@ function renderAbout(){
   commContent.appendChild(commGrid);
 
   var commBadge=div({display:"inline-flex",alignItems:"center",gap:"6px",marginTop:"16px",padding:"8px 16px",borderRadius:"8px",background:hexAlpha(cl.gold,0.1),border:"1px solid "+cl.goldDim});
-  commBadge.appendChild(span({color:"#3B82F6",fontSize:"11px",fontWeight:"700"},"Live — 1,930 Commercial Properties"));
+  commBadge.appendChild(span({color:"#3B82F6",fontSize:"11px",fontWeight:"700"},"Live — Full Commercial Coverage"));
   commContent.appendChild(commBadge);
 
   wrap.appendChild(section("","Commercial Property Valuation",commContent));
@@ -363,7 +363,7 @@ function renderAbout(){
   landContent.appendChild(landGrid);
 
   var landBadge=div({display:"inline-flex",alignItems:"center",gap:"6px",marginTop:"16px",padding:"8px 16px",borderRadius:"8px",background:hexAlpha("#818CF8",0.1),border:"1px solid "+"#818CF840"});
-  landBadge.appendChild(span({color:"#10B981",fontSize:"11px",fontWeight:"700"},"Live — 428 Land Plots, 111 Areas"));
+  landBadge.appendChild(span({color:"#10B981",fontSize:"11px",fontWeight:"700"},"Live — Full Land Coverage, 111 Areas"));
   landContent.appendChild(landBadge);
 
   wrap.appendChild(section("","Land & Plot Valuation",landContent));
