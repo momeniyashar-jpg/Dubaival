@@ -126,66 +126,75 @@ module.exports = async function handler(req, res) {
   var today = new Date().toISOString().slice(0, 10);
   var marketFacts = [];
 
-  for (var i = 0; i < areas.length; i++) {
-    var area = areas[i];
-    var slug = AREA_LOCATION_MAP[area];
-    try {
-      var saleListings = await fetchAreaListings(slug, "for-sale");
-      var rentListings = await fetchAreaListings(slug, "for-rent");
+  // Process areas in small concurrent batches instead of one at a time —
+  // 41 areas x 2 sequential API calls each routinely exceeded the 60s
+  // function budget under normal RapidAPI latency, silently truncating the
+  // daily refresh partway through the area list. Batching keeps a pause
+  // between batches (gentle on the upstream API) while cutting wall-clock
+  // time roughly 5x.
+  var CONCURRENCY = 5;
+  for (var i = 0; i < areas.length; i += CONCURRENCY) {
+    var batch = areas.slice(i, i + CONCURRENCY);
+    await Promise.all(batch.map(async function(area) {
+      var slug = AREA_LOCATION_MAP[area];
+      try {
+        var saleListings = await fetchAreaListings(slug, "for-sale");
+        var rentListings = await fetchAreaListings(slug, "for-rent");
 
-      var salePsfs = saleListings.map(function(l){ return Math.round(l.price / l.area); })
-        .filter(function(p){ return p > 400 && p < 15000; });
-      var psf = trimmedMean(salePsfs);
-      var rents = extractRents(rentListings);
+        var salePsfs = saleListings.map(function(l){ return Math.round(l.price / l.area); })
+          .filter(function(p){ return p > 400 && p < 15000; });
+        var psf = trimmedMean(salePsfs);
+        var rents = extractRents(rentListings);
 
-      if (!psf && !rents.r1) {
-        results.skipped++;
-        continue;
-      }
-
-      var row = { area_key: area, updated_at: new Date().toISOString(), sample_size: salePsfs.length };
-      if (psf) row.psf = psf;
-      if (rents.studio) row.rent_studio = rents.studio;
-      if (rents.r1) row.rent_1br = rents.r1;
-      if (rents.r2) row.rent_2br = rents.r2;
-      if (rents.r3) row.rent_3br = rents.r3;
-
-      var resp = await supabaseRequest(
-        "/area_benchmarks",
-        {
-          method: "POST",
-          headers: { "Prefer": "resolution=merge-duplicates" },
-          body: JSON.stringify(row)
+        if (!psf && !rents.r1) {
+          results.skipped++;
+          return;
         }
-      );
-      if (resp.ok) results.updated++;
-      else results.errors++;
 
-      if (psf) {
-        var histResp = await supabaseRequest(
-          "/price_history",
+        var row = { area_key: area, updated_at: new Date().toISOString(), sample_size: salePsfs.length };
+        if (psf) row.psf = psf;
+        if (rents.studio) row.rent_studio = rents.studio;
+        if (rents.r1) row.rent_1br = rents.r1;
+        if (rents.r2) row.rent_2br = rents.r2;
+        if (rents.r3) row.rent_3br = rents.r3;
+
+        var resp = await supabaseRequest(
+          "/area_benchmarks",
           {
             method: "POST",
             headers: { "Prefer": "resolution=merge-duplicates" },
-            body: JSON.stringify({
-              area_key: area,
-              psf: psf,
-              rent_avg: rents.r1 || null,
-              sample_size: salePsfs.length,
-              snapshot_date: new Date().toISOString().slice(0, 10)
-            })
+            body: JSON.stringify(row)
           }
         );
-        if (histResp.ok) results.history++;
+        if (resp.ok) results.updated++;
+        else results.errors++;
+
+        if (psf) {
+          var histResp = await supabaseRequest(
+            "/price_history",
+            {
+              method: "POST",
+              headers: { "Prefer": "resolution=merge-duplicates" },
+              body: JSON.stringify({
+                area_key: area,
+                psf: psf,
+                rent_avg: rents.r1 || null,
+                sample_size: salePsfs.length,
+                snapshot_date: new Date().toISOString().slice(0, 10)
+              })
+            }
+          );
+          if (histResp.ok) results.history++;
+        }
+
+        var fact = buildMarketFact(area, today, psf, salePsfs.length, rents);
+        if (fact) marketFacts.push({ area: area, date: today, content: fact });
+      } catch(e) {
+        results.errors++;
       }
+    }));
 
-      var fact = buildMarketFact(area, today, psf, salePsfs.length, rents);
-      if (fact) marketFacts.push({ area: area, date: today, content: fact });
-
-      if (i < areas.length - 1) await new Promise(function(r){setTimeout(r, 200);});
-    } catch(e) {
-      results.errors++;
-    }
+    if (i + CONCURRENCY < areas.length) await new Promise(function(r){setTimeout(r, 200);});
   }
 
   try {

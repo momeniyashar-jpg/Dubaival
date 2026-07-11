@@ -137,10 +137,21 @@ module.exports = async function handler(req, res) {
   var skipped = 0;
   var errors = [];
 
+  var startTime = Date.now();
+
   try {
     var now = new Date();
     var nowDate = now.toISOString().split("T")[0];
     var nowTime = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+
+    // A post can get stuck in "publishing" forever if the function is killed
+    // mid-run by the platform timeout (each post can take 30s+ polling
+    // Instagram alone). Recover anything left over from a prior run before
+    // starting new work, so it gets retried instead of vanishing.
+    await supabaseRequest(
+      "/scheduled_posts?status=eq.publishing&updated_at=lt." + new Date(startTime - 30 * 60 * 1000).toISOString(),
+      { method: "PATCH", body: JSON.stringify({ status: "failed", error_log: "Stuck in publishing — previous run timed out", updated_at: now.toISOString() }) }
+    );
 
     var postsRes = await supabaseRequest(
       "/scheduled_posts?status=eq.scheduled&scheduled_date=lte." + nowDate +
@@ -174,6 +185,11 @@ module.exports = async function handler(req, res) {
     }
 
     for (var i = 0; i < duePosts.length; i++) {
+      // Leave remaining due posts untouched (still "scheduled") once close to
+      // the function's time budget, so they're picked up on the next run
+      // instead of the whole invocation getting hard-killed mid-post.
+      if (Date.now() - startTime > 50000) break;
+
       var post = duePosts[i];
       var creds = credsMap[post.user_id];
       if (!creds) {

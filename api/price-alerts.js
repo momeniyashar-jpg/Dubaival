@@ -3,6 +3,7 @@
 // GET  /api/price-alerts?action=unsubscribe&token=xxx → unsubscribe
 // GET  /api/price-alerts?action=check  → cron: check & email alerts
 const { supabaseRequest, sendEmail } = require("./_lib/shared");
+const { rateLimitExceeded } = require("./_lib/ratelimit");
 
 const UAE_RE_HOST = "uae-real-estate2.p.rapidapi.com";
 
@@ -43,6 +44,8 @@ async function currentTrimmedPsf(targetName, area, key) {
 }
 
 async function handleSubscribe(req, res) {
+  if (rateLimitExceeded(req, res, 60000, 5)) return;
+
   const body = req.body || {};
   const email = (body.email || "").trim().toLowerCase();
   const targetName = (body.targetName || "").trim();
@@ -124,6 +127,7 @@ async function handleCheck(req, res) {
 
   const rapidKey = process.env.RAPIDAPI_KEY;
   let checked = 0, alerted = 0, errors = 0;
+  const startTime = Date.now();
 
   try {
     const listRes = await supabaseRequest("/price_watches?active=eq.true&select=*");
@@ -131,6 +135,10 @@ async function handleCheck(req, res) {
     const watches = await listRes.json();
 
     for (const w of watches) {
+      // Bail before hitting the function's time budget so we return a clean
+      // response with partial progress instead of getting hard-killed mid
+      // request — remaining watches simply get checked on tomorrow's run.
+      if (Date.now() - startTime > 50000) break;
       checked++;
       try {
         const psf = await currentTrimmedPsf(w.target_name, w.area, rapidKey);

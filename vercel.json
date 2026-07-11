@@ -6,7 +6,9 @@
   "trailingSlash": false,
   "functions": {
     "api/refresh-market-data.js": { "maxDuration": 60 },
-    "api/proxy-news.js": { "maxDuration": 60 }
+    "api/proxy-news.js": { "maxDuration": 60 },
+    "api/auto-post.js": { "maxDuration": 60 },
+    "api/price-alerts.js": { "maxDuration": 60 }
   },
   "headers": [
     {
