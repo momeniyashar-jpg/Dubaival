@@ -1,6 +1,52 @@
 var { rateLimitExceeded } = require("./_lib/ratelimit");
+var { supabaseRequest, SUPABASE_URL } = require("./_lib/shared");
 
 var ALLOWED_ORIGINS = ["https://www.dubaival.com", "https://dubaival.com", "http://localhost:3000", "http://localhost:5000"];
+// Public anon/publishable key — same constant already shipped client-side in
+// js/core.js, safe to embed server-side too. Used only to validate a user's
+// own access_token against Supabase Auth, never to authorize writes.
+var SUPABASE_ANON_KEY = "sb_publishable_HNHSNnmBUYcTnF35bMEzxA_qhsoe6Yj";
+// Paid AI-engine video generation is capped per signed-in user per calendar
+// month — without this, every generation any end-user triggers is billed
+// directly to the developer's own API keys with no limit at all.
+var FREE_VIDEO_GENERATIONS_PER_MONTH = 3;
+
+async function _resolveUserId(accessToken) {
+  if (!accessToken) return null;
+  try {
+    var r = await fetch(SUPABASE_URL + "/auth/v1/user", {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + accessToken },
+    });
+    if (!r.ok) return null;
+    var d = await r.json();
+    return d && d.id ? d.id : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function _checkAndLogVideoQuota(userId, engine) {
+  var monthStart = new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+  var countRes = await supabaseRequest(
+    "/video_gen_log?user_id=eq." + userId + "&created_at=gte." + monthStart.toISOString() + "&select=id"
+  );
+  if (countRes.ok) {
+    var rows = await countRes.json();
+    if (rows.length >= FREE_VIDEO_GENERATIONS_PER_MONTH) {
+      return { allowed: false, used: rows.length };
+    }
+  }
+  // Log the attempt now (not just on success) — keeps this simple and is a
+  // negligible fairness tradeoff, since providers themselves generally don't
+  // charge for failed generations (e.g. Kling: "failed tasks don't consume credits").
+  await supabaseRequest("/video_gen_log", {
+    method: "POST",
+    body: JSON.stringify({ user_id: userId, engine: engine }),
+  }).catch(function () {});
+  return { allowed: true };
+}
 
 module.exports = async function handler(req, res) {
   var reqOrigin = req.headers.origin || "";
@@ -22,6 +68,19 @@ module.exports = async function handler(req, res) {
   // trigger paid third-party API calls and are throttled much harder per IP.
   var isPoll = action === "status" || action === "list_avatars";
   if (rateLimitExceeded(req, res, 60000, isPoll ? 60 : 8)) return;
+
+  // Paid video generation is capped per signed-in user per month (not image
+  // generation — that's a separate, much cheaper action).
+  if (action === "generate" && engine !== "fal-image") {
+    var userId = await _resolveUserId(body.access_token);
+    if (!userId) return res.status(401).json({ error: "Please sign in to generate AI videos." });
+    var quota = await _checkAndLogVideoQuota(userId, engine);
+    if (!quota.allowed) {
+      return res.status(403).json({
+        error: "You've used all " + FREE_VIDEO_GENERATIONS_PER_MONTH + " free AI videos this month. Your quota resets on the 1st.",
+      });
+    }
+  }
 
   // Unified task-ID: accept whichever field the client sends
   var tid = body.task_id || body.request_id || body.gen_id || body.job_id || body.talk_id || body.video_id;

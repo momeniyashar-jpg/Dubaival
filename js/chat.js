@@ -7123,8 +7123,15 @@ function showAvatarContentGen(avatarId){
 // --- Cinematic Video Engine APIs ---
 var _VIDEO_PROXY="/api/proxy-video";
 async function _videoProxy(body){
-  var r=await fetch(_VIDEO_PROXY,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-  return await r.json();
+  // Server enforces a free monthly quota on paid video generation per signed-in
+  // user (see api/proxy-video.js) — needs the caller's own Supabase session
+  // token to identify who's asking. Harmless to send on status/list calls too.
+  var withAuth=Object.assign({access_token:localStorage.getItem("dv_access_token")||null},body);
+  var r=await fetch(_VIDEO_PROXY,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(withAuth)});
+  var d=await r.json();
+  if(r.status===403&&d&&d.error&&d.error.indexOf("free AI videos")!==-1)d._quotaExceeded=true;
+  if(r.status===401&&d&&d.error&&d.error.indexOf("sign in")!==-1)d._needsLogin=true;
+  return d;
 }
 async function _klingGenVideo(prompt,imageUrl){
   // api/proxy-video.js's Kling branch hardcodes model_name:"kling-v1-6" and
