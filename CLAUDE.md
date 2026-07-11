@@ -423,6 +423,60 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-11 (session 10)**: Code-quality/security pass — 4-agent audit (core/app/auth,
+  valuation/market/api, portfolio/deals/social/chiefs, backend api/) then 14 approved
+  fixes, each its own commit on branch `claude/dubaival-code-quality-k29ojs`:
+  - Commercial valuation gross yield formula (`js/valuation.js`) always collapsed to
+    the 4% floor for every realistic PSF — now area/subtype-sensitive (5.5–9%).
+  - `api/proxy-video.js` had no auth/rate-limit despite fanning out to paid video-gen
+    APIs — added rate limiting + origin lockdown.
+  - Admin auth bypass: the 3 `admin_*` RPCs and the Market Risk Controls panel both
+    checked a SHA-256 hash that was also shipped in client JS (i.e. public) — RPCs
+    now hash a caller-supplied plaintext password server-side via pgcrypto
+    (`supabase-admin-security-fix.sql`, new `admin_verify()`/`admin_update_market_config()`).
+  - Deal Network admin dashboard had zero real auth gate (leftover dead-code check)
+    and its 4 data functions still did raw REST calls that RLS silently no-ops since
+    the earlier hardening migration — added a real login gate + rewired to the RPCs.
+  - OFM (Off-Market Exchange) RLS lockdown (`supabase-ofm-rls-lockdown.sql`): every
+    `ofm_*` table allowed unrestricted anon SELECT/UPDATE/DELETE despite the feature's
+    "hidden, never publicly browsable" design — reads/mutations now go through
+    SECURITY DEFINER RPCs or narrow public views; chat/media inserts gained a
+    WITH CHECK verifying sender identity. Also fixed a pre-existing, unrelated bug
+    found along the way: neither `ofm_listings` nor `ofm_requests` actually had the
+    `purpose` column the client always sent, so listing/request submission had likely
+    been failing outright — added via additive `ALTER TABLE`.
+  - `auto-post.js`/`price-alerts.js`/`refresh-market-data.js` cron timeouts: added
+    missing `maxDuration` entries, time-budget bail-outs, stuck-post recovery, and
+    batched `refresh-market-data.js`'s area loop 5-at-a-time (~5x faster).
+  - Map tab (`js/map.js`) leaked a full Google Maps instance + up to 347 overlays on
+    every re-render (including plain metric toggles) — added teardown before rebuild.
+  - PropertyFinder listings were always area-wide (building name never passed to
+    `fetchPFSales`) and failed silently — fixed the pass-through, added diagnostics,
+    broadened response-shape parsing per this data source's public API docs.
+  - Demo Mode (`js/auth.js`) silently and permanently overwrote a guest's real
+    portfolio with no warning/backup — added a confirm + backup/restore.
+  - `fetchMarketIntelligence()` (`js/core.js`) hardcoded "June 14, 2026" + a frozen
+    "VERIFIED DLD DATA" narrative into every AI market-intelligence call — now
+    computes the date dynamically like its sibling `fetchLiveMarket()`.
+  - `proxy-maps.js`'s origin check used `startsWith()` (bypassable via
+    `dubaival.com.attacker.com`) — now parses Origin/Referer as a URL and compares
+    exact scheme+host; added a dedicated stricter rate-limit bucket for this action.
+  - `proxy-video.js`'s direct HeyGen branch never validated the generate response —
+    client polled forever on any HeyGen error. Now checked like sibling engines.
+  - Mortgage calculator gave UAE nationals a flat 80% LTV cap at every price tier —
+    added the missing >AED 5M tier (70%), matching the expat path's existing pattern.
+  - Android/Capacitor: `window.open()` (used for WhatsApp/Telegram/mailto/external
+    links in ~20 places) silently did nothing inside the native WebView — wired the
+    already-installed `@capacitor/browser` plugin in `scripts/build-www.js`'s native
+    bootstrap. Also found `android/app/dubaival.keystore` + its plaintext password
+    committed directly in `build.gradle` — rotated to a new keystore, moved
+    credentials to a gitignored `keystore.properties` (see `keystore.properties.example`
+    for the local setup format); old keystore removed from the working tree (still in
+    prior commit history — history itself was not rewritten).
+  - **Manual steps completed by user**: both new SQL migrations
+    (`supabase-admin-security-fix.sql`, `supabase-ofm-rls-lockdown.sql`) executed in
+    Supabase SQL Editor.
+
 - **2026-07-02 (session 9)**: AI Chief of Staff — fully isolated agent workspace module.
   - `js/chiefs.js` — New standalone module (~900 lines). 5 views: Dashboard, Inventory,
     Clients, Matches, Pipeline. Zero dependency on any other module except shared globals.
@@ -750,21 +804,13 @@ These files contain critical business logic and data:
 
 ## Outstanding / open items
 
-- **🟡 RAG Knowledge Base — code-complete, 2 manual setup steps needed**:
-  1. Run `supabase-knowledge-base-schema.sql` in Supabase Dashboard → SQL Editor.
-     Creates `knowledge_base` table with pgvector `vector(768)` column, HNSW index,
-     `match_knowledge()` RPC function, and public-read RLS policy.
-  2. `GEMINI_API_KEY` در Vercel set شده ✅ — اما دو چیز هنوز باید انجام بشه:
-     - **Supabase SQL** (قدم ۱ بالا) هنوز اجرا نشده → RAG غیرفعاله
-     - **Client-side key**: در اپ → Network → AI Agents → Setup → فیلد
-       `Gemini API Key` رو با همون key پر کن تا در localStorage ذخیره بشه.
-       بدون این، تولید تصویر در Video Studio و چندین feature دیگه در Chat
-       از Gemini استفاده نمی‌کنند (Groq fallback جایگزین می‌شه).
-  Once done: news articles are auto-embedded every ~2.5min (on proxy-news cache-miss),
-  area market snapshots are embedded daily at 06:00 UTC, and all 5 grounded AI
-  features (Chat Agents, Area Comparison, Compare, Personal Advisor, Portfolio Analysis)
-  automatically retrieve relevant context before answering. No code change needed.
-  Feature degrades fully gracefully until these steps are done.
+- **✅ COMPLETED: RAG Knowledge Base** (confirmed by user, 2026-07-11): both manual
+  setup steps done — `supabase-knowledge-base-schema.sql` executed in Supabase, and
+  `GEMINI_API_KEY` set both in Vercel env vars and client-side (Network → AI Agents →
+  Setup). RAG grounding is now live: news articles auto-embed every ~2.5min (on
+  proxy-news cache-miss), area market snapshots embed daily at 06:00 UTC, and all 5
+  grounded AI features (Chat Agents, Area Comparison, Compare, Personal Advisor,
+  Portfolio Analysis) retrieve relevant context before answering.
 
 - **🔴 Email sending (Resend) — NOT WORKING**: Price Alert emails cannot send.
   `/api/*.js` serverless functions return 404 on Vercel. Next steps:
