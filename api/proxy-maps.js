@@ -182,9 +182,26 @@ module.exports = async function handler(req, res) {
       return res.json({ predictions: predictions });
 
     // ── CONFIG (return key for Maps JS API client-side loading) ─────────────
+    // NOTE: this Origin/Referer check is a speed bump, not the real security
+    // boundary — a non-browser client can set any header it wants, so it
+    // cannot be made airtight here. The actual boundary has to be Google
+    // Cloud Console's own restrictions on GOOGLE_MAPS_KEY (HTTP referrer
+    // allowlist + API restrictions), since a Maps JavaScript API key is
+    // inherently visible in the browser once loaded — that's true of any
+    // client-side Maps integration, not specific to this proxy.
     } else if (action === "config") {
-      var origin = req.headers["origin"] || req.headers["referer"] || "";
-      var trusted = ALLOWED_ORIGINS.some(function (o) { return origin.startsWith(o); });
+      if (rateLimitExceeded(req, res, 60000, 10, "config")) return;
+      var rawOrigin = req.headers["origin"] || req.headers["referer"] || "";
+      // Compare the actual scheme+host, not a raw string prefix — the
+      // previous startsWith() check let "https://www.dubaival.com.attacker.com"
+      // pass since it has the real origin as a string prefix. Referer carries
+      // a full path (e.g. ".../map"), so parse it as a URL rather than
+      // string-matching the whole value.
+      var trusted = false;
+      try {
+        var originUrl = new URL(rawOrigin);
+        trusted = ALLOWED_ORIGINS.indexOf(originUrl.protocol + "//" + originUrl.host) !== -1;
+      } catch (e) { trusted = false; }
       if (!trusted) return res.status(403).json({ error: "Forbidden" });
       return res.json({ key: key });
 

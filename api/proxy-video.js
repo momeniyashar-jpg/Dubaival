@@ -134,8 +134,11 @@ module.exports = async function handler(req, res) {
               dimension: { width: 1280, height: 720 }
             })
           });
-          var hd = await hr.json();
-          return res.json({ task_id: hd.data && hd.data.video_id });
+          var hdRaw = await hr.text();
+          var hd; try { hd = JSON.parse(hdRaw); } catch(e) { return res.status(502).json({ error: "HeyGen non-JSON response (HTTP " + hr.status + "): " + hdRaw.slice(0, 200) }); }
+          if (hd.error) return res.status(400).json({ error: "HeyGen: " + (hd.error.message || JSON.stringify(hd.error)) });
+          if (!hd.data || !hd.data.video_id) return res.status(502).json({ error: "HeyGen: no video_id in response: " + JSON.stringify(hd).slice(0, 200) });
+          return res.json({ task_id: hd.data.video_id });
         }
         if (action === "status") {
           var hr2 = await fetch("https://api.heygen.com/v1/video_status.get?video_id=" + tid, {
