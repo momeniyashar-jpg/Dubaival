@@ -43,7 +43,7 @@ function renderMortgage(price, cl){
   const M=window.MORT;
   
   const RATES={fixed1:4.49,fixed3:4.75,variable:4.25};
-  const maxLTV=M.nationality==="uae"?80:(price>=5000000?65:75);
+  const maxLTV=M.nationality==="uae"?(price>=5000000?70:80):(price>=5000000?65:75);
   const minDP=100-maxLTV;
   if(M.dp<minDP)M.dp=minDP;
   
