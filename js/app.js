@@ -1925,8 +1925,9 @@ function renderHome(){
   })();
 
   // ── ④ TOP OPPORTUNITIES ──────────────────────────────────────────
+  // (renderMarketMoments() already renders its own "Top Opportunities" + LIVE
+  // header internally — the outer label here used to duplicate it.)
   var momWrap=el('div',{className:'dv-fu dv-fu-4',style:{padding:'24px 16px 0'}});
-  momWrap.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'14px'},'Top Opportunities'));
   momWrap.appendChild(renderMarketMoments(cl));
   wrap.appendChild(momWrap);
 
