@@ -172,6 +172,14 @@ async function handleOauthMeta(req, res) {
     var creds = { ig_token: pageToken, fb_id: fbId, updated_at: new Date().toISOString() };
     if (igId) creds.ig_id = igId;
 
+    // A correctly configured app-level webhook (callback URL + verify token
+    // in the Meta App Dashboard) is not enough — each individual Page must
+    // also be subscribed to the app before Meta will actually deliver DM/
+    // comment events for it. Do that now, right after we have a page token.
+    try {
+      await fetch(GRAPH_BASE + "/" + fbId + "/subscribed_apps?subscribed_fields=messages,messaging_postbacks,feed&access_token=" + pageToken, { method: "POST" });
+    } catch (e) { /* connect still succeeds; page just won't receive webhook events until retried */ }
+
     var existResp = await shared.supabaseRequest("/social_credentials?user_id=eq." + encodeURIComponent(userId), { method: "GET" });
     var existing = existResp.ok ? await existResp.json() : [];
     if (existing.length) {
