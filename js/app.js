@@ -1874,75 +1874,23 @@ function renderHome(){
   srchWrap.appendChild(chips);
   wrap.appendChild(srchWrap);
 
-  // ── ③ QUICK ACTIONS ──────────────────────────────────────────────
-  var qaWrap=el('div',{className:'dv-fu dv-fu-3',style:{padding:'24px 16px 0'}});
-  qaWrap.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'14px'},'Quick Actions'));
-
-  // Primary large card (Analyzer)
-  var qaMain=el('div',{className:'dv-card-lift',style:{
-    background:'linear-gradient(135deg,rgba(212,175,55,0.14) 0%,rgba(212,175,55,0.04) 60%,rgba(10,15,30,0) 100%)',
-    border:'1px solid rgba(212,175,55,0.22)',borderRadius:'18px',
-    padding:'22px',marginBottom:'10px',cursor:'pointer',
-    boxShadow:'0 2px 20px rgba(212,175,55,0.06)'
-  }});
-  qaMain.addEventListener('click',function(){setSection('Market','Analyzer');});
-  qaMain.addEventListener('mouseenter',function(){qaMain.style.borderColor='rgba(212,175,55,0.45)';qaMain.style.boxShadow='0 8px 32px rgba(212,175,55,0.14)';});
-  qaMain.addEventListener('mouseleave',function(){qaMain.style.borderColor='rgba(212,175,55,0.22)';qaMain.style.boxShadow='0 2px 20px rgba(212,175,55,0.06)';});
-  var qaMainTop=el('div',{style:{display:'flex',alignItems:'center',gap:'14px',marginBottom:'16px'}});
-  var qaMainIc=el('div',{style:{width:'52px',height:'52px',borderRadius:'16px',background:'rgba(212,175,55,0.15)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:'0',boxShadow:'0 4px 16px rgba(212,175,55,0.20)'}});
-  qaMainIc.innerHTML='<i data-lucide="scan-search" style="width:26px;height:26px;color:#D4A843"></i>';
-  qaMainTop.appendChild(qaMainIc);
-  var qaMainTxt=el('div',{});
-  qaMainTxt.appendChild(div({fontSize:'19px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.01em',lineHeight:'1.1'},'Property Analyzer'));
-  qaMainTxt.appendChild(div({fontSize:'12px',color:'#9BA8C8',fontFamily:"'Inter',sans-serif",marginTop:'3px'},'AVM valuation · confidence score · yield · investment signal'));
-  qaMainTop.appendChild(qaMainTxt);
-  qaMain.appendChild(qaMainTop);
-  var qaFeatures=el('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'16px'}});
-  [{t:'Confidence Score',c:'#D4A843'},{t:'Yield Analysis',c:'#00C896'},{t:'Investment Signal',c:'#3B82F6'},{t:'PDF Report',c:'#8B5CF6'}].forEach(function(f){
-    var fp=el('div',{style:{background:f.c+'12',border:'1px solid '+f.c+'25',borderRadius:'20px',padding:'4px 10px'}});
-    fp.appendChild(span({fontSize:'10px',color:f.c,fontFamily:"'Inter',sans-serif",fontWeight:'600'},f.t));
-    qaFeatures.appendChild(fp);
-  });
-  qaMain.appendChild(qaFeatures);
-  var qaMainBtn=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',background:'linear-gradient(135deg,#D4A843,#A07D1C)',borderRadius:'12px',padding:'13px',color:'#070B14',fontWeight:'800',fontSize:'13px',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'0.05em',boxShadow:'0 4px 16px rgba(212,168,67,0.30)'}});
-  qaMainBtn.innerHTML='OPEN ANALYZER <i data-lucide="arrow-right" style="width:15px;height:15px;margin-left:4px"></i>';
-  qaMain.appendChild(qaMainBtn);
-  qaWrap.appendChild(qaMain);
-
-  // 3 secondary cards
-  var qaSub=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'10px',marginBottom:'4px'}});
-  [{icon:'handshake',title:'Deal Board',desc:'Off-market',color:'#00C896',sec:'Network',sub:'Deals'},
-   {icon:'briefcase',title:'Portfolio',desc:'ROI & health',color:'#3B82F6',sec:'Portfolio',sub:'Assets'},
-   {icon:'bar-chart-3',title:'Market Index',desc:'Rankings',color:'#8B5CF6',sec:'Market',sub:'Index'}
-  ].forEach(function(q){
-    var c=el('div',{className:'dv-card-lift',style:{
-      background:'linear-gradient(145deg,'+q.color+'0D,rgba(255,255,255,0.02))',
-      border:'1px solid '+q.color+'20',borderRadius:'16px',padding:'16px',cursor:'pointer'
-    }});
-    c.addEventListener('click',function(){setSection(q.sec,q.sub);});
-    c.addEventListener('mouseenter',function(){c.style.borderColor=q.color+'45';c.style.background='linear-gradient(145deg,'+q.color+'18,rgba(255,255,255,0.03))';});
-    c.addEventListener('mouseleave',function(){c.style.borderColor=q.color+'20';c.style.background='linear-gradient(145deg,'+q.color+'0D,rgba(255,255,255,0.02))';});
-    var ic=el('div',{style:{width:'38px',height:'38px',borderRadius:'11px',background:q.color+'18',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:'12px'}});
-    ic.innerHTML='<i data-lucide="'+q.icon+'" style="width:18px;height:18px;color:'+q.color+'"></i>';
-    c.appendChild(ic);
-    c.appendChild(div({fontSize:'13px',fontWeight:'700',color:'#E8EDF5',fontFamily:"'Space Grotesk',sans-serif",marginBottom:'3px'},q.title));
-    c.appendChild(div({fontSize:'11px',color:'#6B7A9E',fontFamily:"'Inter',sans-serif"},q.desc));
-    qaSub.appendChild(c);
-  });
-  qaWrap.appendChild(qaSub);
-  wrap.appendChild(qaWrap);
-
-  // ── ④ MARKET PULSE ───────────────────────────────────────────────
+  // ── ③ MARKET PULSE ───────────────────────────────────────────────
+  // (Buildings/Areas/PSF/Yield stats already shown once in the Hero stats
+  // bar above — this section now only surfaces the one thing that isn't
+  // shown anywhere else on Home: the current top-growth area. The old
+  // "Quick Actions" section was removed entirely: its big Analyzer card
+  // duplicated the Hero CTA, and its Deal Board/Portfolio/Market Index
+  // tiles duplicated the Explore Platform carousel, Hero secondary CTA,
+  // and the Your Portfolio card further down respectively.)
   (function(){
     var aE=Object.entries(AREAS||{});
-    var nB=typeof DB!=='undefined'?Object.keys(DB).length:0;
-    var aPsf=0,aY=0,cnt=0,byG=[];
-    aE.forEach(function(e){var a=e[1];if(a.psf>0&&a.y&&a.y[0]>0){aPsf+=a.psf;aY+=(a.y[0]+a.y[1])/2;cnt++;}if(a.g&&a.g[0]>0)byG.push(e);});
-    if(cnt>0){aPsf=Math.round(aPsf/cnt);aY=(aY/cnt).toFixed(1);}
+    var byG=[];
+    aE.forEach(function(e){var a=e[1];if(a.g&&a.g[0]>0)byG.push(e);});
     byG.sort(function(a,b){return b[1].g[0]-a[1].g[0];});
     var top=byG[0];
+    if(!top)return;
 
-    var pw=el('div',{className:'dv-fu dv-fu-4',style:{padding:'24px 16px 0'}});
+    var pw=el('div',{className:'dv-fu dv-fu-3',style:{padding:'24px 16px 0'}});
     var phdr=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px'}});
     phdr.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase'},'Market Pulse'));
     var liveTag=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:'rgba(0,200,150,0.08)',border:'1px solid rgba(0,200,150,0.20)',borderRadius:'20px',padding:'3px 9px'}});
@@ -1952,60 +1900,38 @@ function renderHome(){
     phdr.appendChild(liveTag);
     pw.appendChild(phdr);
 
-    var pgrid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:'8px',marginBottom:'10px'}});
-    [{v:nB.toLocaleString(),l:'Buildings',s:'in database',c:'#D4A843'},
-     {v:String(aE.length),l:'Areas',s:'tracked',c:'#3B82F6'},
-     {v:'AED '+aPsf.toLocaleString(),l:'Avg PSF',s:'Dubai avg',c:'#00C896'},
-     {v:aY+'%',l:'Avg Yield',s:'gross',c:'#8B5CF6'}
-    ].forEach(function(s){
-      var card=el('div',{style:{
-        background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.07)',
-        borderRadius:'14px',padding:'16px',borderLeft:'3px solid '+s.c,
-        transition:'background 0.2s ease'
-      }});
-      card.addEventListener('mouseenter',function(){card.style.background='rgba(255,255,255,0.055)';});
-      card.addEventListener('mouseleave',function(){card.style.background='rgba(255,255,255,0.03)';});
-      card.appendChild(div({fontSize:'22px',fontWeight:'800',color:s.c,fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'",lineHeight:'1',marginBottom:'6px'},s.v));
-      card.appendChild(div({fontSize:'12px',fontWeight:'600',color:'#E8EDF5',fontFamily:"'Inter',sans-serif"},s.l));
-      card.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontFamily:"'Inter',sans-serif",marginTop:'1px'},s.s));
-      pgrid.appendChild(card);
-    });
-    pw.appendChild(pgrid);
-
-    if(top){
-      var tb=el('div',{style:{
-        display:'flex',alignItems:'center',gap:'12px',
-        background:'linear-gradient(135deg,rgba(0,200,150,0.07),rgba(0,200,150,0.02))',
-        border:'1px solid rgba(0,200,150,0.18)',borderRadius:'14px',
-        padding:'14px 16px',cursor:'pointer',transition:'all 0.2s ease',marginBottom:'4px'
-      }});
-      tb.addEventListener('click',function(){setSection('Market','Index');});
-      tb.addEventListener('mouseenter',function(){tb.style.borderColor='rgba(0,200,150,0.35)';});
-      tb.addEventListener('mouseleave',function(){tb.style.borderColor='rgba(0,200,150,0.18)';});
-      var tbIc=el('div',{style:{width:'36px',height:'36px',borderRadius:'10px',background:'rgba(0,200,150,0.12)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:'0'}});
-      tbIc.innerHTML='<i data-lucide="trending-up" style="width:18px;height:18px;color:#00C896"></i>';
-      tb.appendChild(tbIc);
-      var tbTxt=el('div',{style:{flex:'1',minWidth:'0'}});
-      tbTxt.appendChild(div({fontSize:'11px',color:'#9BA8C8',fontFamily:"'Inter',sans-serif",marginBottom:'2px'},'Top Performing Area'));
-      tbTxt.appendChild(div({fontSize:'14px',fontWeight:'700',color:'#E8EDF5',fontFamily:"'Space Grotesk',sans-serif"},
-        top[0]+' — +'+top[1].g[0].toFixed(1)+'% YoY growth'));
-      tb.appendChild(tbTxt);
-      var tbArr=el('div',{style:{color:'rgba(0,200,150,0.5)',flexShrink:'0'}});
-      tbArr.innerHTML='<i data-lucide="chevron-right" style="width:16px;height:16px"></i>';
-      tb.appendChild(tbArr);
-      pw.appendChild(tb);
-    }
+    var tb=el('div',{style:{
+      display:'flex',alignItems:'center',gap:'12px',
+      background:'linear-gradient(135deg,rgba(0,200,150,0.07),rgba(0,200,150,0.02))',
+      border:'1px solid rgba(0,200,150,0.18)',borderRadius:'14px',
+      padding:'14px 16px',cursor:'pointer',transition:'all 0.2s ease',marginBottom:'4px'
+    }});
+    tb.addEventListener('click',function(){setSection('Market','Index');});
+    tb.addEventListener('mouseenter',function(){tb.style.borderColor='rgba(0,200,150,0.35)';});
+    tb.addEventListener('mouseleave',function(){tb.style.borderColor='rgba(0,200,150,0.18)';});
+    var tbIc=el('div',{style:{width:'36px',height:'36px',borderRadius:'10px',background:'rgba(0,200,150,0.12)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:'0'}});
+    tbIc.innerHTML='<i data-lucide="trending-up" style="width:18px;height:18px;color:#00C896"></i>';
+    tb.appendChild(tbIc);
+    var tbTxt=el('div',{style:{flex:'1',minWidth:'0'}});
+    tbTxt.appendChild(div({fontSize:'11px',color:'#9BA8C8',fontFamily:"'Inter',sans-serif",marginBottom:'2px'},'Top Performing Area'));
+    tbTxt.appendChild(div({fontSize:'14px',fontWeight:'700',color:'#E8EDF5',fontFamily:"'Space Grotesk',sans-serif"},
+      top[0]+' — +'+top[1].g[0].toFixed(1)+'% YoY growth'));
+    tb.appendChild(tbTxt);
+    var tbArr=el('div',{style:{color:'rgba(0,200,150,0.5)',flexShrink:'0'}});
+    tbArr.innerHTML='<i data-lucide="chevron-right" style="width:16px;height:16px"></i>';
+    tb.appendChild(tbArr);
+    pw.appendChild(tb);
     wrap.appendChild(pw);
   })();
 
-  // ── ⑤ TOP OPPORTUNITIES ──────────────────────────────────────────
-  var momWrap=el('div',{className:'dv-fu dv-fu-5',style:{padding:'24px 16px 0'}});
+  // ── ④ TOP OPPORTUNITIES ──────────────────────────────────────────
+  var momWrap=el('div',{className:'dv-fu dv-fu-4',style:{padding:'24px 16px 0'}});
   momWrap.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'14px'},'Top Opportunities'));
   momWrap.appendChild(renderMarketMoments(cl));
   wrap.appendChild(momWrap);
 
-  // ── ⑥ EXPLORE ────────────────────────────────────────────────────
-  var expWrap=el('div',{className:'dv-fu dv-fu-6',style:{padding:'24px 16px 0'}});
+  // ── ⑤ EXPLORE ────────────────────────────────────────────────────
+  var expWrap=el('div',{className:'dv-fu dv-fu-5',style:{padding:'24px 16px 0'}});
   expWrap.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'14px'},'Explore Platform'));
   var expScroll=el('div',{style:{display:'flex',gap:'10px',overflowX:'auto',paddingBottom:'8px',scrollSnapType:'x mandatory',WebkitOverflowScrolling:'touch'}});
   expScroll.style.cssText+=';-ms-overflow-style:none;scrollbar-width:none';
@@ -2035,7 +1961,7 @@ function renderHome(){
   expWrap.appendChild(wrapHScroll(expScroll));
   wrap.appendChild(expWrap);
 
-  // ── ⑦ PORTFOLIO ──────────────────────────────────────────────────
+  // ── ⑥ PORTFOLIO ──────────────────────────────────────────────────
   var pAssets=[];
   try{pAssets=JSON.parse(localStorage.getItem('dubaival_portfolio')||'[]');}catch(e){}
   var pfWrap=el('div',{style:{padding:'24px 16px 0'}});
@@ -2087,7 +2013,7 @@ function renderHome(){
   }
   wrap.appendChild(pfWrap);
 
-  // ── ⑧ RECENT ACTIVITY ────────────────────────────────────────────
+  // ── ⑦ RECENT ACTIVITY ────────────────────────────────────────────
   var recent=[];
   try{recent=JSON.parse(localStorage.getItem('dubaival_recent')||'[]');}catch(e){}
   if(recent.length>0){
