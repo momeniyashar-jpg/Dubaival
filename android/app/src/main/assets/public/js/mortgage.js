@@ -1,39 +1,4 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
-// --- MORTGAGE STANDALONE -----------------------------------------------------
-function renderMortgageStandalone(cl){
-  if(!window.MORT_SA)window.MORT_SA={price:"",dp:25,tenure:25,type:"fixed1",nationality:"expat"};
-  const M=window.MORT_SA;
-
-  const wrap=el("div",{});
-
-  // Price input
-  const priceWrap=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"12px"}});
-  priceWrap.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"14px"},"◆ Property Details"));
-
-  const priceRow=el("div",{style:{marginBottom:"12px"}});
-  priceRow.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.08em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"5px"},"Property Price (AED)"));
-  const priceInp=el("input",{type:"number",placeholder:"e.g. 2,500,000",style:{width:"100%",background:cl.bg,border:"1px solid "+cl.border,color:"#F0F2F5",padding:"10px 12px",borderRadius:"8px",fontSize:"14px",fontFamily:"'Space Grotesk',monospace",boxSizing:"border-box",outline:"none"}});
-  priceInp.value=M.price||"";
-  priceInp.addEventListener("input",function(){M.price=this.value;});
-  priceInp.addEventListener("change",function(){render();});
-  priceRow.appendChild(priceInp);
-  priceWrap.appendChild(priceRow);
-  wrap.appendChild(priceWrap);
-
-  const price=parseInt(M.price)||0;
-  if(price>=500000){
-    const calcWrap=renderMortgage(price,cl);
-    if(calcWrap)wrap.appendChild(calcWrap);
-  } else {
-    const placeholder=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"40px 20px",textAlign:"center"}});
-    placeholder.appendChild(div({fontSize:"32px",marginBottom:"10px"},""));
-    placeholder.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Enter property price above to calculate mortgage"));
-    wrap.appendChild(placeholder);
-  }
-
-  return wrap;
-}
-
 // --- MORTGAGE CALCULATOR ------------------------------------------------------
 function renderMortgage(price, cl){
   if(!price||price<500000)return null;

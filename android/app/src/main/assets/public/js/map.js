@@ -417,14 +417,14 @@ function renderMap() {
         liquidity:"Days on Market",  turnover:"Turnover Rate", location:"Location Score"
       }[_dvMapState.metric];
       var legendItems = _dvMapState.metric==="liquidity"
-        ? [{c:"#00C896",l:"Fast (<30d)"},{c:"#F0A030",l:"Moderate (30–60d)"},{c:"#F04060",l:"Slow (>60d)"}]
+        ? [{c:"#00C896",l:"Fast (<30d)"},{c:"#F0A030",l:"Moderate (30–60d)"},{c:"#EF4444",l:"Slow (>60d)"}]
         : _dvMapState.metric==="price"
         ? [{c:"#D4A843",l:"Premium (>AED 2,500)"},{c:"#818CF8",l:"Mid-Range"},{c:"#00C896",l:"Affordable (<AED 1,500)"}]
         : _dvMapState.metric==="location"
-        ? [{c:"#00C896",l:"Prime (8–10)"},{c:"#F0A030",l:"Good (5–7)"},{c:"#F04060",l:"Remote (1–4)"},{c:"#818CF8",l:"Metro Station"}]
+        ? [{c:"#00C896",l:"Prime (8–10)"},{c:"#F0A030",l:"Good (5–7)"},{c:"#EF4444",l:"Remote (1–4)"},{c:"#818CF8",l:"Metro Station"}]
         : _dvMapState.metric==="turnover"
-        ? [{c:"#00C896",l:"Very High (>300/yr)"},{c:"#D4A843",l:"High (150–300)"},{c:"#F04060",l:"Low (<75/yr)"}]
-        : [{c:"#00C896",l:"High"},{c:"#F0A030",l:"Medium"},{c:"#F04060",l:"Low"}];
+        ? [{c:"#00C896",l:"Very High (>300/yr)"},{c:"#D4A843",l:"High (150–300)"},{c:"#EF4444",l:"Low (<75/yr)"}]
+        : [{c:"#00C896",l:"High"},{c:"#F0A030",l:"Medium"},{c:"#EF4444",l:"Low"}];
 
       var legDiv = document.createElement("div");
       legDiv.style.cssText = "background:rgba(13,18,32,0.92);border:1px solid #1C2540;border-radius:10px;padding:10px 12px;margin:0 10px 10px;";

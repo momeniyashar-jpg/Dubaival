@@ -111,7 +111,7 @@ function renderMarketIndex(){
   var byPsf=areaData.slice().sort(function(a,b){return b.psf-a.psf;}).slice(0,10);
   wrap.appendChild(mkTable("◆ Most Expensive Areas","Highest price per square foot",[].concat(byPsf),[
     rankCol,nameCol,
-    {label:"PSF",w:"1fr",mono:true,bold:true,align:"right",color:function(){return"#F04060";},render:function(d){return"AED "+d.psf.toLocaleString();}},
+    {label:"PSF",w:"1fr",mono:true,bold:true,align:"right",color:function(){return"#EF4444";},render:function(d){return"AED "+d.psf.toLocaleString();}},
     {label:"Yield",w:"0.8fr",mono:true,align:"right",color:function(){return cl.sub;},render:function(d){return d.yield.toFixed(1)+"%";}}
   ]));
 
@@ -320,14 +320,6 @@ function renderMarketIndex(){
 
     // --- Share button ---
     var shareRow=div({marginTop:"14px",display:"flex",gap:"8px"});
-    var shareBtn=el("button",{style:{flex:"1",padding:"10px",background:hexAlpha("#3B82F6",0.12),border:"1px solid "+hexAlpha("#3B82F6",0.3),borderRadius:"8px",color:"#60A5FA",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
-    shareBtn.textContent="Share Comparison";
-    shareBtn.addEventListener("click",function(){
-      var url=window.location.origin+window.location.pathname+"?compare="+encodeURIComponent(activeAreas.join(","));
-      if(navigator.clipboard){navigator.clipboard.writeText(url).then(function(){shareBtn.textContent="✓ Link Copied!";setTimeout(function(){shareBtn.textContent="Share Comparison";},2000);});}
-      else{prompt("Copy this link:",url);}
-    });
-    shareRow.appendChild(shareBtn);
     (function(aa,ds,ms){
       var expBtn=csvExportBtn("Export Comparison (CSV)",cl,function(){
         var hdrs=["metric"].concat(aa);
@@ -390,7 +382,7 @@ function renderMarketIndex(){
 
   // Legend
   var legRow=div({display:"flex",gap:"12px",marginBottom:"10px",justifyContent:"center"});
-  [{c:"#F04060",l:"Premium (>3000)"},{c:"#F0A030",l:"Mid (1500-3000)"},{c:"#10B981",l:"Affordable (<1500)"}].forEach(function(lg){
+  [{c:"#EF4444",l:"Premium (>3000)"},{c:"#F0A030",l:"Mid (1500-3000)"},{c:"#10B981",l:"Affordable (<1500)"}].forEach(function(lg){
     var lr=div({display:"flex",alignItems:"center",gap:"4px"});
     lr.appendChild(div({width:"10px",height:"10px",borderRadius:"3px",background:lg.c}));
     lr.appendChild(span({color:cl.sub,fontSize:"9px"},lg.l));
@@ -406,7 +398,7 @@ function renderMarketIndex(){
 
   sorted.forEach(function(d){
     var ratio=psfMax>psfMin?(d.psf-psfMin)/(psfMax-psfMin):0.5;
-    var barColor=ratio>0.65?"#F04060":ratio>0.3?"#F0A030":"#10B981";
+    var barColor=ratio>0.65?"#EF4444":ratio>0.3?"#F0A030":"#10B981";
     var barW=Math.max(8,Math.round(ratio*100));
     var row=div({display:"grid",gridTemplateColumns:"20px 2fr 3fr 0.8fr",gap:"6px",alignItems:"center",padding:"5px 10px",cursor:"pointer",borderRadius:"4px"});
     row.addEventListener("mouseenter",function(){this.style.background=cl.raised;});
