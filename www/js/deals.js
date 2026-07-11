@@ -1155,12 +1155,8 @@ function _ofmMyListings(wrap,cl){
       (function(){var e=div({width:"52px",height:"52px",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"50%",background:hexAlpha(cl.gold,0.1),margin:"0 auto 12px"});e.innerHTML='<i data-lucide="home" style="width:24px;height:24px;color:'+cl.gold+'"></i>';return e;})(),
       div({color:cl.subHi,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",
         marginBottom:"6px"},"No listings yet"),
-      div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"16px"},
-        "List your first off-market property and let AI find verified buyers for you"),
-      el("button",{style:{background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",
-        color:"#070B14",border:"none",padding:"12px 24px",borderRadius:"10px",
-        fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
-        onclick:function(){OFM_STATE.view="post_listing";OFM_STATE.listStep=1;render();}},"List a Property")
+      div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},
+        "List your first off-market property and let AI find verified buyers for you — use “+ New” above")
     ]));
     return wrap;
   }
@@ -1386,12 +1382,8 @@ function _ofmMyRequests(wrap,cl){
       (function(){var e=div({width:"52px",height:"52px",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"50%",background:hexAlpha("#3B82F6",0.1),margin:"0 auto 12px"});e.innerHTML='<i data-lucide="search" style="width:24px;height:24px;color:#60A5FA"></i>';return e;})(),
       div({color:cl.subHi,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",
         marginBottom:"6px"},"No requests yet"),
-      div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"16px"},
-        "Post a property search request and AI will match you with hidden off-market sellers"),
-      el("button",{style:{background:"linear-gradient(135deg,#3B82F6,#2563EB)",
-        color:"#fff",border:"none",padding:"12px 24px",borderRadius:"10px",
-        fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
-        onclick:function(){OFM_STATE.view="post_request";OFM_STATE.reqStep=1;render();}},"Find a Property")
+      div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},
+        "Post a property search request and AI will match you with hidden off-market sellers — use “+ New” above")
     ]));
     return wrap;
   }
@@ -1818,7 +1810,7 @@ function _ofmRenderReqDetails(container,req,match,cl){
 function renderAgentHub(wrap,cl){
   var hub=DEAL_STATE.agentHub;
   if(!hub.loaded&&!hub.loading)fetchAgents();
-  var card=div({background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",boxShadow:cl.glassShadow});
+  var card=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px"});
   card.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"◆ Agent Referral Program"));
   card.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",marginBottom:"14px",lineHeight:"1.6"},
     "Join DubAIVal's verified agent network. Gold agents receive buyer referrals matched to their area of expertise. Earn more deals, build your reputation."));
@@ -1827,7 +1819,7 @@ function renderAgentHub(wrap,cl){
   [{l:"Registered Agents",v:"list"},{l:"Join Program",v:"register"}].forEach(function(t){
     var active=hub.mode===t.v;
     subTabs.appendChild(el("button",{style:{flex:"1",padding:"8px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",
-      background:active?"rgba(201,168,76,0.12)":"transparent",color:active?cl.gold:cl.sub,border:"1px solid "+(active?"rgba(201,168,76,0.3)":cl.border)},
+      background:active?hexAlpha(cl.gold,0.12):"transparent",color:active?cl.gold:cl.sub,border:"1px solid "+(active?hexAlpha(cl.gold,0.3):cl.border)},
       onclick:function(){hub.mode=t.v;render();}},t.l));
   });
   card.appendChild(subTabs);
@@ -1870,7 +1862,7 @@ function renderAgentHub(wrap,cl){
     bioInp.value=rf.bio||"";bioInp.oninput=function(){rf.bio=this.value;};
     bioG.appendChild(bioInp);card.appendChild(bioG);
 
-    var tierInfo=div({background:cl.raised,borderRadius:"10px",padding:"12px",marginBottom:"14px",border:"1px solid rgba(201,168,76,0.15)"});
+    var tierInfo=div({background:cl.raised,borderRadius:"10px",padding:"12px",marginBottom:"14px",border:"1px solid "+hexAlpha(cl.gold,0.15)});
     tierInfo.appendChild(div({color:cl.gold,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.08em",marginBottom:"8px"},"SUBSCRIPTION TIERS"));
     [{t:"Free",c:cl.sub,d:"Listed in directory · No referral priority",p:"AED 0"},
      {t:"Gold",c:"#EAB308",d:"Priority referrals · Verified badge · Featured listing · Video analysis uploads",p:"AED 499/mo"},
@@ -1984,7 +1976,7 @@ function _ofmAdminLogin(wrap,cl){
   var card=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"24px",marginTop:"20px"});
   card.appendChild(div({color:"#EF4444",fontSize:"12px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"16px"},"◆ Admin Dashboard Login"));
   var pwInp=el("input",{type:"password",placeholder:"Enter admin password",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"12px",borderRadius:"8px",fontSize:"14px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"}});
-  var pwBtn=el("button",{style:{width:"100%",padding:"12px",background:"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#08090C",border:"none",borderRadius:"8px",fontSize:"14px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+  var pwBtn=el("button",{style:{width:"100%",padding:"12px",background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",color:"#08090C",border:"none",borderRadius:"8px",fontSize:"14px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
   pwBtn.textContent="Login";
   pwBtn.addEventListener("click",async function(){
     var lockKey="dv_ofm_admin_lock";var attKey="dv_ofm_admin_att";
@@ -2359,8 +2351,3 @@ async function updateVideoStatus(videoId,status){
   }catch(e){alert("Failed: "+e.message);}
 }
 
-// ── Legacy aliases (app.js may call these directly) ───────────────────────────
-function saveAgentProfile(){
-  try{localStorage.setItem("dv_agent_profile",JSON.stringify({name:DEAL_STATE.form.agentName,phone:DEAL_STATE.form.agentPhone,company:DEAL_STATE.form.agentCompany,email:DEAL_STATE.form.agentEmail,rera:DEAL_STATE.form.reraNumber}));}catch(e){}
-}
-function renderDealForm(){OFM_STATE.view="post_listing";OFM_STATE.listStep=1;render();}
