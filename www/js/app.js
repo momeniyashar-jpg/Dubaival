@@ -136,12 +136,15 @@ function renderFind(){
   filterWrap.appendChild(filterBtn);
   wrap.appendChild(filterWrap);
 
-  // Smart Discovery Filter — searches buildings by financial criteria
+  // Smart Discovery Filter — searches our own building database directly
+  // (distinct from the live-listing search above, which queries Bayut/
+  // PropertyFinder) — labelled explicitly so it doesn't read as a
+  // duplicate of the search/filters above.
   var sf=FS.sf;
   var sfCard=el("div",{style:{background:cl.surface,border:"1px solid "+(sf.showResults?cl.goldDim:cl.border),borderRadius:"14px",padding:"18px",marginBottom:"14px",position:"relative",overflow:"hidden"}});
-  sfCard.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,#6366F1,#6366F1,transparent)",animation:"shimmer 3s ease infinite"}));
-  sfCard.appendChild(span({color:"#818CF8",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ Smart Property Discovery"));
-  sfCard.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",display:"block",marginBottom:"14px"},"Filter "+Object.keys(DB).length.toLocaleString()+" buildings by yield, growth, price, liquidity & more"));
+  sfCard.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,#C9A84C,#C9A84C,transparent)",animation:"shimmer 3s ease infinite"}));
+  sfCard.appendChild(span({color:"#D4A843",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ Smart Property Discovery"));
+  sfCard.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",display:"block",marginBottom:"14px"},"Different from the search above — this searches our own "+Object.keys(DB).length.toLocaleString()+"-building database directly by yield, growth, price & liquidity, not live market listings"));
 
   var sfG1=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"10px"});
   var sfArea=div({});sfArea.appendChild(lbl("Area"));sfArea.appendChild(mkAuto(Object.assign({},S(),{fontSize:"11px",padding:"7px 8px"}),_areaNames,sf.area,function(v){sf.area=v;},"All Areas"));sfG1.appendChild(sfArea);
@@ -161,7 +164,7 @@ function renderFind(){
   var sfSort=div({});sfSort.appendChild(lbl("Sort By"));sfSort.appendChild(mkSelect(Object.assign({},S(),{fontSize:"11px",padding:"7px 8px"}),["Highest Yield","Lowest PSF","Highest Growth","Best Liquidity","Best Turnover"],{yield:"Highest Yield",psfAsc:"Lowest PSF",growth:"Highest Growth",liquidity:"Best Liquidity",turnover:"Best Turnover"}[sf.sort]||"Highest Yield",function(v){sf.sort={"Highest Yield":"yield","Lowest PSF":"psfAsc","Highest Growth":"growth","Best Liquidity":"liquidity","Best Turnover":"turnover"}[v]||"yield";}));sfG3.appendChild(sfSort);
   sfCard.appendChild(sfG3);
 
-  sfCard.appendChild(btn({width:"100%",padding:"11px",borderRadius:"10px",border:"none",background:"linear-gradient(135deg,#6366F1,#818CF8)",color:"#fff",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em"},"DISCOVER PROPERTIES ◆",function(){
+  sfCard.appendChild(btn({width:"100%",padding:"11px",borderRadius:"10px",border:"none",background:"linear-gradient(135deg,#C9A84C,#D4A843)",color:"#fff",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em"},"DISCOVER PROPERTIES ◆",function(){
     var results=[];
     var minY=parseFloat(sf.minYield)||0;
     var minG=parseFloat(sf.minGrowth)||0;
@@ -210,9 +213,9 @@ function renderFind(){
   if(sf.showResults&&sf.results.length>0){
     var sfResCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"});
     var _sfHdr=div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"});
-    _sfHdr.appendChild(span({color:"#818CF8",fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ "+sf.results.length+(sf.allResults&&sf.allResults.length>sf.results.length?" of "+sf.allResults.length:"")+" Buildings Found"));
+    _sfHdr.appendChild(span({color:"#D4A843",fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ "+sf.results.length+(sf.allResults&&sf.allResults.length>sf.results.length?" of "+sf.allResults.length:"")+" Buildings Found"));
     var _sfHdrBtns=div({display:"flex",gap:"6px"});
-    _sfHdrBtns.appendChild(el("button",{style:{background:sf.mapView?"rgba(129,140,248,0.15)":"transparent",border:"1px solid "+(sf.mapView?"rgba(129,140,248,0.4)":cl.border),color:sf.mapView?"#818CF8":cl.sub,padding:"4px 10px",borderRadius:"6px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){sf.mapView=!sf.mapView;render();}},sf.mapView?"≡ List":"◆ Map"));
+    _sfHdrBtns.appendChild(el("button",{style:{background:sf.mapView?"rgba(201,168,76,0.15)":"transparent",border:"1px solid "+(sf.mapView?"rgba(201,168,76,0.4)":cl.border),color:sf.mapView?"#D4A843":cl.sub,padding:"4px 10px",borderRadius:"6px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){sf.mapView=!sf.mapView;render();}},sf.mapView?"≡ List":"◆ Map"));
     _sfHdrBtns.appendChild(btn({background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"4px 10px",borderRadius:"6px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},"Clear",function(){sf.showResults=false;sf.results=[];sf.mapView=false;render();}));
     _sfHdr.appendChild(_sfHdrBtns);
     sfResCard.appendChild(_sfHdr);
@@ -260,7 +263,7 @@ function renderFind(){
       sfResCard.appendChild(row);
     });
     if(sf.allResults&&sf.allResults.length>sf.results.length){
-      var sfLoadMore=el("button",{style:{width:"100%",padding:"10px",marginTop:"8px",borderRadius:"10px",border:"1px solid rgba(129,140,248,0.4)",background:"rgba(99,102,241,0.08)",color:"#818CF8",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.06em"}});
+      var sfLoadMore=el("button",{style:{width:"100%",padding:"10px",marginTop:"8px",borderRadius:"10px",border:"1px solid rgba(201,168,76,0.4)",background:"rgba(122,94,40,0.08)",color:"#D4A843",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.06em"}});
       sfLoadMore.textContent="Load More ("+(sf.allResults.length-sf.results.length)+" remaining)";
       sfLoadMore.addEventListener("click",function(){sf.page=(sf.page||0)+1;sf.results=sf.allResults.slice(0,50*(sf.page+1));render();});
       sfResCard.appendChild(sfLoadMore);
@@ -875,8 +878,8 @@ function renderAlerts(){
 
   // ── EMAIL PRICE WATCH ──────────────────────────────────────────────────────
   var pwWrap=el("div",{style:{marginTop:"20px"}});
-  pwWrap.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px",borderLeft:"3px solid rgba(139,92,246,0.6)",paddingLeft:"10px"},"Email Price Watch"));
-  var pwCard=el("div",{style:{background:cl.surface,border:"1px solid rgba(139,92,246,0.22)",borderRadius:"14px",padding:"16px"}});
+  pwWrap.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px",borderLeft:"3px solid rgba(212,168,67,0.6)",paddingLeft:"10px"},"Email Price Watch"));
+  var pwCard=el("div",{style:{background:cl.surface,border:"1px solid rgba(212,168,67,0.22)",borderRadius:"14px",padding:"16px"}});
   pwCard.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6",marginBottom:"12px"},"Get an email when a building or area price moves 5%+. Powered by live market data, checked daily."));
 
   if(!window.PW_FORM)window.PW_FORM={type:"area",target:"",email:"",status:"",err:""};
@@ -885,7 +888,7 @@ function renderAlerts(){
   // Target type toggle
   var pwTypeRow=el("div",{style:{display:"flex",gap:"6px",marginBottom:"10px"}});
   ["area","building"].forEach(function(t){
-    var tb=el("button",{style:{flex:"1",padding:"7px",borderRadius:"7px",border:"1px solid "+(PW.type===t?"rgba(139,92,246,0.6)":"rgba(139,92,246,0.2)"),background:PW.type===t?"rgba(139,92,246,0.12)":"transparent",color:PW.type===t?"#A78BFA":cl.sub,fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+    var tb=el("button",{style:{flex:"1",padding:"7px",borderRadius:"7px",border:"1px solid "+(PW.type===t?"rgba(212,168,67,0.6)":"rgba(212,168,67,0.2)"),background:PW.type===t?"rgba(212,168,67,0.12)":"transparent",color:PW.type===t?"#D4A843":cl.sub,fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
     tb.textContent=t==="area"?"Area":"Building";
     tb.addEventListener("click",function(){PW.type=t;PW.target="";PW.status="";PW.err="";render();});
     pwTypeRow.appendChild(tb);
@@ -925,7 +928,7 @@ function renderAlerts(){
   }
 
   // Submit
-  var pwBtn=el("button",{style:{width:"100%",padding:"11px",borderRadius:"8px",border:"none",background:"linear-gradient(135deg,#8B5CF6,#6D28D9)",color:"#FFF",fontSize:"13px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+  var pwBtn=el("button",{style:{width:"100%",padding:"11px",borderRadius:"8px",border:"none",background:"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#FFF",fontSize:"13px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
   pwBtn.textContent="Set Price Watch";
   pwBtn.addEventListener("click",function(){
     var em=(PW.email||"").trim().toLowerCase();
