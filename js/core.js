@@ -514,7 +514,13 @@ async function fetchMarketIntelligence(){
   if(MACRO_VARS.intelFetched)return;
   MACRO_VARS.intelFetched=true;
   try{
-    var prompt='Dubai real estate market intelligence for June 14, 2026.\n\nVERIFIED DLD DATA:\n- Avg PSF June 2026: AED 1,755 (+19.8% YoY) [Dubai-Index.com]\n- Q1 2026 volume: AED 252B (+31% YoY) [DLD]\n- Villa PSF: +16% YoY [DLD/Bayut]\n- Apt PSF: -3% MoM (April adj), still +5.49% YoY\n- Ready market: -8% transactions YoY (off-plan dominates at 72%)\n- Feb-Mar 2026: geo shock, -51% transaction volume week of March\n- May 2026: full recovery, AED 14B+/week\n- Distress deals: Marina 15-35%, Downtown/Palm 20-30% below asking\n\nBased on this OFFICIAL data, return JSON only:\n{"apt_adj":<-0.05 to 0.05>,"villa_adj":<-0.03 to 0.05>,"label":"<10 words>","reason":"<one sentence with specific data point>","market_psf":1755,"trend":"stable"}\n\nNote: adj=0 means no change to DB PSF values. Negative=buyers have leverage. DLD PSF is already current 2026 data.';
+    var today=new Date();
+    var dateStr=today.toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"});
+    // Deliberately does not assert specific hardcoded "verified" data points —
+    // those go stale the moment they're written and would keep being fed to
+    // the model as current fact indefinitely. Ask it to reason from its own
+    // most recent knowledge relative to the (correctly dynamic) date instead.
+    var prompt='Dubai real estate market intelligence for '+dateStr+'.\n\nUsing the most recent Dubai Land Department (DLD) transaction data, price trends, and market sentiment you are aware of as of this date, provide a brief, conservative macro adjustment for apartment and villa valuations. Do not invent or assume specific events/figures you are not confident about.\n\nReturn JSON only:\n{"apt_adj":<-0.05 to 0.05>,"villa_adj":<-0.03 to 0.05>,"label":"<10 words>","reason":"<one sentence, cite a specific data point only if you are confident in it>","market_psf":<your best current estimate of average AED/sqft>,"trend":"stable|up|down"}\n\nNote: adj=0 means no change to DB PSF values. Negative=buyers have leverage.';
     var resp=await callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:prompt}],max_tokens:200,temperature:0.1});
     var data=await resp.json();
     var text=data.choices&&data.choices[0]?data.choices[0].message.content:"";
@@ -530,7 +536,7 @@ async function fetchMarketIntelligence(){
     }
     if(parsed.reason)MACRO_VARS.reason=parsed.reason;
     if(parsed.label&&!MACRO_VARS.label)MACRO_VARS.label=parsed.label;
-    MACRO_VARS.source="Groq AI · DLD June 2026 Data";
+    MACRO_VARS.source="Groq AI · DLD Data · "+dateStr;
     render();
   }catch(e){
     console.warn("Market intel fetch failed:",e.message);
