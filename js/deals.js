@@ -8,9 +8,13 @@ var DEAL_STATE={mode:"browse",agentHub:{mode:"list",agents:[],referrals:[],
   regForm:{name:"",phone:"",email:"",company:"",rera:"",areas:"",specialties:"",bio:""},
   loading:false,loaded:false},adminToken:null,
   videoAnalyses:[],videoForm:{dealId:"",videoUrl:"",title:"",summary:"",agentId:null}};
-try{var _at=localStorage.getItem("dv_admin_token");
-  if(_at==="67ed667fed4620ba36c09d97b542b81c39a5f63bcbdfe8d1931c234748498fc1")
-    DEAL_STATE.adminToken=_at;}catch(e){}
+// Session-only: admin password is re-verified via the admin_verify RPC on
+// login (see _ofmAdminLogin) and never persisted to disk.
+try{
+  localStorage.removeItem("dv_admin_token"); // drop any pre-existing leftover credential
+  var _at=sessionStorage.getItem("dv_admin_token");
+  if(_at)DEAL_STATE.adminToken=_at;
+}catch(e){}
 
 // ── OFM Main State ─────────────────────────────────────────────────────────────
 var OFM_STATE={
@@ -1980,14 +1984,69 @@ function renderAgentHub(wrap,cl){
   wrap.appendChild(card);return wrap;
 }
 // ── Admin Dashboard ────────────────────────────────────────────────────────────
+function _ofmAdminLogin(wrap,cl){
+  var card=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"24px",marginTop:"20px"});
+  card.appendChild(div({color:"#EF4444",fontSize:"12px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"16px"},"◆ Admin Dashboard Login"));
+  var pwInp=el("input",{type:"password",placeholder:"Enter admin password",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"12px",borderRadius:"8px",fontSize:"14px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"}});
+  var pwBtn=el("button",{style:{width:"100%",padding:"12px",background:"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#08090C",border:"none",borderRadius:"8px",fontSize:"14px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+  pwBtn.textContent="Login";
+  pwBtn.addEventListener("click",async function(){
+    var lockKey="dv_ofm_admin_lock";var attKey="dv_ofm_admin_att";
+    var lockUntil=parseInt(sessionStorage.getItem(lockKey)||"0");
+    if(Date.now()<lockUntil){var rem=Math.ceil((lockUntil-Date.now())/60000);pwInp.placeholder="Locked — try again in "+rem+"m";pwInp.style.borderColor="#EF4444";return;}
+    var pwVal=pwInp.value;
+    pwBtn.textContent="Verifying...";
+    try{
+      var vResp=await fetch(SUPABASE_URL+"/rest/v1/rpc/admin_verify",{
+        method:"POST",
+        headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
+        body:JSON.stringify({p_admin_password:pwVal})
+      });
+      var ok=vResp.ok&&(await vResp.json())===true;
+      if(ok){
+        sessionStorage.removeItem(lockKey);sessionStorage.removeItem(attKey);
+        DEAL_STATE.adminToken=pwVal;
+        try{sessionStorage.setItem("dv_admin_token",pwVal);}catch(e){}
+        fetchReferrals().then(function(){render();});
+      }else{
+        var att=parseInt(sessionStorage.getItem(attKey)||"0")+1;
+        sessionStorage.setItem(attKey,att);
+        if(att>=5){sessionStorage.setItem(lockKey,Date.now()+30*60*1000);sessionStorage.removeItem(attKey);pwInp.placeholder="Too many attempts — locked 30 min";}
+        pwBtn.textContent="Login";pwInp.style.borderColor="#EF4444";pwInp.value="";
+      }
+    }catch(e){pwBtn.textContent="Login";pwInp.style.borderColor="#EF4444";pwInp.value="";}
+  });
+  card.appendChild(pwInp);card.appendChild(pwBtn);
+  wrap.appendChild(card);
+  return wrap;
+}
+
+// Shared helper: calls a password-gated admin RPC and auto-logs-out on a
+// rejected/expired password so the login form reappears instead of silently
+// failing forever.
+async function _ofmAdminCall(rpcName,params){
+  params.p_admin_password=DEAL_STATE.adminToken;
+  var resp=await fetch(SUPABASE_URL+"/rest/v1/rpc/"+rpcName,{
+    method:"POST",
+    headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
+    body:JSON.stringify(params)
+  });
+  if(resp.status===401||resp.status===403||(resp.status===400&&(await resp.clone().text()).indexOf("Not authorized")!==-1)){
+    DEAL_STATE.adminToken=null;
+    try{sessionStorage.removeItem("dv_admin_token");}catch(e){}
+  }
+  return resp;
+}
+
 function renderAdminDashboard(wrap,cl){
+  if(!DEAL_STATE.adminToken)return _ofmAdminLogin(wrap,cl);
   var hub=DEAL_STATE.agentHub;
   var card=div({background:cl.surface,border:"1px solid rgba(239,68,68,0.2)",borderRadius:"14px",padding:"18px",marginBottom:"14px"});
   card.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
     div({},[span({color:"#EF4444",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block"},"◆ Admin Dashboard"),
       span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Referral Management · Agent Control")]),
     el("button",{style:{background:"rgba(239,68,68,0.1)",color:"#EF4444",border:"1px solid rgba(239,68,68,0.2)",padding:"6px 12px",borderRadius:"6px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
-      onclick:function(){DEAL_STATE.adminToken=null;try{localStorage.removeItem("dv_admin_token");}catch(e){}OFM_STATE.view="dashboard";render();}},"Logout")
+      onclick:function(){DEAL_STATE.adminToken=null;try{sessionStorage.removeItem("dv_admin_token");}catch(e){}OFM_STATE.view="dashboard";render();}},"Logout")
   ]));
 
   var stats=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:"8px",marginBottom:"14px"});
@@ -2229,18 +2288,17 @@ async function createReferral(buyerDealId,buyerName,buyerPhone,area,budget,propT
 }
 
 async function fetchReferrals(){
+  if(!DEAL_STATE.adminToken)return;
   try{
-    var resp=await fetch(SUPABASE_URL+"/rest/v1/dv_referrals?order=created_at.desc&limit=50",
-      {headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY}});
+    var resp=await _ofmAdminCall("admin_get_referrals",{});
     if(resp.ok)DEAL_STATE.agentHub.referrals=await resp.json();
   }catch(e){}
 }
 
 async function assignReferral(referralId,agentId){
   try{
-    var resp=await fetch(SUPABASE_URL+"/rest/v1/dv_referrals?id=eq."+referralId,{method:"PATCH",
-      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
-      body:JSON.stringify({assigned_agent_id:agentId,status:"assigned",updated_at:new Date().toISOString()})});
+    var resp=await _ofmAdminCall("admin_update_referral",
+      {p_referral_id:referralId,p_updates:{assigned_agent_id:agentId,status:"assigned"}});
     if(!resp.ok)throw new Error("Server returned "+resp.status);
     fetchReferrals().then(function(){render();});
   }catch(e){alert("Failed: "+e.message);}
@@ -2248,11 +2306,9 @@ async function assignReferral(referralId,agentId){
 
 async function updateReferralStatus(referralId,status,dealValue){
   try{
-    var patch={status:status,updated_at:new Date().toISOString()};
+    var patch={status:status};
     if(dealValue)patch.deal_value=dealValue;
-    var resp=await fetch(SUPABASE_URL+"/rest/v1/dv_referrals?id=eq."+referralId,{method:"PATCH",
-      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
-      body:JSON.stringify(patch)});
+    var resp=await _ofmAdminCall("admin_update_referral",{p_referral_id:referralId,p_updates:patch});
     if(!resp.ok){alert("Failed to update referral ("+resp.status+")");return;}
     fetchReferrals().then(function(){render();});
   }catch(e){alert("Failed: "+e.message);}
@@ -2260,9 +2316,7 @@ async function updateReferralStatus(referralId,status,dealValue){
 
 async function updateAgentSubscription(agentId,subscription){
   try{
-    var resp=await fetch(SUPABASE_URL+"/rest/v1/dv_agents?id=eq."+agentId,{method:"PATCH",
-      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
-      body:JSON.stringify({subscription:subscription,updated_at:new Date().toISOString()})});
+    var resp=await _ofmAdminCall("admin_update_agent",{p_agent_id:agentId,p_updates:{subscription:subscription}});
     if(!resp.ok){alert("Failed to update subscription ("+resp.status+")");return;}
     fetchAgents();
   }catch(e){alert("Failed: "+e.message);}
