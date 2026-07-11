@@ -770,7 +770,8 @@ function renderPortfolio(mode){
   _phdrL.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'4px'},'Investment Management'));
   _phdrL.appendChild(div({fontSize:'22px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},titles[mode]||titles.assets));
   _phdr.appendChild(_phdrL);
-  var _pmodeColors={assets:'#D4A843',health:'#10B981',projections:'#8B5CF6'};
+  // projections uses blue, not purple — #8B5CF6 is reserved app-wide for rental-mode UI
+  var _pmodeColors={assets:'#D4A843',health:'#10B981',projections:'#3B82F6'};
   var _pmc=_pmodeColors[mode]||'#D4A843';
   var _pbadge=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:hexAlpha(_pmc,0.08),border:'1px solid '+hexAlpha(_pmc,0.20),borderRadius:'20px',padding:'5px 11px',flexShrink:'0'}});
   var _pdot=el('div',{style:{width:'6px',height:'6px',borderRadius:'50%',background:_pmc,animation:'dvPulse 2s ease infinite'}});
@@ -870,8 +871,9 @@ function renderPortfolio(mode){
 
   } // end assets overview
 
-    // Portfolio Health Score
-  if(mode==="assets"||mode==="health"){
+    // Portfolio Health Score — Health tab only (was also shown on Assets,
+    // making the dedicated Health tab redundant; see CLAUDE.md nav table)
+  if(mode==="health"){
     var health=computePortfolioHealth(metrics,totalValue);
     if(health){
       var hCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",position:"relative",overflow:"hidden"});
@@ -1071,8 +1073,9 @@ function renderPortfolio(mode){
     }
   } // end health section
 
-  if(mode==="assets"||mode==="projections"){
-    // Future Projection Simulator
+  // Future Projection Simulator — Projections tab only (was also shown on
+  // Assets, making the dedicated Projections tab redundant)
+  if(mode==="projections"){
     if(!ps._proj)ps._proj={growth:0,rate:0};
     var projCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",position:"relative",overflow:"hidden"});
     projCard.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,"+cl.gold+","+cl.gold+",transparent)",animation:"shimmer 3s ease infinite"}));
@@ -1153,8 +1156,8 @@ function renderPortfolio(mode){
   wrap.appendChild(goalsCard);
   } // end assets-only investment profile
 
-  if(mode==="assets"||mode==="projections"){
-  // What-If Scenario Simulator
+  // What-If Swap Simulator — Projections tab only (was also shown on Assets)
+  if(mode==="projections"){
   if(metrics.length>0){
     if(!ps._swap)ps._swap={sellId:"",buyArea:"",buyType:"Apartment",buyBeds:"2 BR",buySize:"",showResult:false};
     var sw=ps._swap;
