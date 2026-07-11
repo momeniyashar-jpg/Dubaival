@@ -1,6 +1,12 @@
+var { rateLimitExceeded } = require("./_lib/ratelimit");
+
+var ALLOWED_ORIGINS = ["https://www.dubaival.com", "https://dubaival.com", "http://localhost:3000", "http://localhost:5000"];
 
 module.exports = async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  var reqOrigin = req.headers.origin || "";
+  var corsOrigin = ALLOWED_ORIGINS.indexOf(reqOrigin) !== -1 ? reqOrigin : ALLOWED_ORIGINS[0];
+  res.setHeader("Access-Control-Allow-Origin", corsOrigin);
+  res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(200).end();
@@ -11,6 +17,11 @@ module.exports = async function handler(req, res) {
   var action = body.action;
 
   if (!engine || !action) return res.status(400).json({ error: "Missing engine or action" });
+
+  // Status polls happen every few seconds while a job runs; generate/list actions
+  // trigger paid third-party API calls and are throttled much harder per IP.
+  var isPoll = action === "status" || action === "list_avatars";
+  if (rateLimitExceeded(req, res, 60000, isPoll ? 60 : 8)) return;
 
   // Unified task-ID: accept whichever field the client sends
   var tid = body.task_id || body.request_id || body.gen_id || body.job_id || body.talk_id || body.video_id;
