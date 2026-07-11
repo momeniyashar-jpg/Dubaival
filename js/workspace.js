@@ -9,24 +9,18 @@ function saveTemplates(){try{localStorage.setItem("dv_report_templates",JSON.str
 var WS_TOOLS=[
   {id:"portfolio",icon:"briefcase",label:"Portfolio Manager",desc:"Track assets, ROI & yield"},
   {id:"alerts",icon:"bell",label:"Opportunity Alerts",desc:"Hidden investment opportunities"},
-  {id:"calculator",icon:"bar-chart-3",label:"Investment Calculator",desc:"IRR, cash flow & scenarios"},
+  {id:"analyzer",icon:"search",label:"Valuation Analyzer",desc:"AI-powered valuation, yield & investment signal"},
   {id:"market",icon:"trending-up",label:"Market Index",desc:"348 areas, PSF & yield data"},
   {id:"dashboard",icon:"radio",label:"Live Dashboard",desc:"Real-time market stats"},
-  {id:"comparison",icon:"scale",label:"Neighborhood Comparison",desc:"Compare 2-3 areas"},
-  {id:"analyzer",icon:"search",label:"Valuation Analyzer",desc:"AI-powered property valuation"},
-  {id:"fairprice",icon:"dollar-sign",label:"Fair Price Checker",desc:"Quick price assessment"},
   {id:"mortgage",icon:"landmark",label:"Mortgage Calculator",desc:"Monthly payments & costs"},
-  {id:"deals",icon:"handshake",label:"Deal Network",desc:"Agent-to-agent deals"},
-  {id:"agenthub",icon:"users",label:"Agent Hub",desc:"Agent directory & referrals"},
-  {id:"notifications",icon:"bell-ring",label:"Notifications",desc:"Activity alerts"},
-  {id:"favareas",icon:"star",label:"Favorite Areas",desc:"Your bookmarked areas"},
-  {id:"saved",icon:"pin",label:"Saved Searches",desc:"Recent valuations"}
+  {id:"deals",icon:"handshake",label:"Deal Network",desc:"Agent-to-agent deals & agent directory"},
+  {id:"notifications",icon:"bell-ring",label:"Notifications",desc:"Activity alerts"}
 ];
 
 var WS_PRESETS={
-  investor:{label:"Investor",icon:"trending-up",ids:["portfolio","alerts","calculator","market"]},
-  agent:{label:"Agent",icon:"users",ids:["deals","agenthub","notifications","dashboard"]},
-  buyer:{label:"Buyer",icon:"home",ids:["fairprice","comparison","mortgage","saved"]}
+  investor:{label:"Investor",icon:"trending-up",ids:["portfolio","alerts","analyzer","market"]},
+  agent:{label:"Agent",icon:"users",ids:["deals","notifications","dashboard"]},
+  buyer:{label:"Buyer",icon:"home",ids:["analyzer","market","mortgage"]}
 };
 
 var WS_REPORT_SECTIONS=[
@@ -148,7 +142,7 @@ function renderWorkspace(){
       var miniContent=getMiniWidget(wid,cl);
       if(miniContent)card.appendChild(miniContent);
 
-      var tabMap={portfolio:["Portfolio","Assets"],alerts:["Portfolio","Alerts"],calculator:["Market","Analyzer"],market:["Market","Index"],dashboard:["Market","Dashboard"],comparison:["Market","Index"],analyzer:["Market","Analyzer"],fairprice:["Market","Analyzer"],mortgage:["Market","Analyzer"],deals:["Network","Deals"],agenthub:["Network","Deals"],notifications:null,favareas:["Market","Index"],saved:["Market","Analyzer"]};
+      var tabMap={portfolio:["Portfolio","Assets"],alerts:["Portfolio","Alerts"],market:["Market","Index"],dashboard:["Market","Dashboard"],analyzer:["Market","Analyzer"],mortgage:["Market","Analyzer"],deals:["Network","Deals"],notifications:null};
       var targetNav=tabMap[wid];
       if(targetNav)card.addEventListener("click",function(){setSection(targetNav[0],targetNav[1]);});
       dashGrid.appendChild(card);
