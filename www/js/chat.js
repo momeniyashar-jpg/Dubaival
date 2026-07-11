@@ -2202,7 +2202,7 @@ function generateTone(ctx,freq,dur,vol){
   }catch(e){return null;}
 }
 
-async function renderVideoFrames(canvas,ctx,plan,progressCb,userPhotos,musicDest){
+async function renderVideoFrames(canvas,ctx,plan,progressCb,userPhotos,musicDest,voAudio){
   var W=canvas.width,H=canvas.height;
   var slides=plan.slides;
   var totalSlides=slides.length;
@@ -2247,6 +2247,16 @@ async function renderVideoFrames(canvas,ctx,plan,progressCb,userPhotos,musicDest
     var mTracks=musicDest.stream.getAudioTracks();
     mTracks.forEach(function(t){stream.addTrack(t);});
   }
+  // Narration must be captured into the SAME stream the recorder reads from
+  // — this is what actually bakes the voiceover into the exported file
+  // instead of just playing back live alongside a silent recording.
+  var voStream=null;
+  if(voAudio){
+    try{
+      voStream=voAudio.captureStream?voAudio.captureStream():(voAudio.mozCaptureStream?voAudio.mozCaptureStream():null);
+      if(voStream)voStream.getAudioTracks().forEach(function(t){stream.addTrack(t);});
+    }catch(e){voStream=null;}
+  }
   var chunks=[];
   var mimeType="video/mp4;codecs=avc1.42E01E";
   if(!MediaRecorder.isTypeSupported(mimeType)){mimeType="video/webm;codecs=vp9";}
@@ -2255,6 +2265,7 @@ async function renderVideoFrames(canvas,ctx,plan,progressCb,userPhotos,musicDest
   recorder.ondataavailable=function(ev){if(ev.data.size>0)chunks.push(ev.data);};
   var recDone=new Promise(function(res){recorder.onstop=function(){res();};});
   recorder.start();
+  if(voAudio&&voStream){try{voAudio.currentTime=0;voAudio.play().catch(function(){});}catch(e){}}
 
   var userPhotoIdx=0;
   for(var frame=0;frame<totalFrames;frame++){
@@ -2676,6 +2687,12 @@ async function speakVoiceoverEL(lines,secPerSlide){
     return speakVoiceoverFallback(lines,secPerSlide);
   }
 }
+// Last-resort fallback (no ElevenLabs key, or the API call itself failed).
+// speechSynthesis plays live through the OS output — it cannot be captured
+// into a MediaStream/recording, so this always resolves null. Callers must
+// treat that as "no narration embedded" (silent/music-only video), not as a
+// lower-quality voice track — both call sites in this file already gate on
+// having a real key before attempting narration for exactly this reason.
 function speakVoiceoverFallback(lines,secPerSlide){
   return new Promise(function(resolve){
     if(!window.speechSynthesis||!lines||lines.length===0){resolve(null);return;}
@@ -3193,7 +3210,7 @@ function showVideoGenUI(initialPrompt, propertyCtx){
   // ── CREATE TAB (engine selection → generate) ──────────────────────────────
   var vgStepEls={};
   var vgProgressFill,vgProgressLabel,vgPreviewCanvas;
-  var _AI_ENGINE_LABELS={kling:"Kling AI v2",runway:"Runway Gen-4",luma:"Luma Dream Machine",minimax:"Minimax Hailuo",pika:"Pika 2.2",heygen:"HeyGen Avatar",did:"D-ID Presenter"};
+  var _AI_ENGINE_LABELS={kling:"Kling AI v1.6",runway:"Runway Gen-4",luma:"Luma Dream Machine",minimax:"Minimax Hailuo",pika:"Pika 2.2",heygen:"HeyGen Avatar",did:"D-ID Presenter"};
   var _AI_ENGINE_COLORS={kling:"#C9A84C",runway:"#EC4899",luma:"#3B82F6",minimax:"#8B5CF6",pika:"#F59E0B",heygen:"#06B6D4",did:"#10B981"};
 
   function renderVGCreate(){
@@ -3203,7 +3220,7 @@ function showVideoGenUI(initialPrompt, propertyCtx){
     var engines=[
       {key:"slideshow",label:"Slideshow",icon:"film",color:"#10B981",
        desc:"Canvas-based with slides & overlays",note:"~30 sec · Instant"},
-      {key:"kling",label:"Kling AI v2",icon:"sparkles",color:"#C9A84C",
+      {key:"kling",label:"Kling AI v1.6",icon:"sparkles",color:"#C9A84C",
        desc:"Best-quality AI cinematic footage",note:"~3–5 min"},
       {key:"runway",label:"Runway Gen-4",icon:"clapperboard",color:"#EC4899",
        desc:"Cinematic AI generation",note:"~2–3 min"},
@@ -3214,9 +3231,9 @@ function showVideoGenUI(initialPrompt, propertyCtx){
       {key:"pika",label:"Pika 2.2",icon:"play-circle",color:"#F59E0B",
        desc:"Creative text-to-video",note:"~1–2 min"},
       {key:"heygen",label:"HeyGen Avatar",icon:"user-circle",color:"#06B6D4",
-       desc:"AI avatar speaks your script",note:"~3–5 min · Needs photo"},
+       desc:"AI avatar speaks your script",note:"~3–5 min · Needs photo",hasVoice:true},
       {key:"did",label:"D-ID Presenter",icon:"video",color:"#10B981",
-       desc:"Real photo that talks",note:"~1–2 min · Needs photo"}
+       desc:"Real photo that talks",note:"~1–2 min · Needs photo",hasVoice:true}
     ];
 
     // ── Engine: Always-visible selection grid ────────────────────────────────
@@ -3238,8 +3255,12 @@ function showVideoGenUI(initialPrompt, propertyCtx){
       nameEl.textContent=eng.label;
       topRow.appendChild(nameEl);
       if(isSlide){var freeBadge=div({background:"rgba(16,185,129,0.15)",border:"1px solid rgba(16,185,129,0.3)",borderRadius:"8px",padding:"1px 5px",color:"#10B981",fontSize:"8px",fontFamily:"'Space Grotesk',monospace",fontWeight:"700",flexShrink:"0"});freeBadge.textContent="FREE";topRow.appendChild(freeBadge);}
+      if(eng.hasVoice){var voiceBadge=div({background:"rgba(139,92,246,0.15)",border:"1px solid rgba(139,92,246,0.3)",borderRadius:"8px",padding:"1px 5px",color:"#8B5CF6",fontSize:"8px",fontFamily:"'Space Grotesk',monospace",fontWeight:"700",flexShrink:"0"});voiceBadge.textContent="🎙 TALKS";topRow.appendChild(voiceBadge);}
       btn.appendChild(topRow);
-      btn.appendChild(div({color:"#556677",fontSize:"9px",fontFamily:"'Inter',sans-serif",lineHeight:"1.3",marginLeft:"36px"},isSlide?"⚡ Instant · No API key":eng.note));
+      var engNote=isSlide?"⚡ Instant · No API key · Narrated"
+        :eng.hasVoice?eng.note
+        :eng.note+" · 🔇 Silent (add voiceover after)";
+      btn.appendChild(div({color:"#556677",fontSize:"9px",fontFamily:"'Inter',sans-serif",lineHeight:"1.3",marginLeft:"36px"},engNote));
       if(isSel){var chk=div({position:"absolute",top:"8px",right:"8px",width:"16px",height:"16px",borderRadius:"50%",background:eng.color,display:"flex",alignItems:"center",justifyContent:"center"});chk.innerHTML='<i data-lucide="check" style="width:10px;height:10px;color:#000"></i>';btn.appendChild(chk);}
       btn.onmouseover=function(){if(!isSel)btn.style.borderColor="#3A4560";};
       btn.onmouseout=function(){if(!isSel)btn.style.borderColor="#2A3040";};
@@ -3292,6 +3313,13 @@ function showVideoGenUI(initialPrompt, propertyCtx){
       vgBody.innerHTML="";
       Object.keys(vgStepEls).forEach(function(k){delete vgStepEls[k];});
       if(VG_STATE.engine==="slideshow"){
+        if(!localStorage.getItem("dv_elevenlabs_key")&&!VG_STATE.skipNarration){
+          _renderNarrationGate(function(){
+            _renderVGSlideshowProgress();
+            setTimeout(runVGPipeline,100);
+          });
+          return;
+        }
         _renderVGSlideshowProgress();
         setTimeout(runVGPipeline,100);
       }else{
@@ -3303,15 +3331,39 @@ function showVideoGenUI(initialPrompt, propertyCtx){
     if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
   }
 
+  // No ElevenLabs key configured — ask the user up front instead of silently
+  // degrading to the browser's built-in robotic TTS (which was also never
+  // actually embedded into the exported video — see the render fix below).
+  function _renderNarrationGate(onContinue){
+    vgBody.innerHTML="";
+    var wrap=div({textAlign:"center",padding:"20px 10px"});
+    var icoWrap=div({width:"52px",height:"52px",borderRadius:"50%",background:"rgba(139,92,246,0.12)",border:"2px solid #8B5CF6",margin:"0 auto 16px",display:"flex",alignItems:"center",justifyContent:"center"});
+    icoWrap.innerHTML='<i data-lucide="mic" style="width:24px;height:24px;color:#8B5CF6"></i>';
+    wrap.appendChild(icoWrap);
+    wrap.appendChild(div({color:"#F0F2F5",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Add a Professional Voiceover?"));
+    wrap.appendChild(div({color:"#8899AA",fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6",marginBottom:"20px",maxWidth:"420px",marginLeft:"auto",marginRight:"auto"},
+      "No ElevenLabs voice key is set up. Add a free key for a real AI narrator, or continue with background music only (no narration) — either way you'll get a clean, exportable video."));
+    var elBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#8B5CF6,#6D28D9)",color:"#fff",border:"none",borderRadius:"12px",padding:"14px",fontSize:"13px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"}});
+    elBtn.innerHTML='<i data-lucide="key" style="width:14px;height:14px;vertical-align:middle;margin-right:6px"></i>Add Free ElevenLabs Key';
+    elBtn.onclick=function(){showSocialSetup();};
+    wrap.appendChild(elBtn);
+    var skipBtn=el("button",{style:{width:"100%",background:"transparent",border:"1px solid #2A3040",color:"#C0C8D8",borderRadius:"12px",padding:"14px",fontSize:"13px",fontWeight:"600",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+    skipBtn.textContent="Continue Without Narration (music only)";
+    skipBtn.onclick=function(){VG_STATE.skipNarration=true;onContinue();};
+    wrap.appendChild(skipBtn);
+    vgBody.appendChild(wrap);
+    if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
+  }
+
   function _renderVGSlideshowProgress(){
     var steps=[
       {key:"plan",icon:"bot",label:"AI Planning",desc:"Analyzing prompt, creating script & slide structure"},
       {key:"data",icon:"bar-chart-2",label:"Market Data",desc:"Enriching with live Dubai property data"},
       {key:"images",icon:"image",label:"Gathering Visuals",desc:"Finding the perfect images for each slide"},
       {key:"brand",icon:"sparkles",label:"Applying Brand",desc:"Adding watermark, tone & brand elements"},
+      {key:"voice",icon:"mic",label:"Voiceover",desc:"Generating professional voiceover narration"},
       {key:"music",icon:"music",label:"Music & Audio",desc:"Composing background music"},
-      {key:"render",icon:"clapperboard",label:"Rendering Video",desc:"Compositing all elements frame by frame"},
-      {key:"voice",icon:"mic",label:"Voiceover",desc:"Generating professional voiceover narration"}
+      {key:"render",icon:"clapperboard",label:"Rendering Video",desc:"Compositing all elements + narration into the final file"}
     ];
     vgBody.appendChild(div({color:"#8899AA",fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"16px",textAlign:"center"},"Creating your slideshow video..."));
     var pBarWrap=div({marginBottom:"20px"});
@@ -3474,6 +3526,50 @@ function showVideoGenUI(initialPrompt, propertyCtx){
   }
 
   // ── PIPELINE RUNNER ────────────────────────────────────────────────────────
+  // Shared background-music bed (Web Audio oscillator synth or an uploaded
+  // custom track), returned as {ctx, dest} where dest is a
+  // MediaStreamDestination whose track can be added to a MediaRecorder
+  // stream. duckFactor (0-1) lowers the mix so narration stays audible.
+  function _createMusicBed(mType,fileRef,duckFactor){
+    if(!mType||mType==="none")return null;
+    duckFactor=duckFactor==null?1:duckFactor;
+    try{
+      var ctx=new(window.AudioContext||window.webkitAudioContext)();
+      var dest=ctx.createMediaStreamDestination();
+      if(mType==="custom"&&fileRef){
+        fileRef.arrayBuffer().then(function(abuf){
+          return ctx.decodeAudioData(abuf);
+        }).then(function(aBuf){
+          var mSrc=ctx.createBufferSource();mSrc.buffer=aBuf;mSrc.loop=true;
+          var mGain=ctx.createGain();mGain.gain.value=0.15*duckFactor;
+          mSrc.connect(mGain);mGain.connect(dest);mSrc.start();
+        }).catch(function(){});
+      }else{
+        var mPresets={
+          ambient:{notes:[261.6,329.6,392,523.3],pad:true,vol:0.025,lfoRate:0.15,detune:6},
+          upbeat:{notes:[329.6,392,493.9,659.3],pad:false,vol:0.02,lfoRate:0.6,detune:3},
+          luxury:{notes:[220,277.2,329.6,440],pad:true,vol:0.022,lfoRate:0.1,detune:8},
+          chill:{notes:[196,261.6,293.7,392],pad:true,vol:0.02,lfoRate:0.2,detune:5},
+          dramatic:{notes:[146.8,220,293.7,440],pad:false,vol:0.018,lfoRate:0.4,detune:4}
+        };
+        var mPr=mPresets[mType]||mPresets.luxury;
+        var mMaster=ctx.createGain();mMaster.gain.value=mPr.vol*duckFactor;mMaster.connect(dest);
+        mPr.notes.forEach(function(freq,ni){
+          var o1=ctx.createOscillator();o1.type="sine";o1.frequency.value=freq;o1.detune.value=mPr.detune;
+          var o2=ctx.createOscillator();o2.type="triangle";o2.frequency.value=freq*1.002;
+          var oG=ctx.createGain();oG.gain.value=ni===0?1:0.6;
+          var lfo=ctx.createOscillator();lfo.type="sine";lfo.frequency.value=mPr.lfoRate+ni*0.05;
+          var lfoG=ctx.createGain();lfoG.gain.value=mPr.pad?freq*0.02:freq*0.01;
+          lfo.connect(lfoG);lfoG.connect(o1.frequency);lfo.start();
+          o1.connect(oG);o2.connect(oG);oG.connect(mMaster);o1.start();o2.start();
+        });
+        var sub=ctx.createOscillator();sub.type="sine";sub.frequency.value=mPr.notes[0]/2;
+        var subG=ctx.createGain();subG.gain.value=0.4;sub.connect(subG);subG.connect(mMaster);sub.start();
+      }
+      return{ctx:ctx,dest:dest};
+    }catch(e){return null;}
+  }
+
   async function runVGPipeline(){
     try{
       var prompt=VG_STATE.prompt;
@@ -3533,72 +3629,57 @@ function showVideoGenUI(initialPrompt, propertyCtx){
       await new Promise(function(r){setTimeout(r,200);});
       vgSetStep("brand","done");
 
-      // Step 5: Music
-      vgSetStep("music","active");vgProgress(38,"Composing background music...");
-      var musicCtx=null,musicDest=null;
-      var mType=VG_STATE.musicType;
-      if(mType!=="none"){
+      // Step 5: Voiceover — generated BEFORE render (not after) so the audio
+      // can actually be captured into the MediaRecorder stream. Previously
+      // this ran after rendering had already finished and stopped, so the
+      // narration was never in the exported file at all — it only played
+      // back live, synced via JS, while the video was open in this tab.
+      vgSetStep("voice","active");vgProgress(38,"Generating voiceover...");
+      var voAudio=null;
+      if(!VG_STATE.skipNarration&&plan.voiceover&&plan.voiceover.length>0){
         try{
-          musicCtx=new(window.AudioContext||window.webkitAudioContext)();
-          musicDest=musicCtx.createMediaStreamDestination();
-          if(mType==="custom"&&musicFileRef){
-            var abuf=await musicFileRef.arrayBuffer();
-            var aBuf=await musicCtx.decodeAudioData(abuf);
-            var mSrc=musicCtx.createBufferSource();mSrc.buffer=aBuf;mSrc.loop=true;
-            var mGain=musicCtx.createGain();mGain.gain.value=0.15;
-            mSrc.connect(mGain);mGain.connect(musicDest);mSrc.start();
-          }else{
-            var mPresets={
-              ambient:{notes:[261.6,329.6,392,523.3],pad:true,vol:0.025,lfoRate:0.15,detune:6},
-              upbeat:{notes:[329.6,392,493.9,659.3],pad:false,vol:0.02,lfoRate:0.6,detune:3},
-              luxury:{notes:[220,277.2,329.6,440],pad:true,vol:0.022,lfoRate:0.1,detune:8},
-              chill:{notes:[196,261.6,293.7,392],pad:true,vol:0.02,lfoRate:0.2,detune:5},
-              dramatic:{notes:[146.8,220,293.7,440],pad:false,vol:0.018,lfoRate:0.4,detune:4}
-            };
-            var mPr=mPresets[mType]||mPresets.luxury;
-            var mMaster=musicCtx.createGain();mMaster.gain.value=mPr.vol;mMaster.connect(musicDest);
-            mPr.notes.forEach(function(freq,ni){
-              var o1=musicCtx.createOscillator();o1.type="sine";o1.frequency.value=freq;o1.detune.value=mPr.detune;
-              var o2=musicCtx.createOscillator();o2.type="triangle";o2.frequency.value=freq*1.002;
-              var oG=musicCtx.createGain();oG.gain.value=ni===0?1:0.6;
-              var lfo=musicCtx.createOscillator();lfo.type="sine";lfo.frequency.value=mPr.lfoRate+ni*0.05;
-              var lfoG=musicCtx.createGain();lfoG.gain.value=mPr.pad?freq*0.02:freq*0.01;
-              lfo.connect(lfoG);lfoG.connect(o1.frequency);lfo.start();
-              o1.connect(oG);o2.connect(oG);oG.connect(mMaster);o1.start();o2.start();
+          voAudio=await speakVoiceoverEL(plan.voiceover,3);
+          if(voAudio){
+            await new Promise(function(res){
+              if(voAudio.readyState>=1)return res();
+              voAudio.addEventListener("loadedmetadata",res,{once:true});
+              voAudio.addEventListener("error",res,{once:true});
+              setTimeout(res,4000);
             });
-            var sub=musicCtx.createOscillator();sub.type="sine";sub.frequency.value=mPr.notes[0]/2;
-            var subG=musicCtx.createGain();subG.gain.value=0.4;sub.connect(subG);subG.connect(mMaster);sub.start();
+            // Make sure the video runs at least as long as the narration —
+            // otherwise the recording would stop mid-sentence.
+            if(voAudio.duration&&isFinite(voAudio.duration)){
+              plan.duration=Math.max(plan.duration,voAudio.duration+1.5);
+            }
           }
-        }catch(me){musicCtx=null;musicDest=null;}
+        }catch(e){voAudio=null;}
       }
+      vgSetStep("voice","done");
+
+      // Step 6: Music
+      vgSetStep("music","active");vgProgress(50,"Composing background music...");
+      var musicBed=_createMusicBed(VG_STATE.musicType,musicFileRef,voAudio?0.5:1);
       vgSetStep("music","done");
 
-      // Step 6: Render
-      vgSetStep("render","active");vgProgress(45,"Rendering video...");
+      // Step 7: Render — narration + music are muxed directly into the
+      // recorded stream here, so the exported file actually contains them.
+      vgSetStep("render","active");vgProgress(58,"Rendering video...");
       var cW=plat.w,cH=plat.h;
       vgPreviewCanvas.width=cW;vgPreviewCanvas.height=cH;
       if(vgPreviewCanvas._wrap)vgPreviewCanvas._wrap.style.display="block";
       var pCtx=vgPreviewCanvas.getContext("2d");
       var blob=await renderVideoFrames(vgPreviewCanvas,pCtx,plan,function(pct){
-        vgProgress(45+pct*0.45,"Rendering... "+pct+"%");
-      },userImgs,musicDest);
-      if(musicCtx){try{musicCtx.close();}catch(e){}}
+        vgProgress(58+pct*0.37,"Rendering... "+pct+"%");
+      },userImgs,musicBed?musicBed.dest:null,voAudio);
+      if(musicBed){try{musicBed.ctx.close();}catch(e){}}
       userVids.forEach(function(v){try{v.pause();v.src="";}catch(e){}});
       vgSetStep("render","done");
-
-      // Step 7: Voiceover
-      vgSetStep("voice","active");vgProgress(92,"Generating voiceover...");
-      var voAudio=null;
-      if(plan.voiceover&&plan.voiceover.length>0){
-        try{voAudio=await speakVoiceoverEL(plan.voiceover,3);}catch(e){}
-      }
-      vgSetStep("voice","done");
 
       vgProgress(100,"Video ready!");
       VG_STATE.resultBlob=blob;
       VG_STATE.resultUrl=URL.createObjectURL(blob);
       VG_STATE.plan=plan;
-      VG_STATE._voAudio=voAudio;
+      VG_STATE._hasNarration=!!voAudio;
 
       setTimeout(function(){vgSwitchTab("results");},800);
     }catch(err){
@@ -3617,6 +3698,145 @@ function showVideoGenUI(initialPrompt, propertyCtx){
     }
   }
 
+  // Card offered on silent AI-engine clips (Kling/Runway/Luma/Minimax/Pika):
+  // lets the agent add a real narration + music track after the fact, using
+  // the same mux technique as the Slideshow pipeline (canvas draw-loop +
+  // MediaRecorder, narration/music captured into the same stream).
+  function _renderAddVoiceoverCard(){
+    var card=div({background:"rgba(139,92,246,0.06)",border:"1px solid rgba(139,92,246,0.25)",borderRadius:"12px",padding:"14px",marginBottom:"14px"});
+    card.appendChild(div({color:"#8B5CF6",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"🎙 This clip is silent"));
+    card.appendChild(div({color:"#8899AA",fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"10px",lineHeight:"1.5"},_AI_ENGINE_LABELS[VG_STATE.engine]+" generates motion only, no audio. Add a professional voiceover + background music before you post it."));
+
+    var body=div({display:"none"});
+    var narInp=el("textarea",{style:{width:"100%",background:"#0D1220",border:"1px solid #2A3040",borderRadius:"8px",padding:"10px",color:"#E0E0E0",fontSize:"12px",fontFamily:"'Inter',sans-serif",resize:"vertical",minHeight:"60px",boxSizing:"border-box",marginBottom:"8px"}});
+    narInp.placeholder="Write what the narrator should say (1-2 short sentences works best for a ~5-8s clip)...";
+    narInp.value=(VG_STATE.prompt||"").split(".")[0]||"";
+    body.appendChild(narInp);
+
+    var musSel=el("select",{style:{width:"100%",background:"#0D1220",border:"1px solid #2A3040",borderRadius:"8px",padding:"9px",color:"#E0E0E0",fontSize:"12px",fontFamily:"'Inter',sans-serif",marginBottom:"10px"}});
+    [["luxury","Luxury (default)"],["ambient","Ambient"],["upbeat","Upbeat"],["chill","Chill"],["dramatic","Dramatic"],["none","No music, voice only"]].forEach(function(o){
+      var op=el("option",{value:o[0]},o[1]);musSel.appendChild(op);
+    });
+    body.appendChild(musSel);
+
+    var goBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#8B5CF6,#6D28D9)",color:"#fff",border:"none",borderRadius:"10px",padding:"12px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+    goBtn.textContent="🎬 Generate Voiceover & Rebuild Video";
+    var statusEl=div({color:"#8B5CF6",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",textAlign:"center",marginTop:"8px",minHeight:"16px"});
+    goBtn.onclick=function(){
+      var text=narInp.value.trim();
+      if(!text){alert("Please write what the narrator should say.");return;}
+      // Unlike music (synthesized locally), narration can only be embedded
+      // into the exported file via ElevenLabs — the browser's built-in voice
+      // (speechSynthesis) plays live through the OS and can't be captured
+      // into a recording, so there's no usable "basic voice" fallback here.
+      if(!localStorage.getItem("dv_elevenlabs_key")){
+        if(confirm("Adding a real voiceover needs a free ElevenLabs key (the browser's built-in voice can't be saved into a video file). Add one now in Setup?")){
+          showSocialSetup();
+        }
+        return;
+      }
+      goBtn.disabled=true;goBtn.textContent="Working...";
+      _muxNarrationOntoVideo(VG_STATE.resultUrl,text,musSel.value,function(msg){statusEl.textContent=msg;})
+        .then(function(newBlob){
+          VG_STATE.resultBlob=newBlob;
+          URL.revokeObjectURL(VG_STATE.resultUrl);
+          VG_STATE.resultUrl=URL.createObjectURL(newBlob);
+          VG_STATE._hasNarration=true;
+          vgBody.innerHTML="";renderVGResults();
+        })
+        .catch(function(err){
+          statusEl.style.color="#EF4444";statusEl.textContent="Failed: "+err.message;
+          goBtn.disabled=false;goBtn.textContent="🎬 Generate Voiceover & Rebuild Video";
+        });
+    };
+    body.appendChild(goBtn);
+    body.appendChild(statusEl);
+    card.appendChild(body);
+
+    var toggleBtn=el("button",{style:{width:"100%",background:"rgba(139,92,246,0.12)",border:"1px solid rgba(139,92,246,0.3)",color:"#8B5CF6",borderRadius:"8px",padding:"9px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+    toggleBtn.textContent="🎤 Add Voiceover & Music";
+    toggleBtn.onclick=function(){
+      var showing=body.style.display!=="none";
+      body.style.display=showing?"none":"block";
+      toggleBtn.style.display=showing?"block":"none";
+    };
+    card.insertBefore(toggleBtn,body);
+    return card;
+  }
+
+  // Mux a narration track (+ optional music) onto an existing silent video
+  // by re-recording it: draw each frame of the source video to a canvas
+  // while playing narration/music through the same Web Audio graph, and
+  // capture canvas+audio together via MediaRecorder — the same technique
+  // the Slideshow pipeline uses, applied to a real video element instead of
+  // drawn slides.
+  async function _muxNarrationOntoVideo(videoUrl,narrationText,musicType,statusCb){
+    statusCb("Generating voiceover...");
+    var voAudio=await speakVoiceoverEL([narrationText],3);
+    if(!voAudio)throw new Error("Could not generate voiceover audio");
+    await new Promise(function(res){
+      if(voAudio.readyState>=1)return res();
+      voAudio.addEventListener("loadedmetadata",res,{once:true});
+      voAudio.addEventListener("error",res,{once:true});
+      setTimeout(res,4000);
+    });
+
+    statusCb("Loading video...");
+    var srcVideo=document.createElement("video");
+    srcVideo.src=videoUrl;srcVideo.muted=true;srcVideo.playsInline=true;srcVideo.crossOrigin="anonymous";
+    await new Promise(function(res,rej){
+      srcVideo.onloadedmetadata=res;
+      srcVideo.onerror=function(){rej(new Error("Could not load the source video"));};
+      setTimeout(res,6000);
+    });
+    var vw=srcVideo.videoWidth||1080,vh=srcVideo.videoHeight||1920;
+    var vDur=srcVideo.duration&&isFinite(srcVideo.duration)?srcVideo.duration:6;
+
+    var canvas=document.createElement("canvas");canvas.width=vw;canvas.height=vh;
+    var ctx=canvas.getContext("2d");
+
+    var musicBed=_createMusicBed(musicType,null,0.5);
+    var voStream=null;
+    try{voStream=voAudio.captureStream?voAudio.captureStream():(voAudio.mozCaptureStream?voAudio.mozCaptureStream():null);}catch(e){}
+
+    var stream=canvas.captureStream(30);
+    if(musicBed)musicBed.dest.stream.getAudioTracks().forEach(function(t){stream.addTrack(t);});
+    if(voStream)voStream.getAudioTracks().forEach(function(t){stream.addTrack(t);});
+
+    var mimeType="video/mp4;codecs=avc1.42E01E";
+    if(!MediaRecorder.isTypeSupported(mimeType))mimeType="video/webm;codecs=vp9";
+    if(!MediaRecorder.isTypeSupported(mimeType))mimeType="video/webm";
+    var chunks=[];
+    var recorder=new MediaRecorder(stream,{mimeType:mimeType,videoBitsPerSecond:8000000});
+    recorder.ondataavailable=function(ev){if(ev.data&&ev.data.size>0)chunks.push(ev.data);};
+    var recDone=new Promise(function(res){recorder.onstop=res;});
+
+    statusCb("Rendering final video...");
+    srcVideo.currentTime=0;
+    await new Promise(function(r){srcVideo.onseeked=r;setTimeout(r,500);});
+    recorder.start(100);
+    if(voStream){try{voAudio.currentTime=0;voAudio.play().catch(function(){});}catch(e){}}
+    srcVideo.play().catch(function(){});
+
+    await new Promise(function(resolve){
+      function draw(){
+        if(srcVideo.ended||srcVideo.currentTime>=vDur-0.05){resolve();return;}
+        ctx.drawImage(srcVideo,0,0,vw,vh);
+        statusCb("Rendering... "+Math.min(99,Math.round((srcVideo.currentTime/vDur)*100))+"%");
+        requestAnimationFrame(draw);
+      }
+      draw();
+    });
+
+    srcVideo.pause();
+    recorder.stop();
+    await recDone;
+    try{voAudio.pause();}catch(e){}
+    if(musicBed){try{musicBed.ctx.close();}catch(e){}}
+    statusCb("Done!");
+    return new Blob(chunks,{type:mimeType.split(";")[0]});
+  }
+
   // ── RESULTS TAB ───────────────────────────────────────────────────────────
   function renderVGResults(){
     if(!VG_STATE.resultBlob&&!VG_STATE.resultUrl){
@@ -3628,22 +3848,19 @@ function showVideoGenUI(initialPrompt, propertyCtx){
     }
     var plan=VG_STATE.plan||{};
     var blob=VG_STATE.resultBlob;
-    var voAudio=VG_STATE._voAudio;
+    var hasNarration=!!VG_STATE._hasNarration;
     var isMP4=blob?blob.type.indexOf("mp4")!==-1:true;
     var vidExt=isMP4?"mp4":"webm";
 
-    // Video player
+    // Video player — narration + music are now baked directly into
+    // VG_STATE.resultUrl, so it plays natively with no separate audio sync.
     var videoEl=el("video",{style:{width:"100%",maxHeight:"360px",borderRadius:"12px",marginBottom:"14px",background:"#000"},controls:true,src:VG_STATE.resultUrl});
-    if(voAudio){
-      videoEl.onplay=function(){voAudio.currentTime=0;voAudio.play();};
-      videoEl.onpause=function(){voAudio.pause();};
-      videoEl.onseeked=function(){voAudio.currentTime=videoEl.currentTime;};
-    }
     vgBody.appendChild(videoEl);
 
     // Stats row
     var plat=VG_PLATFORMS[VG_STATE.platform]||VG_PLATFORMS.reel;
     var statsRow=div({display:"flex",gap:"8px",marginBottom:"14px",flexWrap:"wrap"});
+    if(hasNarration)statsRow.appendChild((function(){var c=div({background:"rgba(139,92,246,0.12)",border:"1px solid rgba(139,92,246,0.3)",borderRadius:"8px",padding:"5px 10px",color:"#8B5CF6",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"});c.textContent="🎙 Narrated";return c;})());
     [[plat.icon,plat.label],["📐",plat.w+"×"+plat.h],["🎬",(plan.slides||[]).length+" slides"],["🌐",LANGUAGES[VG_STATE.language]||"English"]].forEach(function(s){
       var chip=div({background:"rgba(255,255,255,0.04)",border:"1px solid #2A3040",borderRadius:"8px",padding:"5px 10px",color:"#C0C8D8",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"});
       chip.textContent=s[0]+" "+s[1];statsRow.appendChild(chip);
@@ -3657,6 +3874,13 @@ function showVideoGenUI(initialPrompt, propertyCtx){
       var capTxt=el("div",{style:{color:"#E0E0E0",fontSize:"11px",fontFamily:"'Inter',sans-serif",whiteSpace:"pre-wrap",lineHeight:"1.5"}});
       capTxt.textContent=plan.caption;capBox.appendChild(capTxt);
       vgBody.appendChild(capBox);
+    }
+
+    // Raw AI-engine clips (Kling/Runway/Luma/Minimax/Pika) come back silent —
+    // offer to add a real voiceover + music track, muxed the same way the
+    // Slideshow pipeline does.
+    if(VG_STATE.engine!=="slideshow"&&!hasNarration){
+      vgBody.appendChild(_renderAddVoiceoverCard());
     }
 
     // Action buttons
@@ -3679,12 +3903,6 @@ function showVideoGenUI(initialPrompt, propertyCtx){
       actGrid.appendChild(cpBtn2);
     }
 
-    if(voAudio){
-      var voBtn2=el("button",{style:{background:"#8B5CF6",color:"#FFF",border:"none",borderRadius:"10px",padding:"12px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
-      voBtn2.textContent="🎤 Play + Voice";
-      voBtn2.onclick=function(){videoEl.currentTime=0;videoEl.play();};
-      actGrid.appendChild(voBtn2);
-    }
     vgBody.appendChild(actGrid);
 
     // Optional next steps — enhance before publishing
@@ -6905,11 +7123,22 @@ function showAvatarContentGen(avatarId){
 // --- Cinematic Video Engine APIs ---
 var _VIDEO_PROXY="/api/proxy-video";
 async function _videoProxy(body){
-  var r=await fetch(_VIDEO_PROXY,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-  return await r.json();
+  // Server enforces a free monthly quota on paid video generation per signed-in
+  // user (see api/proxy-video.js) — needs the caller's own Supabase session
+  // token to identify who's asking. Harmless to send on status/list calls too.
+  var withAuth=Object.assign({access_token:localStorage.getItem("dv_access_token")||null},body);
+  var r=await fetch(_VIDEO_PROXY,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(withAuth)});
+  var d=await r.json();
+  if(r.status===403&&d&&d.error&&d.error.indexOf("free AI videos")!==-1)d._quotaExceeded=true;
+  if(r.status===401&&d&&d.error&&d.error.indexOf("sign in")!==-1)d._needsLogin=true;
+  return d;
 }
 async function _klingGenVideo(prompt,imageUrl){
-  return _videoProxy({engine:"kling",action:"generate",prompt:prompt,image_url:imageUrl||null,model:"kling-v2-master"});
+  // api/proxy-video.js's Kling branch hardcodes model_name:"kling-v1-6" and
+  // never reads a client-supplied model — sending "kling-v2-master" here
+  // was a stale label with no effect. Matches the label shown in the UI
+  // (_AI_ENGINE_LABELS.kling: "Kling AI v1.6") to what actually runs.
+  return _videoProxy({engine:"kling",action:"generate",prompt:prompt,image_url:imageUrl||null});
 }
 async function _klingCheckStatus(taskId){
   return _videoProxy({engine:"kling",action:"status",task_id:taskId});

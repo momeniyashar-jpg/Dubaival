@@ -18,16 +18,33 @@ var INBOX_STATE = {
 
 // ── DATA FETCHING ──────────────────────────────────────────────────────────────
 
+function _inboxUserId() {
+  try { var u = JSON.parse(localStorage.getItem("dv_user") || "{}"); return u.email || u.id || null; } catch (e) { return null; }
+}
+
 async function _loadInbox() {
   if (INBOX_STATE.loading) return;
   INBOX_STATE.loading = true;
   INBOX_STATE.loaded = false;
   render();
   try {
-    var headers = { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY };
+    var userId = _inboxUserId();
+    var token = (typeof getValidToken === "function") ? await getValidToken() : null;
+    if (!userId || !token) {
+      // Inbox holds private client communications — only ever load it for a
+      // real, signed-in Supabase user whose access token RLS can verify.
+      INBOX_STATE.emails = [];
+      INBOX_STATE.social = [];
+      INBOX_STATE.loading = false;
+      INBOX_STATE.loaded = true;
+      render();
+      return;
+    }
+    var headers = { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + token };
+    var uid = "user_id=eq." + encodeURIComponent(userId);
     var [emailResp, socialResp] = await Promise.all([
-      fetch(SUPABASE_URL + "/rest/v1/email_inbox?select=*&order=received_at.desc&limit=100", { headers: headers }),
-      fetch(SUPABASE_URL + "/rest/v1/social_inbox?select=*&order=received_at.desc&limit=100", { headers: headers })
+      fetch(SUPABASE_URL + "/rest/v1/email_inbox?" + uid + "&select=*&order=received_at.desc&limit=100", { headers: headers }),
+      fetch(SUPABASE_URL + "/rest/v1/social_inbox?" + uid + "&select=*&order=received_at.desc&limit=100", { headers: headers })
     ]);
     INBOX_STATE.emails = emailResp.ok ? await emailResp.json() : [];
     INBOX_STATE.social = socialResp.ok ? await socialResp.json() : [];
@@ -51,10 +68,18 @@ async function _sendEmailReply(emailId) {
   try {
     var loggedName = (typeof USER_PROFILE !== "undefined" && USER_PROFILE.name) ||
       (typeof DV_AUTH !== "undefined" && DV_AUTH.user && DV_AUTH.user.email) || "";
-    var resp = await fetch("/api/reply-email", {
+    var accessToken = (typeof getValidToken === "function") ? await getValidToken() : null;
+    if (!accessToken) {
+      INBOX_STATE.replyError[emailId] = "Please sign in to send a reply.";
+      INBOX_STATE.replyBusy[emailId] = false;
+      render();
+      return;
+    }
+    var resp = await fetch("/api/inbox?action=reply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        access_token: accessToken,
         messageId: email.id,
         replyTo: email.from_email,
         replyName: email.from_name,
@@ -132,6 +157,19 @@ window.INBOX_UNREAD_COUNT = function() { return _unreadCount(); };
 
 function renderInbox() {
   var wrap = div("padding:16px;max-width:900px;margin:0 auto");
+
+  // Inbox holds private client communications (email + Instagram/Facebook DMs) —
+  // require a real signed-in account so Supabase RLS can scope rows to this user.
+  var loggedIn = typeof DV_AUTH !== "undefined" && DV_AUTH.user && !DV_AUTH.isDemo;
+  if (!loggedIn) {
+    var gate = div("text-align:center;padding:60px 20px;color:#8899AA");
+    gate.innerHTML = '<i data-lucide="lock" style="width:40px;height:40px;margin-bottom:12px;opacity:.4"></i>' +
+      '<div style="font-size:16px;color:#fff;margin-bottom:6px">Sign in to view your Inbox</div>' +
+      '<div style="font-size:13px;max-width:360px;margin:0 auto">Email and social message threads are private to your account. Sign in to connect Gmail/Instagram/Facebook and see incoming messages here.</div>';
+    wrap.appendChild(gate);
+    if (typeof lucide !== "undefined") setTimeout(function() { lucide.createIcons(); }, 50);
+    return wrap;
+  }
 
   // Header
   var unread = _unreadCount();
@@ -250,9 +288,12 @@ function _renderItem(item) {
     INBOX_STATE.expandedId = isExpanded ? null : id;
     if (!isExpanded && isNew) {
       d.status = "read";
-      var hdr = { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY, "Content-Type": "application/json", "Prefer": "return=minimal" };
       var tbl = isEmail ? "email_inbox" : "social_inbox";
-      fetch(SUPABASE_URL + "/rest/v1/" + tbl + "?id=eq." + id, { method: "PATCH", headers: hdr, body: JSON.stringify({ status: "read" }) }).catch(function() {});
+      (typeof getValidToken === "function" ? getValidToken() : Promise.resolve(null)).then(function(token) {
+        if (!token) return;
+        var hdr = { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + token, "Content-Type": "application/json", "Prefer": "return=minimal" };
+        fetch(SUPABASE_URL + "/rest/v1/" + tbl + "?id=eq." + id, { method: "PATCH", headers: hdr, body: JSON.stringify({ status: "read" }) }).catch(function() {});
+      });
     }
     render();
   });
@@ -379,10 +420,11 @@ function _renderItem(item) {
       body.appendChild(replySection);
     }
 
-    // Social: show instructions for manual reply if not replied
+    // Social: no auto-reply went out for this one — point the agent at the
+    // AI Chief Co-pilot button above to draft one manually instead.
     if (!isEmail && d.status === "new") {
       var hint = div("background:#1A1F2E;border-radius:8px;padding:12px;font-size:12px;color:#8899AA;margin-top:8px");
-      hint.innerHTML = '<i data-lucide="info" style="width:13px;height:13px;display:inline;vertical-align:middle;margin-right:4px"></i> AI auto-reply was sent immediately via ' + (d.platform === "instagram" ? "Instagram" : "Facebook") + ' API.';
+      hint.innerHTML = '<i data-lucide="info" style="width:13px;height:13px;display:inline;vertical-align:middle;margin-right:4px"></i> No AI auto-reply was sent for this message. Use AI Chief Co-pilot above to draft a reply, then send it manually via ' + (d.platform === "instagram" ? "Instagram" : "Facebook") + '.';
       body.appendChild(hint);
     }
 

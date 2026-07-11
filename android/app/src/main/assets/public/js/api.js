@@ -23,27 +23,36 @@ async function getPFLocationId(query){
     var r;
     if(UAE_RE_KEY){r=await fetch("https://"+PF_HOST+"/autocomplete-location?query="+encodeURIComponent(query),{headers:{"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":PF_HOST}});}
     else{r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=autocomplete-location&source=pf&query="+encodeURIComponent(query));}
-    if(!r.ok)return null;
+    if(!r.ok){console.warn("PF autocomplete-location: HTTP "+r.status);return null;}
     var d=await r.json();
+    // PropertyFinder's underlying data API wraps results as {success,data:{...}}
+    // with location objects keyed by "externalID" (confirmed via public API docs).
     var hits=d.data||d.hits||d.results||d;
-    // Handle nested wrappers: {data:{locations:[...]}} or {data:{data:[...]}}
-    if(hits&&!Array.isArray(hits)){if(hits.locations)hits=hits.locations;else if(hits.data)hits=hits.data;}
-    if(Array.isArray(hits)&&hits.length>0){var h0=hits[0];return h0.id||h0.location_id||h0.objectID||h0.external_id||h0.key||null;}
-    if(d.id||d.location_id)return d.id||d.location_id;
+    if(hits&&!Array.isArray(hits)){if(hits.locations)hits=hits.locations;else if(hits.properties)hits=hits.properties;else if(hits.data)hits=hits.data;}
+    if(Array.isArray(hits)&&hits.length>0){
+      var h0=hits[0];
+      var id=h0.externalID||h0.id||h0.location_id||h0.objectID||h0.external_id||h0.key||null;
+      if(id)return id;
+    }
+    if(d.externalID||d.id||d.location_id)return d.externalID||d.id||d.location_id;
+    console.warn("PF autocomplete-location: no recognizable id field in response",d);
     return null;
-  }catch(e){return null;}
+  }catch(e){console.warn("PF autocomplete-location failed:",e.message);return null;}
 }
 
-async function fetchPFSales(area,beds){
+async function fetchPFSales(query,beds,areaFallback){
   try{
-    var locId=await getPFLocationId(area+" Dubai");
+    var locId=await getPFLocationId(query+" Dubai")||(areaFallback?await getPFLocationId(areaFallback+" Dubai"):null);
     if(!locId)return[];
-    var params=new URLSearchParams({location_id:String(locId),page:"1"});
+    // Send both param spellings — public docs for this data source use the
+    // plural "location_ids", but the RapidAPI reseller wrapper's own param
+    // name isn't independently confirmed, so cover both rather than guess wrong.
+    var params=new URLSearchParams({location_ids:String(locId),location_id:String(locId),page:"1"});
     if(beds!==undefined&&beds!==null)params.set("bedrooms",String(beds));
     var r;
     if(UAE_RE_KEY){r=await fetch("https://"+PF_HOST+"/search-sale?"+params,{headers:{"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":PF_HOST}});}
     else{r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=search-sale&source=pf&"+params);}
-    if(!r.ok)return[];
+    if(!r.ok){console.warn("PF search-sale: HTTP "+r.status);return[];}
     var d=await r.json();
     var rawPF=Array.isArray(d.data)?d.data:(d.data&&Array.isArray(d.data.data)?d.data.data:(d.data&&Array.isArray(d.data.properties)?d.data.properties:(d.hits||d.properties||d.results||[])));
     var items=Array.isArray(rawPF)?rawPF:[];
@@ -90,7 +99,7 @@ async function fetchLiveData(building,area,beds){
       var txs=tp.status==="fulfilled"&&tp.value&&tp.value.hits?tp.value.hits.filter(function(t){return t.price&&t.area}).map(function(t){return{price:t.price,size:t.area,psf:Math.round(t.price/t.area)}}).filter(function(t){return t.psf>400&&t.psf<15000;}):[];
       return{sales:sales,txs:txs};
     };
-    var pfP=fetchPFSales(area,bn);
+    var pfP=fetchPFSales(q,bn,area);
     var [bayutRes,pfRes]=await Promise.allSettled([bayutP(),pfP]);
     var bayut=bayutRes.status==="fulfilled"?bayutRes.value:{sales:[],txs:[]};
     var pf=pfRes.status==="fulfilled"?pfRes.value:[];
@@ -124,14 +133,14 @@ async function fetchLiveRentals(building,area,beds){
       });
     };
     var pfP=async function(){
-      var locId=await getPFLocationId(area+" Dubai");
+      var locId=await getPFLocationId(q+" Dubai")||await getPFLocationId(area+" Dubai");
       if(!locId)return[];
-      var params=new URLSearchParams({location_id:String(locId),page:"1"});
+      var params=new URLSearchParams({location_ids:String(locId),location_id:String(locId),page:"1"});
       if(bn!==undefined)params.set("bedrooms",String(bn));
       var r;
       if(UAE_RE_KEY){r=await fetch("https://"+PF_HOST+"/search-rent?"+params,{headers:{"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":PF_HOST}});}
       else{r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=search-rent&source=pf&"+params);}
-      if(!r.ok)return[];
+      if(!r.ok){console.warn("PF search-rent: HTTP "+r.status);return[];}
       var d=await r.json();
       var rawRentPF=Array.isArray(d.data)?d.data:(d.data&&Array.isArray(d.data.data)?d.data.data:(d.data&&Array.isArray(d.data.properties)?d.data.properties:(d.hits||d.properties||d.results||[])));
       var items=Array.isArray(rawRentPF)?rawRentPF:[];

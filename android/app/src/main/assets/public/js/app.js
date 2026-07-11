@@ -58,8 +58,16 @@ function renderFind(){
   const cl=C();
   const wrap=el("div",{style:{padding:"16px",maxWidth:"640px",margin:"0 auto"}});
 
-  wrap.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Property Search"));
-  wrap.appendChild(div({color:cl.sub,fontSize:"12px",marginBottom:"16px",fontFamily:"'Inter',sans-serif"},"Tell DubAIVal what you're looking for. AI searches Bayut, PropertyFinder & market data."));
+  // Premium header
+  var _fndH=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'20px',paddingBottom:'16px',borderBottom:'1px solid rgba(255,255,255,0.06)'}});
+  var _fndHL=el('div',{});
+  _fndHL.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'4px'},'AI Property Discovery'));
+  _fndHL.appendChild(div({fontSize:'22px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},'Find'));
+  _fndH.appendChild(_fndHL);
+  var _fndBadge=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:'rgba(59,130,246,0.08)',border:'1px solid rgba(59,130,246,0.20)',borderRadius:'20px',padding:'5px 11px',flexShrink:'0'}});
+  _fndBadge.appendChild(span({fontSize:'10px',color:'#3B82F6',fontFamily:"'Space Grotesk',sans-serif",fontWeight:'700',letterSpacing:'0.08em'},'AI'));
+  _fndH.appendChild(_fndBadge);
+  wrap.appendChild(_fndH);
 
   if(!window.FIND_STATE)window.FIND_STATE={area:"",building:"",beds:"2 BR",maxPrice:"",minYield:"",type:"Apartment",query:"",results:[],loading:false,searched:false,sort:"score",
     sf:{area:"",grade:"",minYield:"",maxPSF:"",minPSF:"",minGrowth:"",maxDOM:"",minTurnover:"",type:"Apartment",beds:"Any",sort:"yield",showResults:false,results:[],allResults:[],page:0,mapView:false}
@@ -733,10 +741,18 @@ function renderAlerts(){
   const wrap=el("div",{style:{padding:"16px",maxWidth:"640px",margin:"0 auto"}});
 
   // Header
-  const hdr=el("div",{style:{marginBottom:"16px"}});
-  hdr.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Deal Alerts"));
-  hdr.appendChild(div({color:cl.sub,fontSize:"12px",marginTop:"4px",fontFamily:"'Inter',sans-serif"},"Set your criteria. DubAIVal scans 10,800+ properties instantly."));
-  wrap.appendChild(hdr);
+  // Premium header
+  var _alH=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'20px',paddingBottom:'16px',borderBottom:'1px solid rgba(255,255,255,0.06)'}});
+  var _alHL=el('div',{});
+  _alHL.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'4px'},'Price Intelligence'));
+  _alHL.appendChild(div({fontSize:'22px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},'Deal Alerts'));
+  _alH.appendChild(_alHL);
+  var _alBadge=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:'rgba(212,168,67,0.08)',border:'1px solid rgba(212,168,67,0.20)',borderRadius:'20px',padding:'5px 11px',flexShrink:'0'}});
+  var _alDot=el('div',{style:{width:'6px',height:'6px',borderRadius:'50%',background:'#D4A843',animation:'dvPulse 2s ease infinite'}});
+  _alBadge.appendChild(_alDot);
+  _alBadge.appendChild(span({fontSize:'10px',color:'#D4A843',fontFamily:"'Space Grotesk',sans-serif",fontWeight:'700',letterSpacing:'0.08em'},'WATCH'));
+  _alH.appendChild(_alBadge);
+  wrap.appendChild(_alH);
 
   // Two-column layout hint
   var twoColNote=el("div",{style:{background:"rgba(212,175,55,0.05)",border:"1px solid rgba(212,175,55,0.18)",borderRadius:"10px",padding:"9px 13px",marginBottom:"14px",display:"flex",gap:"10px",alignItems:"center"}});
@@ -1333,18 +1349,28 @@ function renderAdmin(){
       try{
         var lockUntil=parseInt(sessionStorage.getItem(lockKey)||"0");
         if(Date.now()<lockUntil){var rem=Math.ceil((lockUntil-Date.now())/60000);pwInp.placeholder="Locked — try again in "+rem+"m";pwInp.style.borderColor="#EF4444";return;}
-        var enc=new TextEncoder();var buf=await crypto.subtle.digest("SHA-256",enc.encode(pwInp.value));
-        var hash=Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");
-        if(hash==="67ed667fed4620ba36c09d97b542b81c39a5f63bcbdfe8d1931c234748498fc1"){
+        var pwVal=pwInp.value;
+        pwBtn.textContent="Verifying...";
+        // Password is verified server-side (Supabase RPC) — never hashed/compared
+        // client-side, so the credential can't be read out of the JS bundle.
+        var vResp=await fetch(SUPABASE_URL+"/rest/v1/rpc/admin_verify",{
+          method:"POST",
+          headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
+          body:JSON.stringify({p_admin_password:pwVal})
+        });
+        var verified=vResp.ok&&(await vResp.json())===true;
+        if(verified){
           sessionStorage.removeItem(lockKey);sessionStorage.removeItem(attKey);
+          window._adminPw=pwVal;
           window.ADMIN_UNLOCKED=true;render();
         } else {
           var att=parseInt(sessionStorage.getItem(attKey)||"0")+1;
           sessionStorage.setItem(attKey,att);
           if(att>=5){sessionStorage.setItem(lockKey,Date.now()+30*60*1000);sessionStorage.removeItem(attKey);pwInp.placeholder="Too many attempts — locked 30 min";}
+          pwBtn.textContent="Login";
           pwInp.style.borderColor="#EF4444";pwInp.value="";
         }
-      }catch(e){pwInp.style.borderColor="#EF4444";pwInp.value="";}
+      }catch(e){pwBtn.textContent="Login";pwInp.style.borderColor="#EF4444";pwInp.value="";}
     });
     pwWrap.appendChild(pwInp);
     pwWrap.appendChild(pwBtn);
@@ -1394,7 +1420,7 @@ function renderAdmin(){
     try{localStorage.setItem("dv_macro",JSON.stringify({aptAdj:MACRO_VARS.aptAdj,villaAdj:MACRO_VARS.villaAdj}));}catch(e){}
     // Save to Supabase
     var label=(MACRO_VARS.aptAdj<-0.03?"Cautious":MACRO_VARS.aptAdj<0?"Stable":"Bullish")+" · "+new Date().toLocaleDateString("en-GB");
-    var ok=await saveSupabaseConfig(MACRO_VARS.aptAdj,MACRO_VARS.villaAdj,label);
+    var ok=await saveSupabaseConfig(MACRO_VARS.aptAdj,MACRO_VARS.villaAdj,label,window._adminPw);
     if(ok){
       saveBtn.textContent="✓ Saved to Cloud!";
       saveBtn.style.background="#10B981";
@@ -1652,228 +1678,438 @@ function renderMarketMoments(cl){
 
 function renderHome(){
   var cl=C();
-  var wrap=el("div",{style:{padding:"16px",maxWidth:"960px",margin:"0 auto",width:"100%",boxSizing:"border-box"}});
 
-  function homeSectionLabel(title,sub){
-    var row=el("div",{style:{marginBottom:"14px",marginTop:"8px"}});
-    row.appendChild(div({fontSize:"12px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase"},title));
-    if(sub)row.appendChild(div({fontSize:"11px",color:"#4A5568",fontFamily:"'Inter',sans-serif",marginTop:"2px"},sub));
-    return row;
+  // ── Inject keyframe animations once ──────────────────────────────
+  if(!document.getElementById('dv-home-css')){
+    var st=document.createElement('style');
+    st.id='dv-home-css';
+    st.textContent=[
+      '@keyframes dvFadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}',
+      '@keyframes dvFadeIn{from{opacity:0}to{opacity:1}}',
+      '@keyframes dvPulse{0%,100%{opacity:1}50%{opacity:0.4}}',
+      '@keyframes dvGoldShimmer{0%{background-position:200% center}100%{background-position:-200% center}}',
+      '@keyframes dvFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}',
+      '.dv-fu{animation:dvFadeUp 0.55s cubic-bezier(0.16,1,0.3,1) both}',
+      '.dv-fu-1{animation-delay:0.04s}.dv-fu-2{animation-delay:0.10s}.dv-fu-3{animation-delay:0.17s}',
+      '.dv-fu-4{animation-delay:0.24s}.dv-fu-5{animation-delay:0.32s}.dv-fu-6{animation-delay:0.40s}',
+      '.dv-card-lift{transition:transform 0.25s cubic-bezier(0.34,1.56,0.64,1),box-shadow 0.25s ease,border-color 0.2s ease}',
+      '.dv-card-lift:hover{transform:translateY(-3px)}'
+    ].join('');
+    document.head.appendChild(st);
   }
 
-  // --- Greeting ---
-  var heroRow=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"20px"}});
-  var heroLeft=el("div",{});
-  var hr=new Date().getHours();
-  var greeting="Good "+(hr<12?"Morning":hr<18?"Afternoon":"Evening");
-  heroLeft.appendChild(div({fontSize:"13px",color:cl.sub,fontFamily:"'Inter',sans-serif",fontWeight:"500",marginBottom:"2px"},greeting));
-  var userName=USER_PROFILE.name||"Explorer";
-  heroLeft.appendChild(div({fontSize:"24px",fontWeight:"800",color:cl.white,fontFamily:"'Space Grotesk',monospace",letterSpacing:"-0.02em"},userName));
-  heroRow.appendChild(heroLeft);
-  wrap.appendChild(heroRow);
+  var wrap=el('div',{style:{width:'100%',maxWidth:'960px',margin:'0 auto',boxSizing:'border-box',paddingBottom:'32px'}});
 
-  // ── 1. FULL PROPERTY ANALYZER ─────────────────────────────────
-  wrap.appendChild(homeSectionLabel("Property Analyzer","Full valuation · confidence score · yield · investment signal"));
-  var azCard=el("div",{style:{background:"linear-gradient(135deg,rgba(212,175,55,0.08),rgba(212,175,55,0.02))",border:"1px solid rgba(212,175,55,0.25)",borderRadius:"18px",padding:"24px",marginBottom:"28px",cursor:"pointer",transition:"all 0.2s ease"}});
-  azCard.addEventListener("mouseenter",function(){azCard.style.borderColor="rgba(212,175,55,0.5)";azCard.style.background="linear-gradient(135deg,rgba(212,175,55,0.13),rgba(212,175,55,0.04))";});
-  azCard.addEventListener("mouseleave",function(){azCard.style.borderColor="rgba(212,175,55,0.25)";azCard.style.background="linear-gradient(135deg,rgba(212,175,55,0.08),rgba(212,175,55,0.02))";});
-  azCard.addEventListener("click",function(){setSection("Market","Analyzer");});
-  var azTop=el("div",{style:{display:"flex",alignItems:"center",gap:"16px",marginBottom:"18px"}});
-  var azIcon=el("div",{style:{width:"52px",height:"52px",borderRadius:"14px",background:"rgba(212,175,55,0.15)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
-  azIcon.innerHTML='<i data-lucide="scan-search" style="width:26px;height:26px;color:#D4AF37"></i>';
-  azTop.appendChild(azIcon);
-  var azInfo=el("div",{style:{flex:"1"}});
-  azInfo.appendChild(div({fontSize:"18px",fontWeight:"800",color:cl.white,fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Full Property Analyzer"));
-  azInfo.appendChild(div({fontSize:"12px",color:cl.sub,fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},"Building · Area · Size · Floor · View · Price → AVM estimate, confidence score, yield & investment signal"));
-  azTop.appendChild(azInfo);
-  azCard.appendChild(azTop);
-  var azFeats=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"10px",marginBottom:"18px"}});
-  [["gauge","Confidence Score","#D4AF37"],["trending-up","Yield Analysis","#10B981"],["zap","Investment Signal","#F59E0B"],["file-text","PDF Report","#8899AA"]].forEach(function(f){
-    var fc=el("div",{style:{background:"rgba(255,255,255,0.03)",borderRadius:"10px",padding:"10px 6px",textAlign:"center"}});
-    var iconWrap=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"center",marginBottom:"6px"}});
-    iconWrap.innerHTML='<i data-lucide="'+f[0]+'" style="width:20px;height:20px;color:'+f[2]+';stroke-width:1.8"></i>';
-    fc.appendChild(iconWrap);
-    fc.appendChild(div({fontSize:"10px",color:cl.sub,fontFamily:"'Inter',sans-serif",fontWeight:"600"},f[1]));
-    azFeats.appendChild(fc);
+  // ── ① HERO ────────────────────────────────────────────────────────
+  var hero=el('div',{className:'dv-fu dv-fu-1',style:{
+    position:'relative',overflow:'hidden',
+    margin:'0 0 6px',padding:'36px 20px 28px',
+    background:'linear-gradient(160deg,#0C1220 0%,#070B14 45%,#0A0D18 100%)'
+  }});
+
+  // Glow orbs
+  [
+    {w:'280px',h:'280px',top:'-80px',right:'-60px',bg:'radial-gradient(circle,rgba(212,175,55,0.13) 0%,transparent 65%)'},
+    {w:'200px',h:'200px',bottom:'-60px',left:'-40px',bg:'radial-gradient(circle,rgba(59,130,246,0.09) 0%,transparent 65%)'},
+    {w:'160px',h:'160px',top:'20px',left:'30%',bg:'radial-gradient(circle,rgba(139,92,246,0.06) 0%,transparent 65%)'}
+  ].forEach(function(o){
+    var blob=el('div',{style:Object.assign({position:'absolute',borderRadius:'50%',pointerEvents:'none'},o)});
+    hero.appendChild(blob);
   });
-  azCard.appendChild(azFeats);
-  var azBtn=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"center",gap:"8px",background:"linear-gradient(135deg,#D4AF37,#A07D1C)",borderRadius:"12px",padding:"13px",color:"#070B14",fontWeight:"700",fontSize:"13px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em"}});
-  azBtn.innerHTML='<i data-lucide="arrow-right" style="width:16px;height:16px"></i>';
-  azBtn.insertAdjacentText("afterbegin","OPEN ANALYZER → ");
-  azCard.appendChild(azBtn);
-  wrap.appendChild(azCard);
 
-  // ── 2. MARKET SNAPSHOT ────────────────────────────────────────
-  wrap.appendChild(homeSectionLabel("Market Snapshot","Live Dubai real estate overview"));
+  // Grid pattern overlay
+  var grid=el('div',{style:{
+    position:'absolute',inset:'0',pointerEvents:'none',opacity:'0.03',
+    backgroundImage:'linear-gradient(rgba(255,255,255,0.8) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.8) 1px,transparent 1px)',
+    backgroundSize:'40px 40px'
+  }});
+  hero.appendChild(grid);
+
+  var heroInner=el('div',{style:{position:'relative',zIndex:'1'}});
+
+  // Greeting pill
+  var hr2=new Date().getHours();
+  var greetWord=hr2<12?'Morning':hr2<18?'Afternoon':'Evening';
+  var greetPill=el('div',{style:{
+    display:'inline-flex',alignItems:'center',gap:'6px',
+    background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.10)',
+    borderRadius:'20px',padding:'5px 12px',marginBottom:'18px'
+  }});
+  var greetDot=el('div',{style:{width:'6px',height:'6px',borderRadius:'50%',background:'#00C896',animation:'dvPulse 2s ease infinite'}});
+  greetPill.appendChild(greetDot);
+  greetPill.appendChild(span({fontSize:'11px',color:'#9BA8C8',fontFamily:"'Inter',sans-serif",fontWeight:'500'},'Good '+greetWord+', '+(USER_PROFILE.name||'Explorer')));
+  heroInner.appendChild(greetPill);
+
+  // Main headline
+  var hl=el('div',{style:{marginBottom:'10px'}});
+  hl.appendChild(div({
+    fontSize:'clamp(32px,7vw,52px)',fontWeight:'800',
+    fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.03em',lineHeight:'1.05',
+    color:'#FFFFFF'
+  },'Dubai Real Estate,'));
+  // Gold gradient word
+  var hl2=el('div',{style:{
+    fontSize:'clamp(32px,7vw,52px)',fontWeight:'800',
+    fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.03em',lineHeight:'1.05',
+    background:'linear-gradient(90deg,#F0D060,#D4A843,#B8860B,#D4A843,#F0D060)',
+    backgroundSize:'200% auto',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',
+    backgroundClip:'text',animation:'dvGoldShimmer 4s linear infinite'
+  }});
+  hl2.textContent='Reimagined.';
+  hl.appendChild(hl2);
+  heroInner.appendChild(hl);
+
+  heroInner.appendChild(div({
+    fontSize:'14px',color:'#6B7A9E',fontFamily:"'Inter',sans-serif",
+    lineHeight:'1.6',marginBottom:'24px',maxWidth:'380px'
+  },'AI-powered valuations, market intelligence & portfolio management for the world\'s most dynamic real estate market.'));
+
+  // CTA buttons row
+  var ctaRow=el('div',{style:{display:'flex',gap:'10px',flexWrap:'wrap',marginBottom:'28px'}});
+
+  var ctaPrimary=el('button',{style:{
+    display:'flex',alignItems:'center',gap:'8px',
+    background:'linear-gradient(135deg,#D4A843,#A07D1C)',
+    color:'#070B14',border:'none',borderRadius:'12px',
+    padding:'13px 22px',fontSize:'13px',fontWeight:'800',
+    fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'0.04em',
+    cursor:'pointer',transition:'all 0.2s ease',whiteSpace:'nowrap',
+    boxShadow:'0 4px 20px rgba(212,168,67,0.35)'
+  }});
+  ctaPrimary.innerHTML='<i data-lucide="scan-search" style="width:16px;height:16px"></i>Analyze Property';
+  ctaPrimary.addEventListener('mouseenter',function(){ctaPrimary.style.boxShadow='0 6px 28px rgba(212,168,67,0.50)';ctaPrimary.style.transform='translateY(-1px)';});
+  ctaPrimary.addEventListener('mouseleave',function(){ctaPrimary.style.boxShadow='0 4px 20px rgba(212,168,67,0.35)';ctaPrimary.style.transform='';});
+  ctaPrimary.addEventListener('click',function(){setSection('Market','Analyzer');});
+  ctaRow.appendChild(ctaPrimary);
+
+  var ctaSecondary=el('button',{style:{
+    display:'flex',alignItems:'center',gap:'8px',
+    background:'rgba(255,255,255,0.07)',
+    color:'#E8EDF5',border:'1px solid rgba(255,255,255,0.12)',borderRadius:'12px',
+    padding:'13px 22px',fontSize:'13px',fontWeight:'700',
+    fontFamily:"'Space Grotesk',sans-serif",
+    cursor:'pointer',transition:'all 0.2s ease',whiteSpace:'nowrap',
+    backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)'
+  }});
+  ctaSecondary.innerHTML='<i data-lucide="bar-chart-3" style="width:16px;height:16px;color:#8B5CF6"></i>Market Index';
+  ctaSecondary.addEventListener('mouseenter',function(){ctaSecondary.style.background='rgba(255,255,255,0.11)';ctaSecondary.style.borderColor='rgba(255,255,255,0.20)';});
+  ctaSecondary.addEventListener('mouseleave',function(){ctaSecondary.style.background='rgba(255,255,255,0.07)';ctaSecondary.style.borderColor='rgba(255,255,255,0.12)';});
+  ctaSecondary.addEventListener('click',function(){setSection('Market','Index');});
+  ctaRow.appendChild(ctaSecondary);
+  heroInner.appendChild(ctaRow);
+
+  // Stats bar
   (function(){
-    var aEntries=Object.entries(AREAS||{});
-    var totalBldgs=typeof DB!=="undefined"?Object.keys(DB).length:0;
-    var totalAreas=aEntries.length;
-    var avgPsf=0,avgYield=0,cnt=0;
-    aEntries.forEach(function(e){
-      var a=e[1];
-      if(a.psf>0&&a.y&&a.y[0]>0){
-        avgPsf+=a.psf;
-        avgYield+=(a.y[0]+a.y[1])/2;
-        cnt++;
-      }
+    var aE=Object.entries(AREAS||{});
+    var nB=typeof DB!=='undefined'?Object.keys(DB).length:0;
+    var aY=0,aPsf=0,cnt=0;
+    aE.forEach(function(e){var a=e[1];if(a.psf>0&&a.y&&a.y[0]>0){aPsf+=a.psf;aY+=(a.y[0]+a.y[1])/2;cnt++;}});
+    if(cnt>0){aPsf=Math.round(aPsf/cnt);aY=(aY/cnt).toFixed(1);}
+    var bar=el('div',{style:{
+      display:'grid',gridTemplateColumns:'repeat(4,1fr)',
+      background:'rgba(255,255,255,0.04)',borderRadius:'14px',
+      border:'1px solid rgba(255,255,255,0.07)',overflow:'hidden'
+    }});
+    [{v:nB.toLocaleString(),l:'Buildings',c:'#D4A843'},{v:String(aE.length),l:'Areas',c:'#3B82F6'},
+     {v:'AED '+aPsf.toLocaleString(),l:'Avg PSF',c:'#00C896'},{v:aY+'%',l:'Avg Yield',c:'#8B5CF6'}
+    ].forEach(function(s,i){
+      var sc=el('div',{style:{padding:'14px 10px',textAlign:'center',borderLeft:i?'1px solid rgba(255,255,255,0.06)':'none'}});
+      sc.appendChild(div({fontSize:'18px',fontWeight:'800',color:s.c,fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'",lineHeight:'1'},s.v));
+      sc.appendChild(div({fontSize:'9px',color:'#6B7A9E',fontFamily:"'Inter',sans-serif",marginTop:'4px',letterSpacing:'0.06em',textTransform:'uppercase'},s.l));
+      bar.appendChild(sc);
     });
-    if(cnt>0){avgPsf=Math.round(avgPsf/cnt);avgYield=(avgYield/cnt).toFixed(1);}
-    var byG1=aEntries.filter(function(e){return e[1].g&&e[1].g[0]>0;}).sort(function(a,b){return b[1].g[0]-a[1].g[0];});
-    var topMover=byG1.length?byG1[0]:null;
-    var stats=[
-      {icon:"database",label:"Buildings",value:totalBldgs.toLocaleString(),sub:"in database",color:"#D4AF37"},
-      {icon:"map-pin",label:"Areas",value:String(totalAreas),sub:"tracked",color:"#3B82F6"},
-      {icon:"dollar-sign",label:"Avg PSF",value:"AED "+avgPsf.toLocaleString(),sub:"Dubai average",color:"#10B981"},
-      {icon:"percent",label:"Avg Yield",value:avgYield+"%",sub:"gross rental yield",color:"#8B5CF6"}
-    ];
-    var grid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"10px",marginBottom:"12px"}});
-    stats.forEach(function(s){
-      var card=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"14px 16px",display:"flex",alignItems:"center",gap:"12px"}});
-      var ic=el("div",{style:{width:"36px",height:"36px",borderRadius:"10px",background:s.color+"14",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
-      ic.innerHTML='<i data-lucide="'+s.icon+'" style="width:17px;height:17px;color:'+s.color+'"></i>';
-      card.appendChild(ic);
-      var tx=el("div",{style:{minWidth:"0"}});
-      tx.appendChild(div({fontSize:"16px",fontWeight:"800",color:cl.white,fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'",lineHeight:"1.1"},s.value));
-      tx.appendChild(div({fontSize:"10px",color:cl.sub,fontFamily:"'Inter',sans-serif",marginTop:"2px"},s.label+" · "+s.sub));
-      card.appendChild(tx);
-      grid.appendChild(card);
-    });
-    wrap.appendChild(grid);
-    if(topMover){
-      var moverBar=el("div",{style:{background:"linear-gradient(135deg,rgba(16,185,129,0.06),rgba(16,185,129,0.02))",border:"1px solid rgba(16,185,129,0.15)",borderRadius:"12px",padding:"10px 14px",display:"flex",alignItems:"center",gap:"10px",marginBottom:"28px",cursor:"pointer"}});
-      moverBar.addEventListener("click",function(){setSection("Market","Index");});
-      var moverIc=el("div",{style:{width:"28px",height:"28px",borderRadius:"8px",background:"rgba(16,185,129,0.12)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
-      moverIc.innerHTML='<i data-lucide="trending-up" style="width:14px;height:14px;color:#10B981"></i>';
-      moverBar.appendChild(moverIc);
-      moverBar.appendChild(div({flex:"1",fontSize:"12px",color:"#E8EDF5",fontFamily:"'Inter',sans-serif"},"Top mover: "+span({color:"#10B981",fontWeight:"700"},topMover[0])+" +"+topMover[1].g[0].toFixed(1)+"% YoY growth — see full Market Index"));
-      var arr=el("div",{style:{color:"#4A5568",flexShrink:"0"}});
-      arr.innerHTML='<i data-lucide="chevron-right" style="width:15px;height:15px"></i>';
-      moverBar.appendChild(arr);
-      wrap.appendChild(moverBar);
-    }
+    heroInner.appendChild(bar);
   })();
 
-  // ── 3. QUICK CHECK ────────────────────────────────────────────
-  wrap.appendChild(homeSectionLabel("Quick Check","Instant estimate — area & bedrooms only"));
-  if(typeof renderQuickCheck==="function"){
-    var qcWrap=renderQuickCheck();
-    qcWrap.style.padding="0";
-    qcWrap.style.marginBottom="28px";
-    wrap.appendChild(qcWrap);
-  }
+  hero.appendChild(heroInner);
+  wrap.appendChild(hero);
 
-  // ── 4. TOP OPPORTUNITIES ─────────────────────────────────────
-  wrap.appendChild(renderMarketMoments(cl));
-
-  // --- Quick Actions Grid ---
-  wrap.appendChild(homeSectionLabel("Quick Actions",""));
-  var qaScroll=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"12px",marginBottom:"28px"}});
-  var qaItems=[
-    {icon:"scan-search",l:"Search",c:"#3B82F6",sec:"Market",sub:"Find"},
-    {icon:"handshake",l:"Deals",c:"#10B981",sec:"Network",sub:"Deals"},
-    {icon:"bar-chart-3",l:"Index",c:"#8B5CF6",sec:"Market",sub:"Index"},
-    {icon:"scale",l:"Compare",c:"#F59E0B",sec:"Market",sub:"Compare"},
-    {icon:"briefcase",l:"Portfolio",c:"#3B82F6",sec:"Portfolio",sub:"Assets"},
-    {icon:"map",l:"Map",c:"#10B981",sec:"Market",sub:"Map"},
-    {icon:"video",l:"Studio",c:"#8B5CF6",sec:"SocialMedia",sub:"Studio"},
-    {icon:"trending-up",l:"Market",c:"#D4AF37",sec:"Market",sub:"Dashboard"}
-  ];
-  qaItems.forEach(function(qa){
-    var qaBtn=el("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",gap:"8px",cursor:"pointer",padding:"8px 4px",borderRadius:"12px",transition:"all 0.2s ease"}});
-    var qaCircle=el("div",{style:{width:"48px",height:"48px",borderRadius:"14px",background:qa.c+"14",display:"flex",alignItems:"center",justifyContent:"center",transition:"transform 0.2s ease"}});
-    qaCircle.innerHTML='<i data-lucide="'+qa.icon+'" style="width:22px;height:22px;color:'+qa.c+'"></i>';
-    qaBtn.appendChild(qaCircle);
-    qaBtn.appendChild(div({fontSize:"11px",color:"#9BA8C8",fontWeight:"600",fontFamily:"'Inter',sans-serif",textAlign:"center"},qa.l));
-    qaBtn.addEventListener("click",function(){setSection(qa.sec,qa.sub);});
-    qaBtn.addEventListener("mouseenter",function(){qaCircle.style.transform="scale(1.08)";});
-    qaBtn.addEventListener("mouseleave",function(){qaCircle.style.transform="scale(1)";});
-    qaScroll.appendChild(qaBtn);
+  // ── ② AI SEARCH ──────────────────────────────────────────────────
+  var srchWrap=el('div',{className:'dv-fu dv-fu-2',style:{padding:'0 16px',marginBottom:'8px'}});
+  var srchBox=el('div',{style:{
+    position:'relative',background:'rgba(255,255,255,0.04)',
+    border:'1px solid rgba(212,175,55,0.25)',borderRadius:'16px',
+    padding:'16px 18px',display:'flex',alignItems:'center',gap:'12px',
+    cursor:'pointer',transition:'all 0.2s ease',
+    boxShadow:'0 0 0 0 rgba(212,175,55,0)'
+  }});
+  srchBox.addEventListener('mouseenter',function(){
+    srchBox.style.borderColor='rgba(212,175,55,0.55)';
+    srchBox.style.background='rgba(212,175,55,0.05)';
+    srchBox.style.boxShadow='0 0 30px rgba(212,175,55,0.10)';
   });
-  wrap.appendChild(qaScroll);
-
-  // --- Feature Cards (horizontal scroll) ---
-  var featLabel=el("div",{style:{fontSize:"12px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"}});
-  featLabel.textContent="Explore";
-  wrap.appendChild(featLabel);
-  var featScroll=el("div",{style:{display:"flex",gap:"12px",overflowX:"auto",paddingBottom:"8px",scrollSnapType:"x mandatory",WebkitOverflowScrolling:"touch"}});
-  featScroll.style.cssText+=";-ms-overflow-style:none;scrollbar-width:none";
-  var feats=[
-    {icon:"handshake",title:"Deal Board",desc:"Off-market listings",color:"#10B981",sec:"Network",sub:"Deals"},
-    {icon:"users",title:"AI Chief",desc:"Agent workspace",color:"#8B5CF6",sec:"Network",sub:"Chiefs"},
-    {icon:"layout-dashboard",title:"Workspace",desc:"Custom dashboard",color:"#D4AF37",sec:"More",sub:"Workspace"},
-    {icon:"user-check",title:"AI Advisor",desc:"Personalized picks",color:"#3B82F6",sec:"Market",sub:"Advisor"}
-  ];
-  feats.forEach(function(f){
-    var fc=el("div",{style:{background:cl.surface,borderRadius:"16px",padding:"16px",minWidth:"160px",flexShrink:"0",cursor:"pointer",border:"1px solid "+cl.border,transition:"all 0.2s ease",scrollSnapAlign:"start"}});
-    var fcIcon=el("div",{style:{width:"40px",height:"40px",borderRadius:"12px",background:f.color+"14",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:"12px"}});
-    fcIcon.innerHTML='<i data-lucide="'+f.icon+'" style="width:20px;height:20px;color:'+f.color+'"></i>';
-    fc.appendChild(fcIcon);
-    fc.appendChild(div({fontSize:"14px",fontWeight:"700",color:cl.white,fontFamily:"'Inter',sans-serif",marginBottom:"4px"},f.title));
-    fc.appendChild(div({fontSize:"12px",color:cl.sub,fontFamily:"'Inter',sans-serif"},f.desc));
-    fc.addEventListener("click",function(){setSection(f.sec,f.sub);});
-    fc.addEventListener("mouseenter",function(){fc.style.background=cl.raised;fc.style.borderColor=cl.borderHi;});
-    fc.addEventListener("mouseleave",function(){fc.style.background=cl.surface;fc.style.borderColor=cl.border;});
-    featScroll.appendChild(fc);
+  srchBox.addEventListener('mouseleave',function(){
+    srchBox.style.borderColor='rgba(212,175,55,0.25)';
+    srchBox.style.background='rgba(255,255,255,0.04)';
+    srchBox.style.boxShadow='0 0 0 0 rgba(212,175,55,0)';
   });
-  wrap.appendChild(wrapHScroll(featScroll));
+  srchBox.addEventListener('click',function(){setSection('Market','Find');});
+  var srchIc=el('div',{style:{width:'38px',height:'38px',borderRadius:'10px',background:'rgba(212,175,55,0.12)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:'0'}});
+  srchIc.innerHTML='<i data-lucide="sparkles" style="width:20px;height:20px;color:#D4A843"></i>';
+  srchBox.appendChild(srchIc);
+  var srchTxt=el('div',{style:{flex:'1',minWidth:'0'}});
+  srchTxt.appendChild(div({fontSize:'13px',color:'#E8EDF5',fontFamily:"'Inter',sans-serif",fontWeight:'500',marginBottom:'2px'},'AI Property Search'));
+  srchTxt.appendChild(div({fontSize:'11px',color:'#6B7A9E',fontFamily:"'Inter',sans-serif"},'e.g. "Best 2BR under 2M with 7%+ yield in JVC"'));
+  srchBox.appendChild(srchTxt);
+  var srchBtn=el('div',{style:{
+    background:'linear-gradient(135deg,rgba(212,175,55,0.20),rgba(212,175,55,0.08))',
+    border:'1px solid rgba(212,175,55,0.30)',borderRadius:'10px',
+    padding:'8px 14px',display:'flex',alignItems:'center',gap:'5px',flexShrink:'0'
+  }});
+  srchBtn.innerHTML='<i data-lucide="arrow-right" style="width:14px;height:14px;color:#D4A843"></i>';
+  srchBtn.appendChild(span({fontSize:'11px',color:'#D4A843',fontFamily:"'Space Grotesk',sans-serif",fontWeight:'700'},'Search'));
+  srchBox.appendChild(srchBtn);
+  srchWrap.appendChild(srchBox);
 
-  // --- Portfolio Summary ---
-  var portfolioAssets=[];
-  try{portfolioAssets=JSON.parse(localStorage.getItem("dubaival_portfolio")||"[]");}catch(e){}
+  var chips=el('div',{style:{display:'flex',gap:'8px',marginTop:'10px',flexWrap:'wrap'}});
+  [{t:'Downtown 2BR',c:'#3B82F6',i:'building-2'},{t:'High Yield JVC',c:'#00C896',i:'trending-up'},{t:'Marina Sea View',c:'#8B5CF6',i:'waves'},{t:'Palm Villas',c:'#D4A843',i:'palmtree'}].forEach(function(ch){
+    var chip=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:ch.c+'12',border:'1px solid '+ch.c+'28',borderRadius:'20px',padding:'6px 12px',cursor:'pointer',transition:'all 0.15s ease'}});
+    chip.innerHTML='<i data-lucide="'+ch.i+'" style="width:11px;height:11px;color:'+ch.c+'"></i>';
+    chip.appendChild(span({fontSize:'11px',color:ch.c,fontFamily:"'Inter',sans-serif",fontWeight:'600'},ch.t));
+    chip.addEventListener('click',function(){setSection('Market','Find');});
+    chip.addEventListener('mouseenter',function(){chip.style.background=ch.c+'22';chip.style.borderColor=ch.c+'50';});
+    chip.addEventListener('mouseleave',function(){chip.style.background=ch.c+'12';chip.style.borderColor=ch.c+'28';});
+    chips.appendChild(chip);
+  });
+  srchWrap.appendChild(chips);
+  wrap.appendChild(srchWrap);
 
-  var pfSection=el("div",{style:{marginTop:"24px"}});
-  pfSection.appendChild(div({fontSize:"12px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"},"Your Portfolio"));
+  // ── ③ QUICK ACTIONS ──────────────────────────────────────────────
+  var qaWrap=el('div',{className:'dv-fu dv-fu-3',style:{padding:'24px 16px 0'}});
+  qaWrap.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'14px'},'Quick Actions'));
 
-  var pfCard=el("div",{style:{background:cl.surface,borderRadius:"16px",padding:"18px",border:"1px solid "+cl.border,marginBottom:"20px"}});
-  if(portfolioAssets.length>0){
-    var totalVal=0,totalRent=0;
-    portfolioAssets.forEach(function(a){totalVal+=(parseFloat(a.price)||0);totalRent+=(parseFloat(a.rent)||0);});
-    var pfTop=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"16px"}});
-    var pfLeft=el("div",{});
-    pfLeft.appendChild(div({fontSize:"12px",color:cl.sub,fontFamily:"'Inter',sans-serif",marginBottom:"4px"},"Total Value"));
-    pfLeft.appendChild(div({fontSize:"22px",fontWeight:"800",color:cl.white,fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'"},"AED "+(totalVal/1e6).toFixed(2)+"M"));
-    pfTop.appendChild(pfLeft);
-    var pfRight=el("div",{style:{textAlign:"right"}});
-    pfRight.appendChild(div({fontSize:"12px",color:cl.sub,fontFamily:"'Inter',sans-serif",marginBottom:"4px"},portfolioAssets.length+" Assets"));
-    if(totalRent>0)pfRight.appendChild(div({fontSize:"14px",fontWeight:"700",color:"#10B981",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'"},"AED "+(totalRent/12).toLocaleString(undefined,{maximumFractionDigits:0})+"/mo"));
-    pfTop.appendChild(pfRight);
-    pfCard.appendChild(pfTop);
-    var pfBtn=el("button",{style:{width:"100%",padding:"12px",background:"linear-gradient(135deg,rgba(212,175,55,0.15),rgba(212,175,55,0.05))",color:"#D4AF37",border:"none",borderRadius:"12px",fontSize:"13px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
-    pfBtn.textContent="Manage Portfolio";
-    pfBtn.addEventListener("click",function(){setSection("Portfolio","Assets");});
-    pfCard.appendChild(pfBtn);
-  } else {
-    pfCard.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",marginBottom:"14px",lineHeight:"1.5"},"Track your properties and get real-time valuations."));
-    var addBtn=el("button",{style:{padding:"12px 20px",background:"linear-gradient(135deg,rgba(212,175,55,0.15),rgba(212,175,55,0.05))",color:"#D4AF37",border:"none",borderRadius:"12px",fontSize:"13px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
-    addBtn.textContent="+ Add First Asset";
-    addBtn.addEventListener("click",function(){setSection("Portfolio","Assets");});
-    pfCard.appendChild(addBtn);
-  }
-  pfSection.appendChild(pfCard);
-  wrap.appendChild(pfSection);
+  // Primary large card (Analyzer)
+  var qaMain=el('div',{className:'dv-card-lift',style:{
+    background:'linear-gradient(135deg,rgba(212,175,55,0.14) 0%,rgba(212,175,55,0.04) 60%,rgba(10,15,30,0) 100%)',
+    border:'1px solid rgba(212,175,55,0.22)',borderRadius:'18px',
+    padding:'22px',marginBottom:'10px',cursor:'pointer',
+    boxShadow:'0 2px 20px rgba(212,175,55,0.06)'
+  }});
+  qaMain.addEventListener('click',function(){setSection('Market','Analyzer');});
+  qaMain.addEventListener('mouseenter',function(){qaMain.style.borderColor='rgba(212,175,55,0.45)';qaMain.style.boxShadow='0 8px 32px rgba(212,175,55,0.14)';});
+  qaMain.addEventListener('mouseleave',function(){qaMain.style.borderColor='rgba(212,175,55,0.22)';qaMain.style.boxShadow='0 2px 20px rgba(212,175,55,0.06)';});
+  var qaMainTop=el('div',{style:{display:'flex',alignItems:'center',gap:'14px',marginBottom:'16px'}});
+  var qaMainIc=el('div',{style:{width:'52px',height:'52px',borderRadius:'16px',background:'rgba(212,175,55,0.15)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:'0',boxShadow:'0 4px 16px rgba(212,175,55,0.20)'}});
+  qaMainIc.innerHTML='<i data-lucide="scan-search" style="width:26px;height:26px;color:#D4A843"></i>';
+  qaMainTop.appendChild(qaMainIc);
+  var qaMainTxt=el('div',{});
+  qaMainTxt.appendChild(div({fontSize:'19px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.01em',lineHeight:'1.1'},'Property Analyzer'));
+  qaMainTxt.appendChild(div({fontSize:'12px',color:'#9BA8C8',fontFamily:"'Inter',sans-serif",marginTop:'3px'},'AVM valuation · confidence score · yield · investment signal'));
+  qaMainTop.appendChild(qaMainTxt);
+  qaMain.appendChild(qaMainTop);
+  var qaFeatures=el('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'16px'}});
+  [{t:'Confidence Score',c:'#D4A843'},{t:'Yield Analysis',c:'#00C896'},{t:'Investment Signal',c:'#3B82F6'},{t:'PDF Report',c:'#8B5CF6'}].forEach(function(f){
+    var fp=el('div',{style:{background:f.c+'12',border:'1px solid '+f.c+'25',borderRadius:'20px',padding:'4px 10px'}});
+    fp.appendChild(span({fontSize:'10px',color:f.c,fontFamily:"'Inter',sans-serif",fontWeight:'600'},f.t));
+    qaFeatures.appendChild(fp);
+  });
+  qaMain.appendChild(qaFeatures);
+  var qaMainBtn=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',background:'linear-gradient(135deg,#D4A843,#A07D1C)',borderRadius:'12px',padding:'13px',color:'#070B14',fontWeight:'800',fontSize:'13px',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'0.05em',boxShadow:'0 4px 16px rgba(212,168,67,0.30)'}});
+  qaMainBtn.innerHTML='OPEN ANALYZER <i data-lucide="arrow-right" style="width:15px;height:15px;margin-left:4px"></i>';
+  qaMain.appendChild(qaMainBtn);
+  qaWrap.appendChild(qaMain);
 
-  // --- Recent Activity ---
-  var recent=[];
-  try{recent=JSON.parse(localStorage.getItem("dubaival_recent")||"[]");}catch(e){}
-  if(recent.length>0){
-    var recentSec=el("div",{style:{marginBottom:"20px"}});
-    recentSec.appendChild(div({fontSize:"12px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:"14px"},"Recent Activity"));
-    var recentCard=el("div",{style:{background:cl.surface,borderRadius:"16px",border:"1px solid "+cl.border,overflow:"hidden"}});
-    recent.slice(0,5).forEach(function(r,i){
-      var row=el("div",{style:{display:"flex",alignItems:"center",gap:"12px",padding:"14px 16px",borderBottom:i<Math.min(recent.length,5)-1?"1px solid "+cl.border:"none"}});
-      var rIcon=el("div",{style:{width:"32px",height:"32px",borderRadius:"10px",background:"rgba(212,175,55,0.08)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
-      rIcon.innerHTML='<i data-lucide="file-search" style="width:16px;height:16px;color:#D4AF37"></i>';
-      row.appendChild(rIcon);
-      var rText=el("div",{style:{flex:"1",minWidth:"0"}});
-      rText.appendChild(div({color:cl.white,fontSize:"13px",fontFamily:"'Inter',sans-serif",fontWeight:"500",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},r.label||r.building||r.area||"Valuation"));
-      if(r.ts){var ago=Date.now()-r.ts;var agoStr=ago<3600000?Math.round(ago/60000)+"m ago":ago<86400000?Math.round(ago/3600000)+"h ago":Math.round(ago/86400000)+"d ago";rText.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},agoStr));}
-      row.appendChild(rText);
-      row.appendChild(el("div",{style:{color:"#4A5568",flexShrink:"0"},innerHTML:'<i data-lucide="chevron-right" style="width:16px;height:16px"></i>'}));
-      recentCard.appendChild(row);
+  // 3 secondary cards
+  var qaSub=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'10px',marginBottom:'4px'}});
+  [{icon:'handshake',title:'Deal Board',desc:'Off-market',color:'#00C896',sec:'Network',sub:'Deals'},
+   {icon:'briefcase',title:'Portfolio',desc:'ROI & health',color:'#3B82F6',sec:'Portfolio',sub:'Assets'},
+   {icon:'bar-chart-3',title:'Market Index',desc:'Rankings',color:'#8B5CF6',sec:'Market',sub:'Index'}
+  ].forEach(function(q){
+    var c=el('div',{className:'dv-card-lift',style:{
+      background:'linear-gradient(145deg,'+q.color+'0D,rgba(255,255,255,0.02))',
+      border:'1px solid '+q.color+'20',borderRadius:'16px',padding:'16px',cursor:'pointer'
+    }});
+    c.addEventListener('click',function(){setSection(q.sec,q.sub);});
+    c.addEventListener('mouseenter',function(){c.style.borderColor=q.color+'45';c.style.background='linear-gradient(145deg,'+q.color+'18,rgba(255,255,255,0.03))';});
+    c.addEventListener('mouseleave',function(){c.style.borderColor=q.color+'20';c.style.background='linear-gradient(145deg,'+q.color+'0D,rgba(255,255,255,0.02))';});
+    var ic=el('div',{style:{width:'38px',height:'38px',borderRadius:'11px',background:q.color+'18',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:'12px'}});
+    ic.innerHTML='<i data-lucide="'+q.icon+'" style="width:18px;height:18px;color:'+q.color+'"></i>';
+    c.appendChild(ic);
+    c.appendChild(div({fontSize:'13px',fontWeight:'700',color:'#E8EDF5',fontFamily:"'Space Grotesk',sans-serif",marginBottom:'3px'},q.title));
+    c.appendChild(div({fontSize:'11px',color:'#6B7A9E',fontFamily:"'Inter',sans-serif"},q.desc));
+    qaSub.appendChild(c);
+  });
+  qaWrap.appendChild(qaSub);
+  wrap.appendChild(qaWrap);
+
+  // ── ④ MARKET PULSE ───────────────────────────────────────────────
+  (function(){
+    var aE=Object.entries(AREAS||{});
+    var nB=typeof DB!=='undefined'?Object.keys(DB).length:0;
+    var aPsf=0,aY=0,cnt=0,byG=[];
+    aE.forEach(function(e){var a=e[1];if(a.psf>0&&a.y&&a.y[0]>0){aPsf+=a.psf;aY+=(a.y[0]+a.y[1])/2;cnt++;}if(a.g&&a.g[0]>0)byG.push(e);});
+    if(cnt>0){aPsf=Math.round(aPsf/cnt);aY=(aY/cnt).toFixed(1);}
+    byG.sort(function(a,b){return b[1].g[0]-a[1].g[0];});
+    var top=byG[0];
+
+    var pw=el('div',{className:'dv-fu dv-fu-4',style:{padding:'24px 16px 0'}});
+    var phdr=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px'}});
+    phdr.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase'},'Market Pulse'));
+    var liveTag=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:'rgba(0,200,150,0.08)',border:'1px solid rgba(0,200,150,0.20)',borderRadius:'20px',padding:'3px 9px'}});
+    var liveDot=el('div',{style:{width:'5px',height:'5px',borderRadius:'50%',background:'#00C896',animation:'dvPulse 2s ease infinite'}});
+    liveTag.appendChild(liveDot);
+    liveTag.appendChild(span({fontSize:'9px',color:'#00C896',fontFamily:"'Space Grotesk',sans-serif",fontWeight:'700',letterSpacing:'0.08em'},'LIVE'));
+    phdr.appendChild(liveTag);
+    pw.appendChild(phdr);
+
+    var pgrid=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:'8px',marginBottom:'10px'}});
+    [{v:nB.toLocaleString(),l:'Buildings',s:'in database',c:'#D4A843'},
+     {v:String(aE.length),l:'Areas',s:'tracked',c:'#3B82F6'},
+     {v:'AED '+aPsf.toLocaleString(),l:'Avg PSF',s:'Dubai avg',c:'#00C896'},
+     {v:aY+'%',l:'Avg Yield',s:'gross',c:'#8B5CF6'}
+    ].forEach(function(s){
+      var card=el('div',{style:{
+        background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.07)',
+        borderRadius:'14px',padding:'16px',borderLeft:'3px solid '+s.c,
+        transition:'background 0.2s ease'
+      }});
+      card.addEventListener('mouseenter',function(){card.style.background='rgba(255,255,255,0.055)';});
+      card.addEventListener('mouseleave',function(){card.style.background='rgba(255,255,255,0.03)';});
+      card.appendChild(div({fontSize:'22px',fontWeight:'800',color:s.c,fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'",lineHeight:'1',marginBottom:'6px'},s.v));
+      card.appendChild(div({fontSize:'12px',fontWeight:'600',color:'#E8EDF5',fontFamily:"'Inter',sans-serif"},s.l));
+      card.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontFamily:"'Inter',sans-serif",marginTop:'1px'},s.s));
+      pgrid.appendChild(card);
     });
-    recentSec.appendChild(recentCard);
-    wrap.appendChild(recentSec);
+    pw.appendChild(pgrid);
+
+    if(top){
+      var tb=el('div',{style:{
+        display:'flex',alignItems:'center',gap:'12px',
+        background:'linear-gradient(135deg,rgba(0,200,150,0.07),rgba(0,200,150,0.02))',
+        border:'1px solid rgba(0,200,150,0.18)',borderRadius:'14px',
+        padding:'14px 16px',cursor:'pointer',transition:'all 0.2s ease',marginBottom:'4px'
+      }});
+      tb.addEventListener('click',function(){setSection('Market','Index');});
+      tb.addEventListener('mouseenter',function(){tb.style.borderColor='rgba(0,200,150,0.35)';});
+      tb.addEventListener('mouseleave',function(){tb.style.borderColor='rgba(0,200,150,0.18)';});
+      var tbIc=el('div',{style:{width:'36px',height:'36px',borderRadius:'10px',background:'rgba(0,200,150,0.12)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:'0'}});
+      tbIc.innerHTML='<i data-lucide="trending-up" style="width:18px;height:18px;color:#00C896"></i>';
+      tb.appendChild(tbIc);
+      var tbTxt=el('div',{style:{flex:'1',minWidth:'0'}});
+      tbTxt.appendChild(div({fontSize:'11px',color:'#9BA8C8',fontFamily:"'Inter',sans-serif",marginBottom:'2px'},'Top Performing Area'));
+      tbTxt.appendChild(div({fontSize:'14px',fontWeight:'700',color:'#E8EDF5',fontFamily:"'Space Grotesk',sans-serif"},
+        top[0]+' — +'+top[1].g[0].toFixed(1)+'% YoY growth'));
+      tb.appendChild(tbTxt);
+      var tbArr=el('div',{style:{color:'rgba(0,200,150,0.5)',flexShrink:'0'}});
+      tbArr.innerHTML='<i data-lucide="chevron-right" style="width:16px;height:16px"></i>';
+      tb.appendChild(tbArr);
+      pw.appendChild(tb);
+    }
+    wrap.appendChild(pw);
+  })();
+
+  // ── ⑤ TOP OPPORTUNITIES ──────────────────────────────────────────
+  var momWrap=el('div',{className:'dv-fu dv-fu-5',style:{padding:'24px 16px 0'}});
+  momWrap.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'14px'},'Top Opportunities'));
+  momWrap.appendChild(renderMarketMoments(cl));
+  wrap.appendChild(momWrap);
+
+  // ── ⑥ EXPLORE ────────────────────────────────────────────────────
+  var expWrap=el('div',{className:'dv-fu dv-fu-6',style:{padding:'24px 16px 0'}});
+  expWrap.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'14px'},'Explore Platform'));
+  var expScroll=el('div',{style:{display:'flex',gap:'10px',overflowX:'auto',paddingBottom:'8px',scrollSnapType:'x mandatory',WebkitOverflowScrolling:'touch'}});
+  expScroll.style.cssText+=';-ms-overflow-style:none;scrollbar-width:none';
+  [{icon:'handshake',title:'Deal Board',desc:'Off-market & agent network',c:'#00C896',sec:'Network',sub:'Deals'},
+   {icon:'users',title:'AI Chief',desc:'Your agent workspace',c:'#8B5CF6',sec:'Network',sub:'Chiefs'},
+   {icon:'map',title:'Map View',desc:'Interactive area map',c:'#10B981',sec:'Market',sub:'Map'},
+   {icon:'layout-dashboard',title:'Workspace',desc:'Custom dashboard builder',c:'#D4A843',sec:'More',sub:'Workspace'},
+   {icon:'user-check',title:'AI Advisor',desc:'Personalized picks',c:'#F59E0B',sec:'Market',sub:'Advisor'},
+   {icon:'newspaper',title:'News',desc:'Latest market news',c:'#3B82F6',sec:'Market',sub:'News'}
+  ].forEach(function(f){
+    var fc=el('div',{style:{
+      background:'rgba(255,255,255,0.03)',backdropFilter:'blur(16px)',WebkitBackdropFilter:'blur(16px)',
+      borderRadius:'18px',padding:'16px',minWidth:'148px',maxWidth:'148px',flexShrink:'0',cursor:'pointer',
+      border:'1px solid rgba(255,255,255,0.07)',transition:'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+      scrollSnapAlign:'start'
+    }});
+    var fcIc=el('div',{style:{width:'42px',height:'42px',borderRadius:'13px',background:f.c+'15',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:'12px',transition:'transform 0.2s ease',boxShadow:'0 2px 12px '+f.c+'18'}});
+    fcIc.innerHTML='<i data-lucide="'+f.icon+'" style="width:20px;height:20px;color:'+f.c+'"></i>';
+    fc.appendChild(fcIc);
+    fc.appendChild(div({fontSize:'13px',fontWeight:'700',color:'#E8EDF5',fontFamily:"'Inter',sans-serif",marginBottom:'4px',lineHeight:'1.2'},f.title));
+    fc.appendChild(div({fontSize:'11px',color:'#6B7A9E',fontFamily:"'Inter',sans-serif",lineHeight:'1.3'},f.desc));
+    fc.addEventListener('click',function(){setSection(f.sec,f.sub);});
+    fc.addEventListener('mouseenter',function(){fc.style.background='rgba(255,255,255,0.07)';fc.style.borderColor='rgba(255,255,255,0.14)';fc.style.transform='translateY(-4px)';fcIc.style.transform='scale(1.08)';});
+    fc.addEventListener('mouseleave',function(){fc.style.background='rgba(255,255,255,0.03)';fc.style.borderColor='rgba(255,255,255,0.07)';fc.style.transform='translateY(0)';fcIc.style.transform='scale(1)';});
+    expScroll.appendChild(fc);
+  });
+  expWrap.appendChild(wrapHScroll(expScroll));
+  wrap.appendChild(expWrap);
+
+  // ── ⑦ PORTFOLIO ──────────────────────────────────────────────────
+  var pAssets=[];
+  try{pAssets=JSON.parse(localStorage.getItem('dubaival_portfolio')||'[]');}catch(e){}
+  var pfWrap=el('div',{style:{padding:'24px 16px 0'}});
+  pfWrap.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'14px'},'Your Portfolio'));
+  if(pAssets.length>0){
+    var tV=0,tR=0;
+    pAssets.forEach(function(a){tV+=(parseFloat(a.price)||0);tR+=(parseFloat(a.rent)||0);});
+    var yld2=tV>0&&tR>0?((tR/tV)*100).toFixed(1):null;
+    var pfCard2=el('div',{style:{
+      background:'linear-gradient(135deg,rgba(212,175,55,0.10) 0%,rgba(212,175,55,0.03) 50%,rgba(10,15,30,0) 100%)',
+      border:'1px solid rgba(212,175,55,0.20)',borderRadius:'18px',padding:'22px',
+      boxShadow:'0 4px 24px rgba(212,175,55,0.06)'
+    }});
+    var pfR=el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'18px'}});
+    var pfL=el('div',{});
+    pfL.appendChild(div({fontSize:'10px',color:'rgba(212,175,55,0.60)',fontFamily:"'Inter',sans-serif",letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:'5px'},'Total Portfolio Value'));
+    pfL.appendChild(div({fontSize:'28px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'",lineHeight:'1'},'AED '+(tV/1e6).toFixed(2)+'M'));
+    if(tR>0)pfL.appendChild(div({fontSize:'12px',color:'rgba(0,200,150,0.80)',fontFamily:"'Inter',sans-serif",marginTop:'5px'},'Monthly income · AED '+(tR/12).toLocaleString(undefined,{maximumFractionDigits:0})));
+    pfR.appendChild(pfL);
+    var pfBadges=el('div',{style:{display:'flex',flexDirection:'column',gap:'5px',alignItems:'flex-end'}});
+    pfBadges.appendChild(div({background:'rgba(0,200,150,0.12)',border:'1px solid rgba(0,200,150,0.25)',borderRadius:'8px',padding:'4px 10px',fontSize:'11px',fontWeight:'700',color:'#00C896',fontFamily:"'Space Grotesk',sans-serif"},pAssets.length+' Assets'));
+    if(yld2)pfBadges.appendChild(div({background:'rgba(212,175,55,0.10)',border:'1px solid rgba(212,175,55,0.25)',borderRadius:'8px',padding:'4px 10px',fontSize:'11px',fontWeight:'700',color:'#D4A843',fontFamily:"'Space Grotesk',sans-serif"},yld2+'% Yield'));
+    pfR.appendChild(pfBadges);
+    pfCard2.appendChild(pfR);
+    var pfBtn2=el('button',{style:{width:'100%',padding:'13px',background:'linear-gradient(135deg,#D4A843,#A07D1C)',color:'#070B14',border:'none',borderRadius:'12px',fontSize:'13px',fontWeight:'800',fontFamily:"'Space Grotesk',sans-serif",cursor:'pointer',letterSpacing:'0.04em',boxShadow:'0 4px 16px rgba(212,168,67,0.25)',transition:'all 0.2s ease'}});
+    pfBtn2.textContent='MANAGE PORTFOLIO →';
+    pfBtn2.addEventListener('mouseenter',function(){pfBtn2.style.boxShadow='0 6px 24px rgba(212,168,67,0.40)';pfBtn2.style.transform='translateY(-1px)';});
+    pfBtn2.addEventListener('mouseleave',function(){pfBtn2.style.boxShadow='0 4px 16px rgba(212,168,67,0.25)';pfBtn2.style.transform='';});
+    pfBtn2.addEventListener('click',function(){setSection('Portfolio','Assets');});
+    pfCard2.appendChild(pfBtn2);
+    pfWrap.appendChild(pfCard2);
+  } else {
+    var pfEmpty=el('div',{style:{
+      background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.08)',
+      borderRadius:'18px',padding:'28px',textAlign:'center'
+    }});
+    var pfEmptyIc=el('div',{style:{width:'52px',height:'52px',borderRadius:'16px',background:'rgba(212,175,55,0.08)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px',animation:'dvFloat 3s ease infinite'}});
+    pfEmptyIc.innerHTML='<i data-lucide="briefcase" style="width:26px;height:26px;color:#D4A843"></i>';
+    pfEmpty.appendChild(pfEmptyIc);
+    pfEmpty.appendChild(div({fontSize:'16px',fontWeight:'700',color:'#E8EDF5',fontFamily:"'Space Grotesk',sans-serif",marginBottom:'8px'},'Track Your Properties'));
+    pfEmpty.appendChild(div({fontSize:'13px',color:'#6B7A9E',fontFamily:"'Inter',sans-serif",lineHeight:'1.6',marginBottom:'20px',maxWidth:'280px',margin:'0 auto 20px'},'Add your properties for real-time AVM valuations, yield tracking, and portfolio health analysis.'));
+    var pfAddBtn=el('button',{style:{display:'inline-flex',alignItems:'center',gap:'7px',padding:'12px 22px',background:'rgba(212,175,55,0.10)',color:'#D4A843',border:'1px solid rgba(212,175,55,0.25)',borderRadius:'12px',fontSize:'13px',fontWeight:'700',fontFamily:"'Space Grotesk',sans-serif",cursor:'pointer',transition:'all 0.2s ease'}});
+    pfAddBtn.innerHTML='<i data-lucide="plus" style="width:15px;height:15px"></i>Add First Asset';
+    pfAddBtn.addEventListener('mouseenter',function(){pfAddBtn.style.background='rgba(212,175,55,0.18)';pfAddBtn.style.borderColor='rgba(212,175,55,0.45)';});
+    pfAddBtn.addEventListener('mouseleave',function(){pfAddBtn.style.background='rgba(212,175,55,0.10)';pfAddBtn.style.borderColor='rgba(212,175,55,0.25)';});
+    pfAddBtn.addEventListener('click',function(){setSection('Portfolio','Assets');});
+    pfEmpty.appendChild(pfAddBtn);
+    pfWrap.appendChild(pfEmpty);
+  }
+  wrap.appendChild(pfWrap);
+
+  // ── ⑧ RECENT ACTIVITY ────────────────────────────────────────────
+  var recent=[];
+  try{recent=JSON.parse(localStorage.getItem('dubaival_recent')||'[]');}catch(e){}
+  if(recent.length>0){
+    var recWrap=el('div',{style:{padding:'24px 16px 0'}});
+    recWrap.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'14px'},'Recent Activity'));
+    var recCard=el('div',{style:{background:'rgba(255,255,255,0.03)',borderRadius:'16px',border:'1px solid rgba(255,255,255,0.07)',overflow:'hidden'}});
+    recent.slice(0,5).forEach(function(r,i){
+      var row=el('div',{style:{display:'flex',alignItems:'center',gap:'12px',padding:'14px 16px',borderBottom:i<Math.min(recent.length,5)-1?'1px solid rgba(255,255,255,0.06)':'none',cursor:'pointer',transition:'background 0.15s ease'}});
+      row.addEventListener('mouseenter',function(){row.style.background='rgba(255,255,255,0.04)';});
+      row.addEventListener('mouseleave',function(){row.style.background='';});
+      var rIc=el('div',{style:{width:'34px',height:'34px',borderRadius:'10px',background:'rgba(212,175,55,0.08)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:'0'}});
+      rIc.innerHTML='<i data-lucide="file-search" style="width:16px;height:16px;color:#D4A843"></i>';
+      row.appendChild(rIc);
+      var rTxt=el('div',{style:{flex:'1',minWidth:'0'}});
+      rTxt.appendChild(div({color:'#E8EDF5',fontSize:'13px',fontFamily:"'Inter',sans-serif",fontWeight:'500',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'},r.label||r.building||r.area||'Valuation'));
+      if(r.ts){var ago=Date.now()-r.ts;rTxt.appendChild(div({color:'#6B7A9E',fontSize:'10px',fontFamily:"'Inter',sans-serif",marginTop:'2px'},ago<3600000?Math.round(ago/60000)+'m ago':ago<86400000?Math.round(ago/3600000)+'h ago':Math.round(ago/86400000)+'d ago'));}
+      row.appendChild(rTxt);
+      row.appendChild(el('div',{style:{color:'rgba(255,255,255,0.20)',flexShrink:'0'},innerHTML:'<i data-lucide="chevron-right" style="width:15px;height:15px"></i>'}));
+      recCard.appendChild(row);
+    });
+    recWrap.appendChild(recCard);
+    wrap.appendChild(recWrap);
   }
 
   return wrap;
@@ -1966,8 +2202,7 @@ function renderProfilePanel(){
     btn.style.color=connected?"#10B981":color;
     btn.addEventListener("click",function(){
       if(platform==="meta"){
-        var metaAppId="";// filled by server below
-        fetch("/api/oauth-meta").then(function(r){return r.json();}).then(function(d){
+        fetch("/api/inbox?action=config").then(function(r){return r.json();}).then(function(d){
           var url="https://www.facebook.com/dialog/oauth?client_id="+d.meta_app_id+
             "&redirect_uri="+encodeURIComponent(window.location.origin+"/callback")+
             "&scope=pages_show_list,pages_messaging,instagram_manage_messages,instagram_basic,pages_read_engagement,read_page_mailboxes"+
@@ -1975,7 +2210,7 @@ function renderProfilePanel(){
           window.location.href=url;
         }).catch(function(){alert("Meta App ID not configured. Add META_APP_ID to Vercel env vars.");});
       } else if(platform==="google"){
-        fetch("/api/oauth-meta").then(function(r){return r.json();}).then(function(d){
+        fetch("/api/inbox?action=config").then(function(r){return r.json();}).then(function(d){
           var url="https://accounts.google.com/o/oauth2/v2/auth?client_id="+d.google_client_id+
             "&redirect_uri="+encodeURIComponent(window.location.origin+"/callback")+
             "&scope="+encodeURIComponent("https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send")+
@@ -2279,7 +2514,7 @@ function render(preserveScroll){
     demoBanner.appendChild(span({color:"#A78BFA",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"✦ DEMO MODE — Data is simulated. Sign up to save your work."));
     var exitDemo=el("button",{style:{background:"rgba(139,92,246,0.15)",border:"1px solid rgba(139,92,246,0.3)",color:"#A78BFA",borderRadius:"6px",padding:"3px 10px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",whiteSpace:"nowrap"}});
     exitDemo.textContent="Sign Up Free";
-    exitDemo.addEventListener("click",function(){DV_AUTH.isDemo=false;DV_AUTH.user=null;DV_AUTH.profile=null;DV_AUTH.showModal=true;DV_AUTH.modalTab="signup";render();});
+    exitDemo.addEventListener("click",function(){DV_AUTH.isDemo=false;DV_AUTH.user=null;DV_AUTH.profile=null;DV_AUTH.showModal=true;DV_AUTH.modalTab="signup";if(typeof restoreFromDemoBackup==="function")restoreFromDemoBackup();render();});
     demoBanner.appendChild(exitDemo);
     main.appendChild(demoBanner);
   }

@@ -6,11 +6,18 @@ function renderMarketIndex(){
   var now=new Date();
   var dateStr=now.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
 
-  // Header
-  var header=div({textAlign:"center",marginBottom:"24px"});
-  header.appendChild(el("div",{style:{color:cl.gold,fontSize:"10px",letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:"6px"}},"◆ Market Intelligence"));
-  header.appendChild(el("h1",{style:{color:cl.text,fontSize:"18px",fontWeight:"800",margin:"0 0 4px"}},t("idx_title")));
-  header.appendChild(el("div",{style:{color:cl.sub,fontSize:"11px"}},"by DubAIVal · "+dateStr));
+  // Premium header
+  var header=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'24px',paddingBottom:'16px',borderBottom:'1px solid rgba(255,255,255,0.06)'}});
+  var _hL=el('div',{});
+  _hL.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'4px'},'Market Rankings'));
+  _hL.appendChild(div({fontSize:'22px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},'Market Index'));
+  _hL.appendChild(div({fontSize:'12px',color:'#6B7A9E',fontFamily:"'Inter',sans-serif",marginTop:'4px'},'by DubAIVal · '+dateStr));
+  header.appendChild(_hL);
+  var _hBadge=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:'rgba(212,168,67,0.08)',border:'1px solid rgba(212,168,67,0.20)',borderRadius:'20px',padding:'5px 11px',flexShrink:'0'}});
+  var _hDot=el('div',{style:{width:'6px',height:'6px',borderRadius:'50%',background:'#D4A843',animation:'dvPulse 2s ease infinite'}});
+  _hBadge.appendChild(_hDot);
+  _hBadge.appendChild(span({fontSize:'10px',color:'#D4A843',fontFamily:"'Space Grotesk',sans-serif",fontWeight:'700',letterSpacing:'0.08em'},'LIVE'));
+  header.appendChild(_hBadge);
   wrap.appendChild(header);
 
   // Full Market Data CSV Export
