@@ -33,6 +33,18 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- Pre-existing, unrelated bug found while writing this migration: neither
+-- table actually has a "purpose" ('sale'/'rent') column, even though
+-- js/deals.js has always sent one on every listing/request submission
+-- (_ofmSubmitListing/_ofmSubmitRequest) and filters matches by it. PostgREST
+-- rejects an INSERT containing an unrecognized column, so posting a new "I
+-- Have"/"I Need" listing has likely been failing outright. Purely additive —
+-- does not touch any existing row/column.
+-- ─────────────────────────────────────────────────────────────────────────────
+ALTER TABLE ofm_listings ADD COLUMN IF NOT EXISTS purpose text NOT NULL DEFAULT 'sale' CHECK (purpose IN ('sale','rent'));
+ALTER TABLE ofm_requests ADD COLUMN IF NOT EXISTS purpose text NOT NULL DEFAULT 'sale' CHECK (purpose IN ('sale','rent'));
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- ofm_listings: revoke direct anon SELECT, add narrow public scan view +
 -- owner-only RPCs.
 -- ─────────────────────────────────────────────────────────────────────────────
