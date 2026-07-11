@@ -26,7 +26,7 @@ var { rateLimitExceeded } = require("./_lib/ratelimit");
 
 var GRAPH_BASE = "https://graph.facebook.com/v25.0";
 var GROQ_KEY = process.env.GROQ_API_KEY;
-var META_WEBHOOK_VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN || "dubaival_meta_webhook_2026";
+var META_WEBHOOK_VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || process.env.META_WEBHOOK_VERIFY_TOKEN || "dubaival_meta_webhook_2026";
 var SUPABASE_ANON_KEY = "sb_publishable_HNHSNnmBUYcTnF35bMEzxA_qhsoe6Yj";
 
 async function _resolveUserId(accessToken) {
