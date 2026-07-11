@@ -217,14 +217,9 @@ function _renderNewsStatus() {
   var cl = C();
   _newsStatusEl.innerHTML = "";
   if (NEWS_STATE.error && !NEWS_STATE.articles.length) {
-    var errWrap = div({ display: "flex", alignItems: "center", gap: "6px" });
-    errWrap.appendChild(span({ color: "#F87171", fontSize: "11px" }, "⚠ " + NEWS_STATE.error));
-    var retryBtn = el("button", {
-      style: { background: "transparent", border: "1px solid #F87171", color: "#F87171", borderRadius: "6px", padding: "2px 10px", fontSize: "10px", cursor: "pointer", fontFamily: "'Space Grotesk',monospace" },
-      onclick: function() { _fetchNews(false); }
-    }, "Retry");
-    errWrap.appendChild(retryBtn);
-    _newsStatusEl.appendChild(errWrap);
+    // The article list below already shows a full error + "Try Again" CTA
+    // for this exact case (see _renderNewsList) — leave the status bar
+    // empty here instead of showing a second, redundant retry button.
     return;
   }
   var row = div({ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" });
@@ -239,7 +234,7 @@ function _renderNewsStatus() {
     row.appendChild(span({ color: "#8899AA", fontSize: "11px", verticalAlign: "middle" }, "Live · updated " + timeAgo(new Date(NEWS_STATE.lastFetch).toISOString())));
   }
   if (NEWS_STATE.error && NEWS_STATE.articles.length) {
-    row.appendChild(span({ color: "#F87171", fontSize: "10px", marginLeft: "6px" }, "⚠ Some sources unavailable"));
+    row.appendChild(span({ color: "#EF4444", fontSize: "10px", marginLeft: "6px" }, "⚠ Some sources unavailable"));
   }
   _newsStatusEl.appendChild(row);
 }
@@ -264,10 +259,10 @@ function _renderNewsList() {
     var empty = div({ textAlign: "center", padding: "60px 20px" });
     if (NEWS_STATE.error && !NEWS_STATE.articles.length) {
       empty.appendChild(div({ fontSize: "32px", marginBottom: "12px" }, "⚠"));
-      empty.appendChild(div({ color: "#F87171", fontSize: "13px", fontWeight: "600", fontFamily: "'Space Grotesk',monospace", marginBottom: "6px" }, "Unable to load news"));
+      empty.appendChild(div({ color: "#EF4444", fontSize: "13px", fontWeight: "600", fontFamily: "'Space Grotesk',monospace", marginBottom: "6px" }, "Unable to load news"));
       empty.appendChild(div({ color: cl.sub, fontSize: "11px", marginBottom: "14px" }, NEWS_STATE.error));
       var retryLarge = el("button", {
-        style: { background: "transparent", border: "1px solid #F87171", color: "#F87171", borderRadius: "8px", padding: "7px 18px", fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "'Space Grotesk',monospace" },
+        style: { background: "transparent", border: "1px solid #EF4444", color: "#EF4444", borderRadius: "8px", padding: "7px 18px", fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "'Space Grotesk',monospace" },
         onclick: function() { _fetchNews(false); }
       }, "Try Again");
       empty.appendChild(retryLarge);
