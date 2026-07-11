@@ -350,6 +350,30 @@ a,button,.dv-sidebar-item,.dv-pill,.dv-bottom-tab,.dv-tool-btn{
       setTimeout(function(){P.SplashScreen.hide().catch(function(){});},600);
     }
 
+    // window.open() for external URLs (WhatsApp/Telegram/Twitter/LinkedIn share,
+    // mailto, "view original article" links, etc. — used in dozens of places
+    // across the app) silently does nothing in a native WebView, since those
+    // origins aren't in capacitor.config.json's allowNavigation. Route http(s)
+    // targets through the Browser plugin (in-app tab, which itself hands off
+    // to the WhatsApp/Telegram app via the OS if installed) and non-http
+    // schemes (mailto/tel/sms) through a same-window navigation, which the
+    // WebView hands to the OS to resolve.
+    if(P.Browser){
+      var _nativeWindowOpen=window.open;
+      window.open=function(url,target,features){
+        if(!url)return _nativeWindowOpen.call(window,url,target,features);
+        if(/^(mailto|tel|sms):/i.test(url)){
+          window.location.href=url;
+          return null;
+        }
+        if(/^https?:///i.test(url)){
+          P.Browser.open({url:url}).catch(function(){});
+          return null;
+        }
+        return _nativeWindowOpen.call(window,url,target,features);
+      };
+    }
+
     // Share: expose native share
     if(P.Share){
       window.nativeShare=function(o){

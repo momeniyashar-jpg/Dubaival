@@ -1573,6 +1573,19 @@ function renderChiefs() {
   var cl = C();
   var wrap = el("div",{style:{display:"flex",flexDirection:"column",height:"100%",maxWidth:"100%",overflowX:"hidden"}});
 
+  // Premium header
+  var _chiH=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 16px 12px',borderBottom:'1px solid rgba(255,255,255,0.06)',flexShrink:'0'}});
+  var _chiHL=el('div',{});
+  _chiHL.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'2px'},'Agent Workspace'));
+  _chiHL.appendChild(div({fontSize:'18px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},'AI Chief of Staff'));
+  _chiH.appendChild(_chiHL);
+  var _chiBadge=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:'rgba(212,168,67,0.08)',border:'1px solid rgba(212,168,67,0.20)',borderRadius:'20px',padding:'4px 10px',flexShrink:'0'}});
+  var _chiDot=el('div',{style:{width:'5px',height:'5px',borderRadius:'50%',background:'#D4A843',animation:'dvPulse 2s ease infinite'}});
+  _chiBadge.appendChild(_chiDot);
+  _chiBadge.appendChild(span({fontSize:'9px',color:'#D4A843',fontFamily:"'Space Grotesk',sans-serif",fontWeight:'700',letterSpacing:'0.08em'},'AGENT'));
+  _chiH.appendChild(_chiBadge);
+  wrap.appendChild(_chiH);
+
   // Internal view tabs
   var VIEWS = [
     {id:"dashboard",label:"Dashboard",icon:"layout-dashboard"},

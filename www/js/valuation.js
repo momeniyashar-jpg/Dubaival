@@ -119,8 +119,12 @@ function computeCommercialValuation(f){
   var fairPrice=Math.round(adjPSF*size);
   var deviation=Math.round((askPSF-adjPSF)/adjPSF*100);
   var verdict=deviation<=-15?"UNDERVALUED":deviation<=-5?"BELOW_MARKET":deviation<=5?"FAIR_VALUE":deviation<=15?"ABOVE_MARKET":"OVERPRICED";
-  var grossYield=aData?Math.round(aData.psf>0?(aData.avgP>0?800/aData.psf:7):7):7;
-  if(grossYield<4)grossYield=4;if(grossYield>12)grossYield=12;
+  var comPsf=aData&&aData.psf>0?aData.psf:adjPSF;
+  var grossYield=9-(comPsf/1000)*0.8;
+  if(subType==="warehouse")grossYield+=1.0;
+  else if(subType==="retail"||subType==="shop")grossYield+=0.3;
+  if(grossYield<5.5)grossYield=5.5;if(grossYield>9)grossYield=9;
+  grossYield=Math.round(grossYield*10)/10;
   var netYield=Math.round((grossYield-1.5)*10)/10;
   return{
     askPSF:askPSF,adjPSF:adjPSF,psfLo:psfLo,psfHi:psfHi,
