@@ -8,6 +8,18 @@ function activateDemoMode(){
     {id:"demo2",building:"Marina Gate 1",area:"Dubai Marina",type:"Apartment",beds:1,size:750,floor:22,view:"Marina View",purchasePrice:1650000,purchaseDate:"2022-06-10",serviceCharge:18,furnished:"Unfurnished"},
     {id:"demo3",building:"Ellington House",area:"Dubai Hills Estate",type:"Apartment",beds:3,size:2100,floor:8,view:"Golf View",purchasePrice:5800000,purchaseDate:"2024-03-01",serviceCharge:22,furnished:"Semi-Furnished"}
   ];
+  // Guard against silently wiping a guest's real portfolio: back it up and
+  // ask first if there's anything real to lose. Restored automatically when
+  // the user exits Demo Mode (see the Exit Demo handler in js/app.js).
+  try{
+    var existing=localStorage.getItem("dubaival_portfolio");
+    var parsed=null;try{parsed=existing?JSON.parse(existing):null;}catch(e2){}
+    if(Array.isArray(parsed)&&parsed.length>0){
+      var ok=confirm("You have "+parsed.length+" saved asset(s) in My Assets. Demo Mode will temporarily show sample data instead — your real data is backed up and restored automatically when you exit Demo Mode. Continue?");
+      if(!ok)return;
+      localStorage.setItem("dubaival_portfolio_demo_backup",existing);
+    }
+  }catch(e){}
   DV_AUTH.isDemo=true;
   DV_AUTH.user={id:"demo-user",email:"demo@dubaival.com"};
   DV_AUTH.profile={id:"demo-user",name:"Demo User",email:"demo@dubaival.com"};
@@ -15,6 +27,20 @@ function activateDemoMode(){
   DV_AUTH.loading=false;
   try{localStorage.setItem("dubaival_portfolio",JSON.stringify(DEMO_PORTFOLIO));}catch(e){}
   render();
+}
+
+// Restores whatever real portfolio was backed up (if any) before Demo Mode
+// replaced it. Safe to call even if no backup exists.
+function restoreFromDemoBackup(){
+  try{
+    var backup=localStorage.getItem("dubaival_portfolio_demo_backup");
+    if(backup!==null){
+      localStorage.setItem("dubaival_portfolio",backup);
+      localStorage.removeItem("dubaival_portfolio_demo_backup");
+    }else{
+      localStorage.removeItem("dubaival_portfolio");
+    }
+  }catch(e){}
 }
 
 function sbHeaders(token){
