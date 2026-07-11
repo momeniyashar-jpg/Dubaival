@@ -19,14 +19,24 @@ android {
         }
     }
 
-    // Fixed project keystore — ALL builds (debug + release) use the same key.
-    // This means APK updates always install over previous versions without uninstall.
+    // Fixed project keystore — ALL builds (debug + release) use the same key,
+    // so APK updates always install over previous versions without uninstall.
+    // Credentials load from the gitignored keystore.properties (never commit
+    // the keystore file or its passwords) — see keystore.properties.example.
+    def keystorePropsFile = rootProject.file("app/keystore.properties")
+    def keystoreProps = new Properties()
+    if (keystorePropsFile.exists()) {
+        keystoreProps.load(new FileInputStream(keystorePropsFile))
+    }
+
     signingConfigs {
         release {
-            storeFile file("dubaival.keystore")
-            storePassword "dubaival2026"
-            keyAlias "dubaival"
-            keyPassword "dubaival2026"
+            if (keystorePropsFile.exists()) {
+                storeFile file(keystoreProps["storeFile"])
+                storePassword keystoreProps["storePassword"]
+                keyAlias keystoreProps["keyAlias"]
+                keyPassword keystoreProps["keyPassword"]
+            }
         }
     }
 

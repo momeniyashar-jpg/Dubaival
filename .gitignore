@@ -26,3 +26,8 @@ Thumbs.db
 .env
 .env.local
 get-youtube-token.ps1
+
+# Android signing — NEVER commit the release keystore or its credentials.
+# See android/app/keystore.properties.example for local setup instructions.
+android/app/*.keystore
+android/app/keystore.properties
