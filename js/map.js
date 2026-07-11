@@ -1,6 +1,26 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- MAP TAB (Google Maps) ---------------------------------------------------
-var _dvMapState = {metric: "growth"};
+var _dvMapState = {metric: "growth", gmap: null, overlays: []};
+
+// Every render (including a plain metric-toggle click) previously built a
+// brand-new google.maps.Map + up to 347 Circle overlays without tearing down
+// the previous set — each overlay keeps its own listeners + closures alive
+// via the Maps API's internal event bus even after its DOM container is
+// discarded, so repeated toggles leaked whole map instances. Tear down
+// whatever the last render created before building the next one.
+function _dvMapCleanup() {
+  if (_dvMapState.overlays.length) {
+    _dvMapState.overlays.forEach(function(o) {
+      google.maps.event.clearInstanceListeners(o);
+      o.setMap(null);
+    });
+    _dvMapState.overlays = [];
+  }
+  if (_dvMapState.gmap) {
+    google.maps.event.clearInstanceListeners(_dvMapState.gmap);
+    _dvMapState.gmap = null;
+  }
+}
 
 var _GMAP_DARK_STYLES = [
   {elementType:"geometry",stylers:[{color:"#070B14"}]},
@@ -273,6 +293,8 @@ function renderMap() {
       var c2 = document.getElementById(mapId);
       if (!c2) return;
 
+      _dvMapCleanup();
+
       var gmap = new google.maps.Map(c2, {
         center: {lat:25.15, lng:55.22},
         zoom: 11,
@@ -285,6 +307,7 @@ function renderMap() {
         gestureHandling: "greedy"
       });
 
+      _dvMapState.gmap = gmap;
       var infoWin = new google.maps.InfoWindow();
 
       function getVal(aData, metric, areaName) {
@@ -353,6 +376,7 @@ function renderMap() {
           infoWin.setPosition({lat:coords[0], lng:coords[1]});
           infoWin.open(gmap);
         });
+        _dvMapState.overlays.push(circle);
       });
 
       if (_dvMapState.metric === "location") {
@@ -368,6 +392,7 @@ function renderMap() {
               infoWin.setContent('<div style="font-family:\'Space Grotesk\',monospace;color:#FFFFFF;padding:8px 10px;font-size:11px;"><span style="color:#818CF8;">M</span> <b>'+s.n+'</b><br><span style="color:#6B7A9E;">'+s.line+' Line</span></div>');
               infoWin.open(gmap, mk);
             });
+            _dvMapState.overlays.push(mk);
           });
         }
         if (window.TRAM_STATIONS) {
@@ -382,6 +407,7 @@ function renderMap() {
               infoWin.setContent('<div style="font-family:\'Space Grotesk\',monospace;color:#FFFFFF;padding:8px 10px;font-size:11px;"><span style="color:#D4A843;">T</span> <b>'+s.n+'</b><br><span style="color:#6B7A9E;">Dubai Tram</span></div>');
               infoWin.open(gmap, mk);
             });
+            _dvMapState.overlays.push(mk);
           });
         }
       }
