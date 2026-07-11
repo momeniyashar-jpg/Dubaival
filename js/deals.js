@@ -145,7 +145,7 @@ function _ofmScoreMatch(listing,req){
 // Run matching when LISTER posts (matches against existing requests)
 async function _ofmRunMatchingForListing(listingId,listing,listerToken){
   try{
-    var r=await fetch(SUPABASE_URL+"/rest/v1/ofm_requests?select=id,requester_token,building,beds,max_budget,purpose&active=eq.true&limit=500",
+    var r=await fetch(SUPABASE_URL+"/rest/v1/ofm_requests_scan?select=id,requester_token,building,beds,max_budget,purpose&limit=500",
       {headers:_ofmHR()});
     if(!r.ok)return 0;
     var reqs=await r.json();
@@ -170,7 +170,7 @@ async function _ofmRunMatchingForListing(listingId,listing,listerToken){
 // Only fetches non-sensitive columns: id, lister_token, building, beds, asking_price, purpose
 async function _ofmRunMatchingForRequest(requestId,req,requesterToken){
   try{
-    var r=await fetch(SUPABASE_URL+"/rest/v1/ofm_listings?select=id,lister_token,building,beds,asking_price,purpose&active=eq.true&limit=500",
+    var r=await fetch(SUPABASE_URL+"/rest/v1/ofm_listings_scan?select=id,lister_token,building,beds,asking_price,purpose&limit=500",
       {headers:_ofmHR()});
     if(!r.ok)return 0;
     var listings=await r.json();
@@ -250,82 +250,84 @@ async function _ofmSubmitRequest(f,requesterToken){
   return Array.isArray(created)?created[0]:created;
 }
 
+// Ownership-gated reads/mutations below all go through SECURITY DEFINER RPCs
+// (see supabase-ofm-rls-lockdown.sql) that verify the caller's token against
+// the row server-side — direct anon SELECT/UPDATE on these tables is denied.
+function _ofmRpc(name,params){
+  return fetch(SUPABASE_URL+"/rest/v1/rpc/"+name,
+    {method:"POST",headers:_ofmHR2(),body:JSON.stringify(params)});
+}
+function _ofmHR2(){return{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"};}
+
 // ── CRUD: Load My Listings ─────────────────────────────────────────────────────
 async function _ofmLoadMyListings(lt){
-  var r=await fetch(SUPABASE_URL+"/rest/v1/ofm_listings?select=id,area,building,unit_number,prop_type,beds,size_sqft,floor_num,asking_price,price_negotiable,vacant,dv_verdict,dv_confidence,dv_fair_price,dv_signal,active,match_count,purpose,created_at&lister_token=eq."+encodeURIComponent(lt)+"&order=created_at.desc",
-    {headers:_ofmHR()});
+  var r=await _ofmRpc("ofm_my_listings",{p_token:lt});
   return r.ok?await r.json():[];
 }
 
 // ── CRUD: Load My Requests ─────────────────────────────────────────────────────
 async function _ofmLoadMyRequests(rt){
-  var r=await fetch(SUPABASE_URL+"/rest/v1/ofm_requests?select=id,building,area,beds,max_budget,purpose,payment_method,timeline,active,match_count,created_at&requester_token=eq."+encodeURIComponent(rt)+"&order=created_at.desc",
-    {headers:_ofmHR()});
+  var r=await _ofmRpc("ofm_my_requests",{p_token:rt});
   return r.ok?await r.json():[];
 }
 
 // ── CRUD: Load Matches ─────────────────────────────────────────────────────────
 async function _ofmLoadMatchesForListing(listingId){
-  var r=await fetch(SUPABASE_URL+"/rest/v1/ofm_matches?listing_id=eq."+listingId+"&stage=neq.rejected&order=ai_score.desc",
-    {headers:_ofmHR()});
+  var r=await _ofmRpc("ofm_matches_for_listing",{p_listing_id:listingId,p_token:_ofmLt()});
   return r.ok?await r.json():[];
 }
 async function _ofmLoadMatchesForRequest(requestId){
-  var r=await fetch(SUPABASE_URL+"/rest/v1/ofm_matches?request_id=eq."+requestId+"&stage=neq.rejected&order=created_at.desc",
-    {headers:_ofmHR()});
+  var r=await _ofmRpc("ofm_matches_for_request",{p_request_id:requestId,p_token:_ofmRt()});
   return r.ok?await r.json():[];
 }
 
-// Load anonymized request details (for lister to see what requester wants)
+// Load anonymized request details (for lister to see what requester wants —
+// only for a request actually matched to one of this lister's listings)
 async function _ofmLoadReqDetails(requestId){
-  var r=await fetch(SUPABASE_URL+"/rest/v1/ofm_requests?id=eq."+requestId+"&select=id,requester_type,building,area,beds,max_budget,purpose,payment_method,min_size,preferred_floor,view_pref,timeline,notes",
-    {headers:_ofmHR()});
+  var r=await _ofmRpc("ofm_request_via_match",{p_request_id:requestId,p_lister_token:_ofmLt()});
   if(!r.ok)return null;var d=await r.json();return d[0]||null;
 }
 
 // Load my listing detail (full, for lister only)
 async function _ofmLoadListingDetail(listingId,lt){
-  var r=await fetch(SUPABASE_URL+"/rest/v1/ofm_listings?id=eq."+listingId+"&lister_token=eq."+encodeURIComponent(lt),
-    {headers:_ofmHR()});
+  var r=await _ofmRpc("ofm_listing_detail",{p_listing_id:listingId,p_token:lt});
   if(!r.ok)return null;var d=await r.json();return d[0]||null;
 }
 
 // ── CRUD: Match Actions ────────────────────────────────────────────────────────
 async function _ofmApproveMatch(matchId){
-  var r=await fetch(SUPABASE_URL+"/rest/v1/ofm_matches?id=eq."+matchId,
-    {method:"PATCH",headers:_ofmH(),
-     body:JSON.stringify({stage:"lister_approved",lister_seen:true,
-       updated_at:new Date().toISOString()})});
+  var r=await _ofmRpc("ofm_update_match",{p_match_id:matchId,p_token:_ofmLt(),
+    p_updates:{stage:"lister_approved",lister_seen:true}});
   return r.ok;
 }
 async function _ofmRejectMatch(matchId,note){
-  var r=await fetch(SUPABASE_URL+"/rest/v1/ofm_matches?id=eq."+matchId,
-    {method:"PATCH",headers:_ofmH(),
-     body:JSON.stringify({stage:"rejected",rejected_by:"lister",
-       rejection_note:note||null,updated_at:new Date().toISOString()})});
+  var r=await _ofmRpc("ofm_update_match",{p_match_id:matchId,p_token:_ofmLt(),
+    p_updates:{stage:"rejected",rejected_by:"lister",rejection_note:note||null}});
   return r.ok;
 }
 async function _ofmAdvanceStage(matchId,newStage,extra){
-  var payload=Object.assign({stage:newStage,updated_at:new Date().toISOString()},extra||{});
-  var r=await fetch(SUPABASE_URL+"/rest/v1/ofm_matches?id=eq."+matchId,
-    {method:"PATCH",headers:_ofmH(),body:JSON.stringify(payload)});
+  var r=await _ofmRpc("ofm_update_match",{p_match_id:matchId,p_token:_ofmLt(),
+    p_updates:Object.assign({stage:newStage},extra||{})});
   return r.ok;
 }
 
 // ── CRUD: Messages ─────────────────────────────────────────────────────────────
+// Insert stays a direct table POST — RLS now verifies sender_token matches
+// the claimed sender_role's token on the match (see lockdown migration).
 async function _ofmSendMsg(matchId,role,text,token){
   var r=await fetch(SUPABASE_URL+"/rest/v1/ofm_messages",
     {method:"POST",headers:_ofmH(),
      body:JSON.stringify({match_id:matchId,sender_role:role,sender_token:token,body:text.trim()})});
   return r.ok;
 }
-async function _ofmLoadMsgs(matchId){
-  var r=await fetch(SUPABASE_URL+"/rest/v1/ofm_messages?match_id=eq."+matchId+"&order=created_at.asc&limit=200",
-    {headers:_ofmHR()});
+async function _ofmLoadMsgs(matchId,token){
+  var r=await _ofmRpc("ofm_get_messages",{p_match_id:matchId,p_token:token});
   return r.ok?await r.json():[];
 }
 
 // ── CRUD: Media ────────────────────────────────────────────────────────────────
+// Insert stays a direct table POST — RLS now verifies lister_token matches
+// the match's actual lister (see lockdown migration).
 async function _ofmUploadMedia(matchId,lt,file){
   try{
     var b64=await _ofmCompressDoc(file);
@@ -335,24 +337,18 @@ async function _ofmUploadMedia(matchId,lt,file){
     return r.ok;
   }catch(e){return false;}
 }
-async function _ofmLoadMedia(matchId){
-  var r=await fetch(SUPABASE_URL+"/rest/v1/ofm_media?match_id=eq."+matchId+"&order=created_at.asc",
-    {headers:_ofmHR()});
+async function _ofmLoadMedia(matchId,token){
+  var r=await _ofmRpc("ofm_get_media",{p_match_id:matchId,p_token:token});
   return r.ok?await r.json():[];
 }
 
 // ── Stats: Platform overview ───────────────────────────────────────────────────
 async function _ofmLoadStats(){
   try{
-    var [lr,rr,mr]=await Promise.all([
-      fetch(SUPABASE_URL+"/rest/v1/ofm_listings?select=id&active=eq.true",{headers:_ofmHR()}),
-      fetch(SUPABASE_URL+"/rest/v1/ofm_requests?select=id&active=eq.true",{headers:_ofmHR()}),
-      fetch(SUPABASE_URL+"/rest/v1/ofm_matches?select=id&stage=eq.completed",{headers:_ofmHR()})
-    ]);
-    var listings=lr.ok?(await lr.json()).length:0;
-    var requests=rr.ok?(await rr.json()).length:0;
-    var completed=mr.ok?(await mr.json()).length:0;
-    return{listings,requests,completed};
+    var r=await _ofmRpc("ofm_platform_stats",{});
+    if(!r.ok)return{listings:0,requests:0,completed:0};
+    var d=await r.json();var row=d[0]||{};
+    return{listings:row.listings||0,requests:row.requests||0,completed:row.completed||0};
   }catch(e){return{listings:0,requests:0,completed:0};}
 }
 // ── Pipeline Stages ────────────────────────────────────────────────────────────
@@ -1672,7 +1668,7 @@ function _ofmMatchView(wrap,cl){
       mediaViewSection.appendChild(mediaGrid);
       card.appendChild(mediaViewSection);
 
-      _ofmLoadMedia(m.id).then(function(photos){
+      _ofmLoadMedia(m.id,myToken).then(function(photos){
         if(!photos.length){
           mediaGrid.appendChild(div({color:cl.sub,fontSize:"11px",
             fontFamily:"'Inter',sans-serif",gridColumn:"1/-1"},"No photos yet."));
@@ -1708,7 +1704,7 @@ function _ofmMatchView(wrap,cl){
     // Loading spinner for messages
     msgThread.appendChild(_ofmSpinner(cl,"Loading messages…"));
 
-    _ofmLoadMsgs(m.id).then(function(msgs){
+    _ofmLoadMsgs(m.id,myToken).then(function(msgs){
       msgThread.innerHTML="";
       if(!msgs.length){
         msgThread.appendChild(div({textAlign:"center",color:cl.sub,fontSize:"11px",
