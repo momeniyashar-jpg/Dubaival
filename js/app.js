@@ -58,8 +58,16 @@ function renderFind(){
   const cl=C();
   const wrap=el("div",{style:{padding:"16px",maxWidth:"640px",margin:"0 auto"}});
 
-  wrap.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Property Search"));
-  wrap.appendChild(div({color:cl.sub,fontSize:"12px",marginBottom:"16px",fontFamily:"'Inter',sans-serif"},"Tell DubAIVal what you're looking for. AI searches Bayut, PropertyFinder & market data."));
+  // Premium header
+  var _fndH=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'20px',paddingBottom:'16px',borderBottom:'1px solid rgba(255,255,255,0.06)'}});
+  var _fndHL=el('div',{});
+  _fndHL.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'4px'},'AI Property Discovery'));
+  _fndHL.appendChild(div({fontSize:'22px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},'Find'));
+  _fndH.appendChild(_fndHL);
+  var _fndBadge=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:'rgba(59,130,246,0.08)',border:'1px solid rgba(59,130,246,0.20)',borderRadius:'20px',padding:'5px 11px',flexShrink:'0'}});
+  _fndBadge.appendChild(span({fontSize:'10px',color:'#3B82F6',fontFamily:"'Space Grotesk',sans-serif",fontWeight:'700',letterSpacing:'0.08em'},'AI'));
+  _fndH.appendChild(_fndBadge);
+  wrap.appendChild(_fndH);
 
   if(!window.FIND_STATE)window.FIND_STATE={area:"",building:"",beds:"2 BR",maxPrice:"",minYield:"",type:"Apartment",query:"",results:[],loading:false,searched:false,sort:"score",
     sf:{area:"",grade:"",minYield:"",maxPSF:"",minPSF:"",minGrowth:"",maxDOM:"",minTurnover:"",type:"Apartment",beds:"Any",sort:"yield",showResults:false,results:[],allResults:[],page:0,mapView:false}
@@ -733,10 +741,18 @@ function renderAlerts(){
   const wrap=el("div",{style:{padding:"16px",maxWidth:"640px",margin:"0 auto"}});
 
   // Header
-  const hdr=el("div",{style:{marginBottom:"16px"}});
-  hdr.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Deal Alerts"));
-  hdr.appendChild(div({color:cl.sub,fontSize:"12px",marginTop:"4px",fontFamily:"'Inter',sans-serif"},"Set your criteria. DubAIVal scans 10,800+ properties instantly."));
-  wrap.appendChild(hdr);
+  // Premium header
+  var _alH=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'20px',paddingBottom:'16px',borderBottom:'1px solid rgba(255,255,255,0.06)'}});
+  var _alHL=el('div',{});
+  _alHL.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'4px'},'Price Intelligence'));
+  _alHL.appendChild(div({fontSize:'22px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},'Deal Alerts'));
+  _alH.appendChild(_alHL);
+  var _alBadge=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:'rgba(212,168,67,0.08)',border:'1px solid rgba(212,168,67,0.20)',borderRadius:'20px',padding:'5px 11px',flexShrink:'0'}});
+  var _alDot=el('div',{style:{width:'6px',height:'6px',borderRadius:'50%',background:'#D4A843',animation:'dvPulse 2s ease infinite'}});
+  _alBadge.appendChild(_alDot);
+  _alBadge.appendChild(span({fontSize:'10px',color:'#D4A843',fontFamily:"'Space Grotesk',sans-serif",fontWeight:'700',letterSpacing:'0.08em'},'WATCH'));
+  _alH.appendChild(_alBadge);
+  wrap.appendChild(_alH);
 
   // Two-column layout hint
   var twoColNote=el("div",{style:{background:"rgba(212,175,55,0.05)",border:"1px solid rgba(212,175,55,0.18)",borderRadius:"10px",padding:"9px 13px",marginBottom:"14px",display:"flex",gap:"10px",alignItems:"center"}});

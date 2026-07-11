@@ -592,6 +592,20 @@ function renderMarket(){
 function renderTrackRecord(){
   const cl=C();
   const wrap=div({padding:"12px",maxWidth:"960px",margin:"0 auto",width:"100%",boxSizing:"border-box"});
+
+  // Premium header
+  var _trH=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'20px',paddingBottom:'16px',borderBottom:'1px solid rgba(255,255,255,0.06)'}});
+  var _trHL=el('div',{});
+  _trHL.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'4px'},'Model Accuracy'));
+  _trHL.appendChild(div({fontSize:'22px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},'Track Record'));
+  _trH.appendChild(_trHL);
+  var _trBadge=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:'rgba(34,197,94,0.08)',border:'1px solid rgba(34,197,94,0.20)',borderRadius:'20px',padding:'5px 11px',flexShrink:'0'}});
+  var _trDot=el('div',{style:{width:'6px',height:'6px',borderRadius:'50%',background:'#22C55E'}});
+  _trBadge.appendChild(_trDot);
+  _trBadge.appendChild(span({fontSize:'10px',color:'#22C55E',fontFamily:"'Space Grotesk',sans-serif",fontWeight:'700',letterSpacing:'0.08em'},'DLD'));
+  _trH.appendChild(_trBadge);
+  wrap.appendChild(_trH);
+
   const CASE_STUDIES=[
     {building:"Marina Gate 2",label:"Marina Gate 2",area:"Dubai Marina",unitType:"2BR",size:1450,sold:3347222,date:"2025",source:"https://www.bayut.com/for-sale/2-bedroom-apartments/dubai/dubai-marina/marina-gate/marina-gate-2/"},
     {building:"Marina Gate (Marina Gate 1, Select Group)",label:"Marina Gate 1",area:"Dubai Marina",unitType:"3BR",size:1950,sold:6479604,date:"2025",source:"https://www.bayut.com/for-sale/3-bedroom-apartments/dubai/dubai-marina/marina-gate/"},
@@ -808,6 +822,18 @@ function _renderQCResult(qc, qs, cl){
 function renderQuickCheck(){
   var cl=C();
   var wrap=el("div",{style:{padding:"16px",maxWidth:"640px",margin:"0 auto"}});
+
+  // Premium header
+  var _qcH=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'16px',paddingBottom:'14px',borderBottom:'1px solid rgba(255,255,255,0.06)'}});
+  var _qcHL=el('div',{});
+  _qcHL.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'4px'},'Instant Valuation'));
+  _qcHL.appendChild(div({fontSize:'22px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},'Quick Check'));
+  _qcH.appendChild(_qcHL);
+  var _qcBadge=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:'rgba(212,168,67,0.08)',border:'1px solid rgba(212,168,67,0.20)',borderRadius:'20px',padding:'5px 11px',flexShrink:'0'}});
+  _qcBadge.appendChild(span({fontSize:'10px',color:'#D4A843',fontFamily:"'Space Grotesk',sans-serif",fontWeight:'700',letterSpacing:'0.08em'},'FAST'));
+  _qcH.appendChild(_qcBadge);
+  wrap.appendChild(_qcH);
+
   var qc=el("div",{style:{background:"rgba(201,168,76,0.04)",border:"1px solid "+cl.goldDim,borderRadius:"16px",padding:"24px 20px",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)"}});
   qc.appendChild(el("div",{style:{textAlign:"center",marginBottom:"16px"}},[
     el("div",{style:{color:cl.gold,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"}},t("qc_title")),
@@ -911,6 +937,22 @@ function renderAnalyzer(){
   const cl=C();
   const f=analyzerState.f;
   const wrap=el("div",{style:{padding:"16px",maxWidth:"640px",margin:"0 auto"}});
+
+  // Premium header (stage 0 — form view only)
+  if(analyzerState.stage===0){
+    var _azIsRent=analyzerState.f&&analyzerState.f.txnType==='rent';
+    var _azH=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'20px',paddingBottom:'16px',borderBottom:'1px solid rgba(255,255,255,0.06)'}});
+    var _azHL=el('div',{});
+    _azHL.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'4px'},_azIsRent?'Rental Analysis Engine':'Property Valuation Engine'));
+    _azHL.appendChild(div({fontSize:'22px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},_azIsRent?'Rent Analyzer':'DubAI Valuator'));
+    _azH.appendChild(_azHL);
+    var _azBadge=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:_azIsRent?'rgba(139,92,246,0.08)':'rgba(212,168,67,0.08)',border:'1px solid '+(_azIsRent?'rgba(139,92,246,0.20)':'rgba(212,168,67,0.20)'),borderRadius:'20px',padding:'5px 11px',flexShrink:'0'}});
+    var _azDot=el('div',{style:{width:'6px',height:'6px',borderRadius:'50%',background:_azIsRent?'#8B5CF6':'#D4A843',animation:'dvPulse 2s ease infinite'}});
+    _azBadge.appendChild(_azDot);
+    _azBadge.appendChild(span({fontSize:'10px',color:_azIsRent?'#8B5CF6':'#D4A843',fontFamily:"'Space Grotesk',sans-serif",fontWeight:'700',letterSpacing:'0.08em'},_azIsRent?'RENT':'AVM'));
+    _azH.appendChild(_azBadge);
+    wrap.appendChild(_azH);
+  }
 
   // --- RECENT & SAVED SEARCHES ---
   if(analyzerState.stage===0&&DV_SAVED.searches.length>0){

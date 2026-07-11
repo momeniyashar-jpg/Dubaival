@@ -44,10 +44,16 @@ var WS_REPORT_SECTIONS=[
 function renderWorkspace(){
   var cl=C();
   var wrap=div({padding:"16px 20px",maxWidth:"640px",margin:"0 auto",paddingBottom:"90px",boxSizing:"border-box",overflowX:"hidden"});
-  wrap.appendChild(div({marginBottom:"16px"},[
-    span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ My Workspace"),
-    span({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Your personal dashboard & custom reports")
-  ]));
+  // Premium header
+  var _wsH=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'20px',paddingBottom:'16px',borderBottom:'1px solid rgba(255,255,255,0.06)'}});
+  var _wsHL=el('div',{});
+  _wsHL.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'4px'},'Tools & Reports'));
+  _wsHL.appendChild(div({fontSize:'22px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},'My Workspace'));
+  _wsH.appendChild(_wsHL);
+  var _wsBadge=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:'rgba(212,168,67,0.08)',border:'1px solid rgba(212,168,67,0.20)',borderRadius:'20px',padding:'5px 11px',flexShrink:'0'}});
+  _wsBadge.appendChild(span({fontSize:'10px',color:'#D4A843',fontFamily:"'Space Grotesk',sans-serif",fontWeight:'700',letterSpacing:'0.08em'},'CUSTOM'));
+  _wsH.appendChild(_wsBadge);
+  wrap.appendChild(_wsH);
 
   // Mode toggle
   var modeBar=div({display:"flex",gap:"6px",marginBottom:"14px"});

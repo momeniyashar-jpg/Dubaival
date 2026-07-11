@@ -52,7 +52,16 @@ function _cmpBuildingSearch(idx,currentVal,cl){
 function renderCompare(){
   const cl=C();const s=compareState;
   const wrap=div({padding:"20px",maxWidth:"680px",margin:"0 auto"});
-  wrap.appendChild(div({marginBottom:"16px"},[span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ Multi-Item Comparison"),span({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},"Compare up to 10 areas, communities, or buildings side by side")]));
+  // Premium header
+  var _cmpH=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'20px',paddingBottom:'16px',borderBottom:'1px solid rgba(255,255,255,0.06)'}});
+  var _cmpHL=el('div',{});
+  _cmpHL.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'4px'},'Side-by-Side Analysis'));
+  _cmpHL.appendChild(div({fontSize:'22px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},'Compare'));
+  _cmpH.appendChild(_cmpHL);
+  var _cmpBadge=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:'rgba(59,130,246,0.08)',border:'1px solid rgba(59,130,246,0.20)',borderRadius:'20px',padding:'5px 11px',flexShrink:'0'}});
+  _cmpBadge.appendChild(span({fontSize:'10px',color:'#3B82F6',fontFamily:"'Space Grotesk',sans-serif",fontWeight:'700',letterSpacing:'0.08em'},'AI'));
+  _cmpH.appendChild(_cmpBadge);
+  wrap.appendChild(_cmpH);
   const card=div({background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",boxShadow:cl.glassShadow});
 
   // Comparison items
@@ -249,7 +258,18 @@ function renderPersonal(){
 
   // Header (always shown)
   var hdr=div({marginBottom:"18px"});
-  hdr.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ AI Personal Property Advisor"));
+  // Premium header
+  var _paHdrR=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'4px'}});
+  var _paHdrL=el('div',{});
+  _paHdrL.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'4px'},'AI Investment Advisor'));
+  _paHdrL.appendChild(div({fontSize:'22px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},'Personal Advisor'));
+  _paHdrR.appendChild(_paHdrL);
+  var _paBadge=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:'rgba(212,168,67,0.08)',border:'1px solid rgba(212,168,67,0.20)',borderRadius:'20px',padding:'5px 11px',flexShrink:'0'}});
+  var _paDot=el('div',{style:{width:'6px',height:'6px',borderRadius:'50%',background:'#D4A843',animation:'dvPulse 2s ease infinite'}});
+  _paBadge.appendChild(_paDot);
+  _paBadge.appendChild(span({fontSize:'10px',color:'#D4A843',fontFamily:"'Space Grotesk',sans-serif",fontWeight:'700',letterSpacing:'0.08em'},'AI'));
+  _paHdrR.appendChild(_paBadge);
+  hdr.appendChild(_paHdrR);
 
   // Progress bar for steps 1-5
   if(p.step>=1&&p.step<=5){
@@ -744,10 +764,20 @@ function renderPortfolio(mode){
   var wrap=div({padding:"20px",maxWidth:"640px",margin:"0 auto"});
   var titles={assets:"Portfolio Manager",health:"Portfolio Health",projections:"Projections & What-If"};
   var descs={assets:"Track assets, monitor performance & get AI-powered signals",health:"Health score, diversification analysis & opportunity alerts",projections:"Future projections, scenario analysis & swap simulator"};
-  wrap.appendChild(div({marginBottom:"16px"},[
-    span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ "+(titles[mode]||titles.assets)),
-    span({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif"},descs[mode]||descs.assets)
-  ]));
+  // Premium header
+  var _phdr=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'20px',paddingBottom:'16px',borderBottom:'1px solid rgba(255,255,255,0.06)'}});
+  var _phdrL=el('div',{});
+  _phdrL.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'4px'},'Investment Management'));
+  _phdrL.appendChild(div({fontSize:'22px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},titles[mode]||titles.assets));
+  _phdr.appendChild(_phdrL);
+  var _pmodeColors={assets:'#D4A843',health:'#10B981',projections:'#8B5CF6'};
+  var _pmc=_pmodeColors[mode]||'#D4A843';
+  var _pbadge=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:hexAlpha(_pmc,0.08),border:'1px solid '+hexAlpha(_pmc,0.20),borderRadius:'20px',padding:'5px 11px',flexShrink:'0'}});
+  var _pdot=el('div',{style:{width:'6px',height:'6px',borderRadius:'50%',background:_pmc,animation:'dvPulse 2s ease infinite'}});
+  _pbadge.appendChild(_pdot);
+  _pbadge.appendChild(span({fontSize:'10px',color:_pmc,fontFamily:"'Space Grotesk',sans-serif",fontWeight:'700',letterSpacing:'0.08em'},{assets:'LIVE',health:'SCORE',projections:'AI'}[mode]||'LIVE'));
+  _phdr.appendChild(_pbadge);
+  wrap.appendChild(_phdr);
 
   // Data loss warning — shown when assets exist but user isn't logged in
   if(mode==="assets"&&ps.assets.length>0){
