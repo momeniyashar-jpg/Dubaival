@@ -1068,8 +1068,91 @@ function renderFeedbackWidget(cl,mode,meta){
   wrap.appendChild(mkBtn("👎 No",false));
   return wrap;
 }
+// --- CONSUMER PAYWALL (launch-readiness item 4) ------------------------------
+// Full Analyzer valuations stay the free top-of-funnel hook (limiting the
+// core product would hurt acquisition/SEO) — the gate is on VOLUME: a
+// reasonable number of free full results per rolling 30 days, tracked
+// client-side (localStorage for anon users; same mechanism for logged-in
+// non-Pro users, since there's no server-enforced quota system yet — this
+// is a soft, good-faith gate, not a hard security boundary). is_pro (see
+// supabase-subscriptions-schema.sql) always reads false until item 5's
+// Stripe webhook starts setting it.
+var DV_FREE_ANALYZER_LIMIT=5;
+function isProUser(){
+  try{return !!(typeof DV_AUTH!=="undefined"&&DV_AUTH.profile&&DV_AUTH.profile.is_pro);}catch(e){return false;}
+}
+function _dvUsageTimestamps(){
+  try{
+    var arr=JSON.parse(localStorage.getItem("dv_analyzer_uses")||"[]");
+    var cutoff=Date.now()-30*24*60*60*1000;
+    return arr.filter(function(ts){return ts>cutoff;});
+  }catch(e){return [];}
+}
+function getAnalyzerUsageCount(){return _dvUsageTimestamps().length;}
+function recordAnalyzerUse(){
+  try{
+    var arr=_dvUsageTimestamps();
+    arr.push(Date.now());
+    localStorage.setItem("dv_analyzer_uses",JSON.stringify(arr));
+  }catch(e){}
+}
+function canRunAnalyzer(){return isProUser()||getAnalyzerUsageCount()<DV_FREE_ANALYZER_LIMIT;}
+function renderAnalyzerPaywall(cl){
+  var wrap=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"28px 20px",textAlign:"center",maxWidth:"420px",margin:"40px auto"});
+  wrap.appendChild(div({fontSize:"28px",marginBottom:"10px"},"🔒"));
+  wrap.appendChild(div({fontSize:"16px",fontWeight:"700",color:cl.white,fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Free limit reached"));
+  wrap.appendChild(div({fontSize:"12px",color:cl.sub,lineHeight:"1.6",marginBottom:"18px"},"You've used your "+DV_FREE_ANALYZER_LIMIT+" free valuations this month. Upgrade to DubaiVal Pro for unlimited valuations, PDF reports, Price Alerts, and Portfolio tracking."));
+  var btn=el("button",{style:{background:"linear-gradient(135deg,#C9A84C,#7A5E28)",border:"none",color:"#FFF",padding:"11px 24px",borderRadius:"8px",fontSize:"13px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
+  btn.textContent="Upgrade to Pro";
+  btn.addEventListener("click",function(){if(typeof openUpgradeModal==="function")openUpgradeModal();});
+  wrap.appendChild(btn);
+  return wrap;
+}
 function renderValuationDisclaimer(cl){
   return div({fontSize:"10px",color:cl.sub,lineHeight:"1.5",padding:"12px 14px",marginTop:"14px",background:hexAlpha(cl.sub,0.05),borderRadius:"8px",border:"1px solid "+hexAlpha(cl.sub,0.12)},valuationDisclaimerText());
+}
+
+// --- UPGRADE TO PRO MODAL ----------------------------------------------------
+// Shared entry point for every paywalled action (Analyzer limit, PDF export,
+// Price Alerts). startProCheckout() is a stub here — wired to a real Stripe
+// Checkout redirect in the next launch-readiness item; kept usable on its
+// own (falls back to a contact prompt) so this modal isn't broken in
+// between the two commits.
+var DV_UPGRADE_STATE={show:false,busy:false,error:""};
+function openUpgradeModal(){DV_UPGRADE_STATE.show=true;DV_UPGRADE_STATE.error="";render();}
+function closeUpgradeModal(){DV_UPGRADE_STATE.show=false;render();}
+async function startProCheckout(){
+  DV_UPGRADE_STATE.busy=true;DV_UPGRADE_STATE.error="";render();
+  try{
+    if(typeof _startStripeCheckout==="function"){await _startStripeCheckout();}
+    else{DV_UPGRADE_STATE.error="Checkout isn't set up yet — please contact support@dubaival.com to upgrade.";}
+  }catch(e){DV_UPGRADE_STATE.error=e.message||"Something went wrong — please try again.";}
+  DV_UPGRADE_STATE.busy=false;render();
+}
+function renderUpgradeModal(){
+  if(!DV_UPGRADE_STATE.show)return null;
+  var cl=C();
+  var overlay=el("div",{style:{position:"fixed",top:"0",left:"0",right:"0",bottom:"0",background:"rgba(0,0,0,0.6)",zIndex:"1000",display:"flex",alignItems:"center",justifyContent:"center",padding:"16px"}});
+  overlay.addEventListener("click",function(e){if(e.target===overlay)closeUpgradeModal();});
+  var card=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"16px",padding:"28px 24px",maxWidth:"380px",width:"100%",textAlign:"center"});
+  card.appendChild(div({fontSize:"18px",fontWeight:"800",color:cl.white,fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"DubaiVal Pro"));
+  card.appendChild(div({fontSize:"12px",color:cl.sub,marginBottom:"18px"},"Unlimited valuations, PDF reports, Price Alerts & Portfolio tracking"));
+  var feats=["Unlimited Analyzer valuations","PDF & Arabic report export","Price Alert subscriptions","Portfolio tracking & projections"];
+  var featList=div({textAlign:"left",marginBottom:"20px"});
+  feats.forEach(function(ft){featList.appendChild(div({fontSize:"12px",color:cl.subHi,marginBottom:"6px",display:"flex",alignItems:"center",gap:"8px"},[span({color:"#10B981"},"✓"),span({},ft)]));});
+  card.appendChild(featList);
+  if(DV_UPGRADE_STATE.error){card.appendChild(div({fontSize:"11px",color:"#EF4444",marginBottom:"12px"},DV_UPGRADE_STATE.error));}
+  var btn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#C9A84C,#7A5E28)",border:"none",color:"#FFF",padding:"12px",borderRadius:"8px",fontSize:"13px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer",marginBottom:"10px"}});
+  btn.textContent=DV_UPGRADE_STATE.busy?"Redirecting…":"Subscribe Now";
+  btn.disabled=DV_UPGRADE_STATE.busy;
+  btn.addEventListener("click",startProCheckout);
+  card.appendChild(btn);
+  var closeBtn=el("button",{style:{width:"100%",background:"transparent",border:"none",color:cl.sub,padding:"8px",fontSize:"12px",cursor:"pointer"}});
+  closeBtn.textContent="Not now";
+  closeBtn.addEventListener("click",closeUpgradeModal);
+  card.appendChild(closeBtn);
+  overlay.appendChild(card);
+  return overlay;
 }
 function csvExportBtn(label,cl,onclick){
   var b=el("button",{style:{background:"transparent",border:"1px solid "+cl.goldDim,color:cl.gold,padding:"8px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",display:"inline-flex",alignItems:"center",gap:"6px"}});

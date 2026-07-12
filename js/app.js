@@ -931,6 +931,7 @@ function renderAlerts(){
   var pwBtn=el("button",{style:{width:"100%",padding:"11px",borderRadius:"8px",border:"none",background:"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#FFF",fontSize:"13px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
   pwBtn.textContent="Set Price Watch";
   pwBtn.addEventListener("click",function(){
+    if(typeof isProUser==="function"&&!isProUser()){if(typeof openUpgradeModal==="function")openUpgradeModal();return;}
     var em=(PW.email||"").trim().toLowerCase();
     var tgt=(PW.target||"").trim();
     if(!tgt){PW.err="Please select a "+(PW.type==="area"?"area":"building");PW.status="";render();return;}
@@ -954,6 +955,7 @@ function renderAlerts(){
 
 // --- PDF REPORT (print-based, no library) ---
 function generatePDF(){
+  if(typeof isProUser==="function"&&!isProUser()){if(typeof openUpgradeModal==="function")openUpgradeModal();return;}
   try{dvTrack('pdf_generated',{area:analyzerState&&analyzerState.f?analyzerState.f.area:'',verdict:analyzerState&&analyzerState.val?analyzerState.val.verdict:''});}catch(e){}
   var f=analyzerState.f;
   var val=analyzerState.val;
@@ -1056,6 +1058,7 @@ function generatePDF(){
 }
 
 function generateArabicPDF(){
+  if(typeof isProUser==="function"&&!isProUser()){if(typeof openUpgradeModal==="function")openUpgradeModal();return;}
   try{dvTrack('pdf_arabic_generated',{area:analyzerState&&analyzerState.f?analyzerState.f.area:''});}catch(e){}
   var f=analyzerState.f;
   var val=analyzerState.val;
@@ -2559,6 +2562,10 @@ function render(preserveScroll){
   if(typeof renderAuthModal==="function"){
     var authModal=renderAuthModal();
     if(authModal)app.appendChild(authModal);
+  }
+  if(typeof renderUpgradeModal==="function"){
+    var upgradeModal=renderUpgradeModal();
+    if(upgradeModal)app.appendChild(upgradeModal);
   }
 
   if(window._autoValuate&&analyzerState.f.area&&analyzerState.f.price){

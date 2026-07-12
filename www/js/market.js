@@ -1106,6 +1106,10 @@ function renderAnalyzer(){
     return wrap;
   }
 
+  if(analyzerState.stage==="paywall"){
+    wrap.appendChild(renderAnalyzerPaywall(cl));
+    return wrap;
+  }
   if(analyzerState.stage===2&&analyzerState.f.txnType==="rent"&&analyzerState.rentalVal){
     return renderRentalResult(wrap);
   }
@@ -1501,6 +1505,7 @@ function renderAnalyzer(){
           _eExist.textContent="Please fill in: "+_mis.join(", ");
           return;
         }
+        if(!canRunAnalyzer()){analyzerState.stage="paywall";render();return;}
         var _eOld=document.getElementById("_az_err");if(_eOld)_eOld.remove();
         analyzerState.stage=1;
         render();
@@ -1513,6 +1518,7 @@ function renderAnalyzer(){
             }catch(e){analyzerState.err="Rental valuation error: "+e.message;analyzerState.stage=0;render();return;}
             if(!analyzerState.rentalVal){analyzerState.err="Could not compute rental valuation";analyzerState.stage=0;render();return;}
             analyzerState.stage=2;
+            recordAnalyzerUse();
             try{dvTrack("analyze_rental",{area:analyzerState.f.area,type:"villa"});}catch(e){}
             var rv=analyzerState.rentalVal;
             var propDesc=analyzerState.f.building+" villa in "+analyzerState.f.area+". "+f.beds+". BUA:"+f.size+"sqft. Asking rent AED "+parseInt(f.price).toLocaleString()+"/yr";
@@ -1540,6 +1546,7 @@ function renderAnalyzer(){
               return;
             }
             analyzerState.stage=2;analyzerState.smartRent=null;
+            recordAnalyzerUse();
             try{dvTrack("analyze_property",{area:analyzerState.f.area,type:"villa"});}catch(e){}
             // Refine with live Bayut transactions/listings once fetched — the
             // initial result above renders instantly using only the static
@@ -1710,6 +1717,7 @@ function renderAnalyzer(){
           _eExist.textContent="Please fill in: "+_mis.join(", ");
           return;
         }
+        if(!canRunAnalyzer()){analyzerState.stage="paywall";render();return;}
         var _eOld=document.getElementById("_az_err");if(_eOld)_eOld.remove();
         analyzerState.stage=1;render();
         setTimeout(function(){
@@ -1721,6 +1729,7 @@ function renderAnalyzer(){
             }catch(e){analyzerState.err="Rental valuation error: "+e.message;analyzerState.stage=0;render();return;}
             if(!analyzerState.rentalVal){analyzerState.err="Could not compute rental valuation";analyzerState.stage=0;render();return;}
             analyzerState.stage=2;
+            recordAnalyzerUse();
             try{dvTrack("analyze_rental",{area:analyzerState.f.area,type:"apartment"});}catch(e){}
             var rv=analyzerState.rentalVal;
             var propDesc=analyzerState.f.building+" "+analyzerState.f.area+" "+(f.aptSubtype||f.beds||"")+" floor"+(f.floor||"?")+" "+f.view+" "+(f.size||"?")+"sqft rent AED "+parseInt(f.price).toLocaleString()+"/yr";
@@ -1745,6 +1754,7 @@ function renderAnalyzer(){
               analyzerState.stage=0;render();return;
             }
             analyzerState.stage=2;analyzerState.smartRent=null;
+            recordAnalyzerUse();
             try{dvTrack("analyze_property",{area:analyzerState.f.area,type:"apartment"});}catch(e){}
             // Refine with live Bayut transactions/listings once fetched — see
             // the matching villa-handler comment above for why this patches
