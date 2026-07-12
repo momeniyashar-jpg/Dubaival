@@ -229,12 +229,27 @@ Code is now split across `js/*.js` files. To find anything, grep across `js/`:
 | `dv_agents` | `supabase-referral-schema.sql` | Registered agents in referral pool |
 | `dv_referrals` | `supabase-referral-schema.sql` | Referral tracking (buyer → agent → deal) |
 | `price_watches` | `supabase-price-alerts-schema.sql` | Price alert subscriptions |
+| `ofm_reports` | `supabase-ofm-trust-safety.sql` | In-chat abuse/scam reports on OFM matches — admin-reviewed via `admin_pending_reports`/`admin_resolve_report` RPCs (requires manual execution, see Outstanding items) |
 | `market_config` | (pre-existing) | Macro yield/growth adjustment knobs |
 | `knowledge_base` | `supabase-knowledge-base-schema.sql` + `supabase-knowledge-base-recency-fix.sql` + `supabase-forecast-accuracy-schema.sql` | RAG vector store — 768-dim embeddings (Jina or Gemini) of live news, daily market snapshots, and weekly forecast-accuracy audits (see below). Recency-weighted retrieval. Live since 2026-07-11 (see Outstanding items). |
 | `area_benchmarks` | (inside `api/refresh-market-data.js` workflow, already deployed) | Live PSF + rent data per area, refreshed daily by cron |
 | `price_history` | (inside `api/refresh-market-data.js` workflow, already deployed) | Historical PSF per area per day — also the ground truth for the forecast-accuracy audit below |
 
 **SQL migration files executed in Supabase** (confirmed 2026-06-18): the original 5 above. `supabase-knowledge-base-schema.sql` (the RAG table) requires manual execution — see Outstanding items.
+
+**Note (found 2026-07-12)**: `deal_board`/`deal_inquiries`/`deal_media` above describe the
+OLD Deal Network (pre-OFM). Current `js/deals.js` has zero references to any of the
+three — `renderDeals()` today is 100% the OFM (`ofm_*` tables) blind-matching system,
+and `DEAL_STATE` is explicitly a "backward-compat shell" that routes into `OFM_STATE`
+(see `js/deals.js` line 6). The "Title Deed Verification" and "Privacy-First Media
+Gallery" subsections under "Deal Network features" below describe this same dead
+`deal_board` flow and are stale for the same reason. The "Agent Referral Program"
+subsection is NOT stale — `dv_agents`/`dv_referrals` are still real and live, wired
+into the current Admin Dashboard. Not rewritten this session (out of scope for the
+trust/safety task that found this) — flagging so a future session doesn't debug dead
+code or assume Title Deed verification already works (it didn't — see the
+`supabase-ofm-trust-safety.sql` fix in the work log below, which adds real admin
+document verification to the OFM system instead).
 
 ## The valuation engine (`computeValuation`)
 
@@ -440,6 +455,42 @@ features continue working exactly as before. Zero breakage.
 - `theme-color` meta tag added (`#070B14`)
 
 ## Recent work log (most recent first)
+
+- **2026-07-12 (session 11d)**: Launch-readiness item 8 — Deal Network (OFM) trust
+  & safety.
+  - **Real document verification, closing a false claim in production**: found that
+    `ofm_listings.doc_verified` (added when OFM shipped) was never read or written
+    anywhere in `js/deals.js` — no admin review workflow existed — while the listing
+    submission UI told every seller "Admin-verified badge confirms authenticity."
+    Sellers upload Title Deed + Emirates ID and are told they'll get a verified
+    badge; nobody ever actually checked the documents or showed a badge based on
+    real review. Fixed with `supabase-ofm-trust-safety.sql` (new migration, requires
+    manual execution): `admin_pending_doc_listings()`/`admin_review_listing_doc()`
+    RPCs (reusing the existing `_admin_password_ok()` pattern from
+    `supabase-admin-security-fix.sql` — no new auth mechanism), a new "Pending
+    Document Verification" queue in the Admin Dashboard (view uploaded docs,
+    Verify/Reject), a real `doc_verified` badge on the lister's own listing cards
+    (`_ofmMyListings`), and `doc_verified` exposed on the public `ofm_listings_scan`
+    view so buyers get a real signal. Rejecting a listing deactivates it and records
+    why (`rejection_reason`). Softened the submission-flow copy to describe what
+    actually happens (matching starts immediately; the badge appears once reviewed,
+    usually within 24h) instead of the false blanket claim.
+  - **No abuse/scam reporting existed at all**: the anonymous chat/match pipeline
+    (9 stages, `_ofmMatchView`) had no safety net beyond two parties silently
+    abandoning a conversation. Added a "⚑ Report this match" button (visible from
+    `chat_active` onward) with reason picker (scam/fake listing, payment-before-
+    viewing request, ghosting, abuse, other), backed by a new `ofm_reports` table
+    (anon INSERT gated by an ownership check against `ofm_matches` — same pattern
+    as `ofm_messages` — so only the two real parties on a match can file a report
+    against it) and an Admin Dashboard "Abuse / Scam Reports" queue (dismiss, or
+    deactivate the reported listing in one click via `admin_resolve_report()`).
+  - Deliberately did NOT gate matching itself on `doc_verified` (i.e. unverified
+    listings still get matched to buyers immediately) — with no dedicated review
+    team yet, blocking the core matching loop on manual admin review would likely
+    stall the product entirely; the badge is an added trust signal, not a gate.
+  - **Manual step required**: run `supabase-ofm-trust-safety.sql` in Supabase SQL
+    Editor (requires `supabase-admin-security-fix.sql` and
+    `supabase-ofm-rls-lockdown.sql` to already be applied, which they are).
 
 - **2026-07-12 (session 11c)**: Launch-readiness items 6-7 — script `defer`
   performance fix + programmatic SEO pages.

@@ -313,6 +313,30 @@ async function _ofmAdvanceStage(matchId,newStage,extra){
   return r.ok;
 }
 
+// ── Reports (safety net — reviewed by admin, see admin_pending_reports) ────────
+async function _ofmSubmitReport(matchId,role,token,reason,details){
+  var r=await fetch(SUPABASE_URL+"/rest/v1/ofm_reports",
+    {method:"POST",headers:_ofmH(),
+     body:JSON.stringify({match_id:matchId,reporter_role:role,reporter_token:token,
+       reason:reason,details:details||null})});
+  return r.ok;
+}
+function _ofmOpenReportPrompt(match,role,token,cl){
+  var reasons=["Suspected scam / fake listing","Requesting payment before viewing",
+    "No response / ghosting","Inappropriate or abusive messages","Other"];
+  var choice=prompt("Report this match — why?\n"+
+    reasons.map(function(r,i){return (i+1)+". "+r;}).join("\n")+
+    "\n\nEnter a number (1-"+reasons.length+"):");
+  if(choice===null)return;
+  var idx=parseInt(choice,10)-1;
+  var reason=reasons[idx]||"Other";
+  var details=null;
+  if(reason==="Other"){details=prompt("Briefly describe the issue:")||null;}
+  _ofmSubmitReport(match.id,role,token,reason,details).then(function(ok){
+    alert(ok?"Report submitted. Our team will review it shortly.":"Failed to submit report — please try again.");
+  });
+}
+
 // ── CRUD: Messages ─────────────────────────────────────────────────────────────
 // Insert stays a direct table POST — RLS now verifies sender_token matches
 // the claimed sender_role's token on the match (see lockdown migration).
@@ -764,7 +788,7 @@ function _ofmPostListing(wrap,cl){
     card.appendChild(div({background:hexAlpha("#3B82F6",0.08),border:"1px solid "+hexAlpha("#3B82F6",0.2),
       borderRadius:"8px",padding:"10px",marginBottom:"12px",fontSize:"10px",
       fontFamily:"'Inter',sans-serif",color:"#60A5FA",lineHeight:"1.5"},
-      "🔒 Documents are encrypted and shared only with verified buyers after both parties agree. Admin-verified badge confirms authenticity."));
+      "🔒 Documents are encrypted and reviewed by our team. Matching starts right away — once your documents are approved (usually within 24 hours), your listing shows a verified badge to buyers."));
     var can=f.doc1&&f.doc2&&f.phone;
     var n2=el("button",{style:{width:"100%",padding:"14px",
       background:can?"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")":"rgba(255,255,255,0.05)",
@@ -1175,6 +1199,11 @@ function _ofmMyListings(wrap,cl){
     propInfo.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},
       [listing.beds,listing.prop_type,listing.size_sqft?listing.size_sqft.toLocaleString()+" sqft":"",
        listing.area].filter(Boolean).join(" · ")));
+    propInfo.appendChild(listing.doc_verified?
+      span({color:cl.green,fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",
+        background:hexAlpha(cl.green,0.12),padding:"2px 8px",borderRadius:"6px",display:"inline-block",marginTop:"6px"},"✓ Documents Verified"):
+      span({color:"#F59E0B",fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",
+        background:"rgba(245,158,11,0.12)",padding:"2px 8px",borderRadius:"6px",display:"inline-block",marginTop:"6px"},"⏳ Pending Verification"));
     topRow.appendChild(propInfo);
 
     // Price + verdict badge
@@ -1762,6 +1791,15 @@ function _ofmMatchView(wrap,cl){
     card.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",
       textAlign:"center",marginTop:"10px",lineHeight:"1.5"},
       "🔒 Your real name and contact details remain hidden until you both agree to share them"));
+
+    // Report — safety net for scam/no-response/abuse, reviewed by admin
+    var reportBtn=el("button",{style:{width:"100%",padding:"9px",marginTop:"10px",
+      background:"transparent",border:"1px solid "+hexAlpha("#EF4444",0.25),color:"#EF4444",
+      borderRadius:"8px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",
+      cursor:"pointer"},
+      onclick:function(){_ofmOpenReportPrompt(m,role,myToken,cl);}});
+    reportBtn.textContent="⚑ Report this match";
+    card.appendChild(reportBtn);
   }
 
   wrap.appendChild(card);return wrap;
@@ -2157,6 +2195,73 @@ function renderAdminDashboard(wrap,cl){
     card.appendChild(vidSection);
   })();
 
+  // Pending Document Verification (Title Deed / Emirates ID review — see
+  // supabase-ofm-trust-safety.sql. Approving sets doc_verified=true, shown
+  // to buyers as a real verified badge; rejecting deactivates the listing.)
+  card.appendChild(div({color:"#10B981",fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",marginTop:"14px",fontWeight:"700"},"◆ PENDING DOCUMENT VERIFICATION"));
+  (function(){
+    var docSection=div({});
+    fetchPendingDocListings().then(function(pending){
+      if(!pending.length){docSection.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",padding:"12px",textAlign:"center",marginBottom:"10px"},"No listings awaiting document review"));return;}
+      pending.forEach(function(lst){
+        var dCard=div({background:cl.raised,borderRadius:"8px",padding:"10px",marginBottom:"6px",border:"1px solid "+hexAlpha("#10B981",0.2)});
+        dCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"6px"},[
+          div({},[div({color:cl.subHi,fontSize:"12px",fontWeight:"700",fontFamily:"'Inter',sans-serif"},(lst.building||lst.area||"Unknown property")),
+            div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},(lst.phone||"")+" · "+timeAgo(lst.created_at))]),
+          span({color:"#F59E0B",fontSize:"8px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",background:"rgba(245,158,11,0.12)",padding:"2px 6px",borderRadius:"6px"},"PENDING")
+        ]));
+        var docRow=div({display:"flex",gap:"8px",marginBottom:"8px"});
+        [["doc1_base64","Document 1"],["doc2_base64","Document 2"]].forEach(function(pair){
+          if(lst[pair[0]]){
+            var dImg=el("img",{src:lst[pair[0]],title:pair[1],
+              style:{width:"70px",height:"70px",objectFit:"cover",borderRadius:"6px",cursor:"pointer",border:"1px solid "+cl.border}});
+            dImg.onclick=(function(src){return function(){window.open(src,"_blank");};})(lst[pair[0]]);
+            docRow.appendChild(dImg);
+          }
+        });
+        if(docRow.children.length)dCard.appendChild(docRow);
+        var dActions=div({display:"flex",gap:"6px"});
+        var approveDBtn=el("button",{style:{flex:"1",padding:"7px",background:"rgba(16,185,129,0.12)",color:cl.green,border:"1px solid rgba(16,185,129,0.3)",borderRadius:"6px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
+          onclick:(function(lid){return async function(){await reviewListingDoc(lid,true);render();};})(lst.id)});
+        approveDBtn.textContent="✓ Verify";
+        var rejectDBtn=el("button",{style:{flex:"1",padding:"7px",background:"rgba(239,68,68,0.12)",color:"#EF4444",border:"1px solid rgba(239,68,68,0.3)",borderRadius:"6px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
+          onclick:(function(lid){return async function(){var reason=prompt("Reason for rejecting (shown internally only):");await reviewListingDoc(lid,false,reason);render();};})(lst.id)});
+        rejectDBtn.textContent="✗ Reject & Deactivate";
+        dActions.appendChild(approveDBtn);dActions.appendChild(rejectDBtn);
+        dCard.appendChild(dActions);docSection.appendChild(dCard);
+      });
+    });
+    card.appendChild(docSection);
+  })();
+
+  // Abuse / Scam Reports (from ⚑ Report this match — see supabase-ofm-trust-safety.sql)
+  card.appendChild(div({color:"#EF4444",fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",marginTop:"14px",fontWeight:"700"},"◆ ABUSE / SCAM REPORTS"));
+  (function(){
+    var repSection=div({});
+    fetchPendingReports().then(function(pending){
+      if(!pending.length){repSection.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",padding:"12px",textAlign:"center",marginBottom:"10px"},"No open reports"));return;}
+      pending.forEach(function(rep){
+        var rCard=div({background:cl.raised,borderRadius:"8px",padding:"10px",marginBottom:"6px",border:"1px solid "+hexAlpha("#EF4444",0.2)});
+        rCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"6px"},[
+          div({},[div({color:cl.subHi,fontSize:"12px",fontWeight:"700",fontFamily:"'Inter',sans-serif"},rep.reason),
+            div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},"Reported by "+rep.reporter_role+" · Match #"+_ofmAnonId(rep.match_id)+" · "+timeAgo(rep.created_at))]),
+          span({color:"#EF4444",fontSize:"8px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",background:"rgba(239,68,68,0.12)",padding:"2px 6px",borderRadius:"6px"},"OPEN")
+        ]));
+        if(rep.details)rCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5",marginBottom:"8px"},rep.details));
+        var rActions=div({display:"flex",gap:"6px"});
+        var dismissBtn=el("button",{style:{flex:"1",padding:"7px",background:"rgba(255,255,255,0.05)",color:cl.sub,border:"1px solid "+cl.border,borderRadius:"6px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
+          onclick:(function(rid){return async function(){await resolveReport(rid,"dismiss");render();};})(rep.id)});
+        dismissBtn.textContent="Dismiss";
+        var deactivateBtn=el("button",{style:{flex:"1",padding:"7px",background:"rgba(239,68,68,0.12)",color:"#EF4444",border:"1px solid rgba(239,68,68,0.3)",borderRadius:"6px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
+          onclick:(function(rid){return async function(){if(confirm("Deactivate the reported listing?")){await resolveReport(rid,"deactivate_listing");render();}};})(rep.id)});
+        deactivateBtn.textContent="Deactivate Listing";
+        rActions.appendChild(dismissBtn);rActions.appendChild(deactivateBtn);
+        rCard.appendChild(rActions);repSection.appendChild(rCard);
+      });
+    });
+    card.appendChild(repSection);
+  })();
+
   // Market Intelligence Control
   card.appendChild(div({color:"#F59E0B",fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",marginTop:"14px",fontWeight:"700"},"◆ AI MARKET INTELLIGENCE · GROQ"));
   (function(){
@@ -2350,6 +2455,37 @@ async function updateVideoStatus(videoId,status){
           body:JSON.stringify({video_analyses:agentCounts[aid]})});
       }
     }
+  }catch(e){alert("Failed: "+e.message);}
+}
+
+// ── Admin: Document Verification (see supabase-ofm-trust-safety.sql) ───────────
+async function fetchPendingDocListings(){
+  try{
+    var resp=await _ofmAdminCall("admin_pending_doc_listings",{});
+    if(resp.ok)return await resp.json();
+  }catch(e){}
+  return[];
+}
+async function reviewListingDoc(listingId,approve,reason){
+  try{
+    var resp=await _ofmAdminCall("admin_review_listing_doc",
+      {p_listing_id:listingId,p_approve:approve,p_reason:reason||null});
+    if(!resp.ok)alert("Failed to update verification status ("+resp.status+")");
+  }catch(e){alert("Failed: "+e.message);}
+}
+
+// ── Admin: Abuse/Scam Reports (see supabase-ofm-trust-safety.sql) ──────────────
+async function fetchPendingReports(){
+  try{
+    var resp=await _ofmAdminCall("admin_pending_reports",{});
+    if(resp.ok)return await resp.json();
+  }catch(e){}
+  return[];
+}
+async function resolveReport(reportId,action){
+  try{
+    var resp=await _ofmAdminCall("admin_resolve_report",{p_report_id:reportId,p_action:action});
+    if(!resp.ok)alert("Failed to resolve report ("+resp.status+")");
   }catch(e){alert("Failed: "+e.message);}
 }
 
