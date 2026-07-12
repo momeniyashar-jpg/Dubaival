@@ -114,15 +114,37 @@ a,button,.dv-sidebar-item,.dv-pill,.dv-bottom-tab,.dv-tool-btn{
 </head>`
 );
 
-// Replace render() block with Capacitor-aware bootstrap
-// Match any <script>...</script>\n</body> ending (try-catch or plain render)
+// Replace render() block with Capacitor-aware bootstrap.
+// BUG FIXED 2026-07-12: the old pattern (/\n?<script>[^]*?<\/script>\n<\/body>/)
+// matched from the FIRST bare <script> tag in the document (the Google
+// Analytics setup block, well before the app-module <script src> tags) all
+// the way to the LAST </script>\n</body> — since lazy `[^]*?` still expands
+// until SOME match succeeds, and the only `</script>\n</body>` sequence in
+// the whole file is at the very end. That silently deleted everything in
+// between: <div id="app">, the service-worker registration script, and
+// all ~21 <script defer src="js/..."> module tags — meaning www/index.html
+// (and the Android app built from it) has been shipping without its own
+// app container or any of its module scripts. Never caught because the
+// Android APK requires an SDK not available in any session so far, so
+// nobody actually loaded the built app to notice. Anchored precisely now
+// on the literal bootstrap script's own distinctive content instead of a
+// generic tag, so it only replaces the two trailing render/Capacitor-init
+// script blocks it was actually meant to replace.
 html = html.replace(
-  /\n?<script>[^]*?<\/script>\n<\/body>/,
+  /<script>\nwindow\.onerror=[^]*?<\/script>\n<\/body>/,
   `<script>
 (function(){
   var isNative=typeof window.Capacitor!=='undefined'&&window.Capacitor.isNativePlatform();
   window.IS_NATIVE_APP=isNative;
-  if(!isNative){render();return;}
+  if(!isNative){
+    // App modules load with 'defer' now (2026-07-12, faster first paint) —
+    // they may not have executed yet if this inline script is reached
+    // before parsing finishes, same reasoning as the capBoot() path below,
+    // which already had this guard.
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){render();});}
+    else{render();}
+    return;
+  }
 
   function capBoot(){
     var P=window.Capacitor.Plugins;
@@ -174,7 +196,7 @@ html = html.replace(
           window.location.href=url;
           return null;
         }
-        if(/^https?:\/\//i.test(url)){
+        if(/^https?:\\/\\//i.test(url)){
           P.Browser.open({url:url}).catch(function(){});
           return null;
         }

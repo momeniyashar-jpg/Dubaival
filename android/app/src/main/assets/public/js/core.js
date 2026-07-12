@@ -504,6 +504,7 @@ var _dvSessionId=(function(){
   }catch(e){return "nosession_"+Math.random().toString(36).slice(2,10);}
 })();
 function dvTrack(eventName,meta){
+  try{if(typeof gtag==="function")gtag("event",eventName,meta||{});}catch(e){}
   try{
     fetch(SUPABASE_URL+"/rest/v1/analytics_events",{
       method:"POST",
