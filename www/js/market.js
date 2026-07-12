@@ -1541,6 +1541,22 @@ function renderAnalyzer(){
             }
             analyzerState.stage=2;analyzerState.smartRent=null;
             try{dvTrack("analyze_property",{area:analyzerState.f.area,type:"villa"});}catch(e){}
+            // Refine with live Bayut transactions/listings once fetched — the
+            // initial result above renders instantly using only the static
+            // calibrated database; this quietly upgrades the PSF/price-ladder
+            // fields in place if real live signal exists for this building/
+            // area (see getLiveSignal() in js/valuation.js). Patches only
+            // PSF-derived fields (not rent/yield/investSignal) so this can't
+            // race with the independent live-rentals refinement below —
+            // whichever of the two resolves second never clobbers the
+            // other's update.
+            fetchLiveData(analyzerState.f.building,analyzerState.f.area,analyzerState.f.beds).then(function(liveData){
+              if(!liveData||!((liveData.txs&&liveData.txs.length)||(liveData.sales&&liveData.sales.length)))return;
+              var updatedVal=computeValuation(analyzerState.f,analyzerState.f.building,liveData);
+              if(!updatedVal||!analyzerState.val)return;
+              ["adjPSF","psfLo","psfHi","fairPrice","distressPrice","goodPrice","overpricedAt","verdict","vsPct","suggestedOffer","dataSource","dataLayer","confScore","confTier","priceLow","priceHigh","liveSig"].forEach(function(k){analyzerState.val[k]=updatedVal[k];});
+              render();
+            }).catch(function(){});
             fetchLiveRentals(analyzerState.f.building,analyzerState.f.area,analyzerState.f.beds).then(function(liveRentals){
               var sr=computeSmartRent(analyzerState.f,liveRentals);
               if(sr&&sr.source!=="estimated"){
@@ -1730,6 +1746,17 @@ function renderAnalyzer(){
             }
             analyzerState.stage=2;analyzerState.smartRent=null;
             try{dvTrack("analyze_property",{area:analyzerState.f.area,type:"apartment"});}catch(e){}
+            // Refine with live Bayut transactions/listings once fetched — see
+            // the matching villa-handler comment above for why this patches
+            // only PSF/price-ladder fields (never rent/yield/investSignal),
+            // so it can't race with the independent live-rentals refinement.
+            fetchLiveData(analyzerState.f.building,analyzerState.f.area,analyzerState.f.beds).then(function(liveData){
+              if(!liveData||!((liveData.txs&&liveData.txs.length)||(liveData.sales&&liveData.sales.length)))return;
+              var updatedVal=computeValuation(fData,analyzerState.f.building,liveData);
+              if(!updatedVal||!analyzerState.val)return;
+              ["adjPSF","psfLo","psfHi","fairPrice","distressPrice","goodPrice","overpricedAt","verdict","vsPct","suggestedOffer","dataSource","dataLayer","confScore","confTier","priceLow","priceHigh","liveSig"].forEach(function(k){analyzerState.val[k]=updatedVal[k];});
+              render();
+            }).catch(function(){});
             fetchLiveRentals(analyzerState.f.building,analyzerState.f.area,analyzerState.f.beds).then(function(liveRentals){
               var sr=computeSmartRent(analyzerState.f,liveRentals);
               if(sr&&sr.source!=="estimated"){

@@ -332,6 +332,53 @@ function getConfidenceGuidance(val,f){
   return tips.length?tips:null;
 }
 
+// --- LIVE TRANSACTION/LISTING SIGNAL ------------------------------------------
+// Robust median of a numeric array using a Tukey fence (1.5×IQR) to reject
+// outliers before taking the median — resistant to a single anomalous data
+// point (data-entry error, gift/partial-share transfer, a bait listing that
+// slips past the price-range filter) skewing a small sample.
+function _percentile(sorted,p){
+  if(!sorted.length)return 0;
+  var idx=(sorted.length-1)*p;
+  var lo=Math.floor(idx),hi=Math.ceil(idx);
+  if(lo===hi)return sorted[lo];
+  return sorted[lo]+(sorted[hi]-sorted[lo])*(idx-lo);
+}
+function _robustMedian(arr){
+  var sorted=arr.slice().sort(function(a,b){return a-b;});
+  var q1=_percentile(sorted,0.25),q3=_percentile(sorted,0.75);
+  var iqr=q3-q1;
+  var lo=q1-1.5*iqr,hi=q3+1.5*iqr;
+  var trimmed=sorted.filter(function(v){return v>=lo&&v<=hi;});
+  var pool=trimmed.length?trimmed:sorted;
+  var mid=Math.floor(pool.length/2);
+  return pool.length%2===0?(pool[mid-1]+pool[mid])/2:pool[mid];
+}
+// Derives a live PSF signal from fetchLiveData()'s {sales, txs} output.
+// Real closed transactions (txs) are strongly preferred over listings
+// (sales): a transaction only exists once a deal has actually closed, so —
+// unlike an asking-price listing — it's immune to both (a) the
+// well-documented Dubai-market gap between asking and eventual sale price,
+// and (b) agents posting artificially low "bait" listings purely to
+// generate leads. Listings are used only when too few real transactions are
+// available, and only after a conservative discount for (a) — a documented
+// assumption pending empirical recalibration once enough of our own
+// txs-vs-sales spread accumulates in the app's own usage.
+var LIVE_LIST_DISCOUNT=0.95;
+var LIVE_MIN_TX=3,LIVE_MIN_LISTINGS=5;
+function getLiveSignal(liveData){
+  if(!liveData)return null;
+  var txPsfs=(liveData.txs||[]).map(function(t){return t.psf;}).filter(function(p){return p>400&&p<20000;});
+  if(txPsfs.length>=LIVE_MIN_TX){
+    return{psf:Math.round(_robustMedian(txPsfs)),n:txPsfs.length,source:"live_tx"};
+  }
+  var salePsfs=(liveData.sales||[]).map(function(s){return s.psf;}).filter(function(p){return p>400&&p<20000;});
+  if(salePsfs.length>=LIVE_MIN_LISTINGS){
+    return{psf:Math.round(_robustMedian(salePsfs)*LIVE_LIST_DISCOUNT),n:salePsfs.length,source:"live_listing"};
+  }
+  return null;
+}
+
 // --- SHARED HEDONIC PSF ENGINE --------------------------------------------------
 // Extracted from computeValuation() so computeAssetMetrics() (js/portfolio.js,
 // Portfolio Manager) can share the exact same base-PSF resolution + full
@@ -368,6 +415,7 @@ function computeAdjustedPSF(f,buildingVal,liveData){
   // DLD-calibrated PSF: VALUATION_DB (real transactions) overrides legacy DB
   const bKey=(buildingVal||f.building||"").toLowerCase().trim();
   const vdbEntry=typeof VALUATION_DB!=="undefined"&&VALUATION_DB[bKey]?VALUATION_DB[bKey]:null;
+  const liveSig=getLiveSignal(liveData);
   if(bData){
     if(vdbEntry){basePSF=vdbEntry.p;psfLo=vdbEntry.lo;psfHi=vdbEntry.hi;}
     else{basePSF=bData.p;psfLo=bData.lo;psfHi=bData.hi;}
@@ -378,23 +426,25 @@ function computeAdjustedPSF(f,buildingVal,liveData){
       basePSF=compData.blendedPSF;
       dataSource+=" + "+comps.length+" comps";
     }
+    // Live nudge from real Bayut transactions/listings for this exact
+    // building+area query — see getLiveSignal() above. Weighted lightly and
+    // capped well below 50/50 even at large sample sizes: a handful of live
+    // records shouldn't override a calibrated database backed by a much
+    // larger historical transaction set, just meaningfully move the needle
+    // between calibration refreshes.
+    if(liveSig){
+      var liveWeight=liveSig.source==="live_tx"?Math.min(0.5,0.15+liveSig.n*0.05):Math.min(0.25,0.05+liveSig.n*0.02);
+      basePSF=Math.round(basePSF*(1-liveWeight)+liveSig.psf*liveWeight);
+      dataSource+=" · "+liveSig.n+(liveSig.source==="live_tx"?" live TX":" live listings (adj)");
+    }
   }
   else{
     dvLog("fallback","computeAdjustedPSF","Building not in DB: "+(buildingVal||f.building||"")+" · Area: "+f.area);
-    const sales=liveData&&liveData.sales?liveData.sales:[];
-    const pool=sales.filter(function(s){return s.psf>400&&s.psf<15000});
-    if(pool.length>=3){
-      const psfs=pool.map(function(s){return s.psf}).sort(function(a,b){return a-b});
-      const pLo=psfs[Math.floor(psfs.length*0.2)];
-      const pHi=psfs[Math.floor(psfs.length*0.8)];
-      // Trimmed mean: average only comps within the 20th-80th percentile band,
-      // so a single distressed/bulk-deal sale can't skew the base price.
-      const trimmed=psfs.filter(function(p){return p>=pLo&&p<=pHi});
-      const meanPool=trimmed.length?trimmed:psfs;
-      basePSF=Math.round(meanPool.reduce(function(s,p){return s+p},0)/meanPool.length);
-      psfLo=pLo||Math.round(basePSF*0.90);
-      psfHi=pHi||Math.round(basePSF*1.10);
-      dataSource=pool.length+" comps · "+f.area;dataLayer=2;
+    if(liveSig){
+      basePSF=liveSig.psf;
+      psfLo=Math.round(basePSF*0.90);psfHi=Math.round(basePSF*1.10);
+      dataSource=liveSig.n+(liveSig.source==="live_tx"?" live transactions":" live listings (adj)")+" · "+f.area;
+      dataLayer=2;
     }else{
       // No real signal of building grade exists here (an unmatched building-name
       // string is not evidence of any particular grade), so use the area's own
@@ -498,7 +548,7 @@ function computeAdjustedPSF(f,buildingVal,liveData){
   const adjPSF=Math.round(basePSF*hedonicMult);
   psfLo=Math.round(psfLo*hedonicMult);psfHi=Math.round(psfHi*hedonicMult);
   return{adjPSF,psfLo,psfHi,basePSF,bData,vdbEntry,dataSource,dataLayer,compData,
-    calFactor,momFactor,typeAdj,dynBench,aData,isVillaType,isVilla,isDevFurnished,
+    calFactor,momFactor,typeAdj,dynBench,liveSig,aData,isVillaType,isVilla,isDevFurnished,
     vP,fP,furnP,loftP,penthP,maidP,studyP,upgradeP,privatePoolP,singleRowP,cornerVillaP,
     geoAdj,geoScore,locP,hedonicMult,hedonicCap};
 }
@@ -508,7 +558,7 @@ function computeValuation(f,buildingVal,liveData){
   const adj=computeAdjustedPSF(f,buildingVal,liveData);
   const{adjPSF,psfLo,psfHi,bData,vdbEntry,dataSource,dataLayer,compData,aData,
     isVilla,isDevFurnished,vP,fP,furnP,loftP,penthP,maidP,privatePoolP,singleRowP,cornerVillaP,
-    geoAdj,geoScore,locP,calFactor,momFactor,dynBench}=adj;
+    geoAdj,geoScore,locP,calFactor,momFactor,dynBench,liveSig}=adj;
   const size=parseFloat((f.buaSize||f.size||"").toString().replace(/,/g,""))||0;
   const price=parseFloat((f.price||"").toString().replace(/,/g,""))||0;
   const askPSF=size>0&&price>0?Math.round(price/size):0;
@@ -535,11 +585,12 @@ function computeValuation(f,buildingVal,liveData){
   const compBonus=compData&&compData.compCount>=5?4:compData&&compData.compCount>=3?2:0;
   const dynBonus=dynBench&&dynBench.sampleSize>=5?3:0;
   const calBonus=calFactor!==1.0?2:0;
+  const liveBonus=liveSig&&liveSig.source==="live_tx"?3:liveSig?1:0;
   // FSD-style spread adjustment (CoreLogic Forecast Standard Deviation logic):
   // tighter lo-hi PSF range relative to price = more confident estimate
   const relSpread=adjPSF>0?(psfHi-psfLo)/adjPSF:0.25;
   const spreadAdj=relSpread<=0.15?5:relSpread<=0.25?0:relSpread<=0.40?-5:-10;
-  const confScore=Math.min(97,Math.max(40,baseConf+inputPenalty+spreadAdj+compBonus+dynBonus+calBonus));
+  const confScore=Math.min(97,Math.max(40,baseConf+inputPenalty+spreadAdj+compBonus+dynBonus+calBonus+liveBonus));
   const confTier=confScore>=90?{label:"Very High",range:"±3–5%",spread:0.04,c:"green"}:confScore>=80?{label:"High",range:"±5–8%",spread:0.07,c:"green"}:confScore>=68?{label:"Medium",range:"±8–12%",spread:0.11,c:"yellow"}:confScore>=55?{label:"Low",range:"±12–18%",spread:0.15,c:"yellow"}:{label:"Indicative",range:"±18–25%",spread:0.22,c:"red"};
   const priceLow=Math.round(fairPrice*(1-confTier.spread));
   const priceHigh=Math.round(fairPrice*(1+confTier.spread));
@@ -596,7 +647,7 @@ function computeValuation(f,buildingVal,liveData){
   const mosRaw=Math.round(priceGapScore*0.50+timeDecayScore*0.20+marketDepthScore*0.30);
   const mosScore=Math.min(95,Math.max(5,mosRaw));
   const mosTier=mosScore>=80?{label:"Deep Value",c:"green",desc:"Strong margin of safety — price significantly below intrinsic value with favorable market conditions"}:mosScore>=65?{label:"Value Buy",c:"green",desc:"Positive margin of safety — priced below fair value with room for appreciation"}:mosScore>=50?{label:"Fair Entry",c:"yellow",desc:"Neutral margin — price aligns with market value, moderate risk-reward balance"}:mosScore>=35?{label:"Thin Margin",c:"yellow",desc:"Limited safety buffer — priced at or slightly above value, returns depend on market growth"}:{label:"Speculative",c:"red",desc:"Negative margin of safety — price exceeds intrinsic value, high risk of capital loss in a downturn"};
-  return{askPSF,adjPSF,psfLo,psfHi,fairPrice,distressPrice,goodPrice,overpricedAt,verdict,vsPct:vsPct.toFixed(1),suggestedOffer,dataSource,dataLayer,confScore,confTier,priceLow,priceHigh,inDB:!!bData,bData,isDevFurnished,vP:Math.round(vP*100),fP:Math.round(fP*100),furnP:Math.round(furnP*100),loftP:Math.round(loftP*100),penthP:Math.round(penthP*100),maidP:Math.round(maidP*100),privatePoolP:Math.round(privatePoolP*100),singleRowP:Math.round(singleRowP*100),cornerVillaP:Math.round(cornerVillaP*100),locP:Math.round(locP*100),geo:Math.round(geoAdj*100),rent,sc,grossYield,netYield,g0:gr[0],g1:gr[1],g2:gr[2],prRatio:prRatio?prRatio.toFixed(1):null,investSignal,totalReturnAnnual,domEst,txVol,liqScore,liqTier,txLabel,turnoverRate,turnoverTier,bldgUnits,bldgAnnualTx,mosScore,mosTier,priceGapScore,timeDecayScore,marketDepthScore,compData:compData,hasDynamic:!!dynBench,calFactor:calFactor,geoScore:geoScore,momFactor:momFactor,hasMomentum:!!(typeof MOMENTUM_LOADED!=="undefined"&&MOMENTUM_LOADED&&(MARKET_MOMENTUM[f.area]||MARKET_MOMENTUM["_overall"]))};
+  return{askPSF,adjPSF,psfLo,psfHi,fairPrice,distressPrice,goodPrice,overpricedAt,verdict,vsPct:vsPct.toFixed(1),suggestedOffer,dataSource,dataLayer,confScore,confTier,priceLow,priceHigh,inDB:!!bData,bData,isDevFurnished,vP:Math.round(vP*100),fP:Math.round(fP*100),furnP:Math.round(furnP*100),loftP:Math.round(loftP*100),penthP:Math.round(penthP*100),maidP:Math.round(maidP*100),privatePoolP:Math.round(privatePoolP*100),singleRowP:Math.round(singleRowP*100),cornerVillaP:Math.round(cornerVillaP*100),locP:Math.round(locP*100),geo:Math.round(geoAdj*100),rent,sc,grossYield,netYield,g0:gr[0],g1:gr[1],g2:gr[2],prRatio:prRatio?prRatio.toFixed(1):null,investSignal,totalReturnAnnual,domEst,txVol,liqScore,liqTier,txLabel,turnoverRate,turnoverTier,bldgUnits,bldgAnnualTx,mosScore,mosTier,priceGapScore,timeDecayScore,marketDepthScore,compData:compData,hasDynamic:!!dynBench,calFactor:calFactor,geoScore:geoScore,momFactor:momFactor,hasMomentum:!!(typeof MOMENTUM_LOADED!=="undefined"&&MOMENTUM_LOADED&&(MARKET_MOMENTUM[f.area]||MARKET_MOMENTUM["_overall"])),liveSig:liveSig};
 }
 
 // --- SMART RENTAL INTELLIGENCE ENGINE ----------------------------------------
