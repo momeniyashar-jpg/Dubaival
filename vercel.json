@@ -36,7 +36,7 @@
   ],
   "rewrites": [
     { "source": "/callback", "destination": "/callback.html" },
-    { "source": "/((?!api/|callback|privacy).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|callback|privacy|areas|buildings|sitemap.xml|robots.txt|seo.css).*)", "destination": "/index.html" }
   ],
   "crons": [
     { "path": "/api/refresh-market-data", "schedule": "0 6 * * *" },
