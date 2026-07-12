@@ -126,6 +126,23 @@ async function setAuthSession(data){
   localStorage.setItem("dv_user",JSON.stringify(data.user));
   DV_AUTH.user=data.user;
   DV_AUTH.profile={display_name:data.user.user_metadata&&data.user.user_metadata.display_name||data.user.email};
+  _fetchProStatus(data.user.id,data.access_token);
+}
+
+// Populates DV_AUTH.profile.is_pro from user_profiles (see
+// supabase-subscriptions-schema.sql) so isProUser() reflects the real
+// Stripe subscription state instead of always defaulting to false. Needs
+// the user's own access token (not just the anon key) since user_profiles
+// RLS is row-owner-scoped, same as every other authenticated read in this
+// file. Fire-and-forget — a slow/failed fetch just means isProUser()
+// stays false until it resolves, never blocks sign-in itself.
+function _fetchProStatus(userId,token){
+  if(!userId||!token)return;
+  fetch(SUPABASE_URL+"/rest/v1/user_profiles?id=eq."+encodeURIComponent(userId)+"&select=is_pro",{headers:sbHeaders(token)})
+    .then(function(r){return r.ok?r.json():[];})
+    .then(function(rows){
+      if(rows&&rows[0]&&DV_AUTH.profile){DV_AUTH.profile.is_pro=!!rows[0].is_pro;render();}
+    }).catch(function(){});
 }
 
 async function dvRefreshToken(){
@@ -209,6 +226,7 @@ function portfolioChanged(){
       DV_AUTH.profile={display_name:(DV_AUTH.user.user_metadata&&DV_AUTH.user.user_metadata.display_name)||DV_AUTH.user.email};
       getValidToken().then(function(t){
         if(!t){DV_AUTH.user=null;DV_AUTH.profile=null;}
+        else{_fetchProStatus(DV_AUTH.user.id,t);}
         DV_AUTH.loading=false;
         if(typeof render==="function")render();
         // Pull social credentials from cloud after session confirmed

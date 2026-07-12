@@ -9,7 +9,8 @@
     "api/proxy-news.js": { "maxDuration": 60 },
     "api/auto-post.js": { "maxDuration": 60 },
     "api/price-alerts.js": { "maxDuration": 60 },
-    "api/inbox.js": { "maxDuration": 60 }
+    "api/inbox.js": { "maxDuration": 60 },
+    "api/billing.js": { "maxDuration": 30 }
   },
   "headers": [
     {
@@ -45,6 +46,6 @@
     { "path": "/api/inbox?action=send-replies", "schedule": "30 7 * * *" },
     { "path": "/api/price-alerts?action=check", "schedule": "0 8 * * *" },
     { "path": "/api/auto-post", "schedule": "0 9 * * *" },
-    { "path": "/api/sync-engagement", "schedule": "0 21 * * *" }
+    { "path": "/api/auto-post?action=sync-engagement", "schedule": "0 21 * * *" }
   ]
 }

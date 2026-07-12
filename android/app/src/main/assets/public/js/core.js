@@ -1121,6 +1121,27 @@ function renderValuationDisclaimer(cl){
 var DV_UPGRADE_STATE={show:false,busy:false,error:""};
 function openUpgradeModal(){DV_UPGRADE_STATE.show=true;DV_UPGRADE_STATE.error="";render();}
 function closeUpgradeModal(){DV_UPGRADE_STATE.show=false;render();}
+// Calls the Stripe Checkout endpoint (api/billing.js) and redirects the
+// browser to the hosted Checkout page it returns. Requires a signed-in
+// user — Stripe's client_reference_id (used by the webhook to find which
+// user_profiles row to flip is_pro on) needs a real Supabase user id, so
+// an anonymous visitor is sent to sign up/in first instead of failing
+// silently at the API call.
+async function _startStripeCheckout(){
+  if(typeof DV_AUTH==="undefined"||!DV_AUTH.user){
+    closeUpgradeModal();
+    DV_AUTH.showModal=true;DV_AUTH.modalTab="signup";DV_AUTH.error="Please create a free account first, then upgrade to Pro.";
+    render();
+    return;
+  }
+  var resp=await fetch("/api/billing?action=checkout",{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({user_id:DV_AUTH.user.id,email:DV_AUTH.user.email})
+  });
+  var data=await resp.json();
+  if(!data.ok||!data.url)throw new Error(data.error||"Could not start checkout");
+  window.location.href=data.url;
+}
 async function startProCheckout(){
   DV_UPGRADE_STATE.busy=true;DV_UPGRADE_STATE.error="";render();
   try{
