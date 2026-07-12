@@ -935,12 +935,25 @@ These files contain critical business logic and data:
   4. Fallback: move API functions to Supabase Edge Functions
   - **Resend domain `dubaival.com`**: was "Partially Verified" as of 2026-06-17.
     May be fully verified by now — check Resend dashboard.
-- **🔴 Live Market Finder — broken** (confirmed still open 2026-07-12 —
-  **doesn't need new data, purely a code/parsing bug, independently
-  actionable any time**): Multiple issues:
-  1. **Only Bayut listings show** — Property Finder listings are missing.
-     Likely the RapidAPI endpoint or parser only handles Bayut responses.
-  2. **No listing photos** — Bayut listings appear without property images.
+- **🟡 Live Market Finder — likely already fixed, needs live confirmation**
+  (re-checked 2026-07-12): this entry described 3 issues below, but a code
+  review found all 3 already addressed — likely in session 10 (2026-07-11,
+  see task "Fix PropertyFinder listing parser" in the changelog above),
+  after which this entry was never updated. Current code has: `fetchPFSales()`
+  + `getPFLocationId()` in `js/api.js` fully implemented and wired into
+  `fetchLiveData()`; photo extraction with multiple field-name fallbacks for
+  both Bayut and PropertyFinder in both `js/api.js` and `js/app.js`'s
+  `doSearch()`; `hitsPerPage` raised to 24-50 with real pagination
+  (`loadMore`), no hardcoded 12-item cap found anywhere; `api/proxy-rapidapi.js`
+  correctly routes `source=pf` to the PropertyFinder host. **Not yet verified
+  live** — this session had no RapidAPI key and couldn't reach
+  `dubaival.com` (sandboxed network policy blocks it), so this is a static
+  code review finding, not an end-to-end test. If a future session (or the
+  user, testing live) still sees any of the 3 issues below, re-open this
+  with specifics (screenshot / exact symptom) rather than re-deriving from
+  scratch:
+  1. Only Bayut listings show — Property Finder listings missing.
+  2. No listing photos.
      The API response may include image URLs but they're not being rendered.
   3. **Hard limit of 12 listings** — Even when more results exist, only 12
      are shown. Need pagination or "load more" or increase the API limit param.
