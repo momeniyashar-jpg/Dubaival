@@ -444,7 +444,7 @@ features continue working exactly as before. Zero breakage.
     free-text context + area), Social Media Manager content generation, video script
     writer, Content Pillar Planner, 30-day Bulk Generator, AI Chief of Staff's WhatsApp
     drafter (grounded on the listing's area), and `runMarketIntelligence()` (grounded
-    across its 20 tracked areas — feeds `market_config`, shown to every user, so
+    across its 20 tracked areas — feeds `market_momentum`, shown to every user, so
     freshness matters most here). Deliberately left ungrounded: the cinematic-video-
     prompt writer (no area/property context, pure style task) and the two NL
     field-extraction parsers (Analyzer AI Smart Search, reusable Smart Bar) — both
@@ -460,7 +460,7 @@ features continue working exactly as before. Zero breakage.
     practical, this is the "gets smarter over time" mechanism instead.
     `runMarketIntelligence()` (`js/core.js`) has the LLM *estimate* each area's
     trailing 6-month price change from training knowledge alone, stored in
-    `market_config`, with nothing ever checking it against reality. Added
+    `market_momentum`, with nothing ever checking it against reality. Added
     `api/refresh-market-data.js?action=forecast-audit` (new weekly cron, Sundays
     06:30 UTC — kept off the already-tight daily-refresh budget rather than adding a
     13th Vercel function) that compares each area's stored estimate against the

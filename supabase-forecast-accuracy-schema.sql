@@ -5,7 +5,7 @@
 -- Adds a new knowledge_base source_type, 'forecast_accuracy', written weekly
 -- by api/refresh-market-data.js (?action=forecast-audit). Each row compares
 -- runMarketIntelligence()'s stored 6-month price-change estimate for an area
--- (market_config.pct_change) against the REALIZED 6-month change computed
+-- (market_momentum.pct_change) against the REALIZED 6-month change computed
 -- from real tracked listings in price_history — closing the loop between
 -- what the AI guessed and what the market actually did, without any model
 -- fine-tuning. These facts are retrieved like any other knowledge_base row

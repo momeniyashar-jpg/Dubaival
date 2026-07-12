@@ -134,7 +134,7 @@ async function pruneOldMarketSnapshots() {
 // ── AI forecast-accuracy feedback loop ──────────────────────────────────────
 // runMarketIntelligence() (js/core.js) asks the LLM to *estimate* each area's
 // trailing 6-month price change purely from its own training knowledge, with
-// nothing to check itself against — the estimate is stored in market_config
+// nothing to check itself against — the estimate is stored in market_momentum
 // and never verified. This audit compares that stored estimate against the
 // REALIZED 6-month price change computed from real tracked listings in
 // price_history (populated by the daily area-refresh run above), then writes
@@ -143,7 +143,7 @@ async function pruneOldMarketSnapshots() {
 // was for this area" — a genuine, compounding feedback signal, distinct from
 // (and complementary to) the Analyzer's separate hardcoded-database
 // calibration. Runs on its own weekly cron via ?action=forecast-audit rather
-// than every day — market_config estimates don't change often enough to need
+// than every day — market_momentum estimates don't change often enough to need
 // daily re-auditing, and keeping this off the already-tight daily-refresh
 // budget avoids any risk to that cron.
 var FORECAST_BASELINE_DAYS = 180; // "6 months" per the runMarketIntelligence prompt
@@ -231,7 +231,7 @@ async function handleForecastAudit(req, res) {
   var results = { areasChecked: 0, factsWritten: 0, skipped: 0, timedOut: false };
 
   try {
-    var cfgResp = await supabaseRequest("/market_config?select=area_key,pct_change,updated_at&area_key=neq._overall");
+    var cfgResp = await supabaseRequest("/market_momentum?select=area_key,pct_change,updated_at&area_key=neq._overall");
     if (!cfgResp.ok) {
       return res.status(200).json({ ok: true, timestamp: new Date().toISOString(), results: results });
     }
