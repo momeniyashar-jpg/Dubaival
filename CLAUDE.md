@@ -456,6 +456,62 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-12 (session 11e)**: AI Video Studio graceful degradation. Until at
+  least one of the 8 paid video engines (Kling/Luma/HeyGen/Hedra/Runway/
+  Minimax/Pika/D-ID) has a funded API key in Vercel, opening Video Studio or
+  Avatar Video Gen and clicking Generate showed a raw, developer-facing error
+  ("KLING_API_KEY not configured in Vercel env vars") — a bad first impression
+  for early beta users the site owner is bringing on personally (see launch
+  strategy discussion). Added `api/proxy-video.js`'s `engine_status` action
+  (booleans only, no secrets) and wired `showVideoGenUI()`/
+  `showAvatarVideoGen()` in `js/chat.js` to check it once before opening —
+  if no engine is configured, shows a clean "Launching Soon" message instead
+  of the full Studio UI. Both AI Video menu entries route through one of
+  these two functions, so every entry point is covered without touching the
+  engine-selection/generation logic itself. Cheapest path forward for the
+  actual API cost (raised by the site owner, deferred): route the remaining
+  direct-key engines (Kling/Luma/Runway) through the same Fal.ai pay-per-use
+  gateway already used for Pika/HeyGen/Minimax instead of buying separate
+  monthly API keys, or fund this from the first wave of Pro subscription
+  revenue rather than before it.
+
+- **2026-07-12 (session 11f)**: Interactive Map — fixed permanently-overlapping
+  area circles (real bug, user-reported: many areas were unclickable at every
+  zoom level, not just low zoom).
+  - **Root cause**: `js/map.js` drew one `google.maps.Circle` per area with a
+    radius in real-world METERS (250-750m based on `txVol`). Two such circles
+    that overlap in real-world space overlap by the exact same proportion at
+    EVERY zoom level — the gap between their centers and each radius both
+    scale by the identical pixels-per-meter factor as you zoom, so zooming in
+    never separates them (unlike fixed-pixel-size markers, which do). With
+    ~250 area centroids in `AREA_COORDS`, many of them adjacent sub-communities
+    only a few hundred meters apart (Al Barsha First/Second/Third, Warsan
+    First-Fourth, the Al Quoz/Jebel Ali industrial splits, etc. — several
+    literally share near-identical coordinates), this made large parts of the
+    map permanently unclickable at any zoom.
+  - **Fix**: circles are now a purely decorative background heat-visualization
+    layer (`clickable:false`, lower opacity) — they still convey the metric's
+    geographic pattern, but are no longer the interactive hit target. Added a
+    proper marker/clustering layer on top: `_dvRenderAreaClusters()` groups
+    areas within 46 screen PIXELS of each other (recomputed via
+    `gmap.getProjection()` on every `zoom_changed`/`idle` event) into either a
+    single clickable pin (unique area) or a numbered gold cluster bubble
+    (multiple areas) that zooms in (`fitBounds`) when clicked — same
+    marker-clustering technique every map product with dense point data uses
+    (Bayut, Property Finder, Zillow, Google Maps' own places clusters).
+    Verified the clustering math against real coordinates from
+    `js/data-residential.js` in a standalone Node test (simulated Web Mercator
+    projection, since this sandboxed session can't reach Google's live Maps
+    API): at the default zoom (11) all 8 Al Barsha sub-areas correctly merge
+    into one cluster bubble; by zoom 16 they're fully separated into 9
+    independently clickable pins. `_dvMapState` gained a separate
+    `clusterMarkers` array with its own lightweight teardown
+    (`_dvClearClusterMarkers()`) so re-clustering on every zoom/pan tick
+    doesn't touch the circles or rebuild the whole map (would defeat the
+    session-10 leak fix). Not verified against the live Google Maps API in
+    this session (no network access to Google's servers in this sandboxed
+    environment) — a future session or the user should confirm live.
+
 - **2026-07-12 (session 11d)**: Launch-readiness item 8 — Deal Network (OFM) trust
   & safety.
   - **Real document verification, closing a false claim in production**: found that

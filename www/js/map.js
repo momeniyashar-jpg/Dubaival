@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- MAP TAB (Google Maps) ---------------------------------------------------
-var _dvMapState = {metric: "growth", gmap: null, overlays: []};
+var _dvMapState = {metric: "growth", gmap: null, overlays: [], clusterMarkers: []};
 
 // Every render (including a plain metric-toggle click) previously built a
 // brand-new google.maps.Map + up to 347 Circle overlays without tearing down
@@ -9,6 +9,7 @@ var _dvMapState = {metric: "growth", gmap: null, overlays: []};
 // discarded, so repeated toggles leaked whole map instances. Tear down
 // whatever the last render created before building the next one.
 function _dvMapCleanup() {
+  _dvClearClusterMarkers();
   if (_dvMapState.overlays.length) {
     _dvMapState.overlays.forEach(function(o) {
       google.maps.event.clearInstanceListeners(o);
@@ -20,6 +21,135 @@ function _dvMapCleanup() {
     google.maps.event.clearInstanceListeners(_dvMapState.gmap);
     _dvMapState.gmap = null;
   }
+}
+
+// Lighter-weight teardown for just the marker/cluster layer, re-run on every
+// zoom/pan tick (see _dvRenderAreaClusters below) — must NOT touch the
+// circles or the map instance itself, only the interactive pins on top.
+function _dvClearClusterMarkers() {
+  _dvMapState.clusterMarkers.forEach(function(m) {
+    google.maps.event.clearInstanceListeners(m);
+    m.setMap(null);
+  });
+  _dvMapState.clusterMarkers = [];
+}
+
+// ── Area marker/cluster layer ────────────────────────────────────────────────
+// WHY THIS EXISTS: the colored Circle overlays below are anchored to real
+// lat/lng centroids with a radius in REAL-WORLD METERS. Two such circles that
+// overlap do so by the exact same proportion at every zoom level, because the
+// gap between their centers and each radius both scale by the identical
+// pixels-per-meter factor as you zoom — zooming in NEVER separates them. With
+// ~250 area centroids on the map — many of them adjacent sub-communities only
+// a few hundred meters apart (Al Barsha First/Second/Third, Warsan
+// First-Fourth, the Al Quoz/Jebel Ali industrial splits, etc.) — that made
+// large parts of the map permanently unclickable, at any zoom. This layer
+// puts the actual interactive hit-target on fixed-PIXEL-size markers instead,
+// which DO spread apart as you zoom in (distance in screen pixels grows with
+// zoom; marker size doesn't) — the same technique every map product with
+// dense point data uses (marker clustering). Nearby markers merge into a
+// single numbered cluster bubble; clicking one zooms in until it splits.
+var _DV_CLUSTER_PX = 46;
+
+function _dvProjectToPixel(gmap, lat, lng) {
+  var proj = gmap.getProjection();
+  if (!proj) return null;
+  var scale = Math.pow(2, gmap.getZoom());
+  var pt = proj.fromLatLngToPoint(new google.maps.LatLng(lat, lng));
+  return {x: pt.x * scale, y: pt.y * scale};
+}
+function _dvPixelToLatLng(gmap, x, y) {
+  var proj = gmap.getProjection();
+  var scale = Math.pow(2, gmap.getZoom());
+  var latLng = proj.fromPointToLatLng(new google.maps.Point(x / scale, y / scale));
+  return {lat: latLng.lat(), lng: latLng.lng()};
+}
+
+// Simple greedy single-link clustering in screen-space pixels. O(n^2) but
+// n is ~250 (one entry per tracked area), so this is sub-millisecond.
+function _dvClusterAreaPoints(gmap, areaPoints) {
+  var pts = areaPoints.map(function(p) {
+    var px = _dvProjectToPixel(gmap, p.lat, p.lng);
+    return {p: p, x: px ? px.x : 0, y: px ? px.y : 0, used: false};
+  });
+  var clusters = [];
+  for (var i = 0; i < pts.length; i++) {
+    if (pts[i].used) continue;
+    pts[i].used = true;
+    var group = [pts[i].p], sumX = pts[i].x, sumY = pts[i].y, count = 1;
+    for (var j = i + 1; j < pts.length; j++) {
+      if (pts[j].used) continue;
+      var dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y;
+      if (Math.sqrt(dx * dx + dy * dy) < _DV_CLUSTER_PX) {
+        group.push(pts[j].p);
+        pts[j].used = true;
+        sumX += pts[j].x; sumY += pts[j].y; count++;
+      }
+    }
+    clusters.push({areas: group, cx: sumX / count, cy: sumY / count});
+  }
+  return clusters;
+}
+
+function _dvRenderAreaClusters(gmap, infoWin, areaPoints) {
+  if (!gmap.getProjection()) return; // not ready yet — the next 'idle' retries
+  _dvClearClusterMarkers();
+  var clusters = _dvClusterAreaPoints(gmap, areaPoints);
+
+  clusters.forEach(function(cl) {
+    if (cl.areas.length === 1) {
+      var a = cl.areas[0];
+      var pin = new google.maps.Marker({
+        map: gmap,
+        position: {lat: a.lat, lng: a.lng},
+        icon: {path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: a.color, fillOpacity: 0.95,
+          strokeColor: "#ffffff", strokeWeight: 1.5},
+        title: a.name,
+        zIndex: 10
+      });
+      pin.addListener("mouseover", function() {
+        infoWin.setContent(a.popupHtml);
+        infoWin.setPosition({lat: a.lat, lng: a.lng});
+        infoWin.open(gmap);
+      });
+      pin.addListener("click", function() {
+        infoWin.setContent(a.popupHtml);
+        infoWin.setPosition({lat: a.lat, lng: a.lng});
+        infoWin.open(gmap);
+      });
+      _dvMapState.clusterMarkers.push(pin);
+    } else {
+      var centerLatLng = _dvPixelToLatLng(gmap, cl.cx, cl.cy);
+      var count = cl.areas.length;
+      var bubbleScale = Math.min(22, 11 + Math.sqrt(count) * 2.5);
+      var bubble = new google.maps.Marker({
+        map: gmap,
+        position: centerLatLng,
+        icon: {path: google.maps.SymbolPath.CIRCLE, scale: bubbleScale, fillColor: "#D4AF37", fillOpacity: 0.92,
+          strokeColor: "#070B14", strokeWeight: 2},
+        label: {text: String(count), color: "#070B14", fontSize: "11px", fontWeight: "700", fontFamily: "'Space Grotesk',monospace"},
+        title: count + " areas — click to zoom in",
+        zIndex: 20
+      });
+      bubble.addListener("mouseover", function() {
+        var names = cl.areas.slice(0, 8).map(function(a){return a.name;}).join("<br>");
+        var more = count > 8 ? "<br>+" + (count - 8) + " more" : "";
+        infoWin.setContent('<div style="font-family:\'Inter\',sans-serif;color:#FFFFFF;padding:8px 10px;font-size:11px;line-height:1.6;max-width:180px;"><b style="color:#D4AF37;">' + count + ' areas</b><br>' + names + more + '</div>');
+        infoWin.setPosition(centerLatLng);
+        infoWin.open(gmap);
+      });
+      bubble.addListener("click", function() {
+        var bounds = new google.maps.LatLngBounds();
+        cl.areas.forEach(function(a) { bounds.extend({lat: a.lat, lng: a.lng}); });
+        var zoomBefore = gmap.getZoom();
+        gmap.fitBounds(bounds, 60);
+        google.maps.event.addListenerOnce(gmap, "idle", function() {
+          if (gmap.getZoom() <= zoomBefore) gmap.setZoom(zoomBefore + 3);
+        });
+      });
+      _dvMapState.clusterMarkers.push(bubble);
+    }
+  });
 }
 
 var _GMAP_DARK_STYLES = [
@@ -338,6 +468,8 @@ function renderMap() {
         return "rgb("+r+","+g+","+b+")";
       }
 
+      var areaPoints = [];
+
       AREA_NAMES.forEach(function(name) {
         var coords = AREA_COORDS[name]; if (!coords) return;
         var aData  = AREAS[name];       if (!aData)  return;
@@ -350,34 +482,31 @@ function renderMap() {
         // Each overlay gets its own tailored popup
         var popupHtml = _mapPopupHtml(name, aData, _dvMapState.metric, geoS);
 
+        // Background heat-visualization layer only — NOT the interactive hit
+        // target (see the big comment above _dvRenderAreaClusters for why real-
+        // world-radius circles can never be reliably clickable once areas are
+        // this dense). Purely decorative now: no hover/click listeners.
         var circle = new google.maps.Circle({
           map: gmap,
           center: {lat:coords[0], lng:coords[1]},
           radius: radiusM,
           strokeColor: color,
-          strokeOpacity: 0.9,
-          strokeWeight: 1.5,
+          strokeOpacity: 0.55,
+          strokeWeight: 1,
           fillColor: color,
-          fillOpacity: 0.45,
-          clickable: true
-        });
-
-        circle.addListener("mouseover", function() {
-          circle.setOptions({fillOpacity:0.8, strokeWeight:3});
-          infoWin.setContent(popupHtml);
-          infoWin.setPosition({lat:coords[0], lng:coords[1]});
-          infoWin.open(gmap);
-        });
-        circle.addListener("mouseout", function() {
-          circle.setOptions({fillOpacity:0.45, strokeWeight:1.5});
-        });
-        circle.addListener("click", function() {
-          infoWin.setContent(popupHtml);
-          infoWin.setPosition({lat:coords[0], lng:coords[1]});
-          infoWin.open(gmap);
+          fillOpacity: 0.18,
+          clickable: false
         });
         _dvMapState.overlays.push(circle);
+
+        areaPoints.push({name:name, lat:coords[0], lng:coords[1], color:color, popupHtml:popupHtml});
       });
+
+      // Interactive layer: fixed-pixel-size pins that cluster when close
+      // together on screen and split apart as the user zooms in.
+      _dvRenderAreaClusters(gmap, infoWin, areaPoints);
+      gmap.addListener("zoom_changed", function() { _dvRenderAreaClusters(gmap, infoWin, areaPoints); });
+      gmap.addListener("idle", function() { _dvRenderAreaClusters(gmap, infoWin, areaPoints); });
 
       if (_dvMapState.metric === "location") {
         if (window.METRO_STATIONS) {
