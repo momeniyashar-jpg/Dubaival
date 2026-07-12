@@ -1000,6 +1000,45 @@ function csvDate(){return new Date().toISOString().slice(0,10);}
 function valuationDisclaimerText(){
   return "This is an AI-generated estimate for informational purposes only, based on DLD transaction data and live market listings. It is not a RERA- or RICS-certified valuation and should not be relied upon as the sole basis for a buying, selling, or financing decision. For an official valuation, consult a RERA-registered valuer.";
 }
+// --- ANALYZER RESULT FEEDBACK WIDGET (launch-readiness item 2) ---------------
+// Direct qualitative signal ("was this accurate?") — cheaper and more direct
+// than funnel analytics for learning whether the Analyzer's numbers actually
+// match what users see in the real market. Anonymous, write-only (see
+// supabase-analyzer-feedback-schema.sql), one vote per result via a
+// localStorage guard so a curious re-click doesn't inflate the count.
+async function submitAnalyzerFeedback(mode,meta,isAccurate){
+  var voteKey="dv_fb_"+mode+"_"+(meta.area||"")+"_"+(meta.building||"");
+  try{if(localStorage.getItem(voteKey))return false;}catch(e){}
+  try{
+    await fetch(SUPABASE_URL+"/rest/v1/analyzer_feedback",{
+      method:"POST",
+      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},
+      body:JSON.stringify({mode:mode,area:meta.area||null,building:meta.building||null,is_accurate:isAccurate,conf_score:meta.confScore||null,data_source:meta.dataSource||null,verdict:meta.verdict||null})
+    });
+    try{localStorage.setItem(voteKey,"1");}catch(e){}
+    return true;
+  }catch(e){return false;}
+}
+function renderFeedbackWidget(cl,mode,meta){
+  var voteKey="dv_fb_"+mode+"_"+(meta.area||"")+"_"+(meta.building||"");
+  var already=false;try{already=!!localStorage.getItem(voteKey);}catch(e){}
+  var wrap=div({display:"flex",alignItems:"center",justifyContent:"center",gap:"10px",marginTop:"10px",fontSize:"11px",color:cl.sub,fontFamily:"'Inter',sans-serif"});
+  if(already){wrap.textContent="✓ Thanks for your feedback!";return wrap;}
+  wrap.appendChild(span({},"Was this estimate accurate?"));
+  var mkBtn=function(label,isAccurate){
+    var b=el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"4px 10px",borderRadius:"6px",fontSize:"12px",cursor:"pointer"}});
+    b.textContent=label;
+    b.addEventListener("click",async function(){
+      b.disabled=true;
+      var ok=await submitAnalyzerFeedback(mode,meta,isAccurate);
+      if(ok){wrap.innerHTML="";wrap.textContent="✓ Thanks for your feedback!";}
+    });
+    return b;
+  };
+  wrap.appendChild(mkBtn("👍 Yes",true));
+  wrap.appendChild(mkBtn("👎 No",false));
+  return wrap;
+}
 function renderValuationDisclaimer(cl){
   return div({fontSize:"10px",color:cl.sub,lineHeight:"1.5",padding:"12px 14px",marginTop:"14px",background:hexAlpha(cl.sub,0.05),borderRadius:"8px",border:"1px solid "+hexAlpha(cl.sub,0.12)},valuationDisclaimerText());
 }

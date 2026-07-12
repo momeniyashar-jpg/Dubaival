@@ -1852,6 +1852,7 @@ function renderCommercialResult(wrap){
     div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"DATA SOURCE"),
     div({color:"#93C5FD",fontSize:"12px",fontFamily:"'Inter',sans-serif"},v.dataSource),
   ]));
+  wrap.appendChild(renderFeedbackWidget(cl,"commercial",{area:f.area,building:f.building||f.project,confScore:v.confScore,dataSource:v.dataSource,verdict:v.verdict}));
   wrap.appendChild(renderValuationDisclaimer(cl));
   return wrap;
 }
@@ -1911,6 +1912,7 @@ function renderLandResult(wrap){
     div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"DATA SOURCE"),
     div({color:"#6EE7B7",fontSize:"12px",fontFamily:"'Inter',sans-serif"},v.dataSource),
   ]));
+  wrap.appendChild(renderFeedbackWidget(cl,"land",{area:f.area,building:f.building||f.project,confScore:v.confScore,dataSource:v.dataSource,verdict:v.verdict}));
   wrap.appendChild(renderValuationDisclaimer(cl));
   return wrap;
 }
@@ -3694,6 +3696,7 @@ function renderAnalyzerResult(wrap){
     if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
   }
 
+  wrap.appendChild(renderFeedbackWidget(cl,"sale",{area:f.area,building:f.building,confScore:val.confScore,dataSource:val.dataSource,verdict:val.verdict}));
   wrap.appendChild(renderValuationDisclaimer(cl));
   return wrap;
 }
@@ -3866,6 +3869,7 @@ function renderRentalResult(wrap){
     if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
   }
 
+  wrap.appendChild(renderFeedbackWidget(cl,"rent",{area:rv.area,building:f.building,confScore:rv.confScore,dataSource:rv.dataSource,verdict:rv.verdict}));
   wrap.appendChild(renderValuationDisclaimer(cl));
   return wrap;
 }
