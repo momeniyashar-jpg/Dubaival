@@ -805,6 +805,17 @@ These files contain critical business logic and data:
   347 areas have benchmarks. Target areas listed in "Building research gaps" below.
   **IMPORTANT**: Buildings go in `js/data-residential.js`, NOT in `index-6.html`.
 - **Agent video analysis & upload**: not built yet, deferred to future.
+- **🔴 SESSION START — SYNC FIRST**: At the start of EVERY session, before touching
+  any file, run these two commands to pull the latest changes from other sessions
+  (research, design, etc.) that may have pushed after this session started:
+  ```
+  git fetch origin
+  git merge origin/claude/dubaival-portfolio-manager-5bgbjk --no-edit
+  ```
+  **Why**: Multiple sessions (design + research) push to the same branch. A session
+  that started earlier will be behind. Without this sync, DB changes from a research
+  session won't be visible to a design session and vice versa. Always sync first.
+
 - **Deploy method**: User deploys from local folder `C:\Users\momen\dubaival\dubaival-deploy`
   using the Vercel CLI. The deploy folder is a git repo. After each Claude session,
   user runs these exact commands in that folder to deploy:
