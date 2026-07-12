@@ -456,6 +456,48 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-12 (session 11h)**: Portfolio + Quick Check audit (user-requested,
+  same rigor as the Report Builder review above).
+  - **Quick Check — real bug found and fixed**: the optional "deal check" on
+    the sale side (`_renderQuickCheckWidget` in `js/market.js`) reverse-derived
+    a fake unit size from the entered price (`estSize = price / areaPSF`) and
+    fed it into the full per-unit `computeValuation()`. That forces
+    `askPSF = price/estSize` back to `areaPSF` by construction — verified with
+    a standalone test across a 4x price range (AED 1.5M-6M) for the same area,
+    which returned the exact same verdict ("FAIR", -5.1%) regardless of price.
+    The deal-check verdict was checking almost nothing about what the user
+    actually typed in. Fixed with a new `_qcSaleVerdict()` that compares the
+    entered price directly against the tier range `computeAreaPriceRange()`
+    already computes and displays (grade-sensitive, varies with area/beds) —
+    verified the fix now produces a real GOOD→FAIR→OVER progression as price
+    increases. The rent-side deal check was checked too and found NOT to have
+    this bug (its verdict is driven by beds→benchmark rent, not by the
+    synthetic size), so it was left unchanged.
+  - **Portfolio — found and fixed 3 hardcoded stale dates in AI prompts**
+    (`js/portfolio.js`, Compare/Area Comparison, Personal Advisor, and
+    Portfolio AI Analysis): each said "June 2026" or "July 2026" literally,
+    accurate only in the month they were written and wrong every month after
+    — the same bug class already fixed once for `fetchMarketIntelligence()`
+    in `js/core.js` (2026-07-11), just never caught in these 3 other call
+    sites. Added `_currentMonthYear()` and wired all 3 in. Also removed a
+    hardcoded "Post-geo correction, supply pressure H2 2026" market-narrative
+    sentence from the Portfolio AI Analysis prompt — same stale-narrative
+    anti-pattern already fixed elsewhere, and redundant since this call site
+    already receives live RAG grounding.
+  - **Portfolio — no other issues found**: `computeAssetMetrics()` and
+    `computePortfolioHealth()` were already fixed for correctness in earlier
+    sessions (shares the Analyzer's exact hedonic stack; composite health
+    score has real, non-circular weighting) and the What-If Swap Simulator
+    computes real cash-flow/growth deltas from live area data — no
+    placeholder content or broken math found in either.
+  - **Flagged, not fixed (out of scope for this request)**: the same
+    hardcoded-date pattern also exists in `js/chat.js` (via
+    `getDubaiRealEstateBrain()`/`getChatSys()` — AI Agents chat),
+    `js/about.js`, `js/app.js` (AI Live Search fallback), `js/market.js`
+    (Market Cycle widget), `js/marketindex.js` (Area Comparison), and
+    `js/mortgage.js` (rate labels). None of these are in Portfolio or Quick
+    Check, so left untouched this session — worth a dedicated pass later.
+
 - **2026-07-12 (session 11g)**: Custom Report Builder (`js/workspace.js`,
   Reports tab) — upgraded from a mostly-placeholder feature to a real,
   client-ready deal-closing tool, per the user's original intent ("agents

@@ -742,6 +742,26 @@ function computeAreaPriceRange(area, beds, mode) {
   };
 }
 
+// Quick Check's sale "deal check" against the user's entered price.
+//
+// BUG FIXED (2026-07-12): this used to hand off to the full computeValuation()
+// via a synthetic unit built from the price itself — size was reverse-derived
+// as price/areaPSF, which forces askPSF (=price/size) back to areaPSF by
+// construction. That made the verdict verify almost nothing about the actual
+// price entered: testing across a 4x price range (AED 1.5M-6M) for the same
+// area always returned "FAIR" at exactly -5.1%, regardless of price. Instead,
+// compare the entered price directly against the tier range already computed
+// by computeAreaPriceRange() (grade-sensitive, varies with area/beds) — the
+// same numbers already shown in the range card above this verdict.
+function _qcSaleVerdict(rng,price,aData){
+  if(!rng||!price)return null;
+  var mid=rng.midRange?(rng.midRange[0]+rng.midRange[1])/2:(rng.lo+rng.hi)/2;
+  if(!mid)return null;
+  var vsPct=(price-mid)/mid*100;
+  var verdict=price<=rng.lo?"DISTRESS":vsPct<=-7?"GOOD":vsPct<=7?"FAIR":"OVER";
+  return{verdict:verdict,vsPct:vsPct.toFixed(1),fairPrice:Math.round(mid),areaPsf:(aData&&aData.psf)||null};
+}
+
 // Shared QC result renderer (range card + optional verdict)
 function _renderQCResult(qc, qs, cl){
   var rng=qs.rangeResult; if(!rng)return;
@@ -806,7 +826,7 @@ function _renderQCResult(qc, qs, cl){
     vc.appendChild(el("div",{style:{fontSize:"9px",color:cl.sub,fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.12em",marginBottom:"4px"}},"YOUR BUDGET"));
     vc.appendChild(el("div",{style:{fontSize:"20px",fontWeight:"900",color:vm.c,fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"}},vm.l));
     vc.appendChild(el("div",{style:{fontSize:"11px",color:cl.sub,fontFamily:"'Inter',sans-serif"}},
-      (parseFloat(r.vsPct)>=0?"+":"")+r.vsPct+"% vs market · PSF: AED "+r.adjPSF.toLocaleString()+" · Fair: AED "+r.fairPrice.toLocaleString()));
+      (parseFloat(r.vsPct)>=0?"+":"")+r.vsPct+"% vs mid-market"+(r.areaPsf?" · Area avg PSF: AED "+r.areaPsf.toLocaleString():"")+" · Mid: AED "+r.fairPrice.toLocaleString()));
     qc.appendChild(vc);
   }
   // Full Analyzer CTA
@@ -914,12 +934,7 @@ function _renderQuickCheckWidget(cl, opts){
         var rv=computeRentalValuation(fakeF);
         if(rv){qs.result=rv;qs.result._isRental=true;}
       }else if(qs.mode==="sale"&&price>=50000){
-        var aData=AREAS[qs.area]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
-        var estSize=Math.round(price/(aData.psf||1800));
-        if(estSize<200)estSize=800;if(estSize>10000)estSize=Math.round(price/1200);
-        var fakeF={area:qs.area,building:qs.building||"",price:String(price),size:String(estSize),buaSize:"",beds:qs.beds||"2 BR",propCategory:"apartment",txnType:"sale",floor:"15",view:"Not specified",furnished:"Unfurnished",condition:"Used"};
-        var sv=computeValuation(fakeF);
-        if(sv)qs.result=sv;
+        qs.result=_qcSaleVerdict(qs.rangeResult,price,AREAS[qs.area]);
       }
     }
     render();
