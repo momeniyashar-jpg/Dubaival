@@ -1,10 +1,14 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- MY WORKSPACE TAB ---------------------------------------------------------
-var WS_STATE={widgets:[],mode:"dashboard",reportMode:"visual",reportSections:[],reportLang:"en",reportColor:"gold",reportTitle:"",reportLogo:null,templates:[],voiceActive:false,voiceText:"",parsed:false};
+var WS_STATE={widgets:[],mode:"dashboard",reportMode:"visual",reportSections:[],reportLang:"en",reportColor:"gold",reportTitle:"",reportLogo:null,templates:[],voiceActive:false,voiceText:"",parsed:false,
+  reportArea:"",reportClientName:"",reportPrice:"",
+  agent:{name:"",phone:"",company:"",rera:""}};
 try{var _ws=localStorage.getItem("dv_workspace");if(_ws){var d=JSON.parse(_ws);WS_STATE.widgets=d.widgets||[];}}catch(e){}
 try{var _rt=localStorage.getItem("dv_report_templates");if(_rt)WS_STATE.templates=JSON.parse(_rt);}catch(e){}
+try{var _ap=localStorage.getItem("dv_agent_profile");if(_ap)WS_STATE.agent=Object.assign(WS_STATE.agent,JSON.parse(_ap));}catch(e){}
 function saveWS(){try{localStorage.setItem("dv_workspace",JSON.stringify({widgets:WS_STATE.widgets}));if(typeof portfolioChanged==="function")portfolioChanged();}catch(e){}}
 function saveTemplates(){try{localStorage.setItem("dv_report_templates",JSON.stringify(WS_STATE.templates));}catch(e){}}
+function saveAgentProfile(){try{localStorage.setItem("dv_agent_profile",JSON.stringify(WS_STATE.agent));}catch(e){}}
 
 var WS_TOOLS=[
   {id:"portfolio",icon:"briefcase",label:"Portfolio Manager",desc:"Track assets, ROI & yield"},
@@ -23,15 +27,20 @@ var WS_PRESETS={
   buyer:{label:"Buyer",icon:"home",ids:["analyzer","market","mortgage"]}
 };
 
+// Note (2026-07-12): trimmed from 9 sections to 6, every one now backed by
+// real computed data instead of a placeholder. Removed "Portfolio Overview"
+// and "Opportunity Alerts" — both only ever pulled the AGENT's own personal
+// PORTFOLIO_STATE, which doesn't belong in a report meant to be handed to a
+// CLIENT about a specific property/deal (and silently rendered "No portfolio
+// assets" for the many agents who don't track a personal portfolio at all).
+// Merged the old "Market Comparison" and "Neighborhood Comparison" — both
+// were the exact same unwired placeholder text under two different names.
 var WS_REPORT_SECTIONS=[
   {id:"valuation",label:"Property Valuation Summary",icon:"search"},
-  {id:"marketcmp",label:"Market Comparison",icon:"scale"},
   {id:"areastats",label:"Area Statistics",icon:"bar-chart-3"},
-  {id:"portfolio",label:"Portfolio Overview",icon:"briefcase"},
-  {id:"opportunity",label:"Opportunity Alerts",icon:"bell"},
-  {id:"investment",label:"Investment Scenarios",icon:"trending-up"},
-  {id:"mortgage",label:"Mortgage Analysis",icon:"landmark"},
-  {id:"neighborhood",label:"Neighborhood Comparison",icon:"home"},
+  {id:"marketcmp",label:"Area & Neighborhood Comparison",icon:"scale"},
+  {id:"investment",label:"Investment Scenario (1/3/5yr)",icon:"trending-up"},
+  {id:"mortgage",label:"Mortgage Estimate",icon:"landmark"},
   {id:"sustainability",label:"Sustainability Score",icon:"leaf"}
 ];
 
@@ -217,6 +226,59 @@ function renderReportBuilder(wrap,cl){
   });
   card.appendChild(rmBar);
 
+  // Report Subject — binds the report to an actual property/area/client
+  // instead of generating generic, unpersonalized content. This is what
+  // makes the output look like a report an agent prepared for a specific
+  // deal, not a random data dump.
+  var subjCard=div({marginBottom:"14px"});
+  subjCard.appendChild(span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"8px"},"Report Subject"));
+  var areaSel=el("select",{style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"9px 12px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"8px"}});
+  areaSel.appendChild(el("option",{value:""},"Select area (for stats, comparison, investment & mortgage sections)"));
+  Object.keys(AREAS).sort().forEach(function(a){
+    var opt=el("option",{value:a},a);
+    if(a===WS_STATE.reportArea)opt.selected=true;
+    areaSel.appendChild(opt);
+  });
+  areaSel.addEventListener("change",function(){WS_STATE.reportArea=this.value;render();});
+  subjCard.appendChild(areaSel);
+
+  var subjRow=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"8px"});
+  var clientInp=el("input",{type:"text",placeholder:"Client name (optional)",
+    style:{background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"9px 12px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+  clientInp.value=WS_STATE.reportClientName||"";
+  clientInp.addEventListener("input",function(){WS_STATE.reportClientName=this.value;});
+  subjRow.appendChild(clientInp);
+  var priceInp=el("input",{type:"number",placeholder:"Property price AED (for mortgage/investment)",
+    style:{background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"9px 12px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+  priceInp.value=WS_STATE.reportPrice||(analyzerState&&analyzerState.f&&analyzerState.f.price)||"";
+  priceInp.addEventListener("input",function(){WS_STATE.reportPrice=this.value;});
+  subjRow.appendChild(priceInp);
+  subjCard.appendChild(subjRow);
+
+  if(typeof analyzerState!=="undefined"&&analyzerState.val){
+    subjCard.appendChild(div({background:hexAlpha("#22C55E",0.08),border:"1px solid "+hexAlpha("#22C55E",0.25),borderRadius:"8px",padding:"8px 10px",color:"#22C55E",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},
+      "✓ Valuation loaded: "+(analyzerState.f.building||"")+" "+analyzerState.f.area+" — the Property Valuation Summary section will use this."));
+  }else{
+    subjCard.appendChild(div({background:hexAlpha("#F59E0B",0.08),border:"1px solid "+hexAlpha("#F59E0B",0.25),borderRadius:"8px",padding:"8px 10px",color:"#F59E0B",fontSize:"10px",fontFamily:"'Inter',sans-serif"},
+      "No valuation loaded — run the Analyzer for this property first to include a Property Valuation Summary."));
+  }
+  card.appendChild(subjCard);
+
+  // Your Details — agent's own branding, shown prominently in the report
+  // header so it reads as prepared BY the agent, not just by DubAIVal.
+  var agentCard=div({marginBottom:"14px"});
+  agentCard.appendChild(span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"8px"},"Your Details (shown on the report)"));
+  var agentGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"});
+  [["name","Your name"],["phone","Phone / WhatsApp"],["company","Agency / company"],["rera","RERA number (optional)"]].forEach(function(f){
+    var fi=el("input",{type:"text",placeholder:f[1],
+      style:{background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"9px 12px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+    fi.value=WS_STATE.agent[f[0]]||"";
+    fi.addEventListener("input",function(){WS_STATE.agent[f[0]]=this.value;saveAgentProfile();});
+    agentGrid.appendChild(fi);
+  });
+  agentCard.appendChild(agentGrid);
+  card.appendChild(agentCard);
+
   // Saved templates
   if(WS_STATE.templates.length>0){
     var tplRow=div({display:"flex",gap:"6px",overflowX:"auto",marginBottom:"12px",paddingBottom:"4px"});
@@ -248,7 +310,7 @@ function renderReportBuilder(wrap,cl){
     parseBtn.addEventListener("click",function(){
       var txt=(window._wsTextInp||WS_STATE.voiceText||"").toLowerCase();
       var secs=[];
-      var kwMap={valuation:"valuation",market:"marketcmp",area:"areastats",portfolio:"portfolio",opportunity:"opportunity",investment:"investment",mortgage:"mortgage",comparison:"neighborhood",sustainability:"sustainability",neighbourhood:"neighborhood"};
+      var kwMap={valuation:"valuation",area:"areastats",market:"marketcmp",comparison:"marketcmp",neighborhood:"marketcmp",neighbourhood:"marketcmp",investment:"investment",mortgage:"mortgage",sustainability:"sustainability"};
       Object.keys(kwMap).forEach(function(kw){if(txt.indexOf(kw)!==-1)secs.push(kwMap[kw]);});
       if(secs.length===0)secs=["valuation"];
       WS_STATE.reportSections=secs;
@@ -377,69 +439,161 @@ function renderReportBuilder(wrap,cl){
   return wrap;
 }
 
+// Areas with the closest price/sqft to the given area — used to build a
+// real comparable-areas table instead of an arbitrary alphabetical slice.
+function _wsSimilarAreas(area,n){
+  var base=AREAS[area];if(!base)return[];
+  return Object.keys(AREAS).filter(function(k){return k!==area;})
+    .map(function(k){return{k:k,d:Math.abs((AREAS[k].psf||0)-(base.psf||0))};})
+    .sort(function(a,b){return a.d-b.d;})
+    .slice(0,n).map(function(x){return x.k;});
+}
+
 function generateReport(){
   var colors={gold:"#C9A84C",blue:"#3B82F6",green:"#22C55E",red:"#EF4444",purple:"#A78BFA"};
   var accent=colors[WS_STATE.reportColor]||colors.gold;
   var isAr=WS_STATE.reportLang==="ar";
-  var title=WS_STATE.reportTitle||(isAr?"تقرير DubAIVal":"DubAIVal Custom Report");
+  var title=WS_STATE.reportTitle||(isAr?"تقرير DubAIVal":"DubAIVal Property Report");
+  var agent=WS_STATE.agent||{};
+  var reportPrice=parseFloat(WS_STATE.reportPrice)||(analyzerState&&analyzerState.f&&parseFloat(analyzerState.f.price))||0;
 
   var w=window.open("","_blank");
   var h='<!DOCTYPE html><html dir="'+(isAr?"rtl":"ltr")+'" lang="'+(isAr?"ar":"en")+'"><head><meta charset="UTF-8"><title>'+title+'</title>';
   h+='<style>*{box-sizing:border-box}body{font-family:'+(isAr?"'Cairo',":"")+"Arial,sans-serif;max-width:800px;margin:0 auto;padding:30px;color:#333;background:#fff}";
-  h+="h1{color:"+accent+";font-size:24px;border-bottom:3px solid "+accent+";padding-bottom:10px}";
-  h+="h2{color:"+accent+";font-size:18px;margin-top:24px}";
+  h+="h1{color:"+accent+";font-size:24px;margin-bottom:4px}";
+  h+="h2{color:"+accent+";font-size:18px;margin-top:24px;border-bottom:2px solid "+accent+";padding-bottom:6px}";
   h+="table{width:100%;border-collapse:collapse;margin:10px 0}td,th{padding:8px 12px;border:1px solid #ddd;font-size:12px}th{background:#f5f5f5}";
   h+=".card{background:#f9f9f9;border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin:10px 0}";
   h+=".metric{display:inline-block;padding:8px 16px;margin:4px;border-radius:6px;background:#f0f0f0;font-size:13px}";
-  h+=".accent{color:"+accent+"}@media print{body{padding:10px}}</style></head><body>";
+  h+=".hdr{border-bottom:3px solid "+accent+";padding-bottom:14px;margin-bottom:14px}";
+  h+=".accent{color:"+accent+"}.hi{background:"+accent+"18}@media print{body{padding:10px}}</style></head><body>";
 
-  if(WS_STATE.reportLogo)h+='<img src="'+WS_STATE.reportLogo+'" style="max-height:50px;margin-bottom:10px" />';
+  // Header — agent's own branding leads, DubAIVal is a footer credit only
+  h+='<div class="hdr">';
+  if(WS_STATE.reportLogo)h+='<img src="'+WS_STATE.reportLogo+'" style="max-height:50px;margin-bottom:10px;display:block" />';
   h+="<h1>"+title+"</h1>";
-  h+='<p style="color:#666;font-size:11px">Generated '+new Date().toLocaleDateString()+" by DubAIVal.com</p>";
+  var agentLine=[agent.name,agent.company].filter(Boolean).join(" · ");
+  var agentLine2=[agent.phone,agent.rera?"RERA "+agent.rera:""].filter(Boolean).join(" · ");
+  if(agentLine)h+='<p style="font-size:13px;font-weight:bold;margin:4px 0">'+agentLine+"</p>";
+  if(agentLine2)h+='<p style="font-size:12px;color:#555;margin:2px 0">'+agentLine2+"</p>";
+  if(WS_STATE.reportClientName)h+='<p style="font-size:12px;color:#555;margin:8px 0 0">Prepared for: <strong>'+WS_STATE.reportClientName+"</strong></p>";
+  h+='<p style="color:#999;font-size:10px;margin-top:4px">'+new Date().toLocaleDateString()+"</p>";
+  h+="</div>";
 
   WS_STATE.reportSections.forEach(function(sid){
     var sec=WS_REPORT_SECTIONS.find(function(s){return s.id===sid;});
     if(!sec)return;
-    h+="<h2>"+sec.icon+" "+sec.label+"</h2>";
+    h+="<h2>"+sec.label+"</h2>";
+    var area=WS_STATE.reportArea;
+    var aData=area?AREAS[area]:null;
 
-    if(sid==="valuation"&&analyzerState.val){
-      var v=analyzerState.val;var f=analyzerState.f;
-      h+='<div class="card"><table>';
-      h+="<tr><td>Property</td><td>"+(f.building||"")+" "+f.area+"</td></tr>";
-      h+="<tr><td>Size</td><td>"+(f.size||f.buaSize||"N/A")+" sqft</td></tr>";
-      h+="<tr><td>Asking Price</td><td>AED "+(parseInt(f.price)||0).toLocaleString()+"</td></tr>";
-      h+='<tr><td>Fair Price</td><td class="accent">AED '+v.fairPrice.toLocaleString()+"</td></tr>";
-      h+="<tr><td>Verdict</td><td><strong>"+v.verdict+"</strong></td></tr>";
-      h+="<tr><td>Confidence</td><td>"+v.confScore+"%</td></tr>";
-      h+="<tr><td>Gross Yield</td><td>"+v.grossYield+"%</td></tr>";
-      h+="<tr><td>Signal</td><td>"+(v.investSignal?v.investSignal.label:"N/A")+"</td></tr>";
-      h+="</table></div>";
+    if(sid==="valuation"){
+      if(analyzerState&&analyzerState.val){
+        var v=analyzerState.val;var f=analyzerState.f;
+        h+='<div class="card"><table>';
+        h+="<tr><td>Property</td><td>"+(f.building||"")+" "+f.area+"</td></tr>";
+        h+="<tr><td>Size</td><td>"+(f.size||f.buaSize||"N/A")+" sqft</td></tr>";
+        h+="<tr><td>Asking Price</td><td>AED "+(parseInt(f.price)||0).toLocaleString()+"</td></tr>";
+        h+='<tr><td>Fair Price</td><td class="accent"><strong>AED '+v.fairPrice.toLocaleString()+"</strong></td></tr>";
+        h+="<tr><td>Verdict</td><td><strong>"+v.verdict+"</strong></td></tr>";
+        h+="<tr><td>Confidence</td><td>"+v.confScore+"%</td></tr>";
+        h+="<tr><td>Gross Yield</td><td>"+v.grossYield+"%</td></tr>";
+        h+="<tr><td>Signal</td><td>"+(v.investSignal?v.investSignal.label:"N/A")+"</td></tr>";
+        h+="</table></div>";
+      }else{
+        h+='<p style="color:#999">No valuation loaded. Run the Analyzer for this property, then regenerate this report.</p>';
+      }
     }else if(sid==="areastats"){
+      var rows=area&&aData?[area].concat(_wsSimilarAreas(area,5))
+        :Object.keys(AREAS).sort(function(a,b){return (AREAS[b].txVol||0)-(AREAS[a].txVol||0);}).slice(0,8);
       h+='<table><tr><th>Area</th><th>PSF</th><th>Yield</th><th>Growth 1Y</th><th>DOM</th></tr>';
-      var aKeys=Object.keys(AREAS).slice(0,30);
-      aKeys.forEach(function(k){var a=AREAS[k];var y=a.y||[5,7];var g=a.g||[10];
-        h+="<tr><td>"+k+"</td><td>AED "+(a.psf||0).toLocaleString()+"</td><td>"+((y[0]+y[1])/2).toFixed(1)+"%</td><td>"+(g[0]||0)+"%</td><td>"+(a.dom||"—")+"</td></tr>";
+      rows.forEach(function(k){var a=AREAS[k];if(!a)return;var y=a.y||[5,7];var g=a.g||[10];
+        h+='<tr'+(k===area?' class="hi"':"")+"><td>"+k+(k===area?" ★":"")+"</td><td>AED "+(a.psf||0).toLocaleString()+"</td><td>"+((y[0]+y[1])/2).toFixed(1)+"%</td><td>"+(g[0]||0)+"%</td><td>"+(a.dom||"—")+" days</td></tr>";
       });
-      h+="</table><p style='color:#999;font-size:10px'>Showing top 30 of "+Object.keys(AREAS).length+" areas</p>";
-    }else if(sid==="portfolio"){
-      var ps=window.PORTFOLIO_STATE;
-      if(ps&&ps.assets.length>0){
-        var metrics=ps.assets.map(function(a){return Object.assign({},a,{m:computeAssetMetrics(a)});});
-        var tv=metrics.reduce(function(s,a){return s+a.m.currentValue;},0);
-        h+='<div class="card"><span class="metric">Total Value: AED '+tv.toLocaleString()+"</span>";
-        h+='<span class="metric">Assets: '+ps.assets.length+"</span></div>";
-        h+="<table><tr><th>Building</th><th>Area</th><th>Value</th><th>ROI</th><th>Yield</th></tr>";
-        metrics.forEach(function(a){h+="<tr><td>"+(a.building||"")+"</td><td>"+a.area+"</td><td>AED "+a.m.currentValue.toLocaleString()+"</td><td>"+a.m.roi.toFixed(1)+"%</td><td>"+a.m.grossYield.toFixed(1)+"%</td></tr>";});
+      h+="</table>";
+      if(!area)h+='<p style="color:#999;font-size:10px">Select a Report Subject area to lead with a specific property\'s area instead of the market-wide top movers shown here.</p>';
+    }else if(sid==="marketcmp"){
+      if(area&&aData){
+        var cmpAreas=[area].concat(_wsSimilarAreas(area,2));
+        h+='<table><tr><th>Metric</th>';
+        cmpAreas.forEach(function(k){h+="<th>"+k+(k===area?" ★":"")+"</th>";});
+        h+="</tr>";
+        var metricRows=[
+          ["Price/sqft",function(a){return "AED "+(a.psf||0).toLocaleString();}],
+          ["Gross Yield",function(a){var y=a.y||[5,7];return ((y[0]+y[1])/2).toFixed(1)+"%";}],
+          ["Growth (0-1yr)",function(a){return (a.g&&a.g[0]||0)+"%";}],
+          ["Growth (1-3yr)",function(a){return (a.g&&a.g[1]||0)+"%";}],
+          ["Days on Market",function(a){return (a.dom||"—")+" days";}],
+          ["Service Charge",function(a){return "AED "+(a.sc||0)+"/sqft/yr";}]
+        ];
+        metricRows.forEach(function(mr){
+          h+="<tr><td><strong>"+mr[0]+"</strong></td>";
+          cmpAreas.forEach(function(k){h+="<td"+(k===area?' class="hi"':"")+">"+mr[1](AREAS[k])+"</td>";});
+          h+="</tr>";
+        });
         h+="</table>";
-      }else h+="<p>No portfolio assets.</p>";
-    }else if(sid==="marketcmp"||sid==="neighborhood"){
-      h+='<p>Compare areas at <a href="https://www.dubaival.com">dubaival.com</a> → Market Index → Neighborhood Comparison</p>';
-    }else{
-      h+='<p style="color:#999">Section data available in the live app at dubaival.com</p>';
+      }else{
+        h+='<p style="color:#999">Select a Report Subject area above to include a side-by-side comparison with its closest comparable areas.</p>';
+      }
+    }else if(sid==="investment"){
+      if(area&&aData&&reportPrice>0){
+        var g=aData.g||[10,18,28];
+        h+='<table><tr><th>Horizon</th><th>Projected Value</th><th>Est. Growth</th></tr>';
+        [[1,g[0]],[3,g[1]],[5,g[2]]].forEach(function(yr){
+          var futureVal=Math.round(reportPrice*(1+(yr[1]||0)/100));
+          h+="<tr><td>"+yr[0]+" year"+(yr[0]>1?"s":"")+"</td><td class=\"accent\"><strong>AED "+futureVal.toLocaleString()+"</strong></td><td>"+(yr[1]>=0?"+":"")+yr[1]+"%</td></tr>";
+        });
+        h+="</table><p style='color:#999;font-size:10px'>Based on "+area+" historical growth trends. Estimates only, not a guarantee of future performance.</p>";
+      }else{
+        h+='<p style="color:#999">Select a Report Subject area and enter a property price above to include a growth projection.</p>';
+      }
+    }else if(sid==="mortgage"){
+      if(reportPrice>0){
+        var dp=20,rate=4.49,tenureYrs=25;
+        var maxLTV=reportPrice>=5000000?65:75;
+        var minDP=100-maxLTV;
+        if(dp<minDP)dp=minDP;
+        var dpAmt=Math.round(reportPrice*dp/100);
+        var loanAmt=reportPrice-dpAmt;
+        var monthlyRate=(rate/100)/12;
+        var nPay=tenureYrs*12;
+        var monthly=Math.round(loanAmt*(monthlyRate*Math.pow(1+monthlyRate,nPay))/(Math.pow(1+monthlyRate,nPay)-1));
+        var dldFee=Math.round(reportPrice*0.04);
+        var agencyFee=Math.round(reportPrice*0.02);
+        var mortgageFee=Math.round(reportPrice*0.0025);
+        var totalUpfront=dpAmt+dldFee+agencyFee+mortgageFee;
+        h+='<div class="card"><table>';
+        h+="<tr><td>Down Payment ("+dp+"%)</td><td>AED "+dpAmt.toLocaleString()+"</td></tr>";
+        h+="<tr><td>Loan Amount</td><td>AED "+loanAmt.toLocaleString()+"</td></tr>";
+        h+='<tr><td>Est. Monthly Payment</td><td class="accent"><strong>AED '+monthly.toLocaleString()+"</strong></td></tr>";
+        h+="<tr><td>DLD Transfer Fee (4%)</td><td>AED "+dldFee.toLocaleString()+"</td></tr>";
+        h+="<tr><td>Agency Fee (2%)</td><td>AED "+agencyFee.toLocaleString()+"</td></tr>";
+        h+="<tr><td>Mortgage Registration (0.25%)</td><td>AED "+mortgageFee.toLocaleString()+"</td></tr>";
+        h+='<tr><td><strong>Total Upfront Cost</strong></td><td><strong>AED '+totalUpfront.toLocaleString()+"</strong></td></tr>";
+        h+="</table></div>";
+        h+="<p style='color:#999;font-size:10px'>Assumptions: "+tenureYrs+"-year fixed rate at "+rate+"%, "+dp+"% down payment (expat buyer). Actual rates vary by bank and buyer profile.</p>";
+      }else{
+        h+='<p style="color:#999">Enter a property price above to include a mortgage estimate.</p>';
+      }
+    }else if(sid==="sustainability"){
+      if(area&&aData){
+        var bData=(analyzerState&&analyzerState.f&&analyzerState.f.building)?lookupBuilding(analyzerState.f.building,area):null;
+        var ss=computeSustainabilityScore((analyzerState&&analyzerState.f&&analyzerState.f.building)||"",area,bData,aData);
+        h+='<div class="card"><span class="metric">Score: <strong class="accent">'+ss.score+"/100</strong></span>";
+        h+='<span class="metric">Tier: <strong>'+ss.tier+"</strong></span></div>";
+        h+="<table><tr><th>Factor</th><th>Score</th></tr>";
+        h+="<tr><td>Building Quality/Age</td><td>"+ss.age+"/100</td></tr>";
+        h+="<tr><td>Service Charge Efficiency</td><td>"+ss.scEff+"/100</td></tr>";
+        h+="<tr><td>Green/Community Score</td><td>"+ss.green+"/100</td></tr>";
+        h+="<tr><td>Liquidity (Days on Market)</td><td>"+ss.liq+"/100</td></tr>";
+        h+="</table>";
+      }else{
+        h+='<p style="color:#999">Select a Report Subject area above to include a sustainability score.</p>';
+      }
     }
   });
 
-  h+='<hr style="margin-top:30px;border-color:#eee"><p style="color:#999;font-size:10px;text-align:center">Generated by DubAIVal.com · '+new Date().toLocaleDateString()+" · dubaival.com</p>";
+  h+='<hr style="margin-top:30px;border-color:#eee"><p style="color:#999;font-size:10px;text-align:center">Powered by DubAIVal.com — AI-powered Dubai property valuation · '+new Date().toLocaleDateString()+"</p>";
   h+="</body></html>";
   w.document.write(h);w.document.close();
   setTimeout(function(){w.print();},500);

@@ -456,6 +456,52 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-12 (session 11g)**: Custom Report Builder (`js/workspace.js`,
+  Reports tab) — upgraded from a mostly-placeholder feature to a real,
+  client-ready deal-closing tool, per the user's original intent ("agents
+  should be able to pull a professional report with one simple command").
+  - **Audit finding**: 4 of the 9 report sections (Opportunity Alerts,
+    Investment Scenarios, Mortgage Analysis, Sustainability Score) rendered
+    nothing but `"Section data available in the live app at dubaival.com"` —
+    an agent who checked one of these boxes and sent the PDF to a client got
+    a sentence telling the client to go look elsewhere, worse than not
+    offering the section at all. "Market Comparison" and "Neighborhood
+    Comparison" were two different checkboxes producing the exact same
+    link-out placeholder. "Area Statistics" showed the first 30 areas in
+    raw object-key insertion order — unrelated to whatever property the
+    report was actually about. "Portfolio Overview"/"Opportunity Alerts"
+    only ever pulled the AGENT's own personal `PORTFOLIO_STATE`, which has
+    no place in a report meant to be handed to a client about a specific
+    deal (and silently broke for the many agents with no personal portfolio
+    tracked at all). There was also no way to bind a report to a specific
+    property, client, or the agent's own name/company/phone/RERA — every
+    report was generic and DubAIVal-branded rather than looking like
+    something the agent prepared themselves.
+  - **Fix**: trimmed to 6 sections, every one now backed by real computed
+    data: Property Valuation Summary (unchanged, uses the loaded Analyzer
+    result), Area Statistics (now leads with the bound Report Subject area
+    plus its 5 closest comparables by PSF instead of an arbitrary slice),
+    Area & Neighborhood Comparison (merged the two duplicate placeholders
+    into one real side-by-side table), Investment Scenario (real 1/3/5yr
+    projected value using the area's own `AREAS[].g` growth data), Mortgage
+    Estimate (real EMI calc using the same rate/LTV/fee constants as
+    `js/mortgage.js`), Sustainability Score (wired to the existing
+    `computeSustainabilityScore()` in `js/core.js`, previously never called
+    from here). Removed Portfolio Overview/Opportunity Alerts entirely.
+  - Added a "Report Subject" block (area picker, client name, property price)
+    so every data-driven section binds to an actual deal instead of showing
+    generic market-wide data, plus a persisted "Your Details" block (agent
+    name/phone/company/RERA, saved to `dv_agent_profile` in localStorage)
+    so the report header reads as prepared BY the agent — DubAIVal is now a
+    small footer credit only, not the dominant brand. Sections needing data
+    that isn't available yet (no area selected, no price entered, no
+    valuation loaded) show a specific, actionable prompt instead of either a
+    placeholder sentence or wrong data.
+  - Verified the computational logic (mortgage EMI math, 1/3/5yr investment
+    projection, comparable-area selection) via a standalone Node test
+    against the real `AREAS` data — confirmed correct numbers for a sample
+    Dubai Marina / AED 2.5M scenario before shipping.
+
 - **2026-07-12 (session 11e)**: AI Video Studio graceful degradation. Until at
   least one of the 8 paid video engines (Kling/Luma/HeyGen/Hedra/Runway/
   Minimax/Pika/D-ID) has a funded API key in Vercel, opening Video Studio or
