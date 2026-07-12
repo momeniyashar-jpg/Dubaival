@@ -586,11 +586,20 @@ function computeValuation(f,buildingVal,liveData){
   const dynBonus=dynBench&&dynBench.sampleSize>=5?3:0;
   const calBonus=calFactor!==1.0?2:0;
   const liveBonus=liveSig&&liveSig.source==="live_tx"?3:liveSig?1:0;
+  // Sample-size confidence adjustment: a VALUATION_DB entry calibrated from
+  // only a couple of real DLD transactions (n) is a materially weaker basis
+  // than one backed by dozens — one of those few transactions could be a
+  // gift/partial-share transfer that slipped past both the global PSF bounds
+  // and the Tukey-fence outlier filter (tools/calibrate-db.js) applied at
+  // calibration time. Older valuation-db.js builds don't carry `n` at all
+  // (dropped "to save space" before this fix), so this is a no-op until the
+  // next calibration refresh — graceful, not a regression.
+  const nAdj=vdbEntry&&typeof vdbEntry.n==="number"?(vdbEntry.n<5?-3:vdbEntry.n>=15?2:0):0;
   // FSD-style spread adjustment (CoreLogic Forecast Standard Deviation logic):
   // tighter lo-hi PSF range relative to price = more confident estimate
   const relSpread=adjPSF>0?(psfHi-psfLo)/adjPSF:0.25;
   const spreadAdj=relSpread<=0.15?5:relSpread<=0.25?0:relSpread<=0.40?-5:-10;
-  const confScore=Math.min(97,Math.max(40,baseConf+inputPenalty+spreadAdj+compBonus+dynBonus+calBonus+liveBonus));
+  const confScore=Math.min(97,Math.max(40,baseConf+inputPenalty+spreadAdj+compBonus+dynBonus+calBonus+liveBonus+nAdj));
   const confTier=confScore>=90?{label:"Very High",range:"±3–5%",spread:0.04,c:"green"}:confScore>=80?{label:"High",range:"±5–8%",spread:0.07,c:"green"}:confScore>=68?{label:"Medium",range:"±8–12%",spread:0.11,c:"yellow"}:confScore>=55?{label:"Low",range:"±12–18%",spread:0.15,c:"yellow"}:{label:"Indicative",range:"±18–25%",spread:0.22,c:"red"};
   const priceLow=Math.round(fairPrice*(1-confTier.spread));
   const priceHigh=Math.round(fairPrice*(1+confTier.spread));

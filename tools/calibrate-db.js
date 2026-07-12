@@ -515,9 +515,15 @@ async function run() {
 function processCategory(store, category) {
   const buildingOutput = {};
   let existingCount = 0, newCount = 0;
+  let buildingOutliersRejected = 0, buildingsWithOutliers = 0;
   for (const [key, b] of Object.entries(store.buildings)) {
     if (b.psfs.length < 2) continue;
-    const sorted = b.psfs.slice().sort((a, c) => a - c);
+    const sortedRaw = b.psfs.slice().sort((a, c) => a - c);
+    const sorted = tukeyFilter(sortedRaw);
+    if (sorted.length < sortedRaw.length) {
+      buildingOutliersRejected += sortedRaw.length - sorted.length;
+      buildingsWithOutliers++;
+    }
     const p = Math.round(median(sorted));
     const lo = Math.round(percentile(sorted, 0.25));
     const hi = Math.round(percentile(sorted, 0.75));
@@ -562,12 +568,16 @@ function processCategory(store, category) {
   }
 
   console.log('  ' + category + ': ' + existingCount + ' existing, ' + newCount + ' NEW buildings from DLD');
+  console.log('  ' + category + ': Tukey-fence rejected ' + buildingOutliersRejected + ' outlier rows across ' + buildingsWithOutliers + ' buildings (gift/partial-share/data-entry anomalies)');
 
   const areaOutput = {};
   let existingAreaCount = 0, newAreaCount = 0;
+  let areaOutliersRejected = 0;
   for (const [key, a] of Object.entries(store.areas)) {
     if (a.psfs.length < 3) continue;
-    const sorted = a.psfs.slice().sort((x, y) => x - y);
+    const sortedRaw = a.psfs.slice().sort((x, y) => x - y);
+    const sorted = tukeyFilter(sortedRaw);
+    areaOutliersRejected += sortedRaw.length - sorted.length;
     const isExistingArea = !!existingAreas[key];
     if (isExistingArea) existingAreaCount++; else newAreaCount++;
 
@@ -594,6 +604,7 @@ function processCategory(store, category) {
   }
 
   console.log('  ' + category + ': ' + existingAreaCount + ' existing, ' + newAreaCount + ' NEW areas from DLD');
+  console.log('  ' + category + ': Tukey-fence rejected ' + areaOutliersRejected + ' outlier rows at the area level');
 
   return { buildings: buildingOutput, areas: areaOutput };
 }
@@ -622,6 +633,29 @@ function percentile(sorted, p) {
   if (!sorted.length) return 0;
   const idx = Math.floor(sorted.length * p);
   return sorted[Math.min(idx, sorted.length - 1)];
+}
+
+// Per-building/area Tukey-fence (1.5x IQR) outlier rejection, applied on top
+// of the existing global PSF sanity bounds. The global bounds (checked at
+// ingestion, e.g. 200-20000 for residential) only catch values that are
+// absurd for the ENTIRE market — they can't catch a transaction that's a
+// genuine anomaly for one specific building. DLD's raw transaction export is
+// known to include some real but non-arm's-length transfers (gifts between
+// family members, partial-ownership-share transfers, court-ordered
+// transfers) whose registered "worth" doesn't reflect fair market value even
+// though the resulting PSF still falls inside the broad global bounds — a
+// single such row in a building with only a handful of transactions can
+// meaningfully skew that building's calibrated PSF. Needs at least 5 points
+// to compute a meaningful IQR; below that, only the global bounds apply
+// (matches the existing minimum-sample thresholds below).
+function tukeyFilter(sortedAsc) {
+  if (sortedAsc.length < 5) return sortedAsc;
+  const q1 = percentile(sortedAsc, 0.25);
+  const q3 = percentile(sortedAsc, 0.75);
+  const iqr = q3 - q1;
+  const lo = q1 - 1.5 * iqr, hi = q3 + 1.5 * iqr;
+  const kept = sortedAsc.filter(v => v >= lo && v <= hi);
+  return kept.length ? kept : sortedAsc; // never fully empty a group
 }
 
 run().catch(e => { console.error('Error:', e.message); process.exit(1); });

@@ -341,10 +341,18 @@ jsContent += '// Source: ' + cal.source + ' | Filter: ' + cal.dateFilter + '+\n'
 jsContent += '// Exact: ' + exactMatch + ' | Fuzzy: ' + fuzzyMatch + ' | Area: ' + areaFallback + ' | Legacy: ' + noData + '\n';
 jsContent += '// DO NOT EDIT MANUALLY — regenerate with: node tools/build-valuation-db.js\n\n';
 
-// Compact format: only p, lo, hi (no src/n to save space in production)
+// Compact format: p, lo, hi, plus n (sample count) so the live valuation
+// engine can weight confidence by how much real transaction data actually
+// backs an entry — a building calibrated from 2 transactions (one of which
+// could be a gift/partial-share transfer that slipped past the outlier
+// filters) deserves materially less confidence than one backed by 50. This
+// used to be dropped here "to save space" — reversed since a few bytes per
+// entry is a poor tradeoff against the engine having zero visibility into
+// sample size at all (src is still dropped; it's diagnostic-only, not
+// consumed by the valuation engine).
 const compact = {};
 Object.entries(VALUATION_DB).forEach(([k, v]) => {
-  compact[k] = { p: v.p, lo: v.lo, hi: v.hi };
+  compact[k] = { p: v.p, lo: v.lo, hi: v.hi, n: v.n };
 });
 
 jsContent += 'var VALUATION_DB = ' + JSON.stringify(compact) + ';\n\n';
