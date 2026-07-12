@@ -171,6 +171,10 @@ The app was split from a single 1.1MB `index-6.html` into modular files:
   applies Capacitor modifications (viewport-fit, native bootstrap), copies JS.
 - **`scripts/generate-icons.js`** — Generates Android icons + splash screens
   from `logo.png` using sharp.
+- **`tools/generate-seo-pages.js`** — Generates the static SEO pages (see
+  "Programmatic SEO" in the 2026-07-12 work log below): `/areas/<slug>.html`,
+  `/buildings/<slug>.html`, `/areas.html` hub, `/sitemap.xml`, `/robots.txt`,
+  `/seo.css`. Re-run after any meaningful `js/data-residential.js` change.
 - **`android/`** — Capacitor Android project. DO NOT edit generated files.
   Key files: `app/build.gradle`, `app/src/main/AndroidManifest.xml`,
   `app/src/main/res/values/styles.xml`, `app/src/main/res/values/colors.xml`.
@@ -436,6 +440,49 @@ features continue working exactly as before. Zero breakage.
 - `theme-color` meta tag added (`#070B14`)
 
 ## Recent work log (most recent first)
+
+- **2026-07-12 (session 11c)**: Launch-readiness items 6-7 — script `defer`
+  performance fix + programmatic SEO pages.
+  - **Faster first load**: added `defer` to all 21 `js/*.js` module `<script>`
+    tags in `index.html` (they sat right after `<body>` and were blocking HTML
+    parsing on ~2.1MB of data+app JS). Wrapped the trailing bootstrap's
+    `try{render()}` in `DOMContentLoaded` since deferred scripts only run after
+    parsing finishes. Found and fixed 2 unrelated, pre-existing bugs in
+    `scripts/build-www.js` (the Capacitor/Android build script) while testing
+    this against that pipeline: (1) its script-replacement regex matched from
+    the first bare `<script>` tag in the whole document through to the last
+    `</script>\n</body>`, silently deleting `<div id="app">` and all module
+    `<script>` tags from every Android build; (2) its `window.open()` override
+    had a URL-matching regex written inside a JS template literal as `\/\/ `,
+    which isn't a recognized escape there and silently drops the backslashes —
+    corrupting the regex into one followed by an unescaped `//` that JS reads
+    as a line comment, crashing the entire bootstrap script with a syntax
+    error on every native app load. Both bugs meant the Android app has likely
+    never rendered correctly; neither was previously catchable since building
+    the APK needs an Android SDK unavailable in any session so far. Also found
+    `dvTrack()` (new this session, added for analytics) was silently shadowing
+    `index.html`'s original GA-based `dvTrack` (same name, loads later) —
+    fixed so it now calls both `gtag()` and the Supabase insert instead of
+    replacing GA tracking. Verified via headless-Chromium Playwright against
+    both the root `index.html` and the regenerated `www/` build: full render,
+    working nav, zero non-network console errors.
+  - **Programmatic SEO**: `tools/generate-seo-pages.js` — a static generator
+    (no build step at deploy time, so its output is committed like any other
+    file) that reads the existing public `AREAS`/`DB` data and produces
+    `/areas/<slug>` (347 pages) and `/buildings/<slug>` (9,227 pages), plus an
+    `/areas` A-Z hub, `/sitemap.xml` (9,576 URLs) and `/robots.txt`. Each page
+    is real static HTML (title, meta description, canonical, OG/Twitter tags,
+    schema.org JSON-LD) with a CTA back into the SPA's Analyzer — meant to
+    give the site an organic-search footprint it has zero of today, since the
+    live app is a pure hash-routed SPA with no server-rendered content. Uses
+    one shared `/seo.css` instead of inline `<style>` per page to avoid
+    duplicating CSS across ~9,600 files. `vercel.json`'s SPA fallback rewrite
+    now excludes `areas`/`buildings`/`sitemap.xml`/`robots.txt`/`seo.css` so
+    they're served as real static files. **Re-run
+    `node tools/generate-seo-pages.js` and commit the output whenever
+    `js/data-residential.js` changes meaningfully** (new buildings/areas,
+    updated benchmarks) — it wipes and regenerates `areas/`/`buildings/` from
+    scratch each run so stale/renamed entries don't leave orphan pages behind.
 
 - **2026-07-12 (session 11b)**: RAG follow-through — wired grounding into the 11
   remaining `askAI()` call sites, corrected stale building-count stats app-wide,
