@@ -230,13 +230,30 @@ dldKeys.forEach(k => {
   if (!fuzzyIndex[norm]) fuzzyIndex[norm] = k;
 });
 
+// A DLD "building" record whose propType is Land or a generic Building shell
+// is not a real apartment/villa building — it's almost always a data
+// artifact: the raw export had no building_name_en/project_name_en, so
+// calibrate-db.js's effectiveName fallback (building > project > master
+// project) picked up the MASTER PROJECT name instead, which is often just
+// the area's own umbrella name (e.g. a bogus "business bay" entry, actually
+// 72 bulk land-parcel transfers averaging ~29,700 sqft / AED 86M — nothing
+// like an apartment). Found 2026-07-12: dozens of real, unrelated Business
+// Bay towers (any DB key containing "business bay", a common area-suffix
+// naming convention in this DB) were fuzzy-matching to that single bogus
+// entry via the substring check below, all silently inheriting its land-
+// parcel-scale PSF. Genuine building==area-name coincidences (Burj Khalifa,
+// Palm Jumeirah villas) keep propType Unit/Villa and are unaffected.
+function isRealResidentialBuilding(dldBldg) {
+  return dldBldg && dldBldg.propType !== 'Land' && dldBldg.propType !== 'Building';
+}
+
 // ── Match DB building → DLD building ──
 function findDLDMatch(dbKey, dbArea) {
-  if (dld[dbKey]) return dbKey;
+  if (dld[dbKey] && isRealResidentialBuilding(dld[dbKey])) return dbKey;
   if (MANUAL_MAP.hasOwnProperty(dbKey)) return MANUAL_MAP[dbKey];
 
   const norm = normalize(dbKey);
-  if (fuzzyIndex[norm]) return fuzzyIndex[norm];
+  if (fuzzyIndex[norm] && isRealResidentialBuilding(dld[fuzzyIndex[norm]])) return fuzzyIndex[norm];
 
   // Try without trailing numbers (tower variations)
   const noNum = norm.replace(/\s*\d+\s*$/, '').trim();
@@ -245,7 +262,7 @@ function findDLDMatch(dbKey, dbArea) {
     for (const fk of Object.keys(fuzzyIndex)) {
       const fkNoNum = fk.replace(/\s*\d+\s*$/, '').trim();
       const fkNum = fk.match(/(\d+)\s*$/);
-      if (fkNoNum === noNum && fkNum && fkNum[1] === dbNum[1]) return fuzzyIndex[fk];
+      if (fkNoNum === noNum && fkNum && fkNum[1] === dbNum[1] && isRealResidentialBuilding(dld[fuzzyIndex[fk]])) return fuzzyIndex[fk];
     }
   }
 
@@ -257,6 +274,7 @@ function findDLDMatch(dbKey, dbArea) {
         const dldKey = fuzzyIndex[fk];
         const dldBldg = dld[dldKey];
         if (!dldBldg) continue;
+        if (!isRealResidentialBuilding(dldBldg)) continue;
         const sameArea = dldBldg.a === dldAreaName;
         if (!sameArea) continue;
         if (fk.includes(norm) || norm.includes(fk)) return dldKey;

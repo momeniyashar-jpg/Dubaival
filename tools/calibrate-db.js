@@ -256,8 +256,26 @@ async function run() {
       const store = data[category];
 
       // Effective name: building > project > master project
-      const effectiveName = buildingName || project || masterProject || '';
+      let effectiveName = buildingName || project || masterProject || '';
       const aKey = areaName.trim();
+      // A row with no building_name_en AND no project_name_en falls back to
+      // master_project_en — but when that master project name is just the
+      // area's own umbrella name (common for bulk/land parcel transfers with
+      // no specific building), treating it as a "building" creates a bogus
+      // building-level record keyed by the area name itself (found
+      // 2026-07-12: a fake "business bay" building from 72 land-parcel
+      // transfers, later fuzzy-matched by build-valuation-db.js against
+      // every real tower whose name happens to end in "Business Bay").
+      // Drop the attribution in that case, which (for non-land categories)
+      // falls through to the existing "no name at all" skip below — these
+      // rows are bulk/land-parcel-scale transfers that were never real
+      // apartment/villa transactions to begin with, so dropping them
+      // entirely (not just at the building level) is correct, matching how
+      // truly unnamed residential rows were already handled before this fix.
+      if (!buildingName && !project && masterProject &&
+          masterProject.trim().toLowerCase() === aKey.toLowerCase()) {
+        effectiveName = '';
+      }
 
       // For land: area name is enough (no building)
       if (category !== 'land' && !effectiveName) { skipped++; continue; }
