@@ -697,19 +697,27 @@ function computeSmartRent(f,liveRentals){
   if(f.view&&f.view!=="Not specified"){var _vl=f.view.toLowerCase();var _vrm=_vl==="burj khalifa + fountain"?1.18:_vl.indexOf("fountain")>=0?1.15:_vl.indexOf("full sea")>=0||_vl.indexOf("burj khalifa")>=0?1.12:_vl.indexOf("beach access")>=0||_vl.indexOf("palm")>=0?1.10:_vl.indexOf("marina")>=0||_vl.indexOf("full canal")>=0||_vl.indexOf("partial burj")>=0?1.08:_vl.indexOf("partial sea")>=0?1.07:_vl.indexOf("golf")>=0||_vl.indexOf("boulevard")>=0?1.06:_vl.indexOf("lagoon")>=0||_vl.indexOf("creek")>=0||_vl.indexOf("lake")>=0?1.05:_vl.indexOf("skyline")>=0?1.04:_vl.indexOf("partial canal")>=0||_vl.indexOf("sheikh zayed")>=0?1.03:_vl.indexOf("garden")>=0||_vl.indexOf("park")>=0?1.02:_vl.indexOf("pool")>=0||_vl.indexOf("community")>=0?1.01:1.0;staticRent=Math.round(staticRent*_vrm);}
   if(!isVilla&&f.floor){var _fl=parseInt(f.floor)||0;if(_fl>=40)staticRent=Math.round(staticRent*1.05);else if(_fl>=25)staticRent=Math.round(staticRent*1.03);else if(_fl>=15)staticRent=Math.round(staticRent*1.02);}
   // --- Layer 2: Live market calibration ---
+  // Uses the same Tukey-fence robust median as the sale-side live signal
+  // (getLiveSignal(), above) — a raw median or a fixed 10-90th percentile
+  // clip (the previous logic here) does nothing to protect against a bait
+  // rental listing at a fraction of market rate: with a raw median, a single
+  // low outlier among 2-3 buildingMatches pulls the estimate directly; the
+  // fixed percentile clip is a no-op at the small sample sizes (3-8
+  // listings) this actually runs at in practice. There's no rental
+  // equivalent of real sale transactions available via the integrated
+  // APIs (Ejari-registered signed leases aren't exposed), so both tiers
+  // here are asking-rent listings — the fence is the only defense.
   var liveRent=null,liveSource=null,liveCount=0,liveMedian=null,liveLow=null,liveHigh=null,liveListings=[];
   if(liveRentals){
     if(liveRentals.buildingMatches&&liveRentals.buildingMatches.length>=2){
       var prices=liveRentals.buildingMatches.map(function(l){return l.price;}).sort(function(a,b){return a-b;});
-      liveMedian=prices[Math.floor(prices.length/2)];
+      liveMedian=Math.round(_robustMedian(prices));
       liveLow=prices[0];liveHigh=prices[prices.length-1];
       liveRent=liveMedian;liveSource="live_building";liveCount=prices.length;
       liveListings=liveRentals.buildingMatches;
     }else if(liveRentals.areaListings&&liveRentals.areaListings.length>=3){
       var prices=liveRentals.areaListings.map(function(l){return l.price;}).sort(function(a,b){return a-b;});
-      var trimS=Math.floor(prices.length*0.1),trimE=Math.ceil(prices.length*0.9);
-      var trimmed=prices.slice(trimS,trimE);
-      var areaMedian=trimmed.length>0?trimmed[Math.floor(trimmed.length/2)]:prices[Math.floor(prices.length/2)];
+      var areaMedian=_robustMedian(prices);
       var _grm2=bData&&bData.g==="Ultra"?1.80:bData&&bData.g==="A+"?1.35:bData&&bData.g==="A"?1.10:1.0;
       liveRent=Math.round(areaMedian*_grm2);
       liveSource="live_area";liveCount=prices.length;
