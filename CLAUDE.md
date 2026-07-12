@@ -893,6 +893,40 @@ These files contain critical business logic and data:
   grounded AI features (Chat Agents, Area Comparison, Compare, Personal Advisor,
   Portfolio Analysis) retrieve relevant context before answering.
 
+- **🟡 Analyzer floor/view premium precision — DEFERRED, needs new data**
+  (2026-07-12): Controlled validation (Marina Diamond-2, Bahar 1/JBR) found the
+  engine's combined floor+view hedonic spread (~44-45%) may understate real
+  within-building dispersion (~60-62% after correcting for listing-price
+  inflation bias — raw listing data suggested an even bigger ~81-119% gap,
+  but that's inflated since sellers list premium/view units more
+  aggressively above fair value than basic units, per user's domain
+  insight). Not acted on: the ~60% figure is itself an estimate derived from
+  aggregate web data, not exact per-unit transaction records, and the core
+  hedonic formula (`VIEW_P`, floor premium, `hedonicCap` in
+  `js/valuation.js`) has been tuned over ~20 iterations — too sensitive
+  (affects every valuation site-wide) to adjust on approximate evidence.
+  **Needs**: real per-unit DLD transaction data with floor + view + price
+  (not just building-level aggregates) to precisely recalibrate — i.e., a
+  fresh/re-run of the `tools/calibrate-db.js` pipeline with per-unit
+  granularity retained through to this specific premium calc, once more
+  DLD data is available.
+- **🟡 Commercial (`VALUATION_DB_COM`) calibration coverage — 61% (1166/1914)**
+  (2026-07-12): Unlike residential, `tools/build-valuation-db.js` only does
+  **exact key matching** for commercial buildings (no fuzzy-matching layer
+  like `findDLDMatch()` has for residential — see comment in the file, "no
+  fuzzy-matching complexity needed here" was true structurally but leaves
+  real coverage on the table). Two independent ways to improve, only one
+  needs new data:
+  1. **Doesn't need new data** — add a fuzzy-matching layer for commercial
+     (same technique as residential: normalize name, try trailing-number
+     variants, same-area substring match) against the *existing*
+     `tools/calibration-output.json` already on hand. Straightforward,
+     not yet done.
+  2. **Needs new data** — land coverage is already 100% (253/253) from the
+     same file, so commercial's gap is really about exact-name overlap
+     between `js/data-commercial.js`'s DB_COM keys and however DLD names
+     commercial units in the export — a fresher/differently-structured
+     commercial extract could also close some of this gap on its own.
 - **🔴 Email sending (Resend) — NOT WORKING**: Price Alert emails cannot send.
   `/api/*.js` serverless functions return 404 on Vercel. Next steps:
   1. Check if local `package.json` has extra deps triggering Vercel auto-detection
@@ -901,7 +935,9 @@ These files contain critical business logic and data:
   4. Fallback: move API functions to Supabase Edge Functions
   - **Resend domain `dubaival.com`**: was "Partially Verified" as of 2026-06-17.
     May be fully verified by now — check Resend dashboard.
-- **🔴 Live Market Finder — broken**: Multiple issues:
+- **🔴 Live Market Finder — broken** (confirmed still open 2026-07-12 —
+  **doesn't need new data, purely a code/parsing bug, independently
+  actionable any time**): Multiple issues:
   1. **Only Bayut listings show** — Property Finder listings are missing.
      Likely the RapidAPI endpoint or parser only handles Bayut responses.
   2. **No listing photos** — Bayut listings appear without property images.
