@@ -376,12 +376,26 @@ Continuously-growing AI memory that makes DubAIVal smarter over time.
   tag='launch'/'general'.
 - **Daily market snapshots** (every day at 06:00 UTC via cron): Per-area PSF +
   rent facts synthesized in `api/refresh-market-data.js`. Stored with
-  source_type='market_snapshot'. Upserted daily with synthetic source_url
-  key `area-snapshot:{area}:{date}` (overrides prior day's entry for same area).
+  source_type='market_snapshot'. Synthetic source_url key is
+  `area-snapshot:{area}:{date}` — since the date is part of the key, each day
+  writes a NEW row per area (does NOT overwrite the prior day's entry, despite
+  what earlier notes here said). Rows older than 90 days are pruned by the
+  same cron via `pruneOldMarketSnapshots()` (2026-07-12 fix) so the table
+  doesn't grow unbounded.
 
-**Required new env var in Vercel**: `GEMINI_API_KEY`
-  - Get free at: https://aistudio.google.com/apikey (free tier, generous limits)
+**Required embedding provider env var in Vercel** (either one — `embedTexts()`
+prefers Jina first if both are set):
+  - `JINA_API_KEY` — recommended for production (jina-embeddings-v3, 768-dim
+    via Matryoshka truncation, permanent key, no expiry). Get at jina.ai.
+  - `GEMINI_API_KEY` — text-embedding-004, 768-dim. Free tier at
+    https://aistudio.google.com/apikey. OAuth-style keys (`AQ.`/`ya29.`
+    prefix) expire in ~1h — use a plain `AIzaSy...` API key for production.
   - Add in: Vercel Dashboard → Project → Settings → Environment Variables
+  - All 4 call sites (`api/knowledge-query.js`, `api/proxy-news.js`,
+    `api/refresh-market-data.js`, `api/chiefs-embed.js`) gate on
+    `embeddings.hasProvider()`, not a hardcoded key name — this was a real
+    bug fixed 2026-07-12 (they used to check `GEMINI_API_KEY` only, so a
+    Jina-only setup would have silently disabled the entire RAG pipeline).
 
 **Required new Supabase SQL migration**:
   - Run `supabase-knowledge-base-schema.sql` in Supabase Dashboard → SQL Editor
@@ -422,6 +436,40 @@ features continue working exactly as before. Zero breakage.
 - `theme-color` meta tag added (`#070B14`)
 
 ## Recent work log (most recent first)
+
+- **2026-07-12 (session 11)**: RAG knowledge-base architecture audit + hardening, plus
+  merging the research branch's building data (see "TWO-BRANCH WORKFLOW" above).
+  - **Provider-gating bug (real, silent)**: `api/knowledge-query.js`, `api/proxy-news.js`,
+    `api/refresh-market-data.js`, `api/chiefs-embed.js` all gated embedding calls on
+    `process.env.GEMINI_API_KEY` specifically, even though `api/_lib/embeddings.js` had
+    since been upgraded to try Jina first (documented as "recommended for production"
+    since Gemini OAuth-style keys expire in ~1h). A Jina-only setup would have silently
+    disabled the entire RAG pipeline — ingestion and query both. Added
+    `embeddings.hasProvider()` and switched all 4 call sites to use it.
+  - **No recency weighting** (`supabase-knowledge-base-recency-fix.sql`, new migration —
+    requires manual execution): `match_knowledge()` ranked purely by cosine similarity,
+    so a months-old snapshot could outrank today's data on pure semantic closeness.
+    Rewrote the ORDER BY to blend similarity (85%) with a recency score that linearly
+    decays to 0 over 180 days (15%) — same signature/output columns, no caller changes.
+  - **No area filtering used anywhere**: the `filter_area` RPC param existed but no
+    caller ever passed it — all 5 grounded `askAI()` call sites relied purely on
+    semantic luck across free-text queries. Extended `fetchKnowledgeContext()`
+    (`js/api.js`) to accept a single area or an array of areas (fetched in parallel,
+    deduped), and `askAI()` gained a 4th `groundAreas` param. Wired real area lists
+    through the 3 structured call sites (`js/marketindex.js` Area Comparison,
+    `js/portfolio.js` Compare + Portfolio AI Analysis), and added
+    `_detectAreasInText()` — a substring scan against the 347 `AREAS` keys — as an
+    automatic fallback for the one free-text call site (Chat Agents), with "Dubai"
+    itself excluded from the scan since it's a real catch-all AREAS key that would
+    otherwise false-positive-match nearly every query.
+  - **Unbounded snapshot growth**: `refresh-market-data.js` writes one new
+    `market_snapshot` row per area per day forever (the date is baked into the row's
+    unique key, so nothing was ever overwritten — a stale claim in this file said
+    otherwise, now corrected). Added `pruneOldMarketSnapshots()`, called at the end
+    of the same daily cron, deleting snapshot rows older than 90 days.
+  - All changes verified via real-browser Playwright tests (mocked fetch, checked
+    request payloads/dedup/fallback logic) plus Node-level tests before committing —
+    zero console errors, existing grounded features unaffected.
 
 - **2026-07-11 (session 10)**: Code-quality/security pass — 4-agent audit (core/app/auth,
   valuation/market/api, portfolio/deals/social/chiefs, backend api/) then 14 approved

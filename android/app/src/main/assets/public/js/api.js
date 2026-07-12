@@ -175,7 +175,11 @@ async function fetchLiveRentals(building,area,beds){
 // (live news + daily market snapshots) for a free-text query. Always resolves
 // (never throws) — returns "" if the knowledge base isn't configured yet or
 // the lookup fails, so callers can treat it as a pure best-effort enrichment.
-async function fetchKnowledgeContext(query,area){
+// `area` may be a single area name, an array of area names (fetched in
+// parallel so every named area actually contributes context instead of
+// relying on semantic luck across a multi-area query), or omitted for an
+// unfiltered global search.
+async function _fetchKnowledgeContextOne(query,area){
   try{
     var body={query:query};
     if(area)body.area=area;
@@ -184,19 +188,57 @@ async function fetchKnowledgeContext(query,area){
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify(body)
     });
-    if(!r.ok)return "";
+    if(!r.ok)return [];
     var d=await r.json();
-    var results=d.results||[];
-    if(!results.length)return "";
-    return results.map(function(x){return "- "+(x.title?x.title+": ":"")+x.content;}).join("\n");
-  }catch(e){return "";}
+    return d.results||[];
+  }catch(e){return [];}
+}
+async function fetchKnowledgeContext(query,area){
+  var areas=Array.isArray(area)?area.filter(Boolean):(area?[area]:[]);
+  var resultSets;
+  if(areas.length){
+    resultSets=await Promise.all(areas.slice(0,5).map(function(a){return _fetchKnowledgeContextOne(query,a);}));
+  }else{
+    resultSets=[await _fetchKnowledgeContextOne(query,null)];
+  }
+  var seen={};var merged=[];
+  resultSets.forEach(function(results){
+    results.forEach(function(x){
+      var key=x.source_url||(x.title+"|"+x.content);
+      if(seen[key])return;
+      seen[key]=true;
+      merged.push(x);
+    });
+  });
+  if(!merged.length)return "";
+  return merged.slice(0,8).map(function(x){return "- "+(x.title?x.title+": ":"")+x.content;}).join("\n");
 }
 
-async function askAI(messages,system,groundQuery){
+// Scans free text for mentions of known DubAIVal area names (case-insensitive
+// substring match against the 347-area benchmark DB), so free-form queries
+// (e.g. Chat Agents) can still ground with an area filter instead of always
+// falling back to an unfiltered global search.
+// "Dubai" itself is a real (catch-all) AREAS key, so it would match almost
+// any real-estate query and wrongly narrow retrieval to that one generic
+// bucket — excluded here since it names no specific area.
+var _AREA_DETECT_EXCLUDE={"Dubai":1};
+function _detectAreasInText(text){
+  if(!text||typeof AREAS==="undefined")return [];
+  var lower=text.toLowerCase();
+  var hits=[];
+  Object.keys(AREAS).forEach(function(name){
+    if(_AREA_DETECT_EXCLUDE[name])return;
+    if(name.length>3&&lower.indexOf(name.toLowerCase())!==-1)hits.push(name);
+  });
+  return hits.slice(0,5);
+}
+
+async function askAI(messages,system,groundQuery,groundAreas){
   const groqMessages=[];
   var sys=system||"";
   if(groundQuery){
-    var context=await fetchKnowledgeContext(groundQuery);
+    var areas=groundAreas&&(Array.isArray(groundAreas)?groundAreas.length:groundAreas)?groundAreas:_detectAreasInText(groundQuery);
+    var context=await fetchKnowledgeContext(groundQuery,areas);
     if(context){
       sys=(sys?sys+"\n\n":"")+"Relevant up-to-date Dubai real estate knowledge (from live news and daily market data — use only if genuinely helpful, ignore if irrelevant):\n"+context;
     }
