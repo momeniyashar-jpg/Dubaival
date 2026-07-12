@@ -847,9 +847,56 @@ These files contain critical business logic and data:
   APK not yet built — requires Android SDK (not available in cloud env).
 - **✅ COMPLETED: AVM full calibration** (2026-06-20): All 10,880 properties
   calibrated with 100% coverage. Error reduced from ~20% to under 5%.
-- **Building research ACTIVE**: Current: 8,522 residential across 216 areas.
-  347 areas have benchmarks. Target areas listed in "Building research gaps" below.
-  **IMPORTANT**: Buildings go in `js/data-residential.js`, NOT in `index-6.html`.
+- **Building research ACTIVE**: Current: 9,227 residential across 216+ areas
+  (as of 2026-07-12 — was 9,123, +104 from a research session's Round 3 building
+  batch + 30 missing villa sub-communities, merged into the code-quality branch
+  via cherry-pick). 347 areas have benchmarks. Target areas listed in "Building
+  research gaps" below. **IMPORTANT**: Buildings go in `js/data-residential.js`,
+  NOT in `index-6.html`.
+
+- **🔴 TWO-BRANCH WORKFLOW (established 2026-07-12)** — going forward, exactly
+  two sessions carry the project forward in parallel, with a strict file-ownership
+  split so they never conflict:
+
+  | Branch | Owns | Touches |
+  |---|---|---|
+  | `claude/dubaival-code-quality-k29ojs` | Design/UX, bug fixes, code quality, all non-data work | Everything **except** `js/data-residential.js` / `js/data-commercial.js` |
+  | `claude/dubaival-portfolio-manager-5bgbjk` ("research branch") | Building/area database growth | **ONLY** `js/data-residential.js` / `js/data-commercial.js` |
+
+  **`claude/dubaival-code-quality-k29ojs` is now the integration/deploy branch**
+  (see updated Deploy method below) — it accumulates both the design/quality work
+  and the research branch's data commits.
+
+  **Rules for the research branch** (give these to that session if it asks, or
+  if you are that session):
+  1. Sync first: `git fetch origin && git reset --hard origin/claude/dubaival-portfolio-manager-5bgbjk`.
+  2. Edit **only** `js/data-residential.js` (and `js/data-commercial.js` for
+     commercial/land) — no UI files, no `index.html`, no redesign work, no cache
+     version bumps. A stray "Home tab redesign" / "Market Dashboard redesign" /
+     "premium tab headers" set of commits landed on this branch on 2026-07-12
+     before this rule existed and directly conflicts with design work already
+     done on the code-quality branch — do not repeat that; if you are not doing
+     pure data-file additions, you are on the wrong branch.
+  3. Commit with the existing good pattern: clear message with area names,
+     building counts before → after, and a total DB count. One commit per
+     research batch is fine; no need to squash.
+  4. Push directly: `git push origin claude/dubaival-portfolio-manager-5bgbjk`.
+  5. Do **not** merge the code-quality branch into this one, and do not open
+     a PR — the code-quality session pulls data commits from here on its own
+     schedule (via `git cherry-pick`, since the two branches' histories diverge
+     on non-data files and a full merge would drag in irrelevant unrelated
+     commits, as happened 2026-07-12).
+
+  **Rules for the code-quality branch** (this session):
+  1. Never edit `js/data-residential.js` / `js/data-commercial.js` directly —
+     unchanged from the pre-existing rule.
+  2. Periodically (start of session, or when the user reports new research
+     branch numbers): `git fetch origin`, then check
+     `git log --oneline HEAD..origin/claude/dubaival-portfolio-manager-5bgbjk -- js/data-residential.js js/data-commercial.js`
+     and `git cherry-pick` exactly those commits (only ones touching the two
+     data files) onto this branch. Verify after: `node -c js/data-residential.js`
+     and a quick `DB`/`BLDG_UNITS` key-count sanity check before pushing.
+
 - **Agent video analysis & upload**: not built yet, deferred to future.
 - **Deploy method**: User deploys from local folder `C:\Users\momen\dubaival\dubaival-deploy`
   using the Vercel CLI. The deploy folder is a git repo. After each Claude session,
@@ -857,7 +904,7 @@ These files contain critical business logic and data:
 
   ```
   git fetch origin
-  git reset --hard origin/claude/dubaival-portfolio-manager-5bgbjk
+  git reset --hard origin/claude/dubaival-code-quality-k29ojs
   vercel --prod
   ```
 
@@ -870,7 +917,9 @@ These files contain critical business logic and data:
   `git reset --hard` is the correct and safe method — it avoids merge conflicts entirely.
 
   **Always give the user BOTH commands at end of each task:**
-  1. The git reset + vercel command block above
+  1. The git reset + vercel command block above (now targeting
+     `claude/dubaival-code-quality-k29ojs`, not the old `dubaival-portfolio-manager-5bgbjk`
+     — that branch is now research-only and is never deployed directly)
   2. Nothing else — no git checkout main, no git push origin main
 - **🟡 Analyzer enhancements (deferred to after redesign)**:
   1. **Price History Chart** — 1-5 year price trend graph per area/building
