@@ -131,9 +131,139 @@ async function pruneOldMarketSnapshots() {
   return resp.ok;
 }
 
+// ── AI forecast-accuracy feedback loop ──────────────────────────────────────
+// runMarketIntelligence() (js/core.js) asks the LLM to *estimate* each area's
+// trailing 6-month price change purely from its own training knowledge, with
+// nothing to check itself against — the estimate is stored in market_config
+// and never verified. This audit compares that stored estimate against the
+// REALIZED 6-month price change computed from real tracked listings in
+// price_history (populated by the daily area-refresh run above), then writes
+// the discrepancy into knowledge_base as a new fact. Grounded AI answers
+// about an area can then retrieve "here's how accurate our own past estimate
+// was for this area" — a genuine, compounding feedback signal, distinct from
+// (and complementary to) the Analyzer's separate hardcoded-database
+// calibration. Runs on its own weekly cron via ?action=forecast-audit rather
+// than every day — market_config estimates don't change often enough to need
+// daily re-auditing, and keeping this off the already-tight daily-refresh
+// budget avoids any risk to that cron.
+var FORECAST_BASELINE_DAYS = 180; // "6 months" per the runMarketIntelligence prompt
+var FORECAST_BASELINE_WINDOW_DAYS = 30; // tolerance either side of the exact mark
+var FORECAST_TIME_BUDGET_MS = 45000; // leave headroom under the 60s maxDuration
+
+async function auditForecastForArea(cfg) {
+  if (cfg.pct_change === null || cfg.pct_change === undefined || !cfg.updated_at) return null;
+  var forecastDate = new Date(cfg.updated_at);
+  if (isNaN(forecastDate.getTime())) return null;
+  var baselineTarget = new Date(forecastDate.getTime() - FORECAST_BASELINE_DAYS * 86400000);
+  var winLo = new Date(baselineTarget.getTime() - FORECAST_BASELINE_WINDOW_DAYS * 86400000).toISOString().slice(0, 10);
+  var winHi = new Date(baselineTarget.getTime() + FORECAST_BASELINE_WINDOW_DAYS * 86400000).toISOString().slice(0, 10);
+
+  try {
+    var baseResp = await supabaseRequest(
+      "/price_history?area_key=eq." + encodeURIComponent(cfg.area_key) +
+      "&snapshot_date=gte." + winLo + "&snapshot_date=lte." + winHi +
+      "&select=psf,snapshot_date&order=snapshot_date.asc&limit=1"
+    );
+    if (!baseResp.ok) return null;
+    var baseRows = await baseResp.json();
+    if (!baseRows.length || !baseRows[0].psf) return null;
+
+    var latestResp = await supabaseRequest(
+      "/price_history?area_key=eq." + encodeURIComponent(cfg.area_key) +
+      "&select=psf,snapshot_date&order=snapshot_date.desc&limit=1"
+    );
+    if (!latestResp.ok) return null;
+    var latestRows = await latestResp.json();
+    if (!latestRows.length || !latestRows[0].psf) return null;
+
+    var basePsf = baseRows[0].psf, latestPsf = latestRows[0].psf;
+    if (baseRows[0].snapshot_date === latestRows[0].snapshot_date) return null; // no real time gap yet
+
+    var realizedPct = Math.round(((latestPsf - basePsf) / basePsf) * 1000) / 10;
+    var aiPct = cfg.pct_change;
+    var deltaPp = Math.round((aiPct - realizedPct) * 10) / 10;
+    var today = new Date().toISOString().slice(0, 10);
+
+    var content = "AI market intelligence estimated a " + aiPct + "% 6-month price change for " +
+      cfg.area_key + " (forecast made " + forecastDate.toISOString().slice(0, 10) +
+      "); actual realized change based on tracked listings (" + baseRows[0].snapshot_date +
+      " to " + latestRows[0].snapshot_date + ") was " + realizedPct.toFixed(1) + "%, a " +
+      (deltaPp > 0 ? "+" : "") + deltaPp.toFixed(1) + " percentage-point difference.";
+
+    return { area: cfg.area_key, date: today, content: content };
+  } catch (e) {
+    return null;
+  }
+}
+
+async function ingestForecastAuditFacts(facts) {
+  if (!embeddings.hasProvider() || !facts.length) return 0;
+  var texts = facts.map(function (f) { return f.content; });
+  var vectors = await embeddings.embedTexts(texts, "RETRIEVAL_DOCUMENT");
+
+  var rows = [];
+  facts.forEach(function (f, i) {
+    var vec = vectors[i];
+    if (!vec) return;
+    rows.push({
+      source_type: "forecast_accuracy",
+      source_url: "forecast-accuracy:" + f.area + ":" + f.date,
+      title: f.area + " forecast accuracy — " + f.date,
+      content: f.content,
+      area: f.area,
+      tag: null,
+      embedding: vec,
+      published_at: new Date().toISOString()
+    });
+  });
+  if (!rows.length) return 0;
+
+  var resp = await supabaseRequest("/knowledge_base", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: JSON.stringify(rows)
+  });
+  return resp.ok ? rows.length : 0;
+}
+
+async function handleForecastAudit(req, res) {
+  var startedAt = Date.now();
+  var results = { areasChecked: 0, factsWritten: 0, skipped: 0, timedOut: false };
+
+  try {
+    var cfgResp = await supabaseRequest("/market_config?select=area_key,pct_change,updated_at&area_key=neq._overall");
+    if (!cfgResp.ok) {
+      return res.status(200).json({ ok: true, timestamp: new Date().toISOString(), results: results });
+    }
+    var configs = await cfgResp.json();
+    if (!Array.isArray(configs)) configs = [];
+
+    var allFacts = [];
+    var AUDIT_CONCURRENCY = 5;
+    for (var i = 0; i < configs.length; i += AUDIT_CONCURRENCY) {
+      if (Date.now() - startedAt > FORECAST_TIME_BUDGET_MS) { results.timedOut = true; break; }
+      var batch = configs.slice(i, i + AUDIT_CONCURRENCY);
+      var batchFacts = await Promise.all(batch.map(auditForecastForArea));
+      batchFacts.forEach(function (f) {
+        results.areasChecked++;
+        if (f) allFacts.push(f); else results.skipped++;
+      });
+    }
+
+    results.factsWritten = await ingestForecastAuditFacts(allFacts);
+    res.status(200).json({ ok: true, timestamp: new Date().toISOString(), results: results });
+  } catch (e) {
+    res.status(200).json({ ok: false, error: e.message, results: results });
+  }
+}
+
 module.exports = async function handler(req, res) {
   if (!process.env.CRON_SECRET || req.headers.authorization !== "Bearer " + process.env.CRON_SECRET) {
     return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  if (req.query && req.query.action === "forecast-audit") {
+    return handleForecastAudit(req, res);
   }
 
   var areas = Object.keys(AREA_LOCATION_MAP);

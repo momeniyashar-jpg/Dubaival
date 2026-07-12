@@ -39,6 +39,7 @@
   ],
   "crons": [
     { "path": "/api/refresh-market-data", "schedule": "0 6 * * *" },
+    { "path": "/api/refresh-market-data?action=forecast-audit", "schedule": "30 6 * * 0" },
     { "path": "/api/inbox?action=gmail-poll", "schedule": "0 7 * * *" },
     { "path": "/api/inbox?action=send-replies", "schedule": "30 7 * * *" },
     { "path": "/api/price-alerts?action=check", "schedule": "0 8 * * *" },

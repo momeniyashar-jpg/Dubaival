@@ -226,9 +226,9 @@ Code is now split across `js/*.js` files. To find anything, grep across `js/`:
 | `dv_referrals` | `supabase-referral-schema.sql` | Referral tracking (buyer → agent → deal) |
 | `price_watches` | `supabase-price-alerts-schema.sql` | Price alert subscriptions |
 | `market_config` | (pre-existing) | Macro yield/growth adjustment knobs |
-| `knowledge_base` | `supabase-knowledge-base-schema.sql` | RAG vector store — 768-dim Gemini embeddings of live news + daily market snapshots. NOT YET EXECUTED — awaiting user SQL migration + GEMINI_API_KEY env var. Feature degrades gracefully (inert but harmless) until then. |
+| `knowledge_base` | `supabase-knowledge-base-schema.sql` + `supabase-knowledge-base-recency-fix.sql` + `supabase-forecast-accuracy-schema.sql` | RAG vector store — 768-dim embeddings (Jina or Gemini) of live news, daily market snapshots, and weekly forecast-accuracy audits (see below). Recency-weighted retrieval. Live since 2026-07-11 (see Outstanding items). |
 | `area_benchmarks` | (inside `api/refresh-market-data.js` workflow, already deployed) | Live PSF + rent data per area, refreshed daily by cron |
-| `price_history` | (inside `api/refresh-market-data.js` workflow, already deployed) | Historical PSF per area per day |
+| `price_history` | (inside `api/refresh-market-data.js` workflow, already deployed) | Historical PSF per area per day — also the ground truth for the forecast-accuracy audit below |
 
 **SQL migration files executed in Supabase** (confirmed 2026-06-18): the original 5 above. `supabase-knowledge-base-schema.sql` (the RAG table) requires manual execution — see Outstanding items.
 
@@ -436,6 +436,39 @@ features continue working exactly as before. Zero breakage.
 - `theme-color` meta tag added (`#070B14`)
 
 ## Recent work log (most recent first)
+
+- **2026-07-12 (session 11b)**: RAG follow-through — wired grounding into the 11
+  remaining `askAI()` call sites, corrected stale building-count stats app-wide,
+  and built a forecast-accuracy feedback loop.
+  - **Remaining grounding**: Video Studio auto-prompt + AI Prompt Writer (property/
+    free-text context + area), Social Media Manager content generation, video script
+    writer, Content Pillar Planner, 30-day Bulk Generator, AI Chief of Staff's WhatsApp
+    drafter (grounded on the listing's area), and `runMarketIntelligence()` (grounded
+    across its 20 tracked areas — feeds `market_config`, shown to every user, so
+    freshness matters most here). Deliberately left ungrounded: the cinematic-video-
+    prompt writer (no area/property context, pure style task) and the two NL
+    field-extraction parsers (Analyzer AI Smart Search, reusable Smart Bar) — both
+    are structured extraction, not knowledge questions, on a latency-sensitive
+    as-you-type path.
+  - **Stale stats**: "8,522 buildings" / "10,800+ properties" / a "348 areas" typo
+    were hardcoded across AI system prompts, onboarding tour text, Market Index stat
+    cards, and meta tags — all predating the DB merge to 9,227. Updated everywhere to
+    9,227 residential + 1,914 commercial (also corrected from a stale 1,930) + 428
+    land = 11,500+, 347 areas.
+  - **Forecast-accuracy feedback loop** (`supabase-forecast-accuracy-schema.sql`, new
+    migration — requires manual execution): since fine-tuning Llama-on-Groq isn't
+    practical, this is the "gets smarter over time" mechanism instead.
+    `runMarketIntelligence()` (`js/core.js`) has the LLM *estimate* each area's
+    trailing 6-month price change from training knowledge alone, stored in
+    `market_config`, with nothing ever checking it against reality. Added
+    `api/refresh-market-data.js?action=forecast-audit` (new weekly cron, Sundays
+    06:30 UTC — kept off the already-tight daily-refresh budget rather than adding a
+    13th Vercel function) that compares each area's stored estimate against the
+    REALIZED 6-month change computed from real `price_history` data, and writes the
+    discrepancy into `knowledge_base` as a new `forecast_accuracy` fact (retrieved
+    through the same recency-ranked, area-filtered `match_knowledge()` RPC as
+    everything else). Degrades gracefully — areas without ~180 days of price_history
+    yet are skipped and simply get audited automatically once enough time passes.
 
 - **2026-07-12 (session 11)**: RAG knowledge-base architecture audit + hardening, plus
   merging the research branch's building data (see "TWO-BRANCH WORKFLOW" above).
