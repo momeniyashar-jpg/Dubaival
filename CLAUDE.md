@@ -927,14 +927,20 @@ These files contain critical business logic and data:
      between `js/data-commercial.js`'s DB_COM keys and however DLD names
      commercial units in the export — a fresher/differently-structured
      commercial extract could also close some of this gap on its own.
-- **🔴 Email sending (Resend) — NOT WORKING**: Price Alert emails cannot send.
-  `/api/*.js` serverless functions return 404 on Vercel. Next steps:
-  1. Check if local `package.json` has extra deps triggering Vercel auto-detection
-  2. Try deploying via git push to `main` instead of `npx vercel --prod`
-  3. Check Vercel deployment "Source" tab for uploaded files
-  4. Fallback: move API functions to Supabase Edge Functions
-  - **Resend domain `dubaival.com`**: was "Partially Verified" as of 2026-06-17.
-    May be fully verified by now — check Resend dashboard.
+- **🟡 Email sending (Resend) — likely already fixed, needs live confirmation**
+  (re-checked 2026-07-12): this entry's root cause (serverless functions
+  404ing on Vercel) was attributed to exceeding the Hobby-plan 12-function
+  limit — but the 2026-07-09 fix log below ("✅ Alerts — Email") already says
+  this was resolved by consolidating 3 alert files into `api/price-alerts.js`
+  and moving shared helpers into `api/_lib/` (excluded from the function
+  count). Verified 2026-07-12: exactly 12 non-`_lib` files under `api/`
+  today, matching the limit exactly — consistent with that fix holding.
+  `api/_lib/shared.js`'s `sendEmail()` is fully implemented (Resend API,
+  correct auth header, `ALERTS_FROM_EMAIL` fallback). **Not verified live**
+  — needs `RESEND_API_KEY` confirmed set in Vercel env vars and one real
+  subscribe → cron-trigger → inbox check. If still failing, check the
+  Resend domain verification status for `dubaival.com` (was "Partially
+  Verified" as of 2026-06-17) before re-diagnosing the function-count theory.
 - **🟡 Live Market Finder — likely already fixed, needs live confirmation**
   (re-checked 2026-07-12): this entry described 3 issues below, but a code
   review found all 3 already addressed — likely in session 10 (2026-07-11,
@@ -1144,6 +1150,8 @@ has free tier so companies can test easily).
 
 بررسی کامل از input تا output برای همه تب‌ها. هدف: آیا چیدمان هر تب با نتیجه‌ای که از آن انتظار داریم مطابقت دارد؟
 
+**⚠️ یادداشت مهم (2026-07-12)**: یک بررسی مجدد سیستماتیک روی تمام موارد 🔴/⚠️ باقی‌مانده در این فایل نشون داد که چند مورد (Email/Resend، پارسر Property Finder، یادداشت RAG غیرفعال، یادداشت رمز Admin سمت کلاینت) در سشن‌های بعدی حل شده بودن ولی این بخش هیچ‌وقت به‌روزرسانی نشده بود — یعنی مستندات از کد واقعی عقب افتاده بود. جزئیات هر مورد در جای خودش تصحیح شد. **درس برای سشن‌های بعدی**: قبل از شروع کار روی هر آیتم قدیمی‌تر از این لیست، اول کد واقعی رو چک کن، نه فقط این یادداشت رو باور کن.
+
 ### نتایج کلی (به‌روز شده 2026-07-09)
 
 | تب | وضعیت | اولویت |
@@ -1155,7 +1163,7 @@ has free tier so companies can test easily).
 | TrackRecord | ✅ Complete | Low |
 | Market Index | ⚠️ Partial | Low |
 | Compare | ✅ Complete | — |
-| Find | ⚠️ Partial | **High** |
+| Find | 🟡 Likely fixed, needs live confirm (see note below) | **High** |
 | Map | ✅ Complete | Low |
 | Advisor | ✅ Complete | Medium |
 | News | ✅ Complete | Low |
@@ -1163,14 +1171,14 @@ has free tier so companies can test easily).
 | Portfolio — Health | ✅ Complete | Low |
 | Portfolio — Projections | ✅ Complete | Low |
 | Alerts | ✅ Complete | — |
-| Deals | ⚠️ Partial | Medium |
+| Deals | 🟡 No documented remaining issue since 2026-07-11 fixes (tasks #5, #16) — unverified live | Medium |
 | AI Agents / Chat | ✅ Complete | Medium |
 | Chiefs | ✅ Complete | — |
 | Studio / Avatar | ✅ Complete | — |
 | Video Platform | ✅ Complete | — |
 | AI Assistant (SocialChat) | ✅ Complete | Low |
 | Workspace | ✅ Complete | Low |
-| Reports | ⚠️ Partial | Medium |
+| Reports | ⚠️ Partial (only documented gap is LOW-severity: voice input on Firefox/mobile) | Medium |
 | About | ✅ Complete | Low |
 
 ---
@@ -1225,6 +1233,6 @@ has free tier so companies can test easily).
 
 ### نکات کلی معماری
 
-1. **RAG grounding** در ۵ جای app غیرفعال است تا Supabase SQL + Gemini key client-side تنظیم نشود — کاربر هیچ نشانه‌ای نمی‌بیند
-2. **localStorage** برای Portfolio و Reports بدون cloud sync — ریسک data loss
-3. **Admin password** در `deals.js` client-side چک می‌شود (`"DubaiVal2025!"`) — نیاز به بررسی امنیتی
+1. ~~RAG grounding در ۵ جای app غیرفعال است~~ — **قدیمی شد (تأیید شده 2026-07-11)**: RAG کاملاً فعال و live است (هم Supabase SQL هم Gemini/Jina key تنظیم شده) — به بخش "✅ COMPLETED: RAG Knowledge Base" در Outstanding items مراجعه کن.
+2. **localStorage** برای Portfolio و Reports بدون cloud sync — ریسک data loss (هنوز واقعی به نظر می‌رسه — warning banner + Export دستی وجود داره ولی cloud sync خودکار نه)
+3. ~~Admin password در `deals.js` client-side چک می‌شود~~ — **قدیمی شد (تأیید شده 2026-07-12)**: کد فعلی هیچ‌جا رمز رو client-side مقایسه نمی‌کنه؛ همه‌جا (`js/app.js`, `js/deals.js`, `js/core.js`) از طریق `p_admin_password` به یک RPC سمت سرور فرستاده می‌شه (فیکس سشن ۱۱-۷-۲۰۲۶، `supabase-admin-security-fix.sql`).
