@@ -1,5 +1,88 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- AI AGENTS ---------------------------------------------------------------
+//
+// AGENT DATA GROUNDING (added 2026-07-13, real bug found and fixed):
+// The "general", "valuation", "negotiation" and "marketing" agents all
+// promise precise, database-backed numbers in their system prompts (exact
+// PSF/yield/verdict methodology, "ALWAYS include specific numbers from our
+// database"), but were never actually given any building-level data — only
+// "valuation"/"investor"/"leadcapture"/"outreach" injected an AREA-level
+// summary table, and "marketing" had none at all. That means a user asking
+// e.g. "Is BLVD Heights at AED 2,800 PSF a good deal?" got an LLM inventing
+// plausible-sounding numbers while the system prompt made it sound like a
+// rigorous 8-step calculation against the real 9,227-building database —
+// confidently wrong, not just uncertain.
+//
+// Fixed by extracting a building/area match from the user's own message and
+// injecting REAL computed numbers (via the same lookupBuilding()/
+// computeValuation() the rest of the app uses) as a verified-data block
+// appended to the agent's system prompt for that turn. A naive full-text
+// fuzzy match against DB turned out to be dangerous on its own — tested with
+// "Is Emaar Beachfront worth AED 3,200 PSF?" and got back a real DB entry in
+// a COMPLETELY unrelated area ("Rega Al Buteen") purely from fuzzy substring
+// overlap. Fixed by requiring the matched building's own area to agree with
+// whatever area (if any) was separately detected in the text — that specific
+// false match is now correctly rejected instead of injected as "verified."
+function _agentExtractBuildingCandidates(text){
+  var matches=text.match(/\b[A-Z][A-Za-z0-9]*(?:[\s-][A-Z0-9][A-Za-z0-9]*){0,4}\b/g)||[];
+  return matches.filter(function(m){return m.replace(/[^A-Za-z0-9]/g,"").length>=5;})
+    .sort(function(a,b){return b.length-a.length;});
+}
+function _agentSizeFromText(text){
+  var m=text.match(/([\d,]{3,6})\s*(?:sq\s*\.?\s*ft|sqft|square\s*feet)/i);
+  return m?parseInt(m[1].replace(/,/g,""),10):null;
+}
+function _agentPriceFromText(text){
+  var m=text.match(/(?:aed|\$)?\s*([\d,]+(?:\.\d+)?)\s*(?:m\b|million)/i);
+  if(m)return Math.round(parseFloat(m[1].replace(/,/g,""))*1e6);
+  var m2=text.match(/(?:aed|\$)\s*([\d,]{6,10})\b/i);
+  if(m2)return parseInt(m2[1].replace(/,/g,""),10);
+  return null;
+}
+function _agentBedsFromText(text){
+  if(/\bstudio\b/i.test(text))return"Studio";
+  var m=text.match(/(\d)\s*[- ]?\s*(?:br|bed(?:room)?s?)/i);
+  return m?m[1]+" BR":null;
+}
+// Returns a "VERIFIED DATA" block to append to an agent's system prompt for
+// this turn, or null if nothing reliable was found in the user's message.
+function _agentVerifiedContext(text){
+  if(!text)return null;
+  try{
+    var areas=(typeof _detectAreasInText==="function")?_detectAreasInText(text):[];
+    var area=areas&&areas.length?areas[0]:null;
+    var candidates=_agentExtractBuildingCandidates(text);
+    var bData=null;
+    for(var i=0;i<candidates.length;i++){
+      var b=(typeof lookupBuilding==="function")?lookupBuilding(candidates[i],area):null;
+      if(b&&(!area||b.a===area)){bData=b;break;}
+    }
+    if(!bData&&!area)return null;
+    var effArea=bData?bData.a:area;
+    var size=_agentSizeFromText(text);
+    var price=_agentPriceFromText(text);
+    var beds=_agentBedsFromText(text);
+    var valuation=null;
+    if(bData&&size&&price&&effArea&&typeof computeValuation==="function"){
+      try{
+        valuation=computeValuation({area:effArea,building:candidates[0]||"",price:String(price),size:String(size),
+          beds:beds||"2 BR",propCategory:"apartment",floor:"",view:"Not specified",furnished:"Unfurnished"});
+      }catch(e){}
+    }
+    var lines=["═══ VERIFIED DATA (from DubAIVal's calibrated database for THIS conversation turn — use these exact figures; do not invent or recalculate different numbers) ═══"];
+    if(bData){
+      lines.push("Building match in "+effArea+": PSF "+bData.p+" (range "+bData.lo+"–"+bData.hi+"), Grade "+bData.g+(bData.sc?", Service Charge AED "+bData.sc+"/sqft/yr":"")+".");
+    }else if(area&&typeof AREAS!=="undefined"&&AREAS[area]){
+      var aData=AREAS[area];
+      lines.push("No exact building match — "+area+" area benchmark: PSF "+aData.psf+", Yield "+(aData.y?aData.y[0]+"–"+aData.y[1]:"?")+"%, Growth "+(aData.g?aData.g[0]:"?")+"%. State clearly this is an area-level estimate, not a specific building's figures.");
+    }
+    if(valuation){
+      lines.push("Full valuation computed for the stated size/price: Fair Price AED "+valuation.fairPrice.toLocaleString()+", Verdict "+valuation.verdict+", Confidence "+valuation.confScore+"%, Gross Yield "+valuation.grossYield+"%.");
+    }
+    return lines.length>1?lines.join("\n"):null;
+  }catch(e){return null;}
+}
+
 var AI_AGENTS=[
   {id:"general",icon:"brain",name:"DubAIVal Intelligence",nameAr:"هوش DubAIVal",
     desc:"General market Q&A — ask about any building, deal, or strategy",
@@ -19,7 +102,8 @@ var AI_AGENTS=[
         "- For market questions: cite Q1 2026 DLD data, transaction volumes, price trends\n"+
         "- For area questions: provide full profile (PSF, yield, growth, DOM, liquidity, developer mix)\n"+
         "- If user seems new to Dubai RE: explain jargon (PSF, DLD, RERA, NOC) naturally\n"+
-        "- If user is a professional: be technical, skip basics, go deep on analytics";
+        "- If user is a professional: be technical, skip basics, go deep on analytics\n\n"+
+        "DATA HONESTY: if a VERIFIED DATA block appears below, use ONLY those exact figures for that building/area — never invent a different number. If no VERIFIED DATA block appears, you do not have this platform's building-specific data for what was asked — say so plainly and give a general market-knowledge estimate instead of presenting a guess as a database figure.";
     }
   },
   {id:"valuation",icon:"bar-chart-3",name:"Valuation Agent",nameAr:"ایجنت ارزیابی",
@@ -32,9 +116,10 @@ var AI_AGENTS=[
         "═══ ROLE: CERTIFIED PROPERTY VALUER (RICS-EQUIVALENT) ═══\n"+
         "You perform institutional-grade property valuations using the DubAIVal AVM engine.\n\n"+
         "VALUATION METHODOLOGY (follow EXACTLY):\n"+
-        "1. BUILDING LOOKUP: Search DB for exact building → extract PSF, grade, area\n"+
-        "   - If found: use building-specific PSF (DLD-verified, state confidence)\n"+
-        "   - If not found: use AREAS[area].psf as benchmark (state this clearly)\n"+
+        "1. BUILDING LOOKUP: check for a VERIFIED DATA block below (computed by this platform's real AVM engine, not by you)\n"+
+        "   - If a building match is verified: use its EXACT PSF/grade figures, state this is DLD-verified\n"+
+        "   - If only an area match is verified: use its exact PSF as benchmark, state this is an area-level estimate\n"+
+        "   - If no VERIFIED DATA block appears at all: you do not have this platform's data for this property — say so explicitly, then give a general-knowledge estimate clearly labeled as such (never present a guess as a database figure)\n"+
         "2. ADJUSTMENTS: Apply to base PSF:\n"+
         "   - Floor: ground/low=0%, mid(10-24)=+1%, high(25-39)=+3%, premium(40+)=+5%\n"+
         "   - View: Burj Khalifa+Fountain=+38%, Full Sea=+28%, Marina/Canal=+18%, Golf=+12%, Pool=+5%, Community=0%\n"+
@@ -64,7 +149,7 @@ var AI_AGENTS=[
         "You are a veteran Dubai property negotiator with 5,000+ closed deals. You know every tactic sellers, agents, and developers use.\n\n"+
         "NEGOTIATION FRAMEWORK:\n"+
         "1. MARKET POSITION ANALYSIS:\n"+
-        "   - Look up building/area PSF → calculate fair market value\n"+
+        "   - Check for a VERIFIED DATA block below (this platform's real database, not your own estimate) and anchor your fair-value figure to it — if none appears, say plainly you're working from general market knowledge, not this platform's building-specific data\n"+
         "   - Check DOM (Days on Market): <30d = seller firm, 30-60d = some flex, >60d = motivated, >90d = desperate\n"+
         "   - Check txVol (transaction volume): high = liquid area, low = harder to sell\n"+
         "   - Seasonal: Q1 peak (Jan-Mar), Q3-Q4 slower (Jul-Dec = more negotiable)\n\n"+
@@ -109,7 +194,7 @@ var AI_AGENTS=[
         "- Video scripts (property tours, area guides, market updates)\n"+
         "- Print materials (brochures, flyers, presentation decks)\n\n"+
         "WRITING RULES:\n"+
-        "1. ALWAYS include specific numbers from our database: PSF, yield %, growth %, AED price\n"+
+        "1. ALWAYS include specific numbers from our database: PSF, yield %, growth %, AED price. If a VERIFIED DATA block appears below, those are this platform's real, DLD-calibrated figures — use them exactly. If none appears, do NOT invent database-sounding numbers (e.g. \"our data shows...\") — either ask the user for the area/building, or write copy around the figures the user themselves provided in their request.\n"+
         "2. Highlight ROI/yield for INVESTORS, lifestyle/community for END-USERS\n"+
         "3. Use Dubai luxury lifestyle language: 'panoramic skyline views', 'world-class amenities', 'prime location'\n"+
         "4. Mention proximity to: metro (line + station name), mall, beach, airport, schools, hospitals\n"+
@@ -171,7 +256,7 @@ var AI_AGENTS=[
         "   - Stack strategy: 2 × AED 1M properties = eligible\n"+
         "   - Mortgage OK if equity ≥ AED 2M (property value minus loan balance)\n"+
         "   - Best visa-eligible areas by value: recommend 3 specific options\n\n"+
-        "ALWAYS provide: Recommended areas, specific buildings, expected PSF, size, total cost with fees, annual rent, net yield %, 3yr growth projection, risk rating (1-5)";
+        "ALWAYS provide: Recommended areas (from the data above, never invented), expected PSF, size, total cost with fees, annual rent, net yield %, 3yr growth projection, risk rating (1-5). You do not have this platform's building-level database in this conversation — recommend AREAS and grade tiers (e.g. \"a B+/A- grade building in JVC\"), and tell the user to check the specific building on DubAIVal's Analyzer for an exact figure rather than naming a building yourself.";
     }
   },
   {id:"legal",icon:"scale",name:"Legal & Process Guide",nameAr:"راهنمای حقوقی",
@@ -8144,7 +8229,16 @@ async function sendChat(text){
   try{
     var agent=AI_AGENTS.find(function(a){return a.id===chatState.agentId;})||AI_AGENTS[0];
     var history=msgs.slice(-10).map(function(m){return{role:m.role==="assistant"?"assistant":"user",content:m.text};});
-    var reply=await askAI(history,agent.sys(),t);
+    var sys=agent.sys();
+    // These 4 agents promise precise, database-backed numbers about a
+    // specific property in their system prompts — ground them in a real
+    // lookupBuilding()/computeValuation() result when one can be reliably
+    // matched from the user's own message (see _agentVerifiedContext above).
+    if(["general","valuation","negotiation","marketing"].indexOf(agent.id)!==-1){
+      var verified=_agentVerifiedContext(t);
+      if(verified)sys+="\n\n"+verified;
+    }
+    var reply=await askAI(history,sys,t);
     msgs.push({role:"assistant",text:reply});
   }catch(e){msgs.push({role:"assistant",text:"Error: "+e.message});}
   chatState.loading=false;render(true);

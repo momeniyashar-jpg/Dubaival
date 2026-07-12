@@ -456,6 +456,59 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-13 (session 11j)**: AI Agents (Network → AI Agents, `js/chat.js`)
+  audit — same input-to-output rigor as the Reports/Portfolio/Quick Check
+  passes above, user-requested.
+  - **Real bug found**: 4 of the 8 agents ("general", "valuation",
+    "negotiation", "marketing") explicitly promise precise, database-backed
+    numbers in their system prompts (an 8-step valuation methodology, "ALWAYS
+    include specific numbers from our database"), but were never actually
+    given any building-level data to work from — only a thin AREA-level
+    summary table (or, for "marketing", nothing at all). A user asking the
+    Valuation Agent's own suggested example, "Analyze Marina Gate 1, 2BR,
+    1400 sqft, asking AED 2.8M," got an LLM inventing plausible-sounding PSF
+    and a verdict while the system prompt made it sound like a rigorous
+    calculation against the real 9,227-building database — confidently
+    wrong, not just uncertain, and a real trust risk if an agent relayed
+    that "verdict" to a client.
+  - **Fix**: added `_agentVerifiedContext()` — extracts a building/area match
+    from the user's own message via the same `lookupBuilding()`/
+    `computeValuation()` the rest of the app uses, and injects the REAL
+    result as a "VERIFIED DATA" block appended to the system prompt for that
+    turn, for these 4 agents only (`sendChat()`). Each of the 4 prompts was
+    also rewritten to explicitly check for that block and, when it's absent,
+    say so plainly instead of presenting a guess as a database figure.
+  - **A second, more dangerous bug found while building this**: a naive
+    version that fuzzy-matched the user's full raw message against the
+    building DB directly was actively unsafe — tested with "Is Emaar
+    Beachfront worth AED 3,200 PSF?" and it matched a real DB entry in a
+    completely unrelated area ("Rega Al Buteen") purely from substring
+    overlap in `lookupBuilding()`'s fuzzy logic. That's worse than no match
+    at all: confidently wrong data labeled "verified." Fixed by requiring
+    the matched building's own area to agree with whatever area (if any) was
+    independently detected via `_detectAreasInText()` (already used for RAG
+    grounding) — the Emaar Beachfront case is now correctly rejected and
+    falls back to the (correct) area-level benchmark instead.
+  - **Investment Advisor** ("investor" agent) told the LLM to "ALWAYS
+    provide... specific buildings" but only ever had area-level data —
+    same class of overclaim, fixed by rewording it to recommend areas/grade
+    tiers and point the user to the real Analyzer for a building-specific
+    figure, rather than asking the LLM to name a building it has no data on.
+  - Reviewed "legal" (static RERA/DLD/fee facts — correctly has no market
+    data injected, no issue), "leadcapture" and "outreach" (both already had
+    reasonable area-level grounding for their area/budget-level missions) —
+    no changes needed there. Also confirmed each of the 8 agents keeps a
+    fully separate message history (`getAgentMsgs()`), so there's no
+    context bleed between agents.
+  - Verified the new extraction+matching logic against the agents' own
+    suggested example questions in a standalone Node test: real building
+    matches surfaced correctly for named buildings, the dangerous
+    cross-area false match was correctly rejected, a full valuation
+    computed correctly when size+price were both present, and generic
+    questions correctly returned no verified block (forcing the new
+    honesty instruction to apply). `node -c` + the full valuation/asset
+    regression harness (19 cases) + a Playwright pass all came back clean.
+
 - **2026-07-12 (session 11i)**: Cleaned up the remaining hardcoded
   "June 2026"/"July 2026" instances flagged (but not fixed) at the end of the
   Portfolio/Quick Check audit above.
