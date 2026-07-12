@@ -84,6 +84,28 @@ const usageStats = {};  // count per usage type
 const transStats = {};  // count per transaction group
 const yearStats = {};   // count per year (for date distribution report)
 
+// Recency weighting: the DATE_FROM filter above only cuts the tail (pre-2024
+// rows dropped entirely), but every row that survives is still weighted
+// equally regardless of whether it's from Jan 2024 or last month — so a flat
+// median over a ~2.5 year window structurally lags "today" in any area that
+// appreciated meaningfully within that window (validated 2026-07-12: areas
+// with fast recent growth showed 25-40% understatement vs real current
+// prices, while slow-moving established areas were within ~1-10%). Recent
+// transactions now get more weight via exponential decay, so the calibrated
+// PSF reflects where the market IS, not a flat average of where it's been
+// over 2+ years. maxTxTs (latest transaction date actually seen in the file)
+// is used as "today" for this decay, not the real calendar date, since a
+// CSV export always lags by some weeks/months and its own most recent row
+// is the right reference point for "how old is this other row".
+let maxTxTs = 0;
+const RECENCY_HALF_LIFE_MONTHS = 12; // weight halves every 12 months of age
+function recencyWeight(ts) {
+  if (!ts || !maxTxTs) return 1;
+  const monthsAgo = (maxTxTs - ts) / (1000 * 60 * 60 * 24 * 30.44);
+  if (monthsAgo <= 0) return 1;
+  return Math.pow(0.5, monthsAgo / RECENCY_HALF_LIFE_MONTHS);
+}
+
 let COL = {};
 
 function classifyUsage(usage, propType, subType) {
@@ -209,13 +231,17 @@ async function run() {
 
     // --- DATE FILTER ---
     const dateStr = getVal(COL.date);
+    let txTs = 0;
     if (dateStr) {
       const txDate = new Date(dateStr);
-      const txTs = txDate.getTime();
+      txTs = txDate.getTime();
       if (!isNaN(txTs)) {
         const yr = txDate.getFullYear();
         yearStats[yr] = (yearStats[yr] || 0) + 1;
         if (txTs < DATE_FROM_TS) { dateFiltered++; skipped++; continue; }
+        if (txTs > maxTxTs) maxTxTs = txTs;
+      } else {
+        txTs = 0;
       }
     }
 
@@ -287,7 +313,7 @@ async function run() {
             propType: propType, subType: subType,
             psfs: [], rooms: {}, prices: [], sizes: []
           };
-          store.buildings[bKey].psfs.push(psf);
+          store.buildings[bKey].psfs.push({ psf: psf, ts: txTs });
           store.buildings[bKey].prices.push(price);
           store.buildings[bKey].sizes.push(areaSqft);
           if (roomsNorm) {
@@ -298,7 +324,7 @@ async function run() {
 
         // Area-level
         if (!store.areas[aKey]) store.areas[aKey] = { psfs: [], rents: {}, prices: [], sizes: [] };
-        store.areas[aKey].psfs.push(psf);
+        store.areas[aKey].psfs.push({ psf: psf, ts: txTs });
         store.areas[aKey].prices.push(price);
         store.areas[aKey].sizes.push(areaSqft);
       }
@@ -518,15 +544,15 @@ function processCategory(store, category) {
   let buildingOutliersRejected = 0, buildingsWithOutliers = 0;
   for (const [key, b] of Object.entries(store.buildings)) {
     if (b.psfs.length < 2) continue;
-    const sortedRaw = b.psfs.slice().sort((a, c) => a - c);
-    const sorted = tukeyFilter(sortedRaw);
+    const sortedRaw = b.psfs.slice().sort((a, c) => a.psf - c.psf);
+    const sorted = tukeyFilterObj(sortedRaw);
     if (sorted.length < sortedRaw.length) {
       buildingOutliersRejected += sortedRaw.length - sorted.length;
       buildingsWithOutliers++;
     }
-    const p = Math.round(median(sorted));
-    const lo = Math.round(percentile(sorted, 0.25));
-    const hi = Math.round(percentile(sorted, 0.75));
+    const p = Math.round(weightedMedian(sorted));
+    const lo = Math.round(weightedPercentileObj(sorted, 0.25));
+    const hi = Math.round(weightedPercentileObj(sorted, 0.75));
 
     const priceSorted = b.prices.slice().sort((a,c) => a-c);
     const sizeSorted = b.sizes.slice().sort((a,c) => a-c);
@@ -575,14 +601,14 @@ function processCategory(store, category) {
   let areaOutliersRejected = 0;
   for (const [key, a] of Object.entries(store.areas)) {
     if (a.psfs.length < 3) continue;
-    const sortedRaw = a.psfs.slice().sort((x, y) => x - y);
-    const sorted = tukeyFilter(sortedRaw);
+    const sortedRaw = a.psfs.slice().sort((x, y) => x.psf - y.psf);
+    const sorted = tukeyFilterObj(sortedRaw);
     areaOutliersRejected += sortedRaw.length - sorted.length;
     const isExistingArea = !!existingAreas[key];
     if (isExistingArea) existingAreaCount++; else newAreaCount++;
 
     const entry = {
-      psf: Math.round(median(sorted)),
+      psf: Math.round(weightedMedian(sorted)),
       n: sorted.length,
       avgPrice: Math.round(median(a.prices.slice().sort((x,y) => x-y))),
       avgSize: Math.round(median(a.sizes.slice().sort((x,y) => x-y))),
@@ -656,6 +682,41 @@ function tukeyFilter(sortedAsc) {
   const lo = q1 - 1.5 * iqr, hi = q3 + 1.5 * iqr;
   const kept = sortedAsc.filter(v => v >= lo && v <= hi);
   return kept.length ? kept : sortedAsc; // never fully empty a group
+}
+
+// Same Tukey-fence logic, but operating on {psf,ts} objects (sorted by .psf)
+// so the recency timestamp travels with each surviving point — needed for
+// weightedMedian/weightedPercentile below.
+function tukeyFilterObj(sortedAsc) {
+  if (sortedAsc.length < 5) return sortedAsc;
+  const vals = sortedAsc.map(it => it.psf);
+  const q1 = percentile(vals, 0.25);
+  const q3 = percentile(vals, 0.75);
+  const iqr = q3 - q1;
+  const lo = q1 - 1.5 * iqr, hi = q3 + 1.5 * iqr;
+  const kept = sortedAsc.filter(it => it.psf >= lo && it.psf <= hi);
+  return kept.length ? kept : sortedAsc;
+}
+
+// Weighted median/percentile over {psf,ts} objects pre-sorted ascending by
+// psf — each point's weight comes from recencyWeight(ts), so a cluster of
+// recent transactions can outvote a larger cluster of older ones instead of
+// every row counting the same regardless of age.
+function weightedMedian(sortedItems) {
+  return weightedPercentileObj(sortedItems, 0.5);
+}
+function weightedPercentileObj(sortedItems, p) {
+  if (!sortedItems.length) return 0;
+  const weights = sortedItems.map(it => recencyWeight(it.ts));
+  const totalWeight = weights.reduce((s, w) => s + w, 0);
+  if (totalWeight <= 0) return percentile(sortedItems.map(it => it.psf), p);
+  const target = totalWeight * p;
+  let cum = 0;
+  for (let i = 0; i < sortedItems.length; i++) {
+    cum += weights[i];
+    if (cum >= target) return sortedItems[i].psf;
+  }
+  return sortedItems[sortedItems.length - 1].psf;
 }
 
 run().catch(e => { console.error('Error:', e.message); process.exit(1); });
