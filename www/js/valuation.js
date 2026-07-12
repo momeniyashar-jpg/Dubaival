@@ -250,7 +250,8 @@ async function fetchDynamicBenchmarks(){
       DYNAMIC_BENCHMARKS[r.area_key]={
         psf:r.psf,r1:r.rent_1br,r2:r.rent_2br,r3:r.rent_3br,
         rStudio:r.rent_studio,rv3:r.rent_villa_3br,rv4:r.rent_villa_4br,rv5:r.rent_villa_5br,
-        dom:r.dom,txVol:r.tx_vol,sampleSize:r.sample_size,updated_at:r.updated_at
+        dom:r.dom,txVol:r.tx_vol,sampleSize:r.sample_size,updated_at:r.updated_at,
+        growth1yr:r.growth_1yr_realized,growthUpdated:r.growth_updated_at
       };
     });
   }catch(e){console.warn("Dynamic benchmarks fetch failed:",e.message);}
@@ -407,6 +408,21 @@ function computeAdjustedPSF(f,buildingVal,liveData){
     if(dynBench.rStudio)aData.rStudio=dynBench.rStudio;
     if(dynBench.dom)aData.dom=Math.round((staticArea.dom||60)*0.3+dynBench.dom*0.7);
     if(dynBench.txVol)aData.txVol=Math.round((staticArea.txVol||100)*0.3+dynBench.txVol*0.7);
+    // Realized 1-year growth from price_history — refreshed weekly (not
+    // daily like the fields above), so it needs its own freshness check
+    // rather than relying on the shared dynBench.updated_at gate. Blended
+    // conservatively (60% static / 40% real) since a single trailing-365-day
+    // figure is inherently noisier than the richer live listing samples
+    // backing psf. Only g[0] (0-1yr) — g[1]/g[2] (1-3yr/2-5yr) stay
+    // static/projected; we don't have years of price_history to derive
+    // those from yet, and won't for a long time.
+    if(typeof dynBench.growth1yr==="number"&&dynBench.growthUpdated){
+      var gAge=(Date.now()-new Date(dynBench.growthUpdated).getTime())/(1000*60*60*24);
+      if(gAge<=14){
+        var staticG=staticArea.g||[3,9,16];
+        aData.g=[Math.round((staticG[0]*0.6+dynBench.growth1yr*0.4)*10)/10,staticG[1],staticG[2]];
+      }
+    }
   }
   const calFactor=getCalibrationFactor(f.area);
   const size=parseFloat((f.buaSize||f.size||"").toString().replace(/,/g,""))||0;

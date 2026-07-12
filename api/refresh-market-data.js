@@ -257,6 +257,85 @@ async function handleForecastAudit(req, res) {
   }
 }
 
+// ── Realized-growth refresh ──────────────────────────────────────────────────
+// AREAS[area].g (0-1yr/1-3yr/2-5yr growth) is 100% manually curated and never
+// touched by live data — dynBench only ever blended live psf/rent/dom/txVol.
+// This computes REAL 1-year growth from price_history (accumulating daily
+// since the main cron above went live) and PATCHes it onto area_benchmarks —
+// PATCH specifically, not upsert, so this can never touch the psf/rent/dom/
+// tx_vol columns the daily cron above owns. Only 1-year growth: 3yr/5yr
+// realized growth would need years of history we don't have yet: those stay
+// manual/projected rather than being silently faked from too little data.
+// Runs weekly (like the forecast-audit above) rather than daily — a single
+// extra day of price_history doesn't meaningfully change a trailing-365-day
+// growth figure, and this keeps it off the tight daily-refresh time budget.
+var GROWTH_BASELINE_DAYS = 365;
+var GROWTH_BASELINE_WINDOW_DAYS = 30;
+var GROWTH_TIME_BUDGET_MS = 45000;
+
+async function computeRealizedGrowthForArea(area) {
+  var target = new Date(Date.now() - GROWTH_BASELINE_DAYS * 86400000);
+  var winLo = new Date(target.getTime() - GROWTH_BASELINE_WINDOW_DAYS * 86400000).toISOString().slice(0, 10);
+  var winHi = new Date(target.getTime() + GROWTH_BASELINE_WINDOW_DAYS * 86400000).toISOString().slice(0, 10);
+
+  try {
+    var baseResp = await supabaseRequest(
+      "/price_history?area_key=eq." + encodeURIComponent(area) +
+      "&snapshot_date=gte." + winLo + "&snapshot_date=lte." + winHi +
+      "&select=psf,snapshot_date&order=snapshot_date.asc&limit=1"
+    );
+    if (!baseResp.ok) return null;
+    var baseRows = await baseResp.json();
+    if (!baseRows.length || !baseRows[0].psf) return null;
+
+    var latestResp = await supabaseRequest(
+      "/price_history?area_key=eq." + encodeURIComponent(area) +
+      "&select=psf,snapshot_date&order=snapshot_date.desc&limit=1"
+    );
+    if (!latestResp.ok) return null;
+    var latestRows = await latestResp.json();
+    if (!latestRows.length || !latestRows[0].psf) return null;
+    if (baseRows[0].snapshot_date === latestRows[0].snapshot_date) return null;
+
+    var growth = Math.round(((latestRows[0].psf - baseRows[0].psf) / baseRows[0].psf) * 1000) / 10;
+    return growth;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function handleGrowthRefresh(req, res) {
+  var startedAt = Date.now();
+  var results = { areasChecked: 0, updated: 0, skipped: 0, timedOut: false };
+  var areas = Object.keys(AREA_LOCATION_MAP);
+  var CONCURRENCY = 5;
+
+  try {
+    for (var i = 0; i < areas.length; i += CONCURRENCY) {
+      if (Date.now() - startedAt > GROWTH_TIME_BUDGET_MS) { results.timedOut = true; break; }
+      var batch = areas.slice(i, i + CONCURRENCY);
+      await Promise.all(batch.map(async function (area) {
+        results.areasChecked++;
+        var growth = await computeRealizedGrowthForArea(area);
+        if (growth === null) { results.skipped++; return; }
+        var resp = await supabaseRequest(
+          "/area_benchmarks?area_key=eq." + encodeURIComponent(area),
+          {
+            method: "PATCH",
+            headers: { Prefer: "return=minimal" },
+            body: JSON.stringify({ growth_1yr_realized: growth, growth_updated_at: new Date().toISOString() })
+          }
+        );
+        if (resp.ok) results.updated++; else results.skipped++;
+      }));
+      if (i + CONCURRENCY < areas.length) await new Promise(function (r) { setTimeout(r, 200); });
+    }
+    res.status(200).json({ ok: true, timestamp: new Date().toISOString(), results: results });
+  } catch (e) {
+    res.status(200).json({ ok: false, error: e.message, results: results });
+  }
+}
+
 module.exports = async function handler(req, res) {
   if (!process.env.CRON_SECRET || req.headers.authorization !== "Bearer " + process.env.CRON_SECRET) {
     return res.status(401).json({ error: "Unauthorized" });
@@ -264,6 +343,9 @@ module.exports = async function handler(req, res) {
 
   if (req.query && req.query.action === "forecast-audit") {
     return handleForecastAudit(req, res);
+  }
+  if (req.query && req.query.action === "growth-refresh") {
+    return handleGrowthRefresh(req, res);
   }
 
   var areas = Object.keys(AREA_LOCATION_MAP);
