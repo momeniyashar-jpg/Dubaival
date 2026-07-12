@@ -585,7 +585,7 @@ function renderMarket(){
       span({color:c.col,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},c.c),
     ]);}),
     div({marginTop:"12px",background:cl.goldFaint,border:"1px solid "+cl.goldDim,borderRadius:"8px",padding:"10px 14px",color:cl.text,fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.7"},
-      "June 2026: Post-geo correction. Buyer leverage open 3–6 months. Geo adjustment "+Math.round(LIVE_GEO.adj*100)+"% applied."
+      _currentMonthYear()+": Post-geo correction. Buyer leverage open 3–6 months. Geo adjustment "+Math.round(LIVE_GEO.adj*100)+"% applied."
     ),
   ]));
 

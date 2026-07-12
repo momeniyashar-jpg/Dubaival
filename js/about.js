@@ -370,7 +370,7 @@ function renderAbout(){
 
   // Footer note
   var footer=div({textAlign:"center",marginTop:"30px",padding:"20px",borderTop:"1px solid "+cl.border});
-  footer.appendChild(el("div",{style:{color:cl.sub,fontSize:"10px",lineHeight:"1.7"}},"Built in Dubai · DubAIVal · June 2026"));
+  footer.appendChild(el("div",{style:{color:cl.sub,fontSize:"10px",lineHeight:"1.7"}},"Built in Dubai · DubAIVal"));
   footer.appendChild(el("div",{style:{color:cl.sub,fontSize:"9px",marginTop:"4px"}},"Not financial advice — consult a licensed advisor for investment decisions."));
   wrap.appendChild(footer);
 

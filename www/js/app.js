@@ -607,9 +607,9 @@ function renderFind(){
 
       // Groq AI fallback if no live results
       if(FS.results.length===0&&!loadMore){
-        var searchQuery=(beds?beds+" ":"")+type+" for sale"+(area?" in "+area:"")+(maxPrice?" under AED "+(maxPrice/1e6).toFixed(1)+"M":"")+". June 2026. Dubai UAE.";
-        var prompt="Provide market intelligence for: "+searchQuery+"\n\nReturn EXACTLY this JSON array (5-8 typical options based on June 2026 market data):\n[{\"title\":\"Building Name Type Beds\",\"area\":\"Area Name\",\"price\":2500000,\"size\":1200,\"beds\":2,\"baths\":2,\"floor\":15,\"furnished\":\"Unfurnished\",\"permit\":\"\",\"agentName\":\"DubAIVal AI\",\"agencyName\":\"Market Estimate\",\"agentPhone\":\"\",\"agentWA\":\"\",\"photo\":\"\",\"listingUrl\":\"https://www.bayut.com\",\"source\":\"AI Estimate\"}]\n\nUse real June 2026 market prices. Return ONLY the JSON array, no other text.";
-        var resp=await callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:"You are a Dubai real estate market expert. Return ONLY valid JSON arrays based on June 2026 market data."},{role:"user",content:prompt}],max_tokens:2000,temperature:0.3});
+        var searchQuery=(beds?beds+" ":"")+type+" for sale"+(area?" in "+area:"")+(maxPrice?" under AED "+(maxPrice/1e6).toFixed(1)+"M":"")+". "+_currentMonthYear()+". Dubai UAE.";
+        var prompt="Provide market intelligence for: "+searchQuery+"\n\nReturn EXACTLY this JSON array (5-8 typical options based on "+_currentMonthYear()+" market data):\n[{\"title\":\"Building Name Type Beds\",\"area\":\"Area Name\",\"price\":2500000,\"size\":1200,\"beds\":2,\"baths\":2,\"floor\":15,\"furnished\":\"Unfurnished\",\"permit\":\"\",\"agentName\":\"DubAIVal AI\",\"agencyName\":\"Market Estimate\",\"agentPhone\":\"\",\"agentWA\":\"\",\"photo\":\"\",\"listingUrl\":\"https://www.bayut.com\",\"source\":\"AI Estimate\"}]\n\nUse real "+_currentMonthYear()+" market prices. Return ONLY the JSON array, no other text.";
+        var resp=await callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:"You are a Dubai real estate market expert. Return ONLY valid JSON arrays based on "+_currentMonthYear()+" market data."},{role:"user",content:prompt}],max_tokens:2000,temperature:0.3});
         var data=await resp.json();
         var text=data.choices&&data.choices[0]?data.choices[0].message.content:"";
         var clean=text.replace(/```json|```/g,"").trim();
@@ -623,7 +623,7 @@ function renderFind(){
             });
             FS.results=scoreDealQuality(FS.results);
             sortResults();
-            FS.aiSummary="Live API unavailable — showing AI market estimates. Prices reflect typical June 2026 values for "+searchQuery;
+            FS.aiSummary="Live API unavailable — showing AI market estimates. Prices reflect typical "+_currentMonthYear()+" values for "+searchQuery;
           }
         }
       }

@@ -30,7 +30,7 @@ function renderMortgage(price, cl){
   // Header
   wrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
     span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ Mortgage Calculator"),
-    span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Dubai Rates · June 2026"),
+    span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Dubai Rates · "+_currentMonthYear()),
   ]));
 
   // Rate type selector
@@ -120,7 +120,7 @@ function renderMortgage(price, cl){
 
   // Disclaimer
   wrap.appendChild(div({color:cl.sub,fontSize:"8.5px",fontFamily:"'Space Grotesk',monospace",lineHeight:"1.5"},
-    "Indicative only · Subject to bank approval · Rates: ENBD/FAB June 2026 · DLD transfer fee 4% · Agency fee 2%"));
+    "Indicative only · Subject to bank approval · Rates: ENBD/FAB "+_currentMonthYear()+" · DLD transfer fee 4% · Agency fee 2%"));
 
   return wrap;
 }

@@ -456,6 +456,34 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-12 (session 11i)**: Cleaned up the remaining hardcoded
+  "June 2026"/"July 2026" instances flagged (but not fixed) at the end of the
+  Portfolio/Quick Check audit above.
+  - Added one shared `_currentMonthYear()` in `js/core.js` (loads before every
+    other module) and removed the duplicate copy that had been added directly
+    to `js/portfolio.js` in the previous pass — now a single source of truth.
+  - Fixed live-claim call sites: `getDubaiRealEstateBrain()`'s "Date:"/
+    "DUBAI MARKET KNOWLEDGE"/"Interest rates" labels and the AI Agents chat
+    welcome message (`js/core.js`), the AI Live Search Groq fallback prompt +
+    summary text (`js/app.js`), the Area Comparison AI system prompt
+    (`js/marketindex.js`), the Market Cycle widget's commentary line
+    (`js/market.js`), and the Mortgage Calculator's rate-freshness labels
+    (`js/mortgage.js`, both the header badge and the disclaimer line).
+  - Dropped the date entirely from two branding taglines that didn't need one
+    at all: the `footer_tag` translation string (EN + AR, `js/core.js`) and
+    the About page's "Built in Dubai · DubAIVal" footer (`js/about.js`).
+  - **Deliberately left alone**: `fetchLiveMarket()`'s embedded Jan-June 2026
+    timeline (`js/core.js`) and the Market Cycle widget's "2020: COVID Dip"
+    style rows (`js/market.js`) — these describe fixed HISTORICAL events as
+    ground-truth context for the AI/as a historical chart, not "today's
+    date," so making them dynamic would be wrong, not a fix. Same reasoning
+    for one testimonial's fixed posting date in `js/portfolio.js`
+    ("Family Buyer · Relocated from London · June 2026").
+  - Verified: `node -c` on all 7 touched files, full valuation/asset
+    regression harness (19 cases, 0 errors), and a headless-Chromium
+    Playwright pass against the rebuilt app (zero non-network console
+    errors).
+
 - **2026-07-12 (session 11h)**: Portfolio + Quick Check audit (user-requested,
   same rigor as the Report Builder review above).
   - **Quick Check — real bug found and fixed**: the optional "deal check" on

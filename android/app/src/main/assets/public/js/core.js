@@ -54,7 +54,7 @@ en:{
   download_pdf:"Download PDF Report",arabic_pdf:"تقرير بالعربية",
   print_hint:"Print dialog opens → Save as PDF",
   not_advice:"Not financial advice — consult a licensed advisor for investment decisions.",
-  footer_tag:"DubAIVal · DLD · Cascade AVM · June 2026",
+  footer_tag:"DubAIVal · DLD · Cascade AVM",
   // Auth
   auth_signin:"Sign In",auth_signup:"Sign Up",auth_signout:"Sign Out",
   auth_name:"Full Name",auth_email:"Email",auth_password:"Password",
@@ -94,7 +94,7 @@ ar:{
   download_pdf:"تحميل تقرير PDF",arabic_pdf:"تقرير بالعربية",
   print_hint:"يفتح مربع الطباعة → حفظ كـ PDF",
   not_advice:"ليس نصيحة مالية — استشر مستشاراً مرخصاً لقرارات الاستثمار.",
-  footer_tag:"DubAIVal · دائرة الأراضي · محرك Cascade · يونيو ٢٠٢٦",
+  footer_tag:"DubAIVal · دائرة الأراضي · محرك Cascade",
   auth_signin:"تسجيل الدخول",auth_signup:"إنشاء حساب",auth_signout:"خروج",
   auth_name:"الاسم الكامل",auth_email:"البريد الإلكتروني",auth_password:"كلمة المرور",
   auth_create_account:"إنشاء حساب",auth_cloud_sync:"مزامنة سحابية لمحفظتك",
@@ -760,6 +760,15 @@ try{
   var saved=localStorage.getItem("dv_user_profile");
   if(saved)USER_PROFILE=Object.assign(USER_PROFILE,JSON.parse(saved));
 }catch(e){}
+
+// Shared across every file that builds an AI prompt referencing "the current
+// month" — several call sites used to hardcode a literal "June 2026"/"July
+// 2026", accurate only in the month they were written and wrong every month
+// after (first found in fetchMarketIntelligence() on 2026-07-11, then in 3
+// more js/portfolio.js prompts on 2026-07-12; this pass fixed the remaining
+// instances across the app — see the 2026-07-12 work log for the full list).
+function _currentMonthYear(){return new Date().toLocaleDateString("en-US",{month:"long",year:"numeric"});}
+
 function getDubaiRealEstateBrain(){
   var areaSummary="";
   try{
@@ -794,11 +803,11 @@ function getDubaiRealEstateBrain(){
   }catch(x){}
   return "YOU ARE DUBAIVAL AI — THE MOST EXPERT DUBAI REAL ESTATE SPECIALIST IN THE WORLD.\n"+
     "You have 15+ years of Dubai property market experience. You know every building, every area, every developer, every regulation.\n"+
-    "Date: June 2026. Platform: DubAIVal.com — AI-powered Dubai real estate intelligence.\n\n"+
+    "Date: "+_currentMonthYear()+". Platform: DubAIVal.com — AI-powered Dubai real estate intelligence.\n\n"+
     "═══ YOUR DATABASE (LIVE) ═══\n"+
     "9,227 residential buildings | 1,914 commercial | 428 land plots | 347 areas | All DLD-verified\n"+
     areaSummary+"\n\n"+
-    "═══ DUBAI MARKET KNOWLEDGE (June 2026) ═══\n"+
+    "═══ DUBAI MARKET KNOWLEDGE (baseline reference, "+_currentMonthYear()+") ═══\n"+
     "MARKET CONDITIONS:\n"+
     "- Post-geopolitical correction phase. Buyer leverage increasing.\n"+
     "- Cash transactions: 87% of all deals. Off-plan: 78% of new sales.\n"+
@@ -847,7 +856,7 @@ function getDubaiRealEstateBrain(){
     "- Expat: max LTV 75% for properties <AED 5M, 65% for >AED 5M\n"+
     "- UAE national: max LTV 80% for <AED 5M, 70% for >AED 5M\n"+
     "- Min down payment: 20-35% depending on nationality & property value\n"+
-    "- Interest rates (June 2026): ~4.5-6.5% fixed (2-5yr), variable EIBOR+1.5-2.5%\n"+
+    "- Interest rates ("+_currentMonthYear()+"): ~4.5-6.5% fixed (2-5yr), variable EIBOR+1.5-2.5%\n"+
     "- Max tenure: 25 years or until age 65 (retirement) / 70 (UAE nationals)\n"+
     "- Pre-approval validity: 60-90 days\n"+
     "- Banks: Emirates NBD, ADCB, DIB, Mashreq, FAB, RAK Bank, HSBC\n\n"+
@@ -939,7 +948,7 @@ var analyzerState={
 };
 var compareState={items:[{type:"area",value:""},{type:"area",value:""}],budget:"",purpose:"Investment",propType:"All",loading:false,result:"",err:""};
 var personalState={step:0,goal:"",priority:"",timeline:"",budget:2000000,beds:"2 BR",prefAreas:[],work:"",loading:false,result:null,error:""};
-var chatState={msgs:[{role:"assistant",text:"DubAIVal Intelligence.\n\nBuilding-level knowledge · June 2026 data · Confidence scoring.\n\nAsk me about any building, deal, or strategy."}],input:"",loading:false,agentId:"general",agentMsgs:{}};
+var chatState={msgs:[{role:"assistant",text:"DubAIVal Intelligence.\n\nBuilding-level knowledge · "+_currentMonthYear()+" data · Confidence scoring.\n\nAsk me about any building, deal, or strategy."}],input:"",loading:false,agentId:"general",agentMsgs:{}};
 
 // URL param auto-fill for shared valuations
 (function(){

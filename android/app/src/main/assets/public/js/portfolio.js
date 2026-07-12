@@ -1,10 +1,8 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- COMPARE TAB -------------------------------------------------------------
-// These AI prompts used to hardcode "June 2026"/"July 2026" literally — accurate
-// only the month they were written, stale every month after (same bug already
-// fixed for fetchMarketIntelligence() in js/core.js, but these 3 call sites
-// were missed). Computed once so it's always the real current month.
-function _currentMonthYear(){return new Date().toLocaleDateString("en-US",{month:"long",year:"numeric"});}
+// _currentMonthYear() is defined in js/core.js (loads before this file) and
+// shared across every AI prompt in the app that references "the current
+// month" instead of a hardcoded, ever-staling literal like "June 2026".
 
 // Helper: get comparison data for any item type
 function _cmpItemData(item){
