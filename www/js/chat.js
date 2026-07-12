@@ -2846,14 +2846,42 @@ function speakVoiceoverFallback(lines,secPerSlide){
 // sees a raw "XXX_API_KEY not configured" error. Checked once per page load.
 var _videoEnginesCache=null;
 async function _anyVideoEngineConfigured(){
-  if(_videoEnginesCache)return _videoEnginesCache.some(Boolean);
+  if(_videoEnginesCache)return Object.keys(_videoEnginesCache).some(function(k){return _videoEnginesCache[k];});
   try{
     var r=await fetch("/api/proxy-video",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({action:"engine_status"})});
     var d=await r.json();
-    _videoEnginesCache=[d.kling,d.luma,d.heygen,d.hedra,d.runway,d.minimax,d.pika,d.did];
-    return _videoEnginesCache.some(Boolean);
+    _videoEnginesCache={kling:!!d.kling,luma:!!d.luma,heygen:!!d.heygen,hedra:!!d.hedra,runway:!!d.runway,minimax:!!d.minimax,pika:!!d.pika,did:!!d.did};
+    return Object.keys(_videoEnginesCache).some(function(k){return _videoEnginesCache[k];});
   }catch(e){return false;}
+}
+
+// Single source of truth for AI video engine metadata — used by BOTH the main
+// AI Video Studio (showVideoGenUI) and Avatar Studio's video generator
+// (showAvatarVideoGen), so engine lists, colors, and availability can never
+// diverge between the two entry points the way they used to (one offered
+// Hedra, the other didn't; colors for the same engine differed between them).
+var VIDEO_ENGINE_CATALOG=[
+  {key:"kling",label:"Kling AI v1.6",shortIcon:"KL",icon:"sparkles",color:"#C9A84C",desc:"Best-quality AI cinematic footage",note:"~3–5 min",quality:"★★★★★"},
+  {key:"runway",label:"Runway Gen-4",shortIcon:"RW",icon:"clapperboard",color:"#EC4899",desc:"Hollywood-grade cinematic generation",note:"~2–3 min",quality:"★★★★★",needsPhoto:true,photoRequired:true},
+  {key:"luma",label:"Luma Dream Machine",shortIcon:"LM",icon:"moon",color:"#3B82F6",desc:"Photorealistic AI scenes",note:"~2–4 min",quality:"★★★★☆"},
+  {key:"minimax",label:"Minimax Hailuo",shortIcon:"MM",icon:"zap",color:"#8B5CF6",desc:"Ultra-realistic motion, cinematic lighting",note:"~2–3 min",quality:"★★★★★"},
+  {key:"pika",label:"Pika 2.2",shortIcon:"PK",icon:"play-circle",color:"#F59E0B",desc:"Creative text-to-video effects",note:"~1–2 min",quality:"★★★★☆"},
+  {key:"heygen",label:"HeyGen Avatar",shortIcon:"HG",icon:"user-circle",color:"#06B6D4",desc:"Ultra-realistic talking avatar, lip-sync",note:"~3–5 min · Needs photo",quality:"★★★★★",hasVoice:true,needsPhoto:true,photoRequired:true},
+  {key:"hedra",label:"Hedra",shortIcon:"HD",icon:"wand-2",color:"#14B8A6",desc:"Talking avatar from photo + text",note:"~2–4 min · Photo optional",quality:"★★★★☆",hasVoice:true,needsPhoto:true,photoRequired:false},
+  {key:"did",label:"D-ID Presenter",shortIcon:"DI",icon:"video",color:"#10B981",desc:"Real photo that talks, quick lip-sync",note:"~1–2 min · Photo optional",quality:"★★★☆☆",hasVoice:true,needsPhoto:true,photoRequired:false}
+];
+function _videoEngineInfo(key){
+  for(var i=0;i<VIDEO_ENGINE_CATALOG.length;i++)if(VIDEO_ENGINE_CATALOG[i].key===key)return VIDEO_ENGINE_CATALOG[i];
+  return null;
+}
+// Only returns engines whose API key is actually funded (per the last
+// engine_status check) — both AI Video entry points render exactly this list,
+// so an engine only ever appears where it will actually work, and starts
+// appearing automatically the moment its key is added, with no code change.
+function _availableVideoEngines(){
+  var status=_videoEnginesCache||{};
+  return VIDEO_ENGINE_CATALOG.filter(function(e){return !!status[e.key];});
 }
 function _showVideoComingSoon(){
   ["video-gen-modal","avatar-video-modal"].forEach(function(id){
@@ -2876,11 +2904,14 @@ async function showVideoGenUI(initialPrompt, propertyCtx){
   if(!(await _anyVideoEngineConfigured())){_showVideoComingSoon();return;}
 
   // ── World-Class AI Video Studio ────────────────────────────────────────────
+  // Default to the first engine that's actually configured (never a hardcoded
+  // id that might not be funded) — "slideshow" always works with no API key.
+  var _defaultEngine=(_availableVideoEngines()[0]||{key:"slideshow"}).key;
   var VG_STATE={
     template:null,platform:"reel",language:"en",hookType:"emotional",
     prompt:"",mediaPhotos:[],mediaVideos:[],floorPlans:[],musicType:"none",
     musicFile:null,locationText:"",processing:false,resultBlob:null,resultUrl:null,
-    plan:null,activeTab:"setup",engine:"minimax",presenterImageUrl:"",
+    plan:null,activeTab:"setup",engine:_defaultEngine,presenterImageUrl:"",
     propertyCtx:propertyCtx||null,_autoPromptDone:false
   };
 
@@ -3362,34 +3393,24 @@ async function showVideoGenUI(initialPrompt, propertyCtx){
   // ── CREATE TAB (engine selection → generate) ──────────────────────────────
   var vgStepEls={};
   var vgProgressFill,vgProgressLabel,vgPreviewCanvas;
-  var _AI_ENGINE_LABELS={kling:"Kling AI v1.6",runway:"Runway Gen-4",luma:"Luma Dream Machine",minimax:"Minimax Hailuo",pika:"Pika 2.2",heygen:"HeyGen Avatar",did:"D-ID Presenter"};
-  var _AI_ENGINE_COLORS={kling:"#C9A84C",runway:"#EC4899",luma:"#3B82F6",minimax:"#8B5CF6",pika:"#F59E0B",heygen:"#06B6D4",did:"#10B981"};
+  // Engine labels/colors now come from the shared VIDEO_ENGINE_CATALOG
+  // (via _videoEngineInfo) instead of a local copy that could drift.
 
   function renderVGCreate(){
     vgBody.innerHTML="";
     Object.keys(vgStepEls).forEach(function(k){delete vgStepEls[k];});
 
-    var engines=[
-      {key:"slideshow",label:"Slideshow",icon:"film",color:"#10B981",
-       desc:"Canvas-based with slides & overlays",note:"~30 sec · Instant"},
-      {key:"kling",label:"Kling AI v1.6",icon:"sparkles",color:"#C9A84C",
-       desc:"Best-quality AI cinematic footage",note:"~3–5 min"},
-      {key:"runway",label:"Runway Gen-4",icon:"clapperboard",color:"#EC4899",
-       desc:"Cinematic AI generation",note:"~2–3 min"},
-      {key:"luma",label:"Luma Dream Machine",icon:"moon",color:"#3B82F6",
-       desc:"Photorealistic AI scenes",note:"~2–4 min"},
-      {key:"minimax",label:"Minimax Hailuo",icon:"zap",color:"#8B5CF6",
-       desc:"High-quality AI video",note:"~2–3 min"},
-      {key:"pika",label:"Pika 2.2",icon:"play-circle",color:"#F59E0B",
-       desc:"Creative text-to-video",note:"~1–2 min"},
-      {key:"heygen",label:"HeyGen Avatar",icon:"user-circle",color:"#06B6D4",
-       desc:"AI avatar speaks your script",note:"~3–5 min · Needs photo",hasVoice:true},
-      {key:"did",label:"D-ID Presenter",icon:"video",color:"#10B981",
-       desc:"Real photo that talks",note:"~1–2 min · Needs photo",hasVoice:true}
-    ];
+    // Slideshow is a local, free, no-API-key fallback — always offered first.
+    // Every other engine comes from the shared catalog, filtered to only
+    // those actually configured (funded API key), so this list can never show
+    // an engine that will just error out when clicked.
+    var engines=[{key:"slideshow",label:"Slideshow",icon:"film",color:"#10B981",
+       desc:"Canvas-based with slides & overlays",note:"~30 sec · Instant"}].concat(_availableVideoEngines());
 
     // ── Engine: Always-visible selection grid ────────────────────────────────
-    var needsPhoto=VG_STATE.engine==="runway"||VG_STATE.engine==="heygen"||VG_STATE.engine==="did";
+    var _curEngInfo=_videoEngineInfo(VG_STATE.engine);
+    var needsPhoto=!!(_curEngInfo&&_curEngInfo.needsPhoto);
+    var photoRequired=!!(_curEngInfo&&_curEngInfo.photoRequired);
     var engSec=div({marginBottom:"20px"});
     var engHdrRow=div({display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"10px"});
     engHdrRow.appendChild(div({color:"#8899AA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em"},"CHOOSE AI ENGINE"));
@@ -3431,15 +3452,18 @@ async function showVideoGenUI(initialPrompt, propertyCtx){
     pSec.appendChild(editPromptEl);
     vgBody.appendChild(pSec);
 
-    // Image / photo URL — required for runway; required for heygen/did
-    if(VG_STATE.engine==="runway"||VG_STATE.engine==="heygen"||VG_STATE.engine==="did"){
+    // Image / photo URL — required for runway/heygen (they error without it),
+    // optional for hedra/did (both have a server-side fallback or work text-only).
+    if(needsPhoto){
       var piSec=div({marginBottom:"16px"});
-      var piLabel=VG_STATE.engine==="runway"?"REFERENCE IMAGE URL (required)":"PRESENTER PHOTO URL (required)";
+      var piLabel=(VG_STATE.engine==="runway"?"REFERENCE IMAGE URL":"PRESENTER PHOTO URL")+(photoRequired?" (required)":" (optional)");
       var piHint=VG_STATE.engine==="runway"
         ?"Paste a direct link to a property photo (JPG/PNG). Runway animates from this image."
-        :"Paste a direct link to a face photo (JPG/PNG). Must be publicly accessible.";
-      piSec.appendChild(div({color:VG_STATE.engine==="runway"?"#EF4444":"#8899AA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"8px"},"★ "+piLabel));
-      var piInp=el("input",{style:{width:"100%",background:"#0D1220",border:"1px solid "+(VG_STATE.engine==="runway"?"#EF4444":"#2A3040"),borderRadius:"10px",padding:"12px",color:"#E0E0E0",fontSize:"12px",fontFamily:"'Inter',sans-serif",boxSizing:"border-box"}});
+        :photoRequired
+          ?"Paste a direct link to a face photo (JPG/PNG). Must be publicly accessible."
+          :"Paste a direct link to a face photo (JPG/PNG) for a personalized presenter, or leave blank to use a default.";
+      piSec.appendChild(div({color:photoRequired?"#EF4444":"#8899AA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",marginBottom:"8px"},"★ "+piLabel));
+      var piInp=el("input",{style:{width:"100%",background:"#0D1220",border:"1px solid "+(photoRequired?"#EF4444":"#2A3040"),borderRadius:"10px",padding:"12px",color:"#E0E0E0",fontSize:"12px",fontFamily:"'Inter',sans-serif",boxSizing:"border-box"}});
       piInp.type="url";
       piInp.placeholder="https://…";
       piInp.value=VG_STATE.presenterImageUrl||"";
@@ -3550,8 +3574,9 @@ async function showVideoGenUI(initialPrompt, propertyCtx){
 
   function _renderAIEngineProgress(){
     var engine=VG_STATE.engine;
-    var engLabel=_AI_ENGINE_LABELS[engine]||engine;
-    var engColor=_AI_ENGINE_COLORS[engine]||"#C9A84C";
+    var engInfo=_videoEngineInfo(engine);
+    var engLabel=(engInfo&&engInfo.label)||engine;
+    var engColor=(engInfo&&engInfo.color)||"#C9A84C";
     vgBody.innerHTML="";
     var hdr=div({textAlign:"center",marginBottom:"24px"});
     var engIconWrap=div({width:"52px",height:"52px",borderRadius:"50%",background:"rgba(201,168,76,0.1)",border:"2px solid "+engColor,margin:"0 auto 12px",display:"flex",alignItems:"center",justifyContent:"center"});
@@ -3613,7 +3638,7 @@ async function showVideoGenUI(initialPrompt, propertyCtx){
       if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
     }
     try{
-      _aiStatus("Sending request to "+(_AI_ENGINE_LABELS[engine]||engine)+"...",5);
+      _aiStatus("Sending request to "+((_videoEngineInfo(engine)||{}).label||engine)+"...",5);
       var genResult;
       if(engine==="kling")genResult=await _klingGenVideo(prompt);
       else if(engine==="runway"){
@@ -3629,6 +3654,9 @@ async function showVideoGenUI(initialPrompt, propertyCtx){
       }
       else if(engine==="did"){
         genResult=await _didGenTalk(VG_STATE.presenterImageUrl||"https://clips-presenters.d-id.com/amy/image.jpeg",prompt,null);
+      }
+      else if(engine==="hedra"){
+        genResult=await _hedraGenVideo(prompt,VG_STATE.presenterImageUrl||null,null);
       }
       else throw new Error("Unknown engine: "+engine);
       if(!genResult)throw new Error("No response from server");
@@ -3649,6 +3677,7 @@ async function showVideoGenUI(initialPrompt, propertyCtx){
         else if(engine==="pika")sr=await _pikaCheckStatus(taskId,genResult._fal_model);
         else if(engine==="heygen")sr=await _heygenCheckStatus(taskId,!!(genResult&&genResult.request_id));
         else if(engine==="did")sr=await _didCheckStatus(taskId);
+        else if(engine==="hedra")sr=await _hedraCheckStatus(taskId);
         if(!sr)continue;
         if(sr.done&&sr.url){videoUrl=sr.url;break;}
         if(sr.error)throw new Error(sr.error);
@@ -3857,7 +3886,7 @@ async function showVideoGenUI(initialPrompt, propertyCtx){
   function _renderAddVoiceoverCard(){
     var card=div({background:"rgba(139,92,246,0.06)",border:"1px solid rgba(139,92,246,0.25)",borderRadius:"12px",padding:"14px",marginBottom:"14px"});
     card.appendChild(div({color:"#8B5CF6",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"🎙 This clip is silent"));
-    card.appendChild(div({color:"#8899AA",fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"10px",lineHeight:"1.5"},_AI_ENGINE_LABELS[VG_STATE.engine]+" generates motion only, no audio. Add a professional voiceover + background music before you post it."));
+    card.appendChild(div({color:"#8899AA",fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"10px",lineHeight:"1.5"},((_videoEngineInfo(VG_STATE.engine)||{}).label||VG_STATE.engine)+" generates motion only, no audio. Add a professional voiceover + background music before you post it."));
 
     var body=div({display:"none"});
     var narInp=el("textarea",{style:{width:"100%",background:"#0D1220",border:"1px solid #2A3040",borderRadius:"8px",padding:"10px",color:"#E0E0E0",fontSize:"12px",fontFamily:"'Inter',sans-serif",resize:"vertical",minHeight:"60px",boxSizing:"border-box",marginBottom:"8px"}});
@@ -7245,7 +7274,7 @@ async function _klingGenVideo(prompt,imageUrl){
   // api/proxy-video.js's Kling branch hardcodes model_name:"kling-v1-6" and
   // never reads a client-supplied model — sending "kling-v2-master" here
   // was a stale label with no effect. Matches the label shown in the UI
-  // (_AI_ENGINE_LABELS.kling: "Kling AI v1.6") to what actually runs.
+  // (VIDEO_ENGINE_CATALOG's kling entry: "Kling AI v1.6") to what actually runs.
   return _videoProxy({engine:"kling",action:"generate",prompt:prompt,image_url:imageUrl||null});
 }
 async function _klingCheckStatus(taskId){
@@ -7396,19 +7425,17 @@ async function showAvatarVideoGen(avatarId){
 
   card.appendChild(el("div",{style:{color:"#FFF",fontSize:"12px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"}},"Choose Video Engine"));
 
-  var selectedMethod="runway";
+  // Same shared VIDEO_ENGINE_CATALOG as the main AI Video Studio, filtered to
+  // configured engines only — this used to be a separate hardcoded list that
+  // included Hedra even when unconfigured (would error on click) and used
+  // different colors for the same engines shown in the main Studio.
+  var _availableEngines=_availableVideoEngines();
+  var selectedMethod=(_availableEngines[0]||{key:"runway"}).key;
   var methodGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:"6px",marginBottom:"12px"});
   var methodCards=[];
-  var methods=[
-    {id:"runway",icon:"RW",name:"Runway Gen-4",desc:"Hollywood-grade cinematic video. Best motion quality in the world.",tier:"Free trial",color:"#FF6B6B",quality:"★★★★★"},
-    {id:"kling",icon:"KL",name:"Kling AI 2.0",desc:"Cinematic video from image/text. Movie quality. 5-10s clips.",tier:"Free tier",color:"#F59E0B",quality:"★★★★★"},
-    {id:"minimax",icon:"MM",name:"Minimax Hailuo",desc:"Ultra-realistic motion. Cinematic lighting. 6s HD clips.",tier:"Free tier",color:"#3B82F6",quality:"★★★★★"},
-    {id:"pika",icon:"PK",name:"Pika Labs",desc:"Creative video effects. Style transfer. Fast generation.",tier:"Free tier",color:"#A855F7",quality:"★★★★☆"},
-    {id:"luma",icon:"LM",name:"Luma Dream Machine",desc:"Photorealistic video generation. Smooth motion. 5s clips.",tier:"Free tier",color:"#8B5CF6",quality:"★★★★☆"},
-    {id:"heygen",icon:"HG",name:"HeyGen",desc:"Ultra-realistic talking avatar. Lip-sync. Indistinguishable from real.",tier:"Free via Fal.ai",color:"#10B981",quality:"★★★★★"},
-    {id:"hedra",icon:"HD",name:"Hedra",desc:"High-quality talking avatar from photo + text. Near HeyGen quality.",tier:"Free tier",color:"#14B8A6",quality:"★★★★☆"},
-    {id:"did",icon:"DI",name:"D-ID",desc:"Talking head from photo. Good lip-sync. Quick generation.",tier:"Free credits",color:"#06B6D4",quality:"★★★☆☆"},
-  ];
+  var methods=_availableEngines.map(function(e){
+    return{id:e.key,icon:e.shortIcon,name:e.label,desc:e.desc,tier:"✓ Ready",color:e.color,quality:e.quality};
+  });
   methods.forEach(function(mt){
     var mc=div({background:mt.id===selectedMethod?"linear-gradient(135deg,"+mt.color+"22,"+mt.color+"11)":"#0D1117",border:"2px solid "+(mt.id===selectedMethod?mt.color:"#2A3040"),borderRadius:"12px",padding:"10px",cursor:"pointer",transition:"all 0.3s"});
     mc.onclick=function(){
@@ -7421,12 +7448,12 @@ async function showAvatarVideoGen(avatarId){
     topRow.appendChild(el("span",{style:{color:"#F59E0B",fontSize:"9px",fontFamily:"monospace"}},mt.quality));
     mc.appendChild(topRow);
     mc.appendChild(el("div",{style:{color:"#8899AA",fontSize:"9px",fontFamily:"monospace",marginBottom:"3px"}},mt.desc));
-    mc.appendChild(el("div",{style:{color:mt.tier.includes("Free")?"#10B981":"#F59E0B",fontSize:"8px",fontWeight:"700",fontFamily:"monospace"}},mt.tier));
+    mc.appendChild(el("div",{style:{color:"#10B981",fontSize:"8px",fontWeight:"700",fontFamily:"monospace"}},mt.tier));
     methodGrid.appendChild(mc);methodCards.push(mc);
   });
   card.appendChild(methodGrid);
 
-  card.appendChild(el("div",{style:{color:"#10B981",fontSize:"9px",fontFamily:"monospace",marginBottom:"10px",padding:"6px 8px",background:"#10B98115",borderRadius:"6px",border:"1px solid #10B98133"}},"All video engines are server-powered — no API key needed. Just click Generate."));
+  card.appendChild(el("div",{style:{color:"#10B981",fontSize:"9px",fontFamily:"monospace",marginBottom:"10px",padding:"6px 8px",background:"#10B98115",borderRadius:"6px",border:"1px solid #10B98133"}},"Showing engines currently active on this account — just click Generate."));
 
   var heygenAvatarSection=div({display:"none",marginBottom:"10px"});
   var heygenAvatarId=localStorage.getItem("dv_heygen_avatar")||"";

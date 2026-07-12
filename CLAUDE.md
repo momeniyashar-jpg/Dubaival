@@ -456,6 +456,59 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-13 (session 11l)**: AI Video Studio engineering audit (`js/chat.js`,
+  Network → Social Media Manager → AI Video Studio + Avatar Studio's video
+  generator), user-requested review of tool selection and layout/precedence.
+  - **Two separate, diverging engine pickers for the same job**: the main
+    Studio (`showVideoGenUI`) had its own hardcoded 7-engine list (no Hedra),
+    and Avatar Studio's video generator (`showAvatarVideoGen`) had a second,
+    independently hardcoded 8-engine list (including Hedra) — different order,
+    different colors for the SAME engine (e.g. Pika was `#F59E0B` in one list,
+    a totally different engine's color in the other), and no shared source of
+    truth. Concretely dangerous: Hedra was selectable in the Avatar flow even
+    when `HEDRA_API_KEY` isn't funded (confirmed via `api/proxy-video.js`'s
+    `engine_status` action, which already reports per-engine booleans) — a
+    user could pick it and hit a raw "not configured" error, exactly the
+    failure mode the session-11e "coming soon" gate was built to prevent.
+  - **Fix**: added one shared `VIDEO_ENGINE_CATALOG` (label, icon, color,
+    description, quality, `needsPhoto`/`photoRequired`) plus `_videoEngineInfo()`
+    and `_availableVideoEngines()` helpers, right next to the existing
+    `_anyVideoEngineConfigured()` check. `_videoEnginesCache` (previously a
+    positional array, easy to mis-index) is now a keyed object. Both
+    `showVideoGenUI` and `showAvatarVideoGen` now render exactly
+    `_availableVideoEngines()` — every engine shown is guaranteed actually
+    configured, an engine starts appearing the moment its key is funded with
+    zero code change, and both entry points always agree on label/color/order.
+    Also wired Hedra into the main Studio's own generate/status switch
+    (`_hedraGenVideo`/`_hedraCheckStatus` already existed for the avatar flow)
+    so it now works from either entry point, not just one.
+  - **Second bug found in the same audit**: Avatar Studio's picker carried a
+    blanket, false claim — "All video engines are server-powered — no API key
+    needed. Just click Generate." — directly contradicting the whole point of
+    the engine_status gate (several engines very much do need a funded key).
+    Replaced with an accurate line now that the list is filtered to
+    configured-only engines.
+  - **Also fixed**: `needsPhoto` was a hardcoded `engine==="runway"||"heygen"||"did"`
+    check that treated D-ID as strictly required, when its backend already has
+    a fallback default photo (`api/proxy-video.js` hedra/did branches) — added
+    a `photoRequired` flag so only Runway/HeyGen (which actually throw without
+    one) show the red "required" state; Hedra/D-ID now correctly show as
+    optional. Default `VG_STATE.engine` and Avatar's `selectedMethod` no
+    longer hardcode a specific engine that might not be funded — both now
+    default to the first engine `_availableVideoEngines()` actually returns.
+  - **Placement/precedence reviewed, left as-is**: Social Media Manager's
+    CREATE section already puts Video Studio + Edit Video first (highest
+    effort/value content type), before Design Post/Story/Preview — a sound
+    hierarchy; no reordering made.
+  - Verified via a standalone Node test (same vm harness used throughout this
+    session): 3 `_videoEnginesCache` scenarios (partial/Fal.ai-only, all
+    funded, none funded) all filter correctly, Hedra is excluded/included
+    exactly per its funded state, `_videoEngineInfo()` returns correct
+    `photoRequired` flags for hedra vs runway, and the catalog has no
+    duplicate keys and every key matches a real `engine_status` flag.
+    `node -c js/chat.js`, the full valuation/asset regression harness (19
+    cases, 0 errors), and a Playwright pass all came back clean.
+
 - **2026-07-13 (session 11k)**: AI Agents prompt-strength upgrade (`js/chat.js`),
   user-requested follow-up to session 11j — done proactively, BEFORE the user's
   own live testing of the grounding fix, per an explicit ask: agents should not
