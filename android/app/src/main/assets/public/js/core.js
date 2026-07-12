@@ -993,6 +993,16 @@ function exportCSV(filename,headers,rows){
   setTimeout(function(){URL.revokeObjectURL(url);},2000);
 }
 function csvDate(){return new Date().toISOString().slice(0,10);}
+
+// Shown at the bottom of every valuation result (screen + PDF) so the
+// figure is never mistaken for a certified appraisal — DubaiVal is an AVM
+// (automated valuation model), not a RERA/RICS-registered valuer.
+function valuationDisclaimerText(){
+  return "This is an AI-generated estimate for informational purposes only, based on DLD transaction data and live market listings. It is not a RERA- or RICS-certified valuation and should not be relied upon as the sole basis for a buying, selling, or financing decision. For an official valuation, consult a RERA-registered valuer.";
+}
+function renderValuationDisclaimer(cl){
+  return div({fontSize:"10px",color:cl.sub,lineHeight:"1.5",padding:"12px 14px",marginTop:"14px",background:hexAlpha(cl.sub,0.05),borderRadius:"8px",border:"1px solid "+hexAlpha(cl.sub,0.12)},valuationDisclaimerText());
+}
 function csvExportBtn(label,cl,onclick){
   var b=el("button",{style:{background:"transparent",border:"1px solid "+cl.goldDim,color:cl.gold,padding:"8px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",display:"inline-flex",alignItems:"center",gap:"6px"}});
   b.textContent="⬇ "+label;b.addEventListener("click",onclick);return b;

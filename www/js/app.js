@@ -1044,7 +1044,7 @@ function generatePDF(){
   h+='<div>'+brokerHtml+'</div>';
   h+='<div style="text-align:right"><div style="font-weight:700;font-size:13px"><span style="color:#111">Dub</span><span style="color:#C9A84C">AI</span><span style="color:#111">Val</span></div><div style="font-size:10px;color:#888">dubaival.com</div></div>';
   h+='</div>';
-  h+='<div style="font-size:8px;color:#aaa;margin-top:16px;border-top:1px solid #eee;padding-top:8px">DLD-Verified Valuation Report &bull; Professional use only &bull; Not financial advice &bull; Accuracy '+val.confTier.range+' &bull; '+dateStr+'</div>';
+  h+='<div style="font-size:8px;color:#aaa;margin-top:16px;border-top:1px solid #eee;padding-top:8px">This is an AI-generated estimate for informational purposes only (accuracy '+val.confTier.range+'), based on DLD transaction data and live market listings. It is not a RERA- or RICS-certified valuation and should not be relied upon as the sole basis for a buying, selling, or financing decision. For an official valuation, consult a RERA-registered valuer. &bull; Generated '+dateStr+'</div>';
   h+='</div>';
   
   var printEl=document.getElementById('print-report');
@@ -1159,7 +1159,7 @@ function generateArabicPDF(){
   h+='<div style="font-size:11px;color:#555;line-height:1.8">تم إنشاء هذا التقرير بواسطة</div>';
   h+='<div style="font-size:16px;font-weight:800;margin:4px 0;font-family:Inter,sans-serif"><span style="color:#111">Dub</span><span style="color:#C9A84C">AI</span><span style="color:#111">Val</span></div>';
   h+='<div style="font-size:10px;color:#888">www.dubaival.com</div>';
-  h+='<div style="font-size:8px;color:#aaa;margin-top:12px">تقرير تقييم معتمد على بيانات دائرة الأراضي والأملاك &bull; للاستخدام المهني فقط &bull; ليس نصيحة مالية &bull; '+dateStr+'</div>';
+  h+='<div style="font-size:8px;color:#aaa;margin-top:12px">هذا تقدير آلي لأغراض معلوماتية فقط، استناداً إلى بيانات معاملات دائرة الأراضي والأملاك والإعلانات الحية. وهو ليس تقييماً معتمداً من RERA أو RICS، ولا ينبغي الاعتماد عليه كأساس وحيد لقرار الشراء أو البيع أو التمويل. للحصول على تقييم رسمي، يرجى استشارة مقيّم معتمد لدى RERA. &bull; تاريخ الإصدار: '+dateStr+'</div>';
   h+='</div></div>';
 
   var printEl=document.getElementById('print-report');

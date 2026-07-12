@@ -1852,6 +1852,7 @@ function renderCommercialResult(wrap){
     div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"DATA SOURCE"),
     div({color:"#93C5FD",fontSize:"12px",fontFamily:"'Inter',sans-serif"},v.dataSource),
   ]));
+  wrap.appendChild(renderValuationDisclaimer(cl));
   return wrap;
 }
 
@@ -1910,6 +1911,7 @@ function renderLandResult(wrap){
     div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"DATA SOURCE"),
     div({color:"#6EE7B7",fontSize:"12px",fontFamily:"'Inter',sans-serif"},v.dataSource),
   ]));
+  wrap.appendChild(renderValuationDisclaimer(cl));
   return wrap;
 }
 
@@ -3692,6 +3694,7 @@ function renderAnalyzerResult(wrap){
     if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
   }
 
+  wrap.appendChild(renderValuationDisclaimer(cl));
   return wrap;
 }
 
@@ -3863,6 +3866,7 @@ function renderRentalResult(wrap){
     if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
   }
 
+  wrap.appendChild(renderValuationDisclaimer(cl));
   return wrap;
 }
 
