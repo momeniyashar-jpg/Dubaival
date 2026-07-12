@@ -62,6 +62,23 @@ module.exports = async function handler(req, res) {
   var engine = body.engine;
   var action = body.action;
 
+  // Lets the client show a clean "coming soon" state instead of a raw
+  // "XXX_API_KEY not configured" error when an engine's key hasn't been
+  // funded yet — booleans only, never leaks which keys exist beyond that.
+  if (action === "engine_status") {
+    if (rateLimitExceeded(req, res, 60000, 30)) return;
+    return res.json({
+      kling: !!process.env.KLING_API_KEY,
+      luma: !!process.env.LUMA_API_KEY,
+      heygen: !!(process.env.HEYGEN_API_KEY || process.env.PIKA_API_KEY),
+      hedra: !!process.env.HEDRA_API_KEY,
+      runway: !!process.env.RUNWAY_API_KEY,
+      minimax: !!(process.env.MINIMAX_API_KEY || process.env.PIKA_API_KEY),
+      pika: !!process.env.PIKA_API_KEY,
+      did: !!process.env.DID_API_KEY,
+    });
+  }
+
   if (!engine || !action) return res.status(400).json({ error: "Missing engine or action" });
 
   // Status polls happen every few seconds while a job runs; generate/list actions

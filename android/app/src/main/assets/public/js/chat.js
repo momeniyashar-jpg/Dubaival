@@ -2719,9 +2719,40 @@ function speakVoiceoverFallback(lines,secPerSlide){
   });
 }
 
-function showVideoGenUI(initialPrompt, propertyCtx){
+// Paid video-gen engines (Kling/Luma/HeyGen/Hedra/Runway/Minimax/Pika/D-ID)
+// need a funded API key in Vercel env vars before any of them work — without
+// this check, a user who opens the Video Studio and clicks Generate just
+// sees a raw "XXX_API_KEY not configured" error. Checked once per page load.
+var _videoEnginesCache=null;
+async function _anyVideoEngineConfigured(){
+  if(_videoEnginesCache)return _videoEnginesCache.some(Boolean);
+  try{
+    var r=await fetch("/api/proxy-video",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({action:"engine_status"})});
+    var d=await r.json();
+    _videoEnginesCache=[d.kling,d.luma,d.heygen,d.hedra,d.runway,d.minimax,d.pika,d.did];
+    return _videoEnginesCache.some(Boolean);
+  }catch(e){return false;}
+}
+function _showVideoComingSoon(){
+  ["video-gen-modal","avatar-video-modal"].forEach(function(id){
+    var m=document.getElementById(id);if(m)m.remove();
+  });
+  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.92)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:"16px"},id:"video-gen-modal"});
+  var card=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"20px",width:"420px",maxWidth:"92vw",padding:"32px 24px",textAlign:"center"});
+  card.appendChild(div({fontSize:"32px",marginBottom:"12px"},"🎬"));
+  card.appendChild(div({color:"#F0F2F5",fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"AI Video Generation — Launching Soon"));
+  card.appendChild(div({color:"#8899AA",fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6",marginBottom:"20px"},"We're finishing setup on this feature. Everything else in DubAIVal — Analyzer, Portfolio, Deal Network, and content generation — is ready to use right now."));
+  var closeBtn=el("button",{style:{background:"linear-gradient(135deg,#C9A84C,#B8934A)",color:"#070B14",border:"none",borderRadius:"10px",padding:"11px 24px",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
+    onclick:function(){overlay.remove();}});
+  closeBtn.textContent="Got it";card.appendChild(closeBtn);
+  overlay.appendChild(card);document.body.appendChild(overlay);
+}
+
+async function showVideoGenUI(initialPrompt, propertyCtx){
   var existing=document.getElementById("video-gen-modal");
   if(existing)existing.remove();
+  if(!(await _anyVideoEngineConfigured())){_showVideoComingSoon();return;}
 
   // ── World-Class AI Video Studio ────────────────────────────────────────────
   var VG_STATE={
@@ -7197,9 +7228,10 @@ function _videoPollStatus(checkFn,interval,maxChecks,resultArea,genVideoBtn){
   },interval);
 }
 
-function showAvatarVideoGen(avatarId){
+async function showAvatarVideoGen(avatarId){
   var av=_getAvatars().find(function(a){return a.id===avatarId;});
   if(!av){alert("Avatar not found.");return;}
+  if(!(await _anyVideoEngineConfigured())){_showVideoComingSoon();return;}
   var m=document.getElementById("avatar-video-modal");if(m)m.remove();
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.92)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",overflowY:"auto",padding:"10px"},id:"avatar-video-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #F59E0B",borderRadius:"16px",padding:"20px",width:"600px",maxWidth:"96vw",maxHeight:"94vh",overflowY:"auto"});
