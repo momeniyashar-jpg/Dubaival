@@ -448,6 +448,27 @@ function computeAdjustedPSF(f,buildingVal,liveData){
   const bKey=(buildingVal||f.building||"").toLowerCase().trim();
   const vdbEntry=typeof VALUATION_DB!=="undefined"&&VALUATION_DB[bKey]?VALUATION_DB[bKey]:null;
   const liveSig=getLiveSignal(liveData);
+  // Area market-drift correction (root-cause fix, 2026-07-12): VALUATION_DB and
+  // VALUATION_AREAS are a flat median over a multi-year historical window (see
+  // tools/calibrate-db.js DATE_FROM) — accurate for slow-moving, established
+  // areas but measurably stale in fast-appreciating ones. Controlled,
+  // bedroom+size-matched validation against real DLD/Bayut data (2026-07-12)
+  // found established areas (Dubai Marina, Downtown, Business Bay) within
+  // ~1-10% of real prices, but International City ~30-40% understated (real
+  // growth ~11%/yr vs our static area-growth assumption of 2%/yr) — a real,
+  // area-specific staleness gap, not a single-building anomaly.
+  // currentAreaPSF blends the calibrated historical anchor with the daily-
+  // refreshed live signal (dynBench, already fetched above) to estimate how
+  // much the area has moved since calibration; areaDrift is that movement
+  // expressed as a ratio, applied to BOTH the building-level anchor (below)
+  // and the area-only fallback anchor (further down) so a building in a
+  // fast-moving area gets indexed the same way an unmatched one would.
+  // Symmetric — corrects overstatement as well as understatement — and
+  // clamped + gated on a real live sample so a thin/noisy read can't swing it.
+  const calibAreaPSF=(typeof VALUATION_AREAS!=="undefined"&&VALUATION_AREAS[f.area]&&VALUATION_AREAS[f.area].psf)||staticArea.psf;
+  const hasLiveAreaSig=!!(dynBench&&dynBench.psf&&dynBench.sampleSize>=5);
+  const currentAreaPSF=hasLiveAreaSig?Math.round(calibAreaPSF*0.4+dynBench.psf*0.6):calibAreaPSF;
+  const areaDrift=hasLiveAreaSig&&calibAreaPSF>0?Math.max(0.85,Math.min(1.25,currentAreaPSF/calibAreaPSF)):1;
   if(bData){
     if(vdbEntry){basePSF=vdbEntry.p;psfLo=vdbEntry.lo;psfHi=vdbEntry.hi;}
     else{basePSF=bData.p;psfLo=bData.lo;psfHi=bData.hi;}
@@ -457,6 +478,10 @@ function computeAdjustedPSF(f,buildingVal,liveData){
       compData=computeComparableEstimate(comps,basePSF);
       basePSF=compData.blendedPSF;
       dataSource+=" + "+comps.length+" comps";
+    }
+    if(Math.abs(areaDrift-1)>=0.03){
+      basePSF=Math.round(basePSF*areaDrift);psfLo=Math.round(psfLo*areaDrift);psfHi=Math.round(psfHi*areaDrift);
+      dataSource+=" · area-indexed";
     }
     // Live nudge from real Bayut transactions/listings for this exact
     // building+area query — see getLiveSignal() above. Weighted lightly and
@@ -483,9 +508,12 @@ function computeAdjustedPSF(f,buildingVal,liveData){
       // blended psf average rather than guessing a grade tier — guessing "B+"
       // by default previously caused systematic overestimation in budget areas
       // (e.g. Town Square) whenever any building name was typed but not found in DB.
-      // Prefer DLD area benchmark over legacy AREAS data
+      // Prefer DLD area benchmark over legacy AREAS data, indexed to today via
+      // currentAreaPSF/areaDrift (see above) — the same market-drift correction
+      // applied to building-matched valuations, so an unmatched building in a
+      // fast-moving area isn't left on the stale flat-calibration anchor either.
       var vAreaEntry=typeof VALUATION_AREAS!=="undefined"&&VALUATION_AREAS[f.area]?VALUATION_AREAS[f.area]:null;
-      basePSF=vAreaEntry?vAreaEntry.psf:aData.psf;psfLo=Math.round(basePSF*0.87);psfHi=Math.round(basePSF*1.13);
+      basePSF=currentAreaPSF;psfLo=Math.round(basePSF*0.87);psfHi=Math.round(basePSF*1.13);
       dataSource=(vAreaEntry?"DLD area":"Area")+" benchmark · "+f.area;dataLayer=4;
       dvLog("area_only","computeAdjustedPSF","No live comps, area-only: "+(buildingVal||f.building||"")+" · "+f.area);
       var areaComps=findComparables(null,f.area,null,f.beds,isVillaType,10);

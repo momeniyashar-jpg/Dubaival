@@ -4,15 +4,25 @@ const embeddings = require("./_lib/embeddings");
 const UAE_RE_HOST = "uae-real-estate2.p.rapidapi.com";
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || "";
 
+// Keys here MUST match the exact AREAS/VALUATION_AREAS key strings in
+// js/data-residential.js — getDynamicBenchmark(f.area) does a direct object
+// lookup, so any mismatch here silently disconnects that area from the daily
+// live-refresh signal (found 2026-07-12: "JVC", "Jumeirah Beach Residence" and
+// "Production City" didn't match the real AREAS keys below at all — those
+// areas' daily live data was being fetched and written, then never read by
+// any valuation). "Dubai Land Residence Complex" and "Reem" removed entirely:
+// neither is a real top-level AREAS key (DLRC rolls into "Dubailand", already
+// tracked separately; "Reem" only exists as building-level sub-community
+// entries), so their fetches were pure wasted cron budget.
 const AREA_LOCATION_MAP = {
   "Dubai Marina":"dubai-marina","Downtown Dubai":"downtown-dubai",
   "Palm Jumeirah":"palm-jumeirah","Business Bay":"business-bay",
-  "JVC":"jumeirah-village-circle","Dubai Hills Estate":"dubai-hills-estate",
+  "Jumeirah Village Circle":"jumeirah-village-circle","Dubai Hills Estate":"dubai-hills-estate",
   "MBR City":"mohammed-bin-rashid-city","Dubai Creek Harbour":"dubai-creek-harbour",
   "Jumeirah Lake Towers":"jumeirah-lake-towers","DAMAC Hills":"damac-hills",
   "Arabian Ranches":"arabian-ranches","Dubai Silicon Oasis":"dubai-silicon-oasis",
   "International City":"international-city","Dubai Sports City":"dubai-sports-city",
-  "Jumeirah Beach Residence":"jumeirah-beach-residence","DIFC":"difc",
+  "Jumeirah Beach Residence (Jbr)":"jumeirah-beach-residence","DIFC":"difc",
   "Al Barsha":"al-barsha","Emaar Beachfront":"emaar-beachfront",
   "Town Square":"town-square","Motor City":"motor-city",
   "Discovery Gardens":"discovery-gardens","Al Furjan":"al-furjan",
@@ -20,10 +30,10 @@ const AREA_LOCATION_MAP = {
   "Jumeirah Village Triangle":"jumeirah-village-triangle",
   "Sobha Hartland":"sobha-hartland","City Walk":"city-walk",
   "Dubai Harbour":"dubai-harbour","Dubailand":"dubailand",
-  "Production City":"impz","Al Quoz":"al-quoz","Barsha Heights":"barsha-heights",
+  "Dubai Production City":"impz","Al Quoz":"al-quoz","Barsha Heights":"barsha-heights",
   "The Valley":"the-valley","Tilal Al Ghaf":"tilal-al-ghaf",
-  "Dubai Land Residence Complex":"dlrc","Jumeirah":"jumeirah",
-  "Al Sufouh":"al-sufouh","Mudon":"mudon","Reem":"reem",
+  "Jumeirah":"jumeirah",
+  "Al Sufouh":"al-sufouh","Mudon":"mudon",
   "The Greens":"the-greens","The Views":"the-views"
 };
 
