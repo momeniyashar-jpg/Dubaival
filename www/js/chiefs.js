@@ -44,12 +44,14 @@ function _timeAgo(ts) {
   if (s < 86400) return Math.floor(s/3600) + "h ago"; return Math.floor(s/86400) + "d ago";
 }
 function _stageColor(stage) {
-  return { lead:"#6B7A9E", viewing:"#3B82F6", offer:"#F59E0B", mou:"#8B5CF6",
+  // Note: #8B5CF6 is reserved app-wide for rental-mode UI, so "mou" (a deal
+  // stage, unrelated to rentals) uses teal instead of purple here.
+  return { lead:"#6B7A9E", viewing:"#3B82F6", offer:"#F59E0B", mou:"#14B8A6",
            docs:"#EC4899", closing:"#10B981", closed:"#D4AF37", lost:"#EF4444" }[stage] || "#6B7A9E";
 }
 function _statusColor(s) {
   return { available:"#10B981", under_offer:"#F59E0B", sold:"#6B7A9E", rented:"#6B7A9E",
-           expired:"#EF4444", pocket:"#8B5CF6" }[s] || "#6B7A9E";
+           expired:"#EF4444", pocket:"#14B8A6" }[s] || "#6B7A9E";
 }
 function _verdictColor(v) {
   if (!v) return "#6B7A9E";
@@ -663,7 +665,7 @@ function _renderChiefsDashboard() {
     {label:"My Listings",val:inv.length,color:"#D4AF37",icon:"package"},
     {label:"Active Clients",val:cli.filter(function(c){return c.status==="active";}).length,color:"#3B82F6",icon:"users"},
     {label:"Pending Matches",val:pendingMatches.length,color:"#10B981",icon:"link-2"},
-    {label:"Active Deals",val:activeDeals.length,color:"#8B5CF6",icon:"clipboard-list"}
+    {label:"Active Deals",val:activeDeals.length,color:"#14B8A6",icon:"clipboard-list"}
   ];
   var statsRow = el("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"10px",marginBottom:"16px"}});
   stats.forEach(function(s) {
@@ -745,13 +747,11 @@ function _renderChiefsDashboard() {
   }
 
   if (!inv.length && !cli.length) {
+    // "+ Add Listing"/"+ Add Client" already appear in the Quick Actions
+    // grid above (always shown) — no need to repeat them here too.
     var empty = _chCard([
       div({color:cl.white,fontSize:"14px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",textAlign:"center"},"Welcome to AI Chief of Staff"),
-      div({color:cl.sub,fontSize:"12px",lineHeight:"1.6",textAlign:"center",fontFamily:"'Inter',sans-serif"},"Your AI-powered agent workspace. Add listings to your inventory, store client requirements, and let the AI automatically match clients to properties and draft personalized WhatsApp messages."),
-      div({style:{display:"flex",justifyContent:"center",gap:"8px",marginTop:"12px"}},[
-        _chBtn("+ Add Listing","#D4AF37",undefined,function(){CHIEFS_STATE.invForm.open=true;CHIEFS_STATE.view="inventory";render();}),
-        _chBtn("+ Add Client","#3B82F6","#fff",function(){CHIEFS_STATE.cliForm.open=true;CHIEFS_STATE.view="clients";render();})
-      ])
+      div({color:cl.sub,fontSize:"12px",lineHeight:"1.6",textAlign:"center",fontFamily:"'Inter',sans-serif"},"Your AI-powered agent workspace. Add listings to your inventory, store client requirements, and let the AI automatically match clients to properties and draft personalized WhatsApp messages — use the Quick Actions above to get started.")
     ],{textAlign:"center"});
     wrap.appendChild(empty);
   }
@@ -1150,7 +1150,7 @@ function _renderChiefsPipeline() {
   // Header
   var hdr = el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"}});
   hdr.appendChild(div({color:cl.white,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"Deal Pipeline"));
-  if (!f.open) hdr.appendChild(_chBtn("+ Add Deal","#8B5CF6","#fff",function(){CHIEFS_STATE.pipeForm.open=true;CHIEFS_STATE.pipeForm.editing=null;render();}));
+  if (!f.open) hdr.appendChild(_chBtn("+ Add Deal","#14B8A6","#fff",function(){CHIEFS_STATE.pipeForm.open=true;CHIEFS_STATE.pipeForm.editing=null;render();}));
   wrap.appendChild(hdr);
 
   // Pipeline stats
@@ -1160,7 +1160,7 @@ function _renderChiefsPipeline() {
   var totalComm = activeDeals.reduce(function(s,p){return s+(Number(p.commission_est)||0);},0);
   if (pipe.length > 0) {
     var stats = el("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px",marginBottom:"14px"}});
-    [{label:"Active Deals",val:activeDeals.length+"",color:"#8B5CF6"},
+    [{label:"Active Deals",val:activeDeals.length+"",color:"#14B8A6"},
      {label:"Total Value",val:totalValue>0?_fmtPrice(totalValue):"—",color:"#D4AF37"},
      {label:"Est. Commission",val:totalComm>0?_fmtPrice(totalComm):"—",color:"#10B981"}
     ].forEach(function(s) {
@@ -1173,8 +1173,8 @@ function _renderChiefsPipeline() {
 
   // Add deal form
   if (f.open) {
-    var fm = _chCard(null,{background:"rgba(139,92,246,0.06)",border:"1px solid rgba(139,92,246,0.2)"});
-    fm.appendChild(div({color:"#8B5CF6",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px",letterSpacing:"0.1em"},f.editing?"EDIT DEAL":"NEW DEAL"));
+    var fm = _chCard(null,{background:"rgba(20,184,166,0.06)",border:"1px solid rgba(20,184,166,0.2)"});
+    fm.appendChild(div({color:"#14B8A6",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px",letterSpacing:"0.1em"},f.editing?"EDIT DEAL":"NEW DEAL"));
     var g1=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"8px"}});
     var cnCell=el("div",{}); cnCell.appendChild(lbl("Client Name *"));
     var cnInp=inp(I(),"Client name","text",undefined,function(v){f.client_name=v;}); cnInp.value=f.client_name||""; cnCell.appendChild(cnInp); g1.appendChild(cnCell);
@@ -1195,7 +1195,7 @@ function _renderChiefsPipeline() {
     ntInp.value=f.notes||""; ntInp.addEventListener("input",function(){f.notes=this.value;}); ntCell.appendChild(ntInp); fm.appendChild(ntCell);
     var btnRow=el("div",{style:{display:"flex",gap:"8px",justifyContent:"flex-end"}});
     btnRow.appendChild(_chBtn("Cancel","rgba(255,255,255,0.06)","#8899AA",function(){CHIEFS_STATE.pipeForm.open=false;render();},{border:"1px solid rgba(255,255,255,0.1)"}));
-    btnRow.appendChild(_chBtn(CHIEFS_STATE.busySave?"Saving...":f.editing?"Save Changes":"Add to Pipeline","#8B5CF6","#fff",function(){if(!CHIEFS_STATE.busySave)chiefsSavePipeline();}));
+    btnRow.appendChild(_chBtn(CHIEFS_STATE.busySave?"Saving...":f.editing?"Save Changes":"Add to Pipeline","#14B8A6","#fff",function(){if(!CHIEFS_STATE.busySave)chiefsSavePipeline();}));
     fm.appendChild(btnRow); wrap.appendChild(fm);
   }
 
@@ -1490,7 +1490,7 @@ function renderChiefsCopilotOverlay() {
     if (n.summary) wCard.appendChild(div({ color: cl.white, fontSize: "13px", lineHeight: "1.6", marginBottom: "10px", fontFamily: "'Inter',sans-serif" }, n.summary));
     var tags = el("div", { style: { display: "flex", flexWrap: "wrap", gap: "6px" } });
     var addTag = function(label, color) { if (!label) return; tags.appendChild(_chBadge(label, color)); };
-    addTag(n.purpose === "rent" ? "For Rent" : "For Sale", "#8B5CF6");
+    addTag(n.purpose === "rent" ? "For Rent" : "For Sale", n.purpose === "rent" ? "#8B5CF6" : "#D4AF37");
     if (n.beds) addTag(n.beds === "Studio" ? "Studio" : n.beds + "BR", "#3B82F6");
     if (n.prop_type) addTag(n.prop_type.charAt(0).toUpperCase() + n.prop_type.slice(1), "#6B7A9E");
     if (n.furnished) addTag(n.furnished, "#6B7A9E");
@@ -1551,7 +1551,7 @@ function renderChiefsCopilotOverlay() {
     body.appendChild(dSec);
 
     // Save to Client Memory
-    body.appendChild(_chBtn(CHIEFS_COPILOT.saving ? "Saving..." : '<i data-lucide="save" style="width:13px;height:13px"></i>Save to Client Memory', "rgba(139,92,246,0.1)", "#8B5CF6", function() { if(!CHIEFS_COPILOT.saving) chiefsCopilotSaveClient(); }, { border: "1px solid rgba(139,92,246,0.25)", width: "100%", textAlign: "center", justifyContent: "center", fontSize: "13px", padding: "10px 14px" }));
+    body.appendChild(_chBtn(CHIEFS_COPILOT.saving ? "Saving..." : '<i data-lucide="save" style="width:13px;height:13px"></i>Save to Client Memory', "rgba(212,175,55,0.1)", "#D4AF37", function() { if(!CHIEFS_COPILOT.saving) chiefsCopilotSaveClient(); }, { border: "1px solid rgba(212,175,55,0.25)", width: "100%", textAlign: "center", justifyContent: "center", fontSize: "13px", padding: "10px 14px" }));
   }
 
   sheet.appendChild(body);
