@@ -227,6 +227,7 @@ async function _ofmSubmitListing(f,listerToken){
   if(!resp.ok){var e=await resp.json().catch(function(){return{};});
     throw new Error(e.message||"Listing failed");}
   var created=await resp.json();
+  if(typeof dvTrack==="function")dvTrack("deal_listing_posted",{area:area,purpose:f.purpose||"sale"});
   return Array.isArray(created)?created[0]:created;
 }
 
@@ -247,6 +248,7 @@ async function _ofmSubmitRequest(f,requesterToken){
   if(!resp.ok){var e=await resp.json().catch(function(){return{};});
     throw new Error(e.message||"Request failed");}
   var created=await resp.json();
+  if(typeof dvTrack==="function")dvTrack("deal_request_posted",{area:area,purpose:f.purpose||"sale"});
   return Array.isArray(created)?created[0]:created;
 }
 

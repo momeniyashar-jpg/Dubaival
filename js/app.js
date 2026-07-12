@@ -939,7 +939,7 @@ function renderAlerts(){
     fetch("/api/price-alerts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:em,targetName:tgt,targetType:PW.type,area:PW.type==="building"?null:tgt})})
       .then(function(r){return r.json();})
       .then(function(d){
-        if(d.ok){PW.status="Watch set! Check your email for confirmation.";PW.target="";PW.email="";}
+        if(d.ok){PW.status="Watch set! Check your email for confirmation.";if(typeof dvTrack==="function")dvTrack("price_alert_subscribed",{area:PW.type==="building"?null:tgt,type:PW.type});PW.target="";PW.email="";}
         else{PW.err="Error: "+(d.error||"Please try again");}
         render();
       })

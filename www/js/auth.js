@@ -63,6 +63,7 @@ async function dvSignUp(name,email,password){
     if(data.access_token){
       await setAuthSession(data);
       await fetch(SUPABASE_URL+"/rest/v1/user_profiles",{method:"POST",headers:Object.assign({},sbHeaders(data.access_token),{"Prefer":"return=minimal"}),body:JSON.stringify({id:data.user.id,display_name:name,email:email,role:"user",preferred_lang:dvLang})});
+      if(typeof dvTrack==="function")dvTrack("signup_completed",{});
     }
     DV_AUTH.showModal=false;
   }catch(e){DV_AUTH.error=e.message;}

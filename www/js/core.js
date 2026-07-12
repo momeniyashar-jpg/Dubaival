@@ -388,6 +388,7 @@ function setSection(sec,sub){
     var hash="#"+currentSection+(currentSubTab?"/"+currentSubTab:"");
     history.pushState(stateObj,"",hash);
   }
+  if(typeof dvTrack==="function")dvTrack("tab_view",{section:currentSection,sub:currentSubTab});
   render();
 }
 window.addEventListener("popstate",function(e){
@@ -483,6 +484,34 @@ async function fetchLiveMarket(){
 // ── SUPABASE LIVE CONFIG ──────────────────────────────────────────────────────
 var SUPABASE_URL="https://vrrqajwmygghfmagpgrr.supabase.co";
 var SUPABASE_KEY="sb_publishable_HNHSNnmBUYcTnF35bMEzxA_qhsoe6Yj";
+
+// ── FIRST-PARTY EVENT TRACKING (launch-readiness item 3) ─────────────────────
+// dvTrack() was already being called at 6 real funnel points (Analyzer
+// submit x4, PDF export x2 — see js/market.js/js/app.js) but was never
+// actually defined anywhere, so every one of those calls silently threw
+// and was swallowed by its own try/catch — meaning none of them ever
+// tracked anything. Implemented for real now: writes to analytics_events
+// (see supabase-analytics-events-schema.sql, requires manual execution),
+// grouped by a per-browser-tab session id so a funnel (view -> analyze ->
+// signup -> subscribe) can be reconstructed later without requiring login.
+// Fire-and-forget — never blocks or throws into the caller.
+var _dvSessionId=(function(){
+  try{
+    var k="dv_session_id";
+    var v=sessionStorage.getItem(k);
+    if(!v){v=Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,10);sessionStorage.setItem(k,v);}
+    return v;
+  }catch(e){return "nosession_"+Math.random().toString(36).slice(2,10);}
+})();
+function dvTrack(eventName,meta){
+  try{
+    fetch(SUPABASE_URL+"/rest/v1/analytics_events",{
+      method:"POST",
+      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},
+      body:JSON.stringify({session_id:_dvSessionId,event_name:eventName,area:(meta&&meta.area)||null,meta:meta||{}})
+    }).catch(function(){});
+  }catch(e){}
+}
 
 async function fetchSupabaseConfig(){
   try{
