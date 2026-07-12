@@ -20,13 +20,24 @@ function renderMarketIndex(){
   header.appendChild(_hBadge);
   wrap.appendChild(header);
 
-  // Full Market Data CSV Export
-  wrap.appendChild(el("div",{style:{textAlign:"center",marginBottom:"16px"}},[csvExportBtn("Download Full Market Data (CSV)",cl,function(){
-    var hdrs=["area_name","avg_psf","service_charge","1br_rent","2br_rent","3br_rent","yield_low","yield_high","growth_1y","growth_3y","growth_5y","dom","tx_volume"];
-    var rows=[];AREA_NAMES.forEach(function(n){var a=AREAS[n];if(!a)return;var y=a.y||[0,0];var g=a.g||[0,0,0];
-      rows.push([n,a.psf||0,a.sc||0,a.r1||0,a.r2||0,a.r3||0,y[0],y[1],g[0],g[1],g[2],a.dom||0,a.txVol||0]);});
-    exportCSV("DubAIVal_Market_Data_"+csvDate()+".csv",hdrs,rows);
-  })]));
+  // Intentionally NOT rendering a "download full market data" button here —
+  // owner decision (reaffirmed 2026-07-12): users should only be able to
+  // export scoped reports tied to their own task (their Analyzer valuation,
+  // their own Portfolio, their own selected area Comparison — see
+  // exportCSV() call sites in market.js/portfolio.js/marketindex.js's own
+  // Compare section), never a single-click dump of the full 347-area
+  // proprietary database. A prior fix (commit f8a3db6, 2026-06-24) did this
+  // via display:none + a no-op exportCSV(), but that no-op broke the
+  // legitimate scoped exports too and was later reverted app-wide,
+  // silently re-enabling this bulk button along with it. Removing the
+  // button entirely (not just hiding it) instead of touching the shared
+  // exportCSV() function, so the legitimate exports keep working and a
+  // future "dead code cleanup" pass can't mistake a hidden-but-present
+  // button for an accidental leftover. Note: this only blocks casual
+  // one-click extraction — a technically determined user can still read
+  // the AREAS object directly from the loaded JS via devtools, since this
+  // is a static client-side app with no server-side data gating; this
+  // fix does not (and cannot, at the architecture level) change that.
 
   // Compute aggregates
   var names=AREA_NAMES;
