@@ -673,8 +673,8 @@ function computeAssetMetrics(asset){
   // categories missing entirely), so the same unit could show a materially
   // different value depending on whether you checked it here or in the
   // Analyzer. The Admin panel's apartment/villa risk-adjustment sliders
-  // (typeAdj) remain Portfolio-only, same as before this fix — they are not
-  // applied anywhere inside computeValuation() either.
+  // (typeAdj) are now applied inside computeAdjustedPSF() itself, so it's
+  // already baked into adj.adjPSF here — no separate application needed.
   var isV=asset.type==="Villa"||asset.type==="Townhouse";
   var adj=computeAdjustedPSF({area:asset.area,building:asset.building,propCategory:isV?"villa":"apartment",
     beds:asset.beds,floor:asset.floor,view:asset.view||"Not specified",size:asset.size,
@@ -682,8 +682,7 @@ function computeAssetMetrics(asset){
   var aData=adj.aData;
   var bData=adj.bData;
   var vdbE=adj.vdbEntry;
-  var typeAdj=isV?(MACRO_VARS.villaAdj||0):(MACRO_VARS.aptAdj||0);
-  var adjPSF=Math.round(adj.adjPSF*(1+typeAdj));
+  var adjPSF=adj.adjPSF;
   var size=parseInt(asset.size)||0;
   var currentValue=adjPSF*size;
   var purchasePrice=parseInt(asset.purchasePrice)||0;

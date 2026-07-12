@@ -421,6 +421,14 @@ function computeAdjustedPSF(f,buildingVal,liveData){
   if(momFactor!==1.0){basePSF=Math.round(basePSF*momFactor);psfLo=Math.round(psfLo*momFactor);psfHi=Math.round(psfHi*momFactor);}
   if(dynBench&&dynBench.psf&&dynBench.sampleSize>=5)dataSource+=" · Live";
   if(momFactor!==1.0)dataSource+=" · AI Trend";
+  // Admin Market Risk Controls (apartment/villa macro adjustment) — a market-
+  // wide correction like calFactor/momFactor above, not a property-specific
+  // premium, so it's applied to basePSF here rather than folded into the
+  // hedonic premium stack below (which is capped). Previously this only ever
+  // reached Portfolio's separate copy of this logic despite the Admin UI's
+  // "Save & Apply to All Valuations" label promising otherwise.
+  const typeAdj=typeof MACRO_VARS!=="undefined"?(isVillaType?(MACRO_VARS.villaAdj||0):(MACRO_VARS.aptAdj||0)):0;
+  if(typeAdj!==0){basePSF=Math.round(basePSF*(1+typeAdj));psfLo=Math.round(psfLo*(1+typeAdj));psfHi=Math.round(psfHi*(1+typeAdj));}
   // Premiums
   // For DB buildings: differential view premium vs grade baseline.
   // DB price assumes "average view" for the building's grade.
@@ -490,7 +498,7 @@ function computeAdjustedPSF(f,buildingVal,liveData){
   const adjPSF=Math.round(basePSF*hedonicMult);
   psfLo=Math.round(psfLo*hedonicMult);psfHi=Math.round(psfHi*hedonicMult);
   return{adjPSF,psfLo,psfHi,basePSF,bData,vdbEntry,dataSource,dataLayer,compData,
-    calFactor,momFactor,dynBench,aData,isVillaType,isVilla,isDevFurnished,
+    calFactor,momFactor,typeAdj,dynBench,aData,isVillaType,isVilla,isDevFurnished,
     vP,fP,furnP,loftP,penthP,maidP,studyP,upgradeP,privatePoolP,singleRowP,cornerVillaP,
     geoAdj,geoScore,locP,hedonicMult,hedonicCap};
 }
