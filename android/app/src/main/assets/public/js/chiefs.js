@@ -437,7 +437,7 @@ async function chiefsDraftMessage(matchId) {
     "Client wants: " + (client.beds_wanted||"") + " " + client.prop_type + " for " + client.purpose + " in " + areas + ". Budget: " + _fmtPrice(client.min_price) + " to " + _fmtPrice(client.max_price) + ". Timeline: " + client.timeline + ".\n\n" +
     "Available property: " + (listing.beds||"") + " " + listing.prop_type + " in " + listing.area + (listing.building?" at "+listing.building:"") + ". Price: " + _fmtPrice(listing.price) + (listing.purpose==="rent"?"/yr":"") + ". Size: " + (listing.size_sqft?listing.size_sqft+" sqft":"N/A") + ". Floor: " + (listing.floor_num||"N/A") + ". View: " + (listing.view_type||"N/A") + ". Furnished: " + (listing.furnished||"N/A") + "." + (listing.dv_verdict?" DubAIVal says: "+listing.dv_verdict+".":"") + "\n\nWrite 2-4 short sentences. Greet by first name. Mention you found a match. Give key details naturally. End with a call to action. No asterisks or formatting symbols. Return only the message.";
   try {
-    var result = await askAI([{role:"user",content:prompt}], "You are a professional Dubai real estate agent writing a WhatsApp message.", null);
+    var result = await askAI([{role:"user",content:prompt}], "You are a professional Dubai real estate agent writing a WhatsApp message.", listing.area, listing.area?[listing.area]:undefined);
     if (result && result.trim()) {
       await fetch(SUPABASE_URL + "/rest/v1/chiefs_matches?id=eq." + matchId, {
         method:"PATCH", headers:Object.assign({},_chiefsH(),{"Prefer":"return=minimal"}),

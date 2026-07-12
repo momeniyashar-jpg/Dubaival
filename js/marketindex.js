@@ -48,7 +48,7 @@ function renderMarketIndex(){
     {n:avgYield+"%",l:"Avg Yield",icon:"◈"},
     {n:"+"+avgG0+"%",l:"Avg 1yr Growth",icon:"▲"},
     {n:String(cnt),l:"Areas",icon:"◇"},
-    {n:"10,800+",l:"Properties",icon:"◆"}
+    {n:"11,500+",l:"Properties",icon:"◆"}
   ];
   var sumRow=div({display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:"10px",marginBottom:"20px"});
   stats.forEach(function(s){
@@ -310,7 +310,7 @@ function renderMarketIndex(){
         cmp.aiLoading=true;render();
         var summary=activeAreas.map(function(n){var d=AREAS[n]||{};var y=d.y||[5,7];var g=d.g||[3,9,16];return n+": PSF "+d.psf+", SC "+d.sc+", yield "+(y[0]+y[1])/2+"%, 1yr growth "+g[0]+"%, 3yr "+g[1]+"%, DOM "+(d.dom||"?")+"d, txVol "+(d.txVol||"?")+" , buildings "+bldgCounts[n]+", sustainability "+(GREEN_AREAS[n]||50);}).join(". ");
         askAI([{role:"user",content:"Compare these Dubai areas for a real estate buyer:\n"+summary+"\n\nProvide: 1) For Investment: which is best and why (yield, growth, liquidity), 2) For Living: which is best and why (community, SC, grade), 3) Value Pick: which offers best value. Be specific with numbers. 3-4 sentences each."}],
-          "You are DubAIVal AI — Dubai's leading property intelligence platform with 8,522 buildings and 347 areas in our DLD-verified database. June 2026 market expert.\nYou are a RICS-certified property analyst comparing areas for sophisticated investors.\nFor each comparison dimension: cite the EXACT numbers provided, calculate differences, and give a clear winner.\nConsider hidden factors: SC drag on net yield, DOM as exit risk, transaction volume as liquidity proxy, sustainability as future premium.\nBe decisive — rank areas and declare winners. Use specific AED figures and percentages.",
+          "You are DubAIVal AI — Dubai's leading property intelligence platform with 9,227 buildings and 347 areas in our DLD-verified database. June 2026 market expert.\nYou are a RICS-certified property analyst comparing areas for sophisticated investors.\nFor each comparison dimension: cite the EXACT numbers provided, calculate differences, and give a clear winner.\nConsider hidden factors: SC drag on net yield, DOM as exit risk, transaction volume as liquidity proxy, sustainability as future premium.\nBe decisive — rank areas and declare winners. Use specific AED figures and percentages.",
           "Dubai real estate market comparison: "+activeAreas.join(", "),
           activeAreas
         ).then(function(r){cmp.aiVerdict=r;cmp.aiLoading=false;render();}).catch(function(e){cmp.aiLoading=false;cmp.aiVerdict="Error: "+e.message;render();});

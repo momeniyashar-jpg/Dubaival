@@ -2864,7 +2864,7 @@ function showVideoGenUI(initialPrompt, propertyCtx){
           (pc.price?" · Asking AED "+(parseInt(pc.price)||0).toLocaleString():"")+
           (pc.grossYield?" · "+pc.grossYield+"% gross yield":"")+(pc.signal?" · Market: "+pc.signal:"");
         var _sys="You are a world-class Dubai real estate video marketing expert and AI video prompt engineer.\nTransform this property data into a professional, cinematic AI video generation prompt.\n- Output ONLY the final prompt, nothing else\n- Write in English (video engines perform best in English)\n- Be cinematic: include camera movements (drone, slow pan), lighting (golden hour, luxury), mood\n- Include Dubai-specific context where relevant\n- Match hook style: "+_hookLabel+"\n- Optimize for: "+_platLabel+"\n- Video type: "+_tplLabel+(_brandCtx?"\n- "+_brandCtx:"")+"\n- Under 180 words, rich and specific\n- Start with the strongest visual element";
-        askAI([{role:"user",content:"Generate a professional AI video prompt for this Dubai property:\n\n"+_pcDesc+"\n\nPlatform: "+_platLabel+" | Type: "+_tplLabel+" | Hook: "+_hookLabel}],_sys).then(function(result){
+        askAI([{role:"user",content:"Generate a professional AI video prompt for this Dubai property:\n\n"+_pcDesc+"\n\nPlatform: "+_platLabel+" | Type: "+_tplLabel+" | Hook: "+_hookLabel}],_sys,_pcDesc,pc.area?[pc.area]:undefined).then(function(result){
           if(result&&result.trim()){
             VG_STATE.prompt=result.trim();
             var bar=document.getElementById("vg-auto-prompt");
@@ -3004,7 +3004,7 @@ function showVideoGenUI(initialPrompt, propertyCtx){
       var sys="You are a world-class Dubai real estate video marketing expert and AI video prompt engineer.\nTransform a simple property description from a real estate agent into a professional, cinematic AI video generation prompt.\nRules:\n- Output ONLY the final prompt — no intro, no labels, no explanation\n- Write the prompt in English (video AI engines perform best with English)\n- Be cinematic: include camera movements (drone shot, slow pan, close-up), lighting (golden hour, luxury interior lighting), mood\n- Include Dubai context where relevant\n- Match hook style: "+hookLabel+"\n- Optimize for platform: "+platLabel+"\n- Video type: "+tplLabel+(brandCtx?"\n- "+brandCtx:"")+"\n- Keep under 180 words but rich and specific\n- Start with the strongest visual element";
       var msgs=[{role:"user",content:"Simple description from agent:\n\""+desc+"\"\n\nPlatform: "+platLabel+" | Type: "+tplLabel+" | Hook: "+hookLabel+" | Captions language: "+langLabel+"\n\nWrite the professional AI video prompt:"}];
       try{
-        var result=await askAI(msgs,sys);
+        var result=await askAI(msgs,sys,desc);
         if(result&&result.trim()){
           promptInp.value=result.trim();promptInp.setAttribute("data-auto","0");VG_STATE.prompt=result.trim();
           aiWriterStatus.style.color="#10B981";aiWriterStatus.textContent="✓ Done!";
@@ -7037,7 +7037,7 @@ function showAvatarContentGen(avatarId){
         (selectedType==="email"?"Write a professional newsletter email with subject line.\n":"")+
         "Write in "+(av.language==="ar"?"Arabic":av.language==="fa"?"Persian/Farsi":av.language==="ru"?"Russian":av.language==="zh"?"Chinese":av.language==="hi"?"Hindi":av.language==="fr"?"French":"English")+".";
 
-      var reply=await askAI([{role:"user",content:"Create content about: "+topicInp.value.trim()}],sys);
+      var reply=await askAI([{role:"user",content:"Create content about: "+topicInp.value.trim()}],sys,topicInp.value.trim());
 
       var resultCard=div({background:"#0D1117",border:"1px solid #10B981",borderRadius:"12px",padding:"14px",marginBottom:"10px"});
       var resultText=el("pre",{style:{color:"#E0E0E0",fontSize:"11px",fontFamily:"'Inter',sans-serif",whiteSpace:"pre-wrap",wordBreak:"break-word",margin:0,lineHeight:"1.6"}});
@@ -7225,7 +7225,7 @@ function showAvatarVideoGen(avatarId){
     aiScriptBtn.textContent="Writing...";
     try{
       var sys="You are "+av.name+". "+av.tone+". Write a 30-60 second video script for a social media video about Dubai real estate. Include [HOOK] (3 sec), [BODY], [CTA]. Conversational. Write in "+(av.language==="ar"?"Arabic":av.language==="fa"?"Persian":"English")+".";
-      scriptInp.value=await askAI([{role:"user",content:"Write a short video script about Dubai real estate market trends"}],sys);
+      scriptInp.value=await askAI([{role:"user",content:"Write a short video script about Dubai real estate market trends"}],sys,"Dubai real estate market trends");
       aiScriptBtn.textContent="Done";
     }catch(e){aiScriptBtn.textContent="Error";}
   }});
@@ -7580,7 +7580,7 @@ function showAvatarAutoPilot(avatarId){
         progress.textContent="Generating post "+(generated+1)+"/"+totalPosts+" ("+pillar+")...";
 
         try{
-          var reply=await askAI([{role:"user",content:"Write a post about: "+topicPrompt+". Pillar: "+pillar+". Post #"+(generated+1)}],sys);
+          var reply=await askAI([{role:"user",content:"Write a post about: "+topicPrompt+". Pillar: "+pillar+". Post #"+(generated+1)}],sys,topicPrompt);
           var evt={caption:reply,date:dateStr,time:timeStr,platform:platformSelect.value,pillar:pillar};
           saveCalendarEvent(evt);
           generated++;
@@ -7656,7 +7656,7 @@ function showAvatarBatchGen(avatarId){
       progress.textContent="Day "+(d+1)+"/30 — "+pillar+"...";
       fill.style.width=Math.round((d+1)/30*100)+"%";
       try{
-        var reply=await askAI([{role:"user",content:"Create a "+pillar.toLowerCase()+" post about Dubai real estate. Day "+(d+1)+" of 30. Make it unique."}],sys);
+        var reply=await askAI([{role:"user",content:"Create a "+pillar.toLowerCase()+" post about Dubai real estate. Day "+(d+1)+" of 30. Make it unique."}],sys,"Dubai real estate "+pillar);
         saveCalendarEvent({caption:reply,date:dateStr,time:timeStr,platform:"all",pillar:pillar});
         generated++;
       }catch(e){

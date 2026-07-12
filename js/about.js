@@ -118,7 +118,7 @@ function renderAbout(){
     {icon:"search",title:"AI Property Valuation",desc:"Cascade AVM engine with hedonic pricing model — building-level data, view premiums, floor adjustments, location intelligence, and confidence scoring."},
     {icon:"handshake",title:"Deal Network",desc:"Agent-to-agent marketplace with title deed verification, privacy-first media gallery, and buyer approval workflow."},
     {icon:"briefcase",title:"Portfolio Manager",desc:"Track your assets, monitor ROI, run what-if simulations, and get AI-powered portfolio health analysis."},
-    {icon:"map",title:"Interactive Map",desc:"Explore 348 areas with growth, yield, price, liquidity, and location intelligence metrics on a live map."},
+    {icon:"map",title:"Interactive Map",desc:"Explore 347 areas with growth, yield, price, liquidity, and location intelligence metrics on a live map."},
     {icon:"trending-up",title:"Market Intelligence",desc:"Real-time market data, comparable analysis, rental benchmarks, and investment signals for every area."},
     {icon:"map-pin",title:"Location Intelligence",desc:"Metro proximity, amenity scoring, and geographic premiums powered by 56 metro stations and 30+ key POIs."},
     {icon:"building-2",title:"Commercial Valuation",desc:"Office, retail, and warehouse valuation with commercial yield models, tenant analysis, and occupancy benchmarks across Dubai's business districts."},
@@ -437,7 +437,7 @@ function renderApiDocs(cl){
     },
     {
       method:"GET",path:"/api/building-lookup",
-      desc:"Look up building data from our 10,800+ property DLD-verified database.",
+      desc:"Look up building data from our 11,500+ property DLD-verified database.",
       params:[{n:"name",t:"string",r:true,d:"Building name (fuzzy matching)"}],
       response:'{\n  "name": "Marina Gate 1",\n  "area": "Dubai Marina",\n  "psf": 1850,\n  "low_psf": 1650,\n  "high_psf": 2100,\n  "grade": "A",\n  "service_charge": 18\n}',
       curl:'curl "https://api.dubaival.com/v1/building-lookup?name=marina+gate+1" \\\n  -H "Authorization: Bearer YOUR_API_KEY"',

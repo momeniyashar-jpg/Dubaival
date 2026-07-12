@@ -625,7 +625,7 @@ async function runMarketIntelligence(){
 
   try{
     var sys="You are a structured data API. Output ONLY valid JSON. No markdown code fences. No explanatory text.";
-    var resp=await askAI([{role:"user",content:prompt}],sys);
+    var resp=await askAI([{role:"user",content:prompt}],sys,"Dubai real estate market trend price change forecast",MI_TOP_AREAS);
     resp=resp.replace(/```json\s*/g,"").replace(/```\s*/g,"").trim();
     var data=JSON.parse(resp);
     if(!data||!data.areas)throw new Error("Invalid AI response structure");
@@ -766,7 +766,7 @@ function getDubaiRealEstateBrain(){
     "You have 15+ years of Dubai property market experience. You know every building, every area, every developer, every regulation.\n"+
     "Date: June 2026. Platform: DubAIVal.com — AI-powered Dubai real estate intelligence.\n\n"+
     "═══ YOUR DATABASE (LIVE) ═══\n"+
-    "8,522 residential buildings | 1,930 commercial | 428 land plots | 347 areas | All DLD-verified\n"+
+    "9,227 residential buildings | 1,914 commercial | 428 land plots | 347 areas | All DLD-verified\n"+
     areaSummary+"\n\n"+
     "═══ DUBAI MARKET KNOWLEDGE (June 2026) ═══\n"+
     "MARKET CONDITIONS:\n"+
@@ -1284,11 +1284,11 @@ function createVoiceMic(stateKey,onResult,opts){
 var DV_TOUR={step:0,active:false,level:"quick",steps:[]};
 
 var TOUR_QUICK=[
-  {type:"center",title:"Welcome to DubAIVal!",text:"AI-Powered Dubai Real Estate Intelligence Platform — 10,800+ properties, 348 areas, real-time analytics.",icon:"logo"},
+  {type:"center",title:"Welcome to DubAIVal!",text:"AI-Powered Dubai Real Estate Intelligence Platform — 11,500+ properties, 347 areas, real-time analytics.",icon:"logo"},
   {sel:function(){return document.querySelector('input[placeholder*="Describe"]')||document.querySelector('input[placeholder*="bedroom"]')||document.querySelector('input[placeholder*="describe"]');},title:"AI Smart Search",text:"Type or speak to describe any property — our AI parses it instantly and fills the form.",arrow:"bottom",needTab:"Analyzer"},
   {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){if(bs[i].textContent.indexOf("Fair Price")!==-1)return bs[i];}return null;},title:"Fair Price Checker",text:"Quick check: is your deal fair? Just enter area, building, and price for an instant verdict.",arrow:"bottom"},
   {tab:"Analyzer",title:"AI Valuation Engine",text:"Full AI valuation with confidence score, yield analysis, investment signal, and scenario planner.",arrow:"top"},
-  {tab:"Index",title:"Market Index",text:"Live market dashboard — track 348 areas and 10,800+ properties with heatmaps, histograms, and rankings.",arrow:"top"},
+  {tab:"Index",title:"Market Index",text:"Live market dashboard — track 347 areas and 11,500+ properties with heatmaps, histograms, and rankings.",arrow:"top"},
   {tab:"Portfolio",title:"Portfolio Manager",text:"Track your investments with AI-powered analytics, health scores, projections, and opportunity alerts.",arrow:"top"},
   {tab:"Deals",title:"Deal Network",text:"Agent-to-agent deal board — post listings, find AI-matched deals, connect with verified agents.",arrow:"top"},
   {tab:"Workspace",title:"My Workspace",text:"Customize your dashboard and build personalized reports with voice commands and smart templates.",arrow:"top",quickLast:true}
