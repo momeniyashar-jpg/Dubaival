@@ -1139,8 +1139,17 @@ These files contain critical business logic and data:
   ```
   git fetch origin
   git reset --hard origin/claude/dubaival-code-quality-k29ojs
-  vercel --prod
+  vercel --prod --archive=tgz
   ```
+
+  **`--archive=tgz` is REQUIRED, not optional, since 2026-07-12** (the
+  programmatic SEO pages added ~9,576 files): Vercel's per-deploy upload on
+  the Hobby plan rejects deploys above ~5,000 individual file requests
+  (`Error: Too many requests - try again in 24 hours (more than 5000, code:
+  "api-upload-free")`). `--archive=tgz` bundles the whole deploy into one
+  tarball upload instead of one request per file, avoiding that cap
+  entirely. Always include this flag in the deploy command from now on —
+  do not give the user the plain `vercel --prod` form.
 
   If a previous merge left conflicts (`unmerged files` error), run this first:
   ```
