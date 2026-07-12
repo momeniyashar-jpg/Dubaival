@@ -399,7 +399,7 @@ function _socialEmpty(cl,msg){
 }
 
 function _categoryColor(cat){
-  var map={"walkthrough":"#3B82F6","market-update":"#10B981","tips":"#F59E0B","review":"#8B5CF6","new-launch":"#EF4444"};
+  var map={"walkthrough":"#3B82F6","market-update":"#10B981","tips":"#F59E0B","review":"#14B8A6","new-launch":"#EF4444"};
   return map[cat]||"#6B7280";
 }
 
@@ -755,10 +755,10 @@ function _renderAgentCard(agent,cl){
   }
   header.appendChild(nameCol);
   if(agent.subscription==="gold"||agent.subscription==="platinum"){
-    var badge=span({color:agent.subscription==="platinum"?"#A78BFA":cl.gold,fontSize:"9px",fontWeight:"700",
+    var badge=span({color:agent.subscription==="platinum"?"#2DD4BF":cl.gold,fontSize:"9px",fontWeight:"700",
       fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"4px",marginLeft:"auto",
-      background:hexAlpha(agent.subscription==="platinum"?"#8B5CF6":cl.gold,0.15),
-      border:"1px solid "+hexAlpha(agent.subscription==="platinum"?"#8B5CF6":cl.gold,0.3)});
+      background:hexAlpha(agent.subscription==="platinum"?"#14B8A6":cl.gold,0.15),
+      border:"1px solid "+hexAlpha(agent.subscription==="platinum"?"#14B8A6":cl.gold,0.3)});
     badge.textContent=agent.subscription.toUpperCase();
     header.appendChild(badge);
   }
@@ -868,7 +868,7 @@ function _renderAgentProfile(wrap,cl){
       fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"6px"},"SPECIALTIES"));
     var specWrap=div({display:"flex",gap:"6px",flexWrap:"wrap"});
     agent.specialties.forEach(function(s){
-      specWrap.appendChild(span({background:hexAlpha("#8B5CF6",0.12),color:"#A78BFA",fontSize:"10px",
+      specWrap.appendChild(span({background:hexAlpha("#14B8A6",0.12),color:"#2DD4BF",fontSize:"10px",
         fontFamily:"'Space Grotesk',monospace",padding:"4px 10px",borderRadius:"6px"},s));
     });
     headerCard.appendChild(specWrap);
@@ -936,13 +936,17 @@ function _renderAgents(wrap,cl){
 function _renderMyProfile(wrap,cl){
   var profile=SOCIAL_STATE.myProfile;
   var hasProfile=profile&&profile.name;
+  // Edit Profile sets myProfile={id:profile.id} (name stripped) to fall
+  // into this same form branch pre-filled with the existing values — that
+  // id is how we tell "editing" apart from "registering fresh" below.
+  var isEditingProfile=!hasProfile&&profile&&profile.id;
 
   if(!hasProfile){
     // Registration form
     wrap.appendChild(div({marginBottom:"16px"},[
       span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",
-        fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"Create Agent Profile"),
-      span({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif"},"Register to start posting videos and building your audience")
+        fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},isEditingProfile?"Edit Agent Profile":"Create Agent Profile"),
+      span({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif"},isEditingProfile?"Update your details":"Register to start posting videos and building your audience")
     ]));
     var formCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px"});
     var f=SOCIAL_STATE.regForm;
@@ -982,8 +986,8 @@ function _renderMyProfile(wrap,cl){
     ["Luxury","Off-Plan","Commercial","Rental","Villa","Affordable","Investment","New Launch"].forEach(function(s){
       var selected=f.specialties.indexOf(s.toLowerCase())!==-1;
       var chip=el("button",{style:{padding:"4px 10px",borderRadius:"6px",fontSize:"10px",fontWeight:"600",
-        fontFamily:"'Space Grotesk',monospace",cursor:"pointer",border:"1px solid "+(selected?hexAlpha("#8B5CF6",0.4):cl.border),
-        background:selected?hexAlpha("#8B5CF6",0.15):"transparent",color:selected?"#A78BFA":cl.sub}});
+        fontFamily:"'Space Grotesk',monospace",cursor:"pointer",border:"1px solid "+(selected?hexAlpha("#14B8A6",0.4):cl.border),
+        background:selected?hexAlpha("#14B8A6",0.15):"transparent",color:selected?"#2DD4BF":cl.sub}});
       chip.textContent=s;
       chip.addEventListener("click",function(){
         var val=s.toLowerCase();
@@ -1035,12 +1039,14 @@ function _renderMyProfile(wrap,cl){
     }
     formCard.appendChild(photoWrap);
 
-    // Register button
+    // Register/Save button — must call _updateProfile() when editing an
+    // existing profile, otherwise this silently created a duplicate
+    // agent_profiles row on every edit instead of updating the original.
     var regBtn=el("button",{style:{width:"100%",padding:"12px",borderRadius:"10px",border:"none",
       background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",color:"#070B14",fontSize:"13px",
       fontWeight:"800",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
-    regBtn.textContent="Create Profile";
-    regBtn.addEventListener("click",function(){_registerAgent();});
+    regBtn.textContent=isEditingProfile?"Save Changes":"Create Profile";
+    regBtn.addEventListener("click",function(){if(isEditingProfile)_updateProfile();else _registerAgent();});
     formCard.appendChild(regBtn);
     wrap.appendChild(formCard);
     return wrap;
