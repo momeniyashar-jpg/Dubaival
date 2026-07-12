@@ -459,24 +459,13 @@ function computeAdjustedPSF(f,buildingVal,liveData){
       dataSource+=" + "+comps.length+" comps";
     }
     // Live nudge from real Bayut transactions/listings for this exact
-    // building+area query — see getLiveSignal() above. A handful of live
-    // records still shouldn't fully override a calibrated database backed
-    // by a much larger historical transaction set, but the cap must not be
-    // so low that live data can't correct real staleness: VALUATION_DB is
-    // built from a flat multi-year median (2024+ transactions, no recency
-    // weighting within that window — see tools/calibrate-db.js DATE_FROM),
-    // which measurably understates current price levels in a rising market
-    // (spot-checked 2026-07-12: Marina Diamond-2 calibrated psf ~1,560 vs
-    // real current Bayut-reported psf ~2,307 for the same building, a ~35%
-    // gap — see task-38 validation notes). The old formula (0.15+n*0.05,
-    // capped 0.5) only reached ~0.35 weight at n=4 real transactions — not
-    // enough to meaningfully close a 35% gap. Raised both the starting
-    // weight and the ramp so a realistic small sample (n=3-6, the common
-    // case for a single building query) already carries real influence,
-    // while still requiring LIVE_MIN_TX/LIVE_MIN_LISTINGS samples and the
-    // robust-median + listing discount already applied above.
+    // building+area query — see getLiveSignal() above. Weighted lightly and
+    // capped well below 50/50 even at large sample sizes: a handful of live
+    // records shouldn't override a calibrated database backed by a much
+    // larger historical transaction set, just meaningfully move the needle
+    // between calibration refreshes.
     if(liveSig){
-      var liveWeight=liveSig.source==="live_tx"?Math.min(0.65,0.28+liveSig.n*0.055):Math.min(0.35,0.12+liveSig.n*0.03);
+      var liveWeight=liveSig.source==="live_tx"?Math.min(0.5,0.15+liveSig.n*0.05):Math.min(0.25,0.05+liveSig.n*0.02);
       basePSF=Math.round(basePSF*(1-liveWeight)+liveSig.psf*liveWeight);
       dataSource+=" · "+liveSig.n+(liveSig.source==="live_tx"?" live TX":" live listings (adj)");
     }
