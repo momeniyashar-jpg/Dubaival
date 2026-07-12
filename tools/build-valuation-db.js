@@ -22,6 +22,21 @@ const dld = cal.residential.buildings;
 const dldAreas = cal.residential.areas;
 const dldKeys = Object.keys(dld);
 
+// ── Commercial/land: read-only, for building the VALUATION_DB_COM/LAND
+// overlay below. Never write back to js/data-commercial.js — that file is
+// research-branch-only per the two-branch workflow (see CLAUDE.md);
+// DB_COM/DB_LAND themselves are left completely untouched, exactly like
+// legacy residential DB is untouched by VALUATION_DB above.
+const dataComPath = path.join(__dirname, '..', 'js', 'data-commercial.js');
+const dataComContent = fs.readFileSync(dataComPath, 'utf8');
+const dbComMatch = dataComContent.match(/var DB_COM\s*=\s*(\{[\s\S]*?\});/);
+const dbLandMatch = dataComContent.match(/var DB_LAND\s*=\s*(\{[\s\S]*?\});/);
+const existDBCom = dbComMatch ? JSON.parse(dbComMatch[1]) : {};
+const existDBLand = dbLandMatch ? JSON.parse(dbLandMatch[1]) : {};
+const dldCom = cal.commercial.buildings;
+const dldLand = cal.land.buildings;
+const dldComAreas = cal.commercial.areas;
+
 // ── Area name mapping (DB → DLD) ──
 const AREA_MAP = {
   "Al Bada":"Al Bada","Al Barari":"Wadi Al Safa 3","Al Barsha":"Al Barsha First",
@@ -313,6 +328,43 @@ Object.entries(AREA_MAP).forEach(([dbArea, dldArea]) => {
   }
 });
 
+// ── Build VALUATION_DB_COM / VALUATION_DB_LAND ──
+// Real DLD-transaction-calibrated commercial/land data has been sitting
+// computed in calibration-output.json (same run that built VALUATION_DB
+// above) but was never applied — DB_COM/DB_LAND in js/data-commercial.js
+// have drifted stale relative to it. Exact-key matching alone covers the
+// overwhelming majority of both databases (no fuzzy-matching complexity
+// needed here, unlike residential): 1166/1914 DB_COM buildings and a full
+// 253/253 DB_LAND plots match a calibrated DLD entry directly.
+const VALUATION_DB_COM = {};
+let comExact = 0;
+Object.keys(existDBCom).forEach((key) => {
+  const d = dldCom[key];
+  if (d) {
+    comExact++;
+    VALUATION_DB_COM[key] = { p: d.p, lo: d.lo, hi: d.hi, n: d.n };
+  }
+});
+
+const VALUATION_DB_LAND = {};
+let landExact = 0;
+Object.keys(existDBLand).forEach((key) => {
+  const d = dldLand[key];
+  if (d) {
+    landExact++;
+    VALUATION_DB_LAND[key] = { p: d.p, lo: d.lo, hi: d.hi, n: d.n };
+  }
+});
+
+// Area-level: much lower key-naming overlap between AREAS_COM and DLD's
+// area names for commercial (11/54) — worth including for what it covers,
+// since it costs nothing extra and computeCommercialValuation() already
+// has an aData-benchmark fallback tier this slots into.
+const VALUATION_AREAS_COM = {};
+Object.keys(dldComAreas).forEach((key) => {
+  VALUATION_AREAS_COM[key] = { psf: dldComAreas[key].psf, n: dldComAreas[key].n };
+});
+
 // ── Stats ──
 console.log('=== Build Results ===');
 console.log('Total DB buildings:', Object.keys(existDB).length);
@@ -321,6 +373,9 @@ console.log('Fuzzy DLD match:', fuzzyMatch);
 console.log('Area-level fallback:', areaFallback);
 console.log('No DLD data (legacy kept):', noData);
 console.log('VALUATION_AREAS:', Object.keys(VALUATION_AREAS).length);
+console.log('VALUATION_DB_COM:', Object.keys(VALUATION_DB_COM).length, '/', Object.keys(existDBCom).length, 'DB_COM buildings matched');
+console.log('VALUATION_DB_LAND:', Object.keys(VALUATION_DB_LAND).length, '/', Object.keys(existDBLand).length, 'DB_LAND plots matched');
+console.log('VALUATION_AREAS_COM:', Object.keys(VALUATION_AREAS_COM).length);
 
 // Show some fuzzy matches for verification
 console.log('\n--- Sample Fuzzy Matches ---');
@@ -361,7 +416,13 @@ const compactAreas = {};
 Object.entries(VALUATION_AREAS).forEach(([k, v]) => {
   compactAreas[k] = { psf: v.psf };
 });
-jsContent += 'var VALUATION_AREAS = ' + JSON.stringify(compactAreas) + ';\n';
+jsContent += 'var VALUATION_AREAS = ' + JSON.stringify(compactAreas) + ';\n\n';
+
+// Commercial/land overlays — see the VALUATION_DB_COM/LAND build section
+// above. Same compact {p,lo,hi,n} shape as residential's VALUATION_DB.
+jsContent += 'var VALUATION_DB_COM = ' + JSON.stringify(VALUATION_DB_COM) + ';\n\n';
+jsContent += 'var VALUATION_DB_LAND = ' + JSON.stringify(VALUATION_DB_LAND) + ';\n\n';
+jsContent += 'var VALUATION_AREAS_COM = ' + JSON.stringify(VALUATION_AREAS_COM) + ';\n';
 
 const outPath = path.join(__dirname, '..', 'js', 'valuation-db.js');
 fs.writeFileSync(outPath, jsContent);

@@ -99,10 +99,20 @@ function computeCommercialValuation(f){
   var price=parseFloat((f.price||"").toString().replace(/,/g,""))||0;
   var askPSF=size>0&&price>0?Math.round(price/size):0;
   if(!askPSF||!f.area)return null;
+  // DLD-calibrated commercial PSF (VALUATION_DB_COM — see
+  // tools/build-valuation-db.js) overrides the legacy DB_COM/AREAS_COM
+  // benchmarks the same way VALUATION_DB overrides residential DB, using
+  // calibration data that had been computed but never actually applied.
+  var bKey=(f.building||"").toLowerCase().trim();
+  var vdbComEntry=typeof VALUATION_DB_COM!=="undefined"&&VALUATION_DB_COM[bKey]?VALUATION_DB_COM[bKey]:null;
+  var vAreaComEntry=typeof VALUATION_AREAS_COM!=="undefined"&&VALUATION_AREAS_COM[f.area]?VALUATION_AREAS_COM[f.area]:null;
   var basePSF,psfLo,psfHi,dataSource,confScore;
   if(bData){
-    basePSF=bData.p;psfLo=bData.lo;psfHi=bData.hi;
-    dataSource=(f.building||"")+" · Commercial DB";confScore=82;
+    if(vdbComEntry){basePSF=vdbComEntry.p;psfLo=vdbComEntry.lo;psfHi=vdbComEntry.hi;dataSource=(f.building||"")+" · DLD Verified Commercial";confScore=86;}
+    else{basePSF=bData.p;psfLo=bData.lo;psfHi=bData.hi;dataSource=(f.building||"")+" · Commercial DB";confScore=82;}
+  }else if(vAreaComEntry){
+    basePSF=vAreaComEntry.psf;psfLo=Math.round(basePSF*0.80);psfHi=Math.round(basePSF*1.20);
+    dataSource="DLD commercial area benchmark · "+f.area;confScore=68;
   }else if(aData){
     basePSF=aData.psf;psfLo=Math.round(basePSF*0.80);psfHi=Math.round(basePSF*1.20);
     dataSource="Commercial area benchmark · "+f.area;confScore=65;
@@ -145,10 +155,16 @@ function computeLandValuation(f){
   var price=parseFloat((f.price||"").toString().replace(/,/g,""))||0;
   var askPSF=size>0&&price>0?Math.round(price/size):0;
   if(!askPSF||!f.area)return null;
+  // DLD-calibrated land PSF (VALUATION_DB_LAND — see
+  // tools/build-valuation-db.js) overrides the legacy Land DB, using
+  // calibration data that had been computed but never actually applied —
+  // covers all 253 of 428 DB_LAND plots with an exact key match.
+  var bKeyLand=(f.building||f.project||"").toLowerCase().trim();
+  var vdbLandEntry=typeof VALUATION_DB_LAND!=="undefined"&&VALUATION_DB_LAND[bKeyLand]?VALUATION_DB_LAND[bKeyLand]:null;
   var basePSF,psfLo,psfHi,dataSource,confScore;
   if(bData){
-    basePSF=bData.p;psfLo=bData.lo;psfHi=bData.hi;
-    dataSource=(f.building||f.project||"")+" · Land DB";confScore=80;
+    if(vdbLandEntry){basePSF=vdbLandEntry.p;psfLo=vdbLandEntry.lo;psfHi=vdbLandEntry.hi;dataSource=(f.building||f.project||"")+" · DLD Verified Land";confScore=84;}
+    else{basePSF=bData.p;psfLo=bData.lo;psfHi=bData.hi;dataSource=(f.building||f.project||"")+" · Land DB";confScore=80;}
   }else if(aData){
     basePSF=aData.psf;psfLo=Math.round(basePSF*0.75);psfHi=Math.round(basePSF*1.25);
     dataSource="Land area benchmark · "+f.area;confScore=62;
