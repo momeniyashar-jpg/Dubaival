@@ -1225,7 +1225,12 @@ has free tier so companies can test easily).
 
 ### ℹ️ مشکلات LOW — باقی‌مانده
 
-- **Market Index**: CSV Export button در کد وجود دارد اما `display:none` — dead feature
+- ~~Market Index: CSV Export button در کد وجود دارد اما `display:none`~~ — **حل شد
+  (2026-07-12)**: این یادداشت هم قدیمی بود — دکمه در واقع دیگه `display:none`
+  نبود و کاملاً فعال بود (محافظت اصلی ۲۴ ژوئن ۲۰۲۶ یه‌جایی حین ادغام برنچ‌ها
+  گم شده بود). دکمه bulk export («Download Full Market Data») کاملاً از DOM
+  حذف شد (نه فقط مخفی) تا سشن بعدی اشتباهی «تمیزش» نکنه؛ سه export دیگه
+  (Analyzer, Portfolio, Area Comparison) که scoped به کار خود کاربرن دست‌نخورده موندن.
 - **TrackRecord**: case studies hardcoded، لینک‌های Bayut/PropertyFinder ممکن است stale شوند
 - **Reports**: Voice input در Firefox و برخی mobile browsers کار نمی‌کند بدون fallback
 
