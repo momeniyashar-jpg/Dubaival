@@ -456,6 +456,63 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-13 (session 11k)**: AI Agents prompt-strength upgrade (`js/chat.js`),
+  user-requested follow-up to session 11j — done proactively, BEFORE the user's
+  own live testing of the grounding fix, per an explicit ask: agents should not
+  just be correct, they should make users feel a real AI agent is elevating
+  their work so they come back and use it more.
+  - **Discovered an unused rendering capability**: `formatAIResponse()`
+    (`js/api.js`, pre-existing) already parses `"Label: Value"` lines (e.g.
+    `"Fair Value: AED 2,650,000"`) into a highlighted "Key Metrics" card, and
+    already color-highlights specific signal words (BUY, HOLD, AVOID,
+    UNDERVALUED, OVERVALUED, FAIR VALUE, DISTRESS, GOOD PRICE, OVERPRICED) —
+    but no agent's system prompt had ever been written to deliberately target
+    either mechanism, so every agent reply rendered as plain paragraph text
+    even though the app could visually elevate it.
+  - **Fix**: added one shared `_agentClosingStyle(opts)` helper (placed just
+    before `var AI_AGENTS=[`) appended to the end of each agent's system
+    prompt, generating: (1) an "OUTPUT FORMAT" instruction telling the agent to
+    format figures as `"Label: Value"` lines and use the exact signal words
+    above (skippable via `opts.metricsCard:false` for agents whose output
+    isn't metric-shaped), (2) an always-on "ENGAGEMENT" instruction — never end
+    on a flat statement, always close with one concrete next step (a sharp
+    question, a specific action like running the Analyzer/setting a price
+    alert/talking to a verified agent, or an offer to go deeper), and (3) an
+    optional "WHEN VERIFIED DATA IS MISSING" instruction (`opts.precisionAsk`)
+    that turns the session-11j honesty disclosure into a re-engagement hook:
+    give a clearly-labeled general estimate now, then ask for the ONE specific
+    detail that would unlock a real DLD-calibrated number.
+  - **Applied per-agent** with judgment on the right `precisionAsk`, not a
+    blanket copy-paste: general (building name/area), valuation (building name
+    + size + price), negotiation (building name + asking price), investor
+    (budget + primary goal), leadcapture (budget + buy purpose). Marketing got
+    `metricsCard:false` (its output is ad copy, not a data card) plus, newly,
+    `getBrandPrompt()` wired in for the first time (previously only "outreach"
+    used the agent's saved brand profile — marketing had the same access to
+    branding data but was never using it). Legal got the plain `{}` variant
+    (no precisionAsk — legal/RERA facts are evergreen, not something more user
+    input would sharpen).
+  - **Outreach (Social Media Manager) deliberately excluded from the ENGAGEMENT
+    instruction**: this agent has a strict, parser-critical contract —
+    `extractPostJSON()` requires the reply to end in a specific JSON block —
+    and "always end with a question" would directly conflict with "always end
+    with this exact JSON." Instead added a narrower, compatible instruction: a
+    "CAPTION QUALITY BAR" telling the agent the caption TEXT INSIDE the JSON
+    (not the chat reply itself) must end on a specific action-driving CTA
+    (question / urgency line / direct instruction like "DM 'YIELD' for the
+    full breakdown") rather than a flat factual close — same underlying goal
+    (never let output go flat) achieved without touching the fragile JSON
+    contract.
+  - Verified via a standalone Node test (same vm.createContext harness used
+    throughout this session) that builds all 8 agents' full system prompts:
+    confirmed no double-newline artifacts, no malformed concatenation, every
+    agent except outreach contains the ENGAGEMENT block, and outreach's tail
+    correctly shows the new caption-quality instruction instead. Also
+    reconfirmed `extractPostJSON()` itself was untouched. `node -c js/chat.js`,
+    the full valuation/asset regression harness (19 cases, 0 errors), and a
+    Playwright pass against the rebuilt app all came back clean (zero
+    non-network console errors).
+
 - **2026-07-13 (session 11j)**: AI Agents (Network → AI Agents, `js/chat.js`)
   audit — same input-to-output rigor as the Reports/Portfolio/Quick Check
   passes above, user-requested.
