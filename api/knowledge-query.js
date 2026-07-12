@@ -24,7 +24,7 @@ module.exports = async function handler(req, res) {
   var query = String(body.query || "").trim();
   if (!query) return res.status(400).json({ error: "Missing query", results: [] });
 
-  if (!process.env.GEMINI_API_KEY || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!embeddings.hasProvider() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return res.status(200).json({ results: [] });
   }
 

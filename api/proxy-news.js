@@ -8,19 +8,19 @@ var _cache = { ts: 0, data: null };
 var CACHE_MS = 600 * 1000; // 10 min
 
 // ── Knowledge base ingestion (non-blocking, after response is sent) ────────────
+var kbEmbeddings = require("./_lib/embeddings.js");
+var kbShared = require("./_lib/shared.js");
 var _ingestedLinks = {};
 var _ingestedCount = 0;
 var MAX_INGESTED = 1000;
 
 async function ingestToKB(articles) {
-  if (!process.env.GEMINI_API_KEY || !process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+  if (!kbEmbeddings.hasProvider() || !process.env.SUPABASE_SERVICE_ROLE_KEY) return;
   var fresh = articles.filter(function(a) { return a.link && !_ingestedLinks[a.link]; });
   if (!fresh.length) return;
   try {
-    var emb = require("./_lib/embeddings.js");
-    var shared = require("./_lib/shared.js");
     var texts = fresh.map(function(a) { return a.title + (a.description ? ". " + a.description : ""); });
-    var vectors = await emb.embedTexts(texts, "RETRIEVAL_DOCUMENT");
+    var vectors = await kbEmbeddings.embedTexts(texts, "RETRIEVAL_DOCUMENT");
     var rows = [];
     fresh.forEach(function(a, i) {
       if (!vectors[i]) return;
@@ -32,7 +32,7 @@ async function ingestToKB(articles) {
       });
     });
     if (!rows.length) return;
-    await shared.supabaseRequest("/knowledge_base", {
+    await kbShared.supabaseRequest("/knowledge_base", {
       method: "POST",
       headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
       body: JSON.stringify(rows)

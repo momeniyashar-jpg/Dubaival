@@ -11,7 +11,7 @@
 // Fails soft: if GEMINI_API_KEY is not configured, returns { embedding: null }
 // so callers gracefully degrade to rule-based matching.
 
-var { embedText } = require("./_lib/embeddings.js");
+var embeddings = require("./_lib/embeddings.js");
 var { rateLimitExceeded } = require("./_lib/ratelimit");
 
 module.exports = async function handler(req, res) {
@@ -27,14 +27,14 @@ module.exports = async function handler(req, res) {
   var text = String(body.text || "").trim();
   if (!text) return res.status(400).json({ error: "text required" });
 
-  if (!process.env.GEMINI_API_KEY) {
+  if (!embeddings.hasProvider()) {
     return res.status(200).json({ embedding: null });
   }
 
   try {
     var taskType =
       body.taskType === "RETRIEVAL_QUERY" ? "RETRIEVAL_QUERY" : "RETRIEVAL_DOCUMENT";
-    var embedding = await embedText(text.slice(0, 3000), taskType);
+    var embedding = await embeddings.embedText(text.slice(0, 3000), taskType);
     return res.status(200).json({ embedding: embedding || null });
   } catch (e) {
     return res.status(200).json({ embedding: null });

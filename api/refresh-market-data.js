@@ -87,7 +87,7 @@ function buildMarketFact(area, today, psf, sampleSize, rents) {
 // must never affect the cron job's own area_benchmarks/price_history writes,
 // which have already completed by the time this runs.
 async function ingestMarketSnapshotsToKnowledgeBase(facts) {
-  if (!process.env.GEMINI_API_KEY || !facts.length) return 0;
+  if (!embeddings.hasProvider() || !facts.length) return 0;
   var texts = facts.map(function (f) { return f.content; });
   var vectors = await embeddings.embedTexts(texts, "RETRIEVAL_DOCUMENT");
 
@@ -114,6 +114,21 @@ async function ingestMarketSnapshotsToKnowledgeBase(facts) {
     body: JSON.stringify(rows)
   });
   return resp.ok ? rows.length : 0;
+}
+
+// One market_snapshot row is inserted per area per day (source_url embeds the
+// date, so days never overwrite each other) — left unchecked this grows the
+// knowledge_base table forever and dilutes retrieval with stale numbers.
+// Prunes snapshot rows past the retention window; news rows are left alone
+// (much lower volume, and recency-weighted ranking already deprioritizes them).
+var SNAPSHOT_RETENTION_DAYS = 90;
+async function pruneOldMarketSnapshots() {
+  var cutoff = new Date(Date.now() - SNAPSHOT_RETENTION_DAYS * 86400000).toISOString();
+  var resp = await supabaseRequest(
+    "/knowledge_base?source_type=eq.market_snapshot&published_at=lt." + encodeURIComponent(cutoff),
+    { method: "DELETE", headers: { Prefer: "return=minimal" } }
+  );
+  return resp.ok;
 }
 
 module.exports = async function handler(req, res) {
@@ -199,6 +214,10 @@ module.exports = async function handler(req, res) {
 
   try {
     results.knowledge = await ingestMarketSnapshotsToKnowledgeBase(marketFacts);
+  } catch (e) {}
+
+  try {
+    results.pruned = await pruneOldMarketSnapshots();
   } catch (e) {}
 
   res.status(200).json({

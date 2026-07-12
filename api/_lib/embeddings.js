@@ -127,4 +127,12 @@ async function embedText(text, taskType) {
   return out[0] || null;
 }
 
-module.exports = { embedTexts: embedTexts, embedText: embedText };
+// True if ANY supported embedding provider is configured. Callers must use
+// this instead of checking process.env.GEMINI_API_KEY directly, since
+// embedTexts() prefers Jina first — a Gemini-only check would silently
+// report "not configured" (and skip embedding entirely) on a Jina-only setup.
+function hasProvider() {
+  return !!(process.env.JINA_API_KEY || process.env.GEMINI_API_KEY);
+}
+
+module.exports = { embedTexts: embedTexts, embedText: embedText, hasProvider: hasProvider };
