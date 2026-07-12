@@ -332,12 +332,24 @@ function getConfidenceGuidance(val,f){
   return tips.length?tips:null;
 }
 
-// --- VALUATION ENGINE ---------------------------------------------------------
-function computeValuation(f,buildingVal,liveData){
+// --- SHARED HEDONIC PSF ENGINE --------------------------------------------------
+// Extracted from computeValuation() so computeAssetMetrics() (js/portfolio.js,
+// Portfolio Manager) can share the exact same base-PSF resolution + full
+// hedonic premium stack (view/floor grade-differential logic, loft/penthouse/
+// maid/study/pool/corner-villa premiums, momentum + calibration factors,
+// comparable-sales blending) instead of maintaining its own divergent,
+// incomplete copy — which had drifted out of sync (raw view% instead of
+// grade-differential, missing villa floor-premium guard, missing several
+// premium categories entirely) and could show a materially different "value"
+// for the exact same unit depending on which tab you checked it in.
+// No early-return branches here — always computes a full result using generic
+// defaults when area/building are unknown, exactly mirroring what
+// computeValuation always did unconditionally before its own final guard.
+function computeAdjustedPSF(f,buildingVal,liveData){
   f.area=resolveDLDArea(f.area);
   const bData=lookupBuilding(buildingVal||f.building||"",f.area);
   const staticArea=AREAS[f.area]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
-  if(!AREAS[f.area])dvLog("no_area","computeValuation","Area not in AREAS: "+f.area+" — using generic defaults");
+  if(!AREAS[f.area])dvLog("no_area","computeAdjustedPSF","Area not in AREAS: "+f.area+" — using generic defaults");
   const dynBench=getDynamicBenchmark(f.area);
   const aData=Object.assign({},staticArea);
   if(dynBench){
@@ -351,9 +363,6 @@ function computeValuation(f,buildingVal,liveData){
   }
   const calFactor=getCalibrationFactor(f.area);
   const size=parseFloat((f.buaSize||f.size||"").toString().replace(/,/g,""))||0;
-  const price=parseFloat((f.price||"").toString().replace(/,/g,""))||0;
-  const askPSF=size>0&&price>0?Math.round(price/size):0;
-  if(!askPSF||!f.area)return null;
   const isVillaType=f.propCategory==="villa";
   let basePSF,psfLo,psfHi,dataSource,dataLayer,compData=null;
   // DLD-calibrated PSF: VALUATION_DB (real transactions) overrides legacy DB
@@ -371,7 +380,7 @@ function computeValuation(f,buildingVal,liveData){
     }
   }
   else{
-    dvLog("fallback","computeValuation","Building not in DB: "+(buildingVal||f.building||"")+" · Area: "+f.area);
+    dvLog("fallback","computeAdjustedPSF","Building not in DB: "+(buildingVal||f.building||"")+" · Area: "+f.area);
     const sales=liveData&&liveData.sales?liveData.sales:[];
     const pool=sales.filter(function(s){return s.psf>400&&s.psf<15000});
     if(pool.length>=3){
@@ -396,7 +405,7 @@ function computeValuation(f,buildingVal,liveData){
       var vAreaEntry=typeof VALUATION_AREAS!=="undefined"&&VALUATION_AREAS[f.area]?VALUATION_AREAS[f.area]:null;
       basePSF=vAreaEntry?vAreaEntry.psf:aData.psf;psfLo=Math.round(basePSF*0.87);psfHi=Math.round(basePSF*1.13);
       dataSource=(vAreaEntry?"DLD area":"Area")+" benchmark · "+f.area;dataLayer=4;
-      dvLog("area_only","computeValuation","No live comps, area-only: "+(buildingVal||f.building||"")+" · "+f.area);
+      dvLog("area_only","computeAdjustedPSF","No live comps, area-only: "+(buildingVal||f.building||"")+" · "+f.area);
       var areaComps=findComparables(null,f.area,null,f.beds,isVillaType,10);
       if(areaComps.length>=3){
         var ac=computeComparableEstimate(areaComps,basePSF);
@@ -480,6 +489,22 @@ function computeValuation(f,buildingVal,liveData){
   if(hedonicMult>hedonicCap)hedonicMult=hedonicCap;
   const adjPSF=Math.round(basePSF*hedonicMult);
   psfLo=Math.round(psfLo*hedonicMult);psfHi=Math.round(psfHi*hedonicMult);
+  return{adjPSF,psfLo,psfHi,basePSF,bData,vdbEntry,dataSource,dataLayer,compData,
+    calFactor,momFactor,dynBench,aData,isVillaType,isVilla,isDevFurnished,
+    vP,fP,furnP,loftP,penthP,maidP,studyP,upgradeP,privatePoolP,singleRowP,cornerVillaP,
+    geoAdj,geoScore,locP,hedonicMult,hedonicCap};
+}
+
+// --- VALUATION ENGINE ---------------------------------------------------------
+function computeValuation(f,buildingVal,liveData){
+  const adj=computeAdjustedPSF(f,buildingVal,liveData);
+  const{adjPSF,psfLo,psfHi,bData,vdbEntry,dataSource,dataLayer,compData,aData,
+    isVilla,isDevFurnished,vP,fP,furnP,loftP,penthP,maidP,privatePoolP,singleRowP,cornerVillaP,
+    geoAdj,geoScore,locP,calFactor,momFactor,dynBench}=adj;
+  const size=parseFloat((f.buaSize||f.size||"").toString().replace(/,/g,""))||0;
+  const price=parseFloat((f.price||"").toString().replace(/,/g,""))||0;
+  const askPSF=size>0&&price>0?Math.round(price/size):0;
+  if(!askPSF||!f.area)return null;
   const parkBonus=Math.max(0,(parseInt(f.parking)||1)-1)*80000;
   const fairPrice=Math.round(adjPSF*size+parkBonus);
   // Area-sensitive price ladder (based on DLD distress data March 2026)

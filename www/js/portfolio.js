@@ -663,23 +663,27 @@ if(!window.PORTFOLIO_STATE){
   window.PORTFOLIO_STATE={assets:_pa,goals:_pg,showAdd:false,aiAnalysis:"",aiLoading:false,aiErr:"",expandedId:null};
 }
 function computeAssetMetrics(asset){
-  var aData=AREAS[asset.area]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
-  var bData=lookupBuilding(asset.building,asset.area);
-  var bKey=(asset.building||"").toLowerCase().trim();
-  var vdbE=typeof VALUATION_DB!=="undefined"&&VALUATION_DB[bKey]?VALUATION_DB[bKey]:null;
-  var basePSF=vdbE?vdbE.p:(bData?bData.p:aData.psf);
-  var vP=VIEW_P[asset.view]||0;
-  var floorN=parseInt(asset.floor)||0;
-  var fP=floorN>10?(floorN-10)*0.005:0;
+  // Shares the exact same base-PSF resolution + full hedonic premium stack
+  // (view/floor grade-differential logic, loft/penthouse/maid/study/pool/
+  // corner-villa premiums, momentum + calibration factors, comparable-sales
+  // blending) as the Analyzer (computeValuation, js/valuation.js) via
+  // computeAdjustedPSF() — previously this was a separate, incomplete
+  // reimplementation that had drifted out of sync (raw view% instead of
+  // grade-differential, no villa floor-premium guard, several premium
+  // categories missing entirely), so the same unit could show a materially
+  // different value depending on whether you checked it here or in the
+  // Analyzer. The Admin panel's apartment/villa risk-adjustment sliders
+  // (typeAdj) remain Portfolio-only, same as before this fix — they are not
+  // applied anywhere inside computeValuation() either.
   var isV=asset.type==="Villa"||asset.type==="Townhouse";
-  var isDevFurnished=!!(bData&&bData.df);
-  var furnP=isDevFurnished?(asset.furnished==="Unfurnished"?-0.10:asset.furnished==="Semi-Furnished"?-0.05:0):(asset.furnished==="Furnished"?0.15:asset.furnished==="Semi-Furnished"?0.07:0);
-  var geoAdj=getAreaGeoAdj(asset.area)||0;
+  var adj=computeAdjustedPSF({area:asset.area,building:asset.building,propCategory:isV?"villa":"apartment",
+    beds:asset.beds,floor:asset.floor,view:asset.view||"Not specified",size:asset.size,
+    furnished:asset.furnished,serviceCharge:asset.serviceCharge,parking:asset.parking},asset.building,null);
+  var aData=adj.aData;
+  var bData=adj.bData;
+  var vdbE=adj.vdbEntry;
   var typeAdj=isV?(MACRO_VARS.villaAdj||0):(MACRO_VARS.aptAdj||0);
-  var hedonicMult=(1+vP)*(1+fP)*(1+furnP)*(1+geoAdj+typeAdj);
-  var hCap=bData&&bData.g==="Ultra"?1.40:bData&&bData.g==="A+"?1.45:1.50;
-  if(hedonicMult>hCap)hedonicMult=hCap;
-  var adjPSF=Math.round(basePSF*hedonicMult);
+  var adjPSF=Math.round(adj.adjPSF*(1+typeAdj));
   var size=parseInt(asset.size)||0;
   var currentValue=adjPSF*size;
   var purchasePrice=parseInt(asset.purchasePrice)||0;
