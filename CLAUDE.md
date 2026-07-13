@@ -232,8 +232,9 @@ Code is now split across `js/*.js` files. To find anything, grep across `js/`:
 | `ofm_reports` | `supabase-ofm-trust-safety.sql` | In-chat abuse/scam reports on OFM matches — admin-reviewed via `admin_pending_reports`/`admin_resolve_report` RPCs (requires manual execution, see Outstanding items) |
 | `market_config` | (pre-existing) | Macro yield/growth adjustment knobs |
 | `knowledge_base` | `supabase-knowledge-base-schema.sql` + `supabase-knowledge-base-recency-fix.sql` + `supabase-forecast-accuracy-schema.sql` | RAG vector store — 768-dim embeddings (Jina or Gemini) of live news, daily market snapshots, and weekly forecast-accuracy audits (see below). Recency-weighted retrieval. Live since 2026-07-11 (see Outstanding items). |
-| `area_benchmarks` | (inside `api/refresh-market-data.js` workflow, already deployed) | Live PSF + rent data per area, refreshed daily by cron |
+| `area_benchmarks` | (inside `api/refresh-market-data.js` workflow, already deployed) | Live PSF + rent data per area, refreshed daily by cron; also carries `rent_active_count`/`rent_avg_days_listed` (session 11n, requires manual execution — see Outstanding items) |
 | `price_history` | (inside `api/refresh-market-data.js` workflow, already deployed) | Historical PSF per area per day — also the ground truth for the forecast-accuracy audit below |
+| `rental_listings_seen` | `supabase-rental-liquidity-schema.sql` | Service-role-only tracking of individual for-rent listing first/last-seen dates — derivation input for the weekly rental-velocity job, never read by the client (requires manual execution, see Outstanding items) |
 
 **SQL migration files executed in Supabase** (confirmed 2026-06-18): the original 5 above. `supabase-knowledge-base-schema.sql` (the RAG table) requires manual execution — see Outstanding items.
 
@@ -455,6 +456,56 @@ features continue working exactly as before. Zero breakage.
 - `theme-color` meta tag added (`#070B14`)
 
 ## Recent work log (most recent first)
+
+- **2026-07-13 (session 11n)**: Real area-level rental-VELOCITY signal — "how
+  fast does this area actually rent" (Find → Smart Property Discovery), direct
+  follow-up to session 11m: user pointed out that yield alone doesn't answer
+  "advise me a more demandable building, easier to rent than this one" — the
+  platform had ZERO rental-demand signal at all (`AREAS[].dom`/`txVol` are
+  SALES-side only). User explicitly chose the "area-level, from real data"
+  path over a live-per-click option or a weak sales-turnover proxy.
+  - **New data pipeline** (`supabase-rental-liquidity-schema.sql`, new
+    migration — requires manual execution): api/refresh-market-data.js's daily
+    cron already fetches real for-rent listings per area (for the existing
+    rent_1br/2br/3br benchmarks) — this adds `trackRentalListingSightings()`,
+    which records each individual listing's first/last-seen date into a new
+    `rental_listings_seen` table (service-role-only, zero anon access — pure
+    derivation input, never read by the client). Careful to never clobber
+    `first_seen` on repeat sightings: existing listing_ids get ONE batched
+    PATCH bumping just `last_seen`; only genuinely new ones get inserted.
+  - **New weekly job** (`?action=rental-velocity`, Sundays 07:45 UTC —
+    `vercel.json`): a listing whose `last_seen` has gone stale (not
+    re-observed in 3 days of daily crons) is presumed rented/delisted — the
+    same standard caveat every real "days on market" metric in the industry
+    carries — and `last_seen − first_seen` is a real time-to-rent sample.
+    Averaged per area into `area_benchmarks.rent_avg_days_listed` +
+    `rent_velocity_sample_size`, exactly the same accumulate-then-derive
+    pattern already proven for `growth_1yr_realized`
+    (`supabase-area-growth-schema.sql`) — and needs the same few weeks of
+    accumulation before it's meaningful; gracefully returns "not ready yet"
+    until then, never a fabricated number. Also added `rent_active_count`
+    (current live rental supply, available same-day, no accumulation needed)
+    and a prune step for sightings older than 400 days.
+  - **Client wiring**: `getRentalVelocity(area)` in `js/valuation.js` reads the
+    new fields off `DYNAMIC_BENCHMARKS` (populated by the existing
+    `fetchDynamicBenchmarks()`); Smart Discovery gained a "Fastest to Rent
+    (Area)" sort option and an "Area rents in ~Xd" pill on each result —
+    deliberately labeled "Area" (not per-building) since no per-building
+    rental-speed data exists or is claimed, avoiding the exact same
+    building-vs-area conflation session 11m's yield fix had just corrected.
+  - Verified: a mocked-fetch Node test driving the real HTTP handler surface
+    of `?action=rental-velocity` across all 39 tracked areas (correct
+    per-area PATCH values, 401 on bad auth); a second test proving the
+    new/existing listing split never clobbers `first_seen`; `node -c` on both
+    touched files; the full valuation/asset regression harness (0 errors); and
+    a real-browser Playwright pass exercising the new sort option live (zero
+    non-network console errors, correct graceful "not ready yet" `null`
+    handling with no live Supabase connection in this sandbox).
+  - **Manual step required**: run `supabase-rental-liquidity-schema.sql` in
+    Supabase SQL Editor. Until then and until ~2-3 weeks of daily-cron
+    accumulation pass, `rent_avg_days_listed` stays null everywhere and the
+    "Fastest to Rent" sort/pill simply don't show a value — zero breakage to
+    anything else in the interim.
 
 - **2026-07-13 (session 11m)**: Real building-level rental yield — "which
   specific building is best to buy for rental income" (Find → Smart Property
@@ -1370,6 +1421,21 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🟡 Rental velocity ("Fastest to Rent") — needs manual SQL + a few weeks of
+  accumulation** (added 2026-07-13, session 11n): run
+  `supabase-rental-liquidity-schema.sql` in Supabase SQL Editor (adds
+  `rental_listings_seen` table + `rent_active_count`/`rent_avg_days_listed`/
+  `rent_velocity_sample_size`/`rent_velocity_updated_at` columns on
+  `area_benchmarks`). No new env vars needed — reuses the existing
+  `RAPIDAPI_KEY` the daily cron already has. After the SQL runs, `rent_active_count`
+  appears same-day, but `rent_avg_days_listed` (the actual "how fast does this
+  area rent" number, and the one the "Fastest to Rent" sort/pill in Smart
+  Discovery depends on) needs ~2-3 weeks of daily-cron accumulation before
+  enough tracked listings have gone stale for the weekly `?action=rental-velocity`
+  job (Sundays 07:45 UTC) to average — exactly the same wait
+  `growth_1yr_realized` needed. Everything degrades gracefully in the
+  meantime (no value shown, not a fabricated one).
 
 - **✅ COMPLETED: RAG Knowledge Base** (confirmed by user, 2026-07-11): both manual
   setup steps done — `supabase-knowledge-base-schema.sql` executed in Supabase, and

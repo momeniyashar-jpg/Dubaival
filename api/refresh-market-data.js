@@ -81,6 +81,60 @@ function extractRents(listings) {
   };
 }
 
+// Records which individual for-rent listings are visible today for an area —
+// the raw input the weekly rental-velocity job (below) derives real
+// time-to-rent from. Does NOT overwrite first_seen on repeat sightings (only
+// a plain upsert would clobber it): existing listing_ids get last_seen
+// bumped via one batched PATCH, brand-new ones get inserted with
+// first_seen=last_seen=today. Never throws — this is a secondary signal, a
+// failure here must not affect the area_benchmarks/price_history writes that
+// are this cron's primary job.
+async function trackRentalListingSightings(area, rentListings, today) {
+  try {
+    var ids = rentListings
+      .map(function(l){ return String(l.id || l.objectID || l.externalID || ""); })
+      .filter(function(id){ return id; });
+    if (!ids.length) return;
+
+    var existingResp = await supabaseRequest(
+      "/rental_listings_seen?area_key=eq." + encodeURIComponent(area) +
+      "&listing_id=in.(" + ids.map(encodeURIComponent).join(",") + ")&select=listing_id"
+    );
+    var existingIds = existingResp.ok ? (await existingResp.json()).map(function(r){ return r.listing_id; }) : [];
+    var existingSet = {};
+    existingIds.forEach(function(id){ existingSet[id] = true; });
+
+    var newRows = [];
+    rentListings.forEach(function(l){
+      var id = String(l.id || l.objectID || l.externalID || "");
+      if (!id || existingSet[id]) return;
+      newRows.push({
+        listing_id: id, area_key: area, first_seen: today, last_seen: today,
+        beds: l.rooms || null, price: l.price || null
+      });
+    });
+
+    if (newRows.length) {
+      await supabaseRequest("/rental_listings_seen", {
+        method: "POST",
+        headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify(newRows)
+      });
+    }
+    if (existingIds.length) {
+      await supabaseRequest(
+        "/rental_listings_seen?area_key=eq." + encodeURIComponent(area) +
+        "&listing_id=in.(" + existingIds.map(encodeURIComponent).join(",") + ")",
+        {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ last_seen: today })
+        }
+      );
+    }
+  } catch (e) {}
+}
+
 function buildMarketFact(area, today, psf, sampleSize, rents) {
   var parts = [];
   if (psf) parts.push("average price is AED " + psf + " per sqft (based on " + sampleSize + " live listings)");
@@ -346,6 +400,98 @@ async function handleGrowthRefresh(req, res) {
   }
 }
 
+// ── Rental velocity ("how fast does this area actually rent") ──────────────
+// trackRentalListingSightings() (above, runs daily) has been accumulating
+// first_seen/last_seen per rental listing since supabase-rental-liquidity-
+// schema.sql went live. A listing whose last_seen has gone stale (not
+// re-observed in the last RENT_STALE_DAYS days of daily crons) is presumed
+// rented or delisted — same standard caveat every "days on market" metric in
+// the industry carries — and (last_seen - first_seen) is a real, if
+// imperfect, time-to-rent sample. Needs the same few weeks of accumulation
+// as growth_1yr_realized did before enough stale listings exist to average.
+var RENT_STALE_DAYS = 3;
+var RENT_VELOCITY_WINDOW_DAYS = 180; // ignore/prune sightings older than this
+var RENT_VELOCITY_TIME_BUDGET_MS = 45000;
+var RENT_VELOCITY_PRUNE_DAYS = 400;
+
+async function computeRentalVelocityForArea(area) {
+  var today = new Date();
+  var staleCutoff = new Date(today.getTime() - RENT_STALE_DAYS * 86400000).toISOString().slice(0, 10);
+  var windowFloor = new Date(today.getTime() - RENT_VELOCITY_WINDOW_DAYS * 86400000).toISOString().slice(0, 10);
+
+  try {
+    var resp = await supabaseRequest(
+      "/rental_listings_seen?area_key=eq." + encodeURIComponent(area) +
+      "&last_seen=lt." + staleCutoff +
+      "&first_seen=gte." + windowFloor +
+      "&select=first_seen,last_seen"
+    );
+    if (!resp.ok) return null;
+    var rows = await resp.json();
+    if (!rows.length) return null;
+
+    var days = rows.map(function (r) {
+      return Math.round((new Date(r.last_seen).getTime() - new Date(r.first_seen).getTime()) / 86400000);
+    }).filter(function (d) { return d >= 0; });
+    if (!days.length) return null;
+
+    var avg = Math.round((days.reduce(function (s, d) { return s + d; }, 0) / days.length) * 10) / 10;
+    return { avgDays: avg, sampleSize: days.length };
+  } catch (e) {
+    return null;
+  }
+}
+
+async function pruneOldRentalSightings() {
+  var cutoff = new Date(Date.now() - RENT_VELOCITY_PRUNE_DAYS * 86400000).toISOString().slice(0, 10);
+  try {
+    var resp = await supabaseRequest(
+      "/rental_listings_seen?first_seen=lt." + cutoff,
+      { method: "DELETE", headers: { Prefer: "return=minimal" } }
+    );
+    return resp.ok;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function handleRentalVelocity(req, res) {
+  var startedAt = Date.now();
+  var results = { areasChecked: 0, updated: 0, skipped: 0, timedOut: false };
+  var areas = Object.keys(AREA_LOCATION_MAP);
+  var CONCURRENCY = 5;
+
+  try {
+    for (var i = 0; i < areas.length; i += CONCURRENCY) {
+      if (Date.now() - startedAt > RENT_VELOCITY_TIME_BUDGET_MS) { results.timedOut = true; break; }
+      var batch = areas.slice(i, i + CONCURRENCY);
+      await Promise.all(batch.map(async function (area) {
+        results.areasChecked++;
+        var v = await computeRentalVelocityForArea(area);
+        if (!v) { results.skipped++; return; }
+        var resp = await supabaseRequest(
+          "/area_benchmarks?area_key=eq." + encodeURIComponent(area),
+          {
+            method: "PATCH",
+            headers: { Prefer: "return=minimal" },
+            body: JSON.stringify({
+              rent_avg_days_listed: v.avgDays,
+              rent_velocity_sample_size: v.sampleSize,
+              rent_velocity_updated_at: new Date().toISOString()
+            })
+          }
+        );
+        if (resp.ok) results.updated++; else results.skipped++;
+      }));
+      if (i + CONCURRENCY < areas.length) await new Promise(function (r) { setTimeout(r, 200); });
+    }
+    results.pruned = await pruneOldRentalSightings();
+    res.status(200).json({ ok: true, timestamp: new Date().toISOString(), results: results });
+  } catch (e) {
+    res.status(200).json({ ok: false, error: e.message, results: results });
+  }
+}
+
 module.exports = async function handler(req, res) {
   if (!process.env.CRON_SECRET || req.headers.authorization !== "Bearer " + process.env.CRON_SECRET) {
     return res.status(401).json({ error: "Unauthorized" });
@@ -356,6 +502,9 @@ module.exports = async function handler(req, res) {
   }
   if (req.query && req.query.action === "growth-refresh") {
     return handleGrowthRefresh(req, res);
+  }
+  if (req.query && req.query.action === "rental-velocity") {
+    return handleRentalVelocity(req, res);
   }
 
   var areas = Object.keys(AREA_LOCATION_MAP);
@@ -394,6 +543,9 @@ module.exports = async function handler(req, res) {
         if (rents.r1) row.rent_1br = rents.r1;
         if (rents.r2) row.rent_2br = rents.r2;
         if (rents.r3) row.rent_3br = rents.r3;
+        if (rentListings.length) row.rent_active_count = rentListings.length;
+
+        if (rentListings.length) await trackRentalListingSightings(area, rentListings, today);
 
         var resp = await supabaseRequest(
           "/area_benchmarks",

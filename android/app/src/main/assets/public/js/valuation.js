@@ -254,6 +254,19 @@ function getDynamicBenchmark(area){
   return d;
 }
 
+// Real "how fast does this AREA actually rent" signal — see
+// supabase-rental-liquidity-schema.sql / api/refresh-market-data.js's weekly
+// ?action=rental-velocity job. AREA-level only (no per-building granularity
+// exists or is claimed) — rent_avg_days_listed is null until enough rental
+// listings have gone stale for the weekly job to average, exactly like
+// growth_1yr_realized needed weeks of price_history before it existed.
+function getRentalVelocity(area){
+  var d=DYNAMIC_BENCHMARKS[area];
+  if(!d)return null;
+  if(d.rentAvgDaysListed==null)return{activeCount:d.rentActiveCount||null,avgDaysListed:null,sampleSize:0,ready:false};
+  return{activeCount:d.rentActiveCount||null,avgDaysListed:d.rentAvgDaysListed,sampleSize:d.rentVelocitySampleSize||0,ready:true};
+}
+
 async function fetchDynamicBenchmarks(){
   try{
     var resp=await fetch(SUPABASE_URL+"/rest/v1/area_benchmarks?select=*",{
@@ -267,7 +280,9 @@ async function fetchDynamicBenchmarks(){
         psf:r.psf,r1:r.rent_1br,r2:r.rent_2br,r3:r.rent_3br,
         rStudio:r.rent_studio,rv3:r.rent_villa_3br,rv4:r.rent_villa_4br,rv5:r.rent_villa_5br,
         dom:r.dom,txVol:r.tx_vol,sampleSize:r.sample_size,updated_at:r.updated_at,
-        growth1yr:r.growth_1yr_realized,growthUpdated:r.growth_updated_at
+        growth1yr:r.growth_1yr_realized,growthUpdated:r.growth_updated_at,
+        rentActiveCount:r.rent_active_count,rentAvgDaysListed:r.rent_avg_days_listed,
+        rentVelocitySampleSize:r.rent_velocity_sample_size,rentVelocityUpdated:r.rent_velocity_updated_at
       };
     });
   }catch(e){console.warn("Dynamic benchmarks fetch failed:",e.message);}
