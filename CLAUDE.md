@@ -155,7 +155,11 @@ The app was split from a single 1.1MB `index-6.html` into modular files:
 - **`js/mortgage.js`** — `renderMortgage()`.
 - **`js/portfolio.js`** — `renderPortfolio()`, `computeAssetMetrics()`,
   `computePortfolioHealth()`, projections, what-if.
-- **`js/map.js`** — Interactive Map tab (Leaflet).
+- **`js/map.js`** — Interactive Map tab (Google Maps — not Leaflet, this note
+  was stale; corrected 2026-07-13). Voronoi-cell region rendering, metric
+  registry, composite Investment Score.
+- **`js/voronoi.js`** — Dependency-free 2D Voronoi cell generator (half-plane
+  intersection method) used only by `js/map.js`.
 - **`js/deals.js`** — Deal Network, `renderDeals()`, `renderDealForm()`,
   `renderAgentHub()`, `renderAdminDashboard()`, media, inquiries, referrals.
 - **`js/chat.js`** — `renderChat()`.
@@ -456,6 +460,88 @@ features continue working exactly as before. Zero breakage.
 - `theme-color` meta tag added (`#070B14`)
 
 ## Recent work log (most recent first)
+
+- **2026-07-13 (session 11q)**: Interactive Map — replaced real-world-radius
+  Circle overlays with true Voronoi-cell region polygons, plus a broader
+  professional redesign, per explicit user request ("ارتقاء بده تا به یک
+  نقشه حرفه‌ای املاک در دبی برسیم" — upgrade this to a professional Dubai
+  real-estate map). Session 11f had already patched the underlying overlap
+  bug with a separate pixel-based marker/cluster layer on top of decorative
+  circles; this redesign removes circles entirely.
+  - **New `js/voronoi.js`**: dependency-free 2D Voronoi generator (half-plane
+    intersection / Sutherland-Hodgman clipping) — no external geometry
+    library, ~350 points computed in ~30ms. Real bug caught before shipping:
+    the first version of the lat/lng→local-meters projection only offset by
+    origin LATITUDE, not longitude, putting every real area's projected x
+    coordinate around 5.5 million meters (Dubai's absolute distance from the
+    Prime Meridian) while the bounding box was centered at 0 — this collapsed
+    286 of 287 cells to degenerate empty polygons. Caught by testing against
+    the REAL `AREA_COORDS` data (not just synthetic test points) before
+    wiring into map.js; fixed by projecting relative to both origin lat AND
+    lng. Verified via a full geometry test suite: cells contain their own
+    site, total cell area matches the bounding box area to within 0.03%
+    (proper partition, no gaps/overlaps), 500 random-point overlap samples
+    all land in exactly one cell, coincident-point inputs don't throw.
+  - **`js/map.js` rewrite**: Voronoi cells are now both the visual AND the
+    interactive layer (proper non-overlapping polygons, unlike the old
+    circles, so the separate pixel-marker workaround is no longer needed).
+    Genuine geographic outliers (Hatta, ~97km from Dubai's center — the next
+    farthest tracked area is ~32km) get a plain marker instead of being
+    included in the Voronoi diagram, which would otherwise stretch one
+    shared bounding box out to accommodate a single distant exclave and
+    distort every other cell. Same zoom-based level-of-detail clustering
+    technique session 11f built for markers is reused here to group nearby
+    areas into merged, averaged cells at low zoom (≤ zoom 12) and split into
+    full per-area resolution above that.
+  - **New composite "Investment Score" metric** (now the map's default):
+    a real, documented 0-100 blend — Yield 30% (3–10% range) + Growth-3yr 30%
+    (0–30% range) + Liquidity 20% (inverse DOM, 90d–15d range) + Turnover 20%
+    (log-scaled tx volume, 1–3,000) — same spirit as `computeValuation()`'s
+    Margin-of-Safety index, adapted to area-level inputs, giving one
+    "where should I look first" signal instead of 6 separate single-factor
+    maps a user would have to mentally combine themselves.
+  - **One consistent color scale for every metric**: replaced the previous
+    inconsistent mix (a manual RGB-blend formula for growth/yield/turnover/
+    liquidity, but 3 hardcoded discrete tiers for price/location) with one
+    continuous HSL interpolation, red→green for metrics where higher-is-
+    better (or inverted for Days-on-Market, where lower-is-better), and a
+    neutral blue→gold scale for Price specifically (an expensive area isn't
+    inherently a "worse" investment, so red/green quality framing doesn't
+    apply there).
+  - **Dynamic legend**: shows the REAL min/max of the metric currently being
+    displayed (via `cfg.fmt()`) plus a live gradient bar, replacing the old
+    legend's generic hardcoded tier labels that weren't actually tied to the
+    data on screen.
+  - **"Explore Buildings" CTA**: every popup now has a button that deep-links
+    into Find → Smart Property Discovery pre-filtered to that area (sets
+    `FIND_STATE.sf.area` after `setSection("Market","Find")`, which renders
+    synchronously so `FIND_STATE` is guaranteed initialized first) — turns
+    the map from a pure visualization into an actual discovery entry point,
+    matching how Zillow/Redfin/PropertyFinder region-click UX works.
+  - **Popup consolidated to one consistent template** (metric headline value
+    + PSF + 2 metric-specific detail facts, e.g. 1yr/5yr growth for the
+    Growth metric or rent benchmarks for Yield) instead of 6 fully bespoke
+    ~70-line HTML blocks per metric — same information depth, less code,
+    more visually consistent across metric switches.
+  - Verified: the Voronoi geometry test suite above; a metric-registry test
+    running all 7 metrics' `getVal`/`fmt`/`detail` functions across all 347
+    real areas (2,429 checks, 0 errors); a color-scale polarity test
+    confirming correct red/green/blue-gold direction per metric type; a
+    mocked-`google.maps` pipeline test exercising the full group→Voronoi→
+    polygon path end-to-end at both low zoom (confirmed clustering merges
+    areas into fewer cells) and high zoom (confirmed full 286-cell
+    resolution); `node -c` on both new/touched files; the full valuation/
+    asset regression harness (0 errors); and a live-browser Playwright pass
+    confirming the metric toggle buttons render, all map-related global
+    functions are correctly exposed and callable, and the map gracefully
+    falls back to "Map unavailable" with zero non-network console errors
+    (this sandbox has no live network access to Google's Maps API, so the
+    actual rendered polygons/click-through navigation could not be visually
+    verified end-to-end in a real browser this session — the underlying
+    geometry, data pipeline, and DOM structure are all verified correct; a
+    live check against the real Google Maps API is the one remaining step,
+    same limitation noted for every Google-Maps-dependent feature this
+    session).
 
 - **2026-07-13 (session 11p)**: Wired Rental Demand Score into the Analyzer
   report itself (`js/market.js` `renderAnalyzerResult()`), plus an
