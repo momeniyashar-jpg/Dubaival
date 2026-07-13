@@ -20,7 +20,22 @@
 // legible), click-only popups (no mouseover-triggered InfoWindow, so no
 // auto-pan risk), the Places Autocomplete search box, and the "Explore
 // Buildings" popup CTA that deep-links into Find → Smart Property Discovery.
-var _dvMapState = {metric: "invest", gmap: null, overlays: [], clusterMarkers: []};
+var _dvMapState = {metric: "invest", gmap: null, overlays: [], clusterMarkers: [], tier:"area", focusArea:null, buildingMarkers:[], areaPoints:[], panelEl:null, backControlEl:null};
+
+// 2026-07-13 (session 11t), per explicit user request for a two-tier drill-
+// down: click an AREA marker → a rich area-overview panel (investment
+// snapshot, building count, key buildings, live nearby essentials). From
+// there, optionally "Show Key Buildings on Map" → the map zooms into that
+// area and drops one marker per top-grade building (real DB entries,
+// geocoded via the existing /api/proxy-maps geocode action, cached so the
+// same building is never re-geocoded twice). Clicking a BUILDING marker
+// shows a building-specific panel (grade, PSF, service charge, estimated
+// unit count/yield/rental demand — all from the real valuation engine, never
+// fabricated). Every transition is an explicit click, never automatic, so a
+// user never receives a wall of information they didn't ask for.
+var _DV_GRADE_RANK = {Ultra:7, "A+":6, A:5, "A-":4, "B+":3, B:2, C:1};
+var _DV_GRADE_COLOR = {Ultra:"#9B59B6", "A+":"#D4AF37", A:"#F0A030", "A-":"#F0C060", "B+":"#3B82F6", B:"#60A5FA", C:"#8899AA"};
+var _DV_KEY_BUILDINGS_LIMIT = 12;
 
 // Areas genuinely far outside Dubai's urban core (Hatta ~97km east — the next
 // farthest tracked area is ~32km) get their own always-solo marker: grouping
@@ -31,6 +46,8 @@ var _DV_OUTLIER_KM = 55;
 
 function _dvMapCleanup() {
   _dvClearOverlays();
+  _dvClearBuildingMarkers();
+  _dvMapState.backControlEl = null;
   if (_dvMapState.gmap) {
     google.maps.event.clearInstanceListeners(_dvMapState.gmap);
     _dvMapState.gmap = null;
@@ -176,38 +193,281 @@ function _dvMetricColor(ratio, polarity) {
   return "hsl(" + Math.round(hue) + ",68%,48%)";
 }
 
-// Builds a metric-specific popup, plus a shared "Explore Buildings" CTA that
-// deep-links into Find → Smart Property Discovery pre-filtered to this area —
-// the map becomes an entry point into real building-level analysis, not a
-// dead-end visualization.
-function _mapPopupHtml(name, aData, metric, geoS, val, fmtVal) {
-  var psf = aData.psf || 0;
-  var psfFmt = psf ? psf.toLocaleString() : "—";
-  var cfg = DV_MAP_METRICS[metric];
-  var metricLabel = cfg ? cfg.label : metric;
-  var detailRows = cfg && cfg.detail ? cfg.detail(aData, name) : [];
-
-  var html = '<div style="font-family:\'Space Grotesk\',monospace;min-width:230px;color:#FFFFFF;padding:12px;">'
-    + '<div style="color:#D4AF37;font-size:12px;font-weight:700;margin-bottom:8px;">' + name + '</div>'
-    + '<div style="background:rgba(212,168,67,0.08);border:1px solid rgba(212,168,67,0.2);border-radius:8px;padding:10px;margin-bottom:8px;text-align:center;">'
-    + '<div style="color:#6B7A9E;font-size:9px;letter-spacing:.08em;margin-bottom:4px;">' + metricLabel.toUpperCase() + '</div>'
-    + '<div style="color:#D4A843;font-size:20px;font-weight:800;">' + fmtVal + '</div>'
-    + '</div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:11px;margin-bottom:8px;">'
-    + '<div><span style="color:#6B7A9E;">PSF</span><br><b>AED ' + psfFmt + '</b></div>';
-  detailRows.forEach(function(d) {
-    html += '<div><span style="color:#6B7A9E;">' + d.l + '</span><br><b>' + d.v + '</b></div>';
-  });
-  html += '</div>';
-  if (geoS && metric !== "location") {
-    html += '<div style="font-size:10px;color:#6B7A9E;margin-bottom:8px;">'
-      + '<span style="color:#818CF8;">⊙ ' + geoS.metroName + '</span>'
-      + ' <b style="color:#FFFFFF;">' + geoS.metroDist + 'km</b>'
-      + ' · <span style="color:#D4A843;">Location ' + geoS.locationScore + '/10</span></div>';
-  }
-  html += '<button onclick="_dvExploreArea(' + JSON.stringify(name) + ')" style="width:100%;background:linear-gradient(135deg,#D4AF37,#A07D1C);border:none;border-radius:7px;padding:8px;color:#070B14;font-weight:700;font-size:11px;font-family:\'Space Grotesk\',monospace;cursor:pointer;">Explore Buildings in ' + name + ' →</button>'
+// ── Info panel — docked over the map, replaces the old floating InfoWindow
+// popup for area/building content (kept only for the small single-line
+// Metro/Tram facts below). A real side panel scrolls, so it can hold much
+// richer content than an InfoWindow bubble without crowding the map.
+function _dvShowPanel(html) {
+  var p = _dvMapState.panelEl;
+  if (!p) return;
+  p.innerHTML = '<div style="padding:16px;font-family:\'Inter\',sans-serif;">'
+    + '<div style="text-align:right;margin:-8px -8px 4px 0;"><button onclick="_dvHidePanel()" style="background:none;border:none;color:#6B7A9E;font-size:18px;line-height:1;cursor:pointer;padding:4px 8px;">×</button></div>'
+    + html
     + '</div>';
+  p.style.display = "block";
+}
+function _dvHidePanel() {
+  if (_dvMapState.panelEl) _dvMapState.panelEl.style.display = "none";
+}
+function _dvStatBox(label, val, color) {
+  return '<div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:9px 10px;">'
+    + '<div style="color:#6B7A9E;font-size:9px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px;">' + label + '</div>'
+    + '<div style="color:' + color + ';font-size:14px;font-weight:800;font-family:\'Space Grotesk\',monospace;">' + val + '</div></div>';
+}
+function _dvTitleCase(s) {
+  return (s || "").replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+}
+
+function _dvAreaBuildingCount(areaName) {
+  var cnt = 0;
+  for (var bk in DB) { if (DB[bk].a === areaName) cnt++; }
+  return cnt;
+}
+// "Key buildings" = highest grade, then highest PSF within that grade — a
+// real, defensible proxy for "buildings that matter most to a buyer here"
+// derived purely from existing DB fields, never a fabricated importance flag.
+function _dvAreaKeyBuildings(areaName, limit) {
+  var list = [];
+  for (var bk in DB) { if (DB[bk].a === areaName) list.push(Object.assign({name: bk}, DB[bk])); }
+  list.sort(function(a, b) { return (_DV_GRADE_RANK[b.g] || 0) - (_DV_GRADE_RANK[a.g] || 0) || (b.p - a.p); });
+  return list.slice(0, limit || _DV_KEY_BUILDINGS_LIMIT);
+}
+
+// Live nearby essentials (mall/hospital/school/supermarket), reusing the
+// exact same /api/proxy-maps?action=amenities endpoint + cache key the
+// Analyzer's "Nearby Amenities" card already uses — real Google Places data,
+// shared/cached across features instead of a second hand-curated list.
+function _dvFetchAreaAmenities(areaName, targetId) {
+  var cacheKey = "dv_amenities_" + areaName;
+  function renderInto(data) {
+    var elm = document.getElementById(targetId);
+    if (!elm) return; // panel closed or replaced before the fetch resolved
+    if (!data || data.error || !data.amenities) { elm.innerHTML = '<div style="color:#556677;font-size:11px;">Nearby data unavailable.</div>'; return; }
+    var ams = data.amenities;
+    var cfg = [
+      {k:"mall", label:"Mall", icon:"🛍️", color:"#D4A843"},
+      {k:"hospital", label:"Hospital", icon:"🏥", color:"#EF4444"},
+      {k:"school", label:"School", icon:"🎓", color:"#10B981"},
+      {k:"supermarket", label:"Supermarket", icon:"🛒", color:"#F59E0B"}
+    ];
+    function fmtD(m) { return m < 1000 ? m + "m" : (m / 1000).toFixed(1) + "km"; }
+    var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+    cfg.forEach(function(c) {
+      var a = ams[c.k];
+      html += '<div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:9px 10px;">'
+        + '<div style="display:flex;justify-content:space-between;margin-bottom:3px;">'
+        + '<span style="font-size:10px;color:#8899AA;">' + c.icon + ' ' + c.label + '</span>'
+        + '<span style="font-size:10px;font-weight:700;color:' + c.color + ';">' + (a ? fmtD(a.dist) : "—") + '</span></div>'
+        + '<div style="font-size:10px;color:#9BA8C8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (a ? a.name : "Not found nearby") + '</div>'
+        + '</div>';
+    });
+    html += '</div>';
+    elm.innerHTML = html;
+  }
+  var cached = null;
+  try { var s = sessionStorage.getItem(cacheKey); if (s) cached = JSON.parse(s); } catch (e) {}
+  if (cached) { renderInto(cached); return; }
+  fetch("/api/proxy-maps?action=amenities&address=" + encodeURIComponent(areaName + ", Dubai"))
+    .then(function(r) { return r.json(); })
+    .then(function(data) { try { sessionStorage.setItem(cacheKey, JSON.stringify(data)); } catch (e) {} renderInto(data); })
+    .catch(function() { var elm = document.getElementById(targetId); if (elm) elm.innerHTML = '<div style="color:#556677;font-size:11px;">Nearby data unavailable.</div>'; });
+}
+
+// ── Tier 1 panel content — clicked an AREA marker ──────────────────────────
+function _dvAreaInfoHtml(areaName, aData) {
+  var yi = aData.y || [5, 7];
+  var g = aData.g || [3, 9, 16];
+  var bldgCount = _dvAreaBuildingCount(areaName);
+  var metroS = (typeof computeGeoScore === "function") ? computeGeoScore(areaName) : null;
+  var amId = "dv-am-" + Math.random().toString(36).slice(2);
+
+  var html = '<div style="color:#D4AF37;font-size:16px;font-weight:800;font-family:\'Space Grotesk\',monospace;margin-bottom:2px;">' + areaName + '</div>'
+    + '<div style="color:#6B7A9E;font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px;">Area Overview</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">'
+    + _dvStatBox("Gross Yield", ((yi[0] + yi[1]) / 2).toFixed(1) + "%", "#10B981")
+    + _dvStatBox("Avg PSF", "AED " + Math.round(aData.psf || 0).toLocaleString(), "#D4A843")
+    + _dvStatBox("3yr Growth", "+" + g[1] + "%", "#10B981")
+    + _dvStatBox("Days on Market", Math.round(aData.dom || 60) + "d", "#3B82F6")
+    + '</div>'
+    + '<div style="background:rgba(255,255,255,0.03);border-radius:10px;padding:12px;margin-bottom:14px;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+    + '<span style="color:#8899AA;font-size:10px;text-transform:uppercase;letter-spacing:.08em;">Buildings Tracked</span>'
+    + '<span style="color:#FFFFFF;font-size:15px;font-weight:800;font-family:\'Space Grotesk\',monospace;">' + bldgCount + '</span></div>'
+    + '<button ' + (bldgCount === 0 ? "disabled" : ('onclick="_dvShowKeyBuildings(' + JSON.stringify(areaName).replace(/"/g, "&quot;") + ')"')) + ' style="width:100%;background:linear-gradient(135deg,#D4AF37,#A07D1C);border:none;border-radius:7px;padding:9px;color:#070B14;font-weight:700;font-size:11px;cursor:pointer;margin-bottom:6px;' + (bldgCount === 0 ? "opacity:.4;" : "") + '">📍 Show Key Buildings on Map</button>'
+    + '<button onclick="_dvExploreArea(' + JSON.stringify(areaName).replace(/"/g, "&quot;") + ')" style="width:100%;background:transparent;border:1px solid rgba(212,175,55,0.3);border-radius:7px;padding:9px;color:#D4AF37;font-weight:700;font-size:11px;cursor:pointer;">Explore in Smart Discovery →</button>'
+    + '</div>';
+
+  if (metroS) {
+    html += '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#8899AA;margin-bottom:12px;">'
+      + '<span style="color:#818CF8;">⊙</span> Nearest Metro: <b style="color:#FFFFFF;">' + metroS.metroName + '</b> (' + metroS.metroDist + 'km)</div>';
+  }
+
+  html += '<div style="color:#6B7A9E;font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Nearby Essentials</div>'
+    + '<div id="' + amId + '"><div style="color:#556677;font-size:11px;">Loading live data…</div></div>';
+
+  _dvFetchAreaAmenities(areaName, amId);
   return html;
+}
+
+// ── Tier 2 panel content — clicked a BUILDING marker ───────────────────────
+// Every figure here comes from the same real valuation-engine functions the
+// Analyzer uses (estimateBldgUnits/estimateBuildingYield/
+// estimateRentalDemandScore) — nothing on this panel is fabricated.
+function _dvBuildingInfoHtml(name, bData, aData, areaName) {
+  var display = _dvTitleCase(name);
+  var grade = bData.g || "—";
+  var gradeColor = _DV_GRADE_COLOR[bData.g] || "#8899AA";
+  var units = (typeof estimateBldgUnits === "function") ? estimateBldgUnits(name, bData, false) : null;
+  var yieldEst = (typeof estimateBuildingYield === "function") ? estimateBuildingYield(bData, aData, bData.p) : null;
+  var rentVel = (typeof getRentalVelocity === "function") ? getRentalVelocity(areaName) : null;
+  var demand = (typeof estimateRentalDemandScore === "function") ? estimateRentalDemandScore(bData, aData, bData.p, units, rentVel, areaName) : null;
+
+  var html = '<div style="color:#D4AF37;font-size:15px;font-weight:800;font-family:\'Space Grotesk\',monospace;margin-bottom:8px;">' + display + '</div>'
+    + '<div style="margin-bottom:14px;"><span style="background:' + gradeColor + '22;color:' + gradeColor + ';font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;">' + grade + ' GRADE</span>'
+    + ' <span style="color:#6B7A9E;font-size:10px;margin-left:6px;">' + areaName + '</span></div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">'
+    + _dvStatBox("Price / sqft", "AED " + Math.round(bData.p || 0).toLocaleString(), "#D4A843")
+    + _dvStatBox("Service Charge", "AED " + Math.round(bData.sc || 0) + "/sqft", "#F0A030")
+    + (yieldEst ? _dvStatBox("Est. Gross Yield", yieldEst.gross.toFixed(1) + "%", "#10B981") : "")
+    + (units ? _dvStatBox("Est. Units", units.toLocaleString(), "#3B82F6") : "")
+    + '</div>'
+    + '<div style="color:#6B7A9E;font-size:10px;margin-bottom:12px;">Typical unit sizes run ~750–1,600 sqft (1BR–3BR) in most Dubai towers — exact unit mix varies by building.</div>';
+
+  if (demand) {
+    var dColor = demand.score >= 60 ? "#10B981" : demand.score >= 40 ? "#F0A030" : "#F04060";
+    html += '<div style="background:rgba(255,255,255,0.03);border-radius:10px;padding:12px;margin-bottom:14px;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
+      + '<span style="color:#8B5CF6;font-size:10px;text-transform:uppercase;letter-spacing:.06em;">Rental Demand</span>'
+      + '<span style="color:' + dColor + ';font-size:12px;font-weight:800;">' + demand.tier + ' · ' + demand.score + '</span></div>';
+    demand.drivers.slice(0, 3).forEach(function(d) {
+      html += '<div style="font-size:10px;color:#9BA8C8;margin-bottom:3px;">' + (d.impact === "+" ? "▲ " : d.impact === "-" ? "▼ " : "· ") + d.label + '</div>';
+    });
+    html += '</div>';
+  }
+
+  html += '<button onclick="_dvOpenInAnalyzer(' + JSON.stringify(name).replace(/"/g, "&quot;") + ',' + JSON.stringify(areaName).replace(/"/g, "&quot;") + ')" style="width:100%;background:linear-gradient(135deg,#D4AF37,#A07D1C);border:none;border-radius:7px;padding:10px;color:#070B14;font-weight:700;font-size:11px;cursor:pointer;">Full Analysis in Analyzer →</button>';
+  return html;
+}
+
+// Prefills the Analyzer entry form with the building + area (never a fake
+// valuation — size/price still need the user's own input, same as anywhere
+// else in the app) and switches to it.
+function _dvOpenInAnalyzer(buildingKey, areaName) {
+  window.analyzerState = {stage:0, mode:"valuation", f:{area:areaName, propCategory:"", aptSubtype:"", beds:"", bathrooms:"", hasMaid:false, floor:"", view:"Not specified", size:"", furnished:"Unfurnished", parking:"1", serviceCharge:"", price:"", villaType:"", cluster:"", floors:"", plotSize:"", buaSize:"", privatePool:false, singleRow:false, cornerVilla:false, building:_dvTitleCase(buildingKey), txnType:"sale", sector:"residential", subType:"", zoning:"", purchasePrice:"", purchaseDate:""}, val:null, rentalVal:null, comVal:null, landVal:null, aiText:"", aiTextSeller:"", liveData:null, err:"", reportMode:"personal", reportFor:"buyer", smartRent:null};
+  setSection("Market", "Analyzer");
+}
+
+function _dvGeocodeBuilding(name, areaName) {
+  var cacheKey = "dv_geo_" + areaName + "_" + name;
+  try {
+    var s = sessionStorage.getItem(cacheKey);
+    if (s) { var c = JSON.parse(s); return Promise.resolve(c && c.lat ? c : null); }
+  } catch (e) {}
+  var address = _dvTitleCase(name) + ", " + areaName;
+  return fetch("/api/proxy-maps?action=geocode&address=" + encodeURIComponent(address))
+    .then(function(r) { return r.json(); })
+    .then(function(d) { try { sessionStorage.setItem(cacheKey, JSON.stringify(d)); } catch (e) {} return (d && d.lat) ? d : null; })
+    .catch(function() { return null; });
+}
+
+function _dvClearBuildingMarkers() {
+  _dvMapState.buildingMarkers.forEach(function(m) { google.maps.event.clearInstanceListeners(m); m.setMap(null); });
+  _dvMapState.buildingMarkers = [];
+}
+
+function _dvRenderGradeLegend(gmap) {
+  if (_dvMapState.legendEl) { _dvMapState.legendEl.parentNode && _dvMapState.legendEl.remove(); }
+  var legDiv = document.createElement("div");
+  legDiv.style.cssText = "background:rgba(13,18,32,0.92);border:1px solid #1C2540;border-radius:10px;padding:10px 12px;margin:0 10px 10px;min-width:140px;";
+  var title = document.createElement("div");
+  title.style.cssText = "color:#D4AF37;font-size:9px;font-weight:700;font-family:'Space Grotesk',monospace;letter-spacing:.08em;margin-bottom:8px;";
+  title.textContent = "BUILDING GRADE";
+  legDiv.appendChild(title);
+  ["Ultra", "A+", "A", "A-", "B+", "B", "C"].forEach(function(g) {
+    var row = document.createElement("div");
+    row.style.cssText = "display:flex;align-items:center;gap:6px;font-size:9px;color:#8899AA;font-family:'Space Grotesk',monospace;margin-bottom:3px;";
+    row.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:' + _DV_GRADE_COLOR[g] + ';display:inline-block;flex-shrink:0;"></span>' + g;
+    legDiv.appendChild(row);
+  });
+  gmap.controls[google.maps.ControlPosition.RIGHT_BOTTOM].clear();
+  gmap.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(legDiv);
+  _dvMapState.legendEl = legDiv;
+}
+
+function _dvRenderBackControl(areaName, count) {
+  var gmap = _dvMapState.gmap;
+  if (!gmap) return;
+  var ctrl = document.createElement("div");
+  ctrl.style.cssText = "background:#0D1220;border:1px solid #1C2540;border-radius:20px;padding:7px 14px;margin:10px;color:#D4AF37;font-size:11px;font-weight:700;font-family:'Space Grotesk',monospace;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,0.3);white-space:nowrap;";
+  ctrl.textContent = "← Back to Areas · " + count + " buildings in " + areaName;
+  ctrl.onclick = function() { _dvBackToAreas(); };
+  gmap.controls[google.maps.ControlPosition.TOP_LEFT].clear();
+  gmap.controls[google.maps.ControlPosition.TOP_LEFT].push(ctrl);
+  _dvMapState.backControlEl = ctrl;
+}
+function _dvRemoveBackControl() {
+  var gmap = _dvMapState.gmap;
+  if (!gmap) return;
+  gmap.controls[google.maps.ControlPosition.TOP_LEFT].clear();
+  _dvMapState.backControlEl = null;
+}
+
+// Explicit, click-driven transition into "Building Tier" for one area —
+// never automatic on zoom/pan, so a user is never shown data they didn't
+// ask for. Geocodes only the area's top ~12 key buildings (not every
+// building in the DB, which would be hundreds of live API calls) and caches
+// results in sessionStorage so revisiting the same area/building is free.
+function _dvShowKeyBuildings(areaName) {
+  var gmap = _dvMapState.gmap;
+  if (!gmap) return;
+  var bldgs = _dvAreaKeyBuildings(areaName, _DV_KEY_BUILDINGS_LIMIT);
+  if (!bldgs.length) return;
+
+  _dvMapState.tier = "building";
+  _dvMapState.focusArea = areaName;
+  _dvClearOverlays();
+  _dvClearBuildingMarkers();
+  _dvShowPanel('<div style="color:#8899AA;font-size:12px;">Locating ' + bldgs.length + ' key buildings in ' + areaName + '…</div>');
+
+  Promise.all(bldgs.map(function(b) {
+    return _dvGeocodeBuilding(b.name, areaName).then(function(loc) {
+      return loc ? Object.assign({}, b, {lat: loc.lat, lng: loc.lng}) : null;
+    });
+  })).then(function(results) {
+    if (_dvMapState.tier !== "building" || _dvMapState.focusArea !== areaName) return; // user navigated away meanwhile
+    var located = results.filter(function(r) { return r && r.lat; });
+    _dvHidePanel();
+    if (!located.length) { _dvShowPanel('<div style="color:#8899AA;font-size:12px;">Could not locate buildings on the map for this area right now.</div>'); return; }
+    var bounds = new google.maps.LatLngBounds();
+    located.forEach(function(b) {
+      var color = _DV_GRADE_COLOR[b.g] || "#8899AA";
+      var mk = new google.maps.Marker({
+        map: gmap, position: {lat: b.lat, lng: b.lng},
+        icon: {path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: color, fillOpacity: 0.95, strokeColor: "#ffffff", strokeWeight: 2},
+        title: _dvTitleCase(b.name) + " (" + (b.g || "—") + " grade)", zIndex: 15
+      });
+      mk.addListener("mouseover", function() { mk.setIcon({path: google.maps.SymbolPath.CIRCLE, scale: 11, fillColor: color, fillOpacity: 1, strokeColor: "#ffffff", strokeWeight: 3}); });
+      mk.addListener("mouseout", function() { mk.setIcon({path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: color, fillOpacity: 0.95, strokeColor: "#ffffff", strokeWeight: 2}); });
+      mk.addListener("click", function() { _dvShowPanel(_dvBuildingInfoHtml(b.name, b, AREAS[areaName], areaName)); });
+      _dvMapState.buildingMarkers.push(mk);
+      bounds.extend({lat: b.lat, lng: b.lng});
+    });
+    gmap.fitBounds(bounds, 80);
+    google.maps.event.addListenerOnce(gmap, "idle", function() { if (gmap.getZoom() > 17) gmap.setZoom(17); });
+    _dvRenderGradeLegend(gmap);
+    _dvRenderBackControl(areaName, located.length);
+  });
+}
+
+// Explicit exit from Building Tier back to the normal area-marker view.
+function _dvBackToAreas() {
+  _dvClearBuildingMarkers();
+  _dvHidePanel();
+  _dvRemoveBackControl();
+  _dvMapState.tier = "area";
+  _dvMapState.focusArea = null;
+  var gmap = _dvMapState.gmap;
+  if (gmap) _dvRenderAreaMarkers(gmap, _dvMapState.areaPoints, _dvMapState.metric);
 }
 
 // Deep-links into Find → Smart Property Discovery pre-filtered to the
@@ -276,7 +536,7 @@ function _dvMarkerScaleForZoom(zoom) {
 // marker's footprint is a small dot, never an area-covering shape. Torn down
 // and rebuilt on every zoom/pan tick so the level-of-detail grouping always
 // matches the current view.
-function _dvRenderAreaMarkers(gmap, infoWin, points, metric) {
+function _dvRenderAreaMarkers(gmap, points, metric) {
   _dvClearOverlays();
   var cfg = DV_MAP_METRICS[metric];
   var groups = _dvGroupForZoom(gmap, points);
@@ -323,7 +583,7 @@ function _dvRenderAreaMarkers(gmap, infoWin, points, metric) {
       // gives the area name on hover for free.
       mk.addListener("mouseover", function() { mk.setIcon({path: google.maps.SymbolPath.CIRCLE, scale: scale + 3, fillColor: color, fillOpacity: 1, strokeColor: "#ffffff", strokeWeight: 3}); });
       mk.addListener("mouseout", function() { mk.setIcon({path: google.maps.SymbolPath.CIRCLE, scale: scale, fillColor: color, fillOpacity: 0.92, strokeColor: "#ffffff", strokeWeight: 2}); });
-      mk.addListener("click", function() { infoWin.setContent(m.popupHtml); infoWin.open(gmap, mk); });
+      mk.addListener("click", function() { _dvShowPanel(_dvAreaInfoHtml(m.name, AREAS[m.name])); });
       _dvMapState.overlays.push(mk);
     }
   });
@@ -379,6 +639,12 @@ function _dvRenderLegend(gmap, cfg, vMin, vMax) {
 
 function renderMap() {
   var cl = C();
+  // Every fresh render starts back in Area Tier — switching metric/tab
+  // tears down the whole gmap instance below, so any stale Building Tier
+  // state (focused area, building markers) from before would otherwise
+  // point at overlays that no longer exist.
+  _dvMapState.tier = "area";
+  _dvMapState.focusArea = null;
   var wrap = div({padding:"0", maxWidth:"100%", margin:"0", display:"flex", flexDirection:"column", height:"calc(100vh - 130px)"});
   var mapTs = new Date().getTime();
   var mapId = "dv-gmap-" + mapTs;
@@ -414,8 +680,21 @@ function renderMap() {
     document.head.appendChild(styleEl);
   }
 
+  var mapArea = div({position:"relative", flex:"1", width:"100%", minHeight:"300px", display:"flex"});
   var mapEl = el("div", {style:{flex:"1", width:"100%", minHeight:"300px"}, id:mapId});
-  wrap.appendChild(mapEl);
+  mapArea.appendChild(mapEl);
+  // Docked info panel — replaces the old floating InfoWindow popup for
+  // area/building content (see _dvShowPanel). Absolutely positioned over
+  // the map so it never needs to trigger a Google Maps resize event.
+  var panelEl = el("div", {id: mapId+"-panel", style:{
+    position:"absolute", top:"10px", right:"10px", bottom:"10px",
+    width:"340px", maxWidth:"92vw", overflowY:"auto",
+    background: cl.surfaceSolid||cl.surface, border:"1px solid "+cl.border,
+    borderRadius:"14px", boxShadow:"0 8px 30px rgba(0,0,0,0.35)",
+    display:"none", zIndex:"5"
+  }});
+  mapArea.appendChild(panelEl);
+  wrap.appendChild(mapArea);
 
   setTimeout(function() {
     var container = document.getElementById(mapId);
@@ -439,6 +718,7 @@ function renderMap() {
       });
 
       _dvMapState.gmap = gmap;
+      _dvMapState.panelEl = document.getElementById(mapId + "-panel");
       var infoWin = new google.maps.InfoWindow();
       var cfg = DV_MAP_METRICS[_dvMapState.metric];
 
@@ -466,15 +746,13 @@ function renderMap() {
         var distKm = Math.sqrt(Math.pow(dLat*111, 2) + Math.pow(dLng*101, 2)); // rough km at this latitude
         if (distKm > _DV_OUTLIER_KM) return; // outliers get their own always-solo marker below
         var val = cfg.getVal(aData, name);
-        var geoS = computeGeoScore(name);
-        var fmtVal = cfg.fmt(val);
-        var popupHtml = _mapPopupHtml(name, aData, _dvMapState.metric, geoS, val, fmtVal);
-        points.push({name:name, lat:coords[0], lng:coords[1], val:val, popupHtml:popupHtml});
+        points.push({name:name, lat:coords[0], lng:coords[1], val:val});
       });
+      _dvMapState.areaPoints = points;
 
-      _dvRenderAreaMarkers(gmap, infoWin, points, _dvMapState.metric);
-      gmap.addListener("zoom_changed", function() { _dvRenderAreaMarkers(gmap, infoWin, points, _dvMapState.metric); });
-      gmap.addListener("idle", function() { _dvRenderAreaMarkers(gmap, infoWin, points, _dvMapState.metric); });
+      _dvRenderAreaMarkers(gmap, points, _dvMapState.metric);
+      gmap.addListener("zoom_changed", function() { if (_dvMapState.tier === "area") _dvRenderAreaMarkers(gmap, points, _dvMapState.metric); });
+      gmap.addListener("idle", function() { if (_dvMapState.tier === "area") _dvRenderAreaMarkers(gmap, points, _dvMapState.metric); });
 
       // Genuine geographic outliers (currently just Hatta) — always its own
       // marker, no clustering pass needed since it has no nearby neighbors.
@@ -484,16 +762,13 @@ function renderMap() {
         var dLat = coords[0] - _DV_MAP_ORIGIN.lat, dLng = coords[1] - _DV_MAP_ORIGIN.lng;
         var distKm = Math.sqrt(Math.pow(dLat*111, 2) + Math.pow(dLng*101, 2));
         if (distKm <= _DV_OUTLIER_KM) return;
-        var val = cfg.getVal(aData, name);
         var color = _dvMetricColor(0.5, cfg.polarity);
-        var geoS = computeGeoScore(name);
-        var popupHtml = _mapPopupHtml(name, aData, _dvMapState.metric, geoS, val, cfg.fmt(val));
         var mk = new google.maps.Marker({
           map: gmap, position: {lat:coords[0], lng:coords[1]},
           icon: {path: google.maps.SymbolPath.CIRCLE, scale: 9, fillColor: color, fillOpacity: 0.95, strokeColor: "#ffffff", strokeWeight: 1.5},
           title: name + " (outlying area)"
         });
-        mk.addListener("click", function() { infoWin.setContent(popupHtml); infoWin.open(gmap, mk); });
+        mk.addListener("click", function() { _dvShowPanel(_dvAreaInfoHtml(name, aData)); });
         _dvMapState.overlays.push(mk);
       });
 

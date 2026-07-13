@@ -128,6 +128,7 @@ module.exports = async function handler(req, res) {
 
       var types = [
         { key: "metro",       type: "subway_station", keyword: "metro", radius: 2500 },
+        { key: "mall",        type: "shopping_mall",                    radius: 4000 },
         { key: "school",      type: "school",                           radius: 2000 },
         { key: "hospital",    type: "hospital",                         radius: 3000 },
         { key: "supermarket", type: "supermarket",                      radius: 1500 },

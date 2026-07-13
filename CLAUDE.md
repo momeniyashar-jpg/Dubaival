@@ -461,6 +461,113 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-13 (session 11t)**: Interactive Map — two-tier drill-down
+  interaction, user-requested follow-up to 11s ("اگر شخصی روی منطقه بیزنس بی
+  کلیک کرد، اطلاعات مربوط به منطقه نمایش داده شود... و اگر زوم بیشتر شد و یک
+  ساختمان انتخاب شد، موارد مربوط به ساختمان..." — click an area → area info;
+  zoom in and select a building → building info), explicitly delegating the
+  click/selection engineering to Claude's judgment ("مسائل فنی... با تو
+  باشه") while asking for "no unwanted information" per click and to reuse
+  Google's own already-registered data rather than hand-curate a new list
+  ("در گوگل همه چیز ثبت هست، ما فقط باید دسته‌بندی کنیم").
+  - **Docked info panel** (`_dvShowPanel`/`_dvHidePanel`, `js/map.js`) —
+    replaces the old floating InfoWindow popup for area/building content with
+    a real scrollable side panel (absolutely positioned over the map, so it
+    never needs a Maps resize event), since the requested content (multiple
+    stat sections, live amenities, itemized rental-demand reasons) doesn't
+    fit an InfoWindow bubble. InfoWindow itself is kept only for the small
+    single-line Metro/Tram facts, unaffected.
+  - **Tier 1 — Area panel** (`_dvAreaInfoHtml`): clicking any area marker (or
+    the Hatta outlier marker) now opens a panel with a real Investment
+    Snapshot (yield/PSF/growth/DOM, all from `AREAS[]`, unchanged source of
+    truth), a real building count (`_dvAreaBuildingCount` — counts actual
+    `DB` entries whose `.a` matches the area, the same filter pattern
+    `estimateBldgTx()` already used elsewhere), the nearest Metro (free,
+    static, `computeGeoScore()` — no live call needed), and a live "Nearby
+    Essentials" grid (mall/hospital/school/supermarket) that calls the
+    EXISTING `/api/proxy-maps?action=amenities` endpoint the Analyzer's own
+    "Nearby Amenities" card already uses — same cache key format
+    (`dv_amenities_<area>`), so results are shared/reused across features
+    instead of a second hand-written per-area text blob. `AREA_AMENITIES`
+    (the static curated string blob used only in AI prompts) was deliberately
+    NOT used here — the user explicitly asked for Google's real registered
+    data, categorized, not another hardcoded list.
+  - **`api/proxy-maps.js` `amenities` action extended**: added a 6th category,
+    `mall` (`shopping_mall` place type, 4km radius — malls anchor Dubai
+    neighborhoods and are frequently 2-4km from a residential area's centroid,
+    wider than the existing hospital/school/supermarket radii), fully
+    backward-compatible (the Analyzer's own amenities card iterates its own
+    fixed 5-key list and simply ignores the new key).
+  - **Tier 2 — Building panel** (`_dvBuildingInfoHtml` + `_dvShowKeyBuildings`):
+    a new "📍 Show Key Buildings on Map" button in the area panel — an
+    EXPLICIT click, never automatic on zoom/pan (the user's "no unwanted
+    info" requirement) — geocodes (via the pre-existing
+    `/api/proxy-maps?action=geocode`, one real Google Geocoding call per
+    building, sessionStorage-cached so a building is never re-geocoded twice)
+    the area's top ~12 "key buildings" (`_dvAreaKeyBuildings` — real `DB`
+    entries for that area, sorted by grade rank then PSF descending; capped
+    at 12 rather than every building in the area, since some areas have
+    300+ tracked buildings and geocoding all of them on every visit would be
+    both slow and needlessly expensive), then drops one grade-colored marker
+    per building and zooms the map to fit them (capped at zoom 17). Clicking
+    a building marker opens a panel with PSF, service charge, estimated
+    gross yield (`estimateBuildingYield()`), estimated unit count
+    (`estimateBldgUnits()`), and the top 3 Rental Demand Score drivers
+    (`estimateRentalDemandScore()`) — every figure reuses the exact same
+    real valuation-engine functions the Analyzer/Smart Discovery already
+    call, nothing new fabricated. A generic "unit sizes run ~750–1,600 sqft"
+    range is shown instead of a fabricated single "total building size"
+    figure, since no per-building unit-mix data exists to make that number
+    real. Ends with a "Full Analysis in Analyzer →" button that prefills
+    `analyzerState.f.area`/`.building` and switches tabs — deliberately
+    leaves `val:null` (no fake instant valuation; size/price still need the
+    user's own input same as anywhere else in the app).
+  - **Explicit exit, not automatic**: a "← Back to Areas · N buildings in
+    X" pill control (`_dvRenderBackControl`, top-left over the map) appears
+    only in Building Tier and calls `_dvBackToAreas()`, which clears the
+    building markers, hides the panel, and re-renders the normal area-marker
+    layer from the exact same `points` array built on load (stashed on
+    `_dvMapState.areaPoints` since `_dvBackToAreas` is invoked from injected
+    HTML `onclick`, outside `renderMap()`'s own closure). A grade legend
+    (`_dvRenderGradeLegend`, one dot per grade 7 tiers) replaces the metric
+    legend while in Building Tier, since marker color there encodes grade,
+    not the selected metric.
+  - **State machine**: `_dvMapState.tier` ("area"|"building") gates the
+    zoom/pan re-render listeners (`if (_dvMapState.tier === "area")`) so
+    panning/zooming while Building Tier markers are visible doesn't
+    re-render area markers on top of them mid-transition; `renderMap()`
+    itself always resets to `tier:"area"` on a fresh call (switching metric
+    or re-opening the tab tears down the whole `gmap` instance anyway, so any
+    stale focus/markers from before would otherwise point at nothing).
+    `_dvMapCleanup()` now also clears building markers and the back control.
+  - Verified: a Node test (`_dvAreaBuildingCount`/`_dvAreaKeyBuildings`)
+    against real `DB` data — Business Bay returns a real building count and
+    12 key buildings correctly sorted by grade descending; a second test
+    building `_dvAreaInfoHtml`/`_dvBuildingInfoHtml` with mocked
+    `fetch`/`sessionStorage`/`document` — confirmed the area panel's
+    "Show Key Buildings"/"Explore" buttons wire to the right global
+    functions, the live amenities fetch resolves and populates its
+    placeholder div with real mocked place names, geocode results cache
+    correctly (second call for the same building makes zero additional
+    fetch calls), `_dvOpenInAnalyzer` sets `analyzerState.val:null` (no
+    fabricated valuation), and every real grade found in the DB
+    (`Ultra/A+/A/A-/B+/B/C`) has a corresponding rank + color entry; a third
+    test driving `_dvShowKeyBuildings`/`_dvBackToAreas` end-to-end through a
+    mocked `google.maps` — confirmed building markers are created and
+    fit-bounded, the back control and grade legend are pushed, clicking a
+    building marker shows its info in the panel, and `_dvBackToAreas`
+    correctly clears markers/panel/back-control and restores area tier; the
+    existing metric-registry test (2,429 checks, 0 errors) re-run with the
+    old `_mapPopupHtml` check replaced by an `_dvAreaInfoHtml` check (that
+    function was removed — superseded by the panel); `node -c` on both
+    touched files; and a real-browser Playwright pass confirming the map
+    tab, its docked (initially hidden) panel element, and the search box all
+    render with zero non-network console errors. Live rendering — confirming
+    the two-tier click flow visually against the real Google Maps API and a
+    live `GOOGLE_MAPS_KEY` — still requires the user's own check, same
+    sandboxed no-network limitation noted for every Maps-dependent feature
+    this session.
+
 - **2026-07-13 (session 11s)**: Interactive Map — removed the Voronoi
   cell-polygon layer entirely, per explicit, direct user instruction
   overriding the 11q/11r approach: "بیا اون پرده رنگی رو حذف کن و مناطق رو با
