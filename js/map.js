@@ -1,32 +1,31 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- MAP TAB (Google Maps) ---------------------------------------------------
-// 2026-07-13 redesign: real-world-radius Circle overlays (previous approach)
-// overlap by an unfixable, zoom-invariant proportion (see the old comment
-// history — two circles that overlap in real-world meters overlap by the
-// exact same proportion at every zoom level, since both the gap between
-// centers and each radius scale by the identical pixels-per-meter factor).
-// Session 11f patched around this with a separate fixed-pixel marker/cluster
-// layer on top of purely-decorative circles. This redesign removes circles
-// entirely and replaces them with real, non-overlapping VORONOI CELL polygons
-// (js/voronoi.js) — proper computational geometry, not an approximation, so
-// the region a user clicks is unambiguous at every zoom level with no second
-// interactive layer needed. Also adds: one shared continuous color scale for
-// every metric (previously growth/yield/turnover/liquidity used a manual RGB
-// blend while price/location used 3 discrete hardcoded tiers — inconsistent),
-// a new composite "Investment Score" metric (this map's new default), a
-// dynamic legend showing the REAL min/max of the data being shown (not
-// generic hardcoded labels), and an "Explore Buildings" action in every
-// popup that deep-links into Find → Smart Property Discovery pre-filtered to
-// that area — turning the map from a pure visualization into an actionable
-// discovery tool, matching how Zillow/Redfin/PropertyFinder maps work.
+// 2026-07-13 (session 11s), per explicit user direction: the session 11q/11r
+// Voronoi cell-polygon layer is REMOVED entirely, even after being fixed for
+// opacity/auto-pan in 11r — the user's point (correct) is that Google's own
+// base map ALREADY shows Dubai's real area/community/building divisions
+// (roads, neighborhood labels, landmarks), so drawing a second, competing
+// subdivision on top of it is unnecessary and was the root cause of every
+// visual problem so far (opaque color wash, obscured streets). DubAIVal's
+// job is only to plot OUR data on top of the real map, not draw a new one.
+// This redesign goes back to colored POINT MARKERS (one per area centroid,
+// the technique session 11f originally built) instead of any polygon/fill
+// layer — zero color curtain is possible by construction, since a marker's
+// footprint is a small dot, not an area-covering shape. js/voronoi.js is no
+// longer used anywhere and has been removed from the build.
+// Kept from the 11q/11r work: one shared continuous color scale for every
+// metric, the composite "Investment Score" metric (this map's default), a
+// dynamic legend showing the REAL min/max of the data being shown, the light
+// high-detail base theme (so neighborhood names/roads/buildings stay fully
+// legible), click-only popups (no mouseover-triggered InfoWindow, so no
+// auto-pan risk), the Places Autocomplete search box, and the "Explore
+// Buildings" popup CTA that deep-links into Find → Smart Property Discovery.
 var _dvMapState = {metric: "invest", gmap: null, overlays: [], clusterMarkers: []};
 
 // Areas genuinely far outside Dubai's urban core (Hatta ~97km east — the next
-// farthest tracked area is ~32km) get a simple marker instead of a Voronoi
-// cell: including them in the same diagram would stretch one shared bounding
-// box out to accommodate a single distant exclave, badly distorting every
-// other cell's shape for no visual benefit (Hatta has no nearby neighbors to
-// overlap with in the first place, so it never needed the fix).
+// farthest tracked area is ~32km) get their own always-solo marker: grouping
+// them into the same clustering pass as the urban core would average their
+// position toward a spot roughly halfway to Dubai, which is meaningless.
 var _DV_MAP_ORIGIN = {lat: 25.15, lng: 55.25};
 var _DV_OUTLIER_KM = 55;
 
@@ -38,7 +37,7 @@ function _dvMapCleanup() {
   }
 }
 
-// Re-run on every zoom/pan tick to rebuild the Voronoi layer at the right
+// Re-run on every zoom/pan tick to rebuild the marker layer at the right
 // level of detail — must NOT touch the map instance itself.
 function _dvClearOverlays() {
   _dvMapState.overlays.forEach(function(o) {
@@ -48,19 +47,12 @@ function _dvClearOverlays() {
   _dvMapState.overlays = [];
 }
 
-// 2026-07-13 (session 11q follow-up): the previous heavily-stripped dark
-// theme (poi/transit off, near-black roads) combined with an opaque 0.42
-// Voronoi fill made the actual map — streets, bridges, intersections,
-// buildings, communities — nearly invisible under a solid color wash (real
-// user-reported bug, screenshot showed a fully-opaque green blanket over
-// Al Quoz with zero road/building detail visible). Real estate buyers need
-// to see the physical map at least as much as the data overlay, so this
-// switches to a light, high-detail base style (POI/transit/buildings all
-// stay visible) with a light brand-gold tint on highways — matching how
-// Zillow/Redfin/PropertyFinder/Bayut all use light, detailed base maps
-// rather than stripped dark ones. Combined with the much lower, zoom-fading
-// fill opacity below (see _dvFillOpacityForZoom), the map itself now reads
-// clearly with the Voronoi layer as a subtle tint, not a curtain.
+// Light, high-detail base style — POI/transit/buildings/neighborhood labels
+// all stay fully visible, with a light brand-gold tint on highways — so
+// Dubai's own real streets, communities, and landmarks read clearly, exactly
+// what the user asked the map to show, with only small colored point
+// markers layered on top (no area-covering fill of any kind). Matches how
+// Zillow/Redfin/PropertyFinder/Bayut all use light, detailed base maps.
 var _GMAP_LIGHT_STYLES = [
   {elementType:"geometry",stylers:[{color:"#F5F3EE"}]},
   {elementType:"labels.text.fill",stylers:[{color:"#5B6472"}]},
@@ -184,22 +176,6 @@ function _dvMetricColor(ratio, polarity) {
   return "hsl(" + Math.round(hue) + ",68%,48%)";
 }
 
-// 2026-07-13 (session 11q follow-up): a proper Voronoi tessellation covers
-// 100% of the map with zero gaps between cells (unlike the old circles,
-// which had real empty space) — so ANY uniform fill opacity necessarily
-// tints the ENTIRE visible map, with no exceptions. Fading the fill toward
-// transparent as the user zooms into street level (where streets/buildings/
-// bridges actually need to be legible) while keeping a modest, still-legible
-// tint at city-wide zoom (where the color pattern IS the useful information)
-// fixes this without giving up the color layer entirely. The stroke/border
-// line — not the fill — now carries most of the "where does this region
-// end" information, matching how choropleth maps in professional analytics
-// tools (not just real estate) stay readable at every zoom level.
-function _dvFillOpacityForZoom(zoom, isHover) {
-  var base = zoom >= 15 ? 0.05 : zoom >= 13 ? 0.10 : zoom >= 11 ? 0.16 : 0.24;
-  return isHover ? Math.min(base + 0.14, 0.42) : base;
-}
-
 // Builds a metric-specific popup, plus a shared "Explore Buildings" CTA that
 // deep-links into Find → Smart Property Discovery pre-filtered to this area —
 // the map becomes an entry point into real building-level analysis, not a
@@ -249,13 +225,11 @@ function _dvExploreArea(areaName) {
 }
 
 // ── Level-of-detail grouping ─────────────────────────────────────────────
-// At low zoom, 280+ individual Voronoi cells packed across all of Dubai are
-// too fine-grained to read (same "too much visual detail at once" problem
-// overlapping circles had, just manifesting differently). Groups areas
-// within _DV_CLUSTER_PX screen pixels of each other into one virtual site
-// (averaged position + averaged metric value) at low zoom; splits into full
-// per-area resolution as the user zooms in — same threshold/technique
-// already proven for the marker-clustering layer this replaces.
+// At low zoom, 280+ individual area markers packed across all of Dubai are
+// too fine-grained to read/click reliably. Groups areas within _DV_CLUSTER_PX
+// screen pixels of each other into one virtual site (averaged position +
+// averaged metric value) at low zoom; splits into full per-area resolution
+// as the user zooms in — the same clustering technique session 11f built.
 var _DV_CLUSTER_PX = 46;
 var _DV_CLUSTER_MAX_ZOOM = 13; // above this zoom, always show full resolution
 
@@ -292,10 +266,17 @@ function _dvGroupForZoom(gmap, points) {
   return groups;
 }
 
-// Renders the Voronoi cell layer for the current metric + zoom level. Torn
-// down and rebuilt on every zoom/pan tick (cheap: ~30ms for the full 280+
-// point diagram, per the geometry tests in js/voronoi.js).
-function _dvRenderVoronoiLayer(gmap, infoWin, points, metric) {
+function _dvMarkerScaleForZoom(zoom) {
+  return zoom >= 15 ? 11 : zoom >= 13 ? 9 : zoom >= 11 ? 8 : 7;
+}
+
+// Renders one colored point marker per area (or per cluster of nearby areas
+// at low zoom) for the current metric + zoom level — Dubai's own real
+// streets/communities/buildings stay fully visible underneath, since a
+// marker's footprint is a small dot, never an area-covering shape. Torn down
+// and rebuilt on every zoom/pan tick so the level-of-detail grouping always
+// matches the current view.
+function _dvRenderAreaMarkers(gmap, infoWin, points, metric) {
   _dvClearOverlays();
   var cfg = DV_MAP_METRICS[metric];
   var groups = _dvGroupForZoom(gmap, points);
@@ -305,61 +286,46 @@ function _dvRenderVoronoiLayer(gmap, infoWin, points, metric) {
   var vMin = Math.min.apply(null, vals), vMax = Math.max.apply(null, vals);
   _dvMapState.legendMin = vMin;
   _dvMapState.legendMax = vMax;
+  var scale = _dvMarkerScaleForZoom(gmap.getZoom());
 
-  var sites = groups.map(function(g) {
-    var xy = _dvLatLngToXY(g.lat, g.lng, _DV_MAP_ORIGIN.lat, _DV_MAP_ORIGIN.lng);
-    return {x: xy.x, y: xy.y, group: g};
-  });
-  var xs = sites.map(function(s){return s.x;}), ys = sites.map(function(s){return s.y;});
-  var pad = 25000; // meters — generous margin so edge cells aren't clipped tight
-  var bbox = {
-    minX: Math.min.apply(null, xs) - pad, maxX: Math.max.apply(null, xs) + pad,
-    minY: Math.min.apply(null, ys) - pad, maxY: Math.max.apply(null, ys) + pad
-  };
-  var cells = dvComputeVoronoi(sites, bbox);
-  var curZoom = gmap.getZoom();
-  var baseOpacity = _dvFillOpacityForZoom(curZoom, false);
-  var hoverOpacity = _dvFillOpacityForZoom(curZoom, true);
-
-  cells.forEach(function(c) {
-    if (c.cell.length < 3) return;
-    var g = c.site.group;
+  groups.forEach(function(g) {
     var ratio = vMax > vMin ? (g.val - vMin) / (vMax - vMin) : 0.5;
     var color = _dvMetricColor(ratio, cfg.polarity);
-    var path = c.cell.map(function(pt) {
-      var ll = _dvXYToLatLng(pt.x, pt.y, _DV_MAP_ORIGIN.lat, _DV_MAP_ORIGIN.lng);
-      return {lat: ll.lat, lng: ll.lng};
-    });
-    // 2026-07-13 fix: popups now open ONLY on click, never on mouseover.
-    // Google's InfoWindow auto-pans the map when opened/repositioned near a
-    // viewport edge — with 100%-coverage, gap-free Voronoi cells the cursor
-    // is ALWAYS over some polygon and constantly crosses cell borders, so a
-    // mouseover-triggered open fired repeatedly and made the map scroll
-    // itself uncontrollably (real user-reported bug). Hover still gives
-    // visual feedback via a pure setOptions() opacity/stroke bump, which
-    // never touches the InfoWindow and can't trigger this.
-    var polygon = new google.maps.Polygon({
-      map: gmap, paths: path,
-      strokeColor: color, strokeOpacity: 0.85, strokeWeight: 2,
-      fillColor: color, fillOpacity: baseOpacity,
-      clickable: true
-    });
     var isCluster = g.members.length > 1;
+
     if (isCluster) {
-      polygon.addListener("click", function() {
+      var clusterMk = new google.maps.Marker({
+        map: gmap, position: {lat:g.lat, lng:g.lng},
+        icon: {path: google.maps.SymbolPath.CIRCLE, scale: scale + 7, fillColor: "#D4AF37", fillOpacity: 0.95, strokeColor: "#ffffff", strokeWeight: 2},
+        label: {text: String(g.members.length), color: "#070B14", fontWeight: "800", fontSize: "11px"},
+        title: g.members.length + " areas — click to zoom in",
+        zIndex: 20
+      });
+      clusterMk.addListener("click", function() {
         var bounds = new google.maps.LatLngBounds();
         g.members.forEach(function(m) { bounds.extend({lat:m.lat, lng:m.lng}); });
         var zoomBefore = gmap.getZoom();
         gmap.fitBounds(bounds, 60);
         google.maps.event.addListenerOnce(gmap, "idle", function() { if (gmap.getZoom() <= zoomBefore) gmap.setZoom(zoomBefore + 3); });
       });
+      _dvMapState.overlays.push(clusterMk);
     } else {
       var m = g.members[0];
-      polygon.addListener("click", function(e) { infoWin.setContent(m.popupHtml); infoWin.setPosition(e.latLng); infoWin.open(gmap); });
+      var mk = new google.maps.Marker({
+        map: gmap, position: {lat:m.lat, lng:m.lng},
+        icon: {path: google.maps.SymbolPath.CIRCLE, scale: scale, fillColor: color, fillOpacity: 0.92, strokeColor: "#ffffff", strokeWeight: 2},
+        title: m.name, zIndex: 10
+      });
+      // Popups open ONLY on click — hover just enlarges the marker via a
+      // plain setIcon() call, never touching the InfoWindow, so there is no
+      // auto-pan risk (the bug that made the 11q/11r polygon layer scroll
+      // the map on its own). The browser's native title tooltip already
+      // gives the area name on hover for free.
+      mk.addListener("mouseover", function() { mk.setIcon({path: google.maps.SymbolPath.CIRCLE, scale: scale + 3, fillColor: color, fillOpacity: 1, strokeColor: "#ffffff", strokeWeight: 3}); });
+      mk.addListener("mouseout", function() { mk.setIcon({path: google.maps.SymbolPath.CIRCLE, scale: scale, fillColor: color, fillOpacity: 0.92, strokeColor: "#ffffff", strokeWeight: 2}); });
+      mk.addListener("click", function() { infoWin.setContent(m.popupHtml); infoWin.open(gmap, mk); });
+      _dvMapState.overlays.push(mk);
     }
-    polygon.addListener("mouseover", function() { polygon.setOptions({fillOpacity:hoverOpacity, strokeWeight:3}); });
-    polygon.addListener("mouseout", function() { polygon.setOptions({fillOpacity:baseOpacity, strokeWeight:2}); });
-    _dvMapState.overlays.push(polygon);
   });
 
   _dvRenderLegend(gmap, cfg, vMin, vMax);
@@ -498,7 +464,7 @@ function renderMap() {
         var aData = AREAS[name]; if (!aData) return;
         var dLat = coords[0] - _DV_MAP_ORIGIN.lat, dLng = coords[1] - _DV_MAP_ORIGIN.lng;
         var distKm = Math.sqrt(Math.pow(dLat*111, 2) + Math.pow(dLng*101, 2)); // rough km at this latitude
-        if (distKm > _DV_OUTLIER_KM) return; // outliers get a plain marker below, not a Voronoi cell
+        if (distKm > _DV_OUTLIER_KM) return; // outliers get their own always-solo marker below
         var val = cfg.getVal(aData, name);
         var geoS = computeGeoScore(name);
         var fmtVal = cfg.fmt(val);
@@ -506,13 +472,12 @@ function renderMap() {
         points.push({name:name, lat:coords[0], lng:coords[1], val:val, popupHtml:popupHtml});
       });
 
-      _dvRenderVoronoiLayer(gmap, infoWin, points, _dvMapState.metric);
-      gmap.addListener("zoom_changed", function() { _dvRenderVoronoiLayer(gmap, infoWin, points, _dvMapState.metric); });
-      gmap.addListener("idle", function() { _dvRenderVoronoiLayer(gmap, infoWin, points, _dvMapState.metric); });
+      _dvRenderAreaMarkers(gmap, infoWin, points, _dvMapState.metric);
+      gmap.addListener("zoom_changed", function() { _dvRenderAreaMarkers(gmap, infoWin, points, _dvMapState.metric); });
+      gmap.addListener("idle", function() { _dvRenderAreaMarkers(gmap, infoWin, points, _dvMapState.metric); });
 
-      // Genuine geographic outliers (currently just Hatta) — plain marker,
-      // no Voronoi cell needed since they have no nearby neighbors to
-      // overlap with in the first place.
+      // Genuine geographic outliers (currently just Hatta) — always its own
+      // marker, no clustering pass needed since it has no nearby neighbors.
       AREA_NAMES.forEach(function(name) {
         var coords = AREA_COORDS[name]; if (!coords) return;
         var aData = AREAS[name]; if (!aData) return;

@@ -156,10 +156,10 @@ The app was split from a single 1.1MB `index-6.html` into modular files:
 - **`js/portfolio.js`** — `renderPortfolio()`, `computeAssetMetrics()`,
   `computePortfolioHealth()`, projections, what-if.
 - **`js/map.js`** — Interactive Map tab (Google Maps — not Leaflet, this note
-  was stale; corrected 2026-07-13). Voronoi-cell region rendering, metric
+  was stale; corrected 2026-07-13). Colored point markers per area (session
+  11s — replaced the short-lived Voronoi-cell polygon layer from sessions
+  11q/11r; `js/voronoi.js` was removed, see 2026-07-13 work log), metric
   registry, composite Investment Score.
-- **`js/voronoi.js`** — Dependency-free 2D Voronoi cell generator (half-plane
-  intersection method) used only by `js/map.js`.
 - **`js/deals.js`** — Deal Network, `renderDeals()`, `renderDealForm()`,
   `renderAgentHub()`, `renderAdminDashboard()`, media, inquiries, referrals.
 - **`js/chat.js`** — `renderChat()`.
@@ -460,6 +460,63 @@ features continue working exactly as before. Zero breakage.
 - `theme-color` meta tag added (`#070B14`)
 
 ## Recent work log (most recent first)
+
+- **2026-07-13 (session 11s)**: Interactive Map — removed the Voronoi
+  cell-polygon layer entirely, per explicit, direct user instruction
+  overriding the 11q/11r approach: "بیا اون پرده رنگی رو حذف کن و مناطق رو با
+  همون تقسیم بندی خود نقشه اورجینال دبی نشون بده... اصلا نیاز نیست تقسیم
+  بندی جدید داشته باشی... فقط تو باید اطلاعاتی که ما داریم رو روی نقشه پیاده
+  کنی" (remove that color curtain and show areas using Dubai's own original
+  map division — no new subdivision needed — just plot OUR data onto that
+  real map). The user's point: Google's base map already shows Dubai's real
+  streets, communities, and landmarks; drawing any second polygon layer on
+  top — even the much-lower-opacity, click-only version shipped in 11r — was
+  an unnecessary competing subdivision and the root cause of every visual
+  problem in this feature so far.
+  - **Removed**: the entire `_dvRenderVoronoiLayer` function and `js/voronoi.js`
+    (deleted — dependency-free Voronoi generator, no longer used anywhere;
+    also dropped its `<script>` tag from `index.html`). No app code besides
+    `js/map.js` ever referenced it (confirmed via a full-repo grep before
+    deleting).
+  - **Replaced with**: `_dvRenderAreaMarkers()` — one small colored
+    `google.maps.Marker` circle per area centroid (or per cluster of nearby
+    areas at low zoom, reusing the existing `_dvGroupForZoom` LOD grouping
+    unchanged), colored via the same `_dvMetricColor()` scale as before. A
+    marker's footprint is a single small dot, never an area-covering shape,
+    so a "color curtain" is impossible by construction — this is the same
+    point-marker technique session 11f originally built, now combined with
+    the metric color-coding/dynamic-legend/Explore-Buildings-CTA work from
+    11q that 11f didn't have.
+  - **Click-only interaction preserved**: popups still open only on marker
+    `click`, never `mouseover` (kept from the 11r fix, still correct here —
+    though markers are sparse points so the auto-pan risk was already much
+    lower than with gap-free polygons, there's no reason to reintroduce it).
+    Hover now enlarges the marker via a plain `setIcon()` call and relies on
+    the marker's native `title` attribute for a free browser tooltip showing
+    the area name — no JS-driven popup on hover at all.
+  - Kept unchanged from 11q/11r: the light, high-detail base theme
+    (`_GMAP_LIGHT_STYLES` — still needed so Dubai's real neighborhood labels/
+    roads/buildings are the ones the user actually sees), `DV_MAP_METRICS`
+    registry, `_dvInvestmentScore()`, `_mapPopupHtml()`, the dynamic legend,
+    the Places Autocomplete search box, and the "Explore Buildings" popup CTA.
+  - Verified: a new Node test driving `_dvRenderAreaMarkers` through a
+    corrected mocked `google.maps.Marker` API (fixed the projection mock to
+    match Google's real 256×2^zoom world-coordinate system, which a stale
+    0–1-normalized mock from 11q had been using) at 3 zoom levels — confirmed
+    clustering produces fewer, larger cluster markers at city-wide zoom (13
+    markers: 2 solo + 11 clusters at zoom 9) and full per-area resolution
+    above the cluster threshold (286 solo markers at zoom 13+), zero
+    mouseover-triggered `infoWin.open()` calls at any zoom, every marker keeps
+    a `click` listener; the existing metric-registry Node test (2,429 checks,
+    0 errors) re-run unaffected; `node -c js/map.js`; and a real-browser
+    Playwright pass confirming zero non-network console errors (in
+    particular, no 404/reference error from the removed `voronoi.js` script
+    tag) and that the search box + metric buttons still render correctly.
+    Live rendering against the real Google Maps API — confirming the
+    markers visually sit on top of Dubai's real base-map communities exactly
+    as intended — still requires the user's own check, same sandboxed
+    no-network limitation noted for every Maps-dependent feature this
+    session.
 
 - **2026-07-13 (session 11r)**: Interactive Map — corrected a real regression
   in the session 11q Voronoi redesign, reported by the user with a screenshot
