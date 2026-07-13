@@ -457,6 +457,59 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-13 (session 11o)**: Rental Demand Score — real, itemized,
+  BUILDING-specific reasons why a building would/wouldn't rent fast (Find →
+  Smart Property Discovery), direct follow-up to session 11n: user pointed
+  out that the area-level rental-velocity signal still can't answer "why does
+  THIS building rent fast" with reasons — the exact buyer question ("advise
+  me a more demandable building, easier to rent... with reasons why").
+  - **Why not just fabricate per-building days-to-rent**: there isn't enough
+    real listing volume per individual building to measure it statistically
+    (most buildings have 1-2 active rental listings at once — not enough for
+    a meaningful average) — only the AREA has enough volume (session 11n).
+    Presenting a fake per-building number would violate the accuracy
+    principle this whole session has been enforcing. Solution instead: build
+    a transparent, explainable score from REAL structural factors real estate
+    professionals actually use to judge rentability — the reasons matter more
+    than a single number, so every contribution is itemized and visible.
+  - **`estimateRentalDemandScore(bData,aData,psf,bldgUnits,rentVel,areaName)`**
+    (`js/valuation.js`) — 0-100 score (50=neutral), additive drivers, each
+    backed by a real field:
+    1. Price competitiveness (building PSF vs its own area average — cheaper
+       per sqft for similar rent attracts faster interest).
+    2. Grade/tenant-pool breadth (Ultra/A+ = narrower HNW/corporate pool;
+       A/A- = widest professional+family pool, usually fastest; B/B+ =
+       affordability-driven; C = narrowest appeal) — NOT just "premium is
+       better," since an overly narrow luxury pool can be slower to fill
+       despite paying more per unit once filled.
+    3. Service charge burden as % of the unit's OWN price (a well-known
+       Dubai rental friction point) — correctly scales with the building's
+       actual price tier, not a flat SC number.
+    4. Building scale/liquidity (`estimateBldgUnits()`, already used for the
+       existing sales-turnover metric) — larger buildings have a bigger,
+       more active rental ecosystem.
+    5. The REAL area rental-velocity signal from session 11n
+       (`getRentalVelocity()`) when ready — lifts/drags every building in
+       that area; shows "still building up" (not a fabricated value) when
+       not yet ready.
+  - **Wired into Smart Discovery**: new "Best Rental Demand" sort option, and
+    a "Rental Demand: <tier> (<score>) · Why?" pill on every result — clicking
+    it (with `stopPropagation` so it doesn't trigger the row's own
+    navigate-to-Analyzer click) expands a real itemized breakdown (▲/▼ per
+    driver, full reason text), giving the buyer the actual reasoning, not
+    just a number.
+  - Verified: a standalone Node test with 3 synthetic scenarios (cheap/broad-
+    grade/large-building/fast-area → 100 Very High; expensive/Ultra/small/
+    slow-area → 30 Below Average; neutral/area-data-not-ready → 61 High with
+    the graceful "still building up" driver, no fabricated value) — correct
+    monotonic ordering and real, differentiated reasoning in every case; a
+    full-database simulation across all 9,227 real buildings (0 errors, 43
+    distinct scores, range 30-92); `node -c` on both touched files; the full
+    valuation/asset regression harness (0 errors); and a real-browser
+    Playwright test driving the actual Smart Discovery UI — sorted correctly
+    by demand score descending, clicking a "Why?" pill correctly expanded the
+    real driver text in the live DOM, zero non-network console errors.
+
 - **2026-07-13 (session 11n)**: Real area-level rental-VELOCITY signal — "how
   fast does this area actually rent" (Find → Smart Property Discovery), direct
   follow-up to session 11m: user pointed out that yield alone doesn't answer

@@ -888,6 +888,100 @@ function estimateBuildingRentYield(bData,aData,beds,isVilla,psf){
   return{estRent:estRent,estPrice:estPrice,size:size,gross:gross,net:net};
 }
 
+// ── Rental Demand Score ──────────────────────────────────────────────────
+// Answers "why would/wouldn't THIS building rent fast/easily" with real,
+// itemized, building-specific reasons — without pretending to have measured
+// per-building days-to-rent data we don't have (only the AREA has that, via
+// getRentalVelocity()). This is a REASONED ASSESSMENT from real structural
+// factors real estate professionals actually use to judge rentability, each
+// one backed by an actual field in our data (never a fabricated number):
+//   1. Price competitiveness — building PSF vs its own area average. A unit
+//      priced below the area average, for the same rent, is cheaper for a
+//      tenant per sqft and typically attracts more/faster interest.
+//   2. Grade/tenant-pool breadth — Ultra/A+ narrows the pool to HNW/corporate
+//      tenants (steady but smaller); A/A- hits the widest professional+family
+//      pool; B/C widens further via affordability but loses some appeal.
+//   3. Service charge burden — high SC relative to the unit's own price is a
+//      well-known Dubai rental friction point (tenants feel it via building
+//      fees/amenities cost even when the landlord pays it directly).
+//   4. Building scale/liquidity — larger buildings (BLDG_UNITS) have a bigger,
+//      more active pool of agents/tenants already familiar with the building,
+//      and more comparable listings to benchmark against.
+//   5. Area rental velocity — the REAL, measured area-level signal from
+//      getRentalVelocity(), when it's ready (see supabase-rental-liquidity-schema.sql).
+// Score is 0-100 (50 = neutral baseline), each driver additive so it stays
+// fully explainable — the point is the reasons list, not the number.
+function estimateRentalDemandScore(bData,aData,psf,bldgUnits,rentVel,areaName){
+  if(!aData||!psf||psf<=0)return null;
+  var areaLabel=areaName||"this area";
+  var score=50;
+  var drivers=[];
+
+  var areaPsf=aData.psf||psf;
+  var priceRatio=areaPsf>0?(psf/areaPsf):1;
+  if(priceRatio<=0.80){
+    score+=15;
+    drivers.push({label:"Priced below area average",impact:"+",reason:"This building is priced "+Math.round((1-priceRatio)*100)+"% below the "+areaLabel+" average PSF — for similar rent, tenants get more value per sqft, which typically attracts faster interest."});
+  }else if(priceRatio<=0.95){
+    score+=6;
+    drivers.push({label:"Competitively priced",impact:"+",reason:"Priced modestly below the area average, a mild advantage for tenant interest."});
+  }else if(priceRatio>=1.35){
+    score-=12;
+    drivers.push({label:"Priced well above area average",impact:"-",reason:"This building is priced "+Math.round((priceRatio-1)*100)+"% above the area average PSF — a narrower pool of tenants can justify the premium, which can slow down leasing."});
+  }else if(priceRatio>=1.1){
+    score-=4;
+    drivers.push({label:"Priced above area average",impact:"-",reason:"Priced somewhat above the area average, a mild drag on tenant interest."});
+  }
+
+  var grade=bData&&bData.g;
+  if(grade==="Ultra"||grade==="A+"){
+    score+=4;
+    drivers.push({label:"Premium/branded appeal",impact:"+",reason:"\""+grade+"\"-grade branded residences draw steady demand from HNW and corporate tenants, though this pool is smaller than the mainstream market."});
+  }else if(grade==="A"||grade==="A-"){
+    score+=12;
+    drivers.push({label:"Broad tenant appeal",impact:"+",reason:"\""+grade+"\"-grade buildings hit the widest tenant pool — professionals and families who want quality without an ultra-luxury premium — usually the fastest-moving segment."});
+  }else if(grade==="B+"||grade==="B"){
+    score+=6;
+    drivers.push({label:"Affordability-driven demand",impact:"+",reason:"\""+grade+"\"-grade buildings attract budget-conscious tenants through affordability, a real but somewhat narrower driver than the A/A- segment."});
+  }else if(grade==="C"){
+    score-=8;
+    drivers.push({label:"Limited grade appeal",impact:"-",reason:"\"C\"-grade buildings typically see the narrowest tenant interest and can take longer to lease."});
+  }
+
+  var scRatio=psf>0?(((bData&&bData.sc)||aData.sc||15)/psf*100):0;
+  if(scRatio>=2.2){
+    score-=8;
+    drivers.push({label:"High service charge load",impact:"-",reason:"Service charge is a high share of this unit's own price ("+scRatio.toFixed(1)+"%) — a well-known Dubai rental friction point that can deter cost-conscious tenants."});
+  }else if(scRatio<=1.0){
+    score+=5;
+    drivers.push({label:"Low service charge load",impact:"+",reason:"Service charge is a low share of this unit's price ("+scRatio.toFixed(1)+"%) — one less friction point for prospective tenants."});
+  }
+
+  if(bldgUnits>=400){
+    score+=10;
+    drivers.push({label:"Large, liquid building",impact:"+",reason:"With "+bldgUnits.toLocaleString()+"+ units, this building has an active, well-established rental market — more agents familiar with it and more comparable listings for tenants to benchmark against."});
+  }else if(bldgUnits>0&&bldgUnits<60){
+    score-=5;
+    drivers.push({label:"Small building",impact:"-",reason:"With only "+bldgUnits+" units, there are fewer comparable rentals in this specific building, which can mean a smaller pool of agents actively marketing it."});
+  }
+
+  if(rentVel&&rentVel.ready){
+    if(rentVel.avgDaysListed<=21){
+      score+=15;
+      drivers.push({label:"Area rents fast",impact:"+",reason:"Rental listings in "+areaLabel+" rent in ~"+Math.round(rentVel.avgDaysListed)+" days on average (measured from "+rentVel.sampleSize+" tracked listings) — strong underlying area-wide demand that lifts every building here, including this one."});
+    }else if(rentVel.avgDaysListed>=45){
+      score-=12;
+      drivers.push({label:"Area rents slowly",impact:"-",reason:"Rental listings in "+areaLabel+" take ~"+Math.round(rentVel.avgDaysListed)+" days on average to rent (measured from "+rentVel.sampleSize+" tracked listings) — a headwind that affects every building here, including this one."});
+    }
+  }else{
+    drivers.push({label:"Area rental-speed data still building up",impact:"·",reason:"We're actively tracking real rental listings in this area to measure actual time-to-rent — check back in a few weeks for a measured (not estimated) area rental-speed signal."});
+  }
+
+  score=Math.max(0,Math.min(100,Math.round(score)));
+  var tier=score>=75?"Very High":score>=60?"High":score>=40?"Moderate":score>=25?"Below Average":"Low";
+  return{score:score,tier:tier,drivers:drivers};
+}
+
 function computeRentalValuation(f){
   f.area=resolveDLDArea(f.area);
   var buildingVal=(f.building||"").toLowerCase().trim();

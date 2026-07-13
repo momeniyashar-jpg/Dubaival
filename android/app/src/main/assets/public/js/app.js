@@ -161,7 +161,7 @@ function renderFind(){
   var sfG3=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"12px"});
   var sfMinP=div({});sfMinP.appendChild(lbl("Min PSF (AED)"));sfMinP.appendChild(inp(Object.assign({},I(),{fontSize:"11px",padding:"7px 8px"}),"e.g. 800","number",sf.minPSF,function(v){sf.minPSF=v;}));sfG3.appendChild(sfMinP);
   var sfMaxP=div({});sfMaxP.appendChild(lbl("Max PSF (AED)"));sfMaxP.appendChild(inp(Object.assign({},I(),{fontSize:"11px",padding:"7px 8px"}),"e.g. 2500","number",sf.maxPSF,function(v){sf.maxPSF=v;}));sfG3.appendChild(sfMaxP);
-  var sfSort=div({});sfSort.appendChild(lbl("Sort By"));sfSort.appendChild(mkSelect(Object.assign({},S(),{fontSize:"11px",padding:"7px 8px"}),["Highest Yield","Lowest PSF","Highest Growth","Best Liquidity","Best Turnover","Fastest to Rent (Area)"],{yield:"Highest Yield",psfAsc:"Lowest PSF",growth:"Highest Growth",liquidity:"Best Liquidity",turnover:"Best Turnover",rentSpeed:"Fastest to Rent (Area)"}[sf.sort]||"Highest Yield",function(v){sf.sort={"Highest Yield":"yield","Lowest PSF":"psfAsc","Highest Growth":"growth","Best Liquidity":"liquidity","Best Turnover":"turnover","Fastest to Rent (Area)":"rentSpeed"}[v]||"yield";}));sfG3.appendChild(sfSort);
+  var sfSort=div({});sfSort.appendChild(lbl("Sort By"));sfSort.appendChild(mkSelect(Object.assign({},S(),{fontSize:"11px",padding:"7px 8px"}),["Highest Yield","Lowest PSF","Highest Growth","Best Liquidity","Best Turnover","Fastest to Rent (Area)","Best Rental Demand"],{yield:"Highest Yield",psfAsc:"Lowest PSF",growth:"Highest Growth",liquidity:"Best Liquidity",turnover:"Best Turnover",rentSpeed:"Fastest to Rent (Area)",demand:"Best Rental Demand"}[sf.sort]||"Highest Yield",function(v){sf.sort={"Highest Yield":"yield","Lowest PSF":"psfAsc","Highest Growth":"growth","Best Liquidity":"liquidity","Best Turnover":"turnover","Fastest to Rent (Area)":"rentSpeed","Best Rental Demand":"demand"}[v]||"yield";}));sfG3.appendChild(sfSort);
   sfCard.appendChild(sfG3);
 
   sfCard.appendChild(btn({width:"100%",padding:"11px",borderRadius:"10px",border:"none",background:"linear-gradient(135deg,#C9A84C,#D4A843)",color:"#fff",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em"},"DISCOVER PROPERTIES ◆",function(){
@@ -206,11 +206,18 @@ function renderFind(){
       // rental-speed data exists), shown/labeled as such so it's never
       // confused with the building-specific yield above.
       var rentVel=(typeof getRentalVelocity==="function")?getRentalVelocity(bData.a):null;
-      results.push({name:key,area:bData.a,psf:_psf,lo:_vdb?_vdb.lo:bData.lo,hi:_vdb?_vdb.hi:bData.hi,sc:bData.sc||aData.sc||15,grade:bData.g||"N/A",yield:avgYield,netYield:netYield,growth3:gr[1],dom:dom,txVol:txVol,turnover:turnover,totalReturn:totalReturn,signal:signal,rentVel:rentVel});
+      // Rental Demand Score — answers "why would/wouldn't this SPECIFIC
+      // building rent fast" with real, itemized, building-specific reasons
+      // (price vs area, grade/tenant-pool breadth, service charge load,
+      // building scale, plus the real area rental-speed signal above) —
+      // see estimateRentalDemandScore() in js/valuation.js.
+      var demand=(typeof estimateRentalDemandScore==="function")?estimateRentalDemandScore(bData,aData,_psf,bldgUnits,rentVel,bData.a):null;
+      results.push({name:key,area:bData.a,psf:_psf,lo:_vdb?_vdb.lo:bData.lo,hi:_vdb?_vdb.hi:bData.hi,sc:bData.sc||aData.sc||15,grade:bData.g||"N/A",yield:avgYield,netYield:netYield,growth3:gr[1],dom:dom,txVol:txVol,turnover:turnover,totalReturn:totalReturn,signal:signal,rentVel:rentVel,demand:demand});
     });
     if(sf.sort==="yield")results.sort(function(a,b){return b.yield-a.yield;});
     else if(sf.sort==="psfAsc")results.sort(function(a,b){return a.psf-b.psf;});
     else if(sf.sort==="growth")results.sort(function(a,b){return b.growth3-a.growth3;});
+    else if(sf.sort==="demand")results.sort(function(a,b){return (b.demand?b.demand.score:0)-(a.demand?a.demand.score:0);});
     else if(sf.sort==="liquidity")results.sort(function(a,b){return a.dom-b.dom;});
     else if(sf.sort==="turnover")results.sort(function(a,b){return b.turnover-a.turnover;});
     else if(sf.sort==="rentSpeed")results.sort(function(a,b){
@@ -277,7 +284,38 @@ function renderFind(){
       // Area-level rental speed (not building-specific — no per-building
       // rental-DOM data exists, so this is deliberately labeled "Area").
       if(r.rentVel&&r.rentVel.ready)rPills.appendChild(pill("Area rents in ~"+Math.round(r.rentVel.avgDaysListed)+"d",r.rentVel.avgDaysListed<=21?"green":r.rentVel.avgDaysListed<=45?"yellow":"red"));
+      // Rental Demand Score — building-specific, with real itemized reasons
+      // (see estimateRentalDemandScore() in js/valuation.js). Click toggles
+      // the "why" breakdown without triggering the row's own navigate-to-
+      // Analyzer click handler.
+      var demandBody=null;
+      if(r.demand){
+        var demandColor=r.demand.score>=60?"green":r.demand.score>=40?"yellow":"red";
+        var demandPill=pill("Rental Demand: "+r.demand.tier+" ("+r.demand.score+") · Why?",demandColor);
+        demandPill.style.cursor="pointer";
+        demandPill.addEventListener("click",function(ev){
+          ev.stopPropagation();
+          if(!demandBody)return;
+          demandBody.style.display=demandBody.style.display==="none"?"block":"none";
+        });
+        rPills.appendChild(demandPill);
+      }
       row.appendChild(rPills);
+      if(r.demand&&r.demand.drivers&&r.demand.drivers.length){
+        demandBody=el("div",{style:{display:"none",marginTop:"8px",padding:"10px 12px",background:"rgba(255,255,255,0.02)",borderRadius:"8px",border:"1px solid "+cl.border}});
+        r.demand.drivers.forEach(function(d){
+          var dColor=d.impact==="+"?cl.green:d.impact==="-"?cl.red:cl.sub;
+          var dRow=div({style:{marginBottom:"6px",display:"flex",gap:"6px",alignItems:"flex-start"}});
+          dRow.appendChild(span({style:{color:dColor,fontSize:"11px",fontWeight:"700",flexShrink:"0"}},d.impact==="+"?"▲":d.impact==="-"?"▼":"•"));
+          var dText=div({});
+          dText.appendChild(div({style:{color:cl.white,fontSize:"10.5px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"}},d.label));
+          dText.appendChild(div({style:{color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5"}},d.reason));
+          dRow.appendChild(dText);
+          demandBody.appendChild(dRow);
+        });
+        demandBody.addEventListener("click",function(ev){ev.stopPropagation();});
+        row.appendChild(demandBody);
+      }
       sfResCard.appendChild(row);
     });
     if(sf.allResults&&sf.allResults.length>sf.results.length){
