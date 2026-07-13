@@ -179,7 +179,12 @@ function renderFind(){
       var _vdb=typeof VALUATION_DB!=="undefined"&&VALUATION_DB[key]?VALUATION_DB[key]:null;
       var _psf=_vdb?_vdb.p:bData.p;
       if(_psf<minP||_psf>maxP)return;
-      var yi=aData.y||[5,7];var avgYield=(yi[0]+yi[1])/2;
+      // Real building-level yield (scaled from the area band by this specific
+      // building's own PSF + grade), not the area's flat yield stamped on
+      // every building — see estimateBuildingYield() in js/valuation.js for
+      // why every building in an area used to show an identical number here.
+      var bYield=estimateBuildingYield(bData,aData,_psf)||{gross:(aData.y||[5,7])[0],net:0};
+      var avgYield=bYield.gross;
       if(avgYield<minY)return;
       var gr=aData.g||[3,9,16];
       if(gr[1]<minG)return;
@@ -192,7 +197,7 @@ function renderFind(){
       var bldgUnits=estimateBldgUnits(key,bData,isV);
       var bldgTx=estimateBldgTx(key,bData.a,aData,bData);
       var turnover=bldgUnits>0?Math.round(bldgTx/bldgUnits*1000)/10:0;
-      var netYield=avgYield-((bData.sc||aData.sc||15)/_psf*100);
+      var netYield=bYield.net;
       var totalReturn=netYield+gr[1]/3;
       var prRatio=avgYield>0?(100/avgYield):20;
       var signal=prRatio<15?"Undervalued":prRatio<20?"Fair Value":prRatio<25?"Elevated":"Overheated";
@@ -702,7 +707,6 @@ function renderFind(){
     var queryLower=(query||"").toLowerCase().trim();
     var bedsNumMap={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5};
     var bn=bedsNumMap[beds]||2;
-    var sizeEst=beds==="Studio"?500:beds==="1 BR"?750:beds==="2 BR"?1100:beds==="3 BR"?1600:2200;
     var dbResults=[];
     Object.entries(DB).forEach(function(e){
       var key=e[0],val=e[1];
@@ -711,15 +715,22 @@ function renderFind(){
       if(bldgFilter.length>1&&key.indexOf(bldgFilter)<0)return;
       if(queryLower.length>1&&!bldgFilter&&key.indexOf(queryLower)<0&&(val.a||"").toLowerCase().indexOf(queryLower)<0)return;
       if(areaMatch){
-        var estPrice=val.p*sizeEst;
-        if(maxPrice&&estPrice>maxPrice)return;
         var aData=AREAS[val.a];
-        var avgYield=aData&&aData.y?((aData.y[0]+aData.y[1])/2):6;
-        var estRent=Math.round(estPrice*avgYield/100);
+        var isV=VILLA_AREAS&&VILLA_AREAS.has&&VILLA_AREAS.has(val.a);
+        // Real rent (this building's grade + the area's actual rent benchmark
+        // for this bed count) over a real building-PSF-derived price, instead
+        // of the previous estPrice×flatAreaYield — that produced a "rent"
+        // with no connection to any real rent benchmark, just an assumed
+        // area-wide yield applied to every building regardless of its price.
+        var ry=aData?estimateBuildingRentYield(val,aData,beds,isV,val.p):null;
+        var estPrice=ry?ry.estPrice:val.p*1100;
+        if(maxPrice&&estPrice>maxPrice)return;
+        var avgYield=ry?ry.gross:6;
+        var estRent=ry?ry.estRent:Math.round(estPrice*avgYield/100);
         var gr=aData&&aData.g?aData.g:[8,15,25];
         dbResults.push({
           title:key,area:val.a,psf:val.p,price:estPrice,
-          size:sizeEst,
+          size:ry?ry.size:1100,
           beds:bn,baths:bn>0?bn:1,
           grade:val.g,g:val.g,
           source:"DubAIVal DB",

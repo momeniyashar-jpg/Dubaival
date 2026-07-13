@@ -811,6 +811,68 @@ function computeSmartRent(f,liveRentals){
   };
 }
 
+var _BEDS_NUM_MAP={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5,"6 BR":6,"7 BR":7,"7+ BR":7};
+// Rent premium/discount by building grade — branded/Ultra residences command
+// materially higher rent than their bare PSF alone would suggest (concierge,
+// hotel services, amenities), while lower grades rent for less. Single source
+// of truth: used by computeRentalValuation (per-unit) AND by the bulk
+// building-yield estimators below (Smart Discovery, Compare, Find/DB search) —
+// previously this premium only existed inline inside computeRentalValuation,
+// so any bulk building ranking silently used PSF alone with no grade signal.
+var GRADE_RENT_PREMIUM={"Ultra":1.80,"A+":1.35,"A":1.10,"A-":1.0,"B+":0.92,"B":0.85,"C":0.78};
+// Assumed typical unit size per bed count — matches the ladder Find's
+// doDBSearch already used inline (Studio 500 / 1BR 750 / 2BR 1100 / 3BR 1600),
+// extended for larger units. Only used where a real size isn't user-entered
+// (bulk building scans), never overrides an actual size when one is known.
+var TYPICAL_UNIT_SIZE={0:500,1:750,2:1100,3:1600,4:2200,5:3000,6:4200,7:5500};
+// Area rent benchmark for a given bed count/type, before any grade/furnished/
+// view/floor adjustment — the base rung of computeRentalValuation's ladder,
+// pulled out so bulk building scans can reuse the exact same area rent figures
+// instead of falling back to a flat area-wide yield for every building.
+function _baseAreaRent(aData,beds,isVilla){
+  var bn=_BEDS_NUM_MAP[beds]!=null?_BEDS_NUM_MAP[beds]:2;
+  return isVilla?(bn<=2?aData.rv2||130000:bn<=3?aData.rv3||180000:bn<=4?aData.rv4||240000:bn<=5?aData.rv5||350000:bn<=6?aData.rv6||500000:aData.rv7||650000):bn===0?(aData.rStudio||(aData.r1||65000)*0.65):bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
+}
+// Real building-level rental yield, scaled from the area's yield band by how
+// this SPECIFIC building's PSF compares to the area average and its grade's
+// rent premium — without this, every building in an area showed the exact
+// same flat yield (real bug found 2026-07-13: Smart Discovery's "Sort by
+// Highest Yield" / "Min Yield %" filter could not actually tell a AED 900/sqft
+// building apart from a AED 2,400/sqft building in the same area). No specific
+// bed count/size is available in a bulk PSF-only scan, so this uses the PSF
+// ratio directly (the assumed unit size cancels out of gross yield = rent/price
+// when both are scaled by the same size) instead of a fixed size assumption.
+function estimateBuildingYield(bData,aData,psf){
+  if(!aData)return null;
+  var yi=aData.y||[5,7];
+  var areaYieldMid=(yi[0]+yi[1])/2;
+  var areaPsf=aData.psf||psf;
+  if(!psf||psf<=0||!areaPsf)return{gross:areaYieldMid,net:areaYieldMid};
+  var gradeRentP=(bData&&bData.g&&GRADE_RENT_PREMIUM[bData.g])||1.0;
+  var gross=areaYieldMid*(areaPsf/psf)*gradeRentP;
+  gross=Math.max(1,Math.min(20,gross)); // clamp — guards against outlier/erroneous PSF entries producing absurd yields
+  var sc=(bData&&bData.sc)||aData.sc||15;
+  var net=gross-(sc/psf*100);
+  return{gross:gross,net:net};
+}
+// Same building-level accuracy as estimateBuildingYield, but for contexts that
+// DO have a bed count (Find's DB search) — uses the real area rent benchmark
+// for that bed count (grade-adjusted) over a real building-PSF-derived price,
+// so estRent is an actual AED figure (not reverse-derived from price×yield,
+// which was the previous bug: it produced a "rent" with no connection to any
+// real rent benchmark, just an assumed flat area yield times the price).
+function estimateBuildingRentYield(bData,aData,beds,isVilla,psf){
+  if(!aData||!psf||psf<=0)return null;
+  var size=TYPICAL_UNIT_SIZE[_BEDS_NUM_MAP[beds]!=null?_BEDS_NUM_MAP[beds]:2]||1100;
+  var gradeRentP=(bData&&bData.g&&GRADE_RENT_PREMIUM[bData.g])||1.0;
+  var estRent=Math.round(_baseAreaRent(aData,beds,isVilla)*gradeRentP);
+  var estPrice=Math.round(psf*size);
+  var gross=estPrice>0?(estRent/estPrice*100):0;
+  var sc=((bData&&bData.sc)||aData.sc||15)*size;
+  var net=estPrice>0?((estRent-sc)/estPrice*100):0;
+  return{estRent:estRent,estPrice:estPrice,size:size,gross:gross,net:net};
+}
+
 function computeRentalValuation(f){
   f.area=resolveDLDArea(f.area);
   var buildingVal=(f.building||"").toLowerCase().trim();
@@ -821,9 +883,7 @@ function computeRentalValuation(f){
   if(!askRent||askRent<5000)return null;
   var size=parseFloat(String(f.size||f.buaSize||"").replace(/,/g,""))||0;
   var isVilla=f.propCategory==="villa";
-  var bnMap={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5,"6 BR":6,"7 BR":7,"7+ BR":7};
-  var bn=bnMap[f.beds]!=null?bnMap[f.beds]:2;
-  var estRent=isVilla?(bn<=2?aData.rv2||130000:bn<=3?aData.rv3||180000:bn<=4?aData.rv4||240000:bn<=5?aData.rv5||350000:bn<=6?aData.rv6||500000:aData.rv7||650000):bn===0?(aData.rStudio||(aData.r1||65000)*0.65):bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
+  var estRent=_baseAreaRent(aData,f.beds,isVilla);
   // Furnished premium on rent: furnished +15-20%, semi +8-10%
   var furnMult=f.furnished==="Furnished"?1.17:f.furnished==="Semi-Furnished"?1.09:1.0;
   estRent=Math.round(estRent*furnMult);
@@ -855,7 +915,7 @@ function computeRentalValuation(f){
   // Grade/brand premium: branded residences (Address, Vida, Palace, Armani, etc.)
   // command higher rents due to hotel services, concierge, premium amenities
   if(bData&&bData.g){
-    var gradeRentP=bData.g==="Ultra"?1.80:bData.g==="A+"?1.35:bData.g==="A"?1.10:bData.g==="A-"?1.0:bData.g==="B+"?0.92:bData.g==="B"?0.85:bData.g==="C"?0.78:1.0;
+    var gradeRentP=GRADE_RENT_PREMIUM[bData.g]||1.0;
     if(gradeRentP!==1.0)estRent=Math.round(estRent*gradeRentP);
   }
   // Rent range: ±12% for market variability

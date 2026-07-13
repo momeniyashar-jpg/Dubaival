@@ -22,7 +22,14 @@ function _cmpItemData(item){
     var b=typeof DB!=="undefined"?DB[bKey]:null;
     if(!b)return null;
     var aData=AREAS[b.a]||{};
-    return{label:v,type:"Building",psf:b.p||0,psfLo:b.lo||0,psfHi:b.hi||0,sc:b.sc||aData.sc||15,yLow:aData.y?aData.y[0]:0,yHigh:aData.y?aData.y[1]:0,g1:aData.g?aData.g[0]:0,g3:aData.g?aData.g[1]:0,dom:aData.dom||90,grade:b.g||"N/A",area:b.a};
+    // Real building-adjusted yield (scaled from the area band by this
+    // building's own PSF + grade) instead of the raw area band stamped on
+    // every building regardless of its actual price — see estimateBuildingYield()
+    // in js/valuation.js. A tight ±8% band is shown around the point estimate
+    // to keep the same "range" display shape as the Area/Community rows.
+    var by=(typeof estimateBuildingYield==="function")?estimateBuildingYield(b,aData,b.p):null;
+    var yMid=by?by.gross:(aData.y?(aData.y[0]+aData.y[1])/2:0);
+    return{label:v,type:"Building",psf:b.p||0,psfLo:b.lo||0,psfHi:b.hi||0,sc:b.sc||aData.sc||15,yLow:Math.round(yMid*0.92*10)/10,yHigh:Math.round(yMid*1.08*10)/10,g1:aData.g?aData.g[0]:0,g3:aData.g?aData.g[1]:0,dom:aData.dom||90,grade:b.g||"N/A",area:b.a};
   }
   return null;
 }

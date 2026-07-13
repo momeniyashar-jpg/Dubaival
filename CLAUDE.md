@@ -456,6 +456,59 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-13 (session 11m)**: Real building-level rental yield — "which
+  specific building is best to buy for rental income" (Find → Smart Property
+  Discovery + Find's DB search), user-requested after asking whether the
+  platform could answer this question at all.
+  - **Real bug found**: Smart Property Discovery's "Min Yield %" filter and
+    "Sort by Highest Yield" (`js/app.js` `renderFind()`) computed yield as
+    `(AREAS[area].y[0]+AREAS[area].y[1])/2` — the AREA's yield band, stamped
+    identically onto every building in that area regardless of the building's
+    own PSF. Two buildings in the same area at AED 900/sqft and AED 2,400/sqft
+    showed the exact same "yield," so the sort/filter could rank AREAS against
+    each other but could not tell buildings within one area apart — unable to
+    actually answer "which building here is the better buy for rent." Find's
+    plain DB search (`doDBSearch()`) had a second, related bug: it derived
+    `estRent` backwards as `estPrice × flatAreaYield`, a number with no
+    connection to any real rent benchmark at all (never touched `AREAS[].r1/
+    r2/r3`), just the same area yield re-multiplied by whatever price the
+    building's own PSF produced.
+  - **Fix** (`js/valuation.js`): extracted `GRADE_RENT_PREMIUM` (previously an
+    inline ternary duplicated dead-reckoning inside `computeRentalValuation`)
+    and `_baseAreaRent()` (the bed-count → area rent ladder, same extraction)
+    as shared single-source-of-truth pieces — `computeRentalValuation` itself
+    is now a pure refactor with byte-identical ternary bodies, verified via
+    diff and a direct before/after Node run, zero output change. Added two new
+    bulk-scan estimators on top of these shared pieces: `estimateBuildingYield
+    (bData,aData,psf)` — for PSF-only contexts (no bed count available) — scales
+    the area's yield band by `areaPSF/buildingPSF × gradeRentPremium`, i.e. a
+    cheaper-than-average building gets a real yield boost and a
+    grade-premium/branded building gets a real yield discount, matching the
+    well-known real-world pattern that luxury Dubai buildings usually yield
+    LESS despite renting for more (price premium outpaces rent premium).
+    `estimateBuildingRentYield(bData,aData,beds,isVilla,psf)` — for contexts
+    that DO have a bed count (`doDBSearch`) — computes a real AED rent from the
+    actual area rent benchmark (grade-adjusted) over a real building-PSF-derived
+    price, replacing the circular estPrice×flatYield calc entirely.
+  - **Wired into 3 call sites**: Smart Discovery's yield filter/sort and card
+    display (`js/app.js`), `doDBSearch()`'s per-building rent/yield (`js/app.js`,
+    same file/tab), and Compare's building-vs-area/community yield row
+    (`js/portfolio.js` `_cmpItemData`) — Compare's building case previously had
+    this exact same bug (any specific building compared showed the flat area
+    yield band, not its own).
+  - Verified 3 ways before shipping: (1) a standalone Node test confirming
+    cheap/average/luxury synthetic buildings in the same area now show
+    monotonically decreasing yield as PSF/grade rises (8.71% → 6.15% → 5.03% in
+    a real Business Bay test), plus `computeRentalValuation` sanity-checked
+    post-refactor; (2) a full-database simulation running the new estimators
+    against all 9,227 real buildings — 0 errors, yields now span 1.67%–20.00%
+    with 1,073 distinct values (was ~216, one per area, pre-fix); (3) a
+    real-browser Playwright test driving the actual Find UI (set area to
+    Business Bay, sort by Highest Yield, click Discover) — 50 results, 36
+    distinct yields in that one area alone, correctly ranking a B-grade AED
+    859/sqft building above an A+-grade AED 1,578/sqft building, zero
+    non-network console errors.
+
 - **2026-07-13 (session 11l)**: AI Video Studio engineering audit (`js/chat.js`,
   Network → Social Media Manager → AI Video Studio + Avatar Studio's video
   generator), user-requested review of tool selection and layout/precedence.
