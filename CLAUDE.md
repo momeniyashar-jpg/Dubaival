@@ -461,6 +461,66 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-13 (session 11u)**: Interactive Map area panel — two small,
+  user-requested additions ("نمیشه بابت تعداد ساختمانهای موجود در هر منطقه از
+  خود اطلاعات گوگل استفاده کنیم؟" — can't we use Google's own data for
+  building counts/sizes too?, then "همچنین مراکز مهمی که در هر منطقه هست هم
+  اگر بتونیم بگیم بد نیست" — also mention notable centers in each area).
+  Answered the building-count/size question directly (not silently
+  implemented) before building anything: Google Places has no exhaustive
+  "list every building in this neighborhood" endpoint (Nearby Search is
+  radius/count-limited and meant for POIs, not building inventories) and
+  Google exposes no per-building unit-count/total-size data at all (that
+  only exists in DLD/Bayut/PropertyFinder/paid providers) — presenting a
+  Google-sourced count would be a real undercount labeled as authoritative,
+  worse than the honest "buildings we track" figure already shown. What
+  Google DOES have and is now wired in:
+  - **Approx. Area (km²)**: `api/proxy-maps.js`'s `geocode` action now also
+    returns `bounds`/`viewport` from the Google Geocoding response (backward
+    compatible — existing callers that only read `lat`/`lng`/`formatted`
+    are unaffected). `_dvFetchAreaSize()` (`js/map.js`) geocodes the area
+    name, prefers the tighter `bounds` (only present for genuine
+    neighborhood-level results) over the always-present but often-padded
+    `viewport`, and derives an approximate km² from the bounding rectangle
+    via the existing `haversineKm()` helper (`js/data-residential.js`) —
+    labeled "Approx." throughout since a lat/lng rectangle is not an
+    official administrative boundary. Cached in sessionStorage per area
+    (including a cached "no data" result, so a failed lookup isn't retried
+    every panel open).
+  - **Notable Landmarks Nearby**: `_dvNearestKeyPois()` reuses the existing,
+    already-curated `KEY_POIS` array (30 real malls/landmarks/beaches/
+    business hubs/airports/waterfronts — the same dataset `computeGeoScore()`
+    already draws on for the valuation engine's location premium) rather
+    than hand-writing a second list — free, instant, no live call. Filtered
+    to a genuine 8km proximity radius so a distant entry is never mislabeled
+    "nearby"; areas with nothing in range simply omit the section entirely
+    (no misleading placeholder).
+  - Both wired into `_dvAreaInfoHtml()` — the size stat sits as a 5th cell
+    in the existing Investment Snapshot grid, landmarks appear as their own
+    small section between the static Metro line and the live Nearby
+    Essentials grid (grouping "free/instant" facts before "live/fetched"
+    ones, same ordering logic as the rest of the panel).
+  - Verified: a Node test confirming `_dvNearestKeyPois("Downtown Dubai")`
+    correctly returns Burj Khalifa/Dubai Mall/DIFC sorted by real haversine
+    distance, all within the 8km radius, and that a radius-filtered area
+    (International City) correctly returns fewer/no entries rather than
+    padding with distant ones; a mocked-fetch test confirming
+    `_dvFetchAreaSize` computes a real, positive km² figure from a mocked
+    Google `bounds` response, caches it (second call for the same area makes
+    zero additional fetch calls), and gracefully renders "—" (not a throw)
+    when a response has neither `bounds` nor `viewport`, verified in an
+    isolated sandbox after an initial shared-queue test-mock collision (not
+    an app bug — a stale, over-broad matcher from an earlier test case in
+    the same run, fixed by isolating the no-bounds case in its own sandbox);
+    the full area-panel HTML confirmed to include both new sections; the
+    existing metric-registry test (2,429 checks, 0 errors) and `node -c` on
+    both touched files re-run clean; and a real-browser Playwright pass
+    confirming the map tab and its panel/search box still render with zero
+    non-network console errors. Live confirmation that the computed km²
+    figures are visually reasonable against the real Google Geocoding API
+    still requires the user's own check, same sandboxed no-network
+    limitation noted for every Maps-dependent feature this session.
+
 - **2026-07-13 (session 11t)**: Interactive Map — two-tier drill-down
   interaction, user-requested follow-up to 11s ("اگر شخصی روی منطقه بیزنس بی
   کلیک کرد، اطلاعات مربوط به منطقه نمایش داده شود... و اگر زوم بیشتر شد و یک

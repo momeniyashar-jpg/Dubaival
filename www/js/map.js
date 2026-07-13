@@ -233,6 +233,25 @@ function _dvAreaKeyBuildings(areaName, limit) {
   return list.slice(0, limit || _DV_KEY_BUILDINGS_LIMIT);
 }
 
+var _DV_POI_ICON = {mall:"🛍️", landmark:"🏛️", beach:"🏖️", business:"🏢", airport:"✈️", waterfront:"🌊"};
+var _DV_LANDMARK_RADIUS_KM = 8;
+// Notable landmarks near an area — reuses the existing, already-curated
+// KEY_POIS list (30 real malls/landmarks/beaches/business hubs/airports/
+// waterfronts, the same dataset computeGeoScore() already draws on) instead
+// of a second hand-written list. Free and instant (static coordinates, no
+// live call). Filtered to a real proximity radius so a far-away entry never
+// gets mislabeled "nearby" — areas with nothing within range simply show
+// no section at all rather than a misleading distant match.
+function _dvNearestKeyPois(areaName, limit) {
+  var coords = AREA_COORDS[areaName];
+  if (!coords || typeof KEY_POIS === "undefined") return [];
+  var withDist = KEY_POIS.map(function(p) {
+    return {n: p.n, cat: p.cat, dist: haversineKm(coords[0], coords[1], p.lat, p.lng)};
+  }).filter(function(p) { return p.dist <= _DV_LANDMARK_RADIUS_KM; });
+  withDist.sort(function(a, b) { return a.dist - b.dist; });
+  return withDist.slice(0, limit || 3);
+}
+
 // Live nearby essentials (mall/hospital/school/supermarket), reusing the
 // exact same /api/proxy-maps?action=amenities endpoint + cache key the
 // Analyzer's "Nearby Amenities" card already uses — real Google Places data,
@@ -273,13 +292,49 @@ function _dvFetchAreaAmenities(areaName, targetId) {
     .catch(function() { var elm = document.getElementById(targetId); if (elm) elm.innerHTML = '<div style="color:#556677;font-size:11px;">Nearby data unavailable.</div>'; });
 }
 
+// Approximate area size (km²) — no AREAS[] field exists for this (confirmed
+// no source of it anywhere in the app), but Google's Geocoding API returns a
+// real bounding box for neighborhood-level results. "bounds" (tighter,
+// present only for genuine admin/neighborhood regions) is preferred over
+// "viewport" (always present, but sized for map display and often padded).
+// A plain lat/lng rectangle is an approximation, not an official boundary —
+// labeled "Approx." in the panel rather than presented as exact.
+function _dvFetchAreaSize(areaName, targetId) {
+  var cacheKey = "dv_areasize_" + areaName;
+  function renderInto(sqkm) {
+    var elm = document.getElementById(targetId);
+    if (!elm) return;
+    elm.textContent = sqkm ? sqkm.toFixed(1) + " km²" : "—";
+  }
+  var raw = null;
+  try { raw = sessionStorage.getItem(cacheKey); } catch (e) {}
+  if (raw !== null) { renderInto(JSON.parse(raw)); return; } // includes a previously-failed lookup (stored as null) — don't refetch
+  fetch("/api/proxy-maps?action=geocode&address=" + encodeURIComponent(areaName + ", Dubai"))
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var box = (d && (d.bounds || d.viewport)) || null;
+      var sqkm = null;
+      if (box && box.northeast && box.southwest) {
+        var ne = box.northeast, sw = box.southwest;
+        var widthKm = haversineKm(sw.lat, sw.lng, sw.lat, ne.lng);
+        var heightKm = haversineKm(sw.lat, sw.lng, ne.lat, sw.lng);
+        sqkm = widthKm * heightKm;
+      }
+      try { sessionStorage.setItem(cacheKey, JSON.stringify(sqkm)); } catch (e) {}
+      renderInto(sqkm);
+    })
+    .catch(function() { renderInto(null); });
+}
+
 // ── Tier 1 panel content — clicked an AREA marker ──────────────────────────
 function _dvAreaInfoHtml(areaName, aData) {
   var yi = aData.y || [5, 7];
   var g = aData.g || [3, 9, 16];
   var bldgCount = _dvAreaBuildingCount(areaName);
   var metroS = (typeof computeGeoScore === "function") ? computeGeoScore(areaName) : null;
+  var landmarks = _dvNearestKeyPois(areaName, 3);
   var amId = "dv-am-" + Math.random().toString(36).slice(2);
+  var sizeId = "dv-sz-" + Math.random().toString(36).slice(2);
 
   var html = '<div style="color:#D4AF37;font-size:16px;font-weight:800;font-family:\'Space Grotesk\',monospace;margin-bottom:2px;">' + areaName + '</div>'
     + '<div style="color:#6B7A9E;font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px;">Area Overview</div>'
@@ -288,6 +343,9 @@ function _dvAreaInfoHtml(areaName, aData) {
     + _dvStatBox("Avg PSF", "AED " + Math.round(aData.psf || 0).toLocaleString(), "#D4A843")
     + _dvStatBox("3yr Growth", "+" + g[1] + "%", "#10B981")
     + _dvStatBox("Days on Market", Math.round(aData.dom || 60) + "d", "#3B82F6")
+    + '<div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:9px 10px;">'
+    + '<div style="color:#6B7A9E;font-size:9px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px;">Approx. Area</div>'
+    + '<div id="' + sizeId + '" style="color:#818CF8;font-size:14px;font-weight:800;font-family:\'Space Grotesk\',monospace;">…</div></div>'
     + '</div>'
     + '<div style="background:rgba(255,255,255,0.03);border-radius:10px;padding:12px;margin-bottom:14px;">'
     + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
@@ -298,14 +356,26 @@ function _dvAreaInfoHtml(areaName, aData) {
     + '</div>';
 
   if (metroS) {
-    html += '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#8899AA;margin-bottom:12px;">'
+    html += '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#8899AA;margin-bottom:10px;">'
       + '<span style="color:#818CF8;">⊙</span> Nearest Metro: <b style="color:#FFFFFF;">' + metroS.metroName + '</b> (' + metroS.metroDist + 'km)</div>';
+  }
+
+  if (landmarks.length) {
+    html += '<div style="color:#6B7A9E;font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Notable Landmarks Nearby</div>'
+      + '<div style="margin-bottom:12px;">';
+    landmarks.forEach(function(p) {
+      html += '<div style="display:flex;justify-content:space-between;font-size:11px;color:#9BA8C8;margin-bottom:4px;">'
+        + '<span>' + (_DV_POI_ICON[p.cat] || "📍") + ' ' + p.n + '</span>'
+        + '<span style="color:#6B7A9E;">' + p.dist.toFixed(1) + 'km</span></div>';
+    });
+    html += '</div>';
   }
 
   html += '<div style="color:#6B7A9E;font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Nearby Essentials</div>'
     + '<div id="' + amId + '"><div style="color:#556677;font-size:11px;">Loading live data…</div></div>';
 
   _dvFetchAreaAmenities(areaName, amId);
+  _dvFetchAreaSize(areaName, sizeId);
   return html;
 }
 

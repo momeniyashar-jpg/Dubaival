@@ -37,8 +37,14 @@ module.exports = async function handler(req, res) {
       var r = await fetch(url, { headers: headers });
       var data = await r.json();
       if (!data.results || !data.results[0]) return res.json({ lat: null, lng: null });
-      var loc = data.results[0].geometry.location;
-      return res.json({ lat: loc.lat, lng: loc.lng, formatted: data.results[0].formatted_address });
+      var geoRes = data.results[0];
+      var loc = geoRes.geometry.location;
+      // "bounds" is only present when Google considers the result a real
+      // administrative/neighborhood region (vs. a single point) — a tighter
+      // fit than "viewport" (always present, sized for map display, often
+      // padded). Returned so callers can derive an approximate area in km²
+      // without a second API call; absent for point addresses (buildings).
+      return res.json({ lat: loc.lat, lng: loc.lng, formatted: geoRes.formatted_address, bounds: geoRes.geometry.bounds || null, viewport: geoRes.geometry.viewport || null });
 
     // ── STATIC MAP (satellite view, dark pin) ────────────────────────────────
     } else if (action === "staticmap") {
