@@ -48,23 +48,40 @@ function _dvClearOverlays() {
   _dvMapState.overlays = [];
 }
 
-var _GMAP_DARK_STYLES = [
-  {elementType:"geometry",stylers:[{color:"#070B14"}]},
-  {elementType:"labels.text.fill",stylers:[{color:"#6B7A9E"}]},
-  {elementType:"labels.text.stroke",stylers:[{color:"#070B14"}]},
-  {featureType:"administrative",elementType:"geometry",stylers:[{color:"#1C2540"}]},
-  {featureType:"administrative.country",elementType:"labels.text.fill",stylers:[{color:"#8899AA"}]},
-  {featureType:"administrative.locality",elementType:"labels.text.fill",stylers:[{color:"#D4AF37"}]},
-  {featureType:"poi",stylers:[{visibility:"off"}]},
-  {featureType:"road",elementType:"geometry",stylers:[{color:"#0D1220"}]},
-  {featureType:"road",elementType:"geometry.stroke",stylers:[{color:"#1C2540"}]},
-  {featureType:"road",elementType:"labels.text.fill",stylers:[{color:"#556677"}]},
-  {featureType:"road.highway",elementType:"geometry",stylers:[{color:"#1A2440"}]},
-  {featureType:"road.highway",elementType:"geometry.stroke",stylers:[{color:"#1C2540"}]},
-  {featureType:"road.highway",elementType:"labels.text.fill",stylers:[{color:"#8899AA"}]},
-  {featureType:"transit",stylers:[{visibility:"off"}]},
-  {featureType:"water",elementType:"geometry",stylers:[{color:"#0A0F1E"}]},
-  {featureType:"water",elementType:"labels.text.fill",stylers:[{color:"#445566"}]}
+// 2026-07-13 (session 11q follow-up): the previous heavily-stripped dark
+// theme (poi/transit off, near-black roads) combined with an opaque 0.42
+// Voronoi fill made the actual map — streets, bridges, intersections,
+// buildings, communities — nearly invisible under a solid color wash (real
+// user-reported bug, screenshot showed a fully-opaque green blanket over
+// Al Quoz with zero road/building detail visible). Real estate buyers need
+// to see the physical map at least as much as the data overlay, so this
+// switches to a light, high-detail base style (POI/transit/buildings all
+// stay visible) with a light brand-gold tint on highways — matching how
+// Zillow/Redfin/PropertyFinder/Bayut all use light, detailed base maps
+// rather than stripped dark ones. Combined with the much lower, zoom-fading
+// fill opacity below (see _dvFillOpacityForZoom), the map itself now reads
+// clearly with the Voronoi layer as a subtle tint, not a curtain.
+var _GMAP_LIGHT_STYLES = [
+  {elementType:"geometry",stylers:[{color:"#F5F3EE"}]},
+  {elementType:"labels.text.fill",stylers:[{color:"#5B6472"}]},
+  {elementType:"labels.text.stroke",stylers:[{color:"#F5F3EE"}]},
+  {featureType:"administrative.neighborhood",elementType:"labels.text.fill",stylers:[{color:"#8A6D1F"}]},
+  {featureType:"administrative.neighborhood",elementType:"labels.text.stroke",stylers:[{color:"#FFFFFF"}]},
+  {featureType:"landscape",elementType:"geometry",stylers:[{color:"#EFEDE6"}]},
+  {featureType:"poi",elementType:"geometry",stylers:[{color:"#E7E4DA"}]},
+  {featureType:"poi",elementType:"labels.text.fill",stylers:[{color:"#8A8F98"}]},
+  {featureType:"poi.park",elementType:"geometry",stylers:[{color:"#DCE6D5"}]},
+  {featureType:"road",elementType:"geometry",stylers:[{color:"#FFFFFF"}]},
+  {featureType:"road",elementType:"geometry.stroke",stylers:[{color:"#D8D3C6"}]},
+  {featureType:"road",elementType:"labels.text.fill",stylers:[{color:"#8A8F98"}]},
+  {featureType:"road.arterial",elementType:"geometry",stylers:[{color:"#FDFCFA"}]},
+  {featureType:"road.highway",elementType:"geometry",stylers:[{color:"#F0DFA3"}]},
+  {featureType:"road.highway",elementType:"geometry.stroke",stylers:[{color:"#D4AF37"}]},
+  {featureType:"road.highway",elementType:"labels.text.fill",stylers:[{color:"#8A6D1F"}]},
+  {featureType:"transit.line",elementType:"geometry",stylers:[{color:"#E5E2D8"}]},
+  {featureType:"transit.station",elementType:"geometry",stylers:[{color:"#E7E4DA"}]},
+  {featureType:"water",elementType:"geometry",stylers:[{color:"#C7DCE8"}]},
+  {featureType:"water",elementType:"labels.text.fill",stylers:[{color:"#6E8A9A"}]}
 ];
 
 var _dvGmapErrCbs = [];
@@ -84,7 +101,7 @@ function _dvGmapLoad(cb, onErr) {
         cbs.forEach(function(f) { f(); });
       };
       var s = document.createElement("script");
-      s.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(d.key) + "&callback=_dvGmapReady";
+      s.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(d.key) + "&libraries=places&callback=_dvGmapReady";
       s.onerror = function() {
         window._dvGmapPending = null;
         _dvGmapErrCbs.forEach(function(f){f();});
@@ -165,6 +182,22 @@ function _dvMetricColor(ratio, polarity) {
   }
   var hue = ratio * 120; // 0=red (bad) -> 120=green (good)
   return "hsl(" + Math.round(hue) + ",68%,48%)";
+}
+
+// 2026-07-13 (session 11q follow-up): a proper Voronoi tessellation covers
+// 100% of the map with zero gaps between cells (unlike the old circles,
+// which had real empty space) — so ANY uniform fill opacity necessarily
+// tints the ENTIRE visible map, with no exceptions. Fading the fill toward
+// transparent as the user zooms into street level (where streets/buildings/
+// bridges actually need to be legible) while keeping a modest, still-legible
+// tint at city-wide zoom (where the color pattern IS the useful information)
+// fixes this without giving up the color layer entirely. The stroke/border
+// line — not the fill — now carries most of the "where does this region
+// end" information, matching how choropleth maps in professional analytics
+// tools (not just real estate) stay readable at every zoom level.
+function _dvFillOpacityForZoom(zoom, isHover) {
+  var base = zoom >= 15 ? 0.05 : zoom >= 13 ? 0.10 : zoom >= 11 ? 0.16 : 0.24;
+  return isHover ? Math.min(base + 0.14, 0.42) : base;
 }
 
 // Builds a metric-specific popup, plus a shared "Explore Buildings" CTA that
@@ -284,6 +317,9 @@ function _dvRenderVoronoiLayer(gmap, infoWin, points, metric) {
     minY: Math.min.apply(null, ys) - pad, maxY: Math.max.apply(null, ys) + pad
   };
   var cells = dvComputeVoronoi(sites, bbox);
+  var curZoom = gmap.getZoom();
+  var baseOpacity = _dvFillOpacityForZoom(curZoom, false);
+  var hoverOpacity = _dvFillOpacityForZoom(curZoom, true);
 
   cells.forEach(function(c) {
     if (c.cell.length < 3) return;
@@ -294,18 +330,22 @@ function _dvRenderVoronoiLayer(gmap, infoWin, points, metric) {
       var ll = _dvXYToLatLng(pt.x, pt.y, _DV_MAP_ORIGIN.lat, _DV_MAP_ORIGIN.lng);
       return {lat: ll.lat, lng: ll.lng};
     });
+    // 2026-07-13 fix: popups now open ONLY on click, never on mouseover.
+    // Google's InfoWindow auto-pans the map when opened/repositioned near a
+    // viewport edge — with 100%-coverage, gap-free Voronoi cells the cursor
+    // is ALWAYS over some polygon and constantly crosses cell borders, so a
+    // mouseover-triggered open fired repeatedly and made the map scroll
+    // itself uncontrollably (real user-reported bug). Hover still gives
+    // visual feedback via a pure setOptions() opacity/stroke bump, which
+    // never touches the InfoWindow and can't trigger this.
     var polygon = new google.maps.Polygon({
       map: gmap, paths: path,
-      strokeColor: color, strokeOpacity: 0.9, strokeWeight: 1.5,
-      fillColor: color, fillOpacity: 0.42,
+      strokeColor: color, strokeOpacity: 0.85, strokeWeight: 2,
+      fillColor: color, fillOpacity: baseOpacity,
       clickable: true
     });
     var isCluster = g.members.length > 1;
     if (isCluster) {
-      var names = g.members.slice(0, 8).map(function(m){return m.name;}).join("<br>");
-      var more = g.members.length > 8 ? "<br>+" + (g.members.length - 8) + " more" : "";
-      var clusterHtml = '<div style="font-family:\'Inter\',sans-serif;color:#FFFFFF;padding:10px 12px;font-size:11px;line-height:1.6;max-width:200px;"><b style="color:#D4AF37;">' + g.members.length + ' areas</b><br>' + names + more + '<div style="color:#6B7A9E;font-size:9px;margin-top:6px;">Click to zoom in</div></div>';
-      polygon.addListener("mouseover", function(e) { infoWin.setContent(clusterHtml); infoWin.setPosition(e.latLng); infoWin.open(gmap); });
       polygon.addListener("click", function() {
         var bounds = new google.maps.LatLngBounds();
         g.members.forEach(function(m) { bounds.extend({lat:m.lat, lng:m.lng}); });
@@ -315,11 +355,10 @@ function _dvRenderVoronoiLayer(gmap, infoWin, points, metric) {
       });
     } else {
       var m = g.members[0];
-      polygon.addListener("mouseover", function(e) { infoWin.setContent(m.popupHtml); infoWin.setPosition(e.latLng); infoWin.open(gmap); });
       polygon.addListener("click", function(e) { infoWin.setContent(m.popupHtml); infoWin.setPosition(e.latLng); infoWin.open(gmap); });
     }
-    polygon.addListener("mouseover", function() { polygon.setOptions({fillOpacity:0.62, strokeWeight:2.5}); });
-    polygon.addListener("mouseout", function() { polygon.setOptions({fillOpacity:0.42, strokeWeight:1.5}); });
+    polygon.addListener("mouseover", function() { polygon.setOptions({fillOpacity:hoverOpacity, strokeWeight:3}); });
+    polygon.addListener("mouseout", function() { polygon.setOptions({fillOpacity:baseOpacity, strokeWeight:2}); });
     _dvMapState.overlays.push(polygon);
   });
 
@@ -375,6 +414,8 @@ function _dvRenderLegend(gmap, cfg, vMin, vMax) {
 function renderMap() {
   var cl = C();
   var wrap = div({padding:"0", maxWidth:"100%", margin:"0", display:"flex", flexDirection:"column", height:"calc(100vh - 130px)"});
+  var mapTs = new Date().getTime();
+  var mapId = "dv-gmap-" + mapTs;
 
   var controls = div({background:cl.surface, borderBottom:"1px solid "+cl.border, padding:"10px 16px", display:"flex", alignItems:"center", gap:"10px", flexWrap:"wrap"});
   controls.appendChild(span({color:cl.gold, fontSize:"10px", letterSpacing:"0.14em", textTransform:"uppercase", fontFamily:"'Space Grotesk',monospace", whiteSpace:"nowrap"}, "◆ Interactive Map"));
@@ -392,17 +433,21 @@ function renderMap() {
     var b = el("button", {style:{background:active?cl.goldFaint:"transparent", border:"1px solid "+(active?cl.goldDim:cl.border), color:active?cl.gold:cl.sub, padding:"5px 12px", borderRadius:"16px", fontSize:"11px", fontFamily:"'Space Grotesk',monospace", fontWeight:active?"700":"400", cursor:"pointer"}, onclick:function(){_dvMapState.metric=opt.v; render();}}, opt.l);
     controls.appendChild(b);
   });
+  // Real search — Google Places Autocomplete (wired up after the map loads,
+  // below). Directly answers the user's explicit "قابلیت پیدا کردن و سرچ
+  // کردن" requirement — search an area, building name, or landmark and the
+  // map recenters/zooms straight to it.
+  var searchInput = el("input", {type:"text", id:mapId+"-search", placeholder:"🔍 Search area, building, landmark…", autocomplete:"off", style:{marginLeft:"auto", minWidth:"220px", maxWidth:"280px", background:cl.raisedSolid||cl.surface, border:"1px solid "+cl.border, borderRadius:"8px", padding:"7px 12px", color:cl.text||cl.white, fontSize:"12px", fontFamily:"'Inter',sans-serif", outline:"none"}});
+  controls.appendChild(searchInput);
   wrap.appendChild(controls);
 
   if (!document.getElementById("dv-gmap-styles")) {
     var styleEl = document.createElement("style");
     styleEl.id = "dv-gmap-styles";
-    styleEl.textContent = ".gm-style .gm-style-iw-c{background:#0D1220!important;border:1px solid #1C2540!important;border-radius:10px!important;padding:0!important;box-shadow:0 4px 24px rgba(0,0,0,.7)!important}.gm-style .gm-style-iw-d{overflow:hidden!important;padding:0!important}.gm-style-iw-t::after,.gm-style-iw-tc::after{background:#1C2540!important}.gm-ui-hover-effect>span{background:#6B7A9E!important}.gm-style .gm-style-iw-chr{padding:4px 4px 0!important}.gm-style .gm-style-iw-ch{padding:0!important}";
+    styleEl.textContent = ".gm-style .gm-style-iw-c{background:#0D1220!important;border:1px solid #1C2540!important;border-radius:10px!important;padding:0!important;box-shadow:0 4px 24px rgba(0,0,0,.7)!important}.gm-style .gm-style-iw-d{overflow:hidden!important;padding:0!important}.gm-style-iw-t::after,.gm-style-iw-tc::after{background:#1C2540!important}.gm-ui-hover-effect>span{background:#6B7A9E!important}.gm-style .gm-style-iw-chr{padding:4px 4px 0!important}.gm-style .gm-style-iw-ch{padding:0!important}.pac-container{font-family:'Inter',sans-serif!important;border-radius:8px!important;margin-top:4px!important}";
     document.head.appendChild(styleEl);
   }
 
-  var mapTs = new Date().getTime();
-  var mapId = "dv-gmap-" + mapTs;
   var mapEl = el("div", {style:{flex:"1", width:"100%", minHeight:"300px"}, id:mapId});
   wrap.appendChild(mapEl);
 
@@ -418,7 +463,7 @@ function renderMap() {
       var gmap = new google.maps.Map(c2, {
         center: {lat:25.15, lng:55.22},
         zoom: 11,
-        styles: _GMAP_DARK_STYLES,
+        styles: _GMAP_LIGHT_STYLES,
         zoomControl: true,
         zoomControlOptions: {position: google.maps.ControlPosition.RIGHT_TOP},
         mapTypeControl: false,
@@ -430,6 +475,22 @@ function renderMap() {
       _dvMapState.gmap = gmap;
       var infoWin = new google.maps.InfoWindow();
       var cfg = DV_MAP_METRICS[_dvMapState.metric];
+
+      var searchEl = document.getElementById(mapId + "-search");
+      if (searchEl && google.maps.places) {
+        var dubaiBounds = new google.maps.LatLngBounds({lat:24.75, lng:54.85}, {lat:25.45, lng:55.65});
+        var autocomplete = new google.maps.places.Autocomplete(searchEl, {
+          bounds: dubaiBounds,
+          componentRestrictions: {country: "ae"},
+          fields: ["geometry", "name"]
+        });
+        autocomplete.addListener("place_changed", function() {
+          var place = autocomplete.getPlace();
+          if (!place || !place.geometry || !place.geometry.location) return;
+          if (place.geometry.viewport) gmap.fitBounds(place.geometry.viewport);
+          else { gmap.setCenter(place.geometry.location); gmap.setZoom(15); }
+        });
+      }
 
       var points = [];
       AREA_NAMES.forEach(function(name) {
@@ -467,7 +528,6 @@ function renderMap() {
           icon: {path: google.maps.SymbolPath.CIRCLE, scale: 9, fillColor: color, fillOpacity: 0.95, strokeColor: "#ffffff", strokeWeight: 1.5},
           title: name + " (outlying area)"
         });
-        mk.addListener("mouseover", function() { infoWin.setContent(popupHtml); infoWin.open(gmap, mk); });
         mk.addListener("click", function() { infoWin.setContent(popupHtml); infoWin.open(gmap, mk); });
         _dvMapState.overlays.push(mk);
       });

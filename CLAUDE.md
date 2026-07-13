@@ -461,6 +461,74 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-13 (session 11r)**: Interactive Map — corrected a real regression
+  in the session 11q Voronoi redesign, reported by the user with a screenshot
+  showing Al Quoz under a near-opaque green color wash with zero visible
+  street/building/bridge detail, plus the map auto-scrolling on its own
+  whenever the mouse moved over it ("نقشه دبی رفته زیر یک پرده رنگی... صفحه
+  خود ب خود بالا و پایین میره" — the map has gone under a color curtain, the
+  screen scrolls up/down on its own). User confirmed the underlying DATA was
+  good and asked specifically for the VISUAL execution to be redesigned
+  "صفر تا صد" (zero to one hundred) using independent design/engineering
+  judgment, explicitly setting aside earlier region/color suggestions.
+  - **Root cause 1 — 100%-coverage tint**: a true Voronoi tessellation has
+    zero gaps between cells by construction (unlike the old circles, which
+    had real empty space) — so a flat `fillOpacity:0.42` applied uniformly
+    tinted the ENTIRE visible map with no exceptions, compounded by the
+    session-11q base theme being a heavily stripped dark style (POI/transit
+    off, near-black roads) that had very little inherent contrast to begin
+    with. Fixed both sides: replaced `_GMAP_DARK_STYLES` with a new
+    `_GMAP_LIGHT_STYLES` (light, high-detail base — POI/transit/buildings/
+    water all visible, matching how Zillow/Redfin/PropertyFinder/Bayut all
+    use light detailed base maps), and added `_dvFillOpacityForZoom(zoom,
+    isHover)` — fades fill from a modest 0.24 at city-wide zoom (≤10, where
+    the color pattern itself is the useful information) down to a
+    near-transparent 0.05 at street level (≥15, where roads/buildings need
+    to be legible) — replacing the flat 0.42/0.62 values. The stroke/border
+    line, not the fill, now carries most of the "where does this region end"
+    signal.
+  - **Root cause 2 — auto-scroll bug**: `google.maps.InfoWindow` auto-pans
+    the map by default whenever it's opened/repositioned near a viewport
+    edge. Session 11q opened it on `mouseover`; combined with 100%-coverage,
+    gap-free polygons (the cursor is ALWAYS over some cell and constantly
+    crosses cell borders), this fired repeatedly and made the map scroll
+    itself uncontrollably — exactly the reported symptom, and confirmed by
+    the user to be WORSE than the original circle-overlap problem. Fixed by
+    removing every `mouseover`-triggered `infoWin.open()` call (per-area
+    cells, cluster cells, and the Hatta outlier marker) — popups now open
+    only on `click`. Hover still gives visual feedback via a pure
+    `polygon.setOptions({fillOpacity,strokeWeight})` call, which never
+    touches the InfoWindow and can't trigger auto-pan. Cluster cells
+    previously showed a names-list popup on hover before zooming on click;
+    since click already zooms into the cluster (revealing individual,
+    properly click-poppable cells), the hover-only names list was dropped
+    rather than reintroduced through a different unsafe trigger.
+  - **Real search added** (previously completely missing, an explicit user
+    requirement — "ما...نقشه قابلیت پیدا کردن و سرچ کردن داشته باشه"): added
+    `&libraries=places` to the Google Maps script URL in `_dvGmapLoad()`, a
+    search `<input>` in the map's control bar, and a
+    `google.maps.places.Autocomplete` (UAE-restricted, biased to a Dubai
+    bounding box) that recenters/fits the map to whatever area, building, or
+    landmark the user searches for.
+  - Verified: a Node test driving the real `_dvRenderVoronoiLayer` render
+    path through a mocked `google.maps` (recording stub classes) at 3 zoom
+    levels (9/13/16) — confirmed zero polygons ever wire `infoWin.open()` to
+    `mouseover` at any zoom, every polygon keeps a `click` listener, and fill
+    opacity correctly decreases from 0.24→0.10→0.05 as zoom increases; the
+    existing metric-registry Node test (2,429 checks across 7 metrics × 347
+    areas, 0 errors) re-run to confirm the color/popup logic itself was
+    untouched; `node -c js/map.js`; and a real-browser Playwright pass
+    confirming the map tab still renders its controls/metric buttons, the
+    new search input renders with the correct placeholder, and the map
+    gracefully falls back to "Map unavailable" with zero non-network console
+    errors (this sandbox still has no live network access to Google's Maps
+    API, so the actual rendered light-theme tiles, fade behavior, and
+    search-box autocomplete dropdown could not be visually confirmed end-to-
+    end in a real browser this session — a live check against the real
+    Google Maps API, ideally on both desktop and mobile viewports, is the
+    one remaining step, same limitation noted for every Google-Maps-
+    dependent feature this session).
+
 - **2026-07-13 (session 11q)**: Interactive Map — replaced real-world-radius
   Circle overlays with true Voronoi-cell region polygons, plus a broader
   professional redesign, per explicit user request ("ارتقاء بده تا به یک
