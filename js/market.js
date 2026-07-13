@@ -2801,6 +2801,42 @@ function renderAnalyzerResult(wrap){
     wrap.appendChild(riWrap);
   })();
 
+  // -- RENTAL DEMAND SCORE --
+  // Answers "why would/wouldn't THIS building rent fast" with real, itemized
+  // reasons (see estimateRentalDemandScore() in js/valuation.js, computed
+  // inside computeValuation() and carried on val.demandScore) — the same
+  // engine already used by Find → Smart Property Discovery, now surfaced at
+  // the exact moment a buyer is deciding whether to purchase for rental
+  // income, not only in a separate discovery list.
+  if(val.demandScore)(function(){
+    var d=val.demandScore;
+    var dColor=d.score>=60?cl.green:d.score>=40?cl.yellow:cl.red;
+    var dBg=d.score>=60?cl.greenBg:d.score>=40?cl.yellowBg:cl.redBg;
+    var dWrap=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginTop:"14px"}});
+    dWrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"},[
+      div({},[
+        span({color:"#8B5CF6",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"2px"},"Rental Demand Score"),
+        span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},"Why this building would/wouldn't rent fast")
+      ]),
+      span({color:dColor,fontSize:"12px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",padding:"3px 8px",borderRadius:"6px",background:dBg},d.tier+" · "+d.score)
+    ]));
+    var dGaugeOuter=el("div",{style:{background:cl.border,borderRadius:"6px",height:"8px",marginBottom:"14px",overflow:"hidden"}});
+    var dGaugeInner=el("div",{style:{width:d.score+"%",height:"100%",borderRadius:"6px",background:d.score>=60?"linear-gradient(90deg,#22C55E,#10B981)":d.score>=40?"linear-gradient(90deg,#EAB308,#F59E0B)":"linear-gradient(90deg,#EF4444,#F87171)",transition:"width 0.8s ease"}});
+    dGaugeOuter.appendChild(dGaugeInner);
+    dWrap.appendChild(dGaugeOuter);
+    d.drivers.forEach(function(dr){
+      var drColor=dr.impact==="+"?cl.green:dr.impact==="-"?cl.red:cl.sub;
+      var drRow=div({display:"flex",gap:"8px",alignItems:"flex-start",padding:"7px 0",borderBottom:"1px solid "+cl.border});
+      drRow.appendChild(span({color:drColor,fontSize:"12px",fontWeight:"700",flexShrink:"0",marginTop:"1px"},dr.impact==="+"?"▲":dr.impact==="-"?"▼":"•"));
+      var drText=div({});
+      drText.appendChild(div({color:cl.white,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},dr.label));
+      drText.appendChild(div({color:cl.sub,fontSize:"10.5px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},dr.reason));
+      drRow.appendChild(drText);
+      dWrap.appendChild(drRow);
+    });
+    wrap.appendChild(dWrap);
+  })();
+
   // -- MARKET LIQUIDITY / DAYS ON MARKET --
   (function(){
     var liqC=val.liqTier.c==="green"?cl.green:val.liqTier.c==="yellow"?cl.yellow:cl.red;

@@ -457,6 +457,62 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-13 (session 11p)**: Wired Rental Demand Score into the Analyzer
+  report itself (`js/market.js` `renderAnalyzerResult()`), plus an
+  architecture/correctness pass over the whole Analyzer result pipeline —
+  direct follow-up to session 11o: user pointed out a buyer needs this
+  exact signal at the moment of evaluating a specific unit/villa to buy, not
+  only in a separate Smart Discovery list, and asked for a careful review of
+  section ordering and output correctness while adding it ("مهمترین بخش ما
+  است" — this is our most important section).
+  - **Architecture fix, not just a bolt-on**: `estimateRentalDemandScore()`
+    is now computed ONCE inside `computeValuation()` itself (`js/valuation.js`)
+    and carried on `val.demandScore` — the same pattern every other
+    Analyzer metric already follows (`turnoverRate`, `mosScore`, `liqScore`,
+    etc. are all precomputed on `val`, never recomputed ad-hoc in the render
+    layer). Uses the building's own calibrated PSF (`bData.p`) — a
+    structural attribute of the BUILDING — not this listing's one-off asking
+    price (`askPSF`), which the existing verdict/vsPct fields already judge
+    separately; falls back to `askPSF` only when no building match exists.
+    Works identically for villas (confirmed `f.cluster` is a display-only
+    sub-community label, not a separate lookup path — villas resolve through
+    the exact same `bData`/`aData`/`isVilla` machinery as apartments).
+  - **Placement**: inserted right after "Rental Intelligence Engine" (the
+    rent/yield numbers) and before "Market Liquidity" — groups the two
+    RENTAL-focused sections together, ahead of the SALE-liquidity sections
+    (Market Liquidity, Building Turnover) and the composite Margin of Safety
+    score, a cleaner narrative than the previous ordering. Same "▲/▼ +
+    itemized reason" card style as the Find tab version.
+  - **Full-file architecture/correctness pass** (per the user's explicit
+    ask): read through the complete ~1,800-line `renderAnalyzerResult()` —
+    Property Location, Price Anomaly Detection, Sustainability Score,
+    Confidence Breakdown, Smart Guidance, Market Sentiment, Price History
+    Chart, Rental Intelligence, Market Liquidity, Building Turnover, Margin
+    of Safety, Location Intelligence, Nearby Amenities, Drive Times,
+    Personalized Advisory System — confirmed every section reads real
+    `val.*`/`AREAS`/`bData` fields (no hardcoded/fake data), found no
+    duplicate or conflicting metrics, and confirmed the new addition doesn't
+    overlap with the existing `grossYield`/`netYield`/`investSignal` fields
+    (those already use the full hedonic-adjusted rent for the exact unit;
+    demandScore deliberately uses the building's baseline PSF instead, since
+    it answers a different question — "is this BUILDING structurally easy to
+    rent," not "is THIS listing's price fair"). No other correctness issues
+    found — consistent with this engine's long, already-heavily-audited
+    history (see the many prior calibration/accuracy sessions above).
+  - Verified: a Node test (via the existing `load_engine.js` regression
+    harness) confirming `val.demandScore` is present, well-formed, and
+    correctly computed across 4 cases — apartment with building match,
+    apartment with no building match (area-only fallback), villa with
+    building/cluster match, and a completely unknown area (generic fallback)
+    — zero throws in any case; `node -c` on both touched files; the full
+    valuation/asset regression harness (0 errors, confirming this change
+    doesn't affect any existing Analyzer output); and a real-browser
+    Playwright test driving the actual Analyzer flow end-to-end for both an
+    apartment (Burj Khalifa) and a villa (Elie Saab II, Arabian Ranches) —
+    confirmed the "Rental Demand Score" card renders with real, correct,
+    differentiated content in the live DOM in both cases, zero non-network
+    console errors.
+
 - **2026-07-13 (session 11o)**: Rental Demand Score — real, itemized,
   BUILDING-specific reasons why a building would/wouldn't rent fast (Find →
   Smart Property Discovery), direct follow-up to session 11n: user pointed

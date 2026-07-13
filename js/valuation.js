@@ -708,6 +708,17 @@ function computeValuation(f,buildingVal,liveData){
   const bldgAnnualTx=estimateBldgTx(bldgName,f.area,aData,bData);
   const turnoverRate=bldgUnits>0?Math.round(bldgAnnualTx/bldgUnits*1000)/10:0;
   const turnoverTier=turnoverRate>=12?{label:"Hot Market",c:"green",desc:"Units trade hands rapidly — very high demand, low exit risk"}:turnoverRate>=6?{label:"Active",c:"green",desc:"Healthy trading volume — good liquidity, units sell with ease"}:turnoverRate>=3?{label:"Stable",c:"yellow",desc:"Normal market pace — adequate liquidity for planned exits"}:turnoverRate>=1?{label:"Slow",c:"yellow",desc:"Below-average activity — may take longer to find a buyer"}:{label:"Stagnant",c:"red",desc:"Very few trades — high illiquidity risk, exercise caution"};
+  // Rental Demand Score — same estimateRentalDemandScore() used by Smart
+  // Discovery (js/app.js), now surfaced in the Analyzer report too, since a
+  // buyer evaluating a purchase for rental income needs this at the exact
+  // moment of the buy decision, not only in a separate discovery list. Uses
+  // the building's own calibrated PSF (bData.p) — a structural attribute of
+  // the BUILDING, not this one listing's asking price (which the verdict/
+  // vsPct fields above already judge separately) — falling back to askPSF
+  // only when no building match exists to compare against.
+  const demandPsf=bData?bData.p:askPSF;
+  const rentVelForDemand=(typeof getRentalVelocity==="function")?getRentalVelocity(f.area):null;
+  const demandScore=estimateRentalDemandScore(bData,aData,demandPsf,bldgUnits,rentVelForDemand,f.area);
   // --- Margin of Safety (MoS) Index ---
   // Component 1: Price Gap (50% weight) — how far below/above fair value
   const vsPctNum=parseFloat(vsPct)||0;
@@ -731,7 +742,7 @@ function computeValuation(f,buildingVal,liveData){
   const mosRaw=Math.round(priceGapScore*0.50+timeDecayScore*0.20+marketDepthScore*0.30);
   const mosScore=Math.min(95,Math.max(5,mosRaw));
   const mosTier=mosScore>=80?{label:"Deep Value",c:"green",desc:"Strong margin of safety — price significantly below intrinsic value with favorable market conditions"}:mosScore>=65?{label:"Value Buy",c:"green",desc:"Positive margin of safety — priced below fair value with room for appreciation"}:mosScore>=50?{label:"Fair Entry",c:"yellow",desc:"Neutral margin — price aligns with market value, moderate risk-reward balance"}:mosScore>=35?{label:"Thin Margin",c:"yellow",desc:"Limited safety buffer — priced at or slightly above value, returns depend on market growth"}:{label:"Speculative",c:"red",desc:"Negative margin of safety — price exceeds intrinsic value, high risk of capital loss in a downturn"};
-  return{askPSF,adjPSF,psfLo,psfHi,fairPrice,distressPrice,goodPrice,overpricedAt,verdict,vsPct:vsPct.toFixed(1),suggestedOffer,dataSource,dataLayer,confScore,confTier,priceLow,priceHigh,inDB:!!bData,bData,isDevFurnished,vP:Math.round(vP*100),fP:Math.round(fP*100),furnP:Math.round(furnP*100),loftP:Math.round(loftP*100),penthP:Math.round(penthP*100),maidP:Math.round(maidP*100),privatePoolP:Math.round(privatePoolP*100),singleRowP:Math.round(singleRowP*100),cornerVillaP:Math.round(cornerVillaP*100),locP:Math.round(locP*100),geo:Math.round(geoAdj*100),rent,sc,grossYield,netYield,g0:gr[0],g1:gr[1],g2:gr[2],prRatio:prRatio?prRatio.toFixed(1):null,investSignal,totalReturnAnnual,domEst,txVol,liqScore,liqTier,txLabel,turnoverRate,turnoverTier,bldgUnits,bldgAnnualTx,mosScore,mosTier,priceGapScore,timeDecayScore,marketDepthScore,compData:compData,hasDynamic:!!dynBench,calFactor:calFactor,geoScore:geoScore,momFactor:momFactor,hasMomentum:!!(typeof MOMENTUM_LOADED!=="undefined"&&MOMENTUM_LOADED&&(MARKET_MOMENTUM[f.area]||MARKET_MOMENTUM["_overall"])),liveSig:liveSig};
+  return{askPSF,adjPSF,psfLo,psfHi,fairPrice,distressPrice,goodPrice,overpricedAt,verdict,vsPct:vsPct.toFixed(1),suggestedOffer,dataSource,dataLayer,confScore,confTier,priceLow,priceHigh,inDB:!!bData,bData,isDevFurnished,vP:Math.round(vP*100),fP:Math.round(fP*100),furnP:Math.round(furnP*100),loftP:Math.round(loftP*100),penthP:Math.round(penthP*100),maidP:Math.round(maidP*100),privatePoolP:Math.round(privatePoolP*100),singleRowP:Math.round(singleRowP*100),cornerVillaP:Math.round(cornerVillaP*100),locP:Math.round(locP*100),geo:Math.round(geoAdj*100),rent,sc,grossYield,netYield,g0:gr[0],g1:gr[1],g2:gr[2],prRatio:prRatio?prRatio.toFixed(1):null,investSignal,totalReturnAnnual,domEst,txVol,liqScore,liqTier,txLabel,turnoverRate,turnoverTier,bldgUnits,bldgAnnualTx,mosScore,mosTier,priceGapScore,timeDecayScore,marketDepthScore,demandScore,compData:compData,hasDynamic:!!dynBench,calFactor:calFactor,geoScore:geoScore,momFactor:momFactor,hasMomentum:!!(typeof MOMENTUM_LOADED!=="undefined"&&MOMENTUM_LOADED&&(MARKET_MOMENTUM[f.area]||MARKET_MOMENTUM["_overall"])),liveSig:liveSig};
 }
 
 // --- SMART RENTAL INTELLIGENCE ENGINE ----------------------------------------
