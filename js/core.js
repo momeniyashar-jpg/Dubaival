@@ -166,9 +166,18 @@ function inp(style,placeholder,type,value,onChange){
   return e;
 }
 function mkSelect(style,options,value,onChange){
+  // The closed <select> inherits the app's dark theme via `style`, but the
+  // OPEN native dropdown popup is rendered by the OS/browser, not by CSS —
+  // an <option> with no explicit background/color falls back to the
+  // platform's light-mode default, producing illegible light-on-light (or
+  // in dark mode, dark-on-dark) text. Setting both explicitly on every
+  // option is the one part of a native select Chrome/Firefox/Edge do honor.
+  var cl=C();
   const e=el("select",{style:style});
   options.forEach(function(o){
     const opt=el("option",{value:o},o);
+    opt.style.background=cl.surfaceSolid||"#0D1220";
+    opt.style.color=cl.white;
     if(o===value)opt.selected=true;
     e.appendChild(opt);
   });

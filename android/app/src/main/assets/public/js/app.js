@@ -2424,6 +2424,11 @@ function render(preserveScroll){
 
   document.documentElement.dir=isRTL()?"rtl":"ltr";
   document.documentElement.lang=isRTL()?"ar":"en";
+  // Tells the browser to render native controls (select dropdown popups,
+  // scrollbars, date pickers) in the matching color scheme — without this,
+  // native <select> option lists default to the OS's light theme regardless
+  // of the app's own dark theme, producing illegible light-on-light text.
+  document.documentElement.style.colorScheme=darkMode?"dark":"light";
   if(isRTL())document.body.style.fontFamily="Cairo,'Space Grotesk',monospace";
   else document.body.style.fontFamily="";
   var _scrollY=preserveScroll?window.scrollY:0;

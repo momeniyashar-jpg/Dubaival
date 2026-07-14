@@ -461,6 +461,43 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-15 (session 12)**: Fixed a real, user-reported visual bug
+  (screenshot: Compare tab's "Property Type" dropdown showed illegible
+  white/light text on a white/light background when opened) plus started a
+  broader red-color-token misuse audit the user requested in the same
+  message ("رنگ قرمز... برای اخطار دادنه ولی یک جاهایی ازش... بدون دلیل
+  استفاده شده" — red is meant to signal warnings, but it's used in some
+  places without reason — check and fix).
+  - **Root cause**: `mkSelect()` (`js/core.js`) built `<option>` elements
+    with no explicit `background`/`color` at all — the CLOSED `<select>`
+    correctly inherits the app's dark theme via its own inline style, but
+    the OPEN native dropdown popup is rendered by the OS/browser, not by
+    the app's CSS, so an unstyled `<option>` falls back to the platform's
+    light-mode default regardless of the app's dark mode — exactly
+    reproducing the reported bug.
+  - **Fix, two layers**: (1) `mkSelect()` now explicitly sets
+    `background`/`color` on every `<option>` from the current theme — the
+    one part of native `<select>` styling Chrome/Firefox/Edge actually
+    honor; (2) `render()` (`js/app.js`) now sets
+    `document.documentElement.style.colorScheme` to `"dark"`/`"light"`
+    based on `darkMode` — the standard, broader fix that tells the browser
+    to render ALL native controls (not just this app's shared `mkSelect()`
+    helper, but any of the ~37 other raw `<select>`/`<option>` call sites
+    scattered across 8 files) in the matching theme, without needing to
+    touch each one individually.
+  - Verified: a real-browser Playwright pass navigating to Compare and
+    inspecting the Property Type dropdown's actual computed styles —
+    confirmed `<option>` now resolves to a real dark background
+    (`rgb(13,18,32)`) and light text (`rgb(232,237,245)`), and
+    `document.documentElement`'s computed `color-scheme` is `dark`; `node -c`
+    on both touched files.
+  - **Red-color audit**: dispatched a background review of all ~323
+    red-token occurrences (`cl.red`/`cl.redBg`/`cl.redBo` plus hardcoded
+    hex reds) across 18 files to find genuine misuse (a plain informational
+    label, chart-series color, or decorative badge tinted red with no actual
+    warning/error/negative meaning) — see the next work-log entry once
+    complete for what was found and fixed.
+
 - **2026-07-14 (session 11z)**: The two remaining items from session 11y's
   beta-launch discussion — News tab "Launch Bank" + automatic/manual error
   reporting. User: "بله بخش لانچ رو قوی‌تر کن ، تا همه بتونن به خوبی آرش
