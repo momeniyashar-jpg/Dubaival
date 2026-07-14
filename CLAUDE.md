@@ -461,6 +461,45 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-13 (session 11v)**: Interactive Map — fixed a real, user-reported
+  bug (screenshot: clicking "Show Key Buildings on Map" after selecting an
+  area returned "Could not locate buildings on the map for this area right
+  now.") in the session 11t drill-down feature.
+  - **Root cause**: `api/proxy-maps.js` shares ONE rate-limit bucket (30
+    requests/min per IP) across every action on the endpoint. Opening an
+    area panel alone already costs 2 requests (amenities + the 11u area-size
+    geocode); clicking "Show Key Buildings" fires up to
+    `_DV_KEY_BUILDINGS_LIMIT`=12 MORE geocode calls, all at once via
+    `Promise.all`. Browsing just 2-3 areas before deciding easily exceeds 30
+    requests inside a minute — every geocode call after that point gets a
+    429, which `_dvGeocodeBuilding` (session 11t) had no way to distinguish
+    from "this building genuinely isn't geocodable," so it silently returned
+    `null` for every building and the panel showed a generic, misleading
+    "not found" message instead of the real cause.
+  - **Fix**: raised the shared limit to 90/min (`api/proxy-maps.js`) — still
+    a real per-IP ceiling against abuse, just no longer tripped by ordinary
+    map browsing. Also hardened the client side defensively, since a shared
+    limit can still be hit under heavier use: `_dvGeocodeBuilding` now reads
+    the actual HTTP status, and on a 429 waits 900ms and retries once before
+    giving up; `_dvShowKeyBuildings` now processes its 12 buildings in
+    sequential batches of 4 (`_dvBatchPromises`, new small helper) instead of
+    firing all 12 concurrently, both reducing burst pressure on the limiter
+    and giving the retry path room to work; and if buildings are still
+    unresolved after all that, the panel now shows an accurate "Too many map
+    requests right now — please wait a few seconds and try again" message,
+    distinct from the genuine "not found" case.
+  - Verified: a Node test with a mocked `fetch` returning 429 for the first 6
+    calls then succeeding — confirmed markers still populate correctly via
+    the retry path; a second test with `fetch` permanently returning 429 —
+    confirmed the panel shows the new rate-limit-specific message (not the
+    generic one) and zero markers are created (no partial/broken state); a
+    third test confirming the batching never allows more than 4 concurrent
+    geocode fetches in flight; the existing metric-registry (2,429 checks),
+    drill-down, and building-tier Node tests all re-run clean; `node -c` on
+    both touched files; and a real-browser Playwright pass confirming zero
+    non-network console errors. Confirming the fix live against the real
+    Vercel deployment's actual traffic patterns is the user's own next check.
+
 - **2026-07-13 (session 11u)**: Interactive Map area panel — two small,
   user-requested additions ("نمیشه بابت تعداد ساختمانهای موجود در هر منطقه از
   خود اطلاعات گوگل استفاده کنیم؟" — can't we use Google's own data for

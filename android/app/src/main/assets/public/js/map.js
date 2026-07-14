@@ -427,6 +427,11 @@ function _dvOpenInAnalyzer(buildingKey, areaName) {
   setSection("Market", "Analyzer");
 }
 
+// Returns a real {lat,lng,...} object, null (genuinely not found), or
+// {rateLimited:true} if the shared per-IP proxy limit was hit even after one
+// short retry — kept distinct from "not found" so _dvShowKeyBuildings can
+// show the user an accurate, actionable message instead of implying the
+// buildings themselves don't exist.
 function _dvGeocodeBuilding(name, areaName) {
   var cacheKey = "dv_geo_" + areaName + "_" + name;
   try {
@@ -434,10 +439,42 @@ function _dvGeocodeBuilding(name, areaName) {
     if (s) { var c = JSON.parse(s); return Promise.resolve(c && c.lat ? c : null); }
   } catch (e) {}
   var address = _dvTitleCase(name) + ", " + areaName;
-  return fetch("/api/proxy-maps?action=geocode&address=" + encodeURIComponent(address))
-    .then(function(r) { return r.json(); })
-    .then(function(d) { try { sessionStorage.setItem(cacheKey, JSON.stringify(d)); } catch (e) {} return (d && d.lat) ? d : null; })
-    .catch(function() { return null; });
+  var url = "/api/proxy-maps?action=geocode&address=" + encodeURIComponent(address);
+  function attempt() {
+    return fetch(url).then(function(r) { return r.json().then(function(d) { return {status: r.status, data: d}; }); });
+  }
+  return attempt().then(function(res) {
+    if (res.status === 429) {
+      return new Promise(function(resolve) { setTimeout(resolve, 900); })
+        .then(attempt)
+        .then(function(res2) {
+          if (res2.status === 429) return {rateLimited: true};
+          try { sessionStorage.setItem(cacheKey, JSON.stringify(res2.data)); } catch (e) {}
+          return (res2.data && res2.data.lat) ? res2.data : null;
+        });
+    }
+    try { sessionStorage.setItem(cacheKey, JSON.stringify(res.data)); } catch (e) {}
+    return (res.data && res.data.lat) ? res.data : null;
+  }).catch(function() { return null; });
+}
+
+// Processes items in sequential batches (not all-at-once) so a "Show Key
+// Buildings" click doesn't fire a burst of N concurrent requests against the
+// shared per-IP proxy rate limit — gentler on both our own limiter and
+// Google's API, at the cost of a little extra latency per batch.
+function _dvBatchPromises(items, batchSize, fn) {
+  var results = [];
+  var idx = 0;
+  function step() {
+    if (idx >= items.length) return Promise.resolve(results);
+    var batch = items.slice(idx, idx + batchSize);
+    idx += batchSize;
+    return Promise.all(batch.map(fn)).then(function(batchResults) {
+      results = results.concat(batchResults);
+      return step();
+    });
+  }
+  return step();
 }
 
 function _dvClearBuildingMarkers() {
@@ -499,15 +536,23 @@ function _dvShowKeyBuildings(areaName) {
   _dvClearBuildingMarkers();
   _dvShowPanel('<div style="color:#8899AA;font-size:12px;">Locating ' + bldgs.length + ' key buildings in ' + areaName + '…</div>');
 
-  Promise.all(bldgs.map(function(b) {
+  _dvBatchPromises(bldgs, 4, function(b) {
     return _dvGeocodeBuilding(b.name, areaName).then(function(loc) {
+      if (loc && loc.rateLimited) return {rateLimited: true};
       return loc ? Object.assign({}, b, {lat: loc.lat, lng: loc.lng}) : null;
     });
-  })).then(function(results) {
+  }).then(function(results) {
     if (_dvMapState.tier !== "building" || _dvMapState.focusArea !== areaName) return; // user navigated away meanwhile
     var located = results.filter(function(r) { return r && r.lat; });
+    var anyRateLimited = results.some(function(r) { return r && r.rateLimited; });
     _dvHidePanel();
-    if (!located.length) { _dvShowPanel('<div style="color:#8899AA;font-size:12px;">Could not locate buildings on the map for this area right now.</div>'); return; }
+    if (!located.length) {
+      var msg = anyRateLimited
+        ? "Too many map requests right now — please wait a few seconds and try again."
+        : "Could not locate buildings on the map for this area right now.";
+      _dvShowPanel('<div style="color:#8899AA;font-size:12px;">' + msg + '</div>');
+      return;
+    }
     var bounds = new google.maps.LatLngBounds();
     located.forEach(function(b) {
       var color = _DV_GRADE_COLOR[b.g] || "#8899AA";

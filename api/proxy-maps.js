@@ -8,7 +8,16 @@ module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  if (rateLimitExceeded(req, res, 60000, 30)) return;
+  // 2026-07-13 fix: was 30/min — too tight once the Map tab's "Show Key
+  // Buildings" feature started firing up to 12 geocode calls in a single
+  // click (real bug: a user opening even 2-3 area panels, each of which
+  // also calls amenities+geocode for the size stat, could exhaust this
+  // budget and have every subsequent geocode request silently 429, which
+  // the client was previously unable to distinguish from "building not
+  // found" — see js/map.js's _dvGeocodeBuilding). Raised to comfortably
+  // cover realistic map browsing without materially loosening abuse
+  // protection (still IP-scoped, still a hard ceiling).
+  if (rateLimitExceeded(req, res, 60000, 90)) return;
 
   var key = process.env.GOOGLE_MAPS_KEY;
   if (!key) return res.status(500).json({ error: "GOOGLE_MAPS_KEY not configured" });
