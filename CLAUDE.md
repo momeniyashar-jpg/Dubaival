@@ -2006,24 +2006,62 @@ These files contain critical business logic and data:
 
 ## Outstanding / open items
 
-- **🟡 6 building families with tower-numbering gaps — needs research-branch
-  verification** (found 2026-07-13, session 11w): a heuristic scan of `DB`
-  keys matching `<base> tower N`/`<base> tN`, grouped by area+base name,
-  found 6 families where the tower-number sequence has a gap (a real signal
-  of a possibly missing sibling building — same class of issue the user
-  suspected for "Blvd Heights," which turned out to be a false alarm since
-  both its towers are already present). None of these were fixed here since
-  `js/data-residential.js` is the research branch's exclusive domain — pass
-  to that session (`claude/dubaival-portfolio-manager-5bgbjk`) to verify
-  against live listings/DLD data and backfill if the missing tower is real:
-  - `U-Bora` (Business Bay): has Tower 1, 3, 4 — missing Tower 2.
-  - `Serra` (Dubailand): has Tower 1, 3-10 — missing Tower 2.
-  - `Centrium` (Dubai Production City): has Tower 1, 3 — missing Tower 2.
-  - `Farah` (Wadi Al Safa): has Tower 1, 2, 5 — missing Tower 3, 4.
-  - `Centrium` (Jumeirah Village Circle — a different complex from the Dubai
-    Production City one above, same brand name): has Tower 2, 4 — missing
-    Tower 3.
-  - `Palace Towers` (Dubai Silicon Oasis): has T1, T3 — missing T2.
+- **🔴 "Blvd Heights T3" confirmed a bogus DB entry — needs research-branch
+  removal** (found 2026-07-13, session 11w, corrected same session after
+  further digging): initially logged as a false alarm ("both real towers
+  already present"), but the user — a real-estate domain expert — stated
+  Blvd Heights has exactly 2 towers, prompting a check against
+  `tools/calibration-output.json` (the real DLD-transaction-derived
+  calibration source, `residential.buildings`). That source has exactly 3
+  Blvd Heights blocks, all backed by real transaction counts: `blvd heights
+  t1` (280 real transactions, calibrated PSF 2497), `blvd heights t2` (172
+  transactions, PSF 2452), `blvd heights podium` (32 transactions, PSF
+  2357) — **no `t3` entry anywhere in the calibration source**, and the live
+  `DB`'s `"blvd heights t3"` PSF (2050) doesn't match any of the 3 real
+  calibrated figures either. This building has no per-building lat/lng or
+  other traceable provenance field, so the exact origin of the `t3` entry
+  can't be pinned down further from this branch, but it is NOT backed by
+  real DLD transaction data — it should be removed from `DB`/`BLDG_UNITS` in
+  `js/data-residential.js` (and `AREA_ALIASES`/cluster lists if referenced
+  there too) by the research branch (`claude/dubaival-portfolio-manager-
+  5bgbjk`), which owns that file. Same verification approach (cross-check
+  against `tools/calibration-output.json`'s real transaction-backed building
+  list) is the right tool for confirming/rejecting the other 6 tower-gap
+  candidates below.
+
+- **🟡 6 building families with tower-numbering gaps — cross-checked against
+  calibration source, mixed results, needs research-branch action**
+  (found + investigated further 2026-07-13, session 11w): a heuristic scan of
+  `DB` keys matching `<base> tower N`/`<base> tN` found 6 families with a gap
+  in the tower-number sequence; cross-checking each against
+  `tools/calibration-output.json`'s real transaction-backed building list
+  (same method that confirmed the Blvd Heights T3 error above) gave 3
+  different verdicts, not a single pattern:
+  - **`Centrium` — NOT a real gap, a mislabeled-area bug instead**: the
+    calibration source has all 4 real towers (1-4, each with real
+    transactions, all correctly under area `Me'Aisem First`), but the live
+    `DB` splits them into two fake "incomplete" families — Tower 1 & 3 under
+    `Dubai Production City`, Tower 2 & 4 under `Jumeirah Village Circle` —
+    which is why the heuristic scan (grouped by area+name) saw two gapped
+    families instead of one complete one. The real bug to fix is the area
+    label on 2 of the 4 entries, not a missing tower.
+  - **`Serra` and `Farah` — likely fine, no action needed**: both areas' live
+    `DB` tower sets match the calibration source's real transaction-backed
+    set EXACTLY (Serra: 1, 3-10 in both; Farah: 1, 2, 5 in both) — the
+    numbering gap exists in the real DLD transaction data too, so it's
+    consistent rather than suspicious (the missing numbers likely just don't
+    have recent transactions, or those towers/numbers genuinely don't exist).
+  - **`U-Bora` and `Palace Towers` — unresolved, calibration source doesn't
+    cover them well enough to judge**: calibration only has `u-bora tower 1`
+    (no backing for the live DB's Tower 3/4 at all), and has NEITHER of Palace
+    Towers' two live entries (T1, T3). Can't confirm or deny a real gap from
+    this data source — needs live listings/DLD data or the original research
+    session's own sourcing.
+  All of this needs the research branch (`claude/dubaival-portfolio-manager-
+  5bgbjk`), which owns `js/data-residential.js` — this branch cannot edit
+  that file. Concrete asks: fix Centrium's area mislabeling (real fix, high
+  confidence), leave Serra/Farah alone, and investigate U-Bora/Palace Towers
+  with a better data source than `calibration-output.json` alone.
 
 - **🟡 Rental velocity ("Fastest to Rent") — needs manual SQL + a few weeks of
   accumulation** (added 2026-07-13, session 11n): run
