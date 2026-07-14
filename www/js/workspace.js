@@ -194,7 +194,7 @@ function getMiniWidget(wid,cl){
   }else if(wid==="deals"){
     var dc=DEAL_STATE.deals.length;var hc=DEAL_STATE.deals.filter(function(d){return d.urgency==="hot";}).length;
     w.appendChild(div({color:cl.text,fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},dc+" active deals"));
-    if(hc)w.appendChild(div({color:"#EF4444",fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},hc+" hot deals"));
+    if(hc)w.appendChild(div({color:"#F97316",fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},hc+" hot deals"));
   }else if(wid==="notifications"){
     var uc=getUnreadCount();
     w.appendChild(div({color:uc>0?cl.gold:cl.sub,fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},uc+" unread"));

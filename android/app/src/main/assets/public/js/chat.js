@@ -294,7 +294,7 @@ var AI_AGENTS=[
   },
   {id:"legal",icon:"scale",name:"Legal & Process Guide",nameAr:"راهنمای حقوقی",
     desc:"Buying process, visa, fees, RERA rules, tenant rights",
-    color:"#EF4444",
+    color:"#06B6D4",
     suggestions:["Steps to buy property in Dubai as a foreigner?","What are all the fees when buying in Dubai?","RERA rules for rent increase in 2026?","How does Golden Visa through property work?"],
     sys:function(){
       return getDubaiRealEstateBrain()+"\n\n"+
@@ -5062,7 +5062,7 @@ function showBulkGenerator(){
     var bulkShareRow=div({display:"flex",gap:"6px",marginBottom:"10px"});
     bulkShareRow.appendChild(makeShareButton({text:allCaptions,title:"DubAIVal 30-Day Content Plan"},{flex:"1"}));
     resultWrap.appendChild(bulkShareRow);
-    var pillarColors={"Market Data":"#3B82F6","Area Spotlights":"#10B981","Investment Tips":"#F59E0B","Lifestyle":"#EC4899","Success Stories":"#8B5CF6","Behind the Scenes":"#F97316","FAQ":"#06B6D4","Trending News":"#EF4444"};
+    var pillarColors={"Market Data":"#3B82F6","Area Spotlights":"#10B981","Investment Tips":"#F59E0B","Lifestyle":"#EC4899","Success Stories":"#8B5CF6","Behind the Scenes":"#F97316","FAQ":"#06B6D4","Trending News":"#14B8A6"};
     result.posts.forEach(function(p,i){
       var pCard=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",marginBottom:"4px"});
       var hdr=div({display:"flex",justifyContent:"space-between",alignItems:"center"});
@@ -5220,7 +5220,7 @@ function showLinkInBio(){
 var STORY_TEMPLATES=[
   {id:"quiz",name:"Quiz",color:"#8B5CF6",description:"Test your audience's Dubai market knowledge"},
   {id:"poll",name:"Poll",color:"#3B82F6",description:"Engage with binary choices about property"},
-  {id:"countdown",name:"Countdown",color:"#EF4444",description:"Build urgency for launches, deals, events"},
+  {id:"countdown",name:"Countdown",color:"#F97316",description:"Build urgency for launches, deals, events"},
   {id:"thisorthat",name:"This or That",color:"#F59E0B",description:"Compare two areas, properties, or strategies"},
   {id:"slider",name:"Emoji Slider",color:"#EC4899",description:"Rate sentiment on market topics"},
   {id:"ama",name:"AMA",color:"#10B981",description:"Ask Me Anything about Dubai real estate"}
@@ -6013,7 +6013,7 @@ function showHashtagIntelligence(caption){
     loadingP.remove();
     if(!result){card.appendChild(el("p",{style:{color:"#EF4444",fontSize:"12px"}},"Check Gemini API key."));return;}
     var allTags=[];
-    var cats=[{key:"trending",label:"Trending",color:"#EF4444"},{key:"location",label:"Location",color:"#3B82F6"},{key:"property",label:"Property",color:"#10B981"},{key:"investment",label:"Investment",color:"#F59E0B"},{key:"lifestyle",label:"Lifestyle",color:"#EC4899"}];
+    var cats=[{key:"trending",label:"Trending",color:"#F97316"},{key:"location",label:"Location",color:"#3B82F6"},{key:"property",label:"Property",color:"#10B981"},{key:"investment",label:"Investment",color:"#F59E0B"},{key:"lifestyle",label:"Lifestyle",color:"#EC4899"}];
     cats.forEach(function(cat){var tags=result[cat.key];if(tags)tags.forEach(function(t){allTags.push(typeof t==="string"?t:t.tag);});});
     var realDataNote=div({background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px",marginBottom:"10px"});
     realDataNote.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",fontWeight:"700",fontFamily:"monospace"}},"Fetching real Instagram post counts..."));
@@ -6240,7 +6240,7 @@ function showMultiLanguage(caption){
     {code:"ar",name:"العربية (Arabic)",flag:"AR",color:"#10B981",audience:"UAE & GCC buyers"},
     {code:"fa",name:"فارسی (Farsi)",flag:"FA",color:"#8B5CF6",audience:"Iranian investors"},
     {code:"ru",name:"Русский (Russian)",flag:"RU",color:"#3B82F6",audience:"Russian-speaking investors"},
-    {code:"zh",name:"中文 (Chinese)",flag:"ZH",color:"#EF4444",audience:"Chinese HNW buyers"},
+    {code:"zh",name:"中文 (Chinese)",flag:"ZH",color:"#14B8A6",audience:"Chinese HNW buyers"},
     {code:"hi",name:"हिन्दी (Hindi)",flag:"HI",color:"#F59E0B",audience:"Indian investors"},
     {code:"fr",name:"Français (French)",flag:"FR",color:"#EC4899",audience:"Francophone African & European buyers"}
   ];
@@ -6339,7 +6339,7 @@ function showHookStoryOffer(caption){
     {id:"aida",name:"AIDA",icon:"AIDA",color:"#3B82F6",desc:"Attention → Interest → Desire → Action"},
     {id:"pas",name:"PAS",icon:"PAS",color:"#F59E0B",desc:"Problem → Agitate → Solution"},
     {id:"bab",name:"BAB",icon:"BAB",color:"#10B981",desc:"Before → After → Bridge"},
-    {id:"fomo",name:"FOMO/Scarcity",icon:"FOMO",color:"#EF4444",desc:"Urgency + social proof + exclusivity"}
+    {id:"fomo",name:"FOMO/Scarcity",icon:"FOMO",color:"#8B5CF6",desc:"Urgency + social proof + exclusivity"}
   ];
   var resultArea=div({});
   var fwGrid=div({display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"6px",marginBottom:"12px"});
@@ -7960,7 +7960,7 @@ function showEngagementDashboard(){
       });
     });
     var statsGrid=div({display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"6px",marginBottom:"12px"});
-    [{l:"Total Likes",v:totalLikes,c:"#EF4444"},{l:"Total Comments",v:totalComments,c:"#3B82F6"},{l:"Tracked Posts",v:entries.length,c:"#10B981"}].forEach(function(s){
+    [{l:"Total Likes",v:totalLikes,c:"#EC4899"},{l:"Total Comments",v:totalComments,c:"#3B82F6"},{l:"Tracked Posts",v:entries.length,c:"#10B981"}].forEach(function(s){
       var sc=div({background:"#0D1117",borderRadius:"8px",padding:"10px",textAlign:"center"});
       sc.appendChild(el("div",{style:{color:s.c,fontSize:"20px",fontWeight:"800",fontFamily:"monospace"}},String(s.v)));
       sc.appendChild(el("div",{style:{color:"#8899AA",fontSize:"9px",fontFamily:"monospace"}},s.l));statsGrid.appendChild(sc);

@@ -105,7 +105,7 @@ function renderMortgage(price, cl){
   // Stats grid
   const statsGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}});
   [
-    {l:"Total Interest",v:"AED "+totalInterest.toLocaleString(),c:cl.red},
+    {l:"Total Interest",v:"AED "+totalInterest.toLocaleString(),c:cl.sub},
     {l:"Total Repaid",v:"AED "+totalPaid.toLocaleString(),c:"#F0F2F5"},
     {l:"DLD Fee (4%)",v:"AED "+dldFee.toLocaleString(),c:cl.sub},
     {l:"Total Upfront",v:"AED "+totalCost.toLocaleString(),c:cl.gold},

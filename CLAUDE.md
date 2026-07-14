@@ -491,12 +491,88 @@ features continue working exactly as before. Zero breakage.
     (`rgb(13,18,32)`) and light text (`rgb(232,237,245)`), and
     `document.documentElement`'s computed `color-scheme` is `dark`; `node -c`
     on both touched files.
-  - **Red-color audit**: dispatched a background review of all ~323
-    red-token occurrences (`cl.red`/`cl.redBg`/`cl.redBo` plus hardcoded
-    hex reds) across 18 files to find genuine misuse (a plain informational
-    label, chart-series color, or decorative badge tinted red with no actual
-    warning/error/negative meaning) — see the next work-log entry once
-    complete for what was found and fixed.
+  - **Red-color audit — completed, 18 misuses fixed**: dispatched a
+    background review of all ~323 red-token occurrences (`cl.red`/
+    `cl.redBg`/`cl.redBo` plus hardcoded hex reds) across 18 files to find
+    genuine misuse — a plain informational label, chart-series color, or
+    decorative badge tinted red with no actual warning/error/negative
+    meaning — per the design principle that red/red-tonality is reserved for
+    alerts (errors, negative deltas, "Bubble Risk"/"Overpriced" verdicts,
+    validation failures, destructive actions), never a neutral decorative or
+    informational color. Reviewed every flagged candidate personally before
+    editing (not all of the audit's flags were acted on — see below). Fixed:
+    - **"Hot"/exciting-but-positive concepts wrongly reading as warnings**:
+      `js/market.js`'s "Market Movers" flame header + "Hottest Areas"
+      ranking list (both red among green/blue/purple siblings that are
+      equally positive rankings), `js/app.js`'s "5-YEAR CAPITAL STORY"
+      opportunity card (celebrates strong appreciation, not a problem), and
+      `js/workspace.js`'s "hot deals" widget stat — all switched to orange
+      (`#F97316`), keeping the "hot/exciting" visual metaphor without the
+      alert-red token.
+    - **Arbitrary category/tag swatches that happened to land on red**: the
+      "Legal & Process Guide" AI agent persona (`js/chat.js`, cyan now),
+      the "new-launch" video category (`js/social.js`, pink now), "Trending
+      News" content-pillar and "Trending" hashtag category (`js/chat.js`,
+      teal/orange), "Countdown" story template and "FOMO/Scarcity" copy
+      framework (`js/chat.js`, orange/purple), the Chinese language swatch
+      in the multi-language translator (`js/chat.js`, teal) — all were one
+      arbitrary color in a rotation of otherwise-neutral category colors,
+      with zero connection to a warning.
+    - **"Premium/expensive" wrongly coded as bad**: Market Index's "Most
+      Expensive Areas" PSF column and the price heatmap's "Premium (>3000)"
+      tier + bar color (`js/marketindex.js`) all used red for the highest
+      price bracket — a high-value area isn't a warning (unlike an actual
+      "Overpriced" AVM verdict elsewhere in the app, which correctly stays
+      red) — switched to `cl.gold`, the app's existing premium/luxury
+      accent.
+    - **Positive engagement stats inheriting a "like = red" association**:
+      "Total Likes" stat tiles (`js/social.js`, `js/chat.js`) used the
+      literal `cl.red`/`#EF4444` warning token just because likes are
+      tied to a red heart icon — switched to pink (`#EC4899`) so the
+      heart-red convention itself (left untouched, see below) doesn't leak
+      into unrelated stat displays.
+    - **Neutral amenity-type icons**: "Hospital" in both Map's and the
+      Analyzer's near-identical "Nearby Amenities" widgets (`js/map.js`,
+      `js/market.js`) was red among gold/green/amber siblings — switched to
+      blue/teal respectively (kept distinct per-widget since each already
+      uses blue for a different amenity in one of the two).
+    - **Inconsistent admin-panel heading color**: `js/deals.js`'s OFM Admin
+      Dashboard login screen and dashboard header used red for plain
+      section titles/card border, while the app's OTHER admin panel
+      (`js/app.js` `renderAdmin()`) correctly uses gold — aligned both to
+      `cl.gold`/`cl.border` for consistency (left the "Logout" button red,
+      since the main app's own "Sign Out" button is also red — an existing,
+      consistent convention, not a one-off misuse).
+    - **A cost figure inconsistently singled out**: Mortgage Calculator's
+      "Total Interest" stat (`js/mortgage.js`) used `cl.red` while an
+      equally-a-cost sibling in the same grid ("DLD Fee") used neutral gray
+      — aligned to `cl.sub` for consistency (an expected, calculated
+      mortgage cost isn't a warning).
+    - **Inbox "new" status pill**: `js/inbox.js`'s per-message status badge
+      map (`new`/`read`/`agent_replied`/`ai_replied`) used red for an
+      unread message presented alongside neutral status pills — switched to
+      blue.
+    - **Deliberately left as-is** (judged as legitimate, not misuse, after
+      review — not just accepting every audit flag at face value): the
+      like/heart icon's red fill when liked (a globally standard convention,
+      e.g. Instagram/X/Facebook — not a warning, a "love" indicator older
+      than any design system); the notification bell's unread-count badge
+      and the inbox's own "N unread" header badge (both are "count of things
+      needing attention" badges — the same near-universal iOS/Android/Gmail
+      convention as an app icon's red badge number, a different category
+      from a plain category/font-color misuse); the News-icon "new article"
+      dot in the header (same convention); the voice-input mic's red
+      "recording"/"Listening..." active state (matches the real-world
+      convention that a recording indicator is red, like a camera's REC
+      light); and the Custom Report Builder's "Red" brand-color swatch
+      option (`js/workspace.js`) — a deliberate, user-facing "pick your own
+      report accent color" choice among 5 options, not an app-driven color
+      decision.
+  - Verified: `node -c` on all 9 touched files; a real-browser Playwright
+    pass navigating Market Dashboard, Market Index, Deal Board, and AI
+    Agents chat, plus a direct `renderMortgage()` call — zero non-network
+    console errors, confirming none of the ~18 color-only edits broke
+    rendering anywhere they touched.
 
 - **2026-07-14 (session 11z)**: The two remaining items from session 11y's
   beta-launch discussion — News tab "Launch Bank" + automatic/manual error

@@ -471,7 +471,7 @@ function _socialEmpty(cl,msg){
 }
 
 function _categoryColor(cat){
-  var map={"walkthrough":"#3B82F6","market-update":"#10B981","tips":"#F59E0B","review":"#14B8A6","new-launch":"#EF4444"};
+  var map={"walkthrough":"#3B82F6","market-update":"#10B981","tips":"#F59E0B","review":"#14B8A6","new-launch":"#EC4899"};
   return map[cat]||"#6B7280";
 }
 
@@ -1241,7 +1241,7 @@ function _renderMyProfile(wrap,cl){
   var totalViews=0;var totalLikes=0;
   SOCIAL_STATE.myVideos.forEach(function(v){totalViews+=(v.views||0);totalLikes+=(v.likes||0);});
   var myStats=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px"});
-  [{l:"Total Views",v:formatViews(totalViews),c:cl.gold},{l:"Total Likes",v:formatViews(totalLikes),c:cl.red},
+  [{l:"Total Views",v:formatViews(totalViews),c:cl.gold},{l:"Total Likes",v:formatViews(totalLikes),c:"#EC4899"},
    {l:"Followers",v:String(profile.follower_count||0),c:"#3B82F6"}].forEach(function(s){
     myStats.appendChild(div({background:cl.raised,borderRadius:"10px",padding:"12px",textAlign:"center"},[
       div({color:s.c,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},s.v),

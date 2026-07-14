@@ -215,10 +215,10 @@ function renderMarket(){
 
     // Section header: Market Movers
     var moverHdr=el('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'10px'}});
-    moverHdr.innerHTML='<i data-lucide="flame" style="width:14px;height:14px;color:#EF4444"></i>';
-    moverHdr.appendChild(span({color:'#EF4444',fontSize:'11px',letterSpacing:'0.1em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",fontWeight:'700'},'Market Movers'));
+    moverHdr.innerHTML='<i data-lucide="flame" style="width:14px;height:14px;color:#F97316"></i>';
+    moverHdr.appendChild(span({color:'#F97316',fontSize:'11px',letterSpacing:'0.1em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",fontWeight:'700'},'Market Movers'));
     dSec.appendChild(moverHdr);
-    dSec.appendChild(el('div',{style:{height:'1px',background:'linear-gradient(90deg,transparent 0%,rgba(239,68,68,0.3) 50%,transparent 100%)',marginBottom:'12px'}}));
+    dSec.appendChild(el('div',{style:{height:'1px',background:'linear-gradient(90deg,transparent 0%,rgba(249,115,22,0.3) 50%,transparent 100%)',marginBottom:'12px'}}));
 
     // Row 3: Market Pulse — 4 ranking lists in 2x2 grid
     var r3=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'12px'}});
@@ -228,7 +228,7 @@ function renderMarket(){
     var bestVal=ranked.slice().sort(function(a,b){return(b.y/Math.max(b.psf,1))-(a.y/Math.max(a.psf,1));}).slice(0,5);
     var mostLiq=ranked.slice().sort(function(a,b){return a.dom-b.dom;}).slice(0,5);
     var highGr=ranked.slice().sort(function(a,b){return b.g-a.g||b.psf-a.psf;}).slice(0,5);
-    [{title:'Hottest Areas',data:hottest,vFn:function(d){return(d.y+d.g).toFixed(1);},color:'#EF4444'},
+    [{title:'Hottest Areas',data:hottest,vFn:function(d){return(d.y+d.g).toFixed(1);},color:'#F97316'},
      {title:'Best Value',data:bestVal,vFn:function(d){return d.y.toFixed(1)+'% @ '+d.psf;},color:'#22C55E'},
      {title:'Most Liquid',data:mostLiq,vFn:function(d){return d.dom+'d DOM';},color:'#3B82F6'},
      {title:'Highest Growth',data:highGr,vFn:function(d){return'+'+d.g.toFixed(1)+'%';},color:'#A78BFA'}].forEach(function(cat){
@@ -3145,7 +3145,7 @@ function renderAnalyzerResult(wrap){
       var cfg={
         metro:{label:"Metro",color:"#3B82F6"},
         school:{label:"School",color:"#10B981"},
-        hospital:{label:"Hospital",color:"#EF4444"},
+        hospital:{label:"Hospital",color:"#14B8A6"},
         supermarket:{label:"Supermarket",color:"#F59E0B"},
         mosque:{label:"Worship",color:"#8B5CF6"}
       };

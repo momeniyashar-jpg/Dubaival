@@ -122,7 +122,7 @@ function renderMarketIndex(){
   var byPsf=areaData.slice().sort(function(a,b){return b.psf-a.psf;}).slice(0,10);
   wrap.appendChild(mkTable("◆ Most Expensive Areas","Highest price per square foot",[].concat(byPsf),[
     rankCol,nameCol,
-    {label:"PSF",w:"1fr",mono:true,bold:true,align:"right",color:function(){return"#EF4444";},render:function(d){return"AED "+d.psf.toLocaleString();}},
+    {label:"PSF",w:"1fr",mono:true,bold:true,align:"right",color:function(){return cl.gold;},render:function(d){return"AED "+d.psf.toLocaleString();}},
     {label:"Yield",w:"0.8fr",mono:true,align:"right",color:function(){return cl.sub;},render:function(d){return d.yield.toFixed(1)+"%";}}
   ]));
 
@@ -394,7 +394,7 @@ function renderMarketIndex(){
 
   // Legend
   var legRow=div({display:"flex",gap:"12px",marginBottom:"10px",justifyContent:"center"});
-  [{c:"#EF4444",l:"Premium (>3000)"},{c:"#F0A030",l:"Mid (1500-3000)"},{c:"#10B981",l:"Affordable (<1500)"}].forEach(function(lg){
+  [{c:cl.gold,l:"Premium (>3000)"},{c:"#F0A030",l:"Mid (1500-3000)"},{c:"#10B981",l:"Affordable (<1500)"}].forEach(function(lg){
     var lr=div({display:"flex",alignItems:"center",gap:"4px"});
     lr.appendChild(div({width:"10px",height:"10px",borderRadius:"3px",background:lg.c}));
     lr.appendChild(span({color:cl.sub,fontSize:"9px"},lg.l));
@@ -410,7 +410,7 @@ function renderMarketIndex(){
 
   sorted.forEach(function(d){
     var ratio=psfMax>psfMin?(d.psf-psfMin)/(psfMax-psfMin):0.5;
-    var barColor=ratio>0.65?"#EF4444":ratio>0.3?"#F0A030":"#10B981";
+    var barColor=ratio>0.65?cl.gold:ratio>0.3?"#F0A030":"#10B981";
     var barW=Math.max(8,Math.round(ratio*100));
     var row=div({display:"grid",gridTemplateColumns:"20px 2fr 3fr 0.8fr",gap:"6px",alignItems:"center",padding:"5px 10px",cursor:"pointer",borderRadius:"4px"});
     row.addEventListener("mouseenter",function(){this.style.background=cl.raised;});

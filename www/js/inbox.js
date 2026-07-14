@@ -134,7 +134,7 @@ function _platformIcon(platform) {
 
 function _statusBadge(status, platform) {
   var map = {
-    "new":            ["#EF4444","#3A1F1F","New"],
+    "new":            ["#3B82F6","#16233A","New"],
     "read":           ["#8899AA","#1A1F2E","Read"],
     "agent_replied":  ["#10B981","#0E2420","Replied"],
     "ai_replied":     ["#8B5CF6","#1A1030","AI Replied"],

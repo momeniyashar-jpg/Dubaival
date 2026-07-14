@@ -2014,7 +2014,7 @@ function renderAgentHub(wrap,cl){
 // ── Admin Dashboard ────────────────────────────────────────────────────────────
 function _ofmAdminLogin(wrap,cl){
   var card=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"24px",marginTop:"20px"});
-  card.appendChild(div({color:"#EF4444",fontSize:"12px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"16px"},"◆ Admin Dashboard Login"));
+  card.appendChild(div({color:cl.gold,fontSize:"12px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"16px"},"◆ Admin Dashboard Login"));
   var pwInp=el("input",{type:"password",placeholder:"Enter admin password",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"12px",borderRadius:"8px",fontSize:"14px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"}});
   var pwBtn=el("button",{style:{width:"100%",padding:"12px",background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",color:"#08090C",border:"none",borderRadius:"8px",fontSize:"14px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
   pwBtn.textContent="Login";
@@ -2069,9 +2069,9 @@ async function _ofmAdminCall(rpcName,params){
 function renderAdminDashboard(wrap,cl){
   if(!DEAL_STATE.adminToken)return _ofmAdminLogin(wrap,cl);
   var hub=DEAL_STATE.agentHub;
-  var card=div({background:cl.surface,border:"1px solid rgba(239,68,68,0.2)",borderRadius:"14px",padding:"18px",marginBottom:"14px"});
+  var card=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"});
   card.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
-    div({},[span({color:"#EF4444",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block"},"◆ Admin Dashboard"),
+    div({},[span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block"},"◆ Admin Dashboard"),
       span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Referral Management · Agent Control")]),
     el("button",{style:{background:"rgba(239,68,68,0.1)",color:"#EF4444",border:"1px solid rgba(239,68,68,0.2)",padding:"6px 12px",borderRadius:"6px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},
       onclick:function(){DEAL_STATE.adminToken=null;try{sessionStorage.removeItem("dv_admin_token");}catch(e){}OFM_STATE.view="dashboard";render();}},"Logout")

@@ -265,7 +265,7 @@ function _dvFetchAreaAmenities(areaName, targetId) {
     var ams = data.amenities;
     var cfg = [
       {k:"mall", label:"Mall", icon:"🛍️", color:"#D4A843"},
-      {k:"hospital", label:"Hospital", icon:"🏥", color:"#EF4444"},
+      {k:"hospital", label:"Hospital", icon:"🏥", color:"#3B82F6"},
       {k:"school", label:"School", icon:"🎓", color:"#10B981"},
       {k:"supermarket", label:"Supermarket", icon:"🛒", color:"#F59E0B"}
     ];

@@ -1714,7 +1714,7 @@ function generateMarketMoments(){
       if(!usedAreas[byG5[gi][0]]){
         var t=byG5[gi];usedAreas[t[0]]=1;
         var rate=(g5(t[1])/5).toFixed(1);
-        moments.push({icon:"flame",timing:"5-YEAR CAPITAL STORY",timingColor:"#EF4444",
+        moments.push({icon:"flame",timing:"5-YEAR CAPITAL STORY",timingColor:"#F97316",
           text:t[0]+": "+g5(t[1]).toFixed(0)+"% appreciation over 5 years — compounding at "+rate+"%/yr",
           tag:"LONG-TERM",tagColor:"#8B5CF6",area:t[0]});
         break;
