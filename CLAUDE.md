@@ -461,6 +461,104 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-14 (session 11y)**: PropTech Video Platform (`js/social.js`) —
+  fixed a pre-launch audit's real findings and built the agent rating/review
+  system the user asked for, following a full audit of the News tab (found
+  fully working, no changes needed) and the Video Platform (found several
+  real bugs plus a completely missing feature). User's instruction: "بله بخش
+  لانچ رو قوی‌تر کن... موارد بعدی مربوط به video platform هم فیکس کن تا کامل
+  و زنده بشه" (strengthen the launch section; also fix the video platform
+  issues to make it complete and live) — this session covers the Video
+  Platform half; the News "launch bank" strengthening is a separate,
+  not-yet-started follow-up (see Outstanding items).
+  - **Real bug #1 — `agent_profiles` UPDATE silently no-oped**: the RLS
+    policy on `agent_profiles` (from `supabase-social-schema.sql`) checks
+    `current_setting('request.header.x-user-id', true)`, but `_socialHeaders()`
+    never sent that header — every profile edit matched zero rows under RLS
+    (PostgREST returns 200 with an empty array, not an error), while
+    `_updateProfile()` unconditionally showed "Profile updated!". Fixed by
+    sending `x-user-id:_socialUserId()` on every request and by only firing
+    the success alert when the response actually returned an updated row.
+  - **Real bug #2 — `follower_count` permanently 0**: read/displayed/sorted-by
+    in 4 places (`_renderAgentCard`, `_renderAgentProfile`, "Most Followers"
+    sort, Following tab) but never written anywhere. Fixed with a real
+    Postgres trigger (`_dv_update_agent_follower_count()` on `agent_follows`
+    insert/delete) instead of a client-computed PATCH, avoiding the same
+    non-atomic race condition already present in the like/view counters.
+  - **Real bug #3 — `video_count` updated via a non-atomic read-then-PATCH**:
+    replaced with an equivalent trigger (`_dv_update_agent_video_count()` on
+    `agent_videos` insert/delete) for consistency; `_postVideo()`/
+    `_deleteVideo()` simplified to just call `_fetchMyProfile()` afterward
+    instead of hand-computing the new count client-side.
+  - **Real bug #4 — `_toggleLike`/`_incrementViews` were non-atomic
+    read-then-PATCH too** (a genuine race condition under concurrent
+    visitors): replaced with two new SECURITY DEFINER RPCs,
+    `toggle_video_like(p_video_id,p_user_id)` and
+    `increment_video_views(p_video_id)`, both atomic server-side.
+  - **Real security gap — `agent_videos` UPDATE/DELETE RLS was `using(true)`**:
+    any anonymous caller could edit or delete ANY agent's video via a direct
+    REST call, not just their own. Tightened to owner-only
+    (`agent_id in (select id from agent_profiles where user_id=current_setting(...))`),
+    with the two new RPCs (bypass RLS internally for the one narrow, safe
+    operation) preserving ordinary visitor view/like functionality under the
+    tightened policy.
+  - **New: real agent rating/review system**, closing the gap the user
+    specifically asked for ("بر اساس اون ویدیوها... rate هر ایجنت رو مشخص
+    کنیم" — based on those videos, determine each agent's rating): the
+    `agent_profiles.rating` column already existed and was already displayed
+    in `_renderAgentCard`/`_renderAgentProfile`, but nothing anywhere ever
+    computed or wrote it — permanently 0/"N/A", fully decorative. Added a new
+    `agent_reviews` table (`agent_id`, `video_id` nullable, `reviewer_id`,
+    `rating` 1-5, `comment`, unique per agent+reviewer so one browser can only
+    rate a given agent once) plus a trigger
+    (`_dv_update_agent_rating()`) that recomputes `agent_profiles.rating`
+    (real average) and a new `review_count` column on every insert/update/
+    delete — the existing display code needed zero changes to start showing
+    real data. `js/social.js` gained: `_fetchAgentReviews(agentId)`,
+    `_submitAgentReview(agentId,videoId)` (handles the 409 unique-constraint
+    conflict with a friendly "You've already reviewed this agent" message
+    instead of a raw error), `_myAgentReview()`, and a shared
+    `_renderAgentReviewWidget(cl,agentId,videoId)` component (star picker +
+    optional comment box, or — if the current browser already reviewed this
+    agent — their own past rating instead of the form, plus up to 5 other
+    reviewers' ratings/comments below). Wired into both the Video Modal
+    (right after watching a video — matches the user's exact framing of
+    rating agents based on their videos) and the full Agent Profile page.
+    `review_count` now shows alongside the star rating in both
+    `_renderAgentCard` and `_renderAgentProfile`'s stats grid (e.g.
+    "Rating (12)" instead of a bare average).
+  - **New migration file**: `supabase-social-fixes-schema.sql` — covers all
+    of the above (new `review_count` column, `agent_reviews` table + RLS,
+    the rating/follower/video-count triggers, the two new RPCs, and the
+    tightened `agent_videos` RLS policies). **Requires manual execution in
+    Supabase SQL Editor** before any of these fixes take effect live — same
+    pattern as every other new-migration feature in this project. Until it's
+    run: profile edits keep silently failing, counts stay frozen, and the
+    rating widget will error on submit (gracefully — shows "Could not submit
+    rating" rather than crashing).
+  - Verified: a Node vm-harness test (7 cases) — fetching reviews populates
+    state correctly, `_myAgentReview()` correctly returns null before/finds
+    the right review after a submission, a successful submission POSTs the
+    correct `{agent_id,video_id,reviewer_id,rating,comment}` body and appends
+    to local state, a 409 conflict shows the friendly duplicate-review
+    message, submitting without picking a star shows a validation error and
+    makes zero network calls, and the widget renders without throwing;
+    `node -c js/social.js`; and a real-browser Playwright pass driving the
+    actual Video Modal and Agent Profile page with mocked state — confirmed
+    "Rate this Agent" and existing reviewers' comments render in the live
+    DOM in both locations, the star picker is clickable, `review_count`
+    shows next to the rating in the profile stats grid, and the only console
+    output was the expected sandboxed-network market-intelligence failure
+    (not a real error).
+  - **Not done this session** (separate, not-yet-started items from the same
+    user instruction): strengthening the News tab's "launch projects"
+    section into a more prominent database/bank (the underlying `tag`/
+    `classifyTag()` infrastructure already exists and works — this is a
+    UI-prominence task, not a bug fix); the automatic + manual error-
+    reporting system discussed earlier in the beta-launch conversation;
+    generalizing the "Coming Soon" gating pattern to other paid-API-gated
+    features beyond Video Studio.
+
 - **2026-07-14 (session 11x)**: Quick Check redesigned from a generic
   area-wide price/rent range checker into a budget-first building
   recommender, per user discussion: user asked directly whether Quick
@@ -2064,6 +2162,19 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🟡 Video Platform rating/follower/video-count fixes — need manual SQL**
+  (added 2026-07-14, session 11y): run `supabase-social-fixes-schema.sql` in
+  Supabase SQL Editor (requires `supabase-social-schema.sql` to already be
+  applied, which it is). Until it's run: `follower_count`/`video_count` stay
+  frozen at their current values (no error, just no further updates), and
+  submitting a rating in the new "Rate this Agent" widget will show a
+  graceful "Could not submit rating" error since the `agent_reviews` table
+  doesn't exist yet. No new env vars needed. Also still open: strengthening
+  the News tab's "launch projects" section into a more prominent database/
+  bank (approved by the user, not started), and the automatic + manual
+  error-reporting system discussed in the beta-launch conversation (approved,
+  not started).
 
 - **✅ FIXED (exception to the two-branch rule, explicit user authorization):
   "Blvd Heights T3" bogus entry removed + Centrium area mislabeling

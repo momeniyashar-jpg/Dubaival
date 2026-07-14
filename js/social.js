@@ -11,6 +11,9 @@ var SOCIAL_STATE={
   // Agents
   agentList:[],agentsLoading:false,agentSort:"most-videos",agentSearch:"",
   viewAgent:null,viewAgentVideos:[],
+  // Agent Reviews (ratings)
+  agentReviews:[],agentReviewsLoading:false,agentReviewsFetchedFor:null,
+  reviewForm:{rating:0,comment:""},reviewSubmitting:false,reviewSubmitError:null,
   // Profile
   myProfile:null,profileLoading:false,
   regForm:{name:"",phone:"",rera:"",bio:"",areas:[],specialties:[],photo:null},
@@ -103,8 +106,15 @@ function _socialTimeAgo(dateStr){
   return d.toLocaleDateString("en-GB",{day:"numeric",month:"short"});
 }
 
+// 2026-07-14 fix: agent_profiles' UPDATE/DELETE RLS policies check
+// current_setting('request.header.x-user-id', true) — but this header was
+// never sent, so every profile edit silently matched zero rows under RLS
+// (PostgREST returns 200 with an empty array, not an error) while the UI
+// still showed "Profile updated!". Sending the same per-browser anon id
+// used everywhere else in this file satisfies the policy the schema
+// already expected.
 function _socialHeaders(json){
-  var h={"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY};
+  var h={"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"x-user-id":_socialUserId()};
   if(json)h["Content-Type"]="application/json";
   return h;
 }
@@ -251,8 +261,11 @@ async function _updateProfile(){
     var resp=await fetch(SUPABASE_URL+"/rest/v1/agent_profiles?id=eq."+pid,{method:"PATCH",
       headers:Object.assign({},_socialHeaders(true),{"Prefer":"return=representation"}),
       body:JSON.stringify(patch)});
-    if(resp.ok){var d=await resp.json();if(d.length)SOCIAL_STATE.myProfile=d[0];alert("Profile updated!");}
-    else alert("Update failed ("+resp.status+")");
+    if(resp.ok){
+      var d=await resp.json();
+      if(d.length){SOCIAL_STATE.myProfile=d[0];alert("Profile updated!");}
+      else alert("Update did not apply — please try again.");
+    }else alert("Update failed ("+resp.status+")");
   }catch(e){alert("Update error: "+e.message);}
   render();
 }
@@ -275,14 +288,10 @@ async function _postVideo(){
       headers:Object.assign({},_socialHeaders(true),{"Prefer":"return=representation"}),
       body:JSON.stringify(row)});
     if(!resp.ok){alert("Post failed ("+resp.status+")");SOCIAL_STATE.videoPosting=false;render();return;}
-    // Increment video_count on profile
-    try{
-      var profile=SOCIAL_STATE.myProfile;
-      var newCount=(profile.video_count||0)+1;
-      fetch(SUPABASE_URL+"/rest/v1/agent_profiles?id=eq."+pid,{method:"PATCH",
-        headers:_socialHeaders(true),body:JSON.stringify({video_count:newCount})});
-      profile.video_count=newCount;
-    }catch(e){}
+    // video_count is now kept in sync by a real DB trigger (trg_agent_videos_count,
+    // supabase-social-fixes-schema.sql) instead of a client-computed PATCH —
+    // avoids the race condition a read-then-write pattern has under concurrent posts.
+    _fetchMyProfile();
     SOCIAL_STATE.videoForm={url:"",title:"",description:"",area:"",category:"walkthrough",propertyType:"",tags:""};
     SOCIAL_STATE.videoFormOpen=false;SOCIAL_STATE.editingVideoId=null;
     _fetchMyVideos();
@@ -295,51 +304,47 @@ async function _deleteVideo(videoId){
   try{
     var resp=await fetch(SUPABASE_URL+"/rest/v1/agent_videos?id=eq."+videoId,{method:"DELETE",headers:_socialHeaders()});
     if(resp.ok){
-      try{
-        var pid=SOCIAL_STATE.myProfile&&SOCIAL_STATE.myProfile.id;
-        if(pid){
-          var newCount=Math.max(0,(SOCIAL_STATE.myProfile.video_count||1)-1);
-          fetch(SUPABASE_URL+"/rest/v1/agent_profiles?id=eq."+pid,{method:"PATCH",
-            headers:_socialHeaders(true),body:JSON.stringify({video_count:newCount})});
-          SOCIAL_STATE.myProfile.video_count=newCount;
-        }
-      }catch(e){}
+      // video_count kept in sync by trg_agent_videos_count (see _postVideo)
+      _fetchMyProfile();
       _fetchMyVideos();
     }else{alert("Delete failed ("+resp.status+")");}
   }catch(e){alert("Delete error: "+e.message);}
 }
 
+// 2026-07-14 fix: was a read-then-PATCH-computed-count pattern (a genuine
+// race condition under concurrent likes — two visitors liking at once can
+// lose an increment) AND, since agent_videos UPDATE is now tightened to
+// owner-only (supabase-social-fixes-schema.sql), a direct PATCH from a
+// random visitor would be rejected by RLS anyway. Routes through the
+// toggle_video_like() SECURITY DEFINER RPC instead — atomic on the server,
+// and works for any visitor regardless of video ownership.
 async function _toggleLike(video){
   var uid=_socialUserId();
-  var liked=_isLiked(video.id);
-  if(liked){
-    try{
-      await fetch(SUPABASE_URL+"/rest/v1/video_likes?video_id=eq."+video.id+"&user_id=eq."+encodeURIComponent(uid),
-        {method:"DELETE",headers:_socialHeaders()});
-      SOCIAL_STATE._likedSet=SOCIAL_STATE._likedSet.filter(function(id){return id!==video.id;});
-      video.likes=Math.max(0,(video.likes||0)-1);
-      fetch(SUPABASE_URL+"/rest/v1/agent_videos?id=eq."+video.id,{method:"PATCH",
-        headers:_socialHeaders(true),body:JSON.stringify({likes:video.likes})});
-    }catch(e){}
-  }else{
-    try{
-      await fetch(SUPABASE_URL+"/rest/v1/video_likes",{method:"POST",
-        headers:Object.assign({},_socialHeaders(true),{"Prefer":"return=minimal"}),
-        body:JSON.stringify({video_id:video.id,user_id:uid})});
-      SOCIAL_STATE._likedSet.push(video.id);
-      video.likes=(video.likes||0)+1;
-      fetch(SUPABASE_URL+"/rest/v1/agent_videos?id=eq."+video.id,{method:"PATCH",
-        headers:_socialHeaders(true),body:JSON.stringify({likes:video.likes})});
-    }catch(e){}
-  }
+  var wasLiked=_isLiked(video.id);
+  try{
+    var resp=await fetch(SUPABASE_URL+"/rest/v1/rpc/toggle_video_like",{method:"POST",
+      headers:_socialHeaders(true),
+      body:JSON.stringify({p_video_id:video.id,p_user_id:uid})});
+    if(!resp.ok)return;
+    var nowLiked=await resp.json(); // RPC returns the new liked state (true/false)
+    if(nowLiked){
+      if(!wasLiked){SOCIAL_STATE._likedSet.push(video.id);video.likes=(video.likes||0)+1;}
+    }else{
+      if(wasLiked){SOCIAL_STATE._likedSet=SOCIAL_STATE._likedSet.filter(function(id){return id!==video.id;});video.likes=Math.max(0,(video.likes||0)-1);}
+    }
+  }catch(e){return;}
   _saveLikes();render();
 }
 
+// Same rationale as _toggleLike — routes through a SECURITY DEFINER RPC so
+// visitor view-counting keeps working once direct agent_videos UPDATEs are
+// owner-only, and increments atomically server-side instead of a
+// read-then-PATCH race.
 function _incrementViews(video){
   video.views=(video.views||0)+1;
   try{
-    fetch(SUPABASE_URL+"/rest/v1/agent_videos?id=eq."+video.id,{method:"PATCH",
-      headers:_socialHeaders(true),body:JSON.stringify({views:video.views})});
+    fetch(SUPABASE_URL+"/rest/v1/rpc/increment_video_views",{method:"POST",
+      headers:_socialHeaders(true),body:JSON.stringify({p_video_id:video.id})});
   }catch(e){}
 }
 
@@ -383,6 +388,73 @@ async function _fetchAgentVideos(agentId){
   render();
 }
 
+// --- Agent Reviews / Ratings --------------------------------------------------
+function _myAgentReview(){
+  var uid=_socialUserId();
+  for(var i=0;i<SOCIAL_STATE.agentReviews.length;i++){
+    if(SOCIAL_STATE.agentReviews[i].reviewer_id===uid)return SOCIAL_STATE.agentReviews[i];
+  }
+  return null;
+}
+
+async function _fetchAgentReviews(agentId){
+  SOCIAL_STATE.agentReviewsLoading=true;render();
+  try{
+    var resp=await fetch(SUPABASE_URL+"/rest/v1/agent_reviews?agent_id=eq."+agentId+"&select=*&order=created_at.desc&limit=50",{headers:_socialHeaders()});
+    if(resp.ok)SOCIAL_STATE.agentReviews=await resp.json();
+    else SOCIAL_STATE.agentReviews=[];
+  }catch(e){SOCIAL_STATE.agentReviews=[];}
+  SOCIAL_STATE.agentReviewsLoading=false;
+  SOCIAL_STATE.agentReviewsFetchedFor=agentId;
+  SOCIAL_STATE.reviewForm={rating:0,comment:""};
+  SOCIAL_STATE.reviewSubmitError=null;
+  render();
+}
+
+async function _submitAgentReview(agentId,videoId){
+  var rating=SOCIAL_STATE.reviewForm.rating;
+  if(!rating||rating<1||rating>5){SOCIAL_STATE.reviewSubmitError="Pick a star rating first.";render();return;}
+  SOCIAL_STATE.reviewSubmitting=true;SOCIAL_STATE.reviewSubmitError=null;render();
+  try{
+    var resp=await fetch(SUPABASE_URL+"/rest/v1/agent_reviews",{method:"POST",
+      headers:Object.assign({},_socialHeaders(true),{"Prefer":"return=representation"}),
+      body:JSON.stringify({agent_id:agentId,video_id:videoId||null,reviewer_id:_socialUserId(),
+        rating:rating,comment:(SOCIAL_STATE.reviewForm.comment||"").trim()||null})});
+    if(resp.ok){
+      var d=await resp.json();
+      if(d.length)SOCIAL_STATE.agentReviews.unshift(d[0]);
+      SOCIAL_STATE.reviewForm={rating:0,comment:""};
+      // agent_profiles.rating/review_count are recomputed server-side by a
+      // trigger (supabase-social-fixes-schema.sql) — refresh so the stats
+      // grid on the profile page reflects this review immediately.
+      if(SOCIAL_STATE.viewAgent&&SOCIAL_STATE.viewAgent.id===agentId)_fetchAgentProfileById(agentId);
+    }else if(resp.status===409){
+      SOCIAL_STATE.reviewSubmitError="You've already reviewed this agent.";
+    }else{
+      SOCIAL_STATE.reviewSubmitError="Could not submit rating ("+resp.status+"). Please try again.";
+    }
+  }catch(e){SOCIAL_STATE.reviewSubmitError="Network error — please try again.";}
+  SOCIAL_STATE.reviewSubmitting=false;render();
+}
+
+async function _fetchAgentProfileById(agentId){
+  try{
+    var resp=await fetch(SUPABASE_URL+"/rest/v1/agent_profiles?id=eq."+agentId+"&select=*",{headers:_socialHeaders()});
+    if(resp.ok){
+      var d=await resp.json();
+      if(d.length){
+        SOCIAL_STATE.viewAgent=d[0];
+        if(SOCIAL_STATE.agentList){
+          for(var i=0;i<SOCIAL_STATE.agentList.length;i++){
+            if(SOCIAL_STATE.agentList[i].id===agentId){SOCIAL_STATE.agentList[i]=d[0];break;}
+          }
+        }
+        render();
+      }
+    }
+  }catch(e){}
+}
+
 // --- UI Rendering -----------------------------------------------------------
 
 function _socialSpinner(cl){
@@ -406,6 +478,82 @@ function _categoryColor(cat){
 function _categoryLabel(cat){
   var m={};SOCIAL_CATEGORIES.forEach(function(c){m[c.v]=c.l;});
   return m[cat]||cat;
+}
+
+// --- Agent Rating/Review Widget (shared by Video Modal + Agent Profile) ------
+function _renderStarPicker(cl,onPick){
+  var wrap=div({display:"flex",gap:"4px"});
+  var current=SOCIAL_STATE.reviewForm.rating;
+  for(var i=1;i<=5;i++){
+    (function(n){
+      var star=el("button",{style:{background:"none",border:"none",cursor:"pointer",fontSize:"22px",lineHeight:"1",
+        padding:"2px",color:n<=current?cl.gold:cl.border}});
+      star.textContent=n<=current?"★":"☆";
+      star.addEventListener("click",function(){SOCIAL_STATE.reviewForm.rating=n;onPick();});
+      wrap.appendChild(star);
+    })(i);
+  }
+  return wrap;
+}
+
+function _renderAgentReviewWidget(cl,agentId,videoId){
+  var wrap=div({marginTop:"16px",paddingTop:"16px",borderTop:"1px solid "+cl.border});
+  wrap.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",
+    fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},"Rate this Agent"));
+
+  if(SOCIAL_STATE.agentReviewsFetchedFor!==agentId||SOCIAL_STATE.agentReviewsLoading){
+    wrap.appendChild(_socialSpinner(cl));
+    return wrap;
+  }
+
+  var mine=_myAgentReview();
+  if(mine){
+    var doneRow=div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"4px"});
+    var stars="";for(var i=0;i<5;i++)stars+=i<mine.rating?"★":"☆";
+    doneRow.appendChild(span({color:cl.gold,fontSize:"16px",letterSpacing:"2px"},stars));
+    doneRow.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"You rated this agent"));
+    wrap.appendChild(doneRow);
+    if(mine.comment)wrap.appendChild(div({color:cl.subHi,fontSize:"12px",fontFamily:"'Inter',sans-serif",marginTop:"4px"},mine.comment));
+  }else{
+    var formWrap=div({});
+    formWrap.appendChild(_renderStarPicker(cl,function(){render();}));
+    var commentBox=el("textarea",{style:{width:"100%",marginTop:"10px",background:cl.raised,border:"1px solid "+cl.border,
+      color:cl.white,padding:"10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",
+      outline:"none",resize:"vertical",minHeight:"56px",boxSizing:"border-box"},
+      placeholder:"Optional comment about this agent's videos/service..."});
+    commentBox.value=SOCIAL_STATE.reviewForm.comment;
+    commentBox.addEventListener("input",function(){SOCIAL_STATE.reviewForm.comment=commentBox.value;});
+    formWrap.appendChild(commentBox);
+    if(SOCIAL_STATE.reviewSubmitError){
+      formWrap.appendChild(div({color:cl.red,fontSize:"11px",fontFamily:"'Inter',sans-serif",marginTop:"6px"},SOCIAL_STATE.reviewSubmitError));
+    }
+    var submitBtn=el("button",{style:{marginTop:"10px",padding:"8px 18px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",
+      fontFamily:"'Space Grotesk',monospace",cursor:SOCIAL_STATE.reviewSubmitting?"default":"pointer",
+      background:cl.gold,color:"#070B14",border:"none",opacity:SOCIAL_STATE.reviewSubmitting?"0.6":"1"}});
+    submitBtn.textContent=SOCIAL_STATE.reviewSubmitting?"Submitting...":"Submit Rating";
+    submitBtn.disabled=SOCIAL_STATE.reviewSubmitting;
+    submitBtn.addEventListener("click",function(e){e.stopPropagation();_submitAgentReview(agentId,videoId);});
+    formWrap.appendChild(submitBtn);
+    wrap.appendChild(formWrap);
+  }
+
+  var others=SOCIAL_STATE.agentReviews.filter(function(r){return!mine||r.id!==mine.id;});
+  if(others.length){
+    var listWrap=div({marginTop:"16px"});
+    others.slice(0,5).forEach(function(r){
+      var row=div({padding:"10px 0",borderTop:"1px solid "+cl.border});
+      var rStars="";for(var i=0;i<5;i++)rStars+=i<r.rating?"★":"☆";
+      row.appendChild(div({color:cl.gold,fontSize:"12px",letterSpacing:"1px"},rStars));
+      if(r.comment)row.appendChild(div({color:cl.subHi,fontSize:"12px",fontFamily:"'Inter',sans-serif",marginTop:"4px"},r.comment));
+      row.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginTop:"4px"},_socialTimeAgo(r.created_at)));
+      listWrap.appendChild(row);
+    });
+    wrap.appendChild(listWrap);
+  }else if(!mine){
+    wrap.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",marginTop:"12px"},"No ratings yet — be the first."));
+  }
+
+  return wrap;
 }
 
 // --- Video Card --------------------------------------------------------------
@@ -614,6 +762,8 @@ function _renderVideoModal(cl){
   actionBar.appendChild(span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},_socialTimeAgo(video.created_at)));
   content.appendChild(actionBar);
 
+  content.appendChild(_renderAgentReviewWidget(cl,agent.id||video.agent_id,video.id));
+
   // "More from this agent"
   var relatedAgent=SOCIAL_STATE.videos.filter(function(v){return v.agent_id===video.agent_id&&v.id!==video.id;}).slice(0,4);
   if(relatedAgent.length){
@@ -787,7 +937,8 @@ function _renderAgentCard(agent,cl){
     var stars="";for(var i=0;i<5;i++)stars+=i<Math.round(agent.rating)?"★":"☆";
     statsRow.appendChild(div({textAlign:"center",marginLeft:"auto"},[
       div({color:cl.gold,fontSize:"13px",letterSpacing:"2px"},stars),
-      div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},"Rating")
+      div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},
+        "Rating"+(agent.review_count?" ("+agent.review_count+")":""))
     ]));
   }
   card.appendChild(statsRow);
@@ -844,7 +995,7 @@ function _renderAgentProfile(wrap,cl){
 
   var statsGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px",marginBottom:"14px"});
   [{l:"Videos",v:agent.video_count||0,c:cl.gold},{l:"Followers",v:agent.follower_count||0,c:"#3B82F6"},
-   {l:"Rating",v:agent.rating?agent.rating.toFixed(1):"N/A",c:cl.green}].forEach(function(s){
+   {l:agent.review_count?"Rating ("+agent.review_count+")":"Rating",v:agent.rating?agent.rating.toFixed(1):"N/A",c:cl.green}].forEach(function(s){
     statsGrid.appendChild(div({background:cl.raised,borderRadius:"10px",padding:"12px",textAlign:"center"},[
       div({color:s.c,fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},String(s.v)),
       div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginTop:"3px"},s.l)
@@ -873,6 +1024,7 @@ function _renderAgentProfile(wrap,cl){
     });
     headerCard.appendChild(specWrap);
   }
+  headerCard.appendChild(_renderAgentReviewWidget(cl,agent.id,null));
   wrap.appendChild(headerCard);
 
   wrap.appendChild(div({marginBottom:"10px"},[
@@ -1382,6 +1534,12 @@ function renderSocial(){
   }
   if(SOCIAL_STATE.tab==="profile"&&SOCIAL_STATE.myProfile&&SOCIAL_STATE.myProfile.id&&!SOCIAL_STATE.profileLoading){
     setTimeout(function(){_fetchMyProfile();_fetchMyVideos();},0);
+  }
+  if(SOCIAL_STATE.expandedVideo&&SOCIAL_STATE.agentReviewsFetchedFor!==SOCIAL_STATE.expandedVideo.agent_id&&!SOCIAL_STATE.agentReviewsLoading){
+    setTimeout(function(){_fetchAgentReviews(SOCIAL_STATE.expandedVideo.agent_id);},0);
+  }
+  if(SOCIAL_STATE.tab==="agents"&&SOCIAL_STATE.viewAgent&&SOCIAL_STATE.agentReviewsFetchedFor!==SOCIAL_STATE.viewAgent.id&&!SOCIAL_STATE.agentReviewsLoading){
+    setTimeout(function(){_fetchAgentReviews(SOCIAL_STATE.viewAgent.id);},0);
   }
 
   return wrap;
