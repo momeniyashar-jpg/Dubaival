@@ -219,6 +219,7 @@ a:hover{opacity:0.85}
   .dv-hero-cards-container::before,.dv-hero-cards-container::after{display:none}
   .dv-mobile-logo{display:inline-block!important}
   .dv-header-sec-icon{display:none!important}
+  .dv-report-fab{bottom:96px!important}
 }
 @media(max-width:640px){
   .dv-home-grid2{grid-template-columns:1fr!important}
@@ -335,10 +336,10 @@ if('serviceWorker' in navigator){
 <script defer src="js/valuation-db.js?v=20260712b"></script>
 <script defer src="js/valuation.js?v=20260713d"></script>
 <script defer src="js/api.js?v=20260712a"></script>
-<script defer src="js/core.js?v=20260713a"></script>
+<script defer src="js/core.js?v=20260714b"></script>
 <script defer src="js/auth.js?v=20260712b"></script>
 <script defer src="js/inbox.js?v=20260711a"></script>
-<script defer src="js/app.js?v=20260713d"></script>
+<script defer src="js/app.js?v=20260714b"></script>
 <script defer src="js/market.js?v=20260714a"></script>
 <script defer src="js/mortgage.js?v=20260712a"></script>
 <script defer src="js/portfolio.js?v=20260713a"></script>
@@ -349,157 +350,117 @@ if('serviceWorker' in navigator){
 <script defer src="js/about.js?v=20260712b"></script>
 <script defer src="js/workspace.js?v=20260712a"></script>
 <script defer src="js/marketindex.js?v=20260712c"></script>
-<script defer src="js/news.js?v=20260711a"></script>
+<script defer src="js/news.js?v=20260714a"></script>
 <script defer src="js/chiefs.js?v=20260712a"></script>
 <script>
+function _dvReportCrash(message,stack,kind){
+  try{if(typeof dvTrackError==="function")dvTrackError({kind:kind||"error",message:String(message||"").slice(0,500),stack:String(stack||"").slice(0,2000),url:location.href});}catch(_e){}
+}
+window.onerror=function(m,s,l,c,e){
+  _dvReportCrash(m,s+":"+l+":"+c+(e&&e.stack?"\n"+e.stack:""),"error");
+  document.getElementById("app").innerHTML='<div style="padding:40px;color:#EF4444;font-family:monospace;font-size:12px;background:#070B14;min-height:100vh"><h2 style="color:#EF4444">JS Crash — Copy this and send to Claude:</h2><pre style="white-space:pre-wrap;background:#0D1220;padding:16px;border-radius:8px;margin-top:12px">'+m+"\n"+s+":"+l+":"+c+'</pre></div>';return false;};
+window.addEventListener("unhandledrejection",function(ev){
+  var reason=ev&&ev.reason;
+  var msg=reason&&reason.message?reason.message:String(reason);
+  _dvReportCrash(msg,reason&&reason.stack,"unhandledrejection");
+});
+document.addEventListener("DOMContentLoaded",function(){
+try{render();}catch(e){
+  _dvReportCrash(e.message,e.stack,"error");
+  document.getElementById("app").innerHTML='<div style="padding:40px;color:#EF4444;font-family:monospace;font-size:12px;background:#070B14;min-height:100vh"><h2>JS Crash:</h2><pre style="white-space:pre-wrap;background:#0D1220;padding:16px;border-radius:8px;margin-top:12px">'+e.message+"\n"+e.stack+"</pre></div>";
+}
+});
+</script>
+<script>
 (function(){
-  var isNative=typeof window.Capacitor!=='undefined'&&window.Capacitor.isNativePlatform();
-  window.IS_NATIVE_APP=isNative;
-  if(!isNative){
-    // App modules load with 'defer' now (2026-07-12, faster first paint) —
-    // they may not have executed yet if this inline script is reached
-    // before parsing finishes, same reasoning as the capBoot() path below,
-    // which already had this guard.
-    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){render();});}
-    else{render();}
-    return;
-  }
+  if(typeof window.Capacitor==='undefined'||!window.Capacitor.isNativePlatform())return;
+  window.IS_NATIVE_APP=true;
 
-  function capBoot(){
-    var P=window.Capacitor.Plugins;
+  // Inject native-app CSS overrides (safe areas, scroll, tap, layout)
+  var s=document.createElement('style');
+  s.id='cap-native-css';
+  s.textContent=[
+    '*,*::before,*::after{box-sizing:border-box!important}',
+    'html{height:auto!important;overflow-x:hidden!important;max-width:100%!important}',
+    'body{height:auto!important;min-height:100vh!important;overflow-y:auto!important;overflow-x:hidden!important;max-width:100%!important;',
+    'overscroll-behavior-x:none!important;overscroll-behavior-y:auto!important;',
+    '-webkit-overflow-scrolling:touch!important;-webkit-text-size-adjust:100%!important;',
+    'padding-top:0!important;padding-bottom:0!important}',
+    'img,a{-webkit-user-drag:none}',
+    '#app{overflow-y:visible!important;overflow-x:hidden!important;max-width:100%!important;min-height:100vh!important;height:auto!important}',
+    '.dv-layout{min-height:100vh!important;overflow-y:visible!important;overflow-x:hidden!important;height:auto!important;max-width:100%!important;width:100%!important}',
+    '.dv-main{min-height:auto!important;height:auto!important;overflow-y:visible!important;overflow-x:hidden!important;max-width:100%!important;width:100%!important;',
+    'padding-bottom:env(safe-area-inset-bottom)!important}',
+    '.dv-content{overflow-y:visible!important;overflow-x:hidden!important;flex:none!important;height:auto!important;',
+    'min-height:auto!important;-webkit-overflow-scrolling:auto!important;max-width:100%!important;width:100%!important}',
+    '.dv-layout>*,.dv-main>*{min-width:0!important;max-width:100%!important}',
+    '.dv-hero-cards-container,.dv-hero-grid{overflow:hidden!important}',
+    '.dv-subtabs{overflow-x:auto!important;max-width:100%!important}',
+    '[style*="overflow-x: auto"],[style*="overflow-x:auto"],[style*="overflowX"]{overflow-x:auto!important}',
+    '.dv-bottom-tabs{bottom:calc(8px + env(safe-area-inset-bottom))!important;height:64px!important}',
+    '@media(max-width:768px){.dv-main{padding-bottom:calc(88px + env(safe-area-inset-bottom))!important}}',
+    '.dv-report-fab{bottom:calc(96px + env(safe-area-inset-bottom))!important}',
+    'body.keyboard-open .dv-bottom-tabs{display:none!important}',
+    'body.keyboard-open .dv-main{padding-bottom:0!important}',
+    '.dv-sidebar{top:env(safe-area-inset-top)!important}',
+    '[style*="overflow"],[style*="overflow-y"],[style*="overflow-x"],.dv-subtabs{-webkit-overflow-scrolling:touch!important}',
+    '.dv-sidebar-item,.dv-pill,.dv-bottom-tab,button{-webkit-user-select:none!important;user-select:none!important}',
+    'a,button,.dv-sidebar-item,.dv-pill,.dv-bottom-tab,.dv-tool-btn{-webkit-tap-highlight-color:rgba(212,175,55,0.15)!important}',
+    '@media(max-width:500px){.dv-subtabs{grid-template-columns:unset!important}}',
+    '.dv-native-statusbar-pad{height:env(safe-area-inset-top);background:#070B14;position:fixed;top:0;left:0;right:0;z-index:9999}',
+    // Disable desktop sidebar in native app — force mobile layout
+    '@media(min-width:769px){.dv-sidebar{display:none!important}.dv-main{margin-left:0!important;padding-left:0!important}.dv-bottom-tabs{display:flex!important}}'
+  ].join('');
+  document.head.appendChild(s);
 
-    // Hard fallback: hide splash after 3s no matter what (prevents stuck splash on JS error)
+  // Disable zoom (app feel)
+  var vm=document.querySelector('meta[name=viewport]');
+  if(vm)vm.content='width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no';
+
+  var P=window.Capacitor.Plugins;
+  try{
     if(P.SplashScreen){
+      setTimeout(function(){P.SplashScreen.hide().catch(function(){});},600);
       setTimeout(function(){P.SplashScreen.hide().catch(function(){});},3000);
     }
-
-    try{
-
-    // StatusBar
     if(P.StatusBar){
       P.StatusBar.setBackgroundColor({color:'#070B14'}).catch(function(){});
       P.StatusBar.setStyle({style:'DARK'}).catch(function(){});
       P.StatusBar.setOverlaysWebView({overlay:false}).catch(function(){});
     }
-
-    // Keyboard: detect open/close to adjust layout
     if(P.Keyboard){
       P.Keyboard.setResizeMode({mode:'ionic'}).catch(function(){});
-      P.Keyboard.addListener('keyboardWillShow',function(){
-        document.body.classList.add('keyboard-open');
-      });
-      P.Keyboard.addListener('keyboardWillHide',function(){
-        document.body.classList.remove('keyboard-open');
-        window.scrollTo(0,window.scrollY);
-      });
+      P.Keyboard.addListener('keyboardWillShow',function(){document.body.classList.add('keyboard-open');});
+      P.Keyboard.addListener('keyboardWillHide',function(){document.body.classList.remove('keyboard-open');window.scrollTo(0,window.scrollY);});
     }
-
-    // SplashScreen: hide after render (normal path, faster than fallback)
-    if(P.SplashScreen){
-      setTimeout(function(){P.SplashScreen.hide().catch(function(){});},600);
-    }
-
-    // window.open() for external URLs (WhatsApp/Telegram/Twitter/LinkedIn share,
-    // mailto, "view original article" links, etc. — used in dozens of places
-    // across the app) silently does nothing in a native WebView, since those
-    // origins aren't in capacitor.config.json's allowNavigation. Route http(s)
-    // targets through the Browser plugin (in-app tab, which itself hands off
-    // to the WhatsApp/Telegram app via the OS if installed) and non-http
-    // schemes (mailto/tel/sms) through a same-window navigation, which the
-    // WebView hands to the OS to resolve.
-    if(P.Browser){
-      var _nativeWindowOpen=window.open;
-      window.open=function(url,target,features){
-        if(!url)return _nativeWindowOpen.call(window,url,target,features);
-        if(/^(mailto|tel|sms):/i.test(url)){
-          window.location.href=url;
-          return null;
-        }
-        if(/^https?:\/\//i.test(url)){
-          P.Browser.open({url:url}).catch(function(){});
-          return null;
-        }
-        return _nativeWindowOpen.call(window,url,target,features);
-      };
-    }
-
-    // Share: expose native share
     if(P.Share){
-      window.nativeShare=function(o){
-        P.Share.share({
-          title:o.title||'DubAIVal',
-          text:o.text||'',
-          url:o.url||'https://www.dubaival.com',
-          dialogTitle:'Share via'
-        }).catch(function(){});
-      };
+      window.nativeShare=function(o){P.Share.share({title:o.title||'DubAIVal',text:o.text||'',url:o.url||'https://www.dubaival.com',dialogTitle:'Share via'}).catch(function(){});};
     }
-
-    // Haptics: expose for UI feedback
     if(P.Haptics){
-      window.nativeHaptic=function(type){
-        var t=type||'Medium';
-        P.Haptics.impact({style:t}).catch(function(){});
-      };
+      window.nativeHaptic=function(t){P.Haptics.impact({style:t||'Medium'}).catch(function(){});};
     }
-
-    // Back button: use History API (matches web SPA behavior)
     if(P.App){
       P.App.addListener('backButton',function(ev){
-        if(window.history.length>1){
-          window.history.back();
-        }else{
-          if(ev.canGoBack===false){
-            P.App.exitApp();
-          }
-        }
+        if(window.history.length>1){window.history.back();}
+        else if(ev.canGoBack===false){P.App.exitApp();}
       });
-    }
-
-    // Deep link handling
-    if(P.App){
       P.App.addListener('appUrlOpen',function(data){
-        if(data.url){
-          var hash=data.url.split('#')[1];
-          if(hash){window.location.hash='#'+hash;render();}
-        }
+        if(data.url){var h=data.url.split('#')[1];if(h){window.location.hash='#'+h;render();}}
       });
     }
-
-    render();
-
-    // Fix viewport overflow: clamp elements + fix grids
+    document.addEventListener('scroll',function(){if(window.scrollX!==0)window.scrollTo(0,window.scrollY);},{passive:true});
+    // Fix overflow after render
     setTimeout(function(){
       var vw=document.documentElement.clientWidth;
       document.querySelectorAll('*').forEach(function(el){
-        if(el.scrollWidth>vw){
-          el.style.maxWidth='100%';
-          el.style.overflowX='hidden';
-        }
+        if(el.scrollWidth>vw){el.style.maxWidth='100%';el.style.overflowX='hidden';}
         var cs=window.getComputedStyle(el);
         if((cs.display==='grid'||cs.display==='inline-grid')&&el.scrollWidth>vw){
           el.style.gridTemplateColumns='repeat(auto-fit,minmax(min(140px,100%),1fr))';
         }
       });
-      window.scrollTo(0,window.scrollY);
-    },300);
-
-    // Lock horizontal scroll
-    document.addEventListener('scroll',function(){
-      if(window.scrollX!==0)window.scrollTo(0,window.scrollY);
-    },{passive:true});
-
-    }catch(e){
-      // If any plugin init fails, app still runs — splash hides via the 3s fallback above
-      console.error('capBoot error:',e);
-    }
-  }
-
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',capBoot);
-  }else{
-    capBoot();
-  }
+    },400);
+  }catch(e){console.error('Capacitor init error:',e);}
 })();
 </script>
 </body>

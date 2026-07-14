@@ -10,7 +10,9 @@ var NEWS_STATE = {
   stale: false,
   lastFetch: 0,
   knownLinks: null,   // for NEW badge
-  lastVisit: 0
+  lastVisit: 0,
+  launchSearch: "",   // Launch Bank's own search box
+  launchExpanded: false
 };
 try { NEWS_STATE.lastVisit = parseInt(localStorage.getItem("dv_news_last_visit") || "0", 10) || 0; } catch (e) {}
 try {
@@ -23,6 +25,10 @@ try {
     }
   }
 } catch (e) {}
+// Re-enrich cached articles from before the Launch Bank feature existed —
+// _areas/_developers is cheap to (re)compute and keeps old cache entries
+// from showing as unenriched until the next live refresh.
+try { NEWS_STATE.articles.forEach(function(a) { if (typeof _enrichArticle === "function") _enrichArticle(a); }); } catch (e) {}
 
 var _newsListEl = null;
 var _newsStatusEl = null;
@@ -62,6 +68,38 @@ function startNewsPolling() {
   }
 }
 
+// ── Launch Bank enrichment ────────────────────────────────────────────────────
+// Turns a plain launch-tagged headline into a lightly structured record (area +
+// developer, when detectable) instead of just a filtered list of links — the
+// "database/bank" feel requested, built entirely from data already fetched
+// (no new endpoint, no fabricated fields). Reuses the app's real 347-area
+// benchmark DB (js/api.js's _detectAreasInText()) so area tagging stays
+// accurate as the DB grows, rather than a second hardcoded area list.
+var DEVELOPER_NAMES = [
+  "Emaar", "DAMAC", "Sobha", "Nakheel", "Meraas", "Danube", "Azizi", "Binghatti",
+  "Ellington", "Deyaar", "Nshama", "Select Group", "Omniyat", "Dubai Properties",
+  "Meydan", "Arada", "Union Properties", "Majid Al Futtaim", "Aldar", "Damac Properties",
+  "Wasl", "Dubai Holding", "MAG", "Tiger Group", "Object 1", "Beyond", "Samana"
+];
+function _detectDevelopersInText(text) {
+  if (!text) return [];
+  var lower = text.toLowerCase();
+  var hits = [];
+  var seen = {};
+  DEVELOPER_NAMES.forEach(function(name) {
+    var key = name.toLowerCase();
+    if (seen[key.split(" ")[0]]) return; // "DAMAC" vs "Damac Properties" — count once
+    if (lower.indexOf(key) !== -1) { hits.push(name); seen[key.split(" ")[0]] = true; }
+  });
+  return hits.slice(0, 2);
+}
+function _enrichArticle(a) {
+  var text = (a.title || "") + " " + (a.description || "");
+  a._areas = (typeof _detectAreasInText === "function") ? _detectAreasInText(text) : [];
+  a._developers = _detectDevelopersInText(text);
+  return a;
+}
+
 async function _fetchNews(initial) {
   if (NEWS_STATE.loading) return;
   NEWS_STATE.loading = true;
@@ -74,6 +112,7 @@ async function _fetchNews(initial) {
     var data;
     try { data = await r.json(); } catch (e) { data = { articles: [] }; }
     var incoming = Array.isArray(data && data.articles) ? data.articles : [];
+    incoming.forEach(_enrichArticle);
     var prevKnown = NEWS_STATE.knownLinks;
     var freshSet = {};
     incoming.forEach(function(a) {
@@ -102,6 +141,13 @@ async function _fetchNews(initial) {
   NEWS_STATE.loading = false;
   _renderNewsList();
   _renderNewsStatus();
+  // Refresh the Launch Bank's results in place (leaves its search <input>
+  // untouched) so newly-polled launches appear without rebuilding the tab.
+  // If the Bank hasn't been created yet (zero launches when the tab first
+  // rendered), it appears next time the tab is opened — a full rebuild here
+  // could steal focus mid-typing for the rare case of a launch arriving in
+  // the exact 60s window a user is searching.
+  if (_launchResultsEl) _renderLaunchResults(C());
 }
 
 var _DUBAI_SPOTS = [
@@ -209,6 +255,123 @@ function _renderSkeleton(cl) {
     wrap.appendChild(card);
   }
   return wrap;
+}
+
+// ── Launch Bank — prominent, structured "now launching" database ────────────
+// Always visible above the main feed regardless of the active filter pill
+// below, per the user's request to make launches feel like a real bank
+// rather than something you have to click a pill to discover. Built entirely
+// from the same tagged articles the main feed already has (classifyTag() +
+// _enrichArticle() above) — no new data source, no fabricated fields.
+function _renderLaunchCard(a, cl) {
+  var card = div({
+    background: "linear-gradient(135deg,rgba(245,158,11,0.08),rgba(245,158,11,0.02))",
+    border: "1px solid rgba(245,158,11,0.22)", borderRadius: "12px",
+    padding: "12px", cursor: "pointer", minWidth: "240px", maxWidth: "240px",
+    flexShrink: "0", transition: "transform 0.15s ease, border-color 0.15s ease"
+  });
+  card.addEventListener("mouseenter", function() { card.style.transform = "translateY(-2px)"; card.style.borderColor = "rgba(245,158,11,0.5)"; });
+  card.addEventListener("mouseleave", function() { card.style.transform = "translateY(0)"; card.style.borderColor = "rgba(245,158,11,0.22)"; });
+  card.addEventListener("click", function() { window.open(a.link, "_blank", "noopener,noreferrer"); });
+
+  var topRow = div({ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px", flexWrap: "wrap" });
+  if (a.isNew) {
+    topRow.appendChild(span({ fontSize: "9px", fontWeight: "700", padding: "2px 7px", borderRadius: "10px", background: "rgba(16,185,129,0.9)", color: "#fff" }, "NEW"));
+  }
+  (a._developers || []).forEach(function(d) {
+    topRow.appendChild(span({ fontSize: "9px", fontWeight: "700", padding: "2px 8px", borderRadius: "10px", background: "rgba(212,175,55,0.15)", color: cl.gold }, d));
+  });
+  (a._areas || []).slice(0, 2).forEach(function(ar) {
+    topRow.appendChild(span({ fontSize: "9px", fontWeight: "600", padding: "2px 8px", borderRadius: "10px", background: "rgba(96,165,250,0.12)", color: "#60A5FA" }, ar));
+  });
+  card.appendChild(topRow);
+
+  card.appendChild(div({ color: cl.white, fontSize: "12.5px", fontWeight: "700", lineHeight: "1.4", marginBottom: "8px", display: "-webkit-box", WebkitLineClamp: "3", WebkitBoxOrient: "vertical", overflow: "hidden" }, a.title));
+
+  var bottomRow = div({ display: "flex", alignItems: "center", justifyContent: "space-between" });
+  bottomRow.appendChild(span({ fontSize: "10px", color: "#F59E0B", fontWeight: "600" }, _sourceLabel(a)));
+  bottomRow.appendChild(span({ fontSize: "10px", color: cl.sub }, timeAgo(a.pubDate)));
+  card.appendChild(bottomRow);
+
+  return card;
+}
+
+// The search input lives in the "shell" (built once per tab visit / data
+// refresh) while matches live in a separate "results" container that's the
+// only thing rebuilt on every keystroke — otherwise recreating the <input>
+// node on every character typed would steal focus/cursor position.
+var _launchBankEl = null;
+var _launchResultsEl = null;
+
+function _renderLaunchResults(cl) {
+  if (!_launchResultsEl) return;
+  _launchResultsEl.innerHTML = "";
+  var launches = NEWS_STATE.articles.filter(function(a) { return a.tag === "launch"; });
+  var q = (NEWS_STATE.launchSearch || "").trim().toLowerCase();
+  var filtered = q ? launches.filter(function(a) {
+    var hay = (a.title + " " + (a.description || "") + " " + (a._areas || []).join(" ") + " " + (a._developers || []).join(" ")).toLowerCase();
+    return hay.indexOf(q) !== -1;
+  }) : launches;
+
+  if (!filtered.length) {
+    _launchResultsEl.appendChild(div({ color: cl.sub, fontSize: "12px", textAlign: "center", padding: "16px 0" },
+      q ? "No launches match \"" + NEWS_STATE.launchSearch + "\"." : "No new project launches found right now."));
+    return;
+  }
+  var visible = NEWS_STATE.launchExpanded ? filtered : filtered.slice(0, 8);
+  var strip = div({ display: "flex", gap: "10px", overflowX: "auto", paddingBottom: "6px" });
+  visible.forEach(function(a) { strip.appendChild(_renderLaunchCard(a, cl)); });
+  _launchResultsEl.appendChild(strip);
+  if (filtered.length > 8) {
+    var moreBtn = el("button", {
+      style: {
+        marginTop: "10px", background: "transparent", border: "1px solid rgba(245,158,11,0.3)",
+        color: "#F59E0B", borderRadius: "8px", padding: "6px 14px", fontSize: "11px", fontWeight: "700",
+        cursor: "pointer", fontFamily: "'Space Grotesk',monospace"
+      }
+    });
+    moreBtn.textContent = NEWS_STATE.launchExpanded ? "Show Less" : "Show All " + filtered.length + " Launches";
+    moreBtn.addEventListener("click", function() { NEWS_STATE.launchExpanded = !NEWS_STATE.launchExpanded; _renderLaunchResults(cl); });
+    _launchResultsEl.appendChild(moreBtn);
+  }
+}
+
+function _renderLaunchBank(wrap, cl) {
+  var launches = NEWS_STATE.articles.filter(function(a) { return a.tag === "launch"; });
+  if (!launches.length) { _launchBankEl = null; _launchResultsEl = null; return; }
+
+  var bank = div({
+    background: "rgba(245,158,11,0.04)", border: "1px solid rgba(245,158,11,0.18)",
+    borderRadius: "16px", padding: "16px", marginBottom: "20px"
+  });
+
+  var header = div({ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px", marginBottom: "4px" });
+  header.appendChild(el("h2", { style: { color: "#F59E0B", fontSize: "15px", fontWeight: "800", margin: "0", display: "flex", alignItems: "center", gap: "6px" } }, "🚀 Launch Bank"));
+  header.appendChild(span({ fontSize: "10px", fontWeight: "700", color: "#F59E0B", background: "rgba(245,158,11,0.12)", padding: "3px 10px", borderRadius: "10px" }, launches.length + " tracked"));
+  bank.appendChild(header);
+
+  bank.appendChild(el("p", { style: { color: cl.sub, fontSize: "11px", margin: "4px 0 12px", lineHeight: "1.6" } },
+    "Every new project, tower and off-plan launch we've spotted in Dubai real estate news — searchable by area or developer."));
+
+  var searchWrap = div({ position: "relative", marginBottom: "12px" });
+  var searchInp = el("input", {
+    style: {
+      width: "100%", boxSizing: "border-box", background: cl.surfaceSolid || cl.surface,
+      border: "1px solid rgba(245,158,11,0.25)", color: cl.white, borderRadius: "10px",
+      padding: "9px 12px", fontSize: "12px", fontFamily: "'Inter',sans-serif", outline: "none"
+    },
+    type: "text", placeholder: "Search launches by area or developer (e.g. \"Dubai Marina\" or \"Emaar\")"
+  });
+  searchInp.value = NEWS_STATE.launchSearch;
+  searchInp.addEventListener("input", function() { NEWS_STATE.launchSearch = searchInp.value; _renderLaunchResults(cl); });
+  searchWrap.appendChild(searchInp);
+  bank.appendChild(searchWrap);
+
+  _launchResultsEl = div({});
+  bank.appendChild(_launchResultsEl);
+  _launchBankEl = bank;
+  wrap.appendChild(bank);
+  _renderLaunchResults(cl);
 }
 
 // ── Status bar ────────────────────────────────────────────────────────────────
@@ -435,6 +598,9 @@ function renderNews() {
 
   _newsStatusEl = div({ minHeight: "18px", marginBottom: "14px" });
   wrap.appendChild(_newsStatusEl);
+
+  // ─ Launch Bank — always visible, independent of the filter pills below ─
+  _renderLaunchBank(wrap, cl);
 
   // ─ Filter pills with counts ─
   var pills = div({ display: "flex", gap: "8px", marginBottom: "18px", flexWrap: "wrap" });

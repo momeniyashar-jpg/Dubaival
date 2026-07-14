@@ -514,6 +514,124 @@ function dvTrack(eventName,meta){
   }catch(e){}
 }
 
+// ── AUTOMATIC + MANUAL ERROR REPORTING (beta-launch readiness) ───────────────
+// Two halves of one system: (1) uncaught JS errors/promise rejections are
+// captured automatically and sent through the same analytics_events pipeline
+// as dvTrack() above, tagged event_name='js_error' — no separate table, no
+// separate infra. (2) a small rolling in-memory buffer of the last few
+// errors/reports is kept so the manual "Report an Issue" widget below can
+// attach real technical context automatically instead of asking the user to
+// describe a stack trace themselves. index.html's window.onerror/
+// unhandledrejection handlers call _dvCaptureError(); this file is loaded
+// deferred, so those handlers guard with typeof checks in case an error fires
+// before this script has executed.
+var _dvRecentIssues=[];
+function _dvCaptureError(kind,detail){
+  try{
+    _dvRecentIssues.unshift({kind:kind,detail:String(detail||"").slice(0,500),ts:Date.now()});
+    if(_dvRecentIssues.length>5)_dvRecentIssues.length=5;
+  }catch(e){}
+}
+function dvTrackError(payload){
+  _dvCaptureError(payload.kind||"error",payload.message||"");
+  dvTrack("js_error",payload);
+}
+
+var REPORT_ISSUE_STATE={open:false,submitting:false,submitted:false,message:"",error:null};
+function _reportIssueSection(){
+  try{return (typeof currentSection!=="undefined"?currentSection:"")+(typeof currentSubTab!=="undefined"&&currentSubTab?"/"+currentSubTab:"");}catch(e){return "";}
+}
+async function _submitIssueReport(){
+  var msg=(REPORT_ISSUE_STATE.message||"").trim();
+  if(!msg){REPORT_ISSUE_STATE.error="Please describe what happened.";render();return;}
+  REPORT_ISSUE_STATE.submitting=true;REPORT_ISSUE_STATE.error=null;render();
+  try{
+    var resp=await fetch(SUPABASE_URL+"/rest/v1/analytics_events",{
+      method:"POST",
+      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},
+      body:JSON.stringify({session_id:_dvSessionId,event_name:"user_report",area:null,meta:{
+        message:msg,url:location.href,section:_reportIssueSection(),
+        ua:navigator.userAgent,recentIssues:_dvRecentIssues
+      }})
+    });
+    if(resp.ok){REPORT_ISSUE_STATE.submitted=true;REPORT_ISSUE_STATE.message="";}
+    else REPORT_ISSUE_STATE.error="Could not send report ("+resp.status+"). Please try again.";
+  }catch(e){REPORT_ISSUE_STATE.error="Network error — please try again.";}
+  REPORT_ISSUE_STATE.submitting=false;render();
+}
+
+function renderReportIssueWidget(){
+  var cl=C();
+  var wrap=div({});
+
+  var fab=el("button",{style:{position:"fixed",right:"18px",bottom:"20px",zIndex:"9500",
+    background:cl.surfaceSolid||cl.surface,color:cl.sub,border:"1px solid "+cl.border,
+    borderRadius:"22px",padding:"9px 14px",fontSize:"11px",fontWeight:"700",cursor:"pointer",
+    fontFamily:"'Space Grotesk',monospace",boxShadow:"0 4px 20px rgba(0,0,0,0.35)",
+    display:"flex",alignItems:"center",gap:"6px"}});
+  fab.id="dv-report-issue-fab";
+  fab.className="dv-report-fab";
+  fab.innerHTML="🐞";
+  var fabLabel=span({fontSize:"11px"},"Report Issue");
+  fab.appendChild(fabLabel);
+  fab.addEventListener("click",function(){REPORT_ISSUE_STATE.open=true;REPORT_ISSUE_STATE.submitted=false;REPORT_ISSUE_STATE.error=null;render();});
+  wrap.appendChild(fab);
+
+  if(!REPORT_ISSUE_STATE.open)return wrap;
+
+  var overlay=div({position:"fixed",top:"0",left:"0",right:"0",bottom:"0",zIndex:"9999",
+    background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"});
+  overlay.addEventListener("click",function(e){if(e.target===overlay){REPORT_ISSUE_STATE.open=false;render();}});
+
+  var modal=div({background:cl.surfaceSolid||cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",
+    padding:"20px",maxWidth:"420px",width:"100%"});
+  modal.addEventListener("click",function(e){e.stopPropagation();});
+
+  modal.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",
+    fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"Report an Issue"));
+
+  if(REPORT_ISSUE_STATE.submitted){
+    modal.appendChild(div({color:cl.white,fontSize:"13px",fontFamily:"'Inter',sans-serif",marginTop:"10px",marginBottom:"16px"},
+      "✓ Thanks — we've received your report and will look into it."));
+    var closeBtn=el("button",{style:{width:"100%",padding:"10px",background:cl.raised,border:"1px solid "+cl.border,
+      color:cl.sub,borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+    closeBtn.textContent="Close";
+    closeBtn.addEventListener("click",function(){REPORT_ISSUE_STATE.open=false;render();});
+    modal.appendChild(closeBtn);
+  }else{
+    modal.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",marginBottom:"12px",lineHeight:"1.6"},
+      "Something not working, or not what you expected? Tell us what happened — we'll see it immediately."));
+    var textarea=el("textarea",{style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,
+      color:cl.white,padding:"10px",borderRadius:"8px",fontSize:"13px",fontFamily:"'Inter',sans-serif",
+      outline:"none",resize:"vertical",minHeight:"80px",boxSizing:"border-box"},
+      placeholder:"e.g. \"The Analyzer showed AED 0 for my building\" or \"Nothing happened when I clicked Submit\""});
+    textarea.value=REPORT_ISSUE_STATE.message;
+    textarea.addEventListener("input",function(){REPORT_ISSUE_STATE.message=textarea.value;});
+    modal.appendChild(textarea);
+    if(REPORT_ISSUE_STATE.error){
+      modal.appendChild(div({color:cl.red,fontSize:"11px",fontFamily:"'Inter',sans-serif",marginTop:"6px"},REPORT_ISSUE_STATE.error));
+    }
+    var btnRow=div({display:"flex",gap:"8px",marginTop:"14px"});
+    var cancelBtn=el("button",{style:{flex:"1",padding:"10px",background:"transparent",border:"1px solid "+cl.border,
+      color:cl.sub,borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+    cancelBtn.textContent="Cancel";
+    cancelBtn.addEventListener("click",function(){REPORT_ISSUE_STATE.open=false;render();});
+    btnRow.appendChild(cancelBtn);
+    var submitBtn=el("button",{style:{flex:"1",padding:"10px",background:cl.gold,color:"#070B14",border:"none",
+      borderRadius:"8px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",
+      cursor:REPORT_ISSUE_STATE.submitting?"default":"pointer",opacity:REPORT_ISSUE_STATE.submitting?"0.6":"1"}});
+    submitBtn.textContent=REPORT_ISSUE_STATE.submitting?"Sending...":"Send Report";
+    submitBtn.disabled=REPORT_ISSUE_STATE.submitting;
+    submitBtn.addEventListener("click",function(){_submitIssueReport();});
+    btnRow.appendChild(submitBtn);
+    modal.appendChild(btnRow);
+  }
+
+  overlay.appendChild(modal);
+  wrap.appendChild(overlay);
+  return wrap;
+}
+
 async function fetchSupabaseConfig(){
   try{
     var resp=await fetch(SUPABASE_URL+"/rest/v1/market_config?id=eq.1&select=apt_adj,villa_adj,geo_label,updated_at",{

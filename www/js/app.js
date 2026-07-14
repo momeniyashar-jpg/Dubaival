@@ -1400,6 +1400,30 @@ function updateSearchSuggestions(query){
 
 
 // ── ADMIN PANEL ───────────────────────────────────────────────────────────────
+// ── Live Error & Issue Reports (cross-session, from analytics_events) ────────
+// Reads back automatic js_error captures + manual user_report submissions
+// (js/core.js dvTrackError()/renderReportIssueWidget()) via 2 admin-only RPCs
+// (supabase-error-reporting-schema.sql — requires manual execution).
+var ADMIN_EVENTS_STATE={loading:false,loaded:false,rows:[],counts:null,error:null};
+async function _fetchAdminEventReports(){
+  if(!window._adminPw)return;
+  ADMIN_EVENTS_STATE.loading=true;ADMIN_EVENTS_STATE.error=null;render();
+  try{
+    var rResp=await fetch(SUPABASE_URL+"/rest/v1/rpc/admin_get_event_reports",{
+      method:"POST",headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
+      body:JSON.stringify({p_admin_password:window._adminPw,p_limit:150})
+    });
+    var cResp=await fetch(SUPABASE_URL+"/rest/v1/rpc/admin_get_event_counts",{
+      method:"POST",headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
+      body:JSON.stringify({p_admin_password:window._adminPw})
+    });
+    if(rResp.ok)ADMIN_EVENTS_STATE.rows=await rResp.json();
+    else ADMIN_EVENTS_STATE.error="Reports unavailable yet — run supabase-error-reporting-schema.sql in Supabase.";
+    if(cResp.ok)ADMIN_EVENTS_STATE.counts=await cResp.json();
+  }catch(e){ADMIN_EVENTS_STATE.error="Network error fetching reports.";}
+  ADMIN_EVENTS_STATE.loading=false;ADMIN_EVENTS_STATE.loaded=true;render();
+}
+
 function renderAdmin(){
   var cl=C();
   var wrap=el("div",{style:{padding:"20px",maxWidth:"500px",margin:"0 auto"}});
@@ -1430,7 +1454,9 @@ function renderAdmin(){
         if(verified){
           sessionStorage.removeItem(lockKey);sessionStorage.removeItem(attKey);
           window._adminPw=pwVal;
-          window.ADMIN_UNLOCKED=true;render();
+          window.ADMIN_UNLOCKED=true;
+          _fetchAdminEventReports();
+          render();
         } else {
           var att=parseInt(sessionStorage.getItem(attKey)||"0")+1;
           sessionStorage.setItem(attKey,att);
@@ -1545,6 +1571,66 @@ function renderAdmin(){
   clearBtn.onclick=function(){DV_ERROR_LOG.length=0;try{localStorage.removeItem("dv_error_log");}catch(e){}render();};
   logCard.appendChild(clearBtn);
   wrap.appendChild(logCard);
+
+  // -- LIVE ERROR & ISSUE REPORTS (cross-session, real users) --
+  var evCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginTop:"16px"}});
+  var evHeader=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}});
+  evHeader.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ Live Error & Issue Reports"));
+  var evRefresh=el("button",{style:{background:cl.raised,border:"1px solid "+cl.border,color:cl.sub,borderRadius:"6px",padding:"4px 10px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+  evRefresh.textContent=ADMIN_EVENTS_STATE.loading?"Loading...":"↻ Refresh";
+  evRefresh.disabled=ADMIN_EVENTS_STATE.loading;
+  evRefresh.onclick=function(){_fetchAdminEventReports();};
+  evHeader.appendChild(evRefresh);
+  evCard.appendChild(evHeader);
+  evCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginBottom:"12px"},
+    "Automatic JS-error captures + manual \"Report an Issue\" submissions, from every real user session (not just this browser)."));
+
+  if(!ADMIN_EVENTS_STATE.loaded&&!ADMIN_EVENTS_STATE.loading){
+    var loadBtn=el("button",{style:{width:"100%",padding:"10px",background:cl.raised,border:"1px solid "+cl.border,color:cl.gold,borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+    loadBtn.textContent="Load Reports";
+    loadBtn.onclick=function(){_fetchAdminEventReports();};
+    evCard.appendChild(loadBtn);
+  }else if(ADMIN_EVENTS_STATE.error){
+    evCard.appendChild(div({color:"#F59E0B",fontSize:"11px",fontFamily:"'Inter',sans-serif"},ADMIN_EVENTS_STATE.error));
+  }else{
+    if(ADMIN_EVENTS_STATE.counts&&ADMIN_EVENTS_STATE.counts.length){
+      var c24=ADMIN_EVENTS_STATE.counts.filter(function(r){return r.window_label==="24h";})[0]||{};
+      var c7=ADMIN_EVENTS_STATE.counts.filter(function(r){return r.window_label==="7d";})[0]||{};
+      var evStats=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"12px"}});
+      [
+        {l:"JS Errors (24h)",v:c24.js_error_count||0,c:(c24.js_error_count||0)>0?"#EF4444":cl.green},
+        {l:"JS Errors (7d)",v:c7.js_error_count||0,c:(c7.js_error_count||0)>10?"#F59E0B":cl.green},
+        {l:"User Reports (7d)",v:c7.user_report_count||0,c:"#60A5FA"}
+      ].forEach(function(s){
+        evStats.appendChild(div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[
+          div({color:s.c,fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},String(s.v)),
+          div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},s.l)
+        ]));
+      });
+      evCard.appendChild(evStats);
+    }
+    var evList=el("div",{style:{maxHeight:"260px",overflowY:"auto"}});
+    if(!ADMIN_EVENTS_STATE.rows.length){
+      evList.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",textAlign:"center",padding:"16px"},"No errors or reports yet — all clear."));
+    }
+    ADMIN_EVENTS_STATE.rows.forEach(function(ev){
+      var isReport=ev.event_name==="user_report";
+      var meta=ev.meta||{};
+      var row=el("div",{style:{padding:"8px 0",borderBottom:"1px solid "+cl.border}});
+      var topRow=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"8px"}});
+      topRow.appendChild(span({color:isReport?"#60A5FA":"#EF4444",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",background:cl.raised,padding:"2px 6px",borderRadius:"8px",flexShrink:"0"},isReport?"USER REPORT":"JS ERROR"));
+      topRow.appendChild(span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",flexShrink:"0"},new Date(ev.created_at).toLocaleString()));
+      row.appendChild(topRow);
+      var detail=isReport?(meta.message||""):(meta.message||"");
+      row.appendChild(div({color:cl.subHi||cl.white,fontSize:"11px",fontFamily:"'Inter',sans-serif",marginTop:"4px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},detail));
+      if(meta.section||meta.url){
+        row.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},meta.section||meta.url));
+      }
+      evList.appendChild(row);
+    });
+    evCard.appendChild(evList);
+  }
+  wrap.appendChild(evCard);
 
   // -- DATA COVERAGE REPORT --
   var covCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginTop:"12px"}});
@@ -2628,6 +2714,10 @@ function render(preserveScroll){
   if(typeof renderUpgradeModal==="function"){
     var upgradeModal=renderUpgradeModal();
     if(upgradeModal)app.appendChild(upgradeModal);
+  }
+  if(typeof renderReportIssueWidget==="function"){
+    var reportWidget=renderReportIssueWidget();
+    if(reportWidget)app.appendChild(reportWidget);
   }
 
   if(window._autoValuate&&analyzerState.f.area&&analyzerState.f.price){

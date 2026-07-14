@@ -461,6 +461,111 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-14 (session 11z)**: The two remaining items from session 11y's
+  beta-launch discussion — News tab "Launch Bank" + automatic/manual error
+  reporting. User: "بله بخش لانچ رو قوی‌تر کن ، تا همه بتونن به خوبی آرش
+  استفاده کنن و یک بانک اطلاعاتی باشه" (strengthen the launch section into
+  a real information bank) plus, from the earlier beta-launch conversation,
+  approval ("بله شروع کنیم") of automatic error capture + a manual
+  "report an issue" option so the team finds out when something breaks.
+  - **News → Launch Bank** (`js/news.js`): a new, always-visible section at
+    the top of the News tab — previously, launch-tagged articles were only
+    reachable by clicking the "🚀 New Launches" filter pill, mixed in with
+    the rest of the feed once selected; now every launch is surfaced up
+    front regardless of which filter pill is active below. Built entirely
+    on the EXISTING `tag`/`classifyTag()` server-side infrastructure
+    (`api/proxy-news.js`, unchanged) — no new data source.
+    - **`_enrichArticle(a)`**: attaches `._areas` (reusing `js/api.js`'s
+      real `_detectAreasInText()` against the actual 347-area benchmark DB
+      — not a second hardcoded list) and `._developers` (new
+      `DEVELOPER_NAMES` keyword list + `_detectDevelopersInText()`,
+      ~27 well-known Dubai developers, de-duplicates "DAMAC" vs "Damac
+      Properties"-style variants) to every article, both fresh-fetched
+      (`_fetchNews`) and previously-cached (`localStorage` restore on load)
+      — turns a plain headline into a lightly structured record (area +
+      developer, when detectable) instead of just a link, the "bank" feel
+      the user asked for, with zero fabricated fields.
+    - **`_renderLaunchBank()`**: an amber-themed panel — count badge
+      ("N tracked"), a dedicated search box (filters by area/developer/
+      keyword, scoped to launches only — doesn't affect the main feed
+      below), and a horizontally-scrollable strip of compact cards (area +
+      developer chips, NEW badge, source, time-ago), capped at 8 with a
+      "Show All N Launches" expand toggle. Hidden entirely if there are
+      currently zero launch-tagged articles (graceful, matches the rest of
+      the tab's empty-state conventions) rather than showing an empty box.
+    - **Real bug avoided during build, caught before shipping**: the first
+      version rebuilt the entire bank (including the `<input>` search box)
+      on every keystroke, which would have stolen focus/cursor position
+      after each character typed. Fixed by splitting into a persistent
+      "shell" (header + search input, built once per tab visit) and a
+      separate "results" container (`_launchResultsEl`) that's the only
+      thing rebuilt on `input`/expand-toggle — the search box itself is
+      never recreated while the user is typing. The 60-second news poll
+      (`_fetchNews`) refreshes just the results container the same way, so
+      newly-arrived launches appear without disturbing an in-progress search.
+  - **Error reporting** (`js/core.js`, `index.html`, `js/app.js`): closes
+    the "how do we find out when something breaks" gap raised in the
+    beta-launch conversation, reusing the EXISTING `analytics_events` table
+    and `dvTrack()` pipeline — no new table, no new backend service.
+    - **Automatic capture**: `index.html`'s existing `window.onerror`
+      crash-screen handler (unchanged UX — still shows the dev-facing
+      "copy this and send to Claude" screen on a real crash) now also calls
+      the new `dvTrackError()` (`js/core.js`), which POSTs to
+      `analytics_events` with `event_name:'js_error'`. Also added a genuinely
+      missing signal: a `window.addEventListener('unhandledrejection',...)`
+      listener (previously nothing captured rejected promises at all) that
+      reports without wiping the app, since many rejections elsewhere are
+      already deliberately swallowed and non-fatal.
+    - **Manual "Report an Issue"**: a small floating button
+      (`renderReportIssueWidget()`, `js/core.js`, wired into `render()` in
+      `js/app.js` next to the auth/upgrade modals so it's present on every
+      tab) opens a modal with a text box; submission POSTs to
+      `analytics_events` with `event_name:'user_report'`, current
+      URL/section/user-agent, and the last 5 auto-captured errors/reports
+      from a small rolling in-memory buffer (`_dvRecentIssues`) — so a
+      report about "the Analyzer broke" automatically carries the real
+      stack trace if one fired moments earlier, without asking the user to
+      describe it themselves. Positioned above the mobile bottom-tab bar
+      via a `.dv-report-fab` CSS class (with safe-area handling for the
+      native Android build) rather than a hardcoded offset.
+    - **New migration + Admin viewer**: `supabase-error-reporting-schema.sql`
+      (new file, requires manual execution) adds two password-gated RPCs
+      reusing the existing `_admin_password_ok()` — `admin_get_event_reports`
+      (recent rows) and `admin_get_event_counts` (accurate 24h/7d totals,
+      independent of the row limit) — since `analytics_events` RLS is
+      anon-insert-only with no SELECT policy. Wired into a new "◆ Live Error
+      & Issue Reports" card in the Admin dashboard (`js/app.js`,
+      `renderAdmin()`, right after the existing session-local "System
+      Diagnostics" card), auto-loaded on admin login: JS-error/user-report
+      counts, and a scrollable recent list (type badge, message, section/
+      URL, timestamp).
+  - Verified: a Node vm-harness test (9 cases) for the Launch Bank —
+    developer detection + de-dup, area detection via the real
+    `_detectAreasInText()`, the bank correctly renders nothing with zero
+    launches and renders with launches present, and search correctly
+    narrows/excludes results; a second vm-harness test (6 cases) for error
+    reporting — `dvTrackError()` both records into the rolling buffer and
+    POSTs `event_name:'js_error'`, the buffer caps at 5, empty-message
+    validation blocks submission with zero network calls, a successful
+    submission POSTs the right `event_name:'user_report'` body including
+    `recentIssues`, a 500 response surfaces a real error instead of a false
+    success, and the widget renders correctly in both closed/open states;
+    `node -c` on all 4 touched files; and two real-browser Playwright passes
+    — one driving the News tab with injected fake articles (confirmed the
+    Launch Bank renders, shows the correct count, and its search box
+    correctly narrows results scoped to the bank without affecting the main
+    feed below), one driving the Report Issue FAB end-to-end (open → empty
+    validation → successful submit → post-submit state) and force-unlocking
+    the Admin dashboard to confirm the new "Live Error & Issue Reports" card
+    renders without throwing — zero non-network console errors in both.
+  - **Manual step required**: run `supabase-error-reporting-schema.sql` in
+    Supabase SQL Editor (requires `supabase-admin-security-fix.sql` to
+    already be applied, which it is). Until then, the Admin dashboard's new
+    card shows a friendly "Reports unavailable yet" message instead of data
+    — automatic/manual reporting itself (writing to `analytics_events`)
+    works immediately regardless, since that table and its anon-insert
+    policy already exist.
+
 - **2026-07-14 (session 11y)**: PropTech Video Platform (`js/social.js`) —
   fixed a pre-launch audit's real findings and built the agent rating/review
   system the user asked for, following a full audit of the News tab (found
@@ -2163,6 +2268,20 @@ These files contain critical business logic and data:
 
 ## Outstanding / open items
 
+- **🟡 Error reporting Admin viewer — needs manual SQL** (added 2026-07-14,
+  session 11z): run `supabase-error-reporting-schema.sql` in Supabase SQL
+  Editor (requires `supabase-admin-security-fix.sql` to already be applied,
+  which it is). Automatic JS-error capture and the manual "Report an Issue"
+  FAB both work immediately regardless (they just POST to the existing
+  `analytics_events` table) — this migration only affects the Admin
+  dashboard's ability to read those reports back; until it's run, the new
+  "Live Error & Issue Reports" card shows a friendly "Reports unavailable
+  yet" message instead of data. No new env vars needed.
+
+- **✅ COMPLETED: News "Launch Bank" + error reporting** (2026-07-14, session
+  11z) — closes the two items left open at the end of session 11y. See the
+  session 11z work-log entry above for full details.
+
 - **🟡 Video Platform rating/follower/video-count fixes — need manual SQL**
   (added 2026-07-14, session 11y): run `supabase-social-fixes-schema.sql` in
   Supabase SQL Editor (requires `supabase-social-schema.sql` to already be
@@ -2170,11 +2289,7 @@ These files contain critical business logic and data:
   frozen at their current values (no error, just no further updates), and
   submitting a rating in the new "Rate this Agent" widget will show a
   graceful "Could not submit rating" error since the `agent_reviews` table
-  doesn't exist yet. No new env vars needed. Also still open: strengthening
-  the News tab's "launch projects" section into a more prominent database/
-  bank (approved by the user, not started), and the automatic + manual
-  error-reporting system discussed in the beta-launch conversation (approved,
-  not started).
+  doesn't exist yet. No new env vars needed.
 
 - **✅ FIXED (exception to the two-branch rule, explicit user authorization):
   "Blvd Heights T3" bogus entry removed + Centrium area mislabeling
