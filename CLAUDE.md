@@ -2006,62 +2006,55 @@ These files contain critical business logic and data:
 
 ## Outstanding / open items
 
-- **🔴 "Blvd Heights T3" confirmed a bogus DB entry — needs research-branch
-  removal** (found 2026-07-13, session 11w, corrected same session after
-  further digging): initially logged as a false alarm ("both real towers
-  already present"), but the user — a real-estate domain expert — stated
-  Blvd Heights has exactly 2 towers, prompting a check against
+- **✅ FIXED (exception to the two-branch rule, explicit user authorization):
+  "Blvd Heights T3" bogus entry removed + Centrium area mislabeling
+  corrected** (2026-07-13, session 11w): cross-checked against
   `tools/calibration-output.json` (the real DLD-transaction-derived
-  calibration source, `residential.buildings`). That source has exactly 3
-  Blvd Heights blocks, all backed by real transaction counts: `blvd heights
-  t1` (280 real transactions, calibrated PSF 2497), `blvd heights t2` (172
-  transactions, PSF 2452), `blvd heights podium` (32 transactions, PSF
-  2357) — **no `t3` entry anywhere in the calibration source**, and the live
-  `DB`'s `"blvd heights t3"` PSF (2050) doesn't match any of the 3 real
-  calibrated figures either. This building has no per-building lat/lng or
-  other traceable provenance field, so the exact origin of the `t3` entry
-  can't be pinned down further from this branch, but it is NOT backed by
-  real DLD transaction data — it should be removed from `DB`/`BLDG_UNITS` in
-  `js/data-residential.js` (and `AREA_ALIASES`/cluster lists if referenced
-  there too) by the research branch (`claude/dubaival-portfolio-manager-
-  5bgbjk`), which owns that file. Same verification approach (cross-check
-  against `tools/calibration-output.json`'s real transaction-backed building
-  list) is the right tool for confirming/rejecting the other 6 tower-gap
-  candidates below.
-
-- **🟡 6 building families with tower-numbering gaps — cross-checked against
-  calibration source, mixed results, needs research-branch action**
-  (found + investigated further 2026-07-13, session 11w): a heuristic scan of
-  `DB` keys matching `<base> tower N`/`<base> tN` found 6 families with a gap
-  in the tower-number sequence; cross-checking each against
-  `tools/calibration-output.json`'s real transaction-backed building list
-  (same method that confirmed the Blvd Heights T3 error above) gave 3
-  different verdicts, not a single pattern:
-  - **`Centrium` — NOT a real gap, a mislabeled-area bug instead**: the
-    calibration source has all 4 real towers (1-4, each with real
-    transactions, all correctly under area `Me'Aisem First`), but the live
-    `DB` splits them into two fake "incomplete" families — Tower 1 & 3 under
-    `Dubai Production City`, Tower 2 & 4 under `Jumeirah Village Circle` —
-    which is why the heuristic scan (grouped by area+name) saw two gapped
-    families instead of one complete one. The real bug to fix is the area
-    label on 2 of the 4 entries, not a missing tower.
-  - **`Serra` and `Farah` — likely fine, no action needed**: both areas' live
-    `DB` tower sets match the calibration source's real transaction-backed
-    set EXACTLY (Serra: 1, 3-10 in both; Farah: 1, 2, 5 in both) — the
-    numbering gap exists in the real DLD transaction data too, so it's
-    consistent rather than suspicious (the missing numbers likely just don't
-    have recent transactions, or those towers/numbers genuinely don't exist).
-  - **`U-Bora` and `Palace Towers` — unresolved, calibration source doesn't
-    cover them well enough to judge**: calibration only has `u-bora tower 1`
-    (no backing for the live DB's Tower 3/4 at all), and has NEITHER of Palace
-    Towers' two live entries (T1, T3). Can't confirm or deny a real gap from
-    this data source — needs live listings/DLD data or the original research
-    session's own sourcing.
-  All of this needs the research branch (`claude/dubaival-portfolio-manager-
-  5bgbjk`), which owns `js/data-residential.js` — this branch cannot edit
-  that file. Concrete asks: fix Centrium's area mislabeling (real fix, high
-  confidence), leave Serra/Farah alone, and investigate U-Bora/Palace Towers
-  with a better data source than `calibration-output.json` alone.
+  calibration source, `residential.buildings`) — it has exactly 3 real Blvd
+  Heights blocks, all backed by real transaction counts (`blvd heights t1`:
+  280 transactions/PSF 2497, `t2`: 172/2452, `podium`: 32/2357) and **no t3
+  entry at all**; the live `DB`'s `"blvd heights t3"` PSF (2050) matched none
+  of the 3 real calibrated figures either, confirming the user's domain
+  knowledge that the building has exactly 2 towers. Separately, the same
+  cross-check found `Centrium`'s 4 towers were split across two WRONG areas
+  (Tower 1 & 3 tagged `Dubai Production City`, Tower 2 & 4 tagged `Jumeirah
+  Village Circle`) despite all 4 being real, transaction-backed entries in
+  the calibration source under one single area, `Me'Aisem First` — the app's
+  own `DLD_AREA_MAP` already maps `"Me'Aisem First" → "IMPZ"`, and 31 other
+  DB buildings are already correctly tagged `IMPZ`, confirming that's the
+  right canonical area.
+  - **Normally this branch never edits `js/data-residential.js`/
+    `js/data-commercial.js`** (owned exclusively by the research branch,
+    `claude/dubaival-portfolio-manager-5bgbjk` — see the two-branch workflow
+    rule below). This was a narrow, explicit exception: the user directly
+    instructed "هرچی ساختمانهایی هست ک پیدا کردی و اشتباه... خودت انجام
+    بده" (whatever buildings you found that are wrong, fix them yourself)
+    after this session had already done the real-data verification above.
+    Future sessions on either branch: this specific edit was authorized
+    per-instance, not a change to the ownership rule itself.
+  - **Applied**: removed `"blvd heights t3"` from both `DB` and
+    `BLDG_UNITS` (DB count 9227→9226); changed all 4 `"centrium tower N"`
+    entries' `.a` field to `"IMPZ"`. Re-ran
+    `node tools/generate-seo-pages.js` per the existing rule (wipes and
+    regenerates `areas/`/`buildings/`/`sitemap.xml` from scratch) —
+    `buildings/blvd-heights-t3.html` correctly disappeared, the 4 Centrium
+    building pages and the `downtown-dubai`/`dubai-production-city`/`impz`
+    area pages updated accordingly.
+  - Verified: `node -c` on the touched file; `lookupBuilding()` and
+    `computeValuation()` both still resolve correctly for Centrium Tower 1
+    under the corrected `IMPZ` area and for both real Blvd Heights towers
+    (no regression from the edit); the existing metric-registry Node test
+    (2,429 checks, 0 errors) re-run clean; confirmed the unrelated
+    "Centrium Tower" (no number, a different real building in Nad Al Sheba)
+    was untouched.
+  - **Not independently re-verified this session** (out of scope for this
+    fix, flagged for the research branch's own judgment): the other 6
+    tower-numbering-gap candidates from the same scan — `Serra` and `Farah`
+    match their calibration source exactly (their gaps look like real DLD
+    data patterns, not likely errors); `U-Bora` and `Palace Towers` couldn't
+    be confirmed or denied since `calibration-output.json` doesn't cover
+    their extra tower numbers at all — would need live listings/DLD data
+    beyond what this branch has access to.
 
 - **🟡 Rental velocity ("Fastest to Rent") — needs manual SQL + a few weeks of
   accumulation** (added 2026-07-13, session 11n): run
@@ -2176,10 +2169,12 @@ These files contain critical business logic and data:
   APK not yet built — requires Android SDK (not available in cloud env).
 - **✅ COMPLETED: AVM full calibration** (2026-06-20): All 10,880 properties
   calibrated with 100% coverage. Error reduced from ~20% to under 5%.
-- **Building research ACTIVE**: Current: 9,227 residential across 216+ areas
-  (as of 2026-07-12 — was 9,123, +104 from a research session's Round 3 building
-  batch + 30 missing villa sub-communities, merged into the code-quality branch
-  via cherry-pick). 347 areas have benchmarks. Target areas listed in "Building
+- **Building research ACTIVE**: Current: 9,226 residential across 216+ areas
+  (as of 2026-07-13 — was 9,227, -1 from removing the confirmed-bogus "Blvd
+  Heights T3" entry, session 11w; before that was 9,123, +104 from a research
+  session's Round 3 building batch + 30 missing villa sub-communities, merged
+  into the code-quality branch via cherry-pick). 347 areas have benchmarks.
+  Target areas listed in "Building
   research gaps" below. **IMPORTANT**: Buildings go in `js/data-residential.js`,
   NOT in `index-6.html`.
 
