@@ -461,6 +461,65 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-14 (session 11x)**: Quick Check redesigned from a generic
+  area-wide price/rent range checker into a budget-first building
+  recommender, per user discussion: user asked directly whether Quick
+  Check — as a dedicated top-level tab on a site built around precise,
+  transparent analysis — was actually a useful tool, noting the exact
+  same widget is already reachable via Analyzer's "Quick Price Check"
+  accordion. Agreed direction: keep the tab (nav is frozen, not touched),
+  but give the underlying tool a genuinely distinct value — "I have this
+  budget, which real buildings can I buy/rent into" — instead of
+  overlapping with Find's Smart Discovery. User explicitly asked to keep
+  bed count as a fast required input (not silently guessed), since
+  recommending the wrong bed count makes the whole result useless, and to
+  frame the picks honestly as market-data-driven, not a live-inventory
+  guarantee (an agent might have no stock in the top pick).
+  - **Old flow removed**: `_qcSaleVerdict()` (compared one entered price
+    against the area-wide tier range only — no specific building named)
+    deleted entirely, along with the rent-side verdict card in
+    `_renderQCResult()`. Both were superseded, not just duplicated, by the
+    new building-level approach below.
+  - **New flow**: `_qcRecommendBuildings(area,beds,mode,budget)` —
+    computes a real per-building price/rent estimate for every `DB` entry
+    in the chosen area via the EXISTING `estimateBuildingRentYield()`
+    (`js/valuation.js`, already used by Smart Discovery/Compare — no new
+    valuation math, no fabricated numbers), filters to what fits the
+    budget, ranks affordable candidates by grade (best-first) so the top
+    pick is the best building the budget reaches — not just the cheapest
+    — and gracefully fills remaining slots with the closest
+    just-above-budget options (clearly labeled "Above budget") if fewer
+    than 3 buildings fit, so the tool is never a dead end.
+  - **UI**: the "optional price — adds deal check" field became "YOUR
+    BUDGET" (required, validated with an inline error like the existing
+    area-required check), Sale/Rent toggle relabeled BUY/RENT, submit
+    button relabeled "FIND BUILDINGS TO BUY/RENT". Results now lead with
+    `_renderQCBuildingPicks()` — up to 3 named building cards (grade, PSF,
+    estimated price/rent, "Top pick"/"Within budget"/"Above budget"
+    badge), each clickable straight into a prefilled Analyzer for the
+    exact building — with the existing area-wide range card kept
+    underneath as supporting context (not removed, just demoted from
+    primary to secondary). A one-line disclaimer ("Based on market data —
+    not a live listing check. Confirm availability with an agent")
+    directly addresses the agent-inventory gap the user raised, since this
+    tool has no way to know a specific agent's actual stock.
+  - Since `_renderQuickCheckWidget()` is one shared component deliberately
+    used both by the standalone Quick Check tab and the Analyzer's
+    collapsible accordion (so the two never drift), this redesign applies
+    identically to both entry points automatically.
+  - Verified: a Node test extracting `_qcRecommendBuildings` and running it
+    against real `DB`/`AREAS` data — Business Bay/2BR/1.5M sale budget
+    returns 3 real B+-grade buildings all within budget, correctly grade-
+    ranked; a rent-budget case returns real C-grade buildings at the
+    correct estimated annual rent; a deliberately tiny budget in Palm
+    Jumeirah returns 3 "closest above budget" fallback picks with
+    `anyAffordable:false`; an invalid area returns `null` cleanly; `node -c`
+    on the touched file; and a real-browser Playwright pass driving the
+    actual Quick Check tab end-to-end (set area/beds/budget, click Find
+    Buildings, read the rendered DOM) — confirmed real building names
+    ("Mayfair Tower", grade B+, AED 1.5M, "Top pick") render correctly with
+    zero console errors.
+
 - **2026-07-13 (session 11w)**: Fixed a real, user-reported visual bug —
   screenshot showed the Analyzer's building-search dropdown ("Blvd Heights
   T3", "Blvd Crescent Tower 1/2"...) visually interleaved/bleeding through

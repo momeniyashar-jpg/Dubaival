@@ -742,28 +742,88 @@ function computeAreaPriceRange(area, beds, mode) {
   };
 }
 
-// Quick Check's sale "deal check" against the user's entered price.
-//
-// BUG FIXED (2026-07-12): this used to hand off to the full computeValuation()
-// via a synthetic unit built from the price itself — size was reverse-derived
-// as price/areaPSF, which forces askPSF (=price/size) back to areaPSF by
-// construction. That made the verdict verify almost nothing about the actual
-// price entered: testing across a 4x price range (AED 1.5M-6M) for the same
-// area always returned "FAIR" at exactly -5.1%, regardless of price. Instead,
-// compare the entered price directly against the tier range already computed
-// by computeAreaPriceRange() (grade-sensitive, varies with area/beds) — the
-// same numbers already shown in the range card above this verdict.
-function _qcSaleVerdict(rng,price,aData){
-  if(!rng||!price)return null;
-  var mid=rng.midRange?(rng.midRange[0]+rng.midRange[1])/2:(rng.lo+rng.hi)/2;
-  if(!mid)return null;
-  var vsPct=(price-mid)/mid*100;
-  var verdict=price<=rng.lo?"DISTRESS":vsPct<=-7?"GOOD":vsPct<=7?"FAIR":"OVER";
-  return{verdict:verdict,vsPct:vsPct.toFixed(1),fairPrice:Math.round(mid),areaPsf:(aData&&aData.psf)||null};
+// 2026-07-14 redesign, user-requested: Quick Check's job is no longer "is my
+// specific price a fair deal" (an abstract area-wide verdict with no building
+// name attached) — it's "given my budget, which actual buildings in this area
+// can I buy/rent into, ranked best-first." Reuses the exact same real
+// building-level estimator (estimateBuildingRentYield, js/valuation.js)
+// Smart Discovery already relies on — no new/fabricated numbers, just a new
+// budget-first filter+rank layer over real per-building PSF/grade data.
+function _qcRecommendBuildings(area,beds,mode,budget){
+  var aData=AREAS[area]; if(!aData||!budget)return null;
+  if(typeof estimateBuildingRentYield!=="function")return null;
+  var isVilla=typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(area);
+  var gradeRank={Ultra:7,"A+":6,A:5,"A-":4,"B+":3,B:2,C:1};
+  var candidates=[];
+  for(var k in DB){
+    if(DB[k].a!==area)continue;
+    var bData=DB[k];
+    var est=estimateBuildingRentYield(bData,aData,beds,isVilla,bData.p);
+    if(!est)continue;
+    var amount=mode==="rent"?est.estRent:est.estPrice;
+    candidates.push({name:k,g:bData.g,p:bData.p,sc:bData.sc,amount:amount,fits:amount<=budget});
+  }
+  if(!candidates.length)return null;
+  var affordable=candidates.filter(function(c){return c.fits;});
+  affordable.sort(function(a,b){return(gradeRank[b.g]||0)-(gradeRank[a.g]||0)||b.amount-a.amount;});
+  var picks=affordable.slice(0,3);
+  if(picks.length<3){
+    var above=candidates.filter(function(c){return!c.fits;}).sort(function(a,b){return a.amount-b.amount;});
+    picks=picks.concat(above.slice(0,3-picks.length));
+  }
+  return{picks:picks,totalCandidates:candidates.length,anyAffordable:affordable.length>0};
 }
 
-// Shared QC result renderer (range card + optional verdict)
+// Building recommendation cards — the tool's headline output since the
+// 2026-07-14 redesign: real, ranked, NAMED buildings the budget can reach,
+// not just an abstract area-wide range. Grade-ranked among affordable picks
+// (best grade first) so the top pick is genuinely the best option within
+// budget, not just the cheapest.
+function _renderQCBuildingPicks(qc, qs, cl){
+  var res=qs.buildingPicks; if(!res||!res.picks||!res.picks.length)return;
+  var isRent=qs.mode==="rent";
+  function fmtP(n){
+    if(!n&&n!==0)return"—";
+    if(n>=1000000)return"AED "+(n/1000000).toFixed(2).replace(/0$/,"").replace(/\.$/,"")+"M";
+    return"AED "+Math.round(n).toLocaleString();
+  }
+  var wrap=el("div",{style:{marginTop:"16px",marginBottom:"4px"}});
+  wrap.appendChild(el("div",{style:{color:cl.gold,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:"8px"}},
+    (isRent?"Buildings you can rent":"Buildings you can buy")+" with AED "+parseInt(qs.price).toLocaleString()));
+  res.picks.forEach(function(p,i){
+    var card=el("div",{style:{background:cl.surface,border:"1px solid "+(p.fits?cl.goldDim:cl.border),borderRadius:"12px",padding:"12px 14px",marginBottom:"8px",cursor:"pointer"}});
+    var top=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"10px"}});
+    var left=el("div",{});
+    left.appendChild(el("div",{style:{color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Inter',sans-serif",textTransform:"capitalize"}},p.name));
+    left.appendChild(el("div",{style:{color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"}},(p.g||"—")+" grade · AED "+Math.round(p.p).toLocaleString()+"/sqft"));
+    top.appendChild(left);
+    var right=el("div",{style:{textAlign:"right",flexShrink:"0"}});
+    right.appendChild(el("div",{style:{color:p.fits?"#10B981":"#F59E0B",fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"}},fmtP(p.amount)+(isRent?"/yr":"")));
+    right.appendChild(el("div",{style:{color:p.fits?(i===0?"#10B981":cl.muted):"#F59E0B",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"}},
+      p.fits?(i===0?"Top pick":"Within budget"):"Above budget"));
+    top.appendChild(right);
+    card.appendChild(top);
+    card.addEventListener("click",function(){
+      analyzerState.f.area=qs.area;
+      analyzerState.f.building=p.name.replace(/\b\w/g,function(c){return c.toUpperCase();});
+      analyzerState.f.beds=qs.beds||"2 BR";analyzerState.f.propCategory="apartment";
+      analyzerState.f.txnType=qs.mode;
+      setSection("Market","Analyzer");
+    });
+    wrap.appendChild(card);
+  });
+  if(!res.anyAffordable){
+    wrap.appendChild(el("div",{style:{color:cl.sub,fontSize:"10.5px",fontFamily:"'Inter',sans-serif",fontStyle:"italic",marginBottom:"6px"}},
+      "No tracked building in "+qs.area+" fits this budget for "+(qs.beds||"2 BR")+" — showing the closest options above."));
+  }
+  wrap.appendChild(el("div",{style:{color:cl.muted,fontSize:"9px",fontFamily:"'Inter',sans-serif"}},
+    "Based on market data (building grade & PSF) — not a live listing check. Confirm availability with an agent."));
+  qc.appendChild(wrap);
+}
+
+// Shared QC result renderer (building picks + area range context)
 function _renderQCResult(qc, qs, cl){
+  _renderQCBuildingPicks(qc, qs, cl);
   var rng=qs.rangeResult; if(!rng)return;
   var isRent=qs.mode==="rent";
   function fmtP(n){
@@ -807,28 +867,6 @@ function _renderQCResult(qc, qs, cl){
     row.appendChild(pr); rangeCard.appendChild(row);
   });
   qc.appendChild(rangeCard);
-  // Verdict card (only if price was also entered)
-  if(qs.result&&!qs.result.error&&qs.result._isRental){
-    var rr=qs.result;
-    var rvm={BELOW_MARKET:{l:"BELOW MARKET",b:"rgba(16,185,129,0.1)",c:"#10B981"},COMPETITIVE:{l:"COMPETITIVE",b:"rgba(16,185,129,0.1)",c:"#10B981"},MARKET_RATE:{l:"MARKET RATE",b:"rgba(245,158,11,0.1)",c:"#F59E0B"},ABOVE_MARKET:{l:"ABOVE MARKET",b:"rgba(249,115,22,0.1)",c:"#F97316"},OVERPRICED:{l:"OVERPRICED",b:"rgba(239,68,68,0.1)",c:"#EF4444"}};
-    var vm=rvm[rr.verdict]||rvm.MARKET_RATE;
-    var vc=el("div",{style:{marginTop:"12px",padding:"14px",borderRadius:"12px",border:"2px solid "+vm.c,background:vm.b,textAlign:"center"}});
-    vc.appendChild(el("div",{style:{fontSize:"9px",color:cl.sub,fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.12em",marginBottom:"4px"}},"YOUR ASKING RENT"));
-    vc.appendChild(el("div",{style:{fontSize:"20px",fontWeight:"900",color:vm.c,fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"}},vm.l));
-    vc.appendChild(el("div",{style:{fontSize:"11px",color:cl.sub,fontFamily:"'Inter',sans-serif"}},
-      (parseFloat(rr.vsPct)>=0?"+":"")+rr.vsPct+"% vs market · Mid: AED "+rr.estRent.toLocaleString()+"/yr"));
-    qc.appendChild(vc);
-  }else if(qs.result&&!qs.result.error&&!qs.result._isRental){
-    var r=qs.result;
-    var dvm={DISTRESS:{l:t("v_distress_s"),b:"rgba(16,185,129,0.1)",c:"#10B981"},GOOD:{l:t("v_good_s"),b:"rgba(16,185,129,0.1)",c:"#10B981"},FAIR:{l:t("v_fair_s"),b:"rgba(245,158,11,0.1)",c:"#F59E0B"},OVER:{l:t("v_over_s"),b:"rgba(239,68,68,0.1)",c:"#EF4444"}};
-    var vm=dvm[r.verdict]||dvm.FAIR;
-    var vc=el("div",{style:{marginTop:"12px",padding:"14px",borderRadius:"12px",border:"2px solid "+vm.c,background:vm.b,textAlign:"center"}});
-    vc.appendChild(el("div",{style:{fontSize:"9px",color:cl.sub,fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.12em",marginBottom:"4px"}},"YOUR BUDGET"));
-    vc.appendChild(el("div",{style:{fontSize:"20px",fontWeight:"900",color:vm.c,fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"}},vm.l));
-    vc.appendChild(el("div",{style:{fontSize:"11px",color:cl.sub,fontFamily:"'Inter',sans-serif"}},
-      (parseFloat(r.vsPct)>=0?"+":"")+r.vsPct+"% vs mid-market"+(r.areaPsf?" · Area avg PSF: AED "+r.areaPsf.toLocaleString():"")+" · Mid: AED "+r.fairPrice.toLocaleString()));
-    qc.appendChild(vc);
-  }
   // Full Analyzer CTA
   var fullBtn=el("button",{style:{width:"100%",marginTop:"12px",padding:"10px",borderRadius:"10px",border:"1px solid "+cl.goldDim,background:"transparent",color:cl.gold,fontSize:"12px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
   fullBtn.textContent="Full Analyzer — exact valuation for your unit →";
@@ -854,20 +892,21 @@ function _renderQuickCheckWidget(cl, opts){
   if(opts.showTitle!==false){
     qc.appendChild(el("div",{style:{textAlign:"center",marginBottom:"16px"}},[
       el("div",{style:{color:cl.gold,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"}},t("qc_title")),
-      el("div",{style:{color:cl.sub,fontSize:"11.5px",fontFamily:"'Inter',sans-serif"}},"Select area & bedrooms — see real market range instantly")
+      el("div",{style:{color:cl.sub,fontSize:"11.5px",fontFamily:"'Inter',sans-serif"}},"Area, beds & budget — get your top 3 building picks instantly")
     ]));
   }
-  if(!window._qcState)window._qcState={area:"",beds:"2 BR",building:"",price:"",result:null,rangeResult:null,mode:"sale"};
+  if(!window._qcState)window._qcState={area:"",beds:"2 BR",building:"",price:"",buildingPicks:null,rangeResult:null,mode:"sale"};
   if(!window._qcState.beds)window._qcState.beds="2 BR";
   if(!("rangeResult" in window._qcState))window._qcState.rangeResult=null;
+  if(!("buildingPicks" in window._qcState))window._qcState.buildingPicks=null;
   var qs=window._qcState;
   // Sale/Rent toggle
   var qcToggle=el("div",{style:{display:"flex",gap:"0",marginBottom:"14px",background:cl.raised,borderRadius:"8px",overflow:"hidden",border:"1px solid "+cl.border}});
   ["sale","rent"].forEach(function(m){
     var act=qs.mode===m;
     var tb=el("button",{style:{flex:"1",padding:"9px",border:"none",background:act?(m==="rent"?"linear-gradient(135deg,#8B5CF6,#6D28D9)":"linear-gradient(135deg,#C9A84C,#7A5E28)"):"transparent",color:act?(m==="rent"?"#fff":"#08090C"):cl.sub,fontSize:"12px",fontWeight:act?"700":"500",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.06em"}});
-    tb.textContent=m==="sale"?"SALE RANGE":"RENT RANGE";
-    tb.addEventListener("click",function(){qs.mode=m;qs.result=null;qs.rangeResult=null;render();});
+    tb.textContent=m==="sale"?"BUY":"RENT";
+    tb.addEventListener("click",function(){qs.mode=m;qs.buildingPicks=null;qs.rangeResult=null;render();});
     qcToggle.appendChild(tb);
   });
   qc.appendChild(qcToggle);
@@ -876,14 +915,14 @@ function _renderQuickCheckWidget(cl, opts){
   var qcAreaInp=el("input",{type:"text",placeholder:t("qc_select_area"),style:{width:"100%",background:cl.raised,border:"1px solid "+(qs.area&&AREAS[qs.area]?cl.gold:cl.border),color:cl.white,padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
   qcAreaInp.value=qs.area||"";
   qcAreaInp.addEventListener("input",function(){
-    qs.area=this.value;qs.result=null;qs.rangeResult=null;
+    qs.area=this.value;qs.buildingPicks=null;qs.rangeResult=null;
     var sg=document.getElementById("qc-area-sugg");if(!sg)return;sg.innerHTML="";
     var q=this.value.toLowerCase().trim();if(q.length<1)return;
     var hits=AREA_NAMES.filter(function(n){return n.toLowerCase().indexOf(q)>=0;});
     hits.slice(0,8).forEach(function(n){
       var row=el("div",{style:{padding:"8px 12px",cursor:"pointer",fontSize:"12px",color:cl.white,borderBottom:"1px solid "+cl.border,fontFamily:"'Inter',sans-serif"}});
       row.textContent=n;
-      row.addEventListener("mousedown",function(e){e.preventDefault();qs.area=n;qs.result=null;qs.rangeResult=null;render();});
+      row.addEventListener("mousedown",function(e){e.preventDefault();qs.area=n;qs.buildingPicks=null;qs.rangeResult=null;render();});
       row.addEventListener("mouseenter",function(){this.style.background=cl.raised;});
       row.addEventListener("mouseleave",function(){this.style.background="transparent";});
       sg.appendChild(row);
@@ -900,43 +939,40 @@ function _renderQuickCheckWidget(cl, opts){
     var act=qs.beds===b;
     var bb=el("button",{style:{flex:"1",minWidth:"55px",padding:"8px 2px",border:"1px solid "+(act?cl.gold:cl.border),background:act?"rgba(201,168,76,0.12)":"transparent",color:act?cl.gold:cl.sub,fontSize:"11px",fontWeight:act?"700":"400",fontFamily:"'Space Grotesk',monospace",borderRadius:"8px",cursor:"pointer"}});
     bb.textContent=b;
-    bb.addEventListener("click",function(){qs.beds=b;qs.result=null;qs.rangeResult=null;render();});
+    bb.addEventListener("click",function(){qs.beds=b;qs.buildingPicks=null;qs.rangeResult=null;render();});
     bedsRow.appendChild(bb);
   });
   qc.appendChild(bedsRow);
-  // Optional price input
+  // Budget input — now the tool's central input (2026-07-14 redesign): the
+  // budget is what drives the building recommendations below, not an
+  // optional add-on to a generic area range.
   var pLabel=el("div",{style:{color:cl.muted,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:"4px"}});
-  pLabel.textContent=qs.mode==="rent"?"YOUR ASKING RENT — optional, adds deal check":"YOUR BUDGET — optional, adds deal check";
+  pLabel.textContent=qs.mode==="rent"?"YOUR ANNUAL RENT BUDGET":"YOUR BUDGET";
   qc.appendChild(pLabel);
   var pInp=el("input",{type:"text",inputMode:"numeric",placeholder:qs.mode==="rent"?"e.g. 150,000 /yr":"e.g. 2,500,000",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"11px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"12px"}});
   pInp.value=qs.price?parseInt(qs.price).toLocaleString():"";
-  pInp.addEventListener("input",function(){qs.price=this.value.replace(/[^0-9]/g,"");this.value=qs.price?parseInt(qs.price).toLocaleString():"";qs.result=null;});
+  pInp.addEventListener("input",function(){qs.price=this.value.replace(/[^0-9]/g,"");this.value=qs.price?parseInt(qs.price).toLocaleString():"";qs.buildingPicks=null;});
   qc.appendChild(pInp);
   // Check button
   var checkBtn=el("button",{style:{width:"100%",padding:"14px",borderRadius:"12px",border:"none",background:qs.mode==="rent"?"linear-gradient(135deg,#8B5CF6,#6D28D9)":"linear-gradient(135deg,#C9A84C,#7A5E28)",color:qs.mode==="rent"?"#fff":"#08090C",fontSize:"15px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.03em"}});
-  checkBtn.textContent=qs.mode==="rent"?"CHECK RENT RANGE":"CHECK PRICE RANGE";
+  checkBtn.textContent=qs.mode==="rent"?"FIND BUILDINGS TO RENT":"FIND BUILDINGS TO BUY";
   checkBtn.addEventListener("click",function(){
-    if(!qs.area){
-      var _e=document.getElementById("_qc_area_err");
-      if(!_e){_e=el("div",{id:"_qc_area_err",style:{color:"#EF4444",fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"8px",padding:"8px 12px",background:"rgba(239,68,68,0.07)",borderRadius:"8px",border:"1px solid rgba(239,68,68,0.3)"}});_e.textContent="Please select an area first.";checkBtn.insertAdjacentElement("beforebegin",_e);}
+    var _eOld=document.getElementById("_qc_area_err");if(_eOld)_eOld.remove();
+    var _eOld2=document.getElementById("_qc_budget_err");if(_eOld2)_eOld2.remove();
+    if(!qs.area||!AREAS[qs.area]){
+      var _e=el("div",{id:"_qc_area_err",style:{color:"#EF4444",fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"8px",padding:"8px 12px",background:"rgba(239,68,68,0.07)",borderRadius:"8px",border:"1px solid rgba(239,68,68,0.3)"}});
+      _e.textContent="Please select a valid area first.";checkBtn.insertAdjacentElement("beforebegin",_e);
       return;
     }
-    var _eOld=document.getElementById("_qc_area_err");if(_eOld)_eOld.remove();
-    qs.rangeResult=computeAreaPriceRange(qs.area,qs.beds||"2 BR",qs.mode);
     var price=parseInt((qs.price||"").replace(/[^0-9]/g,""));
-    qs.result=null;
-    if(price>0){
-      if(qs.mode==="rent"&&price>=5000){
-        var aData=AREAS[qs.area]||{r1:65000,r2:100000};
-        var estSize=Math.round((aData.r2||100000)/(aData.psf||1500)*12);
-        if(estSize<300)estSize=900;
-        var fakeF={area:qs.area,building:qs.building||"",price:String(price),size:String(estSize),buaSize:"",beds:qs.beds||"2 BR",propCategory:"apartment",txnType:"rent",floor:"15",view:"Not specified",furnished:"Unfurnished"};
-        var rv=computeRentalValuation(fakeF);
-        if(rv){qs.result=rv;qs.result._isRental=true;}
-      }else if(qs.mode==="sale"&&price>=50000){
-        qs.result=_qcSaleVerdict(qs.rangeResult,price,AREAS[qs.area]);
-      }
+    var minBudget=qs.mode==="rent"?5000:50000;
+    if(!price||price<minBudget){
+      var _e2=el("div",{id:"_qc_budget_err",style:{color:"#EF4444",fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"8px",padding:"8px 12px",background:"rgba(239,68,68,0.07)",borderRadius:"8px",border:"1px solid rgba(239,68,68,0.3)"}});
+      _e2.textContent="Please enter your budget.";checkBtn.insertAdjacentElement("beforebegin",_e2);
+      return;
     }
+    qs.rangeResult=computeAreaPriceRange(qs.area,qs.beds||"2 BR",qs.mode);
+    qs.buildingPicks=_qcRecommendBuildings(qs.area,qs.beds||"2 BR",qs.mode,price);
     render();
   });
   qc.appendChild(checkBtn);
@@ -1246,7 +1282,7 @@ function renderAnalyzer(){
 
     // QUICK_CHECK_ACCORDION — collapsible secondary tool
     if(window._qcElement){
-      if(window._qcState&&window._qcState.result)window._qcExpanded=true;
+      if(window._qcState&&window._qcState.buildingPicks)window._qcExpanded=true;
       var qcSection=el("div",{style:{marginTop:"16px"}});
       var qcToggleBar=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:"rgba(201,168,76,0.04)",border:"1px solid "+cl.goldDim,borderRadius:window._qcExpanded?"10px 10px 0 0":"10px",cursor:"pointer"}});
       qcToggleBar.appendChild(div({display:"flex",alignItems:"center",gap:"8px"},[
