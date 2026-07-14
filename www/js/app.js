@@ -1309,7 +1309,7 @@ function updateSearchSuggestions(query){
   suggestEl.dataset.dvQuery=query;
 
   if(results.length>0){
-    suggestEl.style.cssText="background:"+cl.surface+";border:1px solid "+cl.gold+";border-radius:12px;margin-top:4px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.4);position:absolute;width:100%;z-index:100;";
+    suggestEl.style.cssText="background:"+(cl.surfaceSolid||cl.surface)+";border:1px solid "+cl.gold+";border-radius:12px;margin-top:4px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.4);position:absolute;width:100%;z-index:100;";
     results.forEach(function(r,i){
       var item=document.createElement("button");
       item.style.cssText="width:100%;padding:12px 16px;background:transparent;border:none;border-bottom:"+(i<results.length-1?"1px solid "+cl.border:"none")+";color:"+cl.white+";font-size:13px;cursor:pointer;text-align:left;font-family:'Inter',sans-serif;display:block;";
@@ -1358,7 +1358,7 @@ function updateSearchSuggestions(query){
           if(!extra.length)return;
 
           if(!suggestEl.children.length){
-            suggestEl.style.cssText="background:"+cl.surface+";border:1px solid "+cl.gold+";border-radius:12px;margin-top:4px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.4);position:absolute;width:100%;z-index:100;";
+            suggestEl.style.cssText="background:"+(cl.surfaceSolid||cl.surface)+";border:1px solid "+cl.gold+";border-radius:12px;margin-top:4px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.4);position:absolute;width:100%;z-index:100;";
           }
 
           // Section divider

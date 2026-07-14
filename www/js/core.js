@@ -180,7 +180,7 @@ function mkAuto(style,items,value,onChange,placeholder){
   var wrap=el("div",{style:{position:"relative"}});
   var input=el("input",{type:"text",placeholder:placeholder||"Type to search...",style:Object.assign({},style,{width:"100%",boxSizing:"border-box"})});
   input.value=value||"";
-  var dropdown=el("div",{style:{position:"absolute",top:"100%",left:"0",right:"0",maxHeight:"200px",overflowY:"auto",background:cl.surface,border:"1px solid "+cl.border,borderRadius:"0 0 10px 10px",zIndex:"999",display:"none",boxShadow:"0 8px 24px rgba(0,0,0,0.4)"}});
+  var dropdown=el("div",{style:{position:"absolute",top:"100%",left:"0",right:"0",maxHeight:"200px",overflowY:"auto",background:cl.surfaceSolid||cl.surface,border:"1px solid "+cl.border,borderRadius:"0 0 10px 10px",zIndex:"999",display:"none",boxShadow:"0 8px 24px rgba(0,0,0,0.4)"}});
   function showSuggestions(q){
     dropdown.innerHTML="";
     var query=q.toLowerCase().trim();

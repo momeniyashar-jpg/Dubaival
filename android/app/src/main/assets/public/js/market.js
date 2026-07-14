@@ -891,7 +891,7 @@ function _renderQuickCheckWidget(cl, opts){
   });
   qcAreaInp.addEventListener("blur",function(){setTimeout(function(){var sg=document.getElementById("qc-area-sugg");if(sg)sg.innerHTML="";},200);});
   qcAreaWrap.appendChild(qcAreaInp);
-  var qcAreaSugg=el("div",{id:"qc-area-sugg",style:{position:"absolute",top:"100%",left:"0",right:"0",zIndex:"100",background:cl.surface,border:"1px solid "+cl.border,borderRadius:"0 0 10px 10px",maxHeight:"180px",overflowY:"auto"}});
+  var qcAreaSugg=el("div",{id:"qc-area-sugg",style:{position:"absolute",top:"100%",left:"0",right:"0",zIndex:"100",background:cl.surfaceSolid||cl.surface,border:"1px solid "+cl.border,borderRadius:"0 0 10px 10px",maxHeight:"180px",overflowY:"auto"}});
   qcAreaWrap.appendChild(qcAreaSugg);
   qc.appendChild(qcAreaWrap);
   // Beds selector

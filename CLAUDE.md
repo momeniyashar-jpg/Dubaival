@@ -461,6 +461,64 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-13 (session 11w)**: Fixed a real, user-reported visual bug —
+  screenshot showed the Analyzer's building-search dropdown ("Blvd Heights
+  T3", "Blvd Crescent Tower 1/2"...) visually interleaved/bleeding through
+  the static "Or browse by area" chip section underneath it, making both
+  unreadable together. User also asked whether this repeats elsewhere and
+  raised a data-accuracy question about "Blvd Heights" appearing to have
+  only one tower in the results (real estate expertise: it has two).
+  - **Root cause (UI)**: 5 separate floating suggestion/autocomplete
+    dropdowns across the app used `position:"absolute"` + a high `z-index`
+    (correct for floating above content) but a `background:cl.surface` fill
+    — which in dark mode is `rgba(255,255,255,0.05)`, i.e. only 5% opaque.
+    The z-index correctly stacked the dropdown on top, but its near-fully-
+    transparent background let whatever was underneath show straight
+    through, producing exactly the reported "mixed together" look. Fixed by
+    switching all 5 to `cl.surfaceSolid` (a real opaque color, `#0D1220`
+    dark / `#FFFFFF` light) instead: `js/app.js` (Analyzer's building search,
+    both the local-DB-results branch and the Google-Places-tier branch),
+    `js/core.js`'s shared `mkAuto()` component (reused by Find's area/
+    building fields and AI Chief of Staff's area fields — confirming the
+    user's suspicion this repeated "in various sections"), `js/deals.js`
+    (Deal Board's building search), and `js/market.js` (Quick Check's area
+    suggestion dropdown).
+  - **Data question investigated, not a real gap**: checked `DB` directly —
+    both `"blvd heights tower 1"` and `"blvd heights tower 2"` exist (A+
+    grade, AED 2,350 PSF each), so the building isn't missing from the
+    database. The confusion traced to the UI bug above plus the 8-result cap:
+    with only "Blvd" typed (partial), dozens of unrelated `blvd ...` entries
+    tie for the top score and only the first 8 in the DB's own key order are
+    shown — "Blvd Heights T3" happens to sit earlier in that order than
+    "Blvd Heights Tower 1/2", while unrelated matches like "Blvd Crescent
+    Tower 1/2" filled the visible slots instead. Once the FULL query "blvd
+    heights" is typed, all 4 real Blvd Heights entries (Tower 1, Tower 2,
+    Podium, and a 4th "T3" entry) score identically and all appear — verified
+    via a standalone scoring-logic simulation against the real `DB`, not
+    fixed further this session (this is a ranking/UX nuance, not a bug, and
+    `js/data-residential.js` is outside this branch's remit regardless —
+    see two-branch workflow rule below).
+  - **Broader systemic scan, as the user requested** ("این مورد برای
+    ساختمانهای دیگر تکرار نشه"): wrote a heuristic scan over all `DB` keys
+    matching `<base name> tower N` / `<base name> tN`, grouped by area+base,
+    checking for gaps in the tower-number sequence (e.g., Tower 1 and Tower 3
+    present but Tower 2 missing) — a real, generic signal of a possibly
+    missing sibling building, independent of the false-alarm Blvd Heights
+    case. Found 6 candidate families (see Outstanding items below) — flagged
+    for the research branch (`claude/dubaival-portfolio-manager-5bgbjk`) to
+    verify against live listings/DLD data, since this branch cannot edit
+    `js/data-residential.js` directly.
+  - Verified: a Node test confirming the exact `updateSearchSuggestions`
+    scoring logic against real `DB` data — for query "blvd heights" all 4
+    real entries score 100 and all appear in the top 8 (no data loss once
+    fully typed); a real-browser Playwright pass confirming the Analyzer's
+    and Find's dropdowns now compute to a fully opaque `rgb(13,18,32)`
+    background (previously would have been a translucent overlay) with zero
+    console errors; `node -c` on all 4 touched files. The AI Chief of Staff
+    and Deal Board dropdown fixes share the exact same `mkAuto()`/pattern
+    already verified for Find, so were not independently re-tested via
+    Playwright this session — a quick live check there is still worthwhile.
+
 - **2026-07-13 (session 11v)**: Interactive Map — fixed a real, user-reported
   bug (screenshot: clicking "Show Key Buildings on Map" after selecting an
   area returned "Could not locate buildings on the map for this area right
@@ -1947,6 +2005,25 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🟡 6 building families with tower-numbering gaps — needs research-branch
+  verification** (found 2026-07-13, session 11w): a heuristic scan of `DB`
+  keys matching `<base> tower N`/`<base> tN`, grouped by area+base name,
+  found 6 families where the tower-number sequence has a gap (a real signal
+  of a possibly missing sibling building — same class of issue the user
+  suspected for "Blvd Heights," which turned out to be a false alarm since
+  both its towers are already present). None of these were fixed here since
+  `js/data-residential.js` is the research branch's exclusive domain — pass
+  to that session (`claude/dubaival-portfolio-manager-5bgbjk`) to verify
+  against live listings/DLD data and backfill if the missing tower is real:
+  - `U-Bora` (Business Bay): has Tower 1, 3, 4 — missing Tower 2.
+  - `Serra` (Dubailand): has Tower 1, 3-10 — missing Tower 2.
+  - `Centrium` (Dubai Production City): has Tower 1, 3 — missing Tower 2.
+  - `Farah` (Wadi Al Safa): has Tower 1, 2, 5 — missing Tower 3, 4.
+  - `Centrium` (Jumeirah Village Circle — a different complex from the Dubai
+    Production City one above, same brand name): has Tower 2, 4 — missing
+    Tower 3.
+  - `Palace Towers` (Dubai Silicon Oasis): has T1, T3 — missing T2.
 
 - **🟡 Rental velocity ("Fastest to Rent") — needs manual SQL + a few weeks of
   accumulation** (added 2026-07-13, session 11n): run

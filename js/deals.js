@@ -657,7 +657,7 @@ function _ofmBuildingAutocomplete(label,val,onSelect,cl){
       color:cl.white,padding:"10px 12px",borderRadius:"8px",fontSize:"13px",
       fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
   var dropdown=el("div",{style:{position:"absolute",top:"100%",left:"0",right:"0",
-    background:cl.surface,border:"1px solid "+cl.border,borderRadius:"0 0 8px 8px",
+    background:cl.surfaceSolid||cl.surface,border:"1px solid "+cl.border,borderRadius:"0 0 8px 8px",
     maxHeight:"180px",overflowY:"auto",zIndex:"999",display:"none"}});
   inp.oninput=function(){
     var v=this.value.toLowerCase().trim();
