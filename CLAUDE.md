@@ -461,6 +461,28 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-15 (session 12, real Google Analytics 4 property)**: User
+  noticed the site's existing GA tracking used `G-DUBAIVAL01` — a
+  human-chosen placeholder, not a real Google-issued Measurement ID — and
+  asked to make it real ("واقعی بساز"). Confirmed by inspection that GA has
+  very likely never collected real data for the site under that ID, and
+  pointed out the already-working alternative (`dvTrack()` in `js/core.js`,
+  writing real events straight to Supabase's `analytics_events` table) as
+  an immediately-usable data source in the meantime. Walked the user
+  through creating a real GA4 property end-to-end (account → property →
+  business details/objectives → Web data stream for
+  `https://www.dubaival.com`) and obtained the real Measurement ID,
+  `G-7J3H12JGPE`. Replaced `G-DUBAIVAL01` with `G-7J3H12JGPE` in both
+  places in `index.html` (the `gtag/js?id=` script src and the
+  `gtag('config', ...)` call). Rebuilt `www/` via `scripts/build-www.js`
+  and manually synced the updated `index.html` into
+  `android/app/src/main/assets/public/` (`npx cap sync android` still
+  fails in this sandbox — no Android SDK, same pre-existing limitation).
+  **Not yet verified live**: GA4's own dashboard can take up to 48 hours to
+  show the first real-time/data-collection confirmation — the user should
+  check the GA4 property's Realtime report after visiting the live site
+  post-deploy.
+
 - **2026-07-15 (session 12, real auth bugs — broken password reset +
   email not remembered)**: User reported 3 linked, real problems while
   testing sign-in for the WhatsApp/Meta setup work above: (1) "Invalid
