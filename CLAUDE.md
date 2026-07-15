@@ -461,6 +461,20 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-15 (session 12, small follow-up)**: User noted `logo.png` was
+  never shown anywhere prominent (it was already wired into the header,
+  favicon, and About page, but not the Home tab) and asked for it to appear
+  at the bottom of the home page — explicitly fine with the current white/
+  silver version of the logo for beta (the gold version is reserved for the
+  live/main site later). Added a small centered footer (`renderHome()`,
+  `js/app.js`) right after the "Your Portfolio" section: the same
+  `logo.png` at 40px, 85% opacity, plus a "DubAIVal · Built in Dubai"
+  caption — matches the plain-text footer pattern already used on the About
+  page. Confirmed via a real-browser Playwright screenshot (scrolled to the
+  bottom of Home) that it renders correctly and doesn't collide with the
+  separate, pre-existing global legal-disclaimer bar (`js/core.js`,
+  unrelated, always shown beneath the bottom tab bar).
+
 - **2026-07-15 (session 12, one more follow-up)**: User directly questioned
   the flat -10%/-5% developer-furnished discount added in the previous
   entry — pointed out that 10% of a 15M unit or a 30-40M penthouse is a
