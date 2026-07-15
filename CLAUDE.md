@@ -461,6 +461,107 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-15 (session 12, pay-per-video AI VIDEO GENERATION credits)**:
+  Direct follow-up to the Whisper pay-per-video-subtitle work above — user
+  asked whether AI VIDEO GENERATION itself (Kling/Runway/HeyGen/D-ID, not
+  just adding subtitles to an already-recorded video) could also use a
+  pay-first model so they aren't forced to pre-purchase API keys out of
+  pocket for an unproven feature. Confirmed via `AskUserQuestion`: fund
+  Kling AI, Runway Gen-4, and HeyGen/D-ID first; price at $4.99/credit
+  (user's own reasoning: "we haven't even tested this ourselves yet, so no
+  reason to price high — just avoid losses for now, get the site running").
+  - **Same one-time-payment architecture as the Whisper credit system**
+    (`supabase-video-credits-schema.sql`, `api/billing.js`
+    `action=video-checkout`), replicated as a fully separate credit pool —
+    `video_gen_credits`, not `video_credits` — since these are two different
+    products at two different price points ($4.99 to generate a video vs
+    $2.99 to add real subtitles to one already-recorded video); a user
+    buying one should never implicitly spend the other.
+  - **New migration**: `supabase-video-gen-credits-schema.sql` (not yet
+    run — see Outstanding items) adds `user_profiles.video_gen_credits` +
+    `add_video_gen_credits()`/`consume_video_gen_credit()` RPCs, reusing the
+    existing `stripe_events_processed` idempotency table from the Whisper
+    migration (must already be applied first).
+  - **`api/billing.js`**: new `action=video-gen-checkout` — a ONE-TIME
+    Stripe Checkout Session (`mode:"payment"`, `price_data` inline,
+    `VIDEO_GEN_CREDIT_PRICE_CENTS`/`VIDEO_GEN_CREDIT_CURRENCY` env vars,
+    defaulting to 499/usd), same idempotent webhook pattern as
+    `video-checkout` but branching on `metadata.type==="video_gen_credit"`
+    to call `add_video_gen_credits` instead of `add_video_credits`.
+  - **`api/proxy-video.js`**: the shared "generate" gating block (used by
+    every engine — Kling, Runway, Luma, Minimax, Pika, HeyGen, Hedra, D-ID —
+    since they all funnel through one server-side handler) now falls back to
+    a paid credit once the existing free monthly quota
+    (`FREE_VIDEO_GENERATIONS_PER_MONTH=3`) is exhausted: atomically consumes
+    1 credit via `consume_video_gen_credit` before attempting the (expensive)
+    downstream engine call, returns 402 + `needsCredit:true` if the balance
+    is 0 (engine never called, so nothing is spent on a request that can't
+    succeed), and auto-refunds the credit if the engine call itself fails.
+    The refund uses a new technique — monkey-patching `res.json` for the
+    current request to detect any subsequent error response
+    (`statusCode>=400||payload.error`) and fire the refund automatically —
+    rather than instrumenting every individual per-engine failure branch by
+    hand (unlike the Whisper credit, which only had one call site to guard).
+    Explicit, accepted scope limit: only catches SYNCHRONOUS failures within
+    the same request, not a later async polling failure (e.g. Kling accepts
+    the job then fails minutes later) — consistent with the same tradeoff
+    already documented for `_checkAndLogVideoQuota()`.
+  - **Client (`js/chat.js`)**: `_videoProxy()` now flags `_needsCredit` on a
+    402 response; new `_startVideoGenCreditCheckout()` (same
+    checkout-redirect pattern as the Whisper credit's
+    `_startVideoCreditCheckout()`, kept as a separate top-level function
+    since it needs to be reachable from both `showVideoGenUI()` and
+    `showAvatarVideoGen()` — two different closures). Both AI Video Studio
+    entry points now show a live "3 free videos/month, then paid credits ·
+    Balance: N credits" row with a "+ Buy Credit" button once a paid (non-
+    slideshow) engine is selected, reading `DV_AUTH.profile.video_gen_credits`.
+    `showVideoGenUI()`'s existing shared `_aiError()` already detects a
+    "buy a credit" substring in the thrown error message (this exact string
+    comes straight from `api/proxy-video.js`'s 402 response) and shows a
+    "Buy 1 Video Credit ($4.99)" button — needed zero changes since it's a
+    single centralized error handler. `showAvatarVideoGen()`, by contrast,
+    has 8 separate per-engine try/catch branches (Runway/Minimax/Pika/Kling/
+    Luma/HeyGen/Hedra/D-ID) with no centralized error path — rather than
+    duplicating the same "does this message say buy a credit" check 8 times,
+    extracted one shared `_videoGenErrorUI(resultArea,msg,genVideoBtn)`
+    helper and pointed all 8 branches' error-rendering calls at it.
+  - **`js/auth.js`**: `_fetchProStatus()` (already fetching `is_pro` +
+    `video_credits` on every sign-in) now also selects `video_gen_credits`
+    in the same query — no second fetch needed, matches the existing
+    single-query pattern.
+  - Verified: `node -c` on all 4 touched files; the existing mocked-`fetch`
+    Node test harness (adapted from the Whisper credit's own test) against
+    the real `api/proxy-video.js` handler — 4 cases: free quota still
+    available skips credit consumption entirely, quota exhausted + credit
+    available consumes 1 credit and proceeds, a downstream engine failure
+    triggers an automatic refund via the `res.json`-wrapping technique, and
+    zero credits returns 402 with the engine never actually called; and a
+    real-browser Playwright pass against the rebuilt app (mocked
+    `engine_status`/network) — confirmed both `showVideoGenUI()` (after
+    clicking through Setup → Create → selecting the Kling engine card) and
+    `showAvatarVideoGen()` render the live credit-balance row and working
+    "+ Buy Credit" button, and that `_videoGenErrorUI()` correctly renders
+    the "Buy 1 Video Credit" button (not a generic red error) when fed the
+    server's real "...buy a credit to generate more." message — zero
+    real console errors in either run (only the sandbox's expected
+    network-unavailable artifacts, same limitation noted throughout this
+    file for every feature needing live network access).
+  - **Manual steps required before this goes live** (flagged below in
+    Outstanding items too): (1) run
+    `supabase-video-gen-credits-schema.sql` in Supabase SQL Editor (needs
+    `supabase-video-credits-schema.sql` applied first), (2) set
+    `KLING_API_KEY`, `RUNWAY_API_KEY`, and `HEYGEN_API_KEY`/`DID_API_KEY` in
+    Vercel env vars for the 3 engines chosen this session (the user can add
+    the other 4 catalog engines — Luma, Minimax, Pika, Hedra — later the same
+    way; each engine activates automatically the moment its own key is set,
+    per the existing `_availableVideoEngines()` filtering), (3) confirm
+    `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` are set (already required for
+    the existing Pro + Whisper checkouts — this reuses them, no new Stripe
+    setup). Until (1) is done, `video_gen_credits` reads as 0 everywhere
+    (Buy Credit still works, nothing crashes). Until any given engine's key
+    is set, that engine simply doesn't appear in the picker at all (existing
+    `engine_status` gating, unchanged this session).
+
 - **2026-07-15 (session 12, Val mascot redesign)**: User flagged the About
   page's "Val" falcon mascot as genuinely bad ("خیلی داغونه") and asked for
   both a design proposal and a beautiful execution.
@@ -3382,6 +3483,26 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🟡 Pay-per-video AI VIDEO GENERATION credits — needs manual SQL + 3
+  engine env vars** (added 2026-07-15, session 12): run
+  `supabase-video-gen-credits-schema.sql` in Supabase SQL Editor (requires
+  `supabase-video-credits-schema.sql` applied first, for its shared
+  `stripe_events_processed` idempotency table). Then set `KLING_API_KEY`,
+  `RUNWAY_API_KEY`, and `HEYGEN_API_KEY`/`DID_API_KEY` in Vercel env vars —
+  the 3 engines the site owner chose to fund first (via `AskUserQuestion`:
+  Kling AI, Runway Gen-4, HeyGen/D-ID). `STRIPE_SECRET_KEY`/
+  `STRIPE_WEBHOOK_SECRET` are also required but should already be set (same
+  keys the Pro subscription + Whisper checkouts already use — `video-gen-
+  checkout` is just a 3rd Checkout mode on the same webhook). Until the SQL
+  is run, `video_gen_credits` reads as 0 everywhere (Buy Credit button still
+  works and checkout still completes, nothing crashes — the balance just
+  never increments). Until an engine's own key is set, that engine simply
+  doesn't appear in the picker at all (pre-existing `engine_status` gating,
+  unrelated to credits). See the 2026-07-15 "pay-per-video AI VIDEO
+  GENERATION credits" work-log entry above for the full design (one-time
+  $4.99-per-video Stripe payment, additive on top of the existing 3
+  free-videos/month quota, not a replacement for it).
 
 - **🟡 Pay-per-video real subtitles (Whisper) — needs manual SQL + 2 env
   vars** (added 2026-07-15, session 12): run

@@ -30,6 +30,15 @@ const SITE_URL = "https://www.dubaival.com";
 // inline price_data.
 const VIDEO_CREDIT_PRICE_CENTS = parseInt(process.env.VIDEO_CREDIT_PRICE_CENTS || "299", 10);
 const VIDEO_CREDIT_CURRENCY = process.env.VIDEO_CREDIT_CURRENCY || "usd";
+// Pay-per-video AI GENERATION credit (Kling/Runway/HeyGen/D-ID/etc, see
+// api/proxy-video.js) — a separate ONE-TIME payment product from the
+// Whisper subtitle credit above (different price point, different job:
+// this pays to CREATE a video, not to add subtitles to one already made).
+// Every signed-in user still gets 3 free generations per calendar month
+// (FREE_VIDEO_GENERATIONS_PER_MONTH in api/proxy-video.js); credits are
+// only consumed once that free quota is used up.
+const VIDEO_GEN_CREDIT_PRICE_CENTS = parseInt(process.env.VIDEO_GEN_CREDIT_PRICE_CENTS || "499", 10);
+const VIDEO_GEN_CREDIT_CURRENCY = process.env.VIDEO_GEN_CREDIT_CURRENCY || "usd";
 
 function readRawBody(req) {
   return new Promise(function (resolve, reject) {
@@ -137,6 +146,57 @@ async function handleVideoCheckout(req, res) {
   }
 }
 
+// Same one-time-payment pattern as handleVideoCheckout above, but for AI
+// video GENERATION credits (metadata.type="video_gen_credit" distinguishes
+// it in the shared webhook handler below).
+async function handleVideoGenCheckout(req, res) {
+  if (rateLimitExceeded(req, res, 60000, 10)) return;
+  if (!STRIPE_SECRET_KEY) {
+    res.status(500).json({ ok: false, error: "Billing isn't configured yet — contact support@dubaival.com" });
+    return;
+  }
+  var raw = await readRawBody(req);
+  var body = {};
+  try { body = JSON.parse(raw.toString("utf8") || "{}"); } catch (e) {}
+  var userId = (body.user_id || "").trim();
+  var email = (body.email || "").trim().toLowerCase();
+  if (!userId || !email || !email.includes("@")) {
+    res.status(400).json({ ok: false, error: "Missing user_id or email" });
+    return;
+  }
+
+  var params = new URLSearchParams({
+    "mode": "payment",
+    "line_items[0][price_data][currency]": VIDEO_GEN_CREDIT_CURRENCY,
+    "line_items[0][price_data][unit_amount]": String(VIDEO_GEN_CREDIT_PRICE_CENTS),
+    "line_items[0][price_data][product_data][name]": "DubaiVal AI Video Generation — 1 Credit",
+    "line_items[0][price_data][product_data][description]": "Generate one AI video (Kling / Runway / HeyGen / D-ID)",
+    "line_items[0][quantity]": "1",
+    "success_url": SITE_URL + "/?video_gen_credit=1",
+    "cancel_url": SITE_URL + "/",
+    "customer_email": email,
+    "client_reference_id": userId,
+    "metadata[type]": "video_gen_credit",
+    "metadata[user_id]": userId,
+  });
+
+  try {
+    var r = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + STRIPE_SECRET_KEY, "Content-Type": "application/x-www-form-urlencoded" },
+      body: params.toString(),
+    });
+    var data = await r.json();
+    if (!r.ok) {
+      res.status(500).json({ ok: false, error: (data.error && data.error.message) || "Stripe error creating checkout session" });
+      return;
+    }
+    res.status(200).json({ ok: true, url: data.url });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: "Could not reach Stripe: " + e.message });
+  }
+}
+
 // Manual HMAC verification of Stripe's Stripe-Signature header — same
 // algorithm as the official SDK's constructEvent(), reimplemented with
 // Node's crypto to avoid adding the stripe npm package for one function.
@@ -207,6 +267,13 @@ async function handleWebhook(req, res) {
           method: "POST",
           body: JSON.stringify({ p_user_id: userId, p_amount: 1 }),
         });
+      } else if (userId && session.mode === "payment" && session.metadata && session.metadata.type === "video_gen_credit") {
+        // Pay-per-video-GENERATION credit purchase — separate pool from the
+        // Whisper subtitle credit above (different product, different price).
+        await supabaseRequest("/rpc/add_video_gen_credits", {
+          method: "POST",
+          body: JSON.stringify({ p_user_id: userId, p_amount: 1 }),
+        });
       } else if (userId) {
         await supabaseRequest("/user_profiles?id=eq." + encodeURIComponent(userId), {
           method: "PATCH",
@@ -254,6 +321,7 @@ module.exports = async function handler(req, res) {
   if (req.method === "POST" && action === "webhook") return handleWebhook(req, res);
   if (req.method === "POST" && action === "checkout") return handleCheckout(req, res);
   if (req.method === "POST" && action === "video-checkout") return handleVideoCheckout(req, res);
+  if (req.method === "POST" && action === "video-gen-checkout") return handleVideoGenCheckout(req, res);
 
   res.status(405).json({ ok: false, error: "Method not allowed" });
 };

@@ -129,22 +129,24 @@ async function setAuthSession(data){
   _fetchProStatus(data.user.id,data.access_token);
 }
 
-// Populates DV_AUTH.profile.is_pro/.video_credits from user_profiles (see
-// supabase-subscriptions-schema.sql, supabase-video-credits-schema.sql) so
-// isProUser() reflects the real Stripe subscription state instead of
-// always defaulting to false — video_credits is the separate pay-per-video
-// balance (see api/proxy-video.js engine="whisper"), added here rather
-// than a second fetch since this call already runs on every sign-in. Needs
-// the user's own access token (not just the anon key) since user_profiles
-// RLS is row-owner-scoped, same as every other authenticated read in this
-// file. Fire-and-forget — a slow/failed fetch just means isProUser()
-// stays false until it resolves, never blocks sign-in itself.
+// Populates DV_AUTH.profile.is_pro/.video_credits/.video_gen_credits from
+// user_profiles (see supabase-subscriptions-schema.sql,
+// supabase-video-credits-schema.sql, supabase-video-gen-credits-schema.sql)
+// so isProUser() reflects the real Stripe subscription state instead of
+// always defaulting to false — video_credits (Whisper subtitles) and
+// video_gen_credits (Kling/Runway/HeyGen/D-ID video generation) are two
+// separate pay-per-use balances (see api/proxy-video.js), both added here
+// rather than a second fetch since this call already runs on every sign-in.
+// Needs the user's own access token (not just the anon key) since
+// user_profiles RLS is row-owner-scoped, same as every other authenticated
+// read in this file. Fire-and-forget — a slow/failed fetch just means
+// isProUser() stays false until it resolves, never blocks sign-in itself.
 function _fetchProStatus(userId,token){
   if(!userId||!token)return;
-  fetch(SUPABASE_URL+"/rest/v1/user_profiles?id=eq."+encodeURIComponent(userId)+"&select=is_pro,video_credits",{headers:sbHeaders(token)})
+  fetch(SUPABASE_URL+"/rest/v1/user_profiles?id=eq."+encodeURIComponent(userId)+"&select=is_pro,video_credits,video_gen_credits",{headers:sbHeaders(token)})
     .then(function(r){return r.ok?r.json():[];})
     .then(function(rows){
-      if(rows&&rows[0]&&DV_AUTH.profile){DV_AUTH.profile.is_pro=!!rows[0].is_pro;DV_AUTH.profile.video_credits=rows[0].video_credits||0;render();}
+      if(rows&&rows[0]&&DV_AUTH.profile){DV_AUTH.profile.is_pro=!!rows[0].is_pro;DV_AUTH.profile.video_credits=rows[0].video_credits||0;DV_AUTH.profile.video_gen_credits=rows[0].video_gen_credits||0;render();}
     }).catch(function(){});
 }
 

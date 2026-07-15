@@ -3749,6 +3749,19 @@ async function showVideoGenUI(initialPrompt, propertyCtx){
     backLnk.onclick=function(){vgSwitchTab("setup");};
     vgBody.appendChild(backLnk);
 
+    // Paid engines draw on the free monthly quota first, then fall back to
+    // purchased video-generation credits (api/proxy-video.js) — surface the
+    // current balance here so a user isn't surprised by a 402 mid-generation.
+    if(VG_STATE.engine&&VG_STATE.engine!=="slideshow"){
+      var genCredits=(typeof DV_AUTH!=="undefined"&&DV_AUTH.profile&&DV_AUTH.profile.video_gen_credits)||0;
+      var credRow=div({display:"flex",alignItems:"center",justifyContent:"space-between",gap:"8px",marginBottom:"10px",padding:"8px 10px",background:"rgba(212,175,55,0.06)",border:"1px solid rgba(212,175,55,0.25)",borderRadius:"8px"});
+      credRow.appendChild(div({color:"#8899AA",fontSize:"10px",fontFamily:"'Inter',sans-serif"},"3 free videos/month, then paid credits · Balance: "+genCredits+" credit"+(genCredits===1?"":"s")));
+      var buyCredBtn=el("button",{style:{background:"transparent",border:"1px solid #D4AF37",color:"#D4AF37",borderRadius:"6px",padding:"4px 9px",fontSize:"10px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",flexShrink:"0"}});
+      buyCredBtn.textContent="+ Buy Credit";
+      buyCredBtn.onclick=function(){_startVideoGenCreditCheckout().catch(function(e){alert(e.message);});};
+      credRow.appendChild(buyCredBtn);
+      vgBody.appendChild(credRow);
+    }
     var hasEng=!!VG_STATE.engine;
     var createBtn=el("button",{style:{width:"100%",background:hasEng?"linear-gradient(135deg,#C9A84C,#F59E0B)":"#1A1F2E",color:hasEng?"#000":"#3A4560",border:"1px solid "+(hasEng?"transparent":"#2A3040"),borderRadius:"12px",padding:"16px",fontSize:"15px",fontWeight:"700",cursor:hasEng?"pointer":"default",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.05em",transition:"all 0.2s"}});
     createBtn.innerHTML='<i data-lucide="video" style="width:16px;height:16px;vertical-align:middle;margin-right:8px"></i>'+(hasEng?"Generate Video":"Select an Engine Above");
@@ -3890,6 +3903,14 @@ async function showVideoGenUI(initialPrompt, propertyCtx){
       var p=document.getElementById("vg-ai-progress");
       if(s){s.textContent="Error: "+msg;s.style.color="#EF4444";}
       if(p){p.style.background="#EF4444";p.style.width="100%";}
+      // Out of free videos + no paid credit — offer to buy one instead of
+      // just retry/fallback (retrying would hit the exact same 402 again).
+      if(msg.indexOf("buy a credit")!==-1){
+        var buyGenBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#D4AF37,#A07D1C)",border:"none",color:"#070B14",borderRadius:"10px",padding:"13px",fontSize:"13px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginTop:"14px",textAlign:"center"}});
+        buyGenBtn.textContent="Buy 1 Video Credit ($4.99)";
+        buyGenBtn.onclick=function(){_startVideoGenCreditCheckout().catch(function(e){alert(e.message);});};
+        vgBody.appendChild(buyGenBtn);
+      }
       // Slideshow fallback button (only when not already using slideshow)
       if(VG_STATE.engine!=="slideshow"){
         var fbBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,rgba(16,185,129,0.15),rgba(16,185,129,0.08))",border:"1px solid rgba(16,185,129,0.4)",color:"#10B981",borderRadius:"10px",padding:"13px",fontSize:"13px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginTop:"14px",textAlign:"center"}});
@@ -7545,7 +7566,39 @@ async function _videoProxy(body){
   var d=await r.json();
   if(r.status===403&&d&&d.error&&d.error.indexOf("free AI videos")!==-1)d._quotaExceeded=true;
   if(r.status===401&&d&&d.error&&d.error.indexOf("sign in")!==-1)d._needsLogin=true;
+  if(r.status===402&&d&&d.needsCredit)d._needsCredit=true;
   return d;
+}
+// Pay-per-video-GENERATION credit purchase — same one-time-payment pattern
+// as _startVideoCreditCheckout in showVideoEditor(), but that one is scoped
+// inside a different function's closure, and this needs to be reachable
+// from both showVideoGenUI() and showAvatarVideoGen(), so it's a separate
+// top-level helper instead of being shared across those closures.
+async function _startVideoGenCreditCheckout(){
+  if(typeof DV_AUTH==="undefined"||!DV_AUTH.user){
+    if(typeof DV_AUTH!=="undefined"){DV_AUTH.showModal=true;DV_AUTH.modalTab="signup";DV_AUTH.error="Please create a free account first, then buy a video-generation credit.";render();}
+    return;
+  }
+  var resp=await fetch("/api/billing?action=video-gen-checkout",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({user_id:DV_AUTH.user.id,email:DV_AUTH.user.email})});
+  var data=await resp.json();
+  if(!data.ok||!data.url)throw new Error(data.error||"Could not start checkout");
+  window.location.href=data.url;
+}
+// Shared error renderer for showAvatarVideoGen()'s 8 per-engine branches —
+// same "buy a credit" detection _aiError() uses in showVideoGenUI(), just
+// factored out since this function's error handling isn't centralized in
+// one place the way the main Studio's is.
+function _videoGenErrorUI(resultArea,msg,genVideoBtn){
+  if(msg&&msg.indexOf("buy a credit")!==-1){
+    resultArea.appendChild(el("div",{style:{color:"#F59E0B",fontSize:"10px",fontFamily:"monospace",marginBottom:"6px"}},msg));
+    var buyGenBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#D4AF37,#A07D1C)",border:"none",color:"#070B14",borderRadius:"10px",padding:"11px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){_startVideoGenCreditCheckout().catch(function(e){alert(e.message);});}});
+    buyGenBtn.textContent="Buy 1 Video Credit ($4.99)";
+    resultArea.appendChild(buyGenBtn);
+  }else{
+    resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},msg));
+  }
+  if(genVideoBtn)genVideoBtn.disabled=false;
 }
 async function _klingGenVideo(prompt,imageUrl){
   // api/proxy-video.js's Kling branch hardcodes model_name:"kling-v1-6" and
@@ -7756,6 +7809,15 @@ async function showAvatarVideoGen(avatarId){
   loadAvatarsBtn.textContent="Load My HeyGen Avatars";heygenAvatarSection.appendChild(loadAvatarsBtn);
   card.appendChild(heygenAvatarSection);
 
+  var genGenCredits=(typeof DV_AUTH!=="undefined"&&DV_AUTH.profile&&DV_AUTH.profile.video_gen_credits)||0;
+  var genCredRow=div({display:"flex",alignItems:"center",justifyContent:"space-between",gap:"8px",marginBottom:"10px",padding:"8px 10px",background:"rgba(212,175,55,0.06)",border:"1px solid rgba(212,175,55,0.25)",borderRadius:"8px"});
+  genCredRow.appendChild(div({color:"#8899AA",fontSize:"10px",fontFamily:"'Inter',sans-serif"},"3 free videos/month, then paid credits · Balance: "+genGenCredits+" credit"+(genGenCredits===1?"":"s")));
+  var genBuyCredBtn=el("button",{style:{background:"transparent",border:"1px solid #D4AF37",color:"#D4AF37",borderRadius:"6px",padding:"4px 9px",fontSize:"10px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",flexShrink:"0"}});
+  genBuyCredBtn.textContent="+ Buy Credit";
+  genBuyCredBtn.onclick=function(){_startVideoGenCreditCheckout().catch(function(e){alert(e.message);});};
+  genCredRow.appendChild(genBuyCredBtn);
+  card.appendChild(genCredRow);
+
   var resultArea=div({marginTop:"8px"});card.appendChild(resultArea);
 
   var genVideoBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#F59E0B,#EC4899,#8B5CF6)",color:"#FFF",border:"none",borderRadius:"12px",padding:"14px",fontSize:"14px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",boxShadow:"0 4px 20px rgba(245,158,11,0.3)"},onclick:async function(){
@@ -7781,10 +7843,9 @@ async function showAvatarVideoGen(avatarId){
             return{done:false};
           },5000,120,resultArea,genVideoBtn);
         }else{
-          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Runway error: "+(rwd.error||JSON.stringify(rwd))));
-          genVideoBtn.disabled=false;
+          _videoGenErrorUI(resultArea,"Runway error: "+(rwd.error||JSON.stringify(rwd)),genVideoBtn);
         }
-      }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
+      }catch(e){_videoGenErrorUI(resultArea,"Error: "+e.message,genVideoBtn);}
     }
 
     else if(selectedMethod==="minimax"){
@@ -7803,10 +7864,9 @@ async function showAvatarVideoGen(avatarId){
             return{done:false};
           },5000,90,resultArea,genVideoBtn);
         }else{
-          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Minimax error: "+(mmd.error||JSON.stringify(mmd))));
-          genVideoBtn.disabled=false;
+          _videoGenErrorUI(resultArea,"Minimax error: "+(mmd.error||JSON.stringify(mmd)),genVideoBtn);
         }
-      }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
+      }catch(e){_videoGenErrorUI(resultArea,"Error: "+e.message,genVideoBtn);}
     }
 
     else if(selectedMethod==="pika"){
@@ -7826,10 +7886,9 @@ async function showAvatarVideoGen(avatarId){
             return{done:false};
           },5000,60,resultArea,genVideoBtn);
         }else{
-          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Pika error: "+(pkd.detail||pkd.error||JSON.stringify(pkd))));
-          genVideoBtn.disabled=false;
+          _videoGenErrorUI(resultArea,"Pika error: "+(pkd.detail||pkd.error||JSON.stringify(pkd)),genVideoBtn);
         }
-      }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
+      }catch(e){_videoGenErrorUI(resultArea,"Error: "+e.message,genVideoBtn);}
     }
 
     else if(selectedMethod==="kling"){
@@ -7849,10 +7908,9 @@ async function showAvatarVideoGen(avatarId){
             return{done:false};
           },5000,60,resultArea,genVideoBtn);
         }else{
-          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Kling error: "+(kd.error||JSON.stringify(kd))));
-          genVideoBtn.disabled=false;
+          _videoGenErrorUI(resultArea,"Kling error: "+(kd.error||JSON.stringify(kd)),genVideoBtn);
         }
-      }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
+      }catch(e){_videoGenErrorUI(resultArea,"Error: "+e.message,genVideoBtn);}
     }
 
     else if(selectedMethod==="luma"){
@@ -7869,10 +7927,9 @@ async function showAvatarVideoGen(avatarId){
             return{done:false};
           },5000,60,resultArea,genVideoBtn);
         }else{
-          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Luma error: "+(ld.error||JSON.stringify(ld))));
-          genVideoBtn.disabled=false;
+          _videoGenErrorUI(resultArea,"Luma error: "+(ld.error||JSON.stringify(ld)),genVideoBtn);
         }
-      }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
+      }catch(e){_videoGenErrorUI(resultArea,"Error: "+e.message,genVideoBtn);}
     }
 
     else if(selectedMethod==="heygen"){
@@ -7900,10 +7957,9 @@ async function showAvatarVideoGen(avatarId){
             return{done:false};
           },5000,60,resultArea,genVideoBtn);
         }else{
-          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"HeyGen error: "+(hd.detail||hd.error||JSON.stringify(hd))));
-          genVideoBtn.disabled=false;
+          _videoGenErrorUI(resultArea,"HeyGen error: "+(hd.detail||hd.error||JSON.stringify(hd)),genVideoBtn);
         }
-      }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
+      }catch(e){_videoGenErrorUI(resultArea,"Error: "+e.message,genVideoBtn);}
     }
 
     else if(selectedMethod==="hedra"){
@@ -7921,10 +7977,9 @@ async function showAvatarVideoGen(avatarId){
             return{done:false};
           },5000,60,resultArea,genVideoBtn);
         }else{
-          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Hedra error: "+(hrd.error||JSON.stringify(hrd))));
-          genVideoBtn.disabled=false;
+          _videoGenErrorUI(resultArea,"Hedra error: "+(hrd.error||JSON.stringify(hrd)),genVideoBtn);
         }
-      }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
+      }catch(e){_videoGenErrorUI(resultArea,"Error: "+e.message,genVideoBtn);}
     }
 
     else if(selectedMethod==="did"){
@@ -7947,10 +8002,9 @@ async function showAvatarVideoGen(avatarId){
             return{done:false};
           },5000,24,resultArea,genVideoBtn);
         }else{
-          resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"D-ID error: "+(dd.error||JSON.stringify(dd))));
-          genVideoBtn.disabled=false;
+          _videoGenErrorUI(resultArea,"D-ID error: "+(dd.error||JSON.stringify(dd)),genVideoBtn);
         }
-      }catch(e){resultArea.appendChild(el("div",{style:{color:"#EF4444",fontSize:"10px",fontFamily:"monospace"}},"Error: "+e.message));genVideoBtn.disabled=false;}
+      }catch(e){_videoGenErrorUI(resultArea,"Error: "+e.message,genVideoBtn);}
     }
   }});
   genVideoBtn.textContent="Generate Cinematic Video";card.appendChild(genVideoBtn);

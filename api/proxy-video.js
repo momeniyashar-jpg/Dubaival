@@ -88,15 +88,49 @@ module.exports = async function handler(req, res) {
   if (rateLimitExceeded(req, res, 60000, isPoll ? 60 : 8)) return;
 
   // Paid video generation is capped per signed-in user per month (not image
-  // generation — that's a separate, much cheaper action).
+  // generation — that's a separate, much cheaper action). Once that free
+  // quota is used up, fall back to a paid video_gen_credit instead of just
+  // refusing outright — same pay-per-use pattern as the Whisper subtitle
+  // credits below, just for the (much more expensive) generation step.
   if (action === "generate" && engine !== "fal-image") {
     var userId = await _resolveUserId(body.access_token);
     if (!userId) return res.status(401).json({ error: "Please sign in to generate AI videos." });
     var quota = await _checkAndLogVideoQuota(userId, engine);
     if (!quota.allowed) {
-      return res.status(403).json({
-        error: "You've used all " + FREE_VIDEO_GENERATIONS_PER_MONTH + " free AI videos this month. Your quota resets on the 1st.",
+      var genCreditRes = await supabaseRequest("/rpc/consume_video_gen_credit", {
+        method: "POST",
+        body: JSON.stringify({ p_user_id: userId }),
       });
+      var genCreditOk = genCreditRes.ok && (await genCreditRes.json()) === true;
+      if (!genCreditOk) {
+        return res.status(402).json({
+          error: "You've used all " + FREE_VIDEO_GENERATIONS_PER_MONTH + " free AI videos this month — buy a credit to generate more.",
+          needsCredit: true,
+        });
+      }
+      // Credit consumed — wrap res.json so that any error response this
+      // request produces below (any engine, any failure point) automatically
+      // refunds the credit, without having to instrument every individual
+      // engine branch's own failure paths. Only covers failures discovered
+      // synchronously in THIS request (e.g. bad API key, malformed prompt);
+      // a job that's accepted here but fails later during async polling is
+      // not refunded — same accepted tradeoff already documented above for
+      // the free-quota log ("providers generally don't charge for failed
+      // generations" and instrumenting every async poll path isn't worth
+      // the complexity here either).
+      var _origResJson = res.json.bind(res);
+      var _genCreditRefunded = false;
+      res.json = function (payload) {
+        var isError = res.statusCode >= 400 || (payload && payload.error);
+        if (isError && !_genCreditRefunded) {
+          _genCreditRefunded = true;
+          supabaseRequest("/rpc/add_video_gen_credits", {
+            method: "POST",
+            body: JSON.stringify({ p_user_id: userId, p_amount: 1 }),
+          }).catch(function () {});
+        }
+        return _origResJson(payload);
+      };
     }
   }
 
