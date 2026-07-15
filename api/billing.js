@@ -21,6 +21,15 @@ const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || "";
 const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID || "";
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
 const SITE_URL = "https://www.dubaival.com";
+// Pay-per-video AI processing (real Whisper subtitles, see
+// api/proxy-whisper.js) — a ONE-TIME payment per credit, deliberately NOT
+// part of the Pro subscription, per the site owner's explicit request
+// ("نه اینکه ماهانه خرید کنه، برای هر ویدئو پرداخت کنه"). Priced in cents
+// via env var so it can be tuned without a code change; no Stripe
+// Product/Price needs to be pre-created in the Dashboard since this uses
+// inline price_data.
+const VIDEO_CREDIT_PRICE_CENTS = parseInt(process.env.VIDEO_CREDIT_PRICE_CENTS || "299", 10);
+const VIDEO_CREDIT_CURRENCY = process.env.VIDEO_CREDIT_CURRENCY || "usd";
 
 function readRawBody(req) {
   return new Promise(function (resolve, reject) {
@@ -55,6 +64,60 @@ async function handleCheckout(req, res) {
     "cancel_url": SITE_URL + "/",
     "customer_email": email,
     "client_reference_id": userId,
+  });
+
+  try {
+    var r = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + STRIPE_SECRET_KEY, "Content-Type": "application/x-www-form-urlencoded" },
+      body: params.toString(),
+    });
+    var data = await r.json();
+    if (!r.ok) {
+      res.status(500).json({ ok: false, error: (data.error && data.error.message) || "Stripe error creating checkout session" });
+      return;
+    }
+    res.status(200).json({ ok: true, url: data.url });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: "Could not reach Stripe: " + e.message });
+  }
+}
+
+// Pay-per-video AI processing credit — a ONE-TIME payment (mode:"payment"),
+// deliberately separate from the Pro subscription above. Uses inline
+// price_data instead of a pre-created Stripe Price ID so this works the
+// moment STRIPE_SECRET_KEY is set, with no Stripe Dashboard product setup
+// required. metadata.type distinguishes this from a subscription checkout
+// in the shared webhook handler below.
+async function handleVideoCheckout(req, res) {
+  if (rateLimitExceeded(req, res, 60000, 10)) return;
+  if (!STRIPE_SECRET_KEY) {
+    res.status(500).json({ ok: false, error: "Billing isn't configured yet — contact support@dubaival.com" });
+    return;
+  }
+  var raw = await readRawBody(req);
+  var body = {};
+  try { body = JSON.parse(raw.toString("utf8") || "{}"); } catch (e) {}
+  var userId = (body.user_id || "").trim();
+  var email = (body.email || "").trim().toLowerCase();
+  if (!userId || !email || !email.includes("@")) {
+    res.status(400).json({ ok: false, error: "Missing user_id or email" });
+    return;
+  }
+
+  var params = new URLSearchParams({
+    "mode": "payment",
+    "line_items[0][price_data][currency]": VIDEO_CREDIT_CURRENCY,
+    "line_items[0][price_data][unit_amount]": String(VIDEO_CREDIT_PRICE_CENTS),
+    "line_items[0][price_data][product_data][name]": "DubaiVal AI Video Processing — 1 Credit",
+    "line_items[0][price_data][product_data][description]": "Real AI speech-to-text subtitles for one video",
+    "line_items[0][quantity]": "1",
+    "success_url": SITE_URL + "/?video_credit=1",
+    "cancel_url": SITE_URL + "/",
+    "customer_email": email,
+    "client_reference_id": userId,
+    "metadata[type]": "video_credit",
+    "metadata[user_id]": userId,
   });
 
   try {
@@ -112,11 +175,39 @@ async function handleWebhook(req, res) {
     return;
   }
 
+  // Idempotency guard: Stripe can and does redeliver the same event (slow
+  // response, network blip, etc). Flipping is_pro to the same value twice
+  // is harmless, but crediting video_credits is NOT naturally idempotent —
+  // a redelivered event would double-credit the user. Record every event
+  // id before processing; a 409 (unique violation) means this exact event
+  // was already handled, so skip straight to acking it.
+  try {
+    var dedupeRes = await supabaseRequest("/stripe_events_processed", {
+      method: "POST",
+      headers: { "Prefer": "return=minimal" },
+      body: JSON.stringify({ event_id: event.id }),
+    });
+    if (dedupeRes.status === 409) {
+      res.status(200).json({ received: true, deduped: true });
+      return;
+    }
+  } catch (e) {
+    // If the dedupe table itself is unreachable, fail open (process the
+    // event anyway) rather than silently dropping a real payment/webhook.
+  }
+
   try {
     if (event.type === "checkout.session.completed") {
       var session = event.data.object;
       var userId = session.client_reference_id;
-      if (userId) {
+      if (userId && session.mode === "payment" && session.metadata && session.metadata.type === "video_credit") {
+        // Pay-per-video credit purchase — grant exactly 1 credit, separate
+        // from the Pro subscription path below.
+        await supabaseRequest("/rpc/add_video_credits", {
+          method: "POST",
+          body: JSON.stringify({ p_user_id: userId, p_amount: 1 }),
+        });
+      } else if (userId) {
         await supabaseRequest("/user_profiles?id=eq." + encodeURIComponent(userId), {
           method: "PATCH",
           body: JSON.stringify({
@@ -162,6 +253,7 @@ module.exports = async function handler(req, res) {
   var action = req.query && req.query.action;
   if (req.method === "POST" && action === "webhook") return handleWebhook(req, res);
   if (req.method === "POST" && action === "checkout") return handleCheckout(req, res);
+  if (req.method === "POST" && action === "video-checkout") return handleVideoCheckout(req, res);
 
   res.status(405).json({ ok: false, error: "Method not allowed" });
 };

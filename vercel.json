@@ -10,7 +10,8 @@
     "api/auto-post.js": { "maxDuration": 60 },
     "api/price-alerts.js": { "maxDuration": 60 },
     "api/inbox.js": { "maxDuration": 60 },
-    "api/billing.js": { "maxDuration": 30 }
+    "api/billing.js": { "maxDuration": 30 },
+    "api/proxy-video.js": { "maxDuration": 60 }
   },
   "headers": [
     {

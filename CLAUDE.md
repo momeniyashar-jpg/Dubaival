@@ -461,6 +461,96 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-15 (session 12, Phase 2 of the Video Editor work — pay-per-video
+  real subtitles)**: Direct follow-up to the AI Video Editor audit above.
+  User confirmed they want Phase 2 (real Whisper speech-to-text) built now
+  so the infrastructure is ready — they'll fund `OPENAI_API_KEY` later —
+  and explicitly specified the billing model: **pay-per-video, not a
+  monthly subscription** ("نه اینکه ماهانه خرید کنه، برای هر ویدئو پرداخت
+  کنه" — not a monthly purchase, pay per video).
+  - **New Supabase migration**: `supabase-video-credits-schema.sql` (not
+    yet run — see Outstanding items) adds `user_profiles.video_credits`
+    (integer balance), a `stripe_events_processed` idempotency table, and
+    two SECURITY DEFINER RPCs: `consume_video_credit(user_id)` (atomic
+    check-and-decrement, returns false with zero side effects if the
+    balance is already 0) and `add_video_credits(user_id, amount)` (used by
+    both the purchase webhook and the automatic refund-on-failure path).
+  - **`api/billing.js`**: new `action=video-checkout` — a ONE-TIME Stripe
+    Checkout Session (`mode:"payment"`, price ~$2.99 via `price_data`
+    inline, no pre-created Stripe Product/Price needed, tunable via
+    `VIDEO_CREDIT_PRICE_CENTS`/`VIDEO_CREDIT_CURRENCY` env vars) — entirely
+    separate from the existing Pro subscription checkout above it, per the
+    explicit pay-per-video requirement. The shared webhook handler now
+    branches on `session.mode`+`metadata.type` to grant 1 credit instead of
+    flipping `is_pro`. Added a real idempotency guard (insert-or-skip into
+    `stripe_events_processed` keyed by Stripe's event id) since crediting a
+    balance — unlike setting `is_pro=true` — is NOT naturally safe against
+    Stripe's webhook retry behavior; applies to both checkout paths.
+  - **`api/proxy-video.js`**: new `engine:"whisper"`/`action:"transcribe"`
+    branch, added to this EXISTING file rather than a new `api/*.js` file —
+    the project is already at Vercel Hobby's 12-serverless-function ceiling
+    (confirmed by listing `api/*.js`, exactly 12 non-`_lib` files; a past
+    session already hit real 404s across the whole `/api` surface from
+    exceeding this once, see the 2026-07-09 "Alerts — Email" note below).
+    Reuses this file's existing `_resolveUserId()` (real Supabase
+    access-token verification, not a trusted client header) and rate-limit
+    conventions. Flow: resolve real signed-in user → atomically consume 1
+    credit via `consume_video_credit` (fails closed with 402 + `needsCredit`
+    flag if the balance is 0, before ever calling the paid API) → forward
+    the client's compact audio (base64, capped ~9MB decoded) to
+    `https://api.openai.com/v1/audio/transcriptions` (`whisper-1`,
+    `verbose_json` for per-segment timestamps) → **refunds the credit
+    automatically via `add_video_credits`** if the OpenAI call itself fails,
+    so a failed transcription never silently costs the user money. Added
+    `whisper: !!process.env.OPENAI_API_KEY` to the existing `engine_status`
+    action and a `maxDuration:60` entry in `vercel.json` (this file
+    previously had no explicit override).
+  - **Client (`js/chat.js`, Video Editor)**: `extractAudioForTranscription()`
+    — captures ONLY the audio track of whichever clip(s) are already
+    selected for the final export (the same multi-clip array
+    `renderWithOverlays()` uses), not the full original video, so credits
+    aren't wasted transcribing footage that will be cut anyway and the
+    returned timestamps already match the FINAL output's timeline with no
+    remapping needed. Encodes to compact Opus/WebM (~32kbps — small enough
+    to stay well under serverless body-size limits even for a 10-minute
+    clip selection) via `MediaRecorder`, same real-time-capture technique
+    `renderWithOverlays()` already uses (so extraction takes roughly as
+    long as the selected clips' own duration — a real, disclosed cost of
+    staying 100% client-side without a server-side transcoding pipeline).
+    New "🎙 Generate REAL Subtitles (N credits)" button next to the existing
+    free (visual-guess) "✨ AI Generate Subtitles" button, showing the
+    live balance from `DV_AUTH.profile.video_credits`; shows a "Buy Credit"
+    button when the balance is 0, wired to a new `_startVideoCreditCheckout()`
+    (same pattern as the existing Pro-upgrade `_startStripeCheckout()`, just
+    hitting `action=video-checkout`). `js/auth.js`'s existing
+    `_fetchProStatus()` (runs on every sign-in) now also selects
+    `video_credits` in the same query, rather than adding a second fetch.
+  - Verified: `node -c` on all touched files; a mocked-fetch Node harness
+    against the real `api/proxy-video.js` handler (4 cases — invalid token,
+    zero credits never reaches OpenAI, success returns parsed segments,
+    OpenAI failure triggers the refund call) and a second harness against
+    `api/billing.js` (correct one-time-payment Stripe params, webhook grants
+    a credit for `video_credit` metadata without touching `is_pro`, a
+    duplicate webhook event id is deduped and not double-processed, the
+    existing Pro-subscription webhook path is unaffected); and a real-browser
+    Playwright pass driving the actual Video Editor UI end-to-end with a
+    synthetic in-browser test video — confirmed the 0-credit state shows the
+    Buy Credit button, the 2-credit state's button click genuinely extracts
+    real audio (confirmed non-trivial base64 payload sent), calls the mocked
+    Whisper endpoint, correctly parses the returned segments into the
+    subtitle textarea with real M:SS timestamps, and correctly decrements
+    the local credit count — zero console errors.
+  - **Manual steps required before this goes live** (flagged below in
+    Outstanding items too): (1) run `supabase-video-credits-schema.sql` in
+    Supabase SQL Editor, (2) set `OPENAI_API_KEY` in Vercel env vars, (3)
+    confirm `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` are set (needed
+    already for the existing Pro checkout — video-checkout reuses them),
+    (4) optionally set `VIDEO_CREDIT_PRICE_CENTS`/`VIDEO_CREDIT_CURRENCY` to
+    override the ~$2.99 default. Until (1)+(2) are done, the "Generate REAL
+    Subtitles" button will show a clear configuration error rather than
+    silently failing or charging anyone — Stripe checkout itself
+    (`action=video-checkout`) only needs (3) and already works today.
+
 - **2026-07-15 (session 12, AI Video Editor audit)**: User asked for a full
   review of the AI Video Editor (`showVideoEditor()`, `js/chat.js`) against
   their original vision: upload up to a 10-minute walkthrough, AI picks the
@@ -2909,6 +2999,22 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🟡 Pay-per-video real subtitles (Whisper) — needs manual SQL + 2 env
+  vars** (added 2026-07-15, session 12): run
+  `supabase-video-credits-schema.sql` in Supabase SQL Editor, then set
+  `OPENAI_API_KEY` in Vercel env vars. `STRIPE_SECRET_KEY`/
+  `STRIPE_WEBHOOK_SECRET` are also required but should already be set (the
+  existing Pro-subscription checkout needs them too) — `video-checkout`
+  reuses the same keys, just a different Checkout mode. Until the SQL is
+  run, `video_credits` reads as 0/undefined everywhere (button shows "Buy
+  Credit" but the whole flow is otherwise inert, no crash). Until
+  `OPENAI_API_KEY` is set, a purchased credit can't be spent yet — the
+  "Generate REAL Subtitles" button will show a clear
+  "OPENAI_API_KEY not configured" error (never silently fails or charges
+  anyone) until it's added. See the 2026-07-15 "Phase 2" work-log entry
+  above for the full design (one-time $2.99-per-video Stripe payment, not
+  a subscription, per the site owner's explicit instruction).
 
 - **🟡 Error reporting Admin viewer — needs manual SQL** (added 2026-07-14,
   session 11z): run `supabase-error-reporting-schema.sql` in Supabase SQL

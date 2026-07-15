@@ -1467,6 +1467,99 @@ function showVideoEditor(){
     return new Blob(chunks,{type:mimeType});
   }
 
+  // ── REAL SUBTITLES (Whisper, pay-per-video credit) ──────────────────────────
+  // Phase 2 of the honesty fix above: aiAnalyzeVideo/the manual "AI Generate
+  // Subtitles" button can only ever guess from still frames. This extracts
+  // the ACTUAL audio of whatever clip(s) will be in the final export and
+  // sends it to a real speech-to-text engine (api/proxy-video.js
+  // engine="whisper") for a genuine word-for-word transcript, gated by the
+  // site's pay-per-video credit system (api/billing.js action=
+  // video-checkout — a one-time payment per video, not a subscription,
+  // per the site owner's explicit request).
+  async function extractAudioForTranscription(statusCb){
+    var clips=(VIDEO_EDITOR_STATE.clips&&VIDEO_EDITOR_STATE.clips.length)?VIDEO_EDITOR_STATE.clips:[{start:VIDEO_EDITOR_STATE.trimStart||0,end:VIDEO_EDITOR_STATE.trimEnd||VIDEO_EDITOR_STATE.duration||30}];
+    var vidCaptureStream=null;
+    try{vidCaptureStream=video.captureStream?video.captureStream():null;}catch(e0){}
+    if(!vidCaptureStream||!vidCaptureStream.getAudioTracks().length)throw new Error("This video has no audio track to transcribe.");
+
+    var mimeType=MediaRecorder.isTypeSupported("audio/webm;codecs=opus")?"audio/webm;codecs=opus":"audio/webm";
+    var audioOnlyStream=new MediaStream(vidCaptureStream.getAudioTracks());
+    var recorder=new MediaRecorder(audioOnlyStream,{mimeType:mimeType,audioBitsPerSecond:32000});
+    var chunks=[];
+    recorder.ondataavailable=function(ev){if(ev.data&&ev.data.size>0)chunks.push(ev.data);};
+    var done=new Promise(function(resolve){recorder.onstop=resolve;});
+
+    var clipIdx=0;
+    video.currentTime=clips[0].start;
+    await new Promise(function(r){video.onseeked=r;setTimeout(r,500);});
+    recorder.start(200);
+    await video.play().catch(function(){});
+
+    await new Promise(function(resolve){
+      function tick(){
+        var c=clips[clipIdx];
+        if(video.currentTime>=c.end||video.paused||video.ended){
+          clipIdx++;
+          if(clipIdx>=clips.length){video.pause();resolve();return;}
+          video.currentTime=clips[clipIdx].start;
+          video.onseeked=function(){video.play().then(function(){requestAnimationFrame(tick);}).catch(function(){requestAnimationFrame(tick);});};
+          return;
+        }
+        statusCb("Extracting audio… clip "+(clipIdx+1)+"/"+clips.length);
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+    recorder.stop();
+    await done;
+    return new Blob(chunks,{type:mimeType});
+  }
+
+  function _blobToBase64(blob){
+    return new Promise(function(resolve,reject){
+      var reader=new FileReader();
+      reader.onload=function(){resolve(reader.result.split(",")[1]);};
+      reader.onerror=reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function _startVideoCreditCheckout(){
+    if(typeof DV_AUTH==="undefined"||!DV_AUTH.user){
+      if(typeof DV_AUTH!=="undefined"){DV_AUTH.showModal=true;DV_AUTH.modalTab="signup";DV_AUTH.error="Please create a free account first, then buy a video credit.";render();}
+      return;
+    }
+    var resp=await fetch("/api/billing?action=video-checkout",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({user_id:DV_AUTH.user.id,email:DV_AUTH.user.email})});
+    var data=await resp.json();
+    if(!data.ok||!data.url)throw new Error(data.error||"Could not start checkout");
+    window.location.href=data.url;
+  }
+
+  async function generateRealSubtitles(statusCb){
+    var credits=(typeof DV_AUTH!=="undefined"&&DV_AUTH.profile&&DV_AUTH.profile.video_credits)||0;
+    if(credits<=0){
+      var err=new Error("You're out of video credits.");
+      err.needsCredit=true;
+      throw err;
+    }
+    statusCb("Extracting audio…");
+    var audioBlob=await extractAudioForTranscription(statusCb);
+    var base64=await _blobToBase64(audioBlob);
+    var accessToken=localStorage.getItem("dv_access_token");
+    statusCb("Transcribing with AI (real speech-to-text)…");
+    var r=await fetch("/api/proxy-video",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({engine:"whisper",action:"transcribe",access_token:accessToken,audio_base64:base64,mime_type:audioBlob.type})});
+    var d=await r.json();
+    if(!r.ok){
+      var err2=new Error(d.error||"Transcription failed");
+      err2.needsCredit=!!d.needsCredit;
+      throw err2;
+    }
+    if(typeof DV_AUTH!=="undefined"&&DV_AUTH.profile)DV_AUTH.profile.video_credits=Math.max(0,credits-1);
+    return d.segments||[];
+  }
+
   // ── SHOW RESULTS SECTION ────────────────────────────────────────────────────
   function showResultsUI(blob,captionText,platKey,container){
     var url=URL.createObjectURL(blob);
@@ -1773,6 +1866,42 @@ function showVideoEditor(){
       aiSubBtn.textContent="✨ AI Generate Subtitles";aiSubBtn.disabled=false;
     };
     subSec.appendChild(aiSubBtn);
+
+    // Real, word-for-word subtitles (Whisper) — pay-per-video credit,
+    // separate from the free (visual-guess) AI button above.
+    var realSubRow=div({display:"flex",gap:"6px",alignItems:"center",marginTop:"8px"});
+    var credits=(typeof DV_AUTH!=="undefined"&&DV_AUTH.profile&&DV_AUTH.profile.video_credits)||0;
+    var realSubBtn=el("button",{style:{flex:"1",background:"linear-gradient(135deg,#06B6D4,#0891B2)",color:"#FFF",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+    realSubBtn.textContent="🎙 Generate REAL Subtitles ("+credits+" credit"+(credits===1?"":"s")+")";
+    realSubBtn.onclick=async function(){
+      realSubBtn.disabled=true;var origTxt=realSubBtn.textContent;
+      try{
+        var segments=await generateRealSubtitles(function(msg){realSubBtn.textContent=msg;});
+        if(!segments.length){realSubBtn.textContent="No speech detected";setTimeout(function(){renderTabBody();},1500);return;}
+        subTextarea.value=segments.map(function(s){
+          var m=Math.floor(s.start/60),sc=Math.floor(s.start%60);
+          return m+":"+(sc<10?"0":"")+sc+" "+s.text;
+        }).join("\n");
+        renderTabBody();
+      }catch(err){
+        if(err.needsCredit){
+          if(confirm((err.message||"You're out of video credits.")+"\n\nBuy 1 credit now?"))_startVideoCreditCheckout().catch(function(e2){alert(e2.message);});
+          renderTabBody();
+        }else{
+          realSubBtn.textContent="Error: "+err.message;realSubBtn.disabled=false;
+          setTimeout(function(){realSubBtn.textContent=origTxt;},3000);
+        }
+      }
+    };
+    realSubRow.appendChild(realSubBtn);
+    if(credits<=0){
+      var buyBtn=el("button",{style:{background:"transparent",border:"1px solid #06B6D4",color:"#06B6D4",borderRadius:"8px",padding:"8px 10px",fontSize:"10px",fontWeight:"600",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",whiteSpace:"nowrap"}});
+      buyBtn.textContent="Buy Credit";
+      buyBtn.onclick=function(){_startVideoCreditCheckout().catch(function(e){alert(e.message);});};
+      realSubRow.appendChild(buyBtn);
+    }
+    subSec.appendChild(realSubRow);
+    subSec.appendChild(div({color:"#556677",fontSize:"9px",fontFamily:"'Inter',sans-serif",marginTop:"6px"},"Real word-for-word transcription of this video's actual audio, in its original language — a small one-time fee per video, not a subscription."));
     body.appendChild(subSec);
 
     // Caption

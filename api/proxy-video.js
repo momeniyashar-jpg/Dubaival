@@ -76,6 +76,7 @@ module.exports = async function handler(req, res) {
       minimax: !!(process.env.MINIMAX_API_KEY || process.env.PIKA_API_KEY),
       pika: !!process.env.PIKA_API_KEY,
       did: !!process.env.DID_API_KEY,
+      whisper: !!process.env.OPENAI_API_KEY,
     });
   }
 
@@ -436,6 +437,69 @@ module.exports = async function handler(req, res) {
     }
 
     // ── FAL.AI IMAGE GENERATION (FLUX — photo-realistic, no expiry) ────────────
+    // ── WHISPER (real speech-to-text subtitles, pay-per-video credit) ───────
+    // Deliberately NOT gated by the monthly free-video-generation quota
+    // above (that's for the paid text/image-to-video engines) — this has
+    // its own pay-per-video credit system (see supabase-video-credits-
+    // schema.sql, api/billing.js action=video-checkout). One credit =
+    // one transcription; refunded automatically if the OpenAI call itself
+    // fails, so a failed request never silently costs the user money.
+    if (engine === "whisper") {
+      var wk = process.env.OPENAI_API_KEY;
+      if (!wk) return res.status(500).json({ error: "OPENAI_API_KEY not configured in Vercel env vars" });
+
+      if (action === "transcribe") {
+        var wUserId = await _resolveUserId(body.access_token);
+        if (!wUserId) return res.status(401).json({ error: "Please sign in to generate real subtitles." });
+
+        var audioB64 = body.audio_base64 || "";
+        if (!audioB64) return res.status(400).json({ error: "Missing audio_base64" });
+        // Base64 is ~33% larger than the raw bytes it encodes; this caps
+        // the underlying audio at roughly 9MB, comfortably inside typical
+        // serverless request-body limits for a compact opus/webm track
+        // extracted from even a 10-minute walkthrough at a speech-safe bitrate.
+        if (audioB64.length > 12 * 1024 * 1024) {
+          return res.status(413).json({ error: "Audio track too large — try a shorter video." });
+        }
+
+        var creditRes = await supabaseRequest("/rpc/consume_video_credit", {
+          method: "POST",
+          body: JSON.stringify({ p_user_id: wUserId }),
+        });
+        var creditOk = creditRes.ok && (await creditRes.json()) === true;
+        if (!creditOk) {
+          return res.status(402).json({ error: "No video credits left — buy one to generate real subtitles.", needsCredit: true });
+        }
+
+        try {
+          var audioBuffer = Buffer.from(audioB64, "base64");
+          var form = new FormData();
+          form.append("file", new Blob([audioBuffer], { type: body.mime_type || "audio/webm" }), "audio.webm");
+          form.append("model", "whisper-1");
+          form.append("response_format", "verbose_json");
+          if (body.language) form.append("language", body.language);
+          var wr = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+            method: "POST",
+            headers: { "Authorization": "Bearer " + wk },
+            body: form,
+          });
+          var wRaw = await wr.text();
+          var wd; try { wd = JSON.parse(wRaw); } catch (e) { wd = null; }
+          if (!wr.ok || !wd) {
+            // Refund — the credit was consumed above but the paid call
+            // itself never succeeded, so the user shouldn't be charged.
+            await supabaseRequest("/rpc/add_video_credits", { method: "POST", body: JSON.stringify({ p_user_id: wUserId, p_amount: 1 }) }).catch(function () {});
+            return res.status(502).json({ error: "Whisper transcription failed (HTTP " + wr.status + "): " + wRaw.slice(0, 200) });
+          }
+          var segments = (wd.segments || []).map(function (s) { return { start: s.start, end: s.end, text: (s.text || "").trim() }; });
+          return res.json({ segments: segments, text: wd.text || "" });
+        } catch (e) {
+          await supabaseRequest("/rpc/add_video_credits", { method: "POST", body: JSON.stringify({ p_user_id: wUserId, p_amount: 1 }) }).catch(function () {});
+          return res.status(502).json({ error: "Whisper request error: " + e.message });
+        }
+      }
+    }
+
     if (engine === "fal-image") {
       var fk = process.env.PIKA_API_KEY;
       if (!fk) return res.status(500).json({ error: "PIKA_API_KEY not configured" });
