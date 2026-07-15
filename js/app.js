@@ -2211,7 +2211,7 @@ function renderHome(){
   // the app (the gold version is reserved for the live/main site, not yet
   // swapped in during beta).
   var homeFooter=el('div',{style:{textAlign:'center',padding:'32px 16px 24px',marginTop:'8px'}});
-  homeFooter.appendChild(el('img',{src:'logo.png',alt:'DubAIVal',style:{width:'96px',height:'96px',objectFit:'contain',opacity:'1',margin:'0 auto 12px',display:'block'}}));
+  homeFooter.appendChild(el('img',{src:'logo.png?v=20260715',alt:'DubAIVal',style:{width:'96px',height:'96px',objectFit:'contain',opacity:'1',margin:'0 auto 12px',display:'block'}}));
   homeFooter.appendChild(div({color:'#6B7A9E',fontSize:'10px',fontFamily:"'Inter',sans-serif",letterSpacing:'0.04em'},'DubAIVal · Built in Dubai'));
   wrap.appendChild(homeFooter);
 
@@ -2483,7 +2483,7 @@ function render(preserveScroll){
   var logoWrap=el("div",{});
   logoWrap.className="dv-sidebar-logo";
   var logoSize=sidebarCollapsed?"28px":"36px";
-  logoWrap.appendChild(el("img",{src:"logo.png",alt:"DV",style:{width:logoSize,height:logoSize,borderRadius:"7px",flexShrink:"0",objectFit:"contain",transition:"width 0.2s ease,height 0.2s ease"}}));
+  logoWrap.appendChild(el("img",{src:"logo.png?v=20260715",alt:"DV",style:{width:logoSize,height:logoSize,borderRadius:"7px",flexShrink:"0",objectFit:"contain",transition:"width 0.2s ease,height 0.2s ease"}}));
   var logoText=el("div",{});
   logoText.className="dv-sidebar-logo-text";
   logoText.appendChild(div({fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",color:"#fff"},"DubAIVal"));
@@ -2574,7 +2574,7 @@ function render(preserveScroll){
   var curSec=NAV_SECTIONS.find(function(n){return n.id===currentSection;});
 
   var secTitle=el("div",{style:{display:"flex",alignItems:"center",gap:"10px"}});
-  var mobileLogo=el("img",{src:"logo.png",alt:"DV",style:{width:"26px",height:"26px",borderRadius:"8px",objectFit:"contain",display:"none"}});
+  var mobileLogo=el("img",{src:"logo.png?v=20260715",alt:"DV",style:{width:"26px",height:"26px",borderRadius:"8px",objectFit:"contain",display:"none"}});
   mobileLogo.className="dv-mobile-logo";
   secTitle.appendChild(mobileLogo);
   var secIconWrap=el("span",{style:{width:"20px",height:"20px",display:"inline-flex",alignItems:"center",color:curSec&&curSec.accentColor?curSec.accentColor:cl.gold}});

@@ -1738,7 +1738,7 @@ function showTourStep(){
   var h="";
   if(s.type==="center"){
     h+='<div style="text-align:center;margin-bottom:16px">';
-    if(s.icon==="logo")h+='<img src="logo.png" alt="DubAIVal" style="width:64px;height:64px;border-radius:14px;margin:0 auto 12px;display:block;object-fit:contain">';
+    if(s.icon==="logo")h+='<img src="logo.png?v=20260715" alt="DubAIVal" style="width:64px;height:64px;border-radius:14px;margin:0 auto 12px;display:block;object-fit:contain">';
     /* fullLast icon removed — clean terminal aesthetic */
     h+='<div style="color:'+cl.gold+';font-size:18px;font-weight:800;font-family:Space Grotesk,monospace;margin-bottom:6px">'+s.title+'</div><div style="color:#9CA3AF;font-size:12px;font-family:Inter,sans-serif;line-height:1.6">'+s.text+'</div></div>';
   }else{
@@ -1835,7 +1835,7 @@ function renderPwaInstallBanner(){
   var cl=C();
   var wrap=div({position:"fixed",left:"12px",right:"12px",bottom:"calc(84px + env(safe-area-inset-bottom))",zIndex:"9400",background:cl.surfaceSolid||cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"14px 16px",boxShadow:"0 8px 30px rgba(0,0,0,0.45)",display:"flex",alignItems:"center",gap:"12px",animation:"fadeInUp 0.35s ease"});
   wrap.className="dv-pwa-install-banner";
-  wrap.appendChild(el("img",{src:"logo.png",alt:"DubAIVal",style:{width:"38px",height:"38px",objectFit:"contain",flexShrink:"0"}}));
+  wrap.appendChild(el("img",{src:"logo.png?v=20260715",alt:"DubAIVal",style:{width:"38px",height:"38px",objectFit:"contain",flexShrink:"0"}}));
   var textWrap=div({flex:"1",minWidth:"0"});
   textWrap.appendChild(div({color:cl.white,fontSize:"12.5px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"Install DubAIVal"));
   textWrap.appendChild(div({color:cl.sub,fontSize:"10.5px",fontFamily:"'Inter',sans-serif",marginTop:"2px",lineHeight:"1.4"},

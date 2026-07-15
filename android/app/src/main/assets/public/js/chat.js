@@ -845,7 +845,7 @@ function _updateCalStatus(id,status,results){
 function _autoPostNotify(title,body,evt){
   try{
     if("Notification" in window&&Notification.permission==="granted"){
-      new Notification("DubAIVal — "+title,{body:body+"\n"+(evt.caption||"").substring(0,60),icon:"logo.png",tag:"dv-autopost-"+evt.id});
+      new Notification("DubAIVal — "+title,{body:body+"\n"+(evt.caption||"").substring(0,60),icon:"logo.png?v=20260715",tag:"dv-autopost-"+evt.id});
     }
   }catch(e){}
   try{
@@ -5624,7 +5624,7 @@ function schedulePostReminder(event){
     if(delay<=0)return;
     if(delay>24*60*60*1000)return;
     setTimeout(function(){
-      new Notification("DubAIVal — Time to Post!",{body:"Scheduled post for "+(event.platform||"Instagram")+" is due in 15 minutes.\n"+(event.caption||"").substring(0,80)+"...",icon:"logo.png",badge:"logo.png",tag:"dv-post-"+event.id,requireInteraction:true});
+      new Notification("DubAIVal — Time to Post!",{body:"Scheduled post for "+(event.platform||"Instagram")+" is due in 15 minutes.\n"+(event.caption||"").substring(0,80)+"...",icon:"logo.png?v=20260715",badge:"logo.png?v=20260715",tag:"dv-post-"+event.id,requireInteraction:true});
     },delay);
   });
 }

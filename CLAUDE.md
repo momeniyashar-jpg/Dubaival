@@ -461,6 +461,23 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-15 (session 12, small follow-up)**: User asked for the Home
+  footer logo to be bigger/clearer (`js/app.js` `renderHome()` — was 40px at
+  85% opacity, too small for the logo's own detail — Burj Khalifa
+  silhouette, small compass icon — to actually be visible). Enlarged to
+  96px at full opacity. Separately, user reported a "gray box" still under
+  the logo; a code check found no border/background/box-shadow on any of
+  the 3 `logo.png` usages (header, footer, About page) — most likely a
+  stale browser-cached copy of the pre-fix checkerboard `logo.png` from
+  earlier this session, since (unlike the versioned `js/*.js?v=` files)
+  `logo.png` had never had a cache-busting query string. Added
+  `?v=20260715` to every `logo.png` reference across `index.html`,
+  `js/core.js`, `js/app.js`, `js/about.js`, `js/chat.js` (favicon,
+  apple-touch-icon, sidebar/header/mobile logos, footer logo, tour welcome
+  icon, About page, and both native-notification icons) so any future logo
+  change is guaranteed to bypass old cached copies without asking users to
+  manually clear cache.
+
 - **2026-07-15 (session 12, PWA install prompt + onboarding tour fully
   broken since long before this session + Home page redesign)**: Follow-up
   to the back-button fix above. User asked for 3 things: (1) a mobile "Add
