@@ -19,7 +19,7 @@
 // high-detail base theme (so neighborhood names/roads/buildings stay fully
 // legible), click-only popups (no mouseover-triggered InfoWindow, so no
 // auto-pan risk), the Places Autocomplete search box, and the "Explore
-// Buildings" popup CTA that deep-links into Find → Smart Property Discovery.
+// Buildings" popup CTA that deep-links into Find → Advanced Market Screener.
 var _dvMapState = {metric: "invest", gmap: null, overlays: [], clusterMarkers: [], tier:"area", focusArea:null, buildingMarkers:[], areaPoints:[], panelEl:null, backControlEl:null};
 
 // 2026-07-13 (session 11t), per explicit user request for a two-tier drill-
@@ -585,7 +585,7 @@ function _dvBackToAreas() {
   if (gmap) _dvRenderAreaMarkers(gmap, _dvMapState.areaPoints, _dvMapState.metric);
 }
 
-// Deep-links into Find → Smart Property Discovery pre-filtered to the
+// Deep-links into Find → Advanced Market Screener pre-filtered to the
 // clicked area — setSection() renders synchronously, so FIND_STATE is
 // guaranteed initialized (via renderFind()'s own lazy init) by the time we
 // set .sf.area below.

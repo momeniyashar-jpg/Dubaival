@@ -424,12 +424,16 @@ function getLiveSignal(liveData){
 // No early-return branches here — always computes a full result using generic
 // defaults when area/building are unknown, exactly mirroring what
 // computeValuation always did unconditionally before its own final guard.
-function computeAdjustedPSF(f,buildingVal,liveData){
-  f.area=resolveDLDArea(f.area);
-  const bData=lookupBuilding(buildingVal||f.building||"",f.area);
-  const staticArea=AREAS[f.area]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
-  if(!AREAS[f.area])dvLog("no_area","computeAdjustedPSF","Area not in AREAS: "+f.area+" — using generic defaults");
-  const dynBench=getDynamicBenchmark(f.area);
+// Blends static AREAS[] benchmarks with real, daily-refreshed live market
+// data (DYNAMIC_BENCHMARKS — see api/refresh-market-data.js) and the
+// AI-estimated recent momentum trend (MARKET_MOMENTUM) into one "live area
+// data" object. Single source of truth for "what does this area actually
+// look like right now" — used by computeAdjustedPSF() (the Analyzer) and
+// by Find's Advanced Market Screener, so both features answer "is this a
+// good deal today," not "what did the static database say months ago."
+function getLiveAreaData(area){
+  const staticArea=AREAS[area]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
+  const dynBench=getDynamicBenchmark(area);
   const aData=Object.assign({},staticArea);
   if(dynBench){
     if(dynBench.psf&&dynBench.sampleSize>=5)aData.psf=Math.round(staticArea.psf*0.4+dynBench.psf*0.6);
@@ -455,6 +459,38 @@ function computeAdjustedPSF(f,buildingVal,liveData){
       }
     }
   }
+  return aData;
+}
+
+// Adds the AI-estimated recent momentum trend (market_momentum table,
+// refreshed weekly — see runMarketIntelligence() in js/core.js) on top of
+// getLiveAreaData()'s realized/static growth, so a currently-heating-up or
+// currently-cooling area is reflected even before enough price_history
+// exists for the realized-growth blend above. Kept as a separate function
+// (not folded into getLiveAreaData() itself) so it never changes
+// computeAdjustedPSF()'s output — the Analyzer's numbers are validated
+// against real market data and must not shift from an unrelated feature's
+// needs. Used only by Find's Advanced Market Screener.
+function getLiveAreaDataWithMomentum(area){
+  var aData=getLiveAreaData(area);
+  if(typeof getMomentumFactor==="function"){
+    var mf=getMomentumFactor(area);
+    if(mf!==1.0){
+      aData=Object.assign({},aData);
+      aData.g=(aData.g||[3,9,16]).slice();
+      aData.g[0]=Math.round(aData.g[0]*mf*10)/10;
+    }
+  }
+  return aData;
+}
+
+function computeAdjustedPSF(f,buildingVal,liveData){
+  f.area=resolveDLDArea(f.area);
+  const bData=lookupBuilding(buildingVal||f.building||"",f.area);
+  const staticArea=AREAS[f.area]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
+  if(!AREAS[f.area])dvLog("no_area","computeAdjustedPSF","Area not in AREAS: "+f.area+" — using generic defaults");
+  const dynBench=getDynamicBenchmark(f.area);
+  const aData=getLiveAreaData(f.area);
   const calFactor=getCalibrationFactor(f.area);
   const size=parseFloat((f.buaSize||f.size||"").toString().replace(/,/g,""))||0;
   const isVillaType=f.propCategory==="villa";

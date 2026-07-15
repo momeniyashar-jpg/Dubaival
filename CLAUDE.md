@@ -461,6 +461,69 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-15 (session 12, continued further)**: Renamed Find's "Smart
+  Property Discovery" to "Advanced Market Screener" and made it genuinely
+  live, per direct user request after noticing it overlapped functionally
+  with Quick Check: "دقیقا اسمش رو تغییر بده و اگر بتونی لایوش کنی... با
+  توجه به وضعیت بازار پیشنهاد بده نه فقط db... ترکیبی بده که نتایج واقعی و
+  حرفه‌ای‌تر باشه" (rename it, and make it live if you can — recommend
+  based on market conditions, not just the static DB, blend DB + live for
+  more real/professional results).
+  - **Root cause confirmed**: the Screener's per-building PSF/rent/DOM/tx-
+    volume/growth all came from a plain `AREAS[bData.a]` static lookup
+    (`js/app.js` line 178, pre-change) — the exact static database numbers,
+    with zero connection to the live daily-refreshed market data
+    (`DYNAMIC_BENCHMARKS`) or the AI momentum-trend signal
+    (`MARKET_MOMENTUM`) that the Analyzer itself already blends in via
+    `computeAdjustedPSF()`. So results could look "undervalued" against a
+    stale static number while the live market had already moved.
+  - **New shared function**: extracted `getLiveAreaData(area)`
+    (`js/valuation.js`) — the exact static+live blending logic
+    `computeAdjustedPSF()` already used (static `AREAS[]` blended with
+    `DYNAMIC_BENCHMARKS` PSF/rent/DOM/tx-volume + realized 1yr growth from
+    `price_history`) — as a standalone, reusable function.
+    `computeAdjustedPSF()` itself now just calls `getLiveAreaData()`
+    instead of repeating the blend inline; verified via a Node harness
+    diffing `computeValuation()`'s full JSON output across 5 real test
+    cases (apartment/villa, matched/unmatched building) both with and
+    without live `DYNAMIC_BENCHMARKS`/`MARKET_MOMENTUM` present — byte-
+    identical before/after the refactor in every case, so the Analyzer's
+    own numbers (governed by the accuracy directive at the top of this
+    file) did not shift by even one digit.
+  - **New `getLiveAreaDataWithMomentum(area)`**: a second, separate function
+    that calls `getLiveAreaData()` and additionally nudges the growth figure
+    by the AI-estimated recent momentum trend (`getMomentumFactor()`,
+    `market_momentum` table) — kept deliberately separate from
+    `getLiveAreaData()`/`computeAdjustedPSF()` so this additional signal
+    only affects the Screener, never the Analyzer's validated valuation
+    numbers. Verified: for a test area with mocked live data (real PSF/DOM/
+    growth blend) + an "up, high-confidence" momentum row, the Screener's
+    area data correctly showed a higher growth figure than the static-only
+    or live-without-momentum versions.
+  - **Wired into the Screener** (`js/app.js`, "DISCOVER PROPERTIES" handler):
+    replaced the static `AREAS[bData.a]` lookup with a per-area cache
+    (`_screenerAreaData()`, computed once per distinct area across the
+    ~9,226 buildings, not once per building) calling
+    `getLiveAreaDataWithMomentum()` — every filter (yield/growth/DOM) and
+    every result's displayed figures now reflect blended live+static data
+    instead of fixed historical numbers.
+  - **Renamed** throughout: card title "◆ Smart Property Discovery" → "◆
+    Advanced Market Screener", description updated to mention the live
+    blend, plus the 3 code comments in `js/map.js`/`js/market.js` that
+    referenced the old name as a deep-link target, and this file's
+    forward-looking architecture references (Find's tab feature list, the
+    render-function table) — historical dated work-log entries describing
+    past sessions were left as-is (accurate for the session they describe).
+  - Verified: `node -c` on both touched files; the Node harness above (5
+    cases × 2 data scenarios, all byte-identical for the Analyzer); and a
+    real-browser Playwright pass — confirmed "Advanced Market Screener"
+    renders (old name gone), a live-vs-static comparison inside the running
+    app showed the expected blended DOM/growth difference once mocked
+    `DYNAMIC_BENCHMARKS`/`MARKET_MOMENTUM` rows were injected, and clicking
+    "DISCOVER PROPERTIES" still returns real, correctly differentiated
+    building results (yield/growth/DOM/rental demand) with zero console
+    errors.
+
 - **2026-07-15 (session 12, continued)**: Hid the Analyzer's "AI Smart
   Search" text/voice bar (`js/market.js`) per direct user request — the
   Analyzer's stage-0 form opened with two competing entry points at once
@@ -2179,9 +2242,13 @@ All market research and analysis tools grouped together.
   - Natural Language Search bar (AI parses "2BR under 2M in JVC with 7%+ yield")
   - Quick Filters (Area autocomplete, Building autocomplete, Bedrooms, Max Price,
     Type, Sort By — Best Deal Score/Lowest PSF/Lowest Price/Highest PSF/Newest)
-  - Smart Property Discovery (`◆ Smart Property Discovery`) — searches 8,522+
-    buildings by financial criteria: Area, Grade, Type, Min Yield%, Min Growth 3yr%,
-    Max DOM, Min PSF, Max PSF, Min Turnover, Sort (Yield/PSF/Growth/Liquidity/Turnover)
+  - Advanced Market Screener (`◆ Advanced Market Screener`, renamed from
+    "Smart Property Discovery" 2026-07-15) — screens 9,226+ buildings by
+    financial criteria: Area, Grade, Type, Min Yield%, Min Growth 3yr%, Max
+    DOM, Min PSF, Max PSF, Min Turnover, Sort (Yield/PSF/Growth/Liquidity/
+    Turnover) — each area's PSF/rent/DOM/txVol/growth are blended with real
+    daily live market data + AI momentum trend (`getLiveAreaDataWithMomentum()`
+    in `js/valuation.js`), not the static database alone
   - Discovery Results: statistics cards (Avg Yield, Growth, PSF, DOM), building cards
     with name, grade, PSF, yield, growth, signal, turnover, area badge
   - Live Bayut/PropertyFinder results with deal scoring
@@ -2325,7 +2392,7 @@ Every top-level render function and its file (for routing/navigation):
 | `renderPortfolio()` | `js/portfolio.js` | Portfolio Manager |
 | `renderCompare()` | `js/portfolio.js` | Area Compare tool |
 | `renderPersonal()` | `js/portfolio.js` | Personal Advisor |
-| `renderFind()` | `js/app.js` | Smart Property Discovery |
+| `renderFind()` | `js/app.js` | Advanced Market Screener |
 | `renderAlerts()` | `js/app.js` | Price Alerts |
 | `renderAdmin()` | `js/app.js` | Admin panel |
 | `renderDeals()` | `js/deals.js` | Deal Board |

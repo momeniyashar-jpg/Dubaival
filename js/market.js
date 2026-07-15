@@ -2851,7 +2851,7 @@ function renderAnalyzerResult(wrap){
   // Answers "why would/wouldn't THIS building rent fast" with real, itemized
   // reasons (see estimateRentalDemandScore() in js/valuation.js, computed
   // inside computeValuation() and carried on val.demandScore) — the same
-  // engine already used by Find → Smart Property Discovery, now surfaced at
+  // engine already used by Find → Advanced Market Screener, now surfaced at
   // the exact moment a buyer is deciding whether to purchase for rental
   // income, not only in a separate discovery list.
   if(val.demandScore)(function(){

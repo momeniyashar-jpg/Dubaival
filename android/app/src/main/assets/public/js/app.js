@@ -136,15 +136,19 @@ function renderFind(){
   filterWrap.appendChild(filterBtn);
   wrap.appendChild(filterWrap);
 
-  // Smart Discovery Filter — searches our own building database directly
-  // (distinct from the live-listing search above, which queries Bayut/
-  // PropertyFinder) — labelled explicitly so it doesn't read as a
-  // duplicate of the search/filters above.
+  // Advanced Market Screener (formerly "Smart Property Discovery") — screens
+  // our own building database (distinct from the live-listing search above,
+  // which queries Bayut/PropertyFinder directly) but — per user request,
+  // 2026-07-15 — each building's area-level numbers (PSF, rent, DOM, tx
+  // volume, growth) are now blended with real, daily-refreshed live market
+  // data (getLiveAreaDataWithMomentum(), js/valuation.js) instead of the
+  // static database alone, so results reflect current market conditions,
+  // not fixed historical figures.
   var sf=FS.sf;
   var sfCard=el("div",{style:{background:cl.surface,border:"1px solid "+(sf.showResults?cl.goldDim:cl.border),borderRadius:"14px",padding:"18px",marginBottom:"14px",position:"relative",overflow:"hidden"}});
   sfCard.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,#C9A84C,#C9A84C,transparent)",animation:"shimmer 3s ease infinite"}));
-  sfCard.appendChild(span({color:"#D4A843",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ Smart Property Discovery"));
-  sfCard.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",display:"block",marginBottom:"14px"},"Different from the search above — this searches our own "+Object.keys(DB).length.toLocaleString()+"-building database directly by yield, growth, price & liquidity, not live market listings"));
+  sfCard.appendChild(span({color:"#D4A843",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ Advanced Market Screener"));
+  sfCard.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",display:"block",marginBottom:"14px"},"Different from the search above — screens our own "+Object.keys(DB).length.toLocaleString()+"-building database by yield, growth, price & liquidity, blended with live daily market data, not just fixed static numbers or live listings"));
 
   var sfG1=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"10px"});
   var sfArea=div({});sfArea.appendChild(lbl("Area"));sfArea.appendChild(mkAuto(Object.assign({},S(),{fontSize:"11px",padding:"7px 8px"}),_areaNames,sf.area,function(v){sf.area=v;},"All Areas"));sfG1.appendChild(sfArea);
@@ -171,11 +175,23 @@ function renderFind(){
     var maxD=parseFloat(sf.maxDOM)||9999;
     var minP=parseFloat(sf.minPSF)||0;
     var maxP=parseFloat(sf.maxPSF)||999999;
+    // Cache per-area live-blended data (PSF/rent/DOM/txVol/growth blended
+    // with real daily market data + momentum, not the static DB alone) so
+    // it's computed once per area, not once per building.
+    var _liveAreaCache={};
+    function _screenerAreaData(area){
+      if(!_liveAreaCache[area]){
+        _liveAreaCache[area]=(typeof getLiveAreaDataWithMomentum==="function")
+          ?getLiveAreaDataWithMomentum(area)
+          :(AREAS[area]||{psf:1800,sc:15,y:[5,7],g:[3,9,16],dom:60,txVol:100});
+      }
+      return _liveAreaCache[area];
+    }
     Object.entries(DB).forEach(function(e){
       var key=e[0],bData=e[1];
       if(sf.area&&bData.a!==sf.area)return;
       if(sf.grade&&bData.g!==sf.grade)return;
-      var aData=AREAS[bData.a]||{psf:1800,sc:15,y:[5,7],g:[3,9,16],dom:60,txVol:100};
+      var aData=_screenerAreaData(bData.a);
       var _vdb=typeof VALUATION_DB!=="undefined"&&VALUATION_DB[key]?VALUATION_DB[key]:null;
       var _psf=_vdb?_vdb.p:bData.p;
       if(_psf<minP||_psf>maxP)return;
