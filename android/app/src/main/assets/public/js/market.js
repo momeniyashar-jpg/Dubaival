@@ -1,6 +1,15 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- REPORT MODE HELPERS ------------------------------------------------------
-function isRegisteredAgent(){try{var p=localStorage.getItem("dv_agent_profile");return p&&JSON.parse(p).rera;}catch(e){return false;}}
+// Beta launch (2026-07-15): per the site owner, agent-only tools should not
+// require RERA registration during beta — a phone number is enough to
+// unlock them ("ایجنتها فقط با گذاشتن یک شماره تلفن میتونن دسترسی داشته
+// باشن"). dv_agent_profile was never actually RERA-verified anyway (it's a
+// plain self-reported localStorage field from Workspace's Report Builder
+// "Your Details" section — supabase-referral-schema.sql's real, verified
+// dv_agents/RERA system is a separate, unrelated feature), so relaxing this
+// specific gate to phone-only doesn't weaken anything that was actually
+// being verified.
+function isRegisteredAgent(){try{var p=localStorage.getItem("dv_agent_profile");return p&&!!JSON.parse(p).phone;}catch(e){return false;}}
 
 function buildReportTypeSelector(cl,formCard){
   var rm=analyzerState.reportMode||"personal";
@@ -12,13 +21,42 @@ function buildReportTypeSelector(cl,formCard){
   modes.forEach(function(m){
     var isActive=rm===m.v;
     var isLocked=m.v==="agent"&&!isRegisteredAgent();
-    var btn=el("button",{style:{flex:"1",padding:"10px 12px",borderRadius:"8px",border:"1px solid "+(isActive?cl.gold:cl.border),background:isActive?cl.goldFaint:"transparent",color:isActive?cl.gold:isLocked?hexAlpha(cl.sub,0.4):cl.sub,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:isLocked?"not-allowed":"pointer",opacity:isLocked?"0.5":"1"}});
+    var btn=el("button",{style:{flex:"1",padding:"10px 12px",borderRadius:"8px",border:"1px solid "+(isActive?cl.gold:cl.border),background:isActive?cl.goldFaint:"transparent",color:isActive?cl.gold:isLocked?hexAlpha(cl.sub,0.4):cl.sub,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",opacity:isLocked?"0.5":"1"}});
     btn.textContent=m.l;
     if(!isLocked){btn.addEventListener("click",function(){analyzerState.reportMode=m.v;render();});}
-    else{btn.title="Register as agent in Deal Network to access";}
+    else{
+      btn.title="Enter your phone number to unlock Agent Reports";
+      btn.addEventListener("click",function(){window._agentUnlockOpen=true;render();});
+    }
     mRow.appendChild(btn);
   });
   sec.appendChild(mRow);
+  if(window._agentUnlockOpen&&!isRegisteredAgent()){
+    var uRow=el("div",{style:{display:"flex",gap:"6px",marginBottom:"10px"}});
+    var uInp=el("input",{type:"tel",placeholder:"Your phone number (e.g. +971 5X XXX XXXX)",style:{flex:"1",background:cl.bg,border:"1px solid "+cl.border,color:cl.white,padding:"8px 10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none"}});
+    uInp.value=window._agentUnlockPhone||"";
+    uInp.addEventListener("input",function(){window._agentUnlockPhone=this.value;});
+    uInp.addEventListener("keydown",function(e){if(e.key==="Enter")unlockBtn.click();});
+    uRow.appendChild(uInp);
+    var unlockBtn=el("button",{style:{padding:"8px 14px",borderRadius:"8px",border:"none",background:"linear-gradient(135deg,#3B82F6,#1D4ED8)",color:"#fff",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",whiteSpace:"nowrap"}});
+    unlockBtn.textContent="Unlock";
+    unlockBtn.addEventListener("click",function(){
+      var phone=(window._agentUnlockPhone||"").trim();
+      if(phone.length<7)return;
+      try{
+        var existing={};try{var p=localStorage.getItem("dv_agent_profile");if(p)existing=JSON.parse(p);}catch(e2){}
+        existing.phone=phone;
+        localStorage.setItem("dv_agent_profile",JSON.stringify(existing));
+        if(typeof WS_STATE!=="undefined")WS_STATE.agent=Object.assign(WS_STATE.agent||{},existing);
+      }catch(e3){}
+      window._agentUnlockOpen=false;
+      analyzerState.reportMode="agent";
+      render();
+    });
+    uRow.appendChild(unlockBtn);
+    sec.appendChild(uRow);
+    sec.appendChild(div({color:cl.sub,fontSize:"9.5px",fontFamily:"'Inter',sans-serif",marginBottom:"10px"},"For agents — used to personalize your reports. No RERA required during beta."));
+  }
   if(rm==="personal"){
     var pModes=[{v:"investment",l:"Investment Analysis"},{v:"enduse",l:"End-Use / Personal"},{v:"rental",l:"Rental Income"}];
     var pRow=el("div",{style:{display:"flex",gap:"6px",flexWrap:"wrap"}});
@@ -50,7 +88,11 @@ function buildReportTypeSelector(cl,formCard){
 function getAgentAIPrompt(propDesc,val,mode,area){
   var amenities=AREA_AMENITIES[area]?"Location amenities: "+AREA_AMENITIES[area]+".":"";
   var areaData=AREAS[area];var areaCtx=areaData?"Area benchmarks: avg PSF "+areaData.psf+", yield "+(areaData.y?areaData.y[0]+"-"+areaData.y[1]:"-")+"%, growth "+(areaData.g?areaData.g[0]:"-")+"%, DOM "+(areaData.dom||"-")+"d, SC "+(areaData.sc||"-")+"/sqft. ":"";
-  var base=propDesc+". EXACT NUMBERS FROM OUR DLD-VERIFIED ENGINE (use these, do NOT invent your own): Market PSF: AED "+val.adjPSF.toLocaleString()+" (range: "+val.psfLo.toLocaleString()+"-"+val.psfHi.toLocaleString()+"). Asking "+val.vsPct+"% vs market. Verdict: "+val.verdict+". Fair value: AED "+val.fairPrice.toLocaleString()+". Suggested offer: AED "+val.suggestedOffer.toLocaleString()+". Est. rent: AED "+(val.rent||0).toLocaleString()+"/yr. Gross yield: "+val.grossYield+"%. Net yield: "+val.netYield+"%. Growth 3yr: "+val.g1+"%. Confidence: "+val.confScore+"% ("+val.confTier+"). Investment signal: "+val.investSignal+". "+areaCtx+amenities;
+  // suggestedOffer is null by design for DISTRESS/GOOD verdicts (computeValuation,
+  // js/valuation.js — already a good deal, so there's no lower offer to suggest).
+  // Falls back to fairPrice so this doesn't throw for exactly the best deals.
+  var suggestedOfferTxt=(val.suggestedOffer!=null?val.suggestedOffer:val.fairPrice).toLocaleString();
+  var base=propDesc+". EXACT NUMBERS FROM OUR DLD-VERIFIED ENGINE (use these, do NOT invent your own): Market PSF: AED "+val.adjPSF.toLocaleString()+" (range: "+val.psfLo.toLocaleString()+"-"+val.psfHi.toLocaleString()+"). Asking "+val.vsPct+"% vs market. Verdict: "+val.verdict+". Fair value: AED "+val.fairPrice.toLocaleString()+". Suggested offer: AED "+suggestedOfferTxt+". Est. rent: AED "+(val.rent||0).toLocaleString()+"/yr. Gross yield: "+val.grossYield+"%. Net yield: "+val.netYield+"%. Growth 3yr: "+val.g1+"%. Confidence: "+val.confScore+"% ("+val.confTier+"). Investment signal: "+val.investSignal+". "+areaCtx+amenities;
   if(mode==="buyer"){
     return base+" You are a top-performing RERA-certified Dubai broker (15 years experience, AED 2B+ in closed deals) writing a compelling buyer report. You understand investor psychology and luxury market positioning.\nTechniques: anchoring (compare to higher-priced neighbors), scarcity ('only X units in this building'), social proof ('87% cash buyers in this market'), loss aversion ('prices up 18% in 3 years — waiting costs AED X').\nHighlight: smart entry point vs area benchmark, rental income potential with specific AED/yr, capital appreciation with growth data, lifestyle/location benefits with specific amenities. If overpriced: reframe as negotiation opportunity with specific target price and savings. If Golden Visa eligible (≥AED 2M): mention 10-year residency.\nWrite 4-5 compelling, data-rich sentences. ONLY use the AED numbers and amenities provided above. Professional, confident, decisive. Do NOT mention you are AI.";
   }else{
@@ -67,6 +109,25 @@ function getRentalAgentAIPrompt(propDesc,rv,mode,area){
   }else{
     return base+" You are a top-performing Dubai leasing consultant (10 years, 3,000+ leases) advising a landlord on optimal rental strategy.\nCover: current tenant demand in the area (DOM data), how to price for fastest lease (vacancy costs AED X/month), RERA rent increase rules (can they raise?), tenant quality at different price points (corporate tenants at market rate vs. short-term at premium), maintenance and SC considerations. If overpriced: calculate vacancy cost vs. price reduction.\nWrite 4-5 compelling sentences. ONLY use the AED numbers above. Professional, analytical. Do NOT mention you are AI.";
   }
+}
+
+// Beta launch (2026-07-15): the AI reports above (getAgentAIPrompt/
+// getRentalAgentAIPrompt) are CLIENT-facing marketing copy — written to
+// convince a buyer or a seller, and explicitly told not to reveal they're
+// AI. That's a different thing from what the site owner actually asked for
+// here: a report addressed to the AGENT THEMSELVES, advising them on the
+// negotiation method/technique to use with both sides to close the deal
+// ("با چه روشی با خریدار و فروشنده مذاکره کنه تا منجر به بستن معامله
+// بشه"). The deterministic "Negotiation Range"/"Talking Points" card
+// (renderAnalyzerResult, Agent Deal Intelligence section) already computes
+// real seller-floor/sweet-spot/buyer-cap numbers from the valuation engine —
+// this prompt turns those same real numbers into genuine AI-authored
+// strategy/tactics, kept as a separate, clearly-labeled block so the
+// deterministic numbers are never at risk of AI drift.
+function getNegotiationStrategyPrompt(propDesc,val,area,neg){
+  var amenities=AREA_AMENITIES[area]?"Location amenities: "+AREA_AMENITIES[area]+".":"";
+  var base=propDesc+". EXACT DEAL DATA FROM OUR DLD-VERIFIED ENGINE (use these, do NOT invent your own): Seller's floor: AED "+neg.sellerMin.toLocaleString()+". Sweet spot (win-win target): AED "+neg.sweetSpot.toLocaleString()+". Buyer's cap: AED "+neg.buyerMax.toLocaleString()+". Deal probability: "+neg.dealProb+". Verdict: "+val.verdict+". Gross yield at asking: "+val.grossYield+"%. Fair value: AED "+val.fairPrice.toLocaleString()+". "+amenities;
+  return base+" You are a senior Dubai real estate negotiation coach (15+ years, closed 500+ deals) advising the AGENT handling THIS specific deal — not the buyer, not the seller, the agent themselves. Address the agent directly as \"you\".\nWrite a concrete, step-by-step negotiation strategy covering exactly these 5 points, in order:\n1) Opening move with the SELLER — what anchor or frame to open with.\n2) Opening move with the BUYER — what anchor or frame to open with.\n3) How to bridge the gap between the two toward the sweet-spot price if their positions differ.\n4) The single most likely objection from each side, and how to defuse it.\n5) A concrete closing technique to get both sides to sign at or near the sweet spot.\nName real, specific negotiation techniques (e.g. anchoring, mirroring, calibrated questions, strategic silence, the flinch, deadline pressure, take-it-or-leave-it framing) rather than generic advice. ONLY use the AED numbers given above — do not invent new figures. 6-8 sentences. This is an internal strategy memo for the agent, NOT client-facing copy — do not write it as if addressed to the buyer or seller.";
 }
 
 // --- MARKET TAB ---------------------------------------------------------------
@@ -1699,6 +1760,13 @@ function renderAnalyzer(){
               if(rFor==="both"||rFor==="seller"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:sellerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiTextSeller=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
               if(rFor==="buyer")analyzerState.aiTextSeller="";
               if(rFor==="seller")analyzerState.aiText="";
+              analyzerState.aiNegotiation="";
+              var _fairN=analyzerState.val.fairPrice||0;
+              var _buyerMaxN=Math.round(_fairN*1.03);
+              var _sellerMinN=Math.round(_fairN*0.95);
+              var _negV=analyzerState.val.verdict;
+              var _negP=getNegotiationStrategyPrompt(propDesc,analyzerState.val,analyzerState.f.area,{sellerMin:_sellerMinN,sweetSpot:Math.round((_buyerMaxN+_sellerMinN)/2),buyerMax:_buyerMaxN,dealProb:_negV==="DISTRESS"?"Very High (90%+)":_negV==="GOOD"?"High (75-85%)":_negV==="FAIR"?"Moderate (55-70%)":"Low (30-45%)"});
+              callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:_negP}],max_tokens:450,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiNegotiation=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
             }else{
               var vv=analyzerState.val;var amenities=AREA_AMENITIES[analyzerState.f.area]?" Location amenities: "+AREA_AMENITIES[analyzerState.f.area]+".":"";
               var aiPrompt=propDesc+". EXACT DATA: Market PSF AED "+vv.adjPSF.toLocaleString()+" (range "+vv.psfLo.toLocaleString()+"-"+vv.psfHi.toLocaleString()+"). Asking "+vv.vsPct+"% vs market. Verdict: "+vv.verdict+". Fair value: AED "+vv.fairPrice.toLocaleString()+". Suggested offer: AED "+vv.suggestedOffer.toLocaleString()+". Est. rent: AED "+(vv.rent||0).toLocaleString()+"/yr. Gross yield: "+vv.grossYield+"%. Net yield: "+vv.netYield+"%. Growth 3yr: "+vv.g1+"%. Confidence: "+vv.confScore+"% ("+vv.confTier+"). Signal: "+vv.investSignal+"."+amenities+" Investor:"+USER_PROFILE.investorType+". Use ONLY these numbers and amenities. 3 sentences: assessment with location benefits, negotiation target AED, key risk/opportunity.";
@@ -1907,6 +1975,13 @@ function renderAnalyzer(){
               if(rFor==="both"||rFor==="seller"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:sellerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiTextSeller=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
               if(rFor==="buyer")analyzerState.aiTextSeller="";
               if(rFor==="seller")analyzerState.aiText="";
+              analyzerState.aiNegotiation="";
+              var _fairN=analyzerState.val.fairPrice||0;
+              var _buyerMaxN=Math.round(_fairN*1.03);
+              var _sellerMinN=Math.round(_fairN*0.95);
+              var _negV=analyzerState.val.verdict;
+              var _negP=getNegotiationStrategyPrompt(propDesc,analyzerState.val,analyzerState.f.area,{sellerMin:_sellerMinN,sweetSpot:Math.round((_buyerMaxN+_sellerMinN)/2),buyerMax:_buyerMaxN,dealProb:_negV==="DISTRESS"?"Very High (90%+)":_negV==="GOOD"?"High (75-85%)":_negV==="FAIR"?"Moderate (55-70%)":"Low (30-45%)"});
+              callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:_negP}],max_tokens:450,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiNegotiation=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
             }else{
               var profileLabels={income:"rental income investor",growth:"capital growth investor",flip:"flip investor",enduse:"end-use buyer"};
               var profileCtx=profileLabels[USER_PROFILE.investorType]||"investor";
@@ -2724,7 +2799,13 @@ function renderAnalyzerResult(wrap){
     }
 
     // --- AGENT DEAL INTELLIGENCE (combined view) ---
-    if(isAgent&&rFor==="both"&&f.txnType==="sale"){
+    // Beta launch (2026-07-15): previously gated on rFor==="both" — but the
+    // negotiation range/talking points below never actually depend on which
+    // client-facing report the agent chose to generate (buyer/seller/both),
+    // they're computed straight from val/fair. Gating them behind "Both
+    // Reports" hid this from any agent who just wanted a Buyer or Seller
+    // report, so it's now shown for every agent-mode sale report.
+    if(isAgent&&f.txnType==="sale"){
       var agentCard=el("div",{style:{background:cl.surface,border:"1px solid rgba(59,130,246,0.25)",borderRadius:"14px",padding:"18px",marginBottom:"14px"}});
       agentCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
         span({color:"#3B82F6",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Agent Deal Intelligence"),
@@ -2792,6 +2873,22 @@ function renderAnalyzerResult(wrap){
         div({marginBottom:"6px"},[span({color:"#F87171",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"FOR SELLER: "),span({color:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Fair value AED "+fair.toLocaleString()+". If sold now, buyer gets "+val.grossYield+"% yield. 1-year projected value AED "+proj1Agent.toLocaleString()+". "+(val.verdict==="OVER"?"Price may deter buyers — consider adjusting to AED "+Math.round(fair*1.03).toLocaleString()+".":"Competitive pricing — expect strong buyer interest."))]),
         div({},[span({color:"#3B82F6",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"DEAL TIP: "),span({color:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Recommend closing at AED "+sweetSpot.toLocaleString()+" — satisfies both parties. "+(val.domEst?"Average days on market: "+val.domEst+" days. ":"")+"Area liquidity: "+(val.liqTier?val.liqTier.label:"Moderate")+". Buyer yield at this price: "+sweetYield+"%.")]),
       ]));
+
+      // AI-authored negotiation strategy — same real numbers as above, but
+      // genuine AI-generated tactics/methodology for the agent (not a
+      // client-facing report). See getNegotiationStrategyPrompt().
+      var negoSec=el("div",{style:{marginTop:"12px",background:hexAlpha("#3B82F6",0.06),border:"1px solid "+hexAlpha("#3B82F6",0.2),borderRadius:"10px",padding:"14px"}});
+      negoSec.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"},[
+        span({color:"#3B82F6",fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"AI Negotiation Strategy"),
+        span({color:hexAlpha("#3B82F6",0.6),fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"For you — the agent"),
+      ]));
+      if(analyzerState.aiNegotiation){
+        var negoFormatted=formatAIResponse(analyzerState.aiNegotiation,cl);
+        negoSec.appendChild(negoFormatted||div({color:cl.subHi,fontSize:"12.5px",lineHeight:"1.75",fontFamily:"'Inter',sans-serif"},analyzerState.aiNegotiation));
+      }else{
+        negoSec.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",fontStyle:"italic"},"Generating your step-by-step negotiation strategy..."));
+      }
+      agentCard.appendChild(negoSec);
       wrap.appendChild(agentCard);
     }
   })();

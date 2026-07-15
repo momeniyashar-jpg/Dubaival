@@ -461,6 +461,101 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-15 (session 12, continued yet further)**: Beta-launch decisions +
+  agent-gate relaxation + negotiation-feature review, per the site owner's
+  request to prepare for beta and specifically re-check the Analyzer's
+  agent-only negotiation feature against their original idea ("دقیقا این
+  بخش هم چک کن که با توجه به ایده من درست اجرا بشه").
+  - **Beta-launch questions answered directly (not implemented, just
+    advised)**: (1) app is beta-ready as-is; (2) login — recommended open
+    access with no login gate for beta (matches the existing
+    `// Auth is optional — no gate` behavior already in `js/app.js`), with
+    Google Sign-In as a good LATER addition once the team wants it — Google
+    OAuth isn't wired into `js/auth.js` at all yet and would need the user
+    to manually enable the Google provider in Supabase Dashboard
+    (Authentication → Providers) plus a Google Cloud OAuth Client
+    ID/Secret — an external setup step outside this session's reach; not
+    built this session since the user didn't confirm they want it yet.
+  - **Agent gate relaxed from RERA to phone-only** (`js/market.js`,
+    `isRegisteredAgent()`): previously checked a `.rera` field on the local,
+    self-reported `dv_agent_profile` object (populated only by Workspace's
+    Report Builder "Your Details" section) — confirmed via grep this was
+    never actually RERA-verified against anything (the real, Supabase-backed
+    RERA/agent system is `dv_agents`/`supabase-referral-schema.sql` in
+    `js/deals.js`, completely separate and untouched), so relaxing it
+    doesn't weaken any real verification. Now checks `.phone` instead, and
+    the previously-inert "locked" Agent Report button (which only showed a
+    dead tooltip) now opens a real inline phone-number-entry prompt right in
+    the Report Type card — entering a number saves it to `dv_agent_profile`
+    and immediately unlocks Agent Report mode. No RERA required during beta,
+    per the site owner's explicit instruction.
+  - **Negotiation feature audit — found and fixed 3 real issues**: read the
+    full Agent Report pipeline (`getAgentAIPrompt`/`getRentalAgentAIPrompt`,
+    the "Agent Deal Intelligence" card in `renderAnalyzerResult`) against the
+    user's stated idea — an AI report that tells the AGENT (not the client)
+    what negotiation method to use with both buyer and seller to close the
+    deal.
+    1. **Real crash bug found**: `getAgentAIPrompt()` unconditionally called
+       `val.suggestedOffer.toLocaleString()`, but `computeValuation()`
+       (`js/valuation.js`) deliberately sets `suggestedOffer=null` for
+       DISTRESS/GOOD verdicts (already a good deal — no lower offer to
+       suggest). This meant clicking "GENERATE AGENT REPORT" threw an
+       uncaught exception and silently produced nothing whenever the
+       property being analyzed was a good deal — exactly the cases most
+       worth showing a client. Fixed by falling back to `fairPrice` when
+       `suggestedOffer` is null. Caught via a real Playwright run against a
+       genuine GOOD-verdict test property, not by inspection.
+    2. **Scope gap**: the existing "Agent Deal Intelligence" card (real,
+       deterministic seller-floor/sweet-spot/buyer-cap numbers plus a
+       templated "Talking Points" section addressing both FOR BUYER/FOR
+       SELLER) already existed and was a good foundation — but it only
+       rendered when the agent picked "Both Reports" specifically, even
+       though none of its numbers actually depend on that choice (they're
+       computed straight from the valuation, not from `reportFor`). An
+       agent generating just a Buyer or Seller report never saw it. Ungated
+       to show for any agent-mode sale report.
+    3. **The actual gap vs. the user's idea**: `getAgentAIPrompt`'s two
+       AI-generated reports are CLIENT-facing marketing copy ("writing a
+       compelling buyer/seller report... Do NOT mention you are AI") — not
+       what the user asked for (advice TO the agent on negotiation
+       methodology). The deterministic "Talking Points" partially covered
+       this but wasn't genuinely AI-authored strategy. Added a new
+       `getNegotiationStrategyPrompt()` + a 3rd AI call fired whenever
+       agent mode is used for a sale, producing a real AI-authored,
+       step-by-step negotiation strategy (opening move with seller, opening
+       move with buyer, how to bridge the gap toward the sweet spot,
+       likely objection from each side and how to defuse it, closing
+       technique) — explicitly instructed to address the agent directly
+       ("you"), name specific real techniques (anchoring, mirroring,
+       calibrated questions, the flinch, deadline pressure), and NOT be
+       client-facing copy. Rendered as a new "AI Negotiation Strategy — For
+       you, the agent" card appended to the existing Agent Deal
+       Intelligence section, right after Talking Points — deliberately kept
+       as a separate block from the deterministic numbers (never lets AI
+       drift touch the real seller-floor/sweet-spot/buyer-cap figures,
+       matching this file's Analyzer-accuracy directive). Scoped to the
+       sale flow only this session (matches where "Agent Deal Intelligence"
+       already lived); the rental agent-report flow (landlord/tenant, not
+       buyer/seller) wasn't extended with an equivalent negotiation-strategy
+       block — flagged as a possible follow-up, not done here since the
+       user's example was framed around buyer/seller/closing a sale.
+  - Verified: `node -c js/market.js`; a standalone Node test extracting
+    `getNegotiationStrategyPrompt()` and confirming it embeds the exact
+    real seller-floor/sweet-spot/buyer-cap/deal-probability numbers,
+    addresses the agent directly, and explicitly states it is not
+    client-facing copy; and 3 real-browser Playwright passes with a mocked
+    `/api/proxy-groq` route distinguishing the 3 prompt types by content —
+    (1) the full unlock-phone → select "Both Reports" → submit flow for an
+    apartment, confirming the phone saves to `dv_agent_profile`, mode
+    switches to agent, and all of Agent Deal Intelligence/Negotiation
+    Range/Talking Points/AI Negotiation Strategy render with the correct
+    mocked text (this run is what caught the `suggestedOffer` crash before
+    the fix — first attempt threw, second attempt after the fix rendered
+    cleanly); (2) the same flow for a villa with `reportFor:"buyer"` (not
+    "both"), confirming the ungated Agent Deal Intelligence card and AI
+    Negotiation Strategy still render correctly; zero non-network console
+    errors in either passing run.
+
 - **2026-07-15 (session 12, continued even further)**: Added an "All" view
   to the Market Dashboard's PSF Trend chart (`js/market.js`), per user
   request to show the full market cycle "like Bitcoin's All-time chart"
