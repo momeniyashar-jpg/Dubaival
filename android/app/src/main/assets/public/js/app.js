@@ -2717,6 +2717,15 @@ function render(preserveScroll){
     if (_cpOverlay) { _cpOverlay.id = "chiefs-copilot-container"; document.body.appendChild(_cpOverlay); }
   }
 
+  // Chiefs Document Assistant overlay — same fixed/body-level pattern as the
+  // Co-pilot overlay above.
+  if (typeof renderChiefsDocGenOverlay === "function") {
+    var _existingDg = document.getElementById("chiefs-docgen-container");
+    if (_existingDg) _existingDg.remove();
+    var _dgOverlay = renderChiefsDocGenOverlay();
+    if (_dgOverlay) { _dgOverlay.id = "chiefs-docgen-container"; document.body.appendChild(_dgOverlay); }
+  }
+
   main.appendChild(div({padding:"16px",textAlign:"center",boxSizing:"border-box",width:"100%",maxWidth:"100%"},[
     span({color:"rgba(107,122,158,0.5)",fontSize:"9px",fontFamily:"'Inter',sans-serif"},t("footer_tag")),
   ]));

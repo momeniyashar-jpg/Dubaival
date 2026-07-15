@@ -461,6 +461,115 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-15 (session 12, AI Chief of Staff expansion — "private assistant"
+  features)**: User asked for AI Chief of Staff to become a genuinely
+  full-featured co-worker for agents ("باید ببینیم چه موارد دیگه ای میتونیم
+  بهش اضافه کنیم که مثل یک ربات همکار عمل کنه" — beyond a matching tool,
+  something that feels like hiring a private assistant). Presented 7
+  candidate features via `AskUserQuestion`; user selected all 4 groupings
+  (Daily Briefing + follow-up, Document Assistant, voice call transcription,
+  Smart To-Do + Commission Tracker + Competitor Watch). Built all of it —
+  every new capability computes from data already loaded into `CHIEFS_STATE`
+  (inventory/clients/matches/pipeline), no new Supabase tables except where
+  noted below.
+  - **Daily Briefing** (`_renderChiefsBriefing()`, top of Dashboard): a
+    "🌅 Today's Briefing" card, generated once per session (manual "↻
+    Refresh" to regenerate) by `_chiefsGenerateBriefing()` — computes real
+    signals (`_chiefsComputeSignals()`: new matches in 24h, active clients
+    with no follow-up in 5+ days, overdue/today pipeline actions, deals with
+    no update in 7+ days, listings on market 30+ days) and feeds ONLY those
+    already-computed facts to `askAI()` for a short narrated summary — the
+    system prompt explicitly forbids inventing any fact not given. Below the
+    narrative, clickable chips (Overdue/Due Today/Need Follow-Up/Stuck
+    Deals/Aging Listings/New Matches) jump straight to the relevant view.
+  - **Smart To-Do** (`_chiefsSmartTodo()`, Dashboard): replaces the old
+    pipeline-only "Next Actions" preview (which missed stale clients/aging
+    listings/stuck deals entirely) with one flat, priority-sorted list
+    merging all 5 "needs attention" signal types (overdue > today > stuck >
+    stale clients > aging listings), each item clickable to its own view.
+  - **Commission Tracker** (new internal view tab, `_renderChiefsCommission()`
+    — added `{id:"commission",...}` to the Chiefs `VIEWS` array, an internal
+    sub-view, not a change to the frozen top-level nav table): a real
+    stage-weighted projection (`CHIEFS_STAGE_WEIGHT` — lead 10% → closing
+    90% → closed 100%, lost 0%) instead of the flat sum the Pipeline tab
+    already showed, since a lead and a deal at closing don't deserve equal
+    weight in a realistic commission forecast. Also shows closed commission
+    grouped by month (approximated from each closed deal's last-updated
+    month — there's no dedicated `closed_at` column, flagged as an
+    approximation in the UI itself) and active deals ranked by weighted
+    contribution.
+  - **Competitor / Market Watch** (`_chiefsCompetitorCheck()`, shown inside
+    each expanded Inventory listing card): compares a pocket listing's own
+    asking PSF against the CURRENT calibrated building PSF via the existing
+    `lookupBuilding()` (same building database the Analyzer itself uses, no
+    new data) — flags red if priced 8%+ above current market ("may be
+    sitting for this reason"), amber if the building's PSF has softened 5%+
+    since the listing's own `dv_psf` snapshot was taken at add-time ("worth
+    a price review"), green if priced 8%+ below market ("a genuinely strong
+    deal to push to matched clients"), else a neutral in-line confirmation.
+    Pure client-side computation, no live fetch.
+  - **Document Assistant** (`renderChiefsDocGenOverlay()`, new "📄 Document"
+    button on every Pipeline deal card): AI-drafts an Offer Letter, MOU
+    Draft, or Listing Agreement auto-filled from the deal's own real data
+    (client name, property, deal value, stage, notes, agent name/date) plus
+    optional agent-typed extra terms. The system prompt explicitly requires
+    `[TO BE FILLED]` instead of inventing any missing fact, and explicitly
+    forbids claiming legal force — every generated document carries a
+    persistent on-screen disclaimer AND a printed-footer disclaimer stating
+    it is a draft/reference only, not the official RERA Form F/Form A and
+    not a substitute for independent legal review. The generated text is
+    editable in place before exporting; "Print / Save as PDF" reuses the
+    exact same `#print-report` + `window.print()` mechanism the Analyzer's
+    existing PDF export already uses (index.html's global print-media CSS),
+    no new library. Overlay wired into `js/app.js`'s render pipeline next to
+    the existing Chiefs Co-pilot overlay (same fixed/body-level pattern).
+  - **Voice call transcription** (`chiefsTranscribeVoiceCall()`, new upload
+    button inside the existing WhatsApp/email Conversation Scanner): agent
+    uploads a recorded call (any audio file); transcribes via the SAME
+    Whisper proxy + pay-per-use `video_credits` pool already built earlier
+    this session for the Video Editor's real-subtitle feature
+    (`api/proxy-video.js` `engine=whisper`) — reused deliberately rather
+    than adding a second, functionally-identical credit product, since the
+    underlying OpenAI cost driver (audio-minutes transcribed) is the same
+    whether it's a video's audio track or a call recording. Once
+    transcribed, the plain-text transcript is fed straight into the
+    pre-existing `chiefsScanConversation()`/`chiefsScannerApply()`
+    extraction pipeline — zero new extraction logic, the transcript is just
+    treated exactly like a pasted WhatsApp conversation. Client tagging
+    (`source:"voice_call"` vs `"whatsapp"`) lets a future session tell which
+    input channel a client record came from. A self-contained
+    `chiefsStartVoiceCreditCheckout()` (same `action=video-checkout` Stripe
+    flow already used elsewhere) was added directly in `js/chiefs.js`
+    rather than importing `js/chat.js`'s equivalent helper, per this file's
+    stated isolated-workspace design (see its own header comment).
+  - Verified: a Node vm-sandbox test harness (loads `js/chiefs.js` with
+    minimal `el`/`div`/`C`/`askAI`/`lookupBuilding` stubs) covering — signal
+    computation across 6 categories with correct day-thresholds; Smart
+    To-Do's priority ordering; the stage-weighted commission math (exact
+    expected value for a mixed offer+viewing pipeline); the competitor
+    check's 3 flag states (overpriced/softened-market/in-line) against a
+    real `lookupBuilding` mock; the briefing generator sending only
+    real, already-computed facts to `askAI()` (never fabricated); the
+    Document Assistant sending real deal facts (client/value/notes/extra
+    terms) to `askAI()` with a disclaimer-carrying system prompt, and the
+    printed HTML correctly embedding both the generated body and the
+    reference-only disclaimer footer; and the voice-transcription flow
+    (successful transcription auto-runs extraction and tags
+    `source:"voice_call"`, a 402 `needsCredit` response shows a clear
+    Buy-Credit-pointing error instead of crashing, local credit balance
+    decrements optimistically). Also a real-browser Playwright pass driving
+    the actual Chiefs tab end-to-end with seeded real inventory/clients/
+    pipeline data — confirmed the Briefing card, Smart To-Do chips,
+    Commission tab's weighted-projection stat, the Competitor Watch note
+    inside an expanded listing, the Document Assistant modal opening from a
+    Pipeline deal, and the voice-upload button inside the Conversation
+    Scanner all render correctly with zero non-network console errors.
+    `node -c` on both touched files (`js/chiefs.js`, `js/app.js`).
+  - **Not built this session** (discussed, out of scope per the user's own
+    selection in `AskUserQuestion` — these weren't among the 4 groupings
+    chosen): a dedicated calendar/viewing-scheduler integration, an
+    objection-handling live coach chat, and a voice-command interface.
+
 - **2026-07-15 (session 12, WhatsApp credit-billing correction)**: Direct
   follow-up to the WhatsApp session below — user immediately caught a real
   pricing-model bug: "هر پیام ۰.۴۹ خیلی گرونه، میدونی در روز ایجنت‌ها چقدر

@@ -17,12 +17,13 @@ var CHIEFS_STATE = {
     area_input: "", min_price: "", max_price: "", min_size: "", max_size: "",
     view_pref: "", furnished_pref: "", timeline: "flexible", notes: "", status: "active",
     source: "manual", raw_conversation: "" },
-  scanner: { open: false, text: "", parsing: false, result: null, error: null },
+  scanner: { open: false, text: "", parsing: false, result: null, error: null, source: "whatsapp", transcribing: false, transcribeError: null },
   pipeForm: { open: false, editing: null, client_name: "", property_desc: "", stage: "lead",
     deal_value: "", next_action: "", next_action_date: "", notes: "" },
   matchDrafting: {}, busySave: false, autoMatchRunning: false,
   expandedInv: null, expandedCli: null, expandedMatch: null, expandedPipe: null,
-  matchFilter: "pending"   // pending | approved | all
+  matchFilter: "pending",   // pending | approved | all
+  briefing: { loading: false, text: null, generatedAt: null, error: null, checked: false }
 };
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
@@ -309,9 +310,83 @@ function chiefsScannerApply() {
     min_size:r.min_size?String(r.min_size):"", max_size:r.max_size?String(r.max_size):"",
     view_pref:r.view||"", furnished_pref:r.furnished||"",
     timeline:r.timeline||"flexible", notes:r.notes||"", status:"active",
-    source:"whatsapp", raw_conversation:CHIEFS_STATE.scanner.text };
-  CHIEFS_STATE.scanner = { open:false, text:"", parsing:false, result:null, error:null };
+    source: CHIEFS_STATE.scanner.source || "whatsapp", raw_conversation:CHIEFS_STATE.scanner.text };
+  CHIEFS_STATE.scanner = { open:false, text:"", parsing:false, result:null, error:null, source:"whatsapp", transcribing:false, transcribeError:null };
   CHIEFS_STATE.view = "clients"; render();
+}
+
+// ── VOICE CALL TRANSCRIPTION ──────────────────────────────────────────────────
+// Reuses the SAME Whisper proxy + pay-per-use video_credits pool already
+// built for the Video Editor's real-subtitle feature (api/proxy-video.js,
+// engine="whisper") — the underlying OpenAI cost is identical whether
+// transcribing a video's audio track or a call recording, so a second
+// credit product would only confuse users buying essentially the same
+// thing twice. Once transcribed, the plain-text transcript is fed into the
+// EXACT SAME chiefsScanConversation()/chiefsScannerApply() pipeline the
+// WhatsApp scanner already uses — no separate extraction logic to maintain.
+function _chiefsFileToBase64(file) {
+  return new Promise(function(resolve, reject) {
+    var reader = new FileReader();
+    reader.onload = function() {
+      var result = reader.result || "";
+      var comma = result.indexOf(",");
+      resolve(comma !== -1 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = function() { reject(new Error("Could not read audio file")); };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function chiefsTranscribeVoiceCall(file) {
+  if (!file) return;
+  CHIEFS_STATE.scanner.transcribing = true;
+  CHIEFS_STATE.scanner.transcribeError = null;
+  render();
+  try {
+    var b64 = await _chiefsFileToBase64(file);
+    var accessToken = localStorage.getItem("dv_access_token");
+    var resp = await fetch("/api/proxy-video", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ engine: "whisper", action: "transcribe", access_token: accessToken, audio_base64: b64, mime_type: file.type || "audio/webm" })
+    });
+    var data = await resp.json();
+    if (!resp.ok) {
+      if (data && data.needsCredit) {
+        CHIEFS_STATE.scanner.transcribeError = (data.error || "No transcription credits left") + " — use the Buy Credit button below.";
+      } else {
+        CHIEFS_STATE.scanner.transcribeError = (data && data.error) || "Transcription failed";
+      }
+    } else {
+      CHIEFS_STATE.scanner.text = data.text || "";
+      CHIEFS_STATE.scanner.source = "voice_call";
+      if (typeof DV_AUTH !== "undefined" && DV_AUTH.profile && DV_AUTH.profile.video_credits > 0) DV_AUTH.profile.video_credits--;
+      if (CHIEFS_STATE.scanner.text.trim()) {
+        CHIEFS_STATE.scanner.transcribing = false;
+        await chiefsScanConversation(); // auto-run the same extraction pipeline as pasted-text
+        return;
+      }
+    }
+  } catch (e) {
+    CHIEFS_STATE.scanner.transcribeError = e.message || "Transcription failed";
+  }
+  CHIEFS_STATE.scanner.transcribing = false;
+  render();
+}
+
+// Reuses the exact same one-time-payment checkout action every other pay-
+// per-use credit in this app uses (api/billing.js action=video-checkout) —
+// self-contained here rather than importing js/chat.js's own helper, per
+// this file's isolated-workspace design (see header comment).
+async function chiefsStartVoiceCreditCheckout() {
+  if (typeof DV_AUTH === "undefined" || !DV_AUTH.user) {
+    if (typeof DV_AUTH !== "undefined") { DV_AUTH.showModal = true; DV_AUTH.modalTab = "signup"; DV_AUTH.error = "Please create a free account first, then buy a transcription credit."; render(); }
+    return;
+  }
+  var resp = await fetch("/api/billing?action=video-checkout", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id: DV_AUTH.user.id, email: DV_AUTH.user.email }) });
+  var data = await resp.json();
+  if (!data.ok || !data.url) throw new Error(data.error || "Could not start checkout");
+  window.location.href = data.url;
 }
 
 // ── AUTO-MATCHING ENGINE ──────────────────────────────────────────────────────
@@ -652,9 +727,168 @@ async function _chiefsSemanticRPC(name, params) {
 }
 
 // ── VIEW: DASHBOARD ───────────────────────────────────────────────────────────
+// ── DAILY BRIEFING + PROACTIVE FOLLOW-UP ─────────────────────────────────────
+// All signals below are computed purely from data already loaded into
+// CHIEFS_STATE (inventory/clients/matches/pipeline) — no new schema, no new
+// fetch. askAI() is only ever given these already-computed real facts to
+// narrate; it never invents which clients/deals need attention.
+function _daysSince(dateStr) {
+  if (!dateStr) return null;
+  var d = new Date(dateStr).getTime();
+  if (isNaN(d)) return null;
+  return Math.floor((Date.now() - d) / 86400000);
+}
+
+function _chiefsComputeSignals() {
+  var inv = CHIEFS_STATE.inventory, cli = CHIEFS_STATE.clients,
+    matches = CHIEFS_STATE.matches, pipe = CHIEFS_STATE.pipeline;
+  var todayStr = new Date().toISOString().slice(0, 10);
+
+  var newMatches = matches.filter(function(m) {
+    var age = _daysSince(m.created_at);
+    return (m.status === "new" || m.status === "draft_ready") && age !== null && age < 1;
+  });
+
+  var staleClients = cli.filter(function(c) {
+    var age = _daysSince(c.updated_at || c.created_at);
+    return c.status === "active" && age !== null && age >= 5;
+  }).sort(function(a, b) { return _daysSince(b.updated_at) - _daysSince(a.updated_at); }).slice(0, 5);
+
+  var activePipe = pipe.filter(function(p) { return p.stage !== "closed" && p.stage !== "lost"; });
+  var overdueActions = activePipe.filter(function(p) { return p.next_action_date && p.next_action_date < todayStr; });
+  var todayActions = activePipe.filter(function(p) { return p.next_action_date === todayStr; });
+  var stuckDeals = activePipe.filter(function(p) {
+    var age = _daysSince(p.updated_at || p.created_at);
+    return age !== null && age >= 7;
+  });
+
+  var agingListings = inv.filter(function(l) {
+    var age = _daysSince(l.created_at);
+    return l.status === "available" && age !== null && age >= 30;
+  });
+
+  return { newMatches: newMatches, staleClients: staleClients, overdueActions: overdueActions,
+    todayActions: todayActions, stuckDeals: stuckDeals, agingListings: agingListings };
+}
+
+// Merges every "needs attention" signal into one flat, priority-sorted list
+// for the Dashboard's Smart To-Do — replaces the old pipeline-only "Next
+// Actions" preview, which missed stale clients / aging listings / stuck
+// deals entirely.
+function _chiefsSmartTodo(s) {
+  var items = [];
+  s.overdueActions.forEach(function(p) {
+    items.push({ urgency: 1, color: "#EF4444", title: p.client_name, sub: "Overdue: " + p.next_action, badge: p.next_action_date, view: "pipeline" });
+  });
+  s.todayActions.forEach(function(p) {
+    items.push({ urgency: 2, color: "#F59E0B", title: p.client_name, sub: "Due today: " + p.next_action, badge: "Today", view: "pipeline" });
+  });
+  s.stuckDeals.forEach(function(p) {
+    items.push({ urgency: 3, color: "#8B5CF6", title: p.client_name, sub: "No update in " + _daysSince(p.updated_at || p.created_at) + "d · stage: " + p.stage, badge: null, view: "pipeline" });
+  });
+  s.staleClients.forEach(function(c) {
+    items.push({ urgency: 4, color: "#3B82F6", title: c.client_name, sub: "No follow-up in " + _daysSince(c.updated_at || c.created_at) + "d", badge: null, view: "clients" });
+  });
+  s.agingListings.forEach(function(l) {
+    items.push({ urgency: 5, color: "#14B8A6", title: (l.building || l.area), sub: "On market " + _daysSince(l.created_at) + "d, no offer", badge: null, view: "inventory" });
+  });
+  items.sort(function(a, b) { return a.urgency - b.urgency; });
+  return items;
+}
+
+function _chiefsSignalsHavePayload(s) {
+  return s.newMatches.length + s.staleClients.length + s.overdueActions.length +
+    s.todayActions.length + s.stuckDeals.length + s.agingListings.length > 0;
+}
+
+async function _chiefsGenerateBriefing(force) {
+  if (CHIEFS_STATE.briefing.loading) return;
+  if (CHIEFS_STATE.briefing.text && !force) return; // already generated this session
+  var s = _chiefsComputeSignals();
+  CHIEFS_STATE.briefing.checked = true;
+  if (!_chiefsSignalsHavePayload(s)) {
+    CHIEFS_STATE.briefing.text = null;
+    return;
+  }
+  CHIEFS_STATE.briefing.loading = true;
+  CHIEFS_STATE.briefing.error = null;
+  render();
+  try {
+    var facts = [];
+    if (s.newMatches.length) facts.push(s.newMatches.length + " new client-listing match(es) found in the last 24h.");
+    if (s.todayActions.length) facts.push(s.todayActions.length + " pipeline action(s) due TODAY: " +
+      s.todayActions.map(function(p) { return p.client_name + " (" + p.next_action + ")"; }).join("; ") + ".");
+    if (s.overdueActions.length) facts.push(s.overdueActions.length + " pipeline action(s) OVERDUE: " +
+      s.overdueActions.map(function(p) { return p.client_name + " (" + p.next_action + ", was due " + p.next_action_date + ")"; }).join("; ") + ".");
+    if (s.staleClients.length) facts.push(s.staleClients.length + " active client(s) not followed up in 5+ days: " +
+      s.staleClients.map(function(c) { return c.client_name + " (" + _daysSince(c.updated_at || c.created_at) + "d)"; }).join("; ") + ".");
+    if (s.stuckDeals.length) facts.push(s.stuckDeals.length + " active deal(s) with no update in 7+ days: " +
+      s.stuckDeals.map(function(p) { return p.client_name + " (stage: " + p.stage + ")"; }).join("; ") + ".");
+    if (s.agingListings.length) facts.push(s.agingListings.length + " listing(s) on market 30+ days with no offer, may need a price review: " +
+      s.agingListings.map(function(l) { return (l.building || l.area) + " (" + _daysSince(l.created_at) + "d)"; }).join("; ") + ".");
+
+    var sys = "You are an AI Chief of Staff — a real estate agent's private assistant. Write a short, warm, direct 'Good morning' briefing (3-5 sentences max) summarizing the facts given. Be specific (name clients/deals), prioritize what's most urgent first (overdue > today > stale > aging). No fluff, no generic pleasantries, sound like a sharp human assistant, not a report generator. Do not invent any fact not given to you.";
+    var reply = await askAI([{ role: "user", content: "Today's facts:\n" + facts.join("\n") }], sys);
+    CHIEFS_STATE.briefing.text = reply;
+    CHIEFS_STATE.briefing.generatedAt = new Date().toISOString();
+  } catch (e) {
+    CHIEFS_STATE.briefing.error = e.message || "Could not generate briefing";
+  }
+  CHIEFS_STATE.briefing.loading = false;
+  render();
+}
+
+function _renderChiefsBriefing() {
+  var cl = C();
+  var s = _chiefsComputeSignals();
+  if (!_chiefsSignalsHavePayload(s) && !CHIEFS_STATE.briefing.loading && !CHIEFS_STATE.briefing.text) return null;
+
+  var card = el("div", { style: { background: "linear-gradient(135deg,rgba(212,175,55,0.08),rgba(212,175,55,0.02))",
+    border: "1px solid rgba(212,175,55,0.25)", borderRadius: "14px", padding: "16px", marginBottom: "16px" } });
+  var hdr = el("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" } });
+  var hl = el("div", { style: { display: "flex", alignItems: "center", gap: "8px" } });
+  hl.appendChild(span({ fontSize: "16px" }, "🌅"));
+  hl.appendChild(div({ color: "#D4AF37", fontSize: "12px", fontWeight: "800", fontFamily: "'Space Grotesk',monospace", letterSpacing: "0.05em" }, "TODAY'S BRIEFING"));
+  hdr.appendChild(hl);
+  var refreshBtn = el("button", { style: { background: "transparent", border: "none", color: "#8899AA", fontSize: "11px", cursor: "pointer", fontFamily: "monospace" } });
+  refreshBtn.textContent = CHIEFS_STATE.briefing.loading ? "Thinking…" : "↻ Refresh";
+  refreshBtn.disabled = CHIEFS_STATE.briefing.loading;
+  refreshBtn.addEventListener("click", function() { _chiefsGenerateBriefing(true); });
+  hdr.appendChild(refreshBtn);
+  card.appendChild(hdr);
+
+  if (CHIEFS_STATE.briefing.loading && !CHIEFS_STATE.briefing.text) {
+    card.appendChild(div({ color: cl.sub, fontSize: "12px" }, "Reviewing your inventory, clients, and pipeline…"));
+  } else if (CHIEFS_STATE.briefing.error) {
+    card.appendChild(div({ color: "#EF4444", fontSize: "11px" }, CHIEFS_STATE.briefing.error));
+  } else if (CHIEFS_STATE.briefing.text) {
+    card.appendChild(div({ color: "#E8E8E8", fontSize: "13px", lineHeight: "1.6", fontFamily: "'Inter',sans-serif", marginBottom: "10px" }, CHIEFS_STATE.briefing.text));
+  }
+
+  // Actionable chips — click jumps straight to the relevant view.
+  var chips = el("div", { style: { display: "flex", flexWrap: "wrap", gap: "6px" } });
+  function chip(label, color, onClick) {
+    var c = el("button", { style: { background: color + "18", border: "1px solid " + color + "44", color: color,
+      borderRadius: "8px", padding: "5px 10px", fontSize: "10px", fontWeight: "700", cursor: "pointer", fontFamily: "'Space Grotesk',monospace" } });
+    c.textContent = label; c.addEventListener("click", onClick); chips.appendChild(c);
+  }
+  if (s.overdueActions.length) chip(s.overdueActions.length + " Overdue", "#EF4444", function() { CHIEFS_STATE.view = "pipeline"; render(); });
+  if (s.todayActions.length) chip(s.todayActions.length + " Due Today", "#F59E0B", function() { CHIEFS_STATE.view = "pipeline"; render(); });
+  if (s.staleClients.length) chip(s.staleClients.length + " Need Follow-Up", "#3B82F6", function() { CHIEFS_STATE.view = "clients"; render(); });
+  if (s.stuckDeals.length) chip(s.stuckDeals.length + " Stuck Deals", "#8B5CF6", function() { CHIEFS_STATE.view = "pipeline"; render(); });
+  if (s.agingListings.length) chip(s.agingListings.length + " Aging Listings", "#14B8A6", function() { CHIEFS_STATE.view = "inventory"; render(); });
+  if (s.newMatches.length) chip(s.newMatches.length + " New Matches", "#10B981", function() { CHIEFS_STATE.view = "matches"; render(); });
+  if (chips.children.length) card.appendChild(chips);
+
+  return card;
+}
+
 function _renderChiefsDashboard() {
   var cl = C();
   var wrap = el("div",{style:{padding:"16px",maxWidth:"700px",margin:"0 auto"}});
+
+  var briefingCard = _renderChiefsBriefing();
+  if (briefingCard) wrap.appendChild(briefingCard);
 
   // Stats row
   var inv = CHIEFS_STATE.inventory; var cli = CHIEFS_STATE.clients;
@@ -684,7 +918,7 @@ function _renderChiefsDashboard() {
   var quickActions = [
     {label:"+ Add Listing",color:"#D4AF37",view:"inventory",action:function(){CHIEFS_STATE.invForm.open=true;CHIEFS_STATE.view="inventory";render();}},
     {label:"+ Add Client",color:"#3B82F6",action:function(){CHIEFS_STATE.cliForm.open=true;CHIEFS_STATE.view="clients";render();}},
-    {label:"Scan WhatsApp",color:"#25D366",action:function(){CHIEFS_STATE.scanner.open=true;CHIEFS_STATE.view="clients";render();}},
+    {label:"Scan Chat/Call",color:"#25D366",action:function(){CHIEFS_STATE.scanner.open=true;CHIEFS_STATE.view="clients";render();}},
     {label:"Run Auto-Match",color:"#10B981",action:function(){_chiefsAutoMatch();CHIEFS_STATE.view="matches";render();}}
   ];
   quickActions.forEach(function(qa) {
@@ -727,23 +961,24 @@ function _renderChiefsDashboard() {
     }
   }
 
-  // Upcoming pipeline actions
-  var upcoming = pipe.filter(function(p){return p.next_action&&p.stage!=="closed"&&p.stage!=="lost";}).slice(0,3);
-  if (upcoming.length > 0) {
-    wrap.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",marginTop:"4px"},"Next Actions"));
-    upcoming.forEach(function(p) {
-      var pc = el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"10px",
+  // Smart To-Do — merges overdue/today pipeline actions, stuck deals, stale
+  // clients, and aging listings into one priority-sorted list (replaces the
+  // old pipeline-only "Next Actions" preview, which missed everything else).
+  var todo = _chiefsSmartTodo(_chiefsComputeSignals());
+  if (todo.length > 0) {
+    wrap.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",marginTop:"4px"},"Smart To-Do"));
+    todo.slice(0,6).forEach(function(item) {
+      var pc = el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderLeft:"3px solid "+item.color,borderRadius:"10px",
         padding:"10px 12px",marginBottom:"8px",display:"flex",alignItems:"center",gap:"10px",cursor:"pointer"}});
-      pc.addEventListener("click",function(){CHIEFS_STATE.view="pipeline";render();});
-      var stageTag = el("div",{style:{width:"6px",height:"36px",borderRadius:"3px",background:_stageColor(p.stage),flexShrink:"0"}});
-      pc.appendChild(stageTag);
+      pc.addEventListener("click",function(){CHIEFS_STATE.view=item.view;render();});
       var info = el("div",{style:{flex:"1",minWidth:"0"}});
-      info.appendChild(div({color:cl.white,fontSize:"12px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},p.client_name));
-      info.appendChild(div({color:cl.sub,fontSize:"11px",marginTop:"2px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},p.next_action));
+      info.appendChild(div({color:cl.white,fontSize:"12px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},item.title));
+      info.appendChild(div({color:cl.sub,fontSize:"11px",marginTop:"2px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},item.sub));
       pc.appendChild(info);
-      if (p.next_action_date) pc.appendChild(_chBadge(p.next_action_date,"#F59E0B"));
+      if (item.badge) pc.appendChild(_chBadge(item.badge,item.color));
       wrap.appendChild(pc);
     });
+    if (todo.length > 6) wrap.appendChild(div({color:cl.muted,fontSize:"10px",textAlign:"center",marginBottom:"8px"},"+"+(todo.length-6)+" more — see relevant tabs"));
   }
 
   if (!inv.length && !cli.length) {
@@ -756,6 +991,33 @@ function _renderChiefsDashboard() {
     wrap.appendChild(empty);
   }
   return wrap;
+}
+
+// ── COMPETITOR / MARKET WATCH ─────────────────────────────────────────────────
+// Flags a pocket listing whose asking price has drifted out of line with the
+// CURRENT calibrated building PSF (lookupBuilding, same building database the
+// Analyzer uses) — either because the listing itself is priced high, or
+// because the wider market has moved since it was first added. Pure
+// client-side computation against data already loaded/global, no live fetch.
+function _chiefsCompetitorCheck(item) {
+  if (typeof lookupBuilding !== "function" || !item.building || !item.size_sqft || !item.price) return null;
+  var bData = lookupBuilding(item.building, item.area);
+  if (!bData || !bData.p) return null;
+  var askPsf = Number(item.price) / Number(item.size_sqft);
+  var currentPsf = bData.p;
+  var diffPct = ((askPsf - currentPsf) / currentPsf) * 100;
+
+  if (diffPct > 8) {
+    return { color: "#EF4444", message: "Priced " + Math.round(diffPct) + "% above the current " + item.building + " PSF (AED " + Math.round(currentPsf) + "/sqft) — may be sitting for this reason." };
+  }
+  if (item.dv_psf && item.dv_psf > currentPsf * 1.05) {
+    var driftPct = Math.round(((item.dv_psf - currentPsf) / currentPsf) * 100);
+    return { color: "#F59E0B", message: "Building PSF has softened " + driftPct + "% since this was listed (was ~AED " + Math.round(item.dv_psf) + ", now ~AED " + Math.round(currentPsf) + ") — worth a price review." };
+  }
+  if (diffPct < -8) {
+    return { color: "#10B981", message: "Priced " + Math.round(Math.abs(diffPct)) + "% below current market PSF (AED " + Math.round(currentPsf) + "/sqft) — a genuinely strong deal to push to matched clients." };
+  }
+  return { color: "#3B82F6", message: "In line with current market PSF (AED " + Math.round(currentPsf) + "/sqft) for " + item.building + "." };
 }
 
 // ── VIEW: INVENTORY ───────────────────────────────────────────────────────────
@@ -860,6 +1122,15 @@ function _renderChiefsInventory() {
       var drow = _chRow(_chField("Floor",item.floor_num),_chField("View",item.view_type),_chField("Furnished",item.furnished),_chField("Unit",item.unit_no));
       details.appendChild(drow);
       if (item.dv_fair_price) { var dr2=_chRow(_chField("DV Fair Price",_fmtPrice(item.dv_fair_price)),_chField("PSF",item.dv_psf?Math.round(item.dv_psf)+" AED/sqft":null)); details.appendChild(dr2); }
+      if (item.status==="available"||item.status==="pocket") {
+        var marketCheck = _chiefsCompetitorCheck(item);
+        if (marketCheck) {
+          var mcBox = el("div",{style:{marginTop:"8px",padding:"8px 10px",background:marketCheck.color+"12",border:"1px solid "+marketCheck.color+"33",borderRadius:"8px",display:"flex",alignItems:"flex-start",gap:"6px"}});
+          mcBox.appendChild(span({fontSize:"11px",flexShrink:"0"},"📊"));
+          mcBox.appendChild(div({color:marketCheck.color,fontSize:"11px",lineHeight:"1.5",fontFamily:"'Inter',sans-serif"},marketCheck.message));
+          details.appendChild(mcBox);
+        }
+      }
       if (item.contact_name||item.contact_phone) { var dr3=_chRow(_chField("Contact",item.contact_name),_chField("Phone",item.contact_phone)); details.appendChild(dr3); }
       if (item.notes) details.appendChild(div({color:cl.sub,fontSize:"11px",marginTop:"8px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},item.notes));
       var abtn = el("div",{style:{display:"flex",gap:"6px",marginTop:"10px"}});
@@ -892,10 +1163,28 @@ function _renderChiefsClients() {
   // Scanner modal
   if (sc.open) {
     var scCard = _chCard(null,{background:"rgba(37,211,102,0.05)",border:"1px solid rgba(37,211,102,0.2)"});
-    scCard.appendChild(div({color:"#25D366",fontSize:"11px",fontWeight:"700",letterSpacing:"0.1em",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"SCAN WHATSAPP / EMAIL CONVERSATION"));
-    scCard.appendChild(div({color:cl.sub,fontSize:"11px",marginBottom:"8px",fontFamily:"'Inter',sans-serif"},"Paste the conversation below. AI will extract client requirements and pre-fill the form."));
-    var ta = el("textarea",{placeholder:"Paste WhatsApp or email conversation here...",style:Object.assign({},I(),{height:"120px",resize:"vertical",fontFamily:"'Inter',sans-serif",lineHeight:"1.5",marginBottom:"8px"})});
-    ta.value = sc.text; ta.addEventListener("input",function(){CHIEFS_STATE.scanner.text=this.value;}); scCard.appendChild(ta);
+    scCard.appendChild(div({color:"#25D366",fontSize:"11px",fontWeight:"700",letterSpacing:"0.1em",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"SCAN WHATSAPP / EMAIL / CALL"));
+    scCard.appendChild(div({color:cl.sub,fontSize:"11px",marginBottom:"8px",fontFamily:"'Inter',sans-serif"},"Paste a conversation, or upload a recorded call — AI transcribes and extracts client requirements either way."));
+
+    // Voice call upload — reuses the pay-per-use Whisper credit pool already
+    // built for the Video Editor's real-subtitle feature.
+    var voiceRow = el("div",{style:{display:"flex",alignItems:"center",gap:"8px",marginBottom:"10px",padding:"8px 10px",background:"rgba(139,92,246,0.06)",border:"1px solid rgba(139,92,246,0.25)",borderRadius:"8px",flexWrap:"wrap"}});
+    var voiceCredits = (typeof DV_AUTH!=="undefined"&&DV_AUTH.profile&&DV_AUTH.profile.video_credits)||0;
+    var audioInp = el("input",{type:"file",accept:"audio/*",style:{display:"none"}});
+    audioInp.addEventListener("change",function(){ if(this.files&&this.files[0]) chiefsTranscribeVoiceCall(this.files[0]); });
+    var voiceBtn = _chBtn(sc.transcribing?"Transcribing…":'<i data-lucide="mic" style="width:12px;height:12px"></i> Upload Call Recording',"rgba(139,92,246,0.15)","#8B5CF6",function(){ if(!sc.transcribing) audioInp.click(); },{border:"1px solid rgba(139,92,246,0.3)",fontSize:"11px",flexShrink:"0"});
+    voiceRow.appendChild(voiceBtn);
+    voiceRow.appendChild(audioInp);
+    voiceRow.appendChild(div({color:cl.muted,fontSize:"10px"},"1 transcription credit · Balance: "+voiceCredits));
+    var buyVoiceCredBtn = el("button",{style:{background:"transparent",border:"1px solid #8B5CF6",color:"#8B5CF6",borderRadius:"6px",padding:"4px 9px",fontSize:"10px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+    buyVoiceCredBtn.textContent = "+ Buy Credit";
+    buyVoiceCredBtn.addEventListener("click",function(){ chiefsStartVoiceCreditCheckout().catch(function(e){alert(e.message);}); });
+    voiceRow.appendChild(buyVoiceCredBtn);
+    scCard.appendChild(voiceRow);
+    if (sc.transcribeError) scCard.appendChild(div({color:"#EF4444",fontSize:"11px",marginBottom:"8px"},sc.transcribeError));
+
+    var ta = el("textarea",{placeholder:"...or paste a WhatsApp/email conversation here",style:Object.assign({},I(),{height:"120px",resize:"vertical",fontFamily:"'Inter',sans-serif",lineHeight:"1.5",marginBottom:"8px"})});
+    ta.value = sc.text; ta.addEventListener("input",function(){CHIEFS_STATE.scanner.text=this.value;CHIEFS_STATE.scanner.source="whatsapp";}); scCard.appendChild(ta);
     if (sc.error) scCard.appendChild(div({color:"#EF4444",fontSize:"11px",marginBottom:"8px"},sc.error));
     if (sc.result) {
       var res = sc.result;
@@ -907,7 +1196,7 @@ function _renderChiefsClients() {
       scCard.appendChild(resCard);
     }
     var scanBtnRow = el("div",{style:{display:"flex",gap:"6px"}});
-    scanBtnRow.appendChild(_chBtn("Cancel","rgba(255,255,255,0.06)","#8899AA",function(){CHIEFS_STATE.scanner={open:false,text:"",parsing:false,result:null,error:null};render();},{border:"1px solid rgba(255,255,255,0.1)"}));
+    scanBtnRow.appendChild(_chBtn("Cancel","rgba(255,255,255,0.06)","#8899AA",function(){CHIEFS_STATE.scanner={open:false,text:"",parsing:false,result:null,error:null,source:"whatsapp",transcribing:false,transcribeError:null};render();},{border:"1px solid rgba(255,255,255,0.1)"}));
     if (sc.result) scanBtnRow.appendChild(_chBtn('<i data-lucide="check" style="width:12px;height:12px"></i>Use This Client',"#10B981","#fff",function(){chiefsScannerApply();}));
     else scanBtnRow.appendChild(_chBtn(sc.parsing?"Analyzing...":'<i data-lucide="bot" style="width:12px;height:12px"></i>Extract Requirements',"#25D366",undefined,function(){if(!sc.parsing)chiefsScanConversation();}));
     scCard.appendChild(scanBtnRow); wrap.appendChild(scCard);
@@ -1247,7 +1536,8 @@ function _renderChiefsPipeline() {
           b.textContent = s.label; if (!isActive) b.addEventListener("click",function(){chiefsMoveStage(deal.id,s.id);}); stgBtns.appendChild(b);
         });
         stgRow.appendChild(stgBtns); det.appendChild(stgRow);
-        var abtn=el("div",{style:{display:"flex",gap:"6px",marginTop:"10px"}});
+        var abtn=el("div",{style:{display:"flex",gap:"6px",marginTop:"10px",flexWrap:"wrap"}});
+        abtn.appendChild(_chBtn('<i data-lucide="file-text" style="width:11px;height:11px"></i>Document',"rgba(212,175,55,0.1)","#D4AF37",function(){chiefsOpenDocGen(deal.id);},{border:"1px solid rgba(212,175,55,0.2)",fontSize:"11px",padding:"6px 10px"}));
         abtn.appendChild(_chBtn('<i data-lucide="pencil" style="width:11px;height:11px"></i>Edit',"rgba(255,255,255,0.06)","#8899AA",function(){CHIEFS_STATE.pipeForm={open:true,editing:deal.id,client_name:deal.client_name||"",property_desc:deal.property_desc||"",stage:deal.stage||"lead",deal_value:deal.deal_value||"",next_action:deal.next_action||"",next_action_date:deal.next_action_date||"",notes:deal.notes||""};render();},{border:"1px solid rgba(255,255,255,0.1)",fontSize:"11px",padding:"6px 10px"}));
         abtn.appendChild(_chBtn('<i data-lucide="trash-2" style="width:11px;height:11px"></i>',"rgba(239,68,68,0.1)","#EF4444",function(){chiefsDeletePipeline(deal.id);},{border:"1px solid rgba(239,68,68,0.2)",fontSize:"11px",padding:"6px 10px"}));
         det.appendChild(abtn); card.appendChild(det);
@@ -1255,6 +1545,259 @@ function _renderChiefsPipeline() {
       wrap.appendChild(card);
     });
   });
+  return wrap;
+}
+
+// ── VIEW: COMMISSION TRACKER ──────────────────────────────────────────────────
+// Real-money-weighted view of the pipeline: raw totals are already shown on
+// the Pipeline tab, but a flat sum treats a brand-new "lead" the same as a
+// deal already at "closing" — this weights each active deal's commission by
+// how likely it realistically is to close from its current stage, so the
+// projection means something.
+var CHIEFS_STAGE_WEIGHT = { lead: 0.1, viewing: 0.2, offer: 0.4, mou: 0.6, docs: 0.75, closing: 0.9, closed: 1, lost: 0 };
+
+function _chiefsMonthKey(dateStr) {
+  var d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+}
+
+function _renderChiefsCommission() {
+  var cl = C();
+  var wrap = el("div",{style:{padding:"16px",maxWidth:"700px",margin:"0 auto"}});
+  wrap.appendChild(div({color:cl.white,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Commission Tracker"));
+  wrap.appendChild(div({color:cl.muted,fontSize:"11px",marginBottom:"14px",fontFamily:"'Inter',sans-serif"},"Weighted by how likely each deal is to close from its current stage — not just a flat sum of everything in the pipeline."));
+
+  var pipe = CHIEFS_STATE.pipeline;
+  if (CHIEFS_STATE.loading.pipeline) {
+    wrap.appendChild(div({color:cl.sub,fontSize:"12px",textAlign:"center",padding:"20px"},"Loading...")); return wrap;
+  }
+  if (!pipe.length) {
+    wrap.appendChild(_chCard([div({color:cl.sub,fontSize:"12px",textAlign:"center",padding:"8px"},"No deals in the pipeline yet — add deals to see commission projections here.")])); return wrap;
+  }
+
+  var active = pipe.filter(function(p){return p.stage!=="closed"&&p.stage!=="lost";});
+  var closed = pipe.filter(function(p){return p.stage==="closed";});
+  var weightedProjection = active.reduce(function(s,p){return s+(Number(p.commission_est)||0)*(CHIEFS_STAGE_WEIGHT[p.stage]||0);},0);
+  var rawActiveTotal = active.reduce(function(s,p){return s+(Number(p.commission_est)||0);},0);
+  var closedTotal = closed.reduce(function(s,p){return s+(Number(p.commission_est)||0);},0);
+
+  var stats = el("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px",marginBottom:"16px"}});
+  [{label:"Weighted Projection",val:_fmtPrice(weightedProjection),color:"#D4AF37",hint:"realistic estimate"},
+   {label:"Raw Pipeline Total",val:_fmtPrice(rawActiveTotal),color:"#8899AA",hint:"if everything closed"},
+   {label:"Closed Commission",val:_fmtPrice(closedTotal),color:"#10B981",hint:closed.length+" deal(s)"}
+  ].forEach(function(s) {
+    var sc = el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"10px",padding:"10px",textAlign:"center"}});
+    sc.appendChild(div({color:s.color,fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},s.val));
+    sc.appendChild(div({color:cl.muted,fontSize:"10px",marginTop:"2px"},s.label));
+    sc.appendChild(div({color:cl.muted,fontSize:"9px",marginTop:"1px",opacity:"0.7"},s.hint));
+    stats.appendChild(sc);
+  });
+  wrap.appendChild(stats);
+
+  // Monthly closed-commission breakdown — approximated from each closed
+  // deal's last-updated month, since there's no dedicated "closed_at"
+  // column tracking exactly when a deal moved into the closed stage.
+  if (closed.length) {
+    wrap.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Closed by Month (approx.)"));
+    var byMonth = {};
+    closed.forEach(function(p) {
+      var k = _chiefsMonthKey(p.updated_at || p.created_at) || "Unknown";
+      byMonth[k] = (byMonth[k]||0) + (Number(p.commission_est)||0);
+    });
+    Object.keys(byMonth).forEach(function(k) {
+      var row = el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",background:cl.surface,border:"1px solid "+cl.border,borderRadius:"8px",padding:"8px 12px",marginBottom:"6px"}});
+      row.appendChild(div({color:cl.white,fontSize:"12px"},k));
+      row.appendChild(div({color:"#10B981",fontSize:"12px",fontWeight:"700"},_fmtPrice(byMonth[k])));
+      wrap.appendChild(row);
+    });
+  }
+
+  // Active deals contributing most to the weighted projection.
+  if (active.length) {
+    wrap.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",marginTop:"8px"},"Active Deals By Weighted Value"));
+    active.slice().sort(function(a,b){
+      var wa=(Number(a.commission_est)||0)*(CHIEFS_STAGE_WEIGHT[a.stage]||0), wb=(Number(b.commission_est)||0)*(CHIEFS_STAGE_WEIGHT[b.stage]||0);
+      return wb-wa;
+    }).forEach(function(p) {
+      var w = (Number(p.commission_est)||0)*(CHIEFS_STAGE_WEIGHT[p.stage]||0);
+      var row = el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderLeft:"3px solid "+_stageColor(p.stage),borderRadius:"8px",padding:"8px 12px",marginBottom:"6px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}});
+      row.addEventListener("click",function(){CHIEFS_STATE.view="pipeline";render();});
+      var info = el("div",{});
+      info.appendChild(div({color:cl.white,fontSize:"12px",fontWeight:"600"},p.client_name));
+      info.appendChild(div({color:_stageColor(p.stage),fontSize:"10px",marginTop:"1px",textTransform:"uppercase"},p.stage+" · "+Math.round((CHIEFS_STAGE_WEIGHT[p.stage]||0)*100)+"% likely"));
+      row.appendChild(info);
+      row.appendChild(div({color:"#D4AF37",fontSize:"12px",fontWeight:"700"},_fmtPrice(w)));
+      wrap.appendChild(row);
+    });
+  }
+
+  return wrap;
+}
+
+// ── DOCUMENT ASSISTANT ────────────────────────────────────────────────────────
+// AI-drafted starting-point documents (offer letter / MOU-style summary /
+// listing agreement) auto-filled from a real pipeline deal's own data.
+// Deliberately never presented as a legally-binding substitute for the
+// official RERA Form F/A or a lawyer-reviewed contract — see the disclaimer
+// baked into both the system prompt and the printed footer below.
+var CHIEFS_DOC_TYPES = {
+  offer: { label: "Offer Letter", desc: "Buyer's formal offer to purchase" },
+  mou: { label: "MOU Draft (reference only)", desc: "Draft summary of agreed terms — not the official RERA Form F" },
+  listing_agreement: { label: "Listing Agreement", desc: "Agency agreement between agent and seller" }
+};
+var CHIEFS_DOCGEN = {
+  open: false, dealId: null, docType: "offer", extraTerms: "",
+  generating: false, text: null, error: null
+};
+
+function chiefsOpenDocGen(dealId) {
+  CHIEFS_DOCGEN.open = true;
+  CHIEFS_DOCGEN.dealId = dealId;
+  CHIEFS_DOCGEN.docType = "offer";
+  CHIEFS_DOCGEN.extraTerms = "";
+  CHIEFS_DOCGEN.text = null;
+  CHIEFS_DOCGEN.error = null;
+  render();
+}
+
+async function chiefsGenerateDocument() {
+  var deal = CHIEFS_STATE.pipeline.find(function(p) { return p.id === CHIEFS_DOCGEN.dealId; });
+  if (!deal) return;
+  CHIEFS_DOCGEN.generating = true;
+  CHIEFS_DOCGEN.error = null;
+  render();
+  try {
+    var docType = CHIEFS_DOC_TYPES[CHIEFS_DOCGEN.docType];
+    var agentName = (typeof USER_PROFILE !== "undefined" && USER_PROFILE.name) ||
+      (typeof DV_AUTH !== "undefined" && DV_AUTH.user && (DV_AUTH.user.name || DV_AUTH.user.email)) || "[TO BE FILLED]";
+    var facts = "Document type: " + docType.label +
+      "\nClient: " + deal.client_name +
+      "\nProperty: " + (deal.property_desc || "[TO BE FILLED]") +
+      "\nDeal Value: " + (deal.deal_value ? _fmtPrice(deal.deal_value) : "[TO BE FILLED]") +
+      "\nCurrent Stage: " + deal.stage +
+      "\nAgent/Broker: " + agentName +
+      "\nDate: " + new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" }) +
+      (deal.notes ? "\nDeal Notes: " + deal.notes : "") +
+      (CHIEFS_DOCGEN.extraTerms ? "\nAdditional terms requested by agent: " + CHIEFS_DOCGEN.extraTerms : "");
+    var sys = "You are drafting a real estate " + docType.label + " for a Dubai property transaction, to save a busy agent time on their own paperwork. Use ONLY the facts given below — never invent a price, name, date, or legal clause not present in the input; where a needed detail wasn't given, write '[TO BE FILLED]' instead of guessing or fabricating one. Write in formal, professional real estate document language with clear numbered sections. This is explicitly a DRAFT/starting point for the agent to review and adapt — it is NOT the official RERA-mandated Form F/Form A and is NOT a substitute for independent legal review, so do not claim legal force or use binding language like 'this constitutes a legally binding agreement'. Keep it realistic in length (300-500 words). Output plain text with line breaks between sections, no markdown symbols.";
+    var reply = await askAI([{ role: "user", content: "Facts:\n" + facts }], sys);
+    CHIEFS_DOCGEN.text = reply;
+  } catch (e) {
+    CHIEFS_DOCGEN.error = e.message || "Could not generate document";
+  }
+  CHIEFS_DOCGEN.generating = false;
+  render();
+}
+
+// Reuses the exact same #print-report + window.print() mechanism already
+// wired globally (index.html) for the Analyzer's PDF export — no new
+// library, no new plumbing.
+function chiefsPrintDocument() {
+  if (!CHIEFS_DOCGEN.text) return;
+  var docType = CHIEFS_DOC_TYPES[CHIEFS_DOCGEN.docType];
+  var dateStr = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  var bodyHtml = CHIEFS_DOCGEN.text.split("\n").map(function(l) {
+    var esc = l.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return l.trim() ? '<p style="margin:0 0 10px;line-height:1.6">' + esc + '</p>' : '';
+  }).join("");
+  var h = '<div style="width:210mm;min-height:297mm;padding:20mm;box-sizing:border-box;font-family:Georgia,serif;color:#111">';
+  h += '<div style="text-align:center;margin-bottom:24px"><div style="font-size:18px;font-weight:800;letter-spacing:0.05em">' + docType.label.toUpperCase() + '</div><div style="font-size:11px;color:#666;margin-top:4px">' + dateStr + '</div></div>';
+  h += '<div style="font-size:12px">' + bodyHtml + '</div>';
+  h += '<div style="margin-top:40px;border-top:1px solid #ccc;padding-top:10px;font-size:9px;color:#999">AI-DRAFTED DOCUMENT — FOR REFERENCE ONLY. Not the official RERA Form F/Form A and not a substitute for independent legal review before use in an actual transaction. Generated via DubAIVal AI Chief of Staff.</div>';
+  h += '</div>';
+  var printEl = document.getElementById("print-report");
+  if (printEl) printEl.innerHTML = h;
+  setTimeout(function() {
+    window.print();
+    setTimeout(function() { if (printEl) printEl.innerHTML = ""; }, 2000);
+  }, 100);
+}
+
+function renderChiefsDocGenOverlay() {
+  if (!CHIEFS_DOCGEN.open) return null;
+  var cl = C();
+  var deal = CHIEFS_STATE.pipeline.find(function(p) { return p.id === CHIEFS_DOCGEN.dealId; });
+
+  var backdrop = el("div", { id: "chiefs-docgen-backdrop", style: { position: "fixed", inset: "0", background: "rgba(0,0,0,0.65)", zIndex: "9990", backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)" } });
+  backdrop.addEventListener("click", function() { CHIEFS_DOCGEN.open = false; render(); });
+
+  var sheet = el("div", { style: { position: "fixed", bottom: "0", left: "0", right: "0", background: cl.bg, borderTop: "1px solid " + cl.border, borderTopLeftRadius: "20px", borderTopRightRadius: "20px", zIndex: "9991", maxHeight: "88vh", display: "flex", flexDirection: "column", boxShadow: "0 -12px 40px rgba(0,0,0,0.7)" } });
+  sheet.addEventListener("click", function(e) { e.stopPropagation(); });
+
+  var handle = el("div", { style: { display: "flex", justifyContent: "center", padding: "10px 0 4px" } });
+  handle.appendChild(el("div", { style: { width: "36px", height: "4px", background: cl.border, borderRadius: "2px" } }));
+  sheet.appendChild(handle);
+
+  var hdr = el("div", { style: { display: "flex", alignItems: "center", gap: "10px", padding: "0 16px 12px", flexShrink: "0", borderBottom: "1px solid " + cl.border } });
+  var hIcon = el("div", { style: { width: "36px", height: "36px", background: "rgba(212,175,55,0.15)", border: "1px solid rgba(212,175,55,0.35)", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: "0" } });
+  hIcon.innerHTML = '<i data-lucide="file-text" style="width:18px;height:18px;color:#D4AF37"></i>';
+  hdr.appendChild(hIcon);
+  var hInfo = el("div", { style: { flex: "1", minWidth: "0" } });
+  hInfo.appendChild(div({ color: "#D4AF37", fontSize: "13px", fontWeight: "700", fontFamily: "'Space Grotesk',monospace" }, "Document Assistant"));
+  hInfo.appendChild(div({ color: cl.muted, fontSize: "11px", marginTop: "2px", fontFamily: "'Inter',sans-serif" }, deal ? deal.client_name : ""));
+  hdr.appendChild(hInfo);
+  var closeBtn = el("button", { style: { background: "rgba(255,255,255,0.06)", border: "1px solid " + cl.border, color: cl.sub, borderRadius: "8px", padding: "6px 12px", cursor: "pointer", fontSize: "14px", fontWeight: "600" } });
+  closeBtn.textContent = "✕";
+  closeBtn.addEventListener("click", function() { CHIEFS_DOCGEN.open = false; render(); });
+  hdr.appendChild(closeBtn);
+  sheet.appendChild(hdr);
+
+  var body = el("div", { style: { padding: "16px", overflowY: "auto", flex: "1" } });
+
+  if (!deal) {
+    body.appendChild(div({ color: cl.sub, fontSize: "12px" }, "This deal is no longer available."));
+    sheet.appendChild(body);
+    var wrap0 = el("div", {}); wrap0.appendChild(backdrop); wrap0.appendChild(sheet);
+    return wrap0;
+  }
+
+  if (!CHIEFS_DOCGEN.text && !CHIEFS_DOCGEN.generating) {
+    body.appendChild(div({ color: cl.sub, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "'Space Grotesk',monospace", marginBottom: "8px" }, "Document Type"));
+    var typeGrid = el("div", { style: { display: "flex", flexDirection: "column", gap: "8px", marginBottom: "14px" } });
+    Object.keys(CHIEFS_DOC_TYPES).forEach(function(key) {
+      var t = CHIEFS_DOC_TYPES[key];
+      var isSel = CHIEFS_DOCGEN.docType === key;
+      var opt = el("div", { style: { background: isSel ? "rgba(212,175,55,0.1)" : cl.surface, border: "1px solid " + (isSel ? "#D4AF37" : cl.border), borderRadius: "10px", padding: "10px 12px", cursor: "pointer" } });
+      opt.appendChild(div({ color: isSel ? "#D4AF37" : cl.white, fontSize: "12px", fontWeight: "700", fontFamily: "'Space Grotesk',monospace" }, t.label));
+      opt.appendChild(div({ color: cl.muted, fontSize: "11px", marginTop: "2px", fontFamily: "'Inter',sans-serif" }, t.desc));
+      opt.addEventListener("click", function() { CHIEFS_DOCGEN.docType = key; render(); });
+      typeGrid.appendChild(opt);
+    });
+    body.appendChild(typeGrid);
+
+    body.appendChild(div({ color: cl.sub, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "'Space Grotesk',monospace", marginBottom: "6px" }, "Additional Terms (optional)"));
+    var termsInp = el("textarea", { placeholder: "e.g. 10% deposit within 5 business days, subject to bank valuation...", style: { width: "100%", boxSizing: "border-box", background: "#070B14", border: "1px solid " + cl.border, borderRadius: "8px", padding: "10px", color: cl.white, fontSize: "12px", fontFamily: "'Inter',sans-serif", resize: "vertical", minHeight: "60px", marginBottom: "14px" } });
+    termsInp.value = CHIEFS_DOCGEN.extraTerms;
+    termsInp.addEventListener("input", function() { CHIEFS_DOCGEN.extraTerms = this.value; });
+    body.appendChild(termsInp);
+
+    var genBtn = _chBtn("✦ Generate Draft", "#D4AF37", "#000", function() { chiefsGenerateDocument(); }, { width: "100%", padding: "12px", fontSize: "13px" });
+    body.appendChild(genBtn);
+  } else if (CHIEFS_DOCGEN.generating) {
+    body.appendChild(div({ color: cl.sub, fontSize: "12px", textAlign: "center", padding: "30px 0" }, "Drafting your " + CHIEFS_DOC_TYPES[CHIEFS_DOCGEN.docType].label.toLowerCase() + "…"));
+  } else if (CHIEFS_DOCGEN.error) {
+    body.appendChild(div({ color: "#EF4444", fontSize: "12px", marginBottom: "10px" }, CHIEFS_DOCGEN.error));
+    body.appendChild(_chBtn("Try Again", "rgba(255,255,255,0.06)", "#8899AA", function() { CHIEFS_DOCGEN.error = null; render(); }, { border: "1px solid rgba(255,255,255,0.1)" }));
+  } else if (CHIEFS_DOCGEN.text) {
+    var disclaimer = el("div", { style: { background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: "8px", padding: "8px 10px", marginBottom: "10px", fontSize: "10.5px", color: "#F59E0B", lineHeight: "1.5" } });
+    disclaimer.textContent = "AI-drafted starting point — not the official RERA Form F/Form A, and not a substitute for review by a licensed conveyancer/lawyer before use.";
+    body.appendChild(disclaimer);
+    var docBox = el("textarea", { style: { width: "100%", boxSizing: "border-box", background: "#070B14", border: "1px solid " + cl.border, borderRadius: "8px", padding: "12px", color: cl.white, fontSize: "12px", fontFamily: "'Inter',sans-serif", lineHeight: "1.6", resize: "vertical", minHeight: "260px", marginBottom: "12px" } });
+    docBox.value = CHIEFS_DOCGEN.text;
+    docBox.addEventListener("input", function() { CHIEFS_DOCGEN.text = this.value; });
+    body.appendChild(docBox);
+    var actionRow = el("div", { style: { display: "flex", gap: "8px" } });
+    actionRow.appendChild(_chBtn("Regenerate", "rgba(255,255,255,0.06)", "#8899AA", function() { CHIEFS_DOCGEN.text = null; chiefsGenerateDocument(); }, { border: "1px solid rgba(255,255,255,0.1)", flex: "1" }));
+    actionRow.appendChild(_chBtn('<i data-lucide="printer" style="width:12px;height:12px"></i> Print / Save as PDF', "#D4AF37", "#000", function() { chiefsPrintDocument(); }, { flex: "1" }));
+    body.appendChild(actionRow);
+  }
+
+  sheet.appendChild(body);
+  var wrap = el("div", {});
+  wrap.appendChild(backdrop);
+  wrap.appendChild(sheet);
+  if (typeof lucide !== "undefined" && lucide.createIcons) setTimeout(function() { lucide.createIcons(); }, 50);
   return wrap;
 }
 
@@ -1570,6 +2113,14 @@ function renderChiefs() {
   if (!CHIEFS_STATE.loaded.matches && !CHIEFS_STATE.loading.matches) chiefsLoadMatches();
   if (!CHIEFS_STATE.loaded.pipeline && !CHIEFS_STATE.loading.pipeline) chiefsLoadPipeline();
 
+  // Generate the daily briefing once, right after all 4 datasets are in —
+  // never re-triggers on every render (guarded inside _chiefsGenerateBriefing).
+  if (CHIEFS_STATE.loaded.inventory && CHIEFS_STATE.loaded.clients &&
+      CHIEFS_STATE.loaded.matches && CHIEFS_STATE.loaded.pipeline &&
+      !CHIEFS_STATE.briefing.checked && !CHIEFS_STATE.briefing.loading) {
+    _chiefsGenerateBriefing(false);
+  }
+
   var cl = C();
   var wrap = el("div",{style:{display:"flex",flexDirection:"column",height:"100%",maxWidth:"100%",overflowX:"hidden"}});
 
@@ -1593,6 +2144,7 @@ function renderChiefs() {
     {id:"clients",label:"Clients",icon:"users"},
     {id:"matches",label:"Matches",icon:"link-2"},
     {id:"pipeline",label:"Pipeline",icon:"clipboard-list"},
+    {id:"commission",label:"Commission",icon:"trending-up"},
     {id:"inbox",label:"Inbox",icon:"inbox"}
   ];
   var tabBar = el("div",{style:{display:"flex",gap:"0",borderBottom:"1px solid "+cl.border,overflowX:"auto",flexShrink:"0",WebkitOverflowScrolling:"touch"}});
@@ -1632,6 +2184,7 @@ function renderChiefs() {
   else if (CHIEFS_STATE.view==="clients") content.appendChild(_renderChiefsClients());
   else if (CHIEFS_STATE.view==="matches") content.appendChild(_renderChiefsMatches());
   else if (CHIEFS_STATE.view==="pipeline") content.appendChild(_renderChiefsPipeline());
+  else if (CHIEFS_STATE.view==="commission") content.appendChild(_renderChiefsCommission());
   else if (CHIEFS_STATE.view==="inbox" && typeof renderInbox==="function") content.appendChild(renderInbox());
   wrap.appendChild(content);
   return wrap;
