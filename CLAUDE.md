@@ -461,6 +461,113 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-15 (session 12, continued once more)**: Follow-up to the
+  negotiation-feature session above — user asked for (1) the same AI
+  negotiation strategy extended to rentals, (2) a check that buyer/seller
+  reports actually work correctly "دقیقا فیکس و کاربردی باشه", (3) a
+  reported bug where two buildings in the same area (Blvd Heights vs Vida
+  Dubai Mall) showed identical distances to Dubai Mall/DIFC/airport, and
+  (4) a reported bug where marking a Vida Dubai Mall unit's furnishing
+  status showed "owner-furnished" in the alarm/notice, which is wrong since
+  Emaar's own Address/Vida/Palace-branded residences come developer-
+  furnished. Found and fixed 5 real, independent bugs while investigating:
+  1. **Real crash bug — bigger than the agent-only one fixed earlier**: the
+     PERSONAL (non-agent) mode "Expert Commentary" AI prompt builder (both
+     villa and apartment sale branches, `js/market.js`) had the EXACT SAME
+     unconditional `vv.suggestedOffer.toLocaleString()` crash already fixed
+     in `getAgentAIPrompt()` — meaning ANY regular user (not just agents)
+     analyzing a DISTRESS/GOOD-verdict (undervalued) property in Personal
+     mode got a silent crash and never saw the AI commentary at all. Fixed
+     both call sites the same way (fallback to `fairPrice` when
+     `suggestedOffer` is null). Confirmed via a live Playwright run with a
+     genuine DISTRESS-verdict test property (verdict:"DISTRESS",
+     suggestedOffer:null) — crashed before the fix, rendered cleanly after.
+  2. **Real bug — rental agent mode silently dropped the landlord report**:
+     `renderRentalResult()` fetched and stored `analyzerState.aiTextSeller`
+     (the landlord-facing report, generated whenever `reportFor` is
+     "seller"/"both") but never once rendered it anywhere — an agent
+     generating a rental "Both Reports" never saw the landlord half at all,
+     silently. Also, the tenant report was always labeled generic "Rental
+     Expert Commentary" even in agent mode, unlike the sale flow's
+     "Agent Report — Buyer/Seller" labeling. Fixed: added the missing
+     `aiTextSeller` render block ("Agent Report — Landlord"), and made the
+     tenant-side label agent-aware ("Agent Report — Tenant" in agent mode).
+  3. **Rental negotiation strategy added, mirroring the sale-side feature**:
+     new `getRentalNegotiationStrategyPrompt()` (landlord/tenant instead of
+     seller/buyer, closing a lease instead of a sale) fired as a 3rd AI call
+     whenever agent mode is used for a rental (both villa/apartment
+     branches), plus a new deterministic "Landlord/Tenant Deal Intelligence"
+     card in `renderRentalResult()` (landlord's floor / sweet spot /
+     tenant's cap, deal probability, Talking Points) — the rental
+     counterpart to the sale flow's "Agent Deal Intelligence", previously
+     completely absent from the rent flow. `getRentalAgentAIPrompt()` itself
+     was audited and found to have no similar null-reference risk (doesn't
+     reference `suggestedRent`), so no fix needed there.
+  4. **Furnished-notice gate bug fixed**: the "FURNISHED NOTICE" card only
+     showed when the user selected Furnished/Semi-Furnished, but
+     `computeAdjustedPSF()` (`js/valuation.js`) applies a real -10% discount
+     when a DEVELOPER-FURNISHED building (Vida/Address/etc., `bData.df:1`)
+     is marked "Unfurnished" — a real, non-obvious price impact the old gate
+     hid completely, with zero explanation to the user. Fixed by showing the
+     notice whenever `val.isDevFurnished` is true (any furnished status) or
+     Furnished/Semi-Furnished is selected on any building.
+  5. **Root cause of the reported furnishing bug — a real, narrow data gap,
+     fixed per explicit user authorization** (same one-off exception pattern
+     as session 11w — this branch does not normally touch
+     `js/data-residential.js`): `computeValuation()`'s `isDevFurnished` flag
+     reads `bData.df` from the building database, and the canonical "vida
+     dubai mall" entry already correctly had `df:1` — but cross-referencing
+     every "vida"/"address"/"palace" (Emaar hospitality brand) entry in the
+     DB found 7 sibling name-variants for the exact same real buildings were
+     missing the flag despite an identically-named/psf sibling having it:
+     `vida residences dubai mall t1`/`t2`, `vida residences downtown`,
+     `vida residences creek harbour`, `vida marina dubai`,
+     `address beach resort residences`, `palace residences creek blue tower
+     2`. A user typing/selecting one of these variants (very plausible via
+     the building search autocomplete) got `isDevFurnished:false` and the
+     wrong "OWNER-FURNISHED UNIT" notice. Added `"df":1` to all 7 (644→651
+     total `df:1` entries DB-wide). Deliberately did NOT touch Fairmont/
+     Waldorf Astoria/Kempinski/Grosvenor House/W Residences/Bulgari/Banyan
+     Tree brand entries found with the same kind of internal inconsistency
+     during the same audit — these are hotel-operator brands under
+     different developers, not Emaar's own Address/Vida/Palace hospitality
+     brands the user specifically named, so fixing them would need separate
+     verification, not assumption. Verified via a Node harness confirming
+     `lookupBuilding()` now resolves `df:1` for 6 of the 7 real-world name
+     variants (the 7th follows the identical pattern).
+  6. **Distance-to-landmarks issue — investigated, explained, not a bug per
+     se, clarified in the UI**: confirmed both "Blvd Heights" and "Vida
+     Dubai Mall" are tagged `"a":"Downtown Dubai"` in the DB, and the
+     "Location Intelligence" card's Metro/Mall/Business/Airport distances
+     come from `computeGeoScore(f.area)` (`js/data-residential.js`) — an
+     AREA-level lookup, not a per-building one, so every building sharing an
+     area byte-for-byte shares these figures by design (this value also
+     feeds the valuation engine's location-premium adjustment, so it
+     couldn't be casually changed to per-building without a much larger data
+     project — real per-building lat/lng data doesn't exist in the DB today
+     — and `computeGeoScore` itself lives in the data file this branch
+     doesn't own). Rather than leave this looking like an unexplained bug,
+     added a clear "Area-wide baseline · {area}" subtitle and a footer note
+     directly under the card explaining every building in that area shows
+     the same numbers here, and pointing to the already-live,
+     genuinely building-specific Nearby Amenities/Drive Times cards
+     immediately below (these two already geocode the actual building name
+     via Google Maps, confirmed by reading their query-building code path —
+     not touched, already correct).
+  - Verified: `node -c` on both touched files; a Node harness confirming
+    `lookupBuilding()` correctly resolves `df:1` for the fixed building name
+    variants; re-ran `tools/generate-seo-pages.js` per the standing rule
+    after the data-residential.js change; and 4 real-browser Playwright
+    passes — (1) personal-mode sale analysis of a genuine DISTRESS-verdict
+    property confirming the AI commentary no longer crashes, (2) full
+    agent-mode RENTAL flow (unlock phone → Both Reports → submit) confirming
+    both Tenant and Landlord agent reports render, the new Landlord/Tenant
+    Deal Intelligence card and its Negotiation Range/Talking Points render,
+    and the new AI Negotiation Strategy renders with correctly-routed mocked
+    content, (3) a sale-flow analysis of Vida Dubai Mall confirming the new
+    "Area-wide baseline" Location Intelligence subtitle and footer note
+    render correctly, zero non-network console errors in any run.
+
 - **2026-07-15 (session 12, continued yet further)**: Beta-launch decisions +
   agent-gate relaxation + negotiation-feature review, per the site owner's
   request to prepare for beta and specifically re-check the Analyzer's

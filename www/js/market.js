@@ -130,6 +130,15 @@ function getNegotiationStrategyPrompt(propDesc,val,area,neg){
   return base+" You are a senior Dubai real estate negotiation coach (15+ years, closed 500+ deals) advising the AGENT handling THIS specific deal — not the buyer, not the seller, the agent themselves. Address the agent directly as \"you\".\nWrite a concrete, step-by-step negotiation strategy covering exactly these 5 points, in order:\n1) Opening move with the SELLER — what anchor or frame to open with.\n2) Opening move with the BUYER — what anchor or frame to open with.\n3) How to bridge the gap between the two toward the sweet-spot price if their positions differ.\n4) The single most likely objection from each side, and how to defuse it.\n5) A concrete closing technique to get both sides to sign at or near the sweet spot.\nName real, specific negotiation techniques (e.g. anchoring, mirroring, calibrated questions, strategic silence, the flinch, deadline pressure, take-it-or-leave-it framing) rather than generic advice. ONLY use the AED numbers given above — do not invent new figures. 6-8 sentences. This is an internal strategy memo for the agent, NOT client-facing copy — do not write it as if addressed to the buyer or seller.";
 }
 
+// Rental counterpart to getNegotiationStrategyPrompt() above (2026-07-15,
+// user-requested extension to the rent flow) — same idea, landlord/tenant
+// instead of seller/buyer, closing a LEASE instead of a sale.
+function getRentalNegotiationStrategyPrompt(propDesc,rv,area,neg){
+  var amenities=AREA_AMENITIES[area]?"Location amenities: "+AREA_AMENITIES[area]+".":"";
+  var base=propDesc+". EXACT DEAL DATA FROM OUR DLD-VERIFIED ENGINE (use these, do NOT invent your own): Landlord's floor: AED "+neg.landlordMin.toLocaleString()+"/yr. Sweet spot (win-win target): AED "+neg.sweetSpot.toLocaleString()+"/yr. Tenant's cap: AED "+neg.tenantMax.toLocaleString()+"/yr. Deal probability: "+neg.dealProb+". Verdict: "+rv.verdict.replace(/_/g," ")+". Market rent: AED "+rv.estRent.toLocaleString()+"/yr. "+amenities;
+  return base+" You are a senior Dubai leasing negotiation coach (15+ years, closed 3,000+ leases) advising the AGENT handling THIS specific lease — not the landlord, not the tenant, the agent themselves. Address the agent directly as \"you\".\nWrite a concrete, step-by-step negotiation strategy covering exactly these 5 points, in order:\n1) Opening move with the LANDLORD — what anchor or frame to open with.\n2) Opening move with the TENANT — what anchor or frame to open with.\n3) How to bridge the gap between the two toward the sweet-spot rent if their positions differ.\n4) The single most likely objection from each side, and how to defuse it.\n5) A concrete closing technique to get both sides to sign the lease at or near the sweet spot.\nName real, specific negotiation techniques (e.g. anchoring, mirroring, calibrated questions, strategic silence, the flinch, deadline pressure, take-it-or-leave-it framing) rather than generic advice. ONLY use the AED numbers given above — do not invent new figures. 6-8 sentences. This is an internal strategy memo for the agent, NOT client-facing copy — do not write it as if addressed to the landlord or tenant.";
+}
+
 // --- MARKET TAB ---------------------------------------------------------------
 function renderMarket(){
   const cl=C();
@@ -1704,6 +1713,12 @@ function renderAnalyzer(){
               if(rFor==="both"||rFor==="seller"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:sellerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiTextSeller=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
               if(rFor==="buyer")analyzerState.aiTextSeller="";
               if(rFor==="seller")analyzerState.aiText="";
+              analyzerState.aiNegotiation="";
+              var _tenantMaxN=Math.round(rv.estRent*1.05);
+              var _landlordMinN=Math.round(rv.estRent*0.92);
+              var _rNegV=rv.verdict;
+              var _rNegP=getRentalNegotiationStrategyPrompt(propDesc,rv,analyzerState.f.area,{landlordMin:_landlordMinN,sweetSpot:Math.round((_tenantMaxN+_landlordMinN)/2),tenantMax:_tenantMaxN,dealProb:_rNegV==="BELOW_MARKET"?"Very High (90%+)":_rNegV==="COMPETITIVE"?"High (75-85%)":_rNegV==="MARKET_RATE"?"Moderate (55-70%)":"Low (30-45%)"});
+              callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:_rNegP}],max_tokens:450,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiNegotiation=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
             }else{
               var amenities=AREA_AMENITIES[analyzerState.f.area]?" Location amenities: "+AREA_AMENITIES[analyzerState.f.area]+".":"";
               var aiPrompt=propDesc+". EXACT DATA: Market rent AED "+rv.estRent.toLocaleString()+"/yr (AED "+rv.monthly.toLocaleString()+"/mo). Range: AED "+rv.rentLow.toLocaleString()+"-"+rv.rentHigh.toLocaleString()+"/yr. Asking "+rv.vsPct+"% vs market. Verdict: "+rv.verdict.replace(/_/g," ")+". Confidence: "+rv.confScore+"%."+amenities+" Use ONLY these numbers and amenities. 3 sentences: rental assessment with location benefits, negotiation target, tenant tips.";
@@ -1769,7 +1784,8 @@ function renderAnalyzer(){
               callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:_negP}],max_tokens:450,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiNegotiation=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
             }else{
               var vv=analyzerState.val;var amenities=AREA_AMENITIES[analyzerState.f.area]?" Location amenities: "+AREA_AMENITIES[analyzerState.f.area]+".":"";
-              var aiPrompt=propDesc+". EXACT DATA: Market PSF AED "+vv.adjPSF.toLocaleString()+" (range "+vv.psfLo.toLocaleString()+"-"+vv.psfHi.toLocaleString()+"). Asking "+vv.vsPct+"% vs market. Verdict: "+vv.verdict+". Fair value: AED "+vv.fairPrice.toLocaleString()+". Suggested offer: AED "+vv.suggestedOffer.toLocaleString()+". Est. rent: AED "+(vv.rent||0).toLocaleString()+"/yr. Gross yield: "+vv.grossYield+"%. Net yield: "+vv.netYield+"%. Growth 3yr: "+vv.g1+"%. Confidence: "+vv.confScore+"% ("+vv.confTier+"). Signal: "+vv.investSignal+"."+amenities+" Investor:"+USER_PROFILE.investorType+". Use ONLY these numbers and amenities. 3 sentences: assessment with location benefits, negotiation target AED, key risk/opportunity.";
+              var _suggOfferTxt=(vv.suggestedOffer!=null?vv.suggestedOffer:vv.fairPrice).toLocaleString();
+              var aiPrompt=propDesc+". EXACT DATA: Market PSF AED "+vv.adjPSF.toLocaleString()+" (range "+vv.psfLo.toLocaleString()+"-"+vv.psfHi.toLocaleString()+"). Asking "+vv.vsPct+"% vs market. Verdict: "+vv.verdict+". Fair value: AED "+vv.fairPrice.toLocaleString()+". Suggested offer: AED "+_suggOfferTxt+". Est. rent: AED "+(vv.rent||0).toLocaleString()+"/yr. Gross yield: "+vv.grossYield+"%. Net yield: "+vv.netYield+"%. Growth 3yr: "+vv.g1+"%. Confidence: "+vv.confScore+"% ("+vv.confTier+"). Signal: "+vv.investSignal+"."+amenities+" Investor:"+USER_PROFILE.investorType+". Use ONLY these numbers and amenities. 3 sentences: assessment with location benefits, negotiation target AED, key risk/opportunity.";
               callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
             }
             render();
@@ -1922,6 +1938,12 @@ function renderAnalyzer(){
               if(rFor==="both"||rFor==="seller"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:sellerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiTextSeller=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
               if(rFor==="buyer")analyzerState.aiTextSeller="";
               if(rFor==="seller")analyzerState.aiText="";
+              analyzerState.aiNegotiation="";
+              var _tenantMaxN2=Math.round(rv.estRent*1.05);
+              var _landlordMinN2=Math.round(rv.estRent*0.92);
+              var _rNegV2=rv.verdict;
+              var _rNegP2=getRentalNegotiationStrategyPrompt(propDesc,rv,analyzerState.f.area,{landlordMin:_landlordMinN2,sweetSpot:Math.round((_tenantMaxN2+_landlordMinN2)/2),tenantMax:_tenantMaxN2,dealProb:_rNegV2==="BELOW_MARKET"?"Very High (90%+)":_rNegV2==="COMPETITIVE"?"High (75-85%)":_rNegV2==="MARKET_RATE"?"Moderate (55-70%)":"Low (30-45%)"});
+              callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:_rNegP2}],max_tokens:450,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiNegotiation=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
             }else{
               var amenities=AREA_AMENITIES[analyzerState.f.area]?" Location amenities: "+AREA_AMENITIES[analyzerState.f.area]+".":"";
               var aiPrompt=propDesc+". EXACT DATA: Market rent AED "+rv.estRent.toLocaleString()+"/yr (AED "+rv.monthly.toLocaleString()+"/mo). Range: AED "+rv.rentLow.toLocaleString()+"-"+rv.rentHigh.toLocaleString()+"/yr. Asking "+rv.vsPct+"% vs market. Verdict: "+rv.verdict.replace(/_/g," ")+". Confidence: "+rv.confScore+"%."+amenities+" Use ONLY these numbers and amenities. 3 sentences: rental assessment with location benefits, negotiation tip, tenant advice.";
@@ -1987,7 +2009,8 @@ function renderAnalyzer(){
               var profileCtx=profileLabels[USER_PROFILE.investorType]||"investor";
               var riskCtx=USER_PROFILE.risk==="aggressive"?" Focus upside.":(USER_PROFILE.risk==="conservative"?" Prioritize safety.":"");
               var vv=analyzerState.val;var amenities=AREA_AMENITIES[analyzerState.f.area]?" Location amenities: "+AREA_AMENITIES[analyzerState.f.area]+".":"";
-              var aiPrompt=propDesc+". EXACT DATA: Market PSF AED "+vv.adjPSF.toLocaleString()+" (range "+vv.psfLo.toLocaleString()+"-"+vv.psfHi.toLocaleString()+"). Asking "+vv.vsPct+"% vs market. Verdict: "+vv.verdict+". Fair value: AED "+vv.fairPrice.toLocaleString()+". Suggested offer: AED "+vv.suggestedOffer.toLocaleString()+". Price range: AED "+vv.priceLow.toLocaleString()+"-"+vv.priceHigh.toLocaleString()+". Est. rent: AED "+(vv.rent||0).toLocaleString()+"/yr. Gross yield: "+vv.grossYield+"%. Net yield: "+vv.netYield+"%. Growth 3yr: "+vv.g1+"%. Confidence: "+vv.confScore+"% ("+vv.confTier+"). Signal: "+vv.investSignal+". Total return: "+(vv.totalReturnAnnual||0)+"%."+amenities+" Investor: "+profileCtx+"."+riskCtx+" Use ONLY these numbers and amenities — do NOT calculate or invent your own. 3 sentences: assessment with location benefits, negotiation target AED (use suggested offer), key risk/opportunity.";
+              var _suggOfferTxt2=(vv.suggestedOffer!=null?vv.suggestedOffer:vv.fairPrice).toLocaleString();
+              var aiPrompt=propDesc+". EXACT DATA: Market PSF AED "+vv.adjPSF.toLocaleString()+" (range "+vv.psfLo.toLocaleString()+"-"+vv.psfHi.toLocaleString()+"). Asking "+vv.vsPct+"% vs market. Verdict: "+vv.verdict+". Fair value: AED "+vv.fairPrice.toLocaleString()+". Suggested offer: AED "+_suggOfferTxt2+". Price range: AED "+vv.priceLow.toLocaleString()+"-"+vv.priceHigh.toLocaleString()+". Est. rent: AED "+(vv.rent||0).toLocaleString()+"/yr. Gross yield: "+vv.grossYield+"%. Net yield: "+vv.netYield+"%. Growth 3yr: "+vv.g1+"%. Confidence: "+vv.confScore+"% ("+vv.confTier+"). Signal: "+vv.investSignal+". Total return: "+(vv.totalReturnAnnual||0)+"%."+amenities+" Investor: "+profileCtx+"."+riskCtx+" Use ONLY these numbers and amenities — do NOT calculate or invent your own. 3 sentences: assessment with location benefits, negotiation target AED (use suggested offer), key risk/opportunity.";
               callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
             }
             render();
@@ -2358,8 +2381,16 @@ function renderAnalyzerResult(wrap){
     wrap.appendChild(susCard);
   })();
 
-  // -- FURNISHED NOTICE (only when furnished selected) --
-  if(analyzerState.f.furnished==="Furnished"||analyzerState.f.furnished==="Semi-Furnished"){
+  // -- FURNISHED NOTICE --
+  // Shown whenever furnishing status actually affects the price: always for
+  // developer-furnished buildings (Vida/Address/etc. — base PSF already
+  // includes their furniture, so even "Unfurnished" carries a real -10%
+  // discount per computeAdjustedPSF's furnP logic), or for Furnished/
+  // Semi-Furnished on any other building (owner-furnished premium). Real bug
+  // fixed 2026-07-15: this used to gate on Furnished/Semi-Furnished only,
+  // so selecting "Unfurnished" on a developer-furnished building silently
+  // applied that -10% discount with zero explanation to the user.
+  if(val.isDevFurnished||analyzerState.f.furnished==="Furnished"||analyzerState.f.furnished==="Semi-Furnished"){
     var furnNoticeTitle,furnNoticeMsg;
     if(val.isDevFurnished){
       furnNoticeTitle="DEVELOPER-FURNISHED BUILDING";
@@ -3194,7 +3225,7 @@ function renderAnalyzerResult(wrap){
     locWrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
       div({},[
         span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"2px"},"Location Intelligence"),
-        span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},"Transit & Amenity Proximity Analysis")
+        span({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},"Area-wide baseline · "+f.area)
       ]),
       span({color:locC,fontSize:"12px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",padding:"3px 10px",borderRadius:"6px",background:locBg},locLabel+" · "+gs.locationScore+"/10")
     ]));
@@ -3271,6 +3302,14 @@ function renderAnalyzerResult(wrap){
         span({color:cl.sub,fontSize:"10.5px",fontFamily:"'Inter',sans-serif",lineHeight:"1.4"},impactDesc)
       ])
     ]));
+
+    // Clarifies why two different buildings in the same area (e.g. two
+    // Downtown Dubai towers) show byte-identical figures above — these are a
+    // real, deliberate AREA-WIDE baseline (used in the valuation engine's
+    // location premium), not a per-building measurement. Real building-
+    // specific distances are the live Nearby Amenities/Drive Times cards
+    // below, which do geocode this exact building.
+    locWrap.appendChild(div({color:cl.sub,fontSize:"9.5px",fontFamily:"'Inter',sans-serif",marginTop:"10px",fontStyle:"italic"},"These figures are an area-wide baseline for "+f.area+" — every building in this area shows the same numbers here. For this specific building's live distances, see Nearby Amenities & Drive Times below."));
 
     wrap.appendChild(locWrap);
   })();}
@@ -4022,13 +4061,90 @@ function renderRentalResult(wrap){
     ]),
   ]));
 
+  var isAgentRental=analyzerState.reportMode==="agent";
   if(analyzerState.aiText){
+    var ecLabelR=isAgentRental?(analyzerState.reportFor==="seller"?"Agent Report — Landlord":"Agent Report — Tenant"):"Rental Expert Commentary";
     var ecCard=div({background:cl.surface,border:"1px solid rgba(139,92,246,0.3)",borderRadius:"14px",padding:"18px",marginBottom:"14px"});
-    ecCard.appendChild(span({color:"#8B5CF6",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},"Rental Expert Commentary"));
+    ecCard.appendChild(span({color:"#8B5CF6",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},ecLabelR));
     var ecFormatted=typeof formatAIResponse==="function"?formatAIResponse(analyzerState.aiText,cl):null;
     if(ecFormatted)ecCard.appendChild(ecFormatted);
     else ecCard.appendChild(div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.85",fontFamily:"'Inter',sans-serif"},analyzerState.aiText));
     wrap.appendChild(ecCard);
+  }
+  // Real bug fixed 2026-07-15: the landlord-facing agent report (aiTextSeller,
+  // fetched by the rental submit handler whenever reportFor is "seller"/"both")
+  // was generated but never rendered anywhere in this function — an agent
+  // picking "Both Reports" for a rental silently never saw the landlord half.
+  if(analyzerState.aiTextSeller){
+    var ecSCardR=div({background:cl.surface,border:"1px solid rgba(239,68,68,0.3)",borderRadius:"14px",padding:"18px",marginBottom:"14px"});
+    ecSCardR.appendChild(span({color:"#F87171",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},"Agent Report — Landlord"));
+    var ecSFormattedR=typeof formatAIResponse==="function"?formatAIResponse(analyzerState.aiTextSeller,cl):null;
+    if(ecSFormattedR)ecSCardR.appendChild(ecSFormattedR);
+    else ecSCardR.appendChild(div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.85",fontFamily:"'Inter',sans-serif"},analyzerState.aiTextSeller));
+    wrap.appendChild(ecSCardR);
+  }
+
+  // -- LANDLORD/TENANT DEAL INTELLIGENCE (agent mode) --
+  // Rental counterpart to the sale flow's "Agent Deal Intelligence" card:
+  // real negotiation-range numbers derived straight from rv (not AI), plus
+  // a genuinely AI-authored negotiation strategy addressed to the agent.
+  if(isAgentRental){
+    var _tenantMax=Math.round(rv.estRent*1.05);
+    var _landlordMin=Math.round(rv.estRent*0.92);
+    var _sweetSpotR=Math.round((_tenantMax+_landlordMin)/2);
+    var _dealProbR=rv.verdict==="BELOW_MARKET"?"Very High (90%+)":rv.verdict==="COMPETITIVE"?"High (75-85%)":rv.verdict==="MARKET_RATE"?"Moderate (55-70%)":"Low (30-45%)";
+    var _dealProbColorR=rv.verdict==="BELOW_MARKET"||rv.verdict==="COMPETITIVE"?"#10B981":rv.verdict==="MARKET_RATE"?"#F59E0B":"#EF4444";
+    var rentAgentCard=el("div",{style:{background:cl.surface,border:"1px solid rgba(59,130,246,0.25)",borderRadius:"14px",padding:"18px",marginBottom:"14px"}});
+    rentAgentCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
+      span({color:"#3B82F6",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Landlord/Tenant Deal Intelligence"),
+      span({color:hexAlpha("#3B82F6",0.6),fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Negotiation & Lease Facilitation"),
+    ]));
+    rentAgentCard.appendChild(div({background:cl.raised,borderRadius:"10px",padding:"14px",marginBottom:"12px"},[
+      div({color:cl.sub,fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"Negotiation Range"),
+      div({display:"flex",alignItems:"center",gap:"6px",marginBottom:"10px"},[
+        div({flex:"1",height:"8px",borderRadius:"4px",background:"linear-gradient(90deg, #EF4444 0%, #F59E0B 35%, #22C55E 65%, #3B82F6 100%)",position:"relative"}),
+      ]),
+      div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px"},[
+        div({textAlign:"center"},[
+          div({color:"#EF4444",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"LANDLORD'S FLOOR"),
+          div({color:"#F87171",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+_landlordMin.toLocaleString()+"/yr"),
+          div({color:cl.sub,fontSize:"8px",fontFamily:"'Inter',sans-serif"},"Below this = loss for landlord"),
+        ]),
+        div({textAlign:"center",background:hexAlpha("#3B82F6",0.1),borderRadius:"8px",padding:"6px"},[
+          div({color:"#3B82F6",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"SWEET SPOT"),
+          div({color:"#60A5FA",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+_sweetSpotR.toLocaleString()+"/yr"),
+          div({color:cl.sub,fontSize:"8px",fontFamily:"'Inter',sans-serif"},"Win-win for both sides"),
+        ]),
+        div({textAlign:"center"},[
+          div({color:cl.green,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"TENANT'S CAP"),
+          div({color:cl.green,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+_tenantMax.toLocaleString()+"/yr"),
+          div({color:cl.sub,fontSize:"8px",fontFamily:"'Inter',sans-serif"},"Above this = overpaying"),
+        ]),
+      ]),
+    ]));
+    rentAgentCard.appendChild(div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"},[
+      div({background:cl.raised,borderRadius:"10px",padding:"12px 14px"},[lbl("Deal Probability"),div({color:_dealProbColorR,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},_dealProbR)]),
+      div({background:cl.raised,borderRadius:"10px",padding:"12px 14px"},[lbl("Confidence"),div({color:cl.subHi,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},rv.confTier.label+" · "+rv.confScore+"/100")]),
+    ]));
+    rentAgentCard.appendChild(div({background:hexAlpha("#3B82F6",0.06),border:"1px solid "+hexAlpha("#3B82F6",0.2),borderRadius:"10px",padding:"14px"},[
+      div({color:"#3B82F6",fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"Talking Points"),
+      div({marginBottom:"6px"},[span({color:cl.green,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"FOR TENANT: "),span({color:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Market rent is AED "+rv.estRent.toLocaleString()+"/yr. "+(rv.verdict==="OVERPRICED"||rv.verdict==="ABOVE_MARKET"?"Negotiate to AED "+rv.estRent.toLocaleString()+"/yr for a fair lease.":"Competitively priced — act before it's leased."))]),
+      div({marginBottom:"6px"},[span({color:"#F87171",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"FOR LANDLORD: "),span({color:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Area demand supports AED "+rv.estRent.toLocaleString()+"/yr. "+(rv.sc>0?"Net after service charges: AED "+rv.netRent.toLocaleString()+"/yr. ":"")+(rv.verdict==="OVERPRICED"||rv.verdict==="ABOVE_MARKET"?"Pricing above market may extend vacancy — consider AED "+_sweetSpotR.toLocaleString()+"/yr.":"Competitive pricing — expect fast tenant interest."))]),
+      div({},[span({color:"#3B82F6",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"DEAL TIP: "),span({color:cl.subHi,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Recommend closing at AED "+_sweetSpotR.toLocaleString()+"/yr — satisfies both parties.")]),
+    ]));
+    var negoSecR=el("div",{style:{marginTop:"12px",background:hexAlpha("#3B82F6",0.06),border:"1px solid "+hexAlpha("#3B82F6",0.2),borderRadius:"10px",padding:"14px"}});
+    negoSecR.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"},[
+      span({color:"#3B82F6",fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"AI Negotiation Strategy"),
+      span({color:hexAlpha("#3B82F6",0.6),fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"For you — the agent"),
+    ]));
+    if(analyzerState.aiNegotiation){
+      var negoFormattedR=formatAIResponse(analyzerState.aiNegotiation,cl);
+      negoSecR.appendChild(negoFormattedR||div({color:cl.subHi,fontSize:"12.5px",lineHeight:"1.75",fontFamily:"'Inter',sans-serif"},analyzerState.aiNegotiation));
+    }else{
+      negoSecR.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",fontStyle:"italic"},"Generating your step-by-step negotiation strategy..."));
+    }
+    rentAgentCard.appendChild(negoSecR);
+    wrap.appendChild(rentAgentCard);
   }
 
   if(rv.sc>0){
