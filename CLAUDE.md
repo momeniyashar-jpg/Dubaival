@@ -461,6 +461,53 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-15 (session 12, one more follow-up)**: User directly questioned
+  the flat -10%/-5% developer-furnished discount added in the previous
+  entry — pointed out that 10% of a 15M unit or a 30-40M penthouse is a
+  huge absolute number to knock off just for "unfurnished," and asked for
+  this specific part of the engine (the site's most important page, per
+  this file's own Directive #2) to be checked carefully. Investigated and
+  confirmed the concern was exactly right — a real, previously-undetected
+  accuracy bug in `computeAdjustedPSF()` (`js/valuation.js`):
+  - **The numbers, before the fix**: a flat -10% on a developer-furnished
+    15M unit stripped to "Unfurnished" = **-1,500,000 AED**; on a 40M
+    penthouse = **-4,000,000 AED**. Meanwhile the sibling logic for
+    OWNER-furnished buildings (adding furniture to a bare unit) already
+    correctly graduates the premium DOWN as price rises (1.5%/1% at ≥30M,
+    up to 10%/5% under 2M) — reflecting that a real furniture package costs
+    roughly a FIXED AED amount, not a fixed % of the unit's price. The
+    dev-furnished branch never got this same treatment when it was added —
+    a flat percentage on a nonexistent line item (furniture that costs a
+    fixed amount) that grows without bound as the property gets more
+    expensive is simply wrong, and produced a 6-8x mismatch against what the
+    exact same table already charges for ADDING furniture at the same price
+    point (e.g. at 30M: -3,000,000 AED to remove vs. only +450,000 AED to
+    add — should be roughly symmetric).
+  - **Fix**: the developer-furnished branch now reuses the EXACT SAME
+    graduated `fRate` table already used (and already correct) for the
+    owner-furnished branch, applied as a discount instead of a premium.
+    Verified this produces sensible, real-world furniture-package-sized
+    numbers post-fix: ~AED 213K for a 900sqft/2.2M unit down to ~AED
+    595K for a 7,000sqft/42M penthouse — vs. the old 1.5M-4M range.
+  - **Zero regression on owner-furnished (non-dev) buildings**: the `estVal`/
+    `fRate` computation was only moved up in the function (now computed
+    once, used by both branches) — a before/after diff against the pre-fix
+    file across 4 owner-furnished test cases (various furnish states, with
+    and without a DB building match) came back byte-identical; only the 4
+    developer-furnished test cases changed, exactly as intended.
+  - **UI text fixed to match**: the "FURNISHED NOTICE" card and Confidence
+    Factors row (`js/market.js`) both hardcoded literal "−10% applied"/
+    "−5% applied" strings for the developer-furnished case — now show the
+    actual computed `val.furnP` percentage instead, so the displayed number
+    always matches what was actually applied to the valuation.
+  - Verified: `node -c` on both touched files; a Node harness confirming
+    the graduated discount produces realistic absolute AED figures across
+    5 price/size combinations; a byte-identical before/after diff test for
+    every owner-furnished (non-dev) case; and a real-browser Playwright
+    pass analyzing a genuine 32M penthouse (Vida Dubai Mall, Unfurnished)
+    confirming the notice now reads "-2% applied" (not the old flat
+    "-10%"), zero non-network console errors.
+
 - **2026-07-15 (session 12, continued once more)**: Follow-up to the
   negotiation-feature session above — user asked for (1) the same AI
   negotiation strategy extended to rentals, (2) a check that buyer/seller

@@ -639,12 +639,23 @@ function computeAdjustedPSF(f,buildingVal,liveData){
   // Developer-furnished buildings (df:1): base PSF already includes furniture premium
   // Selecting "Furnished" = no extra premium (already in price); "Unfurnished" = discount
   const isDevFurnished=!!(bData&&bData.df);
+  const estVal=basePSF*size;
+  // Real furniture packages cost roughly a FIXED AED amount regardless of the
+  // unit's price — so the adjustment must shrink as a % of price for
+  // expensive units, same graduated table for both directions (adding
+  // furniture to a bare unit, or discounting for stripping it from a
+  // developer-furnished one). Real bug fixed 2026-07-15 (site owner caught
+  // it): a flat -10% here meant a 15M unit priced at -1.5M and a 40M
+  // penthouse at -4M for "removing furniture" — far beyond any real
+  // furniture package cost, and 6-8x more than what this same table already
+  // charges for ADDING furniture at that price point. Same fRate table now
+  // used for both branches so the two directions stay consistent with each
+  // other at every price point.
+  const fRate=estVal>=30e6?[0.015,0.01]:estVal>=15e6?[0.025,0.015]:estVal>=5e6?[0.04,0.025]:estVal>=2e6?[0.07,0.04]:[0.10,0.05];
   let furnP;
   if(isDevFurnished){
-    furnP=f.furnished==="Unfurnished"?-0.10:f.furnished==="Semi-Furnished"?-0.05:0;
+    furnP=f.furnished==="Unfurnished"?-fRate[0]:f.furnished==="Semi-Furnished"?-fRate[1]:0;
   }else if(f.furnished==="Furnished"||f.furnished==="Semi-Furnished"){
-    var estVal=basePSF*size;
-    var fRate=estVal>=30e6?[0.015,0.01]:estVal>=15e6?[0.025,0.015]:estVal>=5e6?[0.04,0.025]:estVal>=2e6?[0.07,0.04]:[0.10,0.05];
     furnP=f.furnished==="Furnished"?fRate[0]:fRate[1];
   }else{
     furnP=0;

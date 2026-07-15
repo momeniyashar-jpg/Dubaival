@@ -2394,7 +2394,13 @@ function renderAnalyzerResult(wrap){
     var furnNoticeTitle,furnNoticeMsg;
     if(val.isDevFurnished){
       furnNoticeTitle="DEVELOPER-FURNISHED BUILDING";
-      furnNoticeMsg=analyzerState.f.furnished==="Unfurnished"?"Stripped − furniture removed (−10% applied)":analyzerState.f.furnished==="Semi-Furnished"?"Partially furnished (−5% applied)":"Included in base price — no extra premium";
+      // val.furnP is the actual graduated discount computed in
+      // computeAdjustedPSF (scales down for expensive units — a furniture
+      // package costs roughly a fixed AED amount, not a fixed % of price —
+      // fixed 2026-07-15 after a flat -10%/-5% here meant millions of AED
+      // "discount" on high-value penthouses for a furniture package that
+      // never cost anywhere near that).
+      furnNoticeMsg=analyzerState.f.furnished==="Unfurnished"?"Stripped − furniture removed ("+val.furnP+"% applied, scales by property value)":analyzerState.f.furnished==="Semi-Furnished"?"Partially furnished ("+val.furnP+"% applied, scales by property value)":"Included in base price — no extra premium";
     }else{
       furnNoticeTitle="OWNER-FURNISHED UNIT";
       var furnPctLabel=val.fairPrice>=30e6?"1.5%":val.fairPrice>=15e6?"2.5%":val.fairPrice>=5e6?"4%":val.fairPrice>=2e6?"7%":"10%";
@@ -2412,7 +2418,7 @@ function renderAnalyzerResult(wrap){
   // -- CONFIDENCE BREAKDOWN --
   (function(){
     var _furnPctLbl=val.fairPrice>=30e6?"1.5%":val.fairPrice>=15e6?"2.5%":val.fairPrice>=5e6?"4%":val.fairPrice>=2e6?"7%":"10%";
-    const furnLabel=val.isDevFurnished?(analyzerState.f.furnished==="Furnished"?"Incl. in base (no extra)":analyzerState.f.furnished==="Unfurnished"?"Stripped −10%":"Semi −5%"):(analyzerState.f.furnished==="Furnished"?"+"+_furnPctLbl:analyzerState.f.furnished==="Semi-Furnished"?"Semi":"-");
+    const furnLabel=val.isDevFurnished?(analyzerState.f.furnished==="Furnished"?"Incl. in base (no extra)":val.furnP+"%"):(analyzerState.f.furnished==="Furnished"?"+"+_furnPctLbl:analyzerState.f.furnished==="Semi-Furnished"?"Semi":"-");
     const factors=[
       {l:"Data Source",v:val.dataLayer===1?"Verified DB":"Estimated",ok:val.dataLayer===1},
       {l:"Building Match",v:val.inDB?"Found in DB":"Area benchmark",ok:val.inDB},
