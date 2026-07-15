@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- AUTH MODULE ---
-var DV_AUTH={user:null,profile:null,loading:true,showModal:false,modalTab:"signin",error:"",busy:false,resetSent:false,recoveryToken:null,passwordUpdated:false,isDemo:false};
+var DV_AUTH={user:null,profile:null,loading:true,showModal:false,modalTab:"signin",error:"",busy:false,resetSent:false,recoveryToken:null,passwordUpdated:false,isDemo:false,emailDraft:(function(){try{return localStorage.getItem("dv_last_email")||"";}catch(e){return "";}})()};
 
 function activateDemoMode(){
   var DEMO_PORTFOLIO=[
@@ -56,10 +56,24 @@ async function sbAuth(endpoint,body){
   return data;
 }
 
+// Every Supabase Auth endpoint that emails the user a link (signup
+// confirmation, password recovery) needs to be told where to send them
+// back to — without redirect_to, Supabase falls back to whatever "Site URL"
+// happens to be configured in the project (often a stale localhost/default
+// placeholder), so the link silently sends the user somewhere that isn't
+// this site at all. Real bug found 2026-07-15: dvResetPassword() never set
+// this, so "Forgot password" emails looked like they worked but the actual
+// reset link led nowhere — the user's password was never really changed,
+// which also explains "Invalid login credentials" on a password they
+// believed they'd just reset.
+function _dvAuthRedirectTo(){
+  return encodeURIComponent(window.location.origin+"/");
+}
+
 async function dvSignUp(name,email,password){
   DV_AUTH.busy=true;DV_AUTH.error="";render();
   try{
-    var data=await sbAuth("signup",{email:email,password:password,data:{display_name:name}});
+    var data=await sbAuth("signup?redirect_to="+_dvAuthRedirectTo(),{email:email,password:password,data:{display_name:name}});
     if(data.access_token){
       await setAuthSession(data);
       await fetch(SUPABASE_URL+"/rest/v1/user_profiles",{method:"POST",headers:Object.assign({},sbHeaders(data.access_token),{"Prefer":"return=minimal"}),body:JSON.stringify({id:data.user.id,display_name:name,email:email,role:"user",preferred_lang:dvLang})});
@@ -85,7 +99,7 @@ async function dvSignIn(email,password){
 async function dvResetPassword(email){
   DV_AUTH.busy=true;DV_AUTH.error="";render();
   try{
-    var resp=await fetch(SUPABASE_URL+"/auth/v1/recover",{method:"POST",headers:sbHeaders(),body:JSON.stringify({email:email})});
+    var resp=await fetch(SUPABASE_URL+"/auth/v1/recover?redirect_to="+_dvAuthRedirectTo(),{method:"POST",headers:sbHeaders(),body:JSON.stringify({email:email})});
     if(!resp.ok){var d=await resp.json();throw new Error(d.error_description||d.msg||"Error sending reset email");}
     DV_AUTH.resetSent=true;
   }catch(e){DV_AUTH.error=e.message;}
@@ -285,12 +299,13 @@ function renderAuthModal(){
       ]));
     }else{
       if(DV_AUTH.error)modal.appendChild(div({background:hexAlpha("#EF4444",0.1),border:"1px solid "+hexAlpha("#EF4444",0.3),borderRadius:"8px",padding:"8px 12px",marginBottom:"12px",color:"#EF4444",fontSize:"11px",fontFamily:"'Inter',sans-serif"},DV_AUTH.error));
-      var resetInp=el("input",{type:"text",placeholder:"Your email address",autocomplete:"off",readonly:true,style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"14px"}});
+      var resetInp=el("input",{type:"text",placeholder:"Your email address",autocomplete:"off",readonly:true,value:DV_AUTH.emailDraft||"",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"14px"}});
       resetInp.addEventListener("focus",function(){this.removeAttribute("readonly");});
+      resetInp.addEventListener("input",function(){DV_AUTH.emailDraft=this.value;});
       modal.appendChild(resetInp);
       var sendBtn=el("button",{style:{width:"100%",padding:"12px",borderRadius:"999px",border:"1px solid rgba(212,175,55,0.15)",background:"rgba(212,175,55,0.10)",color:"#D4A843",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",marginBottom:"12px"}});
       sendBtn.textContent=DV_AUTH.busy?"...":"Send Reset Link";
-      sendBtn.addEventListener("click",function(){var e=resetInp.value.trim();if(!e){DV_AUTH.error="Enter your email";render();return;}dvResetPassword(e);});
+      sendBtn.addEventListener("click",function(){var e=resetInp.value.trim();if(!e){DV_AUTH.error="Enter your email";render();return;}DV_AUTH.emailDraft=e;try{localStorage.setItem("dv_last_email",e);}catch(ex){}dvResetPassword(e);});
       modal.appendChild(sendBtn);
     }
     var backLink=el("button",{style:{width:"100%",background:"transparent",border:"none",color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",cursor:"pointer",textAlign:"center"}});
@@ -352,8 +367,16 @@ function renderAuthModal(){
     modal.appendChild(nameInp);
   }
 
-  emailInp=el("input",{type:"text",placeholder:t("auth_email"),autocomplete:"off",readonly:true,style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"}});
+  // Real bug found 2026-07-15: this field never remembered the last email
+  // used, on top of getting wiped every time the modal re-rendered (e.g.
+  // after a failed sign-in showed an error) since renderAuthModal() rebuilds
+  // the whole form from scratch each render. Pre-fill from DV_AUTH.emailDraft
+  // (itself seeded from localStorage so it survives sign-out/reload too) and
+  // keep it updated on every keystroke so it can never go blank underneath
+  // the user mid-session.
+  emailInp=el("input",{type:"text",placeholder:t("auth_email"),autocomplete:"off",readonly:true,value:DV_AUTH.emailDraft||"",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"}});
   emailInp.addEventListener("focus",function(){this.removeAttribute("readonly");});
+  emailInp.addEventListener("input",function(){DV_AUTH.emailDraft=this.value;});
   modal.appendChild(emailInp);
 
   passInp=el("input",{type:"password",placeholder:t("auth_password"),autocomplete:"off",readonly:true,style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"16px"}});
@@ -369,6 +392,8 @@ function renderAuthModal(){
     var email=emailInp.value.trim();
     var pass=passInp.value;
     if(!email||!pass){DV_AUTH.error=t("auth_fill_fields");render();return;}
+    DV_AUTH.emailDraft=email;
+    try{localStorage.setItem("dv_last_email",email);}catch(e){}
     if(DV_AUTH.modalTab==="signup"){
       var name=(nameInp&&nameInp.value.trim())||"";
       if(!name){DV_AUTH.error=t("auth_fill_fields");render();return;}

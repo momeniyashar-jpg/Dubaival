@@ -461,6 +461,62 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-15 (session 12, real auth bugs — broken password reset +
+  email not remembered)**: User reported 3 linked, real problems while
+  testing sign-in for the WhatsApp/Meta setup work above: (1) "Invalid
+  login credentials" even with an email/password they were sure was
+  correct; (2) the email field never remembered anything, always had to be
+  retyped by hand, even right after signing out; (3) "Forgot password"
+  looked like it worked (email arrived) but clicking the link opened
+  nothing / an error, no page to actually set a new password.
+  - **Root cause, ties all 3 together**: `dvResetPassword()`
+    (`js/auth.js`) called Supabase's `/auth/v1/recover` endpoint with NO
+    `redirect_to` parameter at all. Without it, Supabase falls back to
+    whatever "Site URL" happens to be configured in the Supabase project's
+    own Auth settings (frequently a stale placeholder/localhost address
+    left over from initial project setup) — so the emailed reset link sent
+    the user somewhere that isn't this site, matching complaint #3 exactly.
+    Since the link never actually reached DubAIVal's own recovery-token
+    handler, `dvSetNewPassword()` was never called and the password was
+    NEVER actually changed server-side — so a later sign-in attempt with
+    the "new" password the user believed they'd just set correctly failed
+    with a genuine "Invalid login credentials" from Supabase (complaint #1
+    was a real, correct error response to a password that was never
+    updated, not a false positive). Fixed by adding `redirect_to=` (the
+    site's own origin) to both `/auth/v1/recover` and, defensively for the
+    same reason, `/auth/v1/signup`'s email-confirmation link (same class of
+    bug, not yet reported but equally broken had email confirmation ever
+    been turned on for the Supabase project).
+  - **Second real bug — email field never persisted**: `renderAuthModal()`
+    rebuilds the entire form (including a brand-new, empty `emailInp`
+    element) on every single re-render — so even within ONE attempt, a
+    failed sign-in (`DV_AUTH.error=...;render()`) wiped the just-typed
+    email along with showing the error, and there was no mechanism at all
+    to remember the last-used email across a sign-out or a fresh page
+    load. Fixed by adding `DV_AUTH.emailDraft` (seeded from a new
+    `dv_last_email` localStorage key at module load, matching every other
+    persisted-session key in this file), pre-filling both the sign-in and
+    forgot-password email inputs from it, keeping it live-updated on every
+    keystroke (`input` listener), and persisting it to `dv_last_email` on
+    every submit — deliberately never cleared by `dvSignOut()`, since the
+    whole point was to survive sign-out.
+  - Verified: a Node vm-sandbox test confirming both `/recover` and
+    `/signup` requests now include the correct `redirect_to` query param
+    pointing at the real site origin, and that a completely fresh module
+    load (simulating a browser reload/new tab) correctly picks up a
+    previously-persisted email from `localStorage` into
+    `DV_AUTH.emailDraft`; and a real-browser Playwright pass confirming
+    both the Sign In and Forgot Password modal views render with the
+    remembered email pre-filled, and that clicking "Send Reset Link" fires
+    a real request to `/auth/v1/recover` with `redirect_to` correctly set
+    to the page's own origin. `node -c js/auth.js`. Zero console errors.
+  - **Manual step to double-check**: Supabase Dashboard → Authentication →
+    URL Configuration — confirm `https://www.dubaival.com` (and/or
+    `https://www.dubaival.com/**`) is listed under "Redirect URLs". Supabase
+    only honors a `redirect_to` value that matches an allow-listed pattern;
+    if the domain was never added there, the fix above still won't reach
+    the site (Supabase will reject the redirect and fall back again).
+
 - **2026-07-15 (session 12, AI Chief of Staff expansion — "private assistant"
   features)**: User asked for AI Chief of Staff to become a genuinely
   full-featured co-worker for agents ("باید ببینیم چه موارد دیگه ای میتونیم
