@@ -1188,7 +1188,18 @@ function showVideoEditor(){
     });
     renderTabBody();
   }
-  switchTab("Auto-Pilot");
+  // Real bug fixed 2026-07-15: this used to be called right here, but
+  // renderAutoPilotTab() (called via renderTabBody()) reads PLATFORMS —
+  // a `var` declared further down in this same function, after this point
+  // in execution order. Since `var` only hoists the NAME (not the value),
+  // PLATFORMS was still literally `undefined` when this ran, so
+  // Object.keys(PLATFORMS) threw immediately, every single time this modal
+  // was opened, before the overlay was ever attached to the DOM — the
+  // entire AI Video Editor has never actually rendered. Moved to the end
+  // of the function (right before the modal is attached to <body>), after
+  // every var it and its render functions depend on (PLATFORMS,
+  // COLOR_GRADES, video, startInp/endInp, subTextarea, captionInp, etc.)
+  // has a real value.
 
   // ── Shared video element (reused across tabs) ─────────────────────────────
   var video=el("video",{style:{width:"100%",maxHeight:"280px",display:"block",borderRadius:"10px",background:"#000"},controls:true,playsInline:true});
@@ -1210,6 +1221,14 @@ function showVideoEditor(){
   }
   startInp.oninput=updateDurLabel;
   endInp.oninput=updateDurLabel;
+  // A manual trim edit always overrides the AI's multi-clip pick. Wired as
+  // a real "input" DOM event listener (not folded into updateDurLabel
+  // itself) since updateDurLabel is also called for pure display-refresh
+  // purposes (e.g. every time the Edit tab is opened, via refreshDurBadge)
+  // — that must NOT silently wipe out an Auto-Pilot result the user hasn't
+  // actually touched yet.
+  startInp.addEventListener("input",function(){VIDEO_EDITOR_STATE.clips=null;});
+  endInp.addEventListener("input",function(){VIDEO_EDITOR_STATE.clips=null;});
 
   // ── COLOR GRADES ────────────────────────────────────────────────────────────
   var COLOR_GRADES={
@@ -1239,7 +1258,14 @@ function showVideoEditor(){
     statusCb("Capturing frames…");
     var canvas=document.createElement("canvas");var ctx=canvas.getContext("2d");
     canvas.width=320;canvas.height=180;
-    var frames=[];var frameCount=Math.min(10,Math.max(4,Math.floor(dur/3)));
+    // Real gap fixed 2026-07-15: capped at 10 frames total regardless of
+    // video length, so a full 10-minute walkthrough (the site owner's
+    // stated use case) only got sampled once every ~60s — nowhere near
+    // enough for "pick the best parts" out of a long source video. Now
+    // scales with duration (one frame every ~8s) up to 20 frames — still a
+    // still-frame vision sample, not full video/audio understanding, but a
+    // meaningfully denser look at longer source footage.
+    var frames=[];var frameCount=Math.min(20,Math.max(6,Math.floor(dur/8)));
     for(var i=0;i<frameCount;i++){
       var t=dur*(i/(frameCount-1||1));
       video.currentTime=t;
@@ -1250,17 +1276,41 @@ function showVideoEditor(){
     var bp=getBrandProfile()||{};
     var plat=PLATFORMS[VIDEO_EDITOR_STATE.platform||"reel"];
     var parts=frames.map(function(f){return{inlineData:{mimeType:"image/jpeg",data:f.data}};});
-    parts.push({text:"Dubai real estate video, "+dur.toFixed(0)+"s long, "+frameCount+" frames captured at even intervals. Target platform: "+plat.label+" (max "+plat.maxSec+"s). Agent brand: "+(bp.name||"DubAIVal")+(bp.tone?", tone: "+bp.tone:"")+".\n\nAnalyze frames and respond ONLY in this JSON (no markdown):\n{\"trimStart\":0,\"trimEnd\":30,\"subtitles\":[{\"time\":0,\"text\":\"...\"},{\"time\":5,\"text\":\"...\"}],\"caption\":\"compelling Instagram caption with 5-8 hashtags\",\"colorGrade\":\"cinematic\",\"reason\":\"brief explanation\"}"});
+    // Real gap fixed 2026-07-15: previously asked for one trimStart/trimEnd
+    // window. Now asks for up to 3 non-overlapping clips from across the
+    // WHOLE source video (using each frame's own timestamp, printed right
+    // before it below) — this is what actually lets a long walkthrough get
+    // "the best parts" selected and stitched, not just one continuous slice
+    // near wherever the AI happened to land. Subtitle times are requested
+    // relative to the FINAL STITCHED output (i.e. clip 2's subtitles start
+    // counting from where clip 1 ends), so renderWithOverlays can use them
+    // directly with no extra timeline remapping.
+    frames.forEach(function(f,fi){parts.push({text:"Frame "+fi+" at t="+f.t+"s:"});parts.push({inlineData:{mimeType:"image/jpeg",data:f.data}});});
+    parts.push({text:"Dubai real estate video, "+dur.toFixed(0)+"s total, "+frameCount+" frames captured at the timestamps labeled above. Target platform: "+plat.label+" (max "+plat.maxSec+"s total). Agent brand: "+(bp.name||"DubAIVal")+(bp.tone?", tone: "+bp.tone:"")+".\n\nPick up to 3 of the MOST COMPELLING, NON-OVERLAPPING segments from across the ENTIRE video (not just the start) — e.g. a strong opening shot, then a standout interior/view moment, then a closing/exterior shot — whose combined length fits the platform's max duration. If the video is short, 1 clip covering most of it is fine. Respond ONLY in this JSON (no markdown):\n{\"clips\":[{\"start\":0,\"end\":10},{\"start\":85,\"end\":100}],\"subtitles\":[{\"time\":0,\"text\":\"...\"},{\"time\":5,\"text\":\"...\"}],\"caption\":\"compelling Instagram caption with 5-8 hashtags\",\"colorGrade\":\"cinematic\",\"reason\":\"brief explanation of why these segments were chosen\"}\nsubtitles[].time is seconds from the START OF THE FINAL STITCHED VIDEO (after the clips above are joined back-to-back), not from the original source timeline."});
     statusCb("AI analyzing content…");
     var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
       method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({contents:[{parts:parts}],generationConfig:{temperature:0.2,maxOutputTokens:800}})
+      body:JSON.stringify({contents:[{parts:parts}],generationConfig:{temperature:0.2,maxOutputTokens:1000}})
     });
     if(!r.ok)throw new Error("Gemini error "+r.status);
     var d=await r.json();
     var txt=((d.candidates||[])[0]||{content:{parts:[{text:"{}"}]}}).content.parts[0].text;
     txt=txt.replace(/```json\s*/g,"").replace(/```\s*/g,"").trim();
     var obj=JSON.parse(txt.match(/\{[\s\S]*\}/)[0]);
+    // Defensive normalization: clamp/sort/dedupe clips against the real
+    // video duration so a hallucinated or out-of-range AI response can't
+    // produce an invalid render (e.g. start>=end, or beyond video length).
+    if(obj.clips&&obj.clips.length){
+      obj.clips=obj.clips.map(function(c){return{start:Math.max(0,Math.min(dur,parseFloat(c.start)||0)),end:Math.max(0,Math.min(dur,parseFloat(c.end)||0))};})
+        .filter(function(c){return c.end>c.start+0.5;})
+        .sort(function(a,b){return a.start-b.start;})
+        .slice(0,3);
+    }
+    if(!obj.clips||!obj.clips.length){
+      // Fall back to the old single-window behavior if the AI didn't return
+      // usable clips, rather than failing the whole Auto-Pilot run.
+      obj.clips=[{start:obj.trimStart||0,end:Math.min(obj.trimEnd||30,dur)}];
+    }
     return obj;
   }
 
@@ -1269,6 +1319,14 @@ function showVideoEditor(){
     var plat=PLATFORMS[platKey]||PLATFORMS.reel;
     var s=VIDEO_EDITOR_STATE.trimStart||0;
     var e=VIDEO_EDITOR_STATE.trimEnd||VIDEO_EDITOR_STATE.duration||30;
+    // Real bug fixed 2026-07-15: this used to be a single continuous
+    // trim window — the site owner's brief specifically asked for AI to
+    // "select the best PARTS" (plural) of a longer source video, not one
+    // window. Auto-Pilot now sets VIDEO_EDITOR_STATE.clips to an array of
+    // up to 3 AI-picked segments (see aiAnalyzeVideo); manual single-trim
+    // editing in the Edit tab still works exactly as before (a 1-item
+    // clips array is equivalent to the old s/e window).
+    var clips=(VIDEO_EDITOR_STATE.clips&&VIDEO_EDITOR_STATE.clips.length)?VIDEO_EDITOR_STATE.clips:[{start:s,end:e}];
     var subs=(subTextarea.value||"").trim().split("\n").filter(Boolean).map(function(l){
       var m=l.match(/^(\d+):(\d+)\s+(.*)/);
       return m?{time:parseInt(m[1])*60+parseInt(m[2]),text:m[3]}:null;
@@ -1280,8 +1338,32 @@ function showVideoEditor(){
     statusCb("Starting render…");
 
     var stream=canvas.captureStream(30);
-    if(video.captureStream){
-      try{video.captureStream().getAudioTracks().forEach(function(t){stream.addTrack(t);});}catch(e){}
+    // Real bug fixed 2026-07-15: the Auto-Pilot UI always showed "Background
+    // Music: Luxury ambience ✓" as a completed step, but no music was ever
+    // actually mixed in — video.captureStream()'s audio tracks were added
+    // directly with no music at all. Now mixes the video's own audio (the
+    // agent's narration) together with a real synthesized music bed
+    // (_createMusicBed, same generator already used by the AI Video
+    // Generator) through one shared AudioContext, ducked under the
+    // narration so it doesn't overpower speech.
+    var vidCaptureStream=null;
+    try{vidCaptureStream=video.captureStream?video.captureStream():null;}catch(e0){}
+    var hasVideoAudio=!!(vidCaptureStream&&vidCaptureStream.getAudioTracks().length>0);
+    var wantMusic=VIDEO_EDITOR_STATE.musicType&&VIDEO_EDITOR_STATE.musicType!=="none";
+    if(hasVideoAudio||wantMusic){
+      try{
+        var audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+        var mixDest=audioCtx.createMediaStreamDestination();
+        if(hasVideoAudio){
+          var vidSrc=audioCtx.createMediaStreamSource(vidCaptureStream);
+          var vidGain=audioCtx.createGain();vidGain.gain.value=1;
+          vidSrc.connect(vidGain);vidGain.connect(mixDest);
+        }
+        if(wantMusic)_createMusicBed(VIDEO_EDITOR_STATE.musicType,null,hasVideoAudio?0.45:1,{ctx:audioCtx,dest:mixDest});
+        mixDest.stream.getAudioTracks().forEach(function(t){stream.addTrack(t);});
+      }catch(mixErr){
+        if(vidCaptureStream)vidCaptureStream.getAudioTracks().forEach(function(t){stream.addTrack(t);});
+      }
     }
 
     var mimeType=MediaRecorder.isTypeSupported("video/mp4")?"video/mp4":"video/webm;codecs=vp9";
@@ -1290,21 +1372,12 @@ function showVideoEditor(){
     recorder.ondataavailable=function(ev){if(ev.data&&ev.data.size>0)chunks.push(ev.data);};
     var done=new Promise(function(resolve){recorder.onstop=resolve;});
 
-    video.currentTime=s;
-    await new Promise(function(r){video.onseeked=r;setTimeout(r,800);});
-    video.playbackRate=1;
-    video.play();
-    recorder.start(100);
-
     var wm=VIDEO_EDITOR_STATE.watermark&&(bp.name||bp.tagline);
-    var totalDur=e-s;
-    var drawFrame=function(){
-      if(video.currentTime>=e||video.paused||video.ended){
-        video.pause();recorder.stop();statusCb("Finalizing…");return;
-      }
-      var progress=(video.currentTime-s)/totalDur;
-      statusCb("Rendering "+(Math.round(progress*100))+"%…");
+    var totalDur=clips.reduce(function(sum,c){return sum+Math.max(0,c.end-c.start);},0)||1;
+    var clipIdx=0;
+    var clipElapsedBefore=0;
 
+    function drawOverlaysAt(outputElapsed){
       // Draw video frame scaled to canvas with color grade
       ctx.filter=grade.filter;
       var vw=video.videoWidth||1280,vh=video.videoHeight||720;
@@ -1320,10 +1393,11 @@ function showVideoEditor(){
         ctx.fillStyle=grad;ctx.fillRect(0,0,plat.w,plat.h);
       }
 
-      // Subtitles
-      var elapsed=video.currentTime-s;
+      // Subtitles — keyed by outputElapsed (time in the FINAL stitched
+      // video), not the source video's own timeline, so timings stay
+      // correct whether this is one manual trim or several AI-picked clips.
       var activeSub=null;
-      for(var i=subs.length-1;i>=0;i--){if(elapsed>=subs[i].time){activeSub=subs[i].text;break;}}
+      for(var i=subs.length-1;i>=0;i--){if(outputElapsed>=subs[i].time){activeSub=subs[i].text;break;}}
       if(activeSub){
         var fSize=Math.max(28,Math.round(plat.w/26));
         ctx.font="bold "+fSize+"px 'Space Grotesk', 'Arial', sans-serif";
@@ -1353,9 +1427,41 @@ function showVideoEditor(){
         ctx.fillStyle="rgba(212,175,55,0.9)";
         ctx.fillText(wmText,plat.w*0.04,plat.h*0.92);
       }
+    }
 
+    function advanceToNextClip(){
+      var finished=clips[clipIdx];
+      clipElapsedBefore+=Math.max(0,finished.end-finished.start);
+      clipIdx++;
+      if(clipIdx>=clips.length){
+        video.pause();recorder.stop();statusCb("Finalizing…");
+        return;
+      }
+      var next=clips[clipIdx];
+      video.currentTime=next.start;
+      video.onseeked=function(){
+        video.play().then(function(){requestAnimationFrame(drawFrame);}).catch(function(){requestAnimationFrame(drawFrame);});
+      };
+    }
+
+    var drawFrame=function(){
+      var c=clips[clipIdx];
+      if(video.currentTime>=c.end||video.paused||video.ended){
+        advanceToNextClip();
+        return;
+      }
+      var outputElapsed=clipElapsedBefore+(video.currentTime-c.start);
+      var progress=outputElapsed/totalDur;
+      statusCb("Rendering "+(Math.round(progress*100))+"%… (clip "+(clipIdx+1)+"/"+clips.length+")");
+      drawOverlaysAt(outputElapsed);
       requestAnimationFrame(drawFrame);
     };
+
+    video.currentTime=clips[0].start;
+    await new Promise(function(r){video.onseeked=r;setTimeout(r,800);});
+    video.playbackRate=1;
+    await video.play().catch(function(){});
+    recorder.start(100);
     requestAnimationFrame(drawFrame);
     await done;
     return new Blob(chunks,{type:mimeType});
@@ -1484,16 +1590,16 @@ function showVideoEditor(){
     // AUTO-PILOT CARD
     var apCard=div({background:"linear-gradient(135deg,rgba(236,72,153,0.08),rgba(139,92,246,0.08))",border:"1px solid rgba(236,72,153,0.25)",borderRadius:"16px",padding:"20px",marginBottom:"16px"});
     apCard.appendChild(div({color:"#F0F2F5",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"⚡ Auto-Pilot"));
-    apCard.appendChild(div({color:"#8899AA",fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"16px"},"AI analyzes your video, finds the best clip, writes subtitles + caption, applies brand and color grade — all in one click."));
+    apCard.appendChild(div({color:"#8899AA",fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"16px"},"AI scans your whole video, picks up to 3 of the best moments and stitches them together, writes subtitles + caption, applies brand, color grade and background music — all in one click."));
 
     // Steps preview
     var steps=[
-      {icon:"✂",label:"AI Smart Trim",desc:"Best 15-30s clip"},
+      {icon:"✂",label:"AI Smart Trim",desc:"Best moments, stitched"},
       {icon:"🎨",label:"Color Grade",desc:"Cinematic look"},
-      {icon:"💬",label:"AI Subtitles",desc:"Auto-generated"},
+      {icon:"💬",label:"AI Subtitles",desc:"Suggested, not transcribed"},
       {icon:"✍",label:"Caption + Hashtags",desc:"Optimized for reach"},
       {icon:"🏷",label:"Brand Watermark",desc:"From your profile"},
-      {icon:"🎵",label:"Background Music",desc:"Luxury ambience"}
+      {icon:"🎵",label:"Background Music",desc:(function(){var mp={ambient:"Soft ambient",upbeat:"Upbeat",luxury:"Luxury ambience",chill:"Chill",dramatic:"Dramatic"};return mp[VIDEO_EDITOR_STATE.musicType]||"None selected";})()}
     ];
     var stepsGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"16px"});
     var stepEls=[];
@@ -1534,11 +1640,18 @@ function showVideoEditor(){
         var aiResult=await aiAnalyzeVideo(function(msg){statusTxt.textContent=msg;});
         setStep(0,true);setProgress(30,"AI analysis complete");
 
-        // Apply AI trim
-        startInp.value=(aiResult.trimStart||0).toFixed(1);
-        endInp.value=(Math.min(aiResult.trimEnd||30,VIDEO_EDITOR_STATE.duration)).toFixed(1);
-        VIDEO_EDITOR_STATE.trimStart=parseFloat(startInp.value);
-        VIDEO_EDITOR_STATE.trimEnd=parseFloat(endInp.value);
+        // Apply AI-picked clips (up to 3 best segments — see aiAnalyzeVideo).
+        // trimStart/trimEnd are kept in sync as a display-only summary
+        // spanning the first clip's start to the last clip's end; the Edit
+        // tab's manual trim inputs still show/edit only the FIRST clip so a
+        // user tweaking them by hand isn't confused by multi-clip math —
+        // doing so also clears .clips (see startInp/endInp listeners below)
+        // so a manual edit always wins over the AI's multi-clip pick.
+        VIDEO_EDITOR_STATE.clips=aiResult.clips;
+        startInp.value=aiResult.clips[0].start.toFixed(1);
+        endInp.value=aiResult.clips[0].end.toFixed(1);
+        VIDEO_EDITOR_STATE.trimStart=aiResult.clips[0].start;
+        VIDEO_EDITOR_STATE.trimEnd=aiResult.clips[aiResult.clips.length-1].end;
 
         // Color grade
         VIDEO_EDITOR_STATE.colorPreset=aiResult.colorGrade||"cinematic";
@@ -1634,6 +1747,13 @@ function showVideoEditor(){
     // Subtitles
     var subSec=div({background:"#1A1F2E",borderRadius:"12px",padding:"14px",marginBottom:"10px"});
     subSec.appendChild(sectionHdr("SUBTITLES","#8B5CF6"));
+    // Honesty fix 2026-07-15: the AI here only ever sees still frames (or,
+    // for the manual button, no video content at all) — it cannot hear or
+    // transcribe what's actually said in the video, so "AI subtitles" are
+    // AI-suggested marketing captions synced to timestamps, not real
+    // speech-to-text. Said plainly so an agent doesn't publish a video
+    // assuming the on-screen text matches their actual narration.
+    subSec.appendChild(div({color:"#556677",fontSize:"9px",fontFamily:"'Inter',sans-serif",marginBottom:"8px",lineHeight:"1.5"},"AI suggests on-brand caption text synced to timestamps — it can't hear your video's audio, so this isn't a transcript of what you actually say. For word-for-word subtitles, type your own lines below (format: 0:05 Your text)."));
     subSec.appendChild(subTextarea);
     var aiSubBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#8B5CF6,#A78BFA)",color:"#FFF",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
     aiSubBtn.textContent="✨ AI Generate Subtitles";
@@ -1678,6 +1798,26 @@ function showVideoEditor(){
     };
     capSec.appendChild(aiCapBtn);
     body.appendChild(capSec);
+
+    // Background Music — real mixing (see renderWithOverlays), not just a
+    // decorative UI step. Synthesized ambient bed generated client-side
+    // (same generator the AI Video Generator already uses), so this is
+    // free and carries no licensing risk, unlike a real royalty-free MP3
+    // library would.
+    var musicSec=div({background:"#1A1F2E",borderRadius:"12px",padding:"14px",marginBottom:"10px"});
+    musicSec.appendChild(sectionHdr("BACKGROUND MUSIC","#06B6D4"));
+    var musicOpts=[["none","None"],["luxury","Luxury"],["ambient","Ambient"],["upbeat","Upbeat"],["chill","Chill"],["dramatic","Dramatic"]];
+    var musicRow=div({display:"flex",gap:"6px",flexWrap:"wrap"});
+    musicOpts.forEach(function(o){
+      var active=(VIDEO_EDITOR_STATE.musicType||"none")===o[0];
+      var btn=el("button",{style:{background:active?"rgba(6,182,212,0.2)":"transparent",border:"1px solid "+(active?"#06B6D4":"#2A3040"),borderRadius:"8px",padding:"6px 12px",cursor:"pointer",color:active?"#06B6D4":"#8899AA",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",transition:"all 0.15s"}});
+      btn.textContent=o[1];
+      btn.onclick=function(){VIDEO_EDITOR_STATE.musicType=o[0];renderTabBody();};
+      musicRow.appendChild(btn);
+    });
+    musicSec.appendChild(musicRow);
+    musicSec.appendChild(div({color:"#556677",fontSize:"9px",fontFamily:"'Inter',sans-serif",marginTop:"8px"},"Mixed under your video's own audio (ducked so narration stays clear)."));
+    body.appendChild(musicSec);
 
     // Watermark toggle
     var wmSec=div({background:"#1A1F2E",borderRadius:"12px",padding:"14px",marginBottom:"14px",display:"flex",alignItems:"center",justifyContent:"space-between"});
@@ -1767,12 +1907,14 @@ function showVideoEditor(){
       VIDEO_EDITOR_STATE.duration=video.duration;
       VIDEO_EDITOR_STATE.trimStart=0;
       VIDEO_EDITOR_STATE.trimEnd=Math.min(30,video.duration);
+      VIDEO_EDITOR_STATE.clips=null;
       startInp.value="0";endInp.value=VIDEO_EDITOR_STATE.trimEnd.toFixed(1);
       switchTab("Auto-Pilot");
     };
   }
   fileInput.onchange=function(ev){var f=ev.target.files[0];if(f)handleFileLoad(f);};
 
+  switchTab("Auto-Pilot");
   overlay.appendChild(card);
   overlay.addEventListener("click",function(ev){if(ev.target===overlay){closeX.onclick();}});
   document.body.appendChild(overlay);
@@ -3711,12 +3853,18 @@ async function showVideoGenUI(initialPrompt, propertyCtx){
   // custom track), returned as {ctx, dest} where dest is a
   // MediaStreamDestination whose track can be added to a MediaRecorder
   // stream. duckFactor (0-1) lowers the mix so narration stays audible.
-  function _createMusicBed(mType,fileRef,duckFactor){
+  // externalCtxDest lets a caller mix this bed into an AudioContext/
+  // destination it already owns (e.g. alongside the source video's own
+  // audio) instead of getting its own isolated context — used by the
+  // Video Editor's real background-music mixing (2026-07-15). Omitted by
+  // existing callers below, so their behavior is unchanged (new ctx+dest
+  // exactly as before).
+  function _createMusicBed(mType,fileRef,duckFactor,externalCtxDest){
     if(!mType||mType==="none")return null;
     duckFactor=duckFactor==null?1:duckFactor;
     try{
-      var ctx=new(window.AudioContext||window.webkitAudioContext)();
-      var dest=ctx.createMediaStreamDestination();
+      var ctx=externalCtxDest?externalCtxDest.ctx:new(window.AudioContext||window.webkitAudioContext)();
+      var dest=externalCtxDest?externalCtxDest.dest:ctx.createMediaStreamDestination();
       if(mType==="custom"&&fileRef){
         fileRef.arrayBuffer().then(function(abuf){
           return ctx.decodeAudioData(abuf);

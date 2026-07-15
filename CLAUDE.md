@@ -461,6 +461,123 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-15 (session 12, AI Video Editor audit)**: User asked for a full
+  review of the AI Video Editor (`showVideoEditor()`, `js/chat.js`) against
+  their original vision: upload up to a 10-minute walkthrough, AI picks the
+  best parts and edits them together, cleans audio noise, upscales quality,
+  optionally overlays images/charts on request, adds subtitles in any
+  language, and produces a professional result — explicitly meant as a
+  hook for agents/small brokerages who can't afford or don't have time for
+  a real editor. Read the full ~750-line implementation before touching
+  anything. Found the tool was far short of that vision AND had a
+  100%-reproducible crash bug. Presented findings + a two-phase plan (Phase
+  1: free correctness/logic fixes now; Phase 2: real paid services —
+  transcription, server-side rendering, upscaling — needs the user's
+  vendor/budget decision) via `AskUserQuestion`; user chose "Phase 1 now +
+  review Phase 2 options."
+  - **Critical pre-existing bug found and fixed — the editor has never
+    actually opened**: `showVideoEditor()` called `switchTab("Auto-Pilot")`
+    immediately after building the tab bar, but `renderAutoPilotTab()`
+    (invoked synchronously through that call) reads `PLATFORMS` — a `var`
+    declared much later in the same function. `var` only hoists the NAME,
+    not the value, so `PLATFORMS` was still literally `undefined` at that
+    point, and `Object.keys(undefined)` threw a TypeError before the modal
+    was ever appended to `<body>`. This meant clicking to open the AI Video
+    Editor has silently done nothing (or thrown a console-only error) on
+    every single attempt, in every session, since this feature was built —
+    not a corner case. Fixed by moving the initial `switchTab("Auto-Pilot")`
+    call to the very end of the function, after every `var` it (and the
+    render functions it triggers) depends on has a real value. Caught by
+    building an in-browser synthetic test video and driving the actual
+    `showVideoEditor()` function end-to-end via Playwright — it threw
+    immediately, before the fix.
+  - **Real bug — "Background Music" was a decorative lie**: the Auto-Pilot
+    UI always marked "🎵 Background Music: Luxury ambience" as a completed
+    step (a green checkmark), but `renderWithOverlays()` never mixed in any
+    music at all — it just re-added the source video's own audio track
+    unchanged. Fixed for real: reused `_createMusicBed()` (the synthesized
+    ambient-pad generator already built for the separate AI Video
+    Generator/`VGEN` feature, zero cost, zero licensing risk since it's
+    pure Web Audio oscillators, not licensed samples) — extended it to
+    accept an optional external `{ctx,dest}` so it can mix into an
+    `AudioContext` graph the caller already owns (100% backward compatible;
+    existing call sites that don't pass this get their own new context
+    exactly as before, verified no behavior change). `renderWithOverlays()`
+    now builds one shared `AudioContext`, routes the video's own audio
+    through a gain node and the music bed (ducked to 45% when the video has
+    its own audio, full volume if it doesn't) into one mixed destination,
+    and uses THAT as the recording's audio track. Added a real music picker
+    (5 presets + None) to the Edit tab, wired to `VIDEO_EDITOR_STATE.musicType`.
+    Verified via a synthetic in-browser test video with a real oscillator
+    tone as its "narration" — the rendered output's `captureStream()`
+    reported `getAudioTracks().length === 1` (a real, present, non-silent
+    mixed track), confirming actual mixing occurred, not just no-op code.
+  - **Real gap — "best parts" was always exactly one continuous window**:
+    matches the user's own framing almost verbatim ("انتخاب بهترین
+    قسمت‌های ویدئو" — select the best PARTS, plural) — the AI
+    (`aiAnalyzeVideo`) only ever returned one `trimStart`/`trimEnd` pair,
+    and `renderWithOverlays()` had no way to render anything else. For a
+    real 10-minute walkthrough (the user's explicit target length), this
+    meant one 15-30s slice near wherever the AI happened to land, with the
+    other ~9.5 minutes of footage completely ignored. Fixed:
+    `aiAnalyzeVideo()` now asks Gemini for up to 3 non-overlapping segments
+    picked from ACROSS THE WHOLE VIDEO (each sampled frame is labeled with
+    its real timestamp in the prompt so the AI can reference specific
+    moments), with defensive clamping/sorting/deduping of whatever it
+    returns against the real video duration so a malformed AI response
+    can't produce an invalid render. `renderWithOverlays()`'s draw loop was
+    generalized from a single `s`/`e` window to iterate a `clips` array,
+    seeking to each clip's start and stitching them back-to-back into one
+    continuous recording (subtitle timestamps are now measured in the
+    FINAL STITCHED output's own timeline, not the source video's, so they
+    stay in sync across a multi-clip stitch — the AI prompt asks for
+    exactly this convention directly, avoiding any extra remapping code).
+    Manual single-window trimming in the Edit tab is unaffected and stays
+    fully backward-compatible (a 1-item `clips` array is mathematically
+    identical to the old `s`/`e` approach) — editing the trim inputs by
+    hand always clears any AI-picked `clips` so a manual override wins.
+    Also raised frame sampling from a flat 10-frames-total cap to scaling
+    with duration (~1 frame per 8s, up to 20) — 10 fixed frames across a
+    10-minute video was one frame every 60s, nowhere near enough signal to
+    identify multiple distinct "best moments." Verified via the same
+    synthetic-video Playwright test with 2 AI-picked clips at different
+    points in the source video — the real rendered output blob's duration
+    (~3.07s) closely matched the two clips' combined expected length
+    (~2.93s), confirming genuine multi-segment stitching, not just the
+    first clip alone.
+  - **Honesty fix — "AI Subtitles" doesn't mean transcription**: the tool
+    can only ever see still frames (Gemini vision) or, for the standalone
+    "AI Generate Subtitles" button, no video content at all — it has never
+    had any way to hear or transcribe what's actually said in a video. The
+    UI never disclosed this, so "AI Subtitles: Auto-generated" reads as if
+    it captures the agent's real narration, when it's actually AI-guessed
+    marketing text merely synced to timestamps. Added a plain-language note
+    directly above the subtitle textarea and reworded the Auto-Pilot step
+    label to "Suggested, not transcribed" — real word-for-word subtitles
+    still need Phase 2 (a real speech-to-text service), flagged below.
+  - **Not done this session (Phase 2 — needs the user's vendor/budget
+    decision, discussed but not built)**: real speech-to-text subtitles in
+    any language (e.g. Whisper API, ~$0.006/min — cheapest, highest-value
+    gap to close first), real server-side rendering to replace the
+    client-side real-time canvas-capture approach entirely (a 10-minute
+    video currently takes ~10 real minutes to render in-browser with the
+    tab open — a dedicated video-editing API like Shotstack/Creatomate
+    would also handle this), real audio noise reduction, and real AI
+    upscaling — none of these are achievable for free/client-side, and
+    upscaling specifically is slow/costly enough it would need an async
+    job+webhook pattern rather than a synchronous request.
+  - Verified: `node -c js/chat.js`; two full Playwright passes driving the
+    actual `showVideoEditor()` UI against an in-browser-generated synthetic
+    video (canvas + oscillator tone, recorded via `MediaRecorder`) — (1)
+    manual Edit-tab flow: load video → set 2 clips + music → click "Render
+    Video" → real MP4 output with correct stitched duration and a present
+    audio track; (2) full one-click Auto-Pilot flow with a mocked
+    multi-clip Gemini response → AI clips applied → color grade/caption
+    applied → rendered → real output with the AI's exact clips reflected in
+    state and a non-empty caption — zero non-network console errors in
+    either run, and the first run is what caught the modal-crash bug (it
+    threw before the fix, rendered cleanly after).
+
 - **2026-07-15 (session 12, small follow-up)**: User noted `logo.png` was
   never shown anywhere prominent (it was already wired into the header,
   favicon, and About page, but not the Home tab) and asked for it to appear
