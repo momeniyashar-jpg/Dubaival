@@ -2211,7 +2211,7 @@ function renderHome(){
   // the app (the gold version is reserved for the live/main site, not yet
   // swapped in during beta).
   var homeFooter=el('div',{style:{textAlign:'center',padding:'32px 16px 24px',marginTop:'8px'}});
-  homeFooter.appendChild(el('img',{src:'logo.png',alt:'DubAIVal',style:{width:'40px',height:'40px',objectFit:'contain',opacity:'0.85',margin:'0 auto 10px',display:'block'}}));
+  homeFooter.appendChild(el('img',{src:'logo.png',alt:'DubAIVal',style:{width:'96px',height:'96px',objectFit:'contain',opacity:'1',margin:'0 auto 12px',display:'block'}}));
   homeFooter.appendChild(div({color:'#6B7A9E',fontSize:'10px',fontFamily:"'Inter',sans-serif",letterSpacing:'0.04em'},'DubAIVal · Built in Dubai'));
   wrap.appendChild(homeFooter);
 
