@@ -1866,145 +1866,67 @@ function renderPwaInstallBanner(){
   return wrap;
 }
 
-// --- VAL MASCOT (DubaiVal AI Falcon — profile view, facing right) ------------
+// --- VAL MASCOT (DubaiVal AI Falcon — abstract stooping-falcon mark) --------
+// Redesigned 2026-07-15: the previous version attempted a literal, detailed
+// side-profile falcon head (hood/malar-stripe/hooked-beak anatomy) via
+// hand-written bezier paths with no visual iteration — it shipped with
+// mismatched proportions and read as messy rather than deliberate. This
+// version is a bold, abstract "falcon in a stooping dive, seen head-on"
+// mark instead: two swept, pointed wing blades forming a shallow gull-wing
+// silhouette, a small tail chevron, and one glowing cyan "AI eye" at the
+// convergence point. Abstract geometric marks are far more forgiving to get
+// right without an actual illustrator, and this was verified visually
+// (rendered to PNG and inspected) through several iterations before landing
+// here — unlike the original, which never was.
 var _valId=0;
 function getValSVG(size,badge){
   var s=size||200;
   var u=++_valId;
-  var g='vg'+u,ae='vae'+u,gf='vcg'+u,gg='vgg'+u,cp='vcp'+u,bg='vbg'+u;
+  var g='vg'+u,g2='vg2'+u,ae='vae'+u,gf='vcg'+u,bg='vbg'+u;
   var h='<svg width="'+s+'" height="'+s+'" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">';
   h+='<defs>';
-  // Clip to circle
-  h+='<clipPath id="'+cp+'"><circle cx="100" cy="100" r="95"/></clipPath>';
-  // Gold gradient for feathers
-  h+='<linearGradient id="'+g+'" x1="0%" y1="0%" x2="70%" y2="100%">';
-  h+='<stop offset="0%" stop-color="#F8E070"/><stop offset="45%" stop-color="#D4AF37"/><stop offset="100%" stop-color="#8A6010"/>';
+  // Left-wing gold gradient (light -> dark, sweeping outward)
+  h+='<linearGradient id="'+g+'" x1="0%" y1="0%" x2="100%" y2="30%">';
+  h+='<stop offset="0%" stop-color="#F6DE85"/><stop offset="55%" stop-color="#D4AF37"/><stop offset="100%" stop-color="#8F6A0E"/>';
   h+='</linearGradient>';
-  // Darker gold — wing tips, beak
-  h+='<linearGradient id="'+gg+'" x1="0%" y1="0%" x2="100%" y2="100%">';
-  h+='<stop offset="0%" stop-color="#C0980E"/><stop offset="100%" stop-color="#5A3C06"/>';
+  // Right-wing gold gradient (mirrored direction, so both wings catch light symmetrically)
+  h+='<linearGradient id="'+g2+'" x1="0%" y1="0%" x2="100%" y2="30%">';
+  h+='<stop offset="0%" stop-color="#8F6A0E"/><stop offset="55%" stop-color="#D4AF37"/><stop offset="100%" stop-color="#F6DE85"/>';
   h+='</linearGradient>';
-  // Background subtle vignette
-  h+='<radialGradient id="'+bg+'" cx="40%" cy="35%" r="65%">';
-  h+='<stop offset="0%" stop-color="#0D1528"/><stop offset="100%" stop-color="#07090F"/>';
+  // Background vignette
+  h+='<radialGradient id="'+bg+'" cx="42%" cy="38%" r="65%">';
+  h+='<stop offset="0%" stop-color="#111A30"/><stop offset="100%" stop-color="#070A12"/>';
   h+='</radialGradient>';
   // AI eye — cyan radial
-  h+='<radialGradient id="'+ae+'" cx="50%" cy="50%" r="50%">';
+  h+='<radialGradient id="'+ae+'" cx="35%" cy="32%" r="70%">';
   h+='<stop offset="0%" stop-color="#FFFFFF"/>';
-  h+='<stop offset="22%" stop-color="#00EEFF"/>';
-  h+='<stop offset="58%" stop-color="#0044CC"/>';
-  h+='<stop offset="100%" stop-color="#000E26"/>';
+  h+='<stop offset="30%" stop-color="#00EEFF"/>';
+  h+='<stop offset="100%" stop-color="#004C8C"/>';
   h+='</radialGradient>';
   // Glow filter for AI eye
-  h+='<filter id="'+gf+'" x="-80%" y="-80%" width="260%" height="260%">';
-  h+='<feGaussianBlur in="SourceGraphic" stdDeviation="4.5" result="b"/>';
+  h+='<filter id="'+gf+'" x="-150%" y="-150%" width="400%" height="400%">';
+  h+='<feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b"/>';
   h+='<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>';
   h+='</filter>';
   h+='</defs>';
 
   // ── Background ──────────────────────────────────────────────────────────
-  h+='<circle cx="100" cy="100" r="96" fill="url(#'+bg+')"/>';
-  h+='<circle cx="100" cy="100" r="95" fill="none" stroke="#D4AF37" stroke-width="1.5" opacity="0.75"/>';
+  h+='<circle cx="100" cy="100" r="98" fill="url(#'+bg+')"/>';
+  h+='<circle cx="100" cy="100" r="96.5" fill="none" stroke="#D4AF37" stroke-width="1.5" opacity="0.6"/>';
 
-  // ── All bird art clipped inside the circle ───────────────────────────────
-  h+='<g clip-path="url(#'+cp+')">';
+  // == WINGS — swept, pointed blades forming a shallow gull-wing silhouette ==
+  // (a falcon stooping/diving straight toward the viewer, wings flared back)
+  h+='<path d="M100,88 C76,58 40,46 16,62 C32,66 54,76 68,96 C80,110 90,116 100,118 Z" fill="url(#'+g+')"/>';
+  h+='<path d="M100,88 C124,58 160,46 184,62 C168,66 146,76 132,96 C120,110 110,116 100,118 Z" fill="url(#'+g2+')"/>';
 
-  // == TAIL feathers fanning at bottom-left ==
-  h+='<path d="M32,178 C26,168 22,154 28,142 L46,148 Z" fill="url(#'+g+')" opacity="0.85"/>';
-  h+='<path d="M42,186 C34,174 32,158 40,146 L56,154 Z" fill="url(#'+g+')" opacity="0.9"/>';
-  h+='<path d="M56,192 C50,180 50,162 60,152 L72,162 Z" fill="url(#'+g+')" opacity="0.85"/>';
-  h+='<path d="M70,194 C66,182 68,166 78,158 L86,170 Z" fill="url(#'+gg+')" opacity="0.8"/>';
+  // == TAIL — small chevron below the body ==
+  h+='<path d="M100,118 L88,150 L100,142 L112,150 Z" fill="#B88A18"/>';
 
-  // == BODY — large oval, left-center ==
-  h+='<ellipse cx="80" cy="152" rx="58" ry="44" fill="url(#'+g+')"/>';
-
-  // == FOLDED WING — layered feathers visible behind body, extending right ==
-  h+='<path d="M90,118 C112,112 140,118 158,132 C168,140 170,158 162,168 C148,158 130,148 110,142 C92,136 78,136 70,140 Z" fill="url(#'+gg+')" opacity="0.82"/>';
-  // Primary feather tip lines on wing
-  h+='<path d="M142,118 C154,130 160,148 156,164" stroke="#6A4806" stroke-width="1.8" fill="none" opacity="0.55"/>';
-  h+='<path d="M150,122 C160,136 164,154 158,170" stroke="#6A4806" stroke-width="1.6" fill="none" opacity="0.48"/>';
-  h+='<path d="M130,116 C142,126 148,146 144,162" stroke="#6A4806" stroke-width="1.6" fill="none" opacity="0.5"/>';
-  // Wing highlight edge
-  h+='<path d="M90,118 C112,112 140,118 158,132" stroke="#F0D040" stroke-width="1" fill="none" opacity="0.35"/>';
-
-  // == BREAST — lighter area with horizontal barring ==
-  h+='<ellipse cx="68" cy="152" rx="36" ry="36" fill="#F0E078" opacity="0.22"/>';
-  h+='<path d="M36,134 C50,130 76,130 94,134" stroke="#7A5008" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.48"/>';
-  h+='<path d="M30,148 C46,144 74,144 96,148" stroke="#7A5008" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.44"/>';
-  h+='<path d="M28,162 C44,158 72,158 94,162" stroke="#7A5008" stroke-width="2.3" fill="none" stroke-linecap="round" opacity="0.38"/>';
-  h+='<path d="M30,176 C46,172 72,172 92,176" stroke="#7A5008" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.3"/>';
-
-  // AI chip on breast
-  h+='<rect x="52" y="146" width="24" height="14" rx="3.5" fill="#060912" stroke="#D4AF37" stroke-width="1"/>';
-  h+='<text x="64" y="156.5" text-anchor="middle" font-family="monospace" font-size="7.5" font-weight="700" fill="#D4AF37" letter-spacing="0.5">AI</text>';
-
-  // == NECK — connects head to body ==
-  // A smooth curved trapezoid bridging head and body
-  h+='<path d="M44,116 C50,128 56,138 68,144 C80,150 96,148 106,140 C110,128 108,116 104,108 C92,120 74,122 60,116 Z" fill="url(#'+g+')"/>';
-
-  // == HEAD — oval, positioned upper-center, profile facing RIGHT ==
-  // The head is slightly oval, tilted slightly (real falcon head angle)
-  h+='<ellipse cx="84" cy="78" rx="54" ry="52" fill="url(#'+g+')"/>';
-
-  // == DARK HOOD — covers top ~55% of head (the peregrine's dark "helmet") ==
-  // Arcs over the entire crown, comes down to about mid-face on both sides
-  h+='<path d="M34,82 C34,54 50,32 74,22 C90,14 108,16 122,26 C134,36 138,52 138,70 C124,62 108,58 90,60 C72,62 54,70 40,82 Z" fill="#1A1200"/>';
-  // Subtle edge highlight at hood boundary
-  h+='<path d="M40,82 C54,70 72,62 90,60 C108,58 124,62 138,70" stroke="#2E2000" stroke-width="1.5" fill="none" opacity="0.8"/>';
-
-  // == CHEEK — pale cream area on the FRONT (right) of the face ==
-  h+='<ellipse cx="120" cy="96" rx="24" ry="20" fill="#F2EC8C" opacity="0.88"/>';
-  // Subtle shading at cheek boundary
-  h+='<ellipse cx="120" cy="96" rx="24" ry="20" fill="none" stroke="#C8A020" stroke-width="0.8" opacity="0.3"/>';
-
-  // == MALAR STRIPE — the defining "mustache" of peregrine falcons ==
-  // Dark diagonal stripe from below the eye down across the cheek
-  h+='<path d="M106,82 C116,92 118,110 114,124 L126,126 C130,110 128,88 116,76 Z" fill="#140E00"/>';
-
-  // == THROAT — pale area below beak/chin ==
-  h+='<ellipse cx="108" cy="118" rx="18" ry="10" fill="#F0E888" opacity="0.6"/>';
-
-  // == AI EYE — single eye, in the dark hood, large and prominent ==
-  // Outer ambient glow
-  h+='<circle cx="80" cy="66" r="22" fill="#001428" opacity="0.7" filter="url(#'+gf+')"/>';
-  // Eye socket surround
-  h+='<circle cx="80" cy="66" r="18" fill="#0A1428"/>';
-  // Yellow orbital ring (falcons have bright yellow eye rings)
-  h+='<circle cx="80" cy="66" r="18" fill="none" stroke="#D4AF37" stroke-width="2.5" opacity="0.7"/>';
-  // Iris — AI cyan
-  h+='<circle cx="80" cy="66" r="14" fill="url(#'+ae+')" filter="url(#'+gf+')"/>';
-  // Pupil
-  h+='<circle cx="80" cy="66" r="6.5" fill="#001040"/>';
-  // Center spark
-  h+='<circle cx="80" cy="66" r="2.8" fill="#00EEFF"/>';
-  // HUD crosshairs
-  h+='<line x1="64" y1="66" x2="96" y2="66" stroke="rgba(0,238,255,0.38)" stroke-width="0.9"/>';
-  h+='<line x1="80" y1="50" x2="80" y2="82" stroke="rgba(0,238,255,0.38)" stroke-width="0.9"/>';
-  // HUD dashed ring
-  h+='<circle cx="80" cy="66" r="10" fill="none" stroke="rgba(0,220,255,0.5)" stroke-width="1" stroke-dasharray="2.5,2"/>';
-  // Glowing cyan outer ring
-  h+='<circle cx="80" cy="66" r="18" fill="none" stroke="#00CCFF" stroke-width="1.5" opacity="0.8"/>';
-
-  // == BEAK — THE KEY FEATURE: large hooked beak pointing RIGHT ==
-  // Cere (yellow fleshy knob at beak base, between eye and beak)
-  h+='<ellipse cx="130" cy="84" rx="12" ry="7" fill="#DDB020" opacity="0.9"/>';
-  h+='<ellipse cx="130" cy="84" rx="12" ry="7" fill="none" stroke="#8A6010" stroke-width="0.7" opacity="0.6"/>';
-  // Nostril on cere
-  h+='<ellipse cx="128" cy="82" rx="3.5" ry="2" fill="#6A4408" opacity="0.7"/>';
-  // Upper mandible — sweeps rightward then curves DOWN at tip (the hook)
-  h+='<path d="M136,80 C150,74 164,76 174,86 C180,92 182,104 178,114 C172,110 164,100 156,94 C148,88 140,86 136,86 Z" fill="#C8A020"/>';
-  // Upper mandible highlight
-  h+='<path d="M136,80 C150,74 164,76 174,86" stroke="#F0D050" stroke-width="1.5" fill="none" opacity="0.7"/>';
-  // HOOK TIP — curves sharply downward (the most important falcon feature)
-  h+='<path d="M174,86 C182,94 184,110 178,120 C174,126 166,128 160,124 C164,116 170,106 172,96 C174,90 174,88 174,86 Z" fill="#A07010"/>';
-  // Hook tip darkening
-  h+='<path d="M178,114 C180,122 176,128 168,128 C162,128 158,124 158,120 C162,118 168,116 172,112 Z" fill="#6A4808"/>';
-  // Lower mandible (slightly shorter, curves back before the hook)
-  h+='<path d="M136,88 C148,84 160,88 170,98 C164,104 154,106 144,102 C136,98 132,94 132,90 Z" fill="#D4B030" opacity="0.8"/>';
-  // Beak ridge (midline between mandibles)
-  h+='<path d="M136,86 C148,86 162,90 172,98" stroke="#8A6010" stroke-width="0.9" fill="none" opacity="0.6"/>';
-
-  h+='</g>'; // end clip
+  // == AI EYE — at the convergence point, facing the viewer ==
+  h+='<circle cx="100" cy="94" r="15" fill="#0A1428"/>';
+  h+='<circle cx="100" cy="94" r="12.5" fill="url(#'+ae+')" filter="url(#'+gf+')"/>';
+  h+='<circle cx="100" cy="94" r="4.8" fill="#001b33"/>';
+  h+='<circle cx="100" cy="94" r="15.5" fill="none" stroke="#D4AF37" stroke-width="1.3" opacity="0.7"/>';
 
   // ── VAL badge ─────────────────────────────────────────────────────────────
   if(badge!==false){

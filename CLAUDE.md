@@ -461,6 +461,48 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-15 (session 12, Val mascot redesign)**: User flagged the About
+  page's "Val" falcon mascot as genuinely bad ("خیلی داغونه") and asked for
+  both a design proposal and a beautiful execution.
+  - **Root cause of why the old one looked bad**: `getValSVG()` in
+    `js/core.js` attempted a literal, detailed side-profile falcon head
+    (dark "hood," malar/mustache stripe, cere, a two-part hooked beak) via
+    ~140 lines of hand-typed multi-point bezier `<path>` curves, written
+    blind with no visual iteration in between. That's an extremely
+    unforgiving way to get proportions right — realistic curved anatomy
+    reads as "off" the moment any curve or angle is even slightly wrong,
+    which is exactly what shipped (mismatched head/hood/cheek proportions,
+    an oddly-placed rectangular "AI" chip glued onto the chest).
+  - **New direction, chosen after rendering and visually inspecting 6
+    iterations** (via the same HTML→Chromium-screenshot technique used
+    for the OG image earlier this session, rather than shipping
+    hand-typed paths blind again): an abstract "falcon in a stoop (dive),
+    seen head-on" mark — two swept, pointed wing blades forming a shallow
+    gull-wing silhouette, a small tail chevron below, and one glowing cyan
+    "AI eye" at the convergence point where the wings meet. Abstract
+    geometric marks built from a handful of simple curves are far more
+    forgiving to execute correctly without an actual illustrator than
+    literal anatomical realism — confirmed by the fact that the very first
+    attempt at a literal, cleaned-up head+separate-hooked-beak (still
+    realism-based) also came out rough (self-intersecting paths, a
+    disconnected-looking beak) before the abstract wing-sweep direction
+    converged cleanly within 2 iterations.
+  - Preserved the exact `getValSVG(size, badge)` function signature, the
+    per-call unique-gradient/filter-ID pattern (needed since the function
+    can render multiple times on one page), and the `badge!==false` "VAL"
+    text pill — so all 3 existing call sites (`js/about.js`'s 180px About
+    page hero, `js/chat.js`'s two 28px chat-agent avatars) needed zero
+    changes. The About page's description text ("One eye sees the real
+    market. The other sees what the data reveals.") was already a metaphor
+    referencing the single literal eye, so it still reads correctly
+    unchanged against the new design.
+  - Verified: `node -c js/core.js`; a direct render of `getValSVG(56,false)`
+    confirming the mark stays clean and legible at small avatar sizes (no
+    illegible clutter, unlike the old detailed version which likely
+    degraded badly below 180px); and a real-browser Playwright screenshot
+    of the actual About page mascot card confirming the new mark renders
+    correctly with its glow/hover effects intact, zero console errors.
+
 - **2026-07-15 (session 12, name clarification)**: User clarified DubAIVal's
   full name is "Dubai AI Valuation." Added "DubAIVal — short for Dubai AI
   Valuation" as a small subtitle line right above the mission headline on
