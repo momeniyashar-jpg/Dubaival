@@ -461,6 +461,79 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-15 (session 12, final pre-launch audit)**: User explicitly framed
+  this as the last check before posting the site link on LinkedIn for beta
+  — asked for a full check of anything missing for a complete beta site plus
+  a general correctness pass across every tab. Found and fixed 2 real,
+  launch-blocking bugs plus 1 stale-text bug; confirmed everything else via
+  live-browser testing.
+  - **Critical — `og-image.png` referenced in meta tags didn't exist at
+    all**: `index.html`'s `og:image`/`twitter:image` tags have pointed at
+    `https://dubaival.com/og-image.png` since the original SEO fixes, but
+    the file was never created — sharing the link on LinkedIn/Twitter/
+    Facebook today would have shown a blank link-preview card, a bad first
+    impression for a launch post. Generated a real, branded 1200×630 OG
+    image (dark navy + gold, logo, tagline, the 3 real headline stats —
+    11,500+ properties/347 areas/±3% accuracy — matching the copy already
+    used in the meta description) via an HTML template rendered through
+    headless Chromium, and added `og-image.png` to the repo root. Confirmed
+    Vercel serves an existing static file before evaluating the SPA-fallback
+    `rewrites` rule, so no `vercel.json` change was needed.
+  - **Critical, visible on every single page — `logo.png` had a literal gray
+    checkerboard baked into its pixels, not real transparency**: confirmed
+    via PIL that the file's mode was plain `RGB` (no alpha channel at all)
+    and the "checkerboard" was real opaque pixel data (two alternating
+    grays, ~64 and ~100) — almost certainly a design-tool export mistake
+    (flattening a transparency-preview background instead of exporting a
+    real alpha channel) that had shipped since the file was first added.
+    Confirmed live via Playwright screenshot: the onboarding "Welcome to
+    DubAIVal!" modal (the very first thing a new visitor sees) and the
+    header logo both rendered as an obviously broken gray smudge/box, not a
+    clean logo. Fixed by reconstructing a real alpha channel from luminance
+    (checkerboard grays → fully transparent, white logo pixels → fully
+    opaque, smooth threshold in between for anti-aliased edges) — verified
+    by compositing the result onto the app's real dark-navy background,
+    producing a crisp, correct logo. Propagated the fix to the two other
+    on-disk copies (`www/logo.png`, `android/app/src/main/assets/public/
+    logo.png`) used by the Capacitor/Android build pipeline, which were
+    byte-identical stale copies of the same broken file. Re-generated
+    `og-image.png` afterward so it also uses the corrected logo.
+  - **Stale text — `manifest.json`'s description still said "6,162
+    buildings"**: a leftover from session 3 (2026-06-18), long superseded
+    by the current 9,226 residential + commercial/land totals. Updated to
+    match the "11,500+ properties" line already used correctly in
+    `index.html`'s own meta description.
+  - **Full-app correctness sweep, no other bugs found**: a Playwright pass
+    navigated into all 25 top-level tab/sub-tab combinations (Home, all 10
+    Market sub-tabs, all 4 Portfolio sub-tabs, all 3 Network sub-tabs, all 4
+    SocialMedia sub-tabs, all 3 More sub-tabs) — every one rendered
+    non-trivial content with zero real console errors (the only errors seen
+    were expected artifacts of this sandbox's plain Python test server,
+    which can't serve `/api/*` POST routes or reach Google Maps/RapidAPI —
+    not present against the real Vercel deployment). Two apparent
+    duplicate-content findings from the initial sweep were investigated and
+    confirmed NOT bugs: Portfolio's Assets/Health/Projections looking
+    identical was the test script's own bug (used lowercase sub-tab ids
+    instead of the real `"Assets"`/`"Health"`/`"Projections"`); SocialMedia's
+    Studio/Avatar looking identical is correct, intentional behavior —
+    `renderMediaStudio(mode)` shows the same "Sign In Required" gate for any
+    mode when `DV_AUTH.user` is unset, and only diverges by mode past that
+    gate. Also drove the Analyzer's real end-to-end flow (fill form → click
+    "ANALYZE THIS DEAL ->" → wait for the real `computeValuation()` call) for
+    a Burj Khalifa/Downtown Dubai 2BR test case — confirmed it reaches
+    `stage:2` with a real, sensible result (fair price, confidence score,
+    Fair Value verdict) and zero console errors, i.e. the app's most
+    important page (per the Analyzer-accuracy directive at the top of this
+    file) works correctly end-to-end. Also confirmed dark-mode toggle,
+    EN→AR language switch, the legal disclaimer bar, and the "Report Issue"
+    FAB all work with zero errors.
+  - Verified: PIL-based pixel inspection of the logo before/after; a
+    real-browser Playwright pass confirming the corrected logo renders
+    crisply in the header, onboarding modal, and About page; the 25-tab
+    navigation sweep; the full Analyzer submit-to-result flow; and the
+    cross-cutting dark-mode/language/disclaimer/report-issue checks — all
+    zero non-network console errors.
+
 - **2026-07-15 (session 12, Phase 2 of the Video Editor work — pay-per-video
   real subtitles)**: Direct follow-up to the AI Video Editor audit above.
   User confirmed they want Phase 2 (real Whisper speech-to-text) built now
