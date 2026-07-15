@@ -461,6 +461,73 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-15 (session 12, continued even further)**: Added an "All" view
+  to the Market Dashboard's PSF Trend chart (`js/market.js`), per user
+  request to show the full market cycle "like Bitcoin's All-time chart"
+  with ups and downs. User initially believed real DLD data went back
+  18-20 years; investigation found the app's real granular monthly PSF
+  data (`PSF_CHART_DATA`) only covers 2023-06 onward (~3 years) — the "20
+  years" reference elsewhere in the app was a plain text list of 7 broad
+  eras with rough % ranges (`cycleRows`, e.g. "2002-08: +400%"), not exact
+  month-by-month figures. Flagged this to the user rather than fabricating
+  precise historical PSF numbers for years with no real data loaded.
+  - **Real-data path (for later)**: wrote `tools/build-market-cycle-index.js`
+    — reuses `tools/calibrate-db.js`'s exact CSV column-mapping/parsing/PSF
+    logic but, unlike that tool (which discards everything before
+    2024-01-01), processes the FULL raw DLD transactions CSV to compute a
+    real year-by-year residential median PSF and turn it into an index
+    (base 100 at the earliest reliable year, `--minTxPerYear=` guard,
+    default 30). Verified against a synthetic CSV modeling a realistic
+    2002-2026 boom/bust cycle — correctly reconstructed the known shape and
+    produced a clean `tools/market-cycle-index.json`. Requires the user to
+    run this locally against their real, unfiltered DLD CSV (same one used
+    for building calibration) and share back the small output — not
+    runnable in this remote session since the CSV lives only on the user's
+    machine.
+  - **Shipped now**: after the user clarified ("خودت... با توجه به داده
+    هایی که در فضای آنلاین وجود دارد بهترین راه حل رو فیکس کن" — combine
+    what we have with what's publicly known), added `MARKET_CYCLE_INDEX` —
+    a real index (base 100 = 2002) reconstructed via compound growth from
+    the SAME 7-era cycle narrative already trusted and displayed elsewhere
+    in the app (freehold boom, 2008 GFC crash, recovery, 2014-19
+    correction, COVID dip, 2021-25 post-pandemic super-cycle, 2026
+    moderation) — not new/different numbers, just the existing trusted
+    percentages turned into a real per-year curve instead of a static list.
+    Verified the index exactly reproduces each era's stated cumulative %
+    change at its boundary years (e.g. 2002→2008 is exactly +400%,
+    2008→2011 exactly -50%). Explicitly labeled "Illustrative" throughout
+    (header, footer, stats) — never presented as exact DLD-verified
+    figures, unlike the real monthly PSF data the 6M/1Y/3Y views already
+    use, per this file's Analyzer-accuracy directive extended in spirit to
+    every other numeric claim in the app.
+  - **Chart wiring**: added "All" as a 4th toggle button alongside
+    6M/1Y/3Y. In "All" mode: the per-area dropdown is hidden (replaced with
+    a "Dubai — citywide residential index" note, since the index is a
+    citywide reconstruction, not per-area) and the Y-axis switches from
+    "AED PSF" to a plain index number; the "Current PSF"/"Range" stat
+    labels adapt to "Current Index"; X-axis labels show years instead of
+    year-month; the footer note explains the illustrative methodology.
+    6M/1Y/3Y views are otherwise completely unchanged (still real DLD
+    monthly PSF per area).
+  - **Removed the old static "Market Cycle · 20-Year History" text list**
+    further down the Market Dashboard — it showed the exact same 7-era data
+    the new "All" chart view now visualizes properly, so keeping both would
+    have been the same duplicate-information problem this session already
+    fixed elsewhere (Analyzer AI bar, Find's Screener vs Quick Check).
+    Replaced with a shorter "Current Market Conditions" card keeping only
+    the live geo-adjustment note (real, dynamic, uses `LIVE_GEO.adj` +
+    `_currentMonthYear()`) and a pointer to the new chart.
+  - Verified: a Node test regex-extracting `MARKET_CYCLE_INDEX` from the
+    file and checking every era's start/end index values against its stated
+    % change (all within 0.1 percentage point, confirming the compounding
+    math is correct) plus structural checks (25 consecutive years,
+    base-year index of exactly 100, no unreasonable values); `node -c`; and
+    a real-browser Playwright pass — clicked "All", confirmed the header/
+    labels/stats switch to the index view and the area dropdown is replaced
+    by the citywide note, confirmed years like 2002/2008 render on the
+    chart, then switched back to "1Y" and confirmed the original PSF view
+    is fully intact (no regression) — zero non-network console errors.
+
 - **2026-07-15 (session 12, continued further)**: Renamed Find's "Smart
   Property Discovery" to "Advanced Market Screener" and made it genuinely
   live, per direct user request after noticing it overlapped functionally
