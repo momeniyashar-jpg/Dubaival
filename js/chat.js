@@ -893,6 +893,9 @@ function _syncCredsToServer(){
       youtube_client_secret:localStorage.getItem("dv_youtube_client_secret")||null,
       pexels_key:localStorage.getItem("dv_pexels_key")||null,
       tiktok_token:localStorage.getItem("dv_tiktok_token")||null,
+      whatsapp_token:localStorage.getItem("dv_whatsapp_token")||null,
+      whatsapp_phone_id:localStorage.getItem("dv_whatsapp_phone_id")||null,
+      whatsapp_waba_id:localStorage.getItem("dv_whatsapp_waba_id")||null,
       updated_at:new Date().toISOString()
     };
     fetch(SUPABASE_URL+"/rest/v1/social_credentials?user_id=eq."+encodeURIComponent(userId),{
@@ -922,10 +925,12 @@ async function _syncCredsFromServer(){
     var userId=_getPostUserId();
     var COLS=["ig_token","ig_id","fb_id","linkedin_token","linkedin_urn",
       "twitter_consumer_key","twitter_consumer_secret","twitter_access_token","twitter_access_secret",
-      "youtube_refresh","youtube_client_id","youtube_client_secret","pexels_key","tiktok_token"];
+      "youtube_refresh","youtube_client_id","youtube_client_secret","pexels_key","tiktok_token",
+      "whatsapp_token","whatsapp_phone_id","whatsapp_waba_id"];
     var LKEYS=["dv_ig_token","dv_ig_id","dv_fb_id","dv_linkedin_token","dv_linkedin_urn",
       "dv_twitter_consumer_key","dv_twitter_consumer_secret","dv_twitter_access_token","dv_twitter_access_secret",
-      "dv_youtube_refresh","dv_youtube_client_id","dv_youtube_client_secret","dv_pexels_key","dv_tiktok_token"];
+      "dv_youtube_refresh","dv_youtube_client_id","dv_youtube_client_secret","dv_pexels_key","dv_tiktok_token",
+      "dv_whatsapp_token","dv_whatsapp_phone_id","dv_whatsapp_waba_id"];
     // Try user-specific first, then 'default' as legacy fallback
     var tries=userId==="default"?["default"]:[userId,"default"];
     for(var i=0;i<tries.length;i++){
@@ -7585,6 +7590,19 @@ async function _startVideoGenCreditCheckout(){
   if(!data.ok||!data.url)throw new Error(data.error||"Could not start checkout");
   window.location.href=data.url;
 }
+// Same one-time-payment pattern, for WhatsApp Business API send/auto-reply
+// credits (api/inbox.js handleWhatsAppWebhook/handleWhatsAppSend).
+async function _startWhatsAppCreditCheckout(){
+  if(typeof DV_AUTH==="undefined"||!DV_AUTH.user){
+    if(typeof DV_AUTH!=="undefined"){DV_AUTH.showModal=true;DV_AUTH.modalTab="signup";DV_AUTH.error="Please create a free account first, then buy a WhatsApp credit.";render();}
+    return;
+  }
+  var resp=await fetch("/api/billing?action=whatsapp-checkout",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({user_id:DV_AUTH.user.id,email:DV_AUTH.user.email})});
+  var data=await resp.json();
+  if(!data.ok||!data.url)throw new Error(data.error||"Could not start checkout");
+  window.location.href=data.url;
+}
 // Shared error renderer for showAvatarVideoGen()'s 8 per-engine branches —
 // same "buy a credit" detection _aiError() uses in showVideoGenUI(), just
 // factored out since this function's error handling isn't centralized in
@@ -8435,6 +8453,9 @@ function showSocialSetup(){
     {key:"dv_ig_token",label:"Page Access Token",ph:"EAATsXN..."},
     {key:"dv_ig_id",label:"Instagram Account ID",ph:"17841416622862972"},
     {key:"dv_fb_id",label:"Facebook Page ID (optional)",ph:"123456789"},
+    {key:"dv_whatsapp_token",label:"WhatsApp Permanent Access Token",ph:"From Meta App Dashboard → WhatsApp → API Setup"},
+    {key:"dv_whatsapp_phone_id",label:"WhatsApp Phone Number ID",ph:"e.g. 109876543212345"},
+    {key:"dv_whatsapp_waba_id",label:"WhatsApp Business Account ID (optional)",ph:"e.g. 123456789012345"},
     {key:"dv_unsplash_key",label:"Unsplash API Key (best quality)",ph:"Free at unsplash.com/developers"},
     {key:"dv_pexels_key",label:"Pexels API Key",ph:"Free at pexels.com/api"},
     {key:"dv_gemini_key",label:"Gemini API Key (AI image gen)",ph:"Free at aistudio.google.com/apikey"},
@@ -8460,6 +8481,19 @@ function showSocialSetup(){
     card.appendChild(lbl);card.appendChild(inp);
     inputs.push({key:f.key,inp:inp});
   });
+  // WhatsApp is billed per-message by Meta (unlike IG/FB DMs, which are
+  // free via a connected Page token) — surface the pay-per-use balance
+  // right here where the connection fields live, same pattern as the
+  // video-generation credit row in showVideoGenUI().
+  var waCredits=(typeof DV_AUTH!=="undefined"&&DV_AUTH.profile&&DV_AUTH.profile.whatsapp_credits)||0;
+  var waCredRow=div({display:"flex",alignItems:"center",justifyContent:"space-between",gap:"8px",marginBottom:"12px",padding:"8px 10px",background:"rgba(37,211,102,0.06)",border:"1px solid rgba(37,211,102,0.25)",borderRadius:"8px"});
+  waCredRow.appendChild(div({color:"#8899AA",fontSize:"10px",fontFamily:"'Inter',sans-serif"},"WhatsApp send/auto-reply credits · Balance: "+waCredits));
+  var waBuyBtn=el("button",{style:{background:"transparent",border:"1px solid #25D366",color:"#25D366",borderRadius:"6px",padding:"4px 9px",fontSize:"10px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",flexShrink:"0"}});
+  waBuyBtn.textContent="+ Buy Credit ($0.49)";
+  waBuyBtn.onclick=function(){_startWhatsAppCreditCheckout().catch(function(e){alert(e.message);});};
+  waCredRow.appendChild(waBuyBtn);
+  card.appendChild(waCredRow);
+
   var btnRow=div({display:"flex",gap:"8px",marginTop:"8px"});
   var saveBtn=el("button",{style:{flex:1,background:"#C9A84C",color:"#000",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){
     inputs.forEach(function(i){if(i.inp.value.trim())localStorage.setItem(i.key,i.inp.value.trim());else localStorage.removeItem(i.key);});
@@ -8785,7 +8819,7 @@ function renderMediaStudio(mode){
     "wrench","Social Setup","Platform accounts",
     function(){showProfilePanel=true;render();},
     function(){if(confirm("Disconnect all social accounts?")){
-      ["dv_ig_token","dv_ig_id","dv_fb_id","dv_linkedin_token","dv_linkedin_urn","dv_youtube_token","dv_youtube_refresh","dv_youtube_client_id","dv_youtube_client_secret","dv_twitter_consumer_key","dv_twitter_consumer_secret","dv_twitter_access_token","dv_twitter_access_secret","dv_tiktok_token","dv_whatsapp_number"].forEach(function(k){localStorage.removeItem(k);});
+      ["dv_ig_token","dv_ig_id","dv_fb_id","dv_linkedin_token","dv_linkedin_urn","dv_youtube_token","dv_youtube_refresh","dv_youtube_client_id","dv_youtube_client_secret","dv_twitter_consumer_key","dv_twitter_consumer_secret","dv_twitter_access_token","dv_twitter_access_secret","dv_tiktok_token","dv_whatsapp_number","dv_whatsapp_token","dv_whatsapp_phone_id","dv_whatsapp_waba_id"].forEach(function(k){localStorage.removeItem(k);});
       render();
     }},
     function(){showProfilePanel=true;render();}

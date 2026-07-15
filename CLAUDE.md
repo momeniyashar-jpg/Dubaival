@@ -461,6 +461,126 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-15 (session 12, pay-per-use WhatsApp Business API)**: Direct
+  follow-up to the AI-video-generation credit work above — user asked
+  whether the same pay-first model could cover WhatsApp too, so DubAIVal
+  isn't stuck buying its own WhatsApp Business API subscription
+  ("میگم API key واتساپ نمیتونیم اینجوری بگیریم..."), for BOTH sending
+  AI-drafted outbound messages AND auto-replying to inbound client messages
+  (confirmed via `AskUserQuestion`: both, at $0.49/credit — 1 credit = 1
+  send or 1 auto-reply, not Meta's real 24h-conversation-window unit, since
+  that boundary can't be precisely tested from this sandbox and
+  under-charging would risk losing money on a multi-message exchange).
+  Also confirmed via `AskUserQuestion`: the user will start Meta Business/
+  WhatsApp verification themselves in parallel (an external, days-long
+  process this session cannot do), while this session builds the
+  credit/backend architecture so it's ready the moment credentials exist.
+  - **New migration**: `supabase-whatsapp-credits-schema.sql` (not yet run
+    — see Outstanding items) adds `user_profiles.whatsapp_credits` +
+    `add_whatsapp_credits()`/`consume_whatsapp_credit()` RPCs (reusing the
+    Whisper migration's `stripe_events_processed` idempotency table, must
+    already be applied), plus 3 new `social_credentials` columns
+    (`whatsapp_token`, `whatsapp_phone_id`, `whatsapp_waba_id`) alongside
+    the existing Instagram/Facebook/LinkedIn/etc. columns on that table.
+  - **`api/billing.js`**: new `action=whatsapp-checkout` — same
+    one-time-payment Stripe Checkout pattern as the video-gen/Whisper
+    credits (`WHATSAPP_CREDIT_PRICE_CENTS`/`WHATSAPP_CREDIT_CURRENCY` env
+    vars, defaulting to 49/usd), webhook branches on
+    `metadata.type==="whatsapp_credit"` to call `add_whatsapp_credits`.
+  - **`api/inbox.js`** (extended, NOT a new file — the project is already
+    at Vercel Hobby's 12-function ceiling, same constraint noted for the
+    Whisper credit's `proxy-video.js` extension): this file already handled
+    Instagram/Facebook Meta webhooks + a unified `social_inbox` table + AI
+    auto-reply generation, so WhatsApp (also a Meta Graph API product) slots
+    into the exact same architecture rather than needing anything new.
+    - `handleWhatsAppWebhook` (`action=whatsapp-webhook`): GET does the
+      standard Meta webhook-verification handshake; POST processes incoming
+      `entry[].changes[].value.messages[]`, resolves the owning user via a
+      new `whatsapp_phone_id` lookup on `social_credentials`, and — UNLIKE
+      Instagram/Facebook DMs (free via a connected Page token, always
+      auto-replied) — consumes 1 `whatsapp_credit` BEFORE calling the AI or
+      sending anything back, since Meta bills real money per message here.
+      If there's no credit left, the incoming message is still logged to
+      `social_inbox` (status `"new"`) so it's never silently lost — it just
+      doesn't get an automatic reply. If the AI reply generates but the
+      actual WhatsApp send fails, the credit is refunded (same
+      never-charge-for-a-failure principle as the video-gen credit).
+    - `handleWhatsAppSend` (`action=whatsapp-send`): a real, credit-gated
+      manual send endpoint — resolves the caller's real Supabase auth UUID
+      from their access token, consumes a credit, sends via the WhatsApp
+      Cloud API, refunds on failure, returns 402 + `needsCredit:true`
+      (same "buy a credit" substring convention as every other credit
+      system this session) when the balance is 0.
+    - Added a new `_resolveAuthUid()` helper (returns the real UUID
+      specifically) alongside the file's existing `_resolveUserId()` (which
+      prefers email, for the pre-existing `email_inbox`/`social_credentials`
+      convention) — the two credit RPCs key off `user_profiles.id` (a UUID),
+      so credit consumption needed the UUID form specifically.
+  - **Client (`js/chat.js` Social Setup / `showSocialSetup()`)**: 3 new
+    fields (WhatsApp Permanent Access Token, Phone Number ID, Business
+    Account ID) alongside the existing Instagram/Facebook/LinkedIn/etc.
+    fields, wired into the existing `_syncCredsToServer()`/
+    `_syncCredsFromServer()` push/pull functions and the "reset all" key
+    list — needed zero new sync plumbing since this modal already has that
+    infrastructure for every other platform. Added a live "WhatsApp
+    send/auto-reply credits · Balance: N" row + "+ Buy Credit ($0.49)"
+    button (new `_startWhatsAppCreditCheckout()`, same pattern as the
+    video-gen credit's checkout helper).
+  - **Client (`js/inbox.js`)**: added "WhatsApp" as a 4th platform tab
+    (alongside All/Email/Instagram/Facebook), green (`#25D366`) color +
+    `message-circle` icon. Unlike Instagram/Facebook items (which only ever
+    get a "use AI Chief Co-pilot to draft, then send manually" hint, since
+    no send endpoint exists for those yet), WhatsApp items get a REAL reply
+    box (new `_sendWhatsAppReply()`) calling the new credit-gated
+    `action=whatsapp-send` endpoint — reflects the live credit balance right
+    in the reply box. Also generalized the existing "AI Reply (sent)"
+    read-only confirmation block (shown once an item's `status` flips away
+    from `"new"`) to correctly label a WhatsApp item as "AI Auto-Reply
+    (sent)" when the webhook's automatic reply fired, vs "Your Reply (sent)"
+    when the agent sent it manually from this reply box — both cases reuse
+    the same `ai_reply` column (no schema change needed), distinguished
+    purely by `status` (`"replied"` vs `"agent_replied"`).
+  - **`js/auth.js`**: `_fetchProStatus()` now also selects `whatsapp_credits`
+    in its existing single query (alongside `is_pro`/`video_credits`/
+    `video_gen_credits`) — no new fetch needed.
+  - Verified: `node -c` on all 5 touched files; a mocked-fetch Node test
+    harness against the real `api/inbox.js` handler (7 cases) — the GET
+    webhook-verification handshake responds with the raw challenge string;
+    an incoming message with a credit available correctly consumes it,
+    generates + sends an AI auto-reply, and logs the row as `"replied"`
+    with a real `ai_reply`; an incoming message with NO credit left is still
+    logged as `"new"` (never lost) with no auto-reply attempted; a send
+    failure after a credit was consumed correctly triggers the refund RPC
+    and logs `"new"` (not falsely marked replied); the manual send endpoint
+    correctly returns 402 + `needsCredit` with zero credits, succeeds and
+    consumes a credit when available, and returns a clear "Connect WhatsApp
+    Business API first" error when no credentials are on file yet; and two
+    real-browser Playwright passes — one confirming `showSocialSetup()`
+    renders all 3 new WhatsApp fields plus the live credit balance/Buy
+    Credit button, one driving the actual `renderInbox()` UI end-to-end
+    against a mocked WhatsApp `social_inbox` row (switch to the WhatsApp
+    tab, expand the message, type and send a reply through the real credit
+    -gated endpoint, confirm the persistent "Your Reply (sent)" confirmation
+    renders with the real sent text) — zero console errors in either run.
+  - **Manual steps required before this goes live** (flagged below in
+    Outstanding items too): (1) run
+    `supabase-whatsapp-credits-schema.sql` in Supabase SQL Editor (needs
+    `supabase-video-credits-schema.sql` applied first); (2) complete Meta
+    Business/WhatsApp Business API verification (external, days-long,
+    user's own task, already in progress in parallel with this session);
+    (3) once verified, connect a real WhatsApp Business phone number in the
+    Meta App Dashboard, generate a permanent access token, and paste the
+    Token/Phone Number ID/Business Account ID into Social Setup; (4) add a
+    Webhook subscription in the Meta App Dashboard for the WhatsApp product
+    pointing at `https://www.dubaival.com/api/inbox?action=whatsapp-webhook`
+    (verify token: `WHATSAPP_VERIFY_TOKEN` env var if set, else falls back
+    to the same `META_VERIFY_TOKEN` already used for Instagram/Facebook),
+    subscribed to the `messages` field. Until all 4 are done: the "+ Buy
+    Credit" button and Stripe checkout work immediately (same
+    `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` every other credit checkout
+    already uses), but `whatsapp_credits` reads as 0 until the SQL runs, and
+    no messages can send/receive until the Meta connection is complete.
+
 - **2026-07-15 (session 12, pay-per-video AI VIDEO GENERATION credits)**:
   Direct follow-up to the Whisper pay-per-video-subtitle work above — user
   asked whether AI VIDEO GENERATION itself (Kling/Runway/HeyGen/D-ID, not
@@ -3483,6 +3603,27 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🟡 Pay-per-use WhatsApp Business API — needs manual SQL + Meta Business
+  verification (external, in progress)** (added 2026-07-15, session 12):
+  run `supabase-whatsapp-credits-schema.sql` in Supabase SQL Editor
+  (requires `supabase-video-credits-schema.sql` applied first, for its
+  shared `stripe_events_processed` idempotency table). Separately, the user
+  must complete Meta Business/WhatsApp Business API verification (started
+  in parallel with this session, days-long, cannot be done by Claude) —
+  once done: connect a WhatsApp Business phone number in the Meta App
+  Dashboard, generate a permanent access token, paste the Token/Phone
+  Number ID/Business Account ID into Network → AI Agents → Social Media
+  Manager → Setup, and add a Webhook subscription in the Meta App Dashboard
+  for the WhatsApp product pointing at
+  `https://www.dubaival.com/api/inbox?action=whatsapp-webhook` (subscribed
+  to the `messages` field). Until the SQL is run, `whatsapp_credits` reads
+  as 0 everywhere (Buy Credit / Stripe checkout still work immediately,
+  same keys as every other credit product). Until the Meta connection is
+  complete, no WhatsApp messages can send or receive — Inbox's WhatsApp tab
+  will simply stay empty. See the 2026-07-15 "pay-per-use WhatsApp Business
+  API" work-log entry above for the full design (1 credit = 1 send or 1
+  auto-reply at $0.49, not Meta's real 24h-conversation-window unit).
 
 - **🟡 Pay-per-video AI VIDEO GENERATION credits — needs manual SQL + 3
   engine env vars** (added 2026-07-15, session 12): run

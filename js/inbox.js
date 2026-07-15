@@ -6,7 +6,7 @@ var INBOX_STATE = {
   social: [],
   loading: false,
   loaded: false,
-  tab: "all",         // all | email | instagram | facebook
+  tab: "all",         // all | email | instagram | facebook | whatsapp
   expandedId: null,
   replyText: {},       // { [id]: string }
   replyBusy: {},       // { [id]: bool }
@@ -123,13 +123,55 @@ function _timeAgo(ts) {
 function _platformColor(platform) {
   if (platform === "instagram") return "#E1306C";
   if (platform === "facebook") return "#1877F2";
+  if (platform === "whatsapp") return "#25D366";
   return "#D4AF37";
 }
 
 function _platformIcon(platform) {
   if (platform === "instagram") return "instagram";
   if (platform === "facebook") return "facebook";
+  if (platform === "whatsapp") return "message-circle";
   return "mail";
+}
+
+async function _sendWhatsAppReply(itemId) {
+  var item = INBOX_STATE.social.find(function(s) { return s.id === itemId; });
+  if (!item) return;
+  var body = (INBOX_STATE.replyText[itemId] || "").trim();
+  if (!body) return;
+  INBOX_STATE.replyBusy[itemId] = true;
+  INBOX_STATE.replyError[itemId] = null;
+  render();
+  try {
+    var accessToken = (typeof getValidToken === "function") ? await getValidToken() : null;
+    if (!accessToken) {
+      INBOX_STATE.replyError[itemId] = "Please sign in to send a reply.";
+      INBOX_STATE.replyBusy[itemId] = false;
+      render();
+      return;
+    }
+    var resp = await fetch("/api/inbox?action=whatsapp-send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ access_token: accessToken, to: item.sender_id, message: body })
+    });
+    var d = await resp.json();
+    if (d.ok) {
+      INBOX_STATE.replySent[itemId] = true;
+      INBOX_STATE.replyText[itemId] = "";
+      item.status = "agent_replied";
+      item.ai_reply = item.ai_reply || body;
+      if (typeof DV_AUTH !== "undefined" && DV_AUTH.profile && DV_AUTH.profile.whatsapp_credits > 0) DV_AUTH.profile.whatsapp_credits--;
+    } else if (d.needsCredit) {
+      INBOX_STATE.replyError[itemId] = d.error + " — open Social Setup to buy a credit.";
+    } else {
+      INBOX_STATE.replyError[itemId] = d.error || "Failed to send";
+    }
+  } catch (e) {
+    INBOX_STATE.replyError[itemId] = e.message || "Network error";
+  }
+  INBOX_STATE.replyBusy[itemId] = false;
+  render();
 }
 
 function _statusBadge(status, platform) {
@@ -165,7 +207,7 @@ function renderInbox() {
     var gate = div("text-align:center;padding:60px 20px;color:#8899AA");
     gate.innerHTML = '<i data-lucide="lock" style="width:40px;height:40px;margin-bottom:12px;opacity:.4"></i>' +
       '<div style="font-size:16px;color:#fff;margin-bottom:6px">Sign in to view your Inbox</div>' +
-      '<div style="font-size:13px;max-width:360px;margin:0 auto">Email and social message threads are private to your account. Sign in to connect Gmail/Instagram/Facebook and see incoming messages here.</div>';
+      '<div style="font-size:13px;max-width:360px;margin:0 auto">Email and social message threads are private to your account. Sign in to connect Gmail/Instagram/Facebook/WhatsApp and see incoming messages here.</div>';
     wrap.appendChild(gate);
     if (typeof lucide !== "undefined") setTimeout(function() { lucide.createIcons(); }, 50);
     return wrap;
@@ -196,7 +238,8 @@ function renderInbox() {
     { id: "all", label: "All" },
     { id: "email", label: "Email" },
     { id: "instagram", label: "Instagram" },
-    { id: "facebook", label: "Facebook" }
+    { id: "facebook", label: "Facebook" },
+    { id: "whatsapp", label: "WhatsApp" }
   ];
   var tabBar = div("display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap");
   tabs.forEach(function(t) {
@@ -241,7 +284,7 @@ function renderInbox() {
       allItems.push({ type: "email", data: e, ts: e.received_at });
     });
   }
-  if (INBOX_STATE.tab === "all" || INBOX_STATE.tab === "instagram" || INBOX_STATE.tab === "facebook") {
+  if (INBOX_STATE.tab === "all" || INBOX_STATE.tab === "instagram" || INBOX_STATE.tab === "facebook" || INBOX_STATE.tab === "whatsapp") {
     INBOX_STATE.social.forEach(function(s) {
       if (INBOX_STATE.tab === "all" || s.platform === INBOX_STATE.tab) {
         allItems.push({ type: "social", data: s, ts: s.received_at });
@@ -252,7 +295,7 @@ function renderInbox() {
 
   if (allItems.length === 0) {
     var empty = div("text-align:center;padding:60px;color:#556677");
-    empty.innerHTML = '<i data-lucide="inbox" style="width:40px;height:40px;margin-bottom:12px;opacity:.4"></i><div style="font-size:16px">No messages yet</div><div style="font-size:13px;margin-top:6px">Messages from email, Instagram, and Facebook will appear here</div>';
+    empty.innerHTML = '<i data-lucide="inbox" style="width:40px;height:40px;margin-bottom:12px;opacity:.4"></i><div style="font-size:16px">No messages yet</div><div style="font-size:13px;margin-top:6px">Messages from email, Instagram, Facebook, and WhatsApp will appear here</div>';
     wrap.appendChild(empty);
     if (typeof lucide !== "undefined") setTimeout(function() { lucide.createIcons(); }, 50);
     return wrap;
@@ -381,7 +424,9 @@ function _renderItem(item) {
 
     // AI / agent reply shown if exists
     var shownReply = isEmail ? (d.agent_reply || d.ai_reply) : d.ai_reply;
-    var replyLabel = isEmail ? (d.agent_reply ? "Agent Reply" : (d.ai_reply ? "AI Reply" : null)) : (d.ai_reply ? "AI Reply (sent)" : null);
+    var replyLabel = isEmail ? (d.agent_reply ? "Agent Reply" : (d.ai_reply ? "AI Reply" : null))
+      : (platform === "whatsapp" && d.ai_reply ? (d.status === "agent_replied" ? "Your Reply (sent)" : "AI Auto-Reply (sent)")
+        : (d.ai_reply ? "AI Reply (sent)" : null));
     if (shownReply && replyLabel) {
       var replyShow = div("margin-bottom:16px");
       replyShow.appendChild(div("font-size:12px;font-weight:600;color:#8899AA;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px", replyLabel));
@@ -420,9 +465,42 @@ function _renderItem(item) {
       body.appendChild(replySection);
     }
 
-    // Social: no auto-reply went out for this one — point the agent at the
-    // AI Chief Co-pilot button above to draft one manually instead.
-    if (!isEmail && d.status === "new") {
+    // WhatsApp has a real, credit-gated send endpoint (api/inbox.js
+    // action=whatsapp-send) — unlike Instagram/Facebook below, give the
+    // agent an actual reply box here, not just a "go send it manually" hint.
+    if (!isEmail && platform === "whatsapp" && d.status !== "agent_replied") {
+      var waReplySection = div("margin-top:12px");
+      waReplySection.appendChild(div("font-size:13px;font-weight:600;color:#fff;margin-bottom:8px", "Reply on WhatsApp"));
+      var waCredits = (typeof DV_AUTH !== "undefined" && DV_AUTH.profile && DV_AUTH.profile.whatsapp_credits) || 0;
+      waReplySection.appendChild(div("font-size:11px;color:#8899AA;margin-bottom:6px", "Uses 1 WhatsApp credit per send · Balance: " + waCredits));
+      var waTextarea = document.createElement("textarea");
+      waTextarea.value = INBOX_STATE.replyText[id] || "";
+      waTextarea.placeholder = "Type your reply to " + (d.sender_name || d.sender_id) + "...";
+      waTextarea.style.cssText = "width:100%;box-sizing:border-box;background:#070B14;border:1px solid #2A3040;border-radius:8px;padding:12px;color:#fff;font-size:13px;font-family:inherit;line-height:1.6;resize:vertical;min-height:80px;outline:none";
+      waTextarea.addEventListener("input", function() { INBOX_STATE.replyText[id] = waTextarea.value; });
+      waReplySection.appendChild(waTextarea);
+
+      var waBtnRow = div("display:flex;align-items:center;gap:10px;margin-top:10px");
+      var waSendBtn = div("display:flex;align-items:center;gap:6px;background:#25D366;color:#000;font-weight:700;font-size:13px;padding:8px 20px;border-radius:8px;cursor:pointer");
+      waSendBtn.innerHTML = '<i data-lucide="send" style="width:14px;height:14px"></i>' + (INBOX_STATE.replyBusy[id] ? "Sending..." : "Send Reply");
+      if (INBOX_STATE.replyBusy[id]) waSendBtn.style.opacity = "0.6";
+      waSendBtn.addEventListener("click", function() {
+        if (!INBOX_STATE.replyBusy[id]) _sendWhatsAppReply(id);
+      });
+      waBtnRow.appendChild(waSendBtn);
+      if (INBOX_STATE.replySent[id]) {
+        waBtnRow.appendChild(span("color:#10B981;font-size:13px;font-weight:600", "Sent!"));
+      }
+      if (INBOX_STATE.replyError[id]) {
+        waBtnRow.appendChild(span("color:#EF4444;font-size:12px", "Error: " + INBOX_STATE.replyError[id]));
+      }
+      waReplySection.appendChild(waBtnRow);
+      body.appendChild(waReplySection);
+    }
+
+    // Instagram/Facebook: no send endpoint exists yet — point the agent at
+    // the AI Chief Co-pilot button above to draft one manually instead.
+    if (!isEmail && platform !== "whatsapp" && d.status === "new") {
       var hint = div("background:#1A1F2E;border-radius:8px;padding:12px;font-size:12px;color:#8899AA;margin-top:8px");
       hint.innerHTML = '<i data-lucide="info" style="width:13px;height:13px;display:inline;vertical-align:middle;margin-right:4px"></i> No AI auto-reply was sent for this message. Use AI Chief Co-pilot above to draft a reply, then send it manually via ' + (d.platform === "instagram" ? "Instagram" : "Facebook") + '.';
       body.appendChild(hint);

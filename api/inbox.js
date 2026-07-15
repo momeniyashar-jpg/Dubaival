@@ -43,6 +43,24 @@ async function _resolveUserId(accessToken) {
   }
 }
 
+// Separate from _resolveUserId above (which prefers email, for the existing
+// email_inbox/social_credentials user_id convention) — the whatsapp_credits
+// RPCs below key off user_profiles.id, the real Supabase auth UUID, so this
+// always returns the UUID specifically, never an email.
+async function _resolveAuthUid(accessToken) {
+  if (!accessToken) return null;
+  try {
+    var r = await fetch(shared.SUPABASE_URL + "/auth/v1/user", {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + accessToken },
+    });
+    if (!r.ok) return null;
+    var d = await r.json();
+    return d && d.id ? d.id : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 function stripHtml(html) {
   return String(html || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 5000);
 }
@@ -374,6 +392,179 @@ async function handleMetaWebhook(req, res) {
   }
 }
 
+// ── ACTION: whatsapp-webhook / whatsapp-send ──────────────────────────────────
+// WhatsApp Business API (Meta Cloud API) — unlike Instagram/Facebook DMs
+// above (free to send via a connected Page token), Meta bills real money per
+// 24h conversation window, so every send here is gated behind the
+// whatsapp_credits pay-per-use balance (supabase-whatsapp-credits-schema.sql)
+// instead of being unconditionally free like the rest of this file.
+var WHATSAPP_VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || META_WEBHOOK_VERIFY_TOKEN;
+
+async function findCredsByWhatsAppPhoneId(phoneId) {
+  try {
+    var resp = await shared.supabaseRequest(
+      "/social_credentials?whatsapp_phone_id=eq." + encodeURIComponent(phoneId) +
+      "&select=user_id,whatsapp_token,whatsapp_phone_id",
+      { method: "GET" }
+    );
+    if (!resp.ok) return null;
+    var rows = await resp.json();
+    return rows.length ? rows[0] : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function sendWhatsAppMessage(phoneId, token, to, text) {
+  var r = await fetch(GRAPH_BASE + "/" + phoneId + "/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+    body: JSON.stringify({ messaging_product: "whatsapp", to: to, type: "text", text: { body: text } }),
+  });
+  var d = await r.json();
+  if (!r.ok || d.error) throw new Error((d.error && d.error.message) || "WhatsApp send failed (HTTP " + r.status + ")");
+  return d;
+}
+
+// Looks up the real Supabase auth UUID that owns a given social_credentials
+// row (whose user_id column stores email, per _resolveUserId's convention
+// above) — needed since the whatsapp_credits RPCs key off user_profiles.id
+// (a UUID), not the email string social_credentials itself uses.
+async function _authUidForEmail(email) {
+  if (!email) return null;
+  try {
+    var resp = await shared.supabaseRequest("/user_profiles?email=eq." + encodeURIComponent(email) + "&select=id", { method: "GET" });
+    if (!resp.ok) return null;
+    var rows = await resp.json();
+    return rows.length ? rows[0].id : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function handleWhatsAppWebhook(req, res) {
+  if (req.method === "GET") {
+    var mode = req.query["hub.mode"], token = req.query["hub.verify_token"], challenge = req.query["hub.challenge"];
+    if (mode === "subscribe" && token === WHATSAPP_VERIFY_TOKEN) return res.status(200).send(challenge);
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  if (rateLimitExceeded(req, res, 60000, 120)) return;
+  try {
+    var body = req.body || {};
+    var entries = body.entry || [];
+    for (var i = 0; i < entries.length; i++) {
+      var changes = entries[i].changes || [];
+      for (var j = 0; j < changes.length; j++) {
+        var value = (changes[j] && changes[j].value) || {};
+        var phoneId = value.metadata && value.metadata.phone_number_id;
+        var messages = value.messages || [];
+        if (!phoneId || !messages.length) continue;
+        var creds = await findCredsByWhatsAppPhoneId(phoneId);
+        var contactName = (value.contacts && value.contacts[0] && value.contacts[0].profile && value.contacts[0].profile.name) || null;
+        for (var k = 0; k < messages.length; k++) {
+          var msg = messages[k];
+          var text = msg.text && msg.text.body;
+          if (!text) continue; // images/voice/etc. not handled yet — logged nowhere, matches "text only" scope of the rest of this file
+          var from = msg.from;
+
+          // Credit gate BEFORE spending anything on an AI reply — a message
+          // with no credit left is still logged (status "new") so it's never
+          // silently lost, it just doesn't get an automatic reply.
+          var authUid = creds ? await _authUidForEmail(creds.user_id) : null;
+          var hadCredit = false;
+          if (authUid) {
+            var consumeResp = await shared.supabaseRequest("/rpc/consume_whatsapp_credit", {
+              method: "POST", body: JSON.stringify({ p_user_id: authUid }),
+            });
+            hadCredit = consumeResp.ok && (await consumeResp.json()) === true;
+          }
+
+          var aiReply = null;
+          if (hadCredit) {
+            try {
+              aiReply = await generateAISocialReply("whatsapp", "dm", contactName, text);
+              if (aiReply && creds.whatsapp_token) {
+                await sendWhatsAppMessage(phoneId, creds.whatsapp_token, from, aiReply);
+              } else {
+                aiReply = null; // nothing actually sent — refund below
+              }
+            } catch (e) {
+              aiReply = null; // send failed downstream — refund the credit, never charge for a failed send
+            }
+            if (!aiReply && authUid) {
+              try { await shared.supabaseRequest("/rpc/add_whatsapp_credits", { method: "POST", body: JSON.stringify({ p_user_id: authUid, p_amount: 1 }) }); } catch (e) {}
+            }
+          }
+
+          var row = {
+            user_id: (creds && creds.user_id) || "default", platform: "whatsapp", event_type: "dm",
+            sender_id: from, sender_name: contactName, thread_id: from,
+            message_id: msg.id || ("whatsapp_" + from + "_" + Date.now()),
+            message_text: text.slice(0, 2000), status: aiReply ? "replied" : "new",
+            ai_reply: aiReply || null, replied_at: aiReply ? new Date().toISOString() : null,
+            raw_payload: JSON.stringify(msg),
+          };
+          try {
+            await shared.supabaseRequest("/social_inbox", {
+              method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(row),
+            });
+          } catch (e) {}
+        }
+      }
+    }
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error("whatsapp-webhook error:", e.message);
+    return res.status(200).json({ ok: true }); // always 200 to Meta
+  }
+}
+
+// Manual/AI-drafted outbound send — used by the Inbox reply box and AI Chief
+// of Staff's WhatsApp drafter, both of which currently only open a wa.me deep
+// link for the agent to send by hand. This is the real, credit-gated
+// server-side send those call sites can opt into instead.
+async function handleWhatsAppSend(req, res) {
+  if (rateLimitExceeded(req, res, 60000, 20)) return;
+  var body = req.body || {};
+  var authUid = await _resolveAuthUid(body.access_token);
+  if (!authUid) return res.status(401).json({ error: "Please sign in to send a WhatsApp message." });
+
+  var to = String(body.to || "").replace(/\D/g, "");
+  var text = (body.message || "").trim();
+  if (!to || !text) return res.status(400).json({ error: "Missing recipient or message" });
+
+  try {
+    var emailResp = await shared.supabaseRequest("/user_profiles?id=eq." + authUid + "&select=email", { method: "GET" });
+    var emailRows = emailResp.ok ? await emailResp.json() : [];
+    var email = emailRows.length ? emailRows[0].email : null;
+    var credsResp = email ? await shared.supabaseRequest("/social_credentials?user_id=eq." + encodeURIComponent(email) + "&select=whatsapp_token,whatsapp_phone_id", { method: "GET" }) : null;
+    var credsRows = credsResp && credsResp.ok ? await credsResp.json() : [];
+    var creds = credsRows.length ? credsRows[0] : null;
+    if (!creds || !creds.whatsapp_token || !creds.whatsapp_phone_id) {
+      return res.status(400).json({ error: "Connect WhatsApp Business API first in Social Setup." });
+    }
+
+    var consumeResp = await shared.supabaseRequest("/rpc/consume_whatsapp_credit", {
+      method: "POST", body: JSON.stringify({ p_user_id: authUid }),
+    });
+    var hadCredit = consumeResp.ok && (await consumeResp.json()) === true;
+    if (!hadCredit) {
+      return res.status(402).json({ error: "No WhatsApp credits left — buy a credit to send more messages.", needsCredit: true });
+    }
+
+    try {
+      await sendWhatsAppMessage(creds.whatsapp_phone_id, creds.whatsapp_token, to, text);
+    } catch (sendErr) {
+      try { await shared.supabaseRequest("/rpc/add_whatsapp_credits", { method: "POST", body: JSON.stringify({ p_user_id: authUid, p_amount: 1 }) }); } catch (e) {}
+      return res.status(502).json({ error: sendErr.message });
+    }
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error("whatsapp-send error:", e.message);
+    return res.status(500).json({ error: e.message });
+  }
+}
+
 // ── ACTION: email-inbound ─────────────────────────────────────────────────────
 // NOTE: unlike gmail-poll (which knows the owning user_id from the
 // social_credentials row it polled), a generic inbound-parse webhook has no
@@ -595,6 +786,7 @@ module.exports = async function handler(req, res) {
   var action = (req.query && req.query.action) || "";
 
   if (action === "meta-webhook") return handleMetaWebhook(req, res);
+  if (action === "whatsapp-webhook") return handleWhatsAppWebhook(req, res);
   if (action === "config" && req.method === "GET") return handleConfig(req, res);
   if (action === "gmail-poll") return handleGmailPoll(req, res);
   if (action === "send-replies") return handleSendReplies(req, res);
@@ -603,5 +795,6 @@ module.exports = async function handler(req, res) {
   if (action === "oauth-meta") return handleOauthMeta(req, res);
   if (action === "oauth-google") return handleOauthGoogle(req, res);
   if (action === "email-inbound") return handleEmailInbound(req, res);
+  if (action === "whatsapp-send") return handleWhatsAppSend(req, res);
   return handleReply(req, res); // default POST action
 };
