@@ -402,8 +402,16 @@ function setSection(sec,sub){
 }
 window.addEventListener("popstate",function(e){
   if(!e.state||!e.state.section){
-    // No SPA state → would exit the site; snap forward back into app
-    history.go(1);
+    // Backed past the app's own root entry (e.g. no earlier in-app state left,
+    // or a native WebView lost its state after being backgrounded). history.go(1)
+    // is not reliable here — if there is nothing further forward, it navigates
+    // the document away entirely instead of recovering. Push a fresh, known-good
+    // Home state instead: pushState never navigates away, so this always keeps
+    // the user inside the app rather than crashing into a blank/foreign page.
+    currentSection="Home";
+    currentSubTab="";
+    history.pushState({section:"Home",sub:""},"","#Home");
+    render();
     return;
   }
   _skipPush=true;

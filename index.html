@@ -259,7 +259,7 @@ if('serviceWorker' in navigator){
 <script defer src="js/valuation-db.js?v=20260712b"></script>
 <script defer src="js/valuation.js?v=20260715b"></script>
 <script defer src="js/api.js?v=20260712a"></script>
-<script defer src="js/core.js?v=20260715a"></script>
+<script defer src="js/core.js?v=20260715b"></script>
 <script defer src="js/auth.js?v=20260715a"></script>
 <script defer src="js/inbox.js?v=20260715a"></script>
 <script defer src="js/app.js?v=20260715c"></script>
@@ -363,9 +363,14 @@ try{render();}catch(e){
       window.nativeHaptic=function(t){P.Haptics.impact({style:t||'Medium'}).catch(function(){});};
     }
     if(P.App){
+      // window.history.length only ever grows during a WebView session, so
+      // checking it alone makes "exit app" effectively unreachable once the
+      // user has switched tabs even once. Use the SPA's own logical state
+      // instead: not on Home -> step back one screen; on Home -> exit, same
+      // as a normal Android app's home/root screen.
       P.App.addListener('backButton',function(ev){
-        if(window.history.length>1){window.history.back();}
-        else if(ev.canGoBack===false){P.App.exitApp();}
+        if(typeof currentSection!=='undefined'&&currentSection!=='Home'){window.history.back();}
+        else{P.App.exitApp();}
       });
       P.App.addListener('appUrlOpen',function(data){
         if(data.url){var h=data.url.split('#')[1];if(h){window.location.hash='#'+h;render();}}

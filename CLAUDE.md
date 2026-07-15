@@ -461,6 +461,88 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-15 (session 12, back-button bug found on real device after
+  deploy)**: User deployed the pre-launch audit fixes above, then tested on
+  a real phone and reported a real, reproducible bug: navigating from Home
+  (or any tab) to another screen leaves no way to get back — asked for it
+  to be found, fixed, and verified in both the website and the native app.
+  Found and fixed 2 real, independent root causes in the shared SPA
+  routing code (`js/core.js` `setSection`/`popstate`) and the native
+  Capacitor hardware-back-button handler (duplicated in `index.html` and
+  `scripts/build-www.js`, both of which load the same `js/core.js`).
+  - **Root cause 1 (the primary one, native-app-only) — the Android
+    hardware back button silently stopped working after the very first
+    tab switch, for the rest of the session**: the old handler was
+    `if(window.history.length>1){history.back();}else if(ev.canGoBack===
+    false){App.exitApp();}`. `window.history.length` only ever GROWS during
+    a WebView session — `history.back()` moves the position pointer but
+    never shrinks the count — so once the user changes tabs even once,
+    `length` permanently exceeds 1 and stays there for the rest of the
+    session. That makes the `exitApp()` branch (and, more importantly, any
+    correct "there's really nothing earlier, so this back-press should do
+    nothing/exit" detection) permanently unreachable: once the user
+    navigates back to Home and presses the hardware back button again, the
+    code still takes the `history.back()` branch even though there is
+    nothing earlier left in the WebView's session history — under Android,
+    calling `history.back()` with no earlier entry is a silent no-op, so
+    the back button just appears completely dead from that point on. Fixed
+    by asking the SPA's own logical position instead of the unreliable
+    history-length counter: `if(currentSection!=='Home'){history.back();}
+    else{App.exitApp();}` — this is always accurate regardless of how deep
+    `history.length` has grown, and correctly restores standard Android
+    back-button behavior (step back through screens, exit on the root/Home
+    screen) for the rest of the session, not just the first press.
+  - **Root cause 2 (defensive, same-document recovery) — the popstate
+    "safety net" for landing on a history entry with no SPA state could
+    itself fail instead of recovering**: `core.js`'s `popstate` listener
+    used to call `history.go(1)` whenever it saw a stateless entry, on the
+    assumption there was always a valid forward entry to snap back into.
+    That assumption doesn't hold after an Android WebView is killed and
+    restored by the OS while backgrounded (a very common, well-documented
+    Android memory-management behavior) — the restored history can lose
+    its JS state objects while the entry count itself survives, so
+    `history.go(1)` could land on another equally-stateless entry, or on
+    nothing at all, leaving the app showing a broken/blank screen with no
+    way to recover except a manual relaunch. Fixed by never relying on
+    "what's already in history" for recovery: the handler now directly
+    `pushState`s a fresh, known-good `{section:"Home"}` entry and re-renders
+    — `pushState` never navigates the document anywhere, so this path can
+    no longer land on a blank/foreign page; it deterministically returns
+    the user to a working Home screen instead.
+  - Deliberately did NOT try to prevent the browser's own back
+    button/gesture from leaving the site entirely when the user backs past
+    the app's very first history entry into whatever real page they were on
+    before opening dubaival.com (e.g. a Google results page) — that's
+    correct, expected browser behavior for a website, not a bug, and a site
+    hijacking it to trap the user would be a worse anti-pattern than the
+    one being fixed here.
+  - Since `js/core.js` is loaded identically by the website, the Capacitor
+    native Android build, and (per the file being loaded from both
+    `index.html` and `scripts/build-www.js`) the native backButton handler,
+    fixing it once in `js/core.js` + the two native-only copies covers both
+    "the site" and "the application" per the user's explicit request. Ran
+    `node scripts/build-www.js` to rebuild `www/` from the fixed source
+    (confirmed both fixes landed in `www/index.html`/`www/js/core.js`) and
+    manually synced the same 2 files into
+    `android/app/src/main/assets/public/` since `npx cap sync android` still
+    fails in this sandbox (no Android SDK/npm executable resolution here,
+    same pre-existing limitation noted elsewhere in this file) — a real
+    Capacitor sync from the user's own machine will pick up the same
+    already-correct files.
+  - Verified: a real-browser Playwright test driving actual multi-hop
+    in-app navigation (Home → Market/Analyzer → Portfolio/Health →
+    Network/Chat) then pressing real browser back 3 times — each hop
+    correctly restored the exact previous section/sub-tab, matching
+    expected SPA history behavior; a second test dispatching a synthetic
+    stateless `popstate` event while remaining on the same document (the
+    exact shape of the Android-process-restart failure mode) — confirmed it
+    no longer throws and deterministically recovers to a working Home
+    screen; and a direct logic simulation of the fixed native backButton
+    handler confirming it now correctly branches to `history.back()` when
+    away from Home and to `exitApp()` when at Home, unlike the old
+    `history.length` check which made the latter unreachable after the
+    first tab switch.
+
 - **2026-07-15 (session 12, final pre-launch audit)**: User explicitly framed
   this as the last check before posting the site link on LinkedIn for beta
   — asked for a full check of anything missing for a complete beta site plus

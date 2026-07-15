@@ -224,15 +224,20 @@ html = html.replace(
       };
     }
 
-    // Back button: use History API (matches web SPA behavior)
+    // Back button: use History API (matches web SPA behavior).
+    // window.history.length is unreliable here — it only ever grows during a
+    // WebView session and almost never returns to 1 once the user has changed
+    // tabs even once, so checking it alone would make the "exit app" branch
+    // essentially unreachable and leave back-press feeling stuck on the Home
+    // screen. Ask the SPA's own logical state instead: if we're not on the
+    // root Home tab, step back one screen; if we are, exit like a normal
+    // Android app does on its home/root screen.
     if(P.App){
       P.App.addListener('backButton',function(ev){
-        if(window.history.length>1){
+        if(typeof currentSection!=='undefined'&&currentSection!=='Home'){
           window.history.back();
         }else{
-          if(ev.canGoBack===false){
-            P.App.exitApp();
-          }
+          P.App.exitApp();
         }
       });
     }
