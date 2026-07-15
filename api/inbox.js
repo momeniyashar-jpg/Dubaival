@@ -467,20 +467,28 @@ async function handleWhatsAppWebhook(req, res) {
           if (!text) continue; // images/voice/etc. not handled yet — logged nowhere, matches "text only" scope of the rest of this file
           var from = msg.from;
 
-          // Credit gate BEFORE spending anything on an AI reply — a message
-          // with no credit left is still logged (status "new") so it's never
-          // silently lost, it just doesn't get an automatic reply.
+          // Window gate BEFORE spending anything on an AI reply — matches
+          // Meta's real per-24h-conversation-window billing (not per
+          // message): if this contact already has an active window today,
+          // ensure_whatsapp_window() reports allowed=true/credit_consumed
+          // =false and this reply is free, already paid for. A message with
+          // no credit left to open a NEW window is still logged (status
+          // "new") so it's never silently lost, it just doesn't get an
+          // automatic reply.
           var authUid = creds ? await _authUidForEmail(creds.user_id) : null;
-          var hadCredit = false;
+          var hadWindow = false, windowCreditConsumed = false;
           if (authUid) {
-            var consumeResp = await shared.supabaseRequest("/rpc/consume_whatsapp_credit", {
-              method: "POST", body: JSON.stringify({ p_user_id: authUid }),
+            var windowResp = await shared.supabaseRequest("/rpc/ensure_whatsapp_window", {
+              method: "POST", body: JSON.stringify({ p_user_id: authUid, p_contact_phone: from }),
             });
-            hadCredit = consumeResp.ok && (await consumeResp.json()) === true;
+            var windowRows = windowResp.ok ? await windowResp.json() : [];
+            var windowResult = windowRows[0] || {};
+            hadWindow = !!windowResult.allowed;
+            windowCreditConsumed = !!windowResult.credit_consumed;
           }
 
           var aiReply = null;
-          if (hadCredit) {
+          if (hadWindow) {
             try {
               aiReply = await generateAISocialReply("whatsapp", "dm", contactName, text);
               if (aiReply && creds.whatsapp_token) {
@@ -491,8 +499,10 @@ async function handleWhatsAppWebhook(req, res) {
             } catch (e) {
               aiReply = null; // send failed downstream — refund the credit, never charge for a failed send
             }
-            if (!aiReply && authUid) {
-              try { await shared.supabaseRequest("/rpc/add_whatsapp_credits", { method: "POST", body: JSON.stringify({ p_user_id: authUid, p_amount: 1 }) }); } catch (e) {}
+            // Only refund when THIS call newly opened the window (spent a
+            // credit) — reusing an already-open window never needs one.
+            if (!aiReply && windowCreditConsumed && authUid) {
+              try { await shared.supabaseRequest("/rpc/refund_whatsapp_window", { method: "POST", body: JSON.stringify({ p_user_id: authUid, p_contact_phone: from }) }); } catch (e) {}
             }
           }
 
@@ -544,18 +554,25 @@ async function handleWhatsAppSend(req, res) {
       return res.status(400).json({ error: "Connect WhatsApp Business API first in Social Setup." });
     }
 
-    var consumeResp = await shared.supabaseRequest("/rpc/consume_whatsapp_credit", {
-      method: "POST", body: JSON.stringify({ p_user_id: authUid }),
+    // Same 24h-conversation-window gate as the webhook path above — a
+    // manual reply to a contact already inside an active window (e.g. the
+    // agent replying minutes after that contact's own inbound message
+    // opened one) costs nothing extra.
+    var windowResp = await shared.supabaseRequest("/rpc/ensure_whatsapp_window", {
+      method: "POST", body: JSON.stringify({ p_user_id: authUid, p_contact_phone: to }),
     });
-    var hadCredit = consumeResp.ok && (await consumeResp.json()) === true;
-    if (!hadCredit) {
+    var windowRows = windowResp.ok ? await windowResp.json() : [];
+    var windowResult = windowRows[0] || {};
+    if (!windowResult.allowed) {
       return res.status(402).json({ error: "No WhatsApp credits left — buy a credit to send more messages.", needsCredit: true });
     }
 
     try {
       await sendWhatsAppMessage(creds.whatsapp_phone_id, creds.whatsapp_token, to, text);
     } catch (sendErr) {
-      try { await shared.supabaseRequest("/rpc/add_whatsapp_credits", { method: "POST", body: JSON.stringify({ p_user_id: authUid, p_amount: 1 }) }); } catch (e) {}
+      if (windowResult.credit_consumed) {
+        try { await shared.supabaseRequest("/rpc/refund_whatsapp_window", { method: "POST", body: JSON.stringify({ p_user_id: authUid, p_contact_phone: to }) }); } catch (e) {}
+      }
       return res.status(502).json({ error: sendErr.message });
     }
     return res.status(200).json({ ok: true });

@@ -40,12 +40,15 @@ const VIDEO_CREDIT_CURRENCY = process.env.VIDEO_CREDIT_CURRENCY || "usd";
 const VIDEO_GEN_CREDIT_PRICE_CENTS = parseInt(process.env.VIDEO_GEN_CREDIT_PRICE_CENTS || "499", 10);
 const VIDEO_GEN_CREDIT_CURRENCY = process.env.VIDEO_GEN_CREDIT_CURRENCY || "usd";
 // Pay-per-use WhatsApp Business API credit (see api/inbox.js
-// handleWhatsAppWebhook/handleWhatsAppSend) — a separate ONE-TIME payment
-// product again, priced higher than the AI-only credits above since this one
-// has a real, ongoing 3rd-party cost baked in (Meta bills ~$0.02-$0.15 per
-// 24h conversation window; 1 credit here is deliberately modeled as 1
-// send/reply, not 1 full conversation window, to avoid ever losing money on
-// a multi-message exchange we can't precisely bound the window of).
+// handleWhatsAppWebhook/handleWhatsAppSend, ensure_whatsapp_window() in
+// supabase-whatsapp-credits-schema.sql) — a separate ONE-TIME payment
+// product, priced higher than the AI-only credits above since this one has
+// a real, ongoing 3rd-party cost baked in (Meta bills ~$0.02-$0.15 per 24h
+// conversation window per contact). 1 credit = 1 NEWLY OPENED 24h window
+// with one contact — unlimited messages within that window are free, matching
+// Meta's real billing unit (an earlier version of this priced 1 credit per
+// MESSAGE, which would have overcharged an agent messaging the same client
+// repeatedly in one day — fixed after the site owner caught it).
 const WHATSAPP_CREDIT_PRICE_CENTS = parseInt(process.env.WHATSAPP_CREDIT_PRICE_CENTS || "49", 10);
 const WHATSAPP_CREDIT_CURRENCY = process.env.WHATSAPP_CREDIT_CURRENCY || "usd";
 
@@ -231,7 +234,7 @@ async function handleWhatsAppCheckout(req, res) {
     "line_items[0][price_data][currency]": WHATSAPP_CREDIT_CURRENCY,
     "line_items[0][price_data][unit_amount]": String(WHATSAPP_CREDIT_PRICE_CENTS),
     "line_items[0][price_data][product_data][name]": "DubaiVal WhatsApp Business API — 1 Credit",
-    "line_items[0][price_data][product_data][description]": "Send or auto-reply to one WhatsApp message",
+    "line_items[0][price_data][product_data][description]": "Open a 24h WhatsApp conversation with one contact (unlimited replies within that window)",
     "line_items[0][quantity]": "1",
     "success_url": SITE_URL + "/?whatsapp_credit=1",
     "cancel_url": SITE_URL + "/",

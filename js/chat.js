@@ -8487,7 +8487,7 @@ function showSocialSetup(){
   // video-generation credit row in showVideoGenUI().
   var waCredits=(typeof DV_AUTH!=="undefined"&&DV_AUTH.profile&&DV_AUTH.profile.whatsapp_credits)||0;
   var waCredRow=div({display:"flex",alignItems:"center",justifyContent:"space-between",gap:"8px",marginBottom:"12px",padding:"8px 10px",background:"rgba(37,211,102,0.06)",border:"1px solid rgba(37,211,102,0.25)",borderRadius:"8px"});
-  waCredRow.appendChild(div({color:"#8899AA",fontSize:"10px",fontFamily:"'Inter',sans-serif"},"WhatsApp send/auto-reply credits · Balance: "+waCredits));
+  waCredRow.appendChild(div({color:"#8899AA",fontSize:"10px",fontFamily:"'Inter',sans-serif"},"1 credit = 1 day of messaging per contact (unlimited replies within 24h) · Balance: "+waCredits));
   var waBuyBtn=el("button",{style:{background:"transparent",border:"1px solid #25D366",color:"#25D366",borderRadius:"6px",padding:"4px 9px",fontSize:"10px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",flexShrink:"0"}});
   waBuyBtn.textContent="+ Buy Credit ($0.49)";
   waBuyBtn.onclick=function(){_startWhatsAppCreditCheckout().catch(function(e){alert(e.message);});};

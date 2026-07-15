@@ -472,7 +472,7 @@ function _renderItem(item) {
       var waReplySection = div("margin-top:12px");
       waReplySection.appendChild(div("font-size:13px;font-weight:600;color:#fff;margin-bottom:8px", "Reply on WhatsApp"));
       var waCredits = (typeof DV_AUTH !== "undefined" && DV_AUTH.profile && DV_AUTH.profile.whatsapp_credits) || 0;
-      waReplySection.appendChild(div("font-size:11px;color:#8899AA;margin-bottom:6px", "Uses 1 WhatsApp credit per send · Balance: " + waCredits));
+      waReplySection.appendChild(div("font-size:11px;color:#8899AA;margin-bottom:6px", "Free if you've messaged this contact in the last 24h, otherwise uses 1 credit · Balance: " + waCredits));
       var waTextarea = document.createElement("textarea");
       waTextarea.value = INBOX_STATE.replyText[id] || "";
       waTextarea.placeholder = "Type your reply to " + (d.sender_name || d.sender_id) + "...";

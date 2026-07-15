@@ -461,6 +461,62 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-15 (session 12, WhatsApp credit-billing correction)**: Direct
+  follow-up to the WhatsApp session below — user immediately caught a real
+  pricing-model bug: "هر پیام ۰.۴۹ خیلی گرونه، میدونی در روز ایجنت‌ها چقدر
+  پیام دریافت می‌کنن؟" (charging per message is way too expensive — do you
+  know how many messages agents get per day?). Correct: the shipped design
+  consumed 1 credit per SEND or per AUTO-REPLY, but Meta actually bills
+  WhatsApp Business API per 24-HOUR CONVERSATION WINDOW per contact — once
+  that window is open, unlimited messages flow both directions for free
+  until it expires. Charging per message would have made an agent with a
+  single active back-and-forth conversation (very plausible — a real estate
+  inquiry can be a dozen+ messages in one day) pay many times over for what
+  Meta itself only bills once.
+  - **Fix**: reworked `supabase-whatsapp-credits-schema.sql` (not yet run,
+    safe to edit in place) — added a `whatsapp_conversation_windows` table
+    (one row per `(user_id, contact_phone)` pair, tracking
+    `window_expires_at`) and a new `ensure_whatsapp_window(p_user_id,
+    p_contact_phone)` RPC that only consumes a credit and opens a fresh 24h
+    window when the contact has no currently-active one — reusing an
+    already-open window is free. A companion `refund_whatsapp_window()` both
+    refunds the credit AND deletes the just-opened window row, for the case
+    where a credit was spent to open a new window but the actual WhatsApp
+    send that followed failed (so a failed first message never leaves a
+    "phantom paid" window behind). The original `consume_whatsapp_credit`/
+    `add_whatsapp_credits` RPCs are kept underneath, unchanged, as the
+    actual balance-mutation primitives `ensure_whatsapp_window`/
+    `refund_whatsapp_window` call into.
+  - **`api/inbox.js`**: both `handleWhatsAppWebhook` (inbound auto-reply)
+    and `handleWhatsAppSend` (manual/AI-drafted outbound) now call
+    `ensure_whatsapp_window` instead of `consume_whatsapp_credit` directly,
+    and only call the refund path when the response's `credit_consumed`
+    flag is true (i.e. this exact call newly opened the window) — reusing
+    an existing window never triggers a refund since nothing was spent.
+  - **Copy updated** to stop describing this as "per message" pricing:
+    Social Setup's credit-balance row (`js/chat.js`) now reads "1 credit = 1
+    day of messaging per contact (unlimited replies within 24h)"; the
+    Inbox reply box (`js/inbox.js`) now reads "Free if you've messaged this
+    contact in the last 24h, otherwise uses 1 credit"; the Stripe product
+    description (`api/billing.js`) now reads "Open a 24h WhatsApp
+    conversation with one contact (unlimited replies within that window)".
+    Price itself unchanged at $0.49/credit (already user-approved) — only
+    the billing UNIT changed, which is what actually fixes the "too
+    expensive" complaint, since most of a busy agent's daily messages to
+    the same handful of active leads will now reuse an already-open window
+    for free instead of each costing a fresh credit.
+  - Verified: rewrote the Node mocked-fetch test harness (9 cases, up from
+    7) to mock `ensure_whatsapp_window`/`refund_whatsapp_window` instead of
+    the old flat consume/add calls — confirmed a brand-new contact consumes
+    exactly 1 credit and opens a window, a SECOND message from the SAME
+    contact the same day is completely free (no additional RPC charge, no
+    refund call fired) and still gets a real auto-reply, a contact with no
+    credit available for a new window is still logged (never lost) with no
+    reply attempted, a send failure on a newly-opened window correctly
+    triggers the refund/rollback RPC, and the manual send endpoint's 402/
+    success/reuse/not-connected paths all still behave correctly under the
+    new window model; `node -c` on all 3 touched files.
+
 - **2026-07-15 (session 12, pay-per-use WhatsApp Business API)**: Direct
   follow-up to the AI-video-generation credit work above — user asked
   whether the same pay-first model could cover WhatsApp too, so DubAIVal
@@ -3622,8 +3678,10 @@ These files contain critical business logic and data:
   same keys as every other credit product). Until the Meta connection is
   complete, no WhatsApp messages can send or receive — Inbox's WhatsApp tab
   will simply stay empty. See the 2026-07-15 "pay-per-use WhatsApp Business
-  API" work-log entry above for the full design (1 credit = 1 send or 1
-  auto-reply at $0.49, not Meta's real 24h-conversation-window unit).
+  API" + "WhatsApp credit-billing correction" work-log entries above for the
+  full design (1 credit = 1 newly-opened 24h conversation window per
+  contact at $0.49, matching Meta's real per-window billing unit — unlimited
+  messages within an already-open window are free).
 
 - **🟡 Pay-per-video AI VIDEO GENERATION credits — needs manual SQL + 3
   engine env vars** (added 2026-07-15, session 12): run
