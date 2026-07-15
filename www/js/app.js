@@ -2211,7 +2211,7 @@ function renderHome(){
   // the app (the gold version is reserved for the live/main site, not yet
   // swapped in during beta).
   var homeFooter=el('div',{style:{textAlign:'center',padding:'32px 16px 24px',marginTop:'8px'}});
-  homeFooter.appendChild(el('img',{src:'logo.png?v=20260715',alt:'DubAIVal',style:{width:'96px',height:'96px',objectFit:'contain',opacity:'1',margin:'0 auto 12px',display:'block'}}));
+  homeFooter.appendChild(el('img',{src:'logo.png?v=20260715',alt:'DubAIVal',style:{width:'240px',height:'240px',objectFit:'contain',opacity:'1',margin:'0 auto 12px',display:'block'}}));
   homeFooter.appendChild(div({color:'#6B7A9E',fontSize:'10px',fontFamily:"'Inter',sans-serif",letterSpacing:'0.04em'},'DubAIVal · Built in Dubai'));
   wrap.appendChild(homeFooter);
 
@@ -2486,7 +2486,12 @@ function render(preserveScroll){
   logoWrap.appendChild(el("img",{src:"logo.png?v=20260715",alt:"DV",style:{width:logoSize,height:logoSize,borderRadius:"7px",flexShrink:"0",objectFit:"contain",transition:"width 0.2s ease,height 0.2s ease"}}));
   var logoText=el("div",{});
   logoText.className="dv-sidebar-logo-text";
-  logoText.appendChild(div({fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",color:"#fff"},"DubAIVal"));
+  var logoNameRow=el("div",{style:{display:"flex",alignItems:"center",gap:"6px"}});
+  logoNameRow.appendChild(div({fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",color:"#fff"},"DubAIVal"));
+  var sbBetaBadge=el("span",{style:{fontSize:"8px",fontWeight:"800",color:"#D4AF37",border:"1px solid #D4AF37",borderRadius:"4px",padding:"1px 4px",letterSpacing:"0.05em",fontFamily:"'Space Grotesk',monospace"}});
+  sbBetaBadge.textContent="BETA";
+  logoNameRow.appendChild(sbBetaBadge);
+  logoText.appendChild(logoNameRow);
   logoText.appendChild(div({color:"#8899AA",fontSize:"9px",letterSpacing:"0.1em",fontFamily:"'Space Grotesk',monospace"},"AI PROPERTY INTEL"));
   logoWrap.appendChild(logoText);
   sidebar.appendChild(logoWrap);
@@ -2582,6 +2587,9 @@ function render(preserveScroll){
   if(curSec)secIconWrap.innerHTML='<i data-lucide="'+curSec.icon+'"></i>';
   secTitle.appendChild(secIconWrap);
   secTitle.appendChild(span({fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",color:cl.white,letterSpacing:"-0.02em"},curSec?curSec.label:"DubAIVal"));
+  var betaBadge=el("span",{style:{fontSize:"9px",fontWeight:"800",color:cl.gold,border:"1px solid "+cl.gold,borderRadius:"5px",padding:"1px 5px",letterSpacing:"0.06em",fontFamily:"'Space Grotesk',monospace",flexShrink:"0"}});
+  betaBadge.textContent="BETA";
+  secTitle.appendChild(betaBadge);
   header.appendChild(secTitle);
 
   var controls=el("div",{style:{display:"flex",alignItems:"center",gap:"6px"}});

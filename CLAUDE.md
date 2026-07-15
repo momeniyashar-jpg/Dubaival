@@ -461,6 +461,37 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-15 (session 12, BETA badge + bigger logo, prompted by the
+  user's actual LinkedIn post)**: User pointed out there was no visible
+  "beta" indicator anywhere on the site, asked for the Home footer logo to
+  be enlarged another 2-3x, and — after sharing a real screenshot of their
+  actual LinkedIn post showing the link preview card — asked for the same
+  "Beta" wording to appear in that shared-link preview too.
+  - **No beta indicator anywhere — confirmed via a full-repo grep for
+    "beta"** (the only hits were the unrelated Gemini `v1beta` API endpoint
+    URLs). Added a real "BETA" pill badge next to the section title in the
+    global mobile/tablet header (`js/app.js`, visible on every tab, not
+    just Home) and next to "DubAIVal" in the desktop sidebar logo — this
+    directly answers "where can I see the beta message," since it's now
+    present everywhere the app is used, not just on first load.
+  - **Home footer logo enlarged again**: 96px → 240px (2.5x), matching the
+    user's explicit "2-3x bigger" request; kept full opacity from the
+    earlier fix.
+  - **LinkedIn/social link-preview text now says Beta too**: added
+    "(Beta)" to `index.html`'s `<title>`, `og:title`, and `twitter:title`
+    tags — this is the exact text LinkedIn/Twitter/Facebook/WhatsApp read
+    to build their link-preview cards, confirmed against the user's own
+    real LinkedIn post screenshot showing the card's bold title line.
+    Regenerated `og-image.png` itself with a matching "BETA" pill badge
+    added directly below the logo in the image, so the beta framing is
+    consistent whether someone reads the card's title text or looks at the
+    image.
+  - Verified: `node -c js/app.js`; a real-browser Playwright screenshot
+    confirming the "BETA" badge renders next to "Home" in the header and
+    the enlarged 240px footer logo renders cleanly with no frame/box; and
+    a visual check of the regenerated OG image. Rebuilt `www/` and synced
+    the Android asset copies.
+
 - **2026-07-15 (session 12, small follow-up)**: User asked for the Home
   footer logo to be bigger/clearer (`js/app.js` `renderHome()` — was 40px at
   85% opacity, too small for the logo's own detail — Burj Khalifa
