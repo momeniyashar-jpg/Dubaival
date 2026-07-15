@@ -461,6 +461,12 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-15 (session 12, name clarification)**: User clarified DubAIVal's
+  full name is "Dubai AI Valuation." Added "DubAIVal — short for Dubai AI
+  Valuation" as a small subtitle line right above the mission headline on
+  the About page (`js/about.js` `renderAbout()`) — the name origin wasn't
+  explained anywhere in the app before this.
+
 - **2026-07-15 (session 12, BETA badge + bigger logo, prompted by the
   user's actual LinkedIn post)**: User pointed out there was no visible
   "beta" indicator anywhere on the site, asked for the Home footer logo to
