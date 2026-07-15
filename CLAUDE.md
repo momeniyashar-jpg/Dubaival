@@ -461,6 +461,21 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-15 (session 12, continued)**: Hid the Analyzer's "AI Smart
+  Search" text/voice bar (`js/market.js`) per direct user request — the
+  Analyzer's stage-0 form opened with two competing entry points at once
+  (the AI text/voice bar, then the building/cluster search box right below
+  it), which the site owner judged confusing for first-time beta users
+  deciding which one to use. Gated behind a single new
+  `ANALYZER_AI_SEARCH_ENABLED=false` flag at the top of the file rather than
+  deleting the block, so it can be restored later (flip the flag back to
+  `true`) once beta users have more onboarding/context around it — the
+  standalone Quick Check tab and other voice-input entry points elsewhere in
+  the app are unaffected. Verified: `node -c`, and a real-browser Playwright
+  pass on the Analyzer tab confirming the AI bar text is gone while the
+  "Search Building, Cluster or Community" box still renders and works,
+  zero non-network console errors.
+
 - **2026-07-15 (session 12)**: Fixed a real, user-reported visual bug
   (screenshot: Compare tab's "Property Type" dropdown showed illegible
   white/light text on a white/light background when opened) plus started a
