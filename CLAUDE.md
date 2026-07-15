@@ -461,6 +461,138 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-15 (session 12, PWA install prompt + onboarding tour fully
+  broken since long before this session + Home page redesign)**: Follow-up
+  to the back-button fix above. User asked for 3 things: (1) a mobile "Add
+  to Home Screen" install prompt; (2) a check of the old onboarding tour,
+  which the user suspected was now completely broken after so many
+  redesigns; (3) a review of two specific Home-page elements — the "Market
+  Pulse" banner (single top-growth-area card, clickable, going to Market
+  Index) and the "Top Opportunities" widget — asking whether both belong on
+  Home, and specifically whether Top Opportunities is a genuinely useful
+  tool worth upgrading.
+  - **Onboarding tour — found to be catastrophically broken, far beyond
+    stale content**: investigated the user's suspicion directly and found
+    TWO separate infinite-loop bugs in `js/core.js`, either one of which
+    alone means NO user has ever been able to see past the tour's very
+    first "needTab" step (step 2 of 8 in the Quick Tour that runs
+    automatically for every first-time visitor):
+    1. `checkTourOnLoad()` runs at the end of every single `render()` call
+       app-wide, with no guard against a tour already being active. The
+       moment a tour step navigates to a different tab (`needTab` →
+       `setSection()` → `render()`), that render's own `checkTourOnLoad()`
+       call sees `dv_tour_done` still unset (the tour hasn't finished) and
+       schedules a fresh `startTour("quick")` — silently resetting
+       `DV_TOUR.step` back to 0. Caught this by scripting the exact
+       Welcome → click Next sequence and observing `DV_TOUR.step` snap back
+       to 0 a couple seconds after the click, with the Welcome card
+       reappearing — this exactly matches the complaint of a tour that
+       "never gets anywhere." Fixed with a one-line guard:
+       `if(DV_TOUR.active)return;` at the top of `checkTourOnLoad()`.
+    2. Independently, `showTourStep()`'s own `needTab` handling had no
+       guard against re-navigating once already on the target page —
+       every re-invocation (including the one the navigation itself
+       triggers) saw `s.needTab` still set and called `setSection()` again,
+       forever, meaning the function could never reach the code further
+       down that actually builds and shows the tour card. Fixed by checking
+       whether `currentSection`/`currentSubTab` already match the step's
+       mapped destination before navigating again.
+    - **On top of both infinite loops, verified 5 of the Quick Tour's 8
+      steps and roughly half the Full Tour's 16 steps also had dead/stale
+      selectors** once the loops were fixed and steps could finally be
+      reached: the "AI Smart Search" step targeted the AI search bar hidden
+      earlier this session; "Fair Price Checker" hunted for a button that
+      no longer exists (Quick Check was redesigned into a budget-based
+      building recommender in an earlier session); the Portfolio/Deal
+      Network/Workspace steps used `_findTabBtn()`, which only searches
+      `<button>` elements, while the actual bottom-tab-bar nav items are
+      `<div>`s — so these could never be found regardless of text content,
+      and 2 of the 3 also had the wrong substring ("Deals" doesn't appear in
+      the real label "Deal Board"). In the Full Tour: "Investment
+      Calculator" hunted a "Scenario" button that was never actually a
+      `<button>`; "Sustainability Score", "Social Share"/WhatsApp, "Export
+      CSV" (already a stubbed-out placeholder acknowledging the feature
+      doesn't exist), "Price Anomaly Detection", and "Arabic PDF Reports"
+      all targeted RESULT-PAGE-ONLY elements that only render after a user
+      submits a real valuation — something the tour never does, so these
+      were structurally unreachable by design, likely since the tour was
+      first built; "RERA Verification" and "Deal Media Gallery" described
+      the OLD pre-OFM Deal Board flow, dead since the OFM rebuild (see the
+      2026-07-12 note elsewhere in this file). Rewrote both tours end to
+      end: Quick Tour (8→7 steps, dropped a redundant "AI Valuation Engine"
+      repeat) now uses `needTab` consistently for every step so the
+      destination page is guaranteed to actually be showing, plus a new
+      generic fallback (spotlight the now-active `.dv-bottom-tab`/
+      `.dv-sidebar-item` when a step has no more specific target) that
+      works uniformly regardless of which section it lands on. Full Tour
+      (16 steps) replaced every structurally-broken step with a real,
+      always-reachable current feature never requiring a submitted
+      valuation: Map, Personal Advisor, Custom Report Builder, Notification
+      Bell, Saved Searches, Live Market News, Social Media Manager, Video
+      Platform, AI Agents, AI Chief of Staff, Price Alerts, Deal Network
+      (reworded to describe the real OFM system's actual trust/verification
+      features), and About. Added 4 missing `TAB_TO_SECTION` entries
+      (`QuickCheck`, `Chiefs`, `News`, `Advisor`) needed for the corrected
+      steps' navigation.
+  - **PWA "Add to Home Screen" prompt (new)**: `js/core.js` gained
+    `DV_PWA` state + `renderPwaInstallBanner()`, wired into `js/app.js`'s
+    render() pipeline. Real `beforeinstallprompt` handling for Android/
+    Chrome (defers the native prompt, shows a custom branded banner after a
+    4s delay, "Install" button fires the real deferred prompt). Since iOS
+    Safari never fires that event at all, added a separate iOS detection
+    path (`checkPwaPromptOnLoad()`) showing manual "Tap Share, then Add to
+    Home Screen" instructions instead. Scoped to mobile only (desktop never
+    shows it, confirmed via UA-emulated Playwright tests), skips entirely
+    if already running standalone/installed, and a dismiss sets a 14-day
+    cooldown (`dv_pwa_install_dismissed_at`) so it doesn't nag every visit;
+    accepting the real Android install (`appinstalled` event) permanently
+    silences it via `dv_pwa_install_never`.
+  - **Home page — Market Pulse banner removed, Top Opportunities upgraded**:
+    read through both sections and found the "Market Pulse" banner's "Top
+    Performing Area" card and Top Opportunities' own "1-Year Growth Leader"
+    card were computed from the exact same metric (`AREAS[].g[0]`, highest
+    1-year growth) — meaning the two adjacent Home sections showed the
+    same area twice. Presented this finding plus a content/design
+    assessment of Top Opportunities to the user via `AskUserQuestion`
+    rather than unilaterally changing Home's layout, per the user's
+    explicit request to consult first. User chose: remove the Market Pulse
+    banner entirely, and upgrade Top Opportunities in both content and
+    design.
+    - **Content**: added a genuinely new 6th real metric, "Most Active
+      Market" (highest `AREAS[].txVol` — transaction volume, a materially
+      different signal from the existing "Fastest-Selling Market" speed
+      metric — shows where buyers are actually closing deals, not just
+      where listings move fast), computed in `generateMarketMoments()`
+      alongside the existing 5 (Yield Champion, 1-Year Growth Leader,
+      5-Year Capital Story, Best Combined Score, Fastest-Selling Market,
+      plus the personalized "For You" prepend when applicable).
+    - **Design**: redesigned each card in `renderMarketMoments()` from a
+      compact text row into a larger, more scannable card — colored left
+      accent bar + tinted icon badge per category, prominent bold
+      "hero stat" number (e.g. "+7.0%", "10.5%", "48") pulled out to the
+      right in the category's own color instead of buried inside a
+      sentence, category tag badge moved next to the timing label, and a
+      lift/shadow hover effect — while keeping the same real underlying
+      data and click-through to Market Index.
+    - `renderHome()`'s section numbering/comments renumbered (③→⑥ down to
+      ⑤→⑥ shifted appropriately) after removing the old §③ block; no
+      functional change to the sections after Top Opportunities.
+  - Verified: a Playwright test scripting the exact tour click sequence
+    confirming `DV_TOUR.step` no longer resets and the overlay correctly
+    persists after a `needTab` navigation; a full walkthrough of all 7
+    Quick Tour and all 16 Full Tour steps confirming every non-center step
+    now has a real spotlight target and correct navigation, zero console
+    errors; 3 separate Playwright passes (Android UA + simulated
+    `beforeinstallprompt`, iOS Safari UA, desktop UA) confirming the PWA
+    banner shows/hides exactly as designed on each platform with zero
+    errors; and a real-browser screenshot of the redesigned Home page
+    confirming "Market Pulse"/"Top Performing Area" text is gone, all 6 Top
+    Opportunities cards render with real, distinct areas and stats (incl.
+    the new "Most Active Market" card), and zero console errors. `node -c`
+    on all touched files. Rebuilt `www/` and synced the Android asset
+    copies (`npx cap sync android` still unavailable in this sandbox, same
+    pre-existing limitation).
+
 - **2026-07-15 (session 12, back-button bug found on real device after
   deploy)**: User deployed the pre-launch audit fixes above, then tested on
   a real phone and reported a real, reproducible bug: navigating from Home

@@ -1675,9 +1675,10 @@ function renderAdmin(){
 
 var TAB_TO_SECTION={
   "Market":["Market","Dashboard"],"Index":["Market","Index"],"Analyzer":["Market","Analyzer"],
-  "Map":["Market","Map"],"Find":["Market","Find"],"Compare":["Market","Compare"],
+  "QuickCheck":["Market","QuickCheck"],"Map":["Market","Map"],"Find":["Market","Find"],"Compare":["Market","Compare"],
   "Portfolio":["Portfolio","Assets"],"Alerts":["Portfolio","Alerts"],
   "Deals":["Network","Deals"],"AgentHub":["Network","AgentHub"],"Chat":["Network","Chat"],
+  "Chiefs":["Network","Chiefs"],"News":["Market","News"],"Advisor":["Market","Advisor"],
   "Health":["Portfolio","Health"],"Projections":["Portfolio","Projections"],
   "Workspace":["More","Workspace"],"About":["More","About"],"Admin":["More","Admin"],
   "Reports":["More","Reports"],
@@ -1699,6 +1700,7 @@ function generateMarketMoments(){
   var byG1=entries.filter(function(e){return g1(e[1])>0;}).sort(function(a,b){return g1(b[1])-g1(a[1]);});
   var byG5=entries.filter(function(e){return g5(e[1])>0;}).sort(function(a,b){return g5(b[1])-g5(a[1]);});
   var byDom=entries.filter(function(e){return e[1].dom>0;}).sort(function(a,b){return a[1].dom-b[1].dom;});
+  var byTx=entries.filter(function(e){return e[1].txVol>0;}).sort(function(a,b){return b[1].txVol-a[1].txVol;});
   var byScore=entries.filter(function(e){return e[1].y&&e[1].g&&e[1].dom;}).map(function(e){
     var a=e[1];
     return {name:e[0],data:a,score:aY(a)*3+g1(a)*1.5+g5(a)*0.4+(30-Math.min(a.dom,30))*0.6};
@@ -1711,18 +1713,21 @@ function generateMarketMoments(){
     var t=byYield[0];
     usedAreas[t[0]]=1;
     moments.push({icon:"zap",timing:"YIELD CHAMPION",timingColor:"#F59E0B",
-      text:t[0]+" averaging "+aY(t[1]).toFixed(1)+"% gross yield — highest in Dubai right now",
+      text:"Highest gross rental yield in Dubai right now",
+      statValue:aY(t[1]).toFixed(1)+"%",statLabel:"gross yield",
       tag:"OPPORTUNITY",tagColor:"#10B981",area:t[0]});
   }
   if(byG1.length&&!usedAreas[byG1[0][0]]){
     var t=byG1[0];usedAreas[t[0]]=1;
     moments.push({icon:"trending-up",timing:"1-YEAR GROWTH LEADER",timingColor:"#3B82F6",
-      text:t[0]+" up "+g1(t[1]).toFixed(1)+"% this year — Dubai's fastest-growing area",
+      text:"Dubai's fastest-growing area this year",
+      statValue:"+"+g1(t[1]).toFixed(1)+"%",statLabel:"YoY growth",
       tag:"TRENDING",tagColor:"#3B82F6",area:t[0]});
   }else if(byG1.length>1&&!usedAreas[byG1[1][0]]){
     var t=byG1[1];usedAreas[t[0]]=1;
     moments.push({icon:"trending-up",timing:"1-YEAR GROWTH LEADER",timingColor:"#3B82F6",
-      text:t[0]+" up "+g1(t[1]).toFixed(1)+"% this year — one of Dubai's fastest-growing areas",
+      text:"One of Dubai's fastest-growing areas this year",
+      statValue:"+"+g1(t[1]).toFixed(1)+"%",statLabel:"YoY growth",
       tag:"TRENDING",tagColor:"#3B82F6",area:t[0]});
   }
   (function(){
@@ -1731,7 +1736,8 @@ function generateMarketMoments(){
         var t=byG5[gi];usedAreas[t[0]]=1;
         var rate=(g5(t[1])/5).toFixed(1);
         moments.push({icon:"flame",timing:"5-YEAR CAPITAL STORY",timingColor:"#F97316",
-          text:t[0]+": "+g5(t[1]).toFixed(0)+"% appreciation over 5 years — compounding at "+rate+"%/yr",
+          text:"Compounding at "+rate+"%/yr over the last 5 years",
+          statValue:"+"+g5(t[1]).toFixed(0)+"%",statLabel:"5yr appreciation",
           tag:"LONG-TERM",tagColor:"#8B5CF6",area:t[0]});
         break;
       }
@@ -1742,7 +1748,8 @@ function generateMarketMoments(){
       if(!usedAreas[byScore[si].name]){
         var t=byScore[si];usedAreas[t.name]=1;
         moments.push({icon:"crosshair",timing:"BEST COMBINED SCORE TODAY",timingColor:"#D4AF37",
-          text:t.name+": "+aY(t.data).toFixed(1)+"% yield + "+g1(t.data).toFixed(1)+"% growth — highest opportunity score in Dubai",
+          text:aY(t.data).toFixed(1)+"% yield + "+g1(t.data).toFixed(1)+"% growth — highest opportunity score in Dubai",
+          statValue:Math.round(t.score),statLabel:"opportunity score",
           tag:"BEST VALUE",tagColor:"#D4AF37",area:t.name});
         break;
       }
@@ -1751,10 +1758,23 @@ function generateMarketMoments(){
   (function(){
     for(var di=0;di<byDom.length;di++){
       if(!usedAreas[byDom[di][0]]){
-        var t=byDom[di];
+        var t=byDom[di];usedAreas[t[0]]=1;
         moments.push({icon:"gem",timing:"FASTEST-SELLING MARKET",timingColor:"#10B981",
-          text:t[0]+" properties selling in avg "+t[1].dom+" days — most liquid market in Dubai",
+          text:"Most liquid sales market in Dubai right now",
+          statValue:t[1].dom,statLabel:"avg. days on market",
           tag:"LIQUID",tagColor:"#10B981",area:t[0]});
+        break;
+      }
+    }
+  })();
+  (function(){
+    for(var ti=0;ti<byTx.length;ti++){
+      if(!usedAreas[byTx[ti][0]]){
+        var t=byTx[ti];usedAreas[t[0]]=1;
+        moments.push({icon:"activity",timing:"MOST ACTIVE MARKET",timingColor:"#EC4899",
+          text:"Highest transaction volume — where buyers are actually closing deals",
+          statValue:t[1].txVol.toLocaleString(),statLabel:"transactions tracked",
+          tag:"HIGH DEMAND",tagColor:"#EC4899",area:t[0]});
         break;
       }
     }
@@ -1769,11 +1789,12 @@ function generateMarketMoments(){
   if(personalArea){
     var pd=AREAS[personalArea];
     moments.unshift({icon:"star",timing:"FOR YOU",timingColor:"#8B5CF6",
-      text:personalArea+": "+aY(pd).toFixed(1)+"% yield · "+g1(pd).toFixed(1)+"% YoY growth · AED "+pd.psf.toLocaleString()+" PSF — last area you checked",
+      text:g1(pd).toFixed(1)+"% YoY growth · AED "+pd.psf.toLocaleString()+" PSF — last area you checked",
+      statValue:aY(pd).toFixed(1)+"%",statLabel:"gross yield",
       tag:"PERSONAL",tagColor:"#8B5CF6",area:personalArea,isPersonal:true});
   }
 
-  return moments.slice(0,5);
+  return moments.slice(0,6);
 }
 
 function renderMarketMoments(cl){
@@ -1798,32 +1819,50 @@ function renderMarketMoments(cl){
   moments.forEach(function(m,i){
     var borderCol=m.isPersonal?"rgba(139,92,246,0.35)":cl.border;
     var card=el("div",{style:{
-      background:cl.surface,borderRadius:"14px",padding:"13px 15px",marginBottom:"8px",
-      border:"1px solid "+borderCol,cursor:"pointer",
-      display:"flex",alignItems:"flex-start",gap:"12px",
-      transition:"background 0.18s ease,border-color 0.18s ease",
+      position:"relative",overflow:"hidden",
+      background:"linear-gradient(135deg,"+m.tagColor+"0D,"+cl.surface+" 55%)",borderRadius:"16px",
+      padding:"16px 16px 16px 18px",marginBottom:"10px",
+      border:"1px solid "+borderCol,borderLeft:"3px solid "+m.tagColor,cursor:"pointer",
+      display:"flex",alignItems:"center",gap:"14px",
+      transition:"transform 0.2s cubic-bezier(0.34,1.56,0.64,1),border-color 0.18s ease,box-shadow 0.2s ease",
       opacity:"0",animation:"dvFadeUp 0.32s ease "+(i*0.07)+"s both"
     }});
-    var iconEl=el("div",{style:{width:"34px",height:"34px",borderRadius:"10px",background:"rgba(255,255,255,0.05)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
-    iconEl.innerHTML='<i data-lucide="'+m.icon+'" style="width:18px;height:18px;color:'+m.timingColor+';stroke-width:1.8"></i>';
+    var iconEl=el("div",{style:{width:"40px",height:"40px",borderRadius:"12px",background:m.tagColor+"1A",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
+    iconEl.innerHTML='<i data-lucide="'+m.icon+'" style="width:20px;height:20px;color:'+m.timingColor+';stroke-width:1.8"></i>';
     card.appendChild(iconEl);
     var body=el("div",{style:{flex:"1",minWidth:"0"}});
-    var tEl=el("div",{style:{fontSize:"9px",fontWeight:"700",color:m.timingColor,fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.11em",marginBottom:"3px"}});
+    var topRow=el("div",{style:{display:"flex",alignItems:"center",gap:"8px",marginBottom:"4px",flexWrap:"wrap"}});
+    var tEl=el("div",{style:{fontSize:"9px",fontWeight:"700",color:m.timingColor,fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.11em"}});
     tEl.textContent=m.timing;
-    body.appendChild(tEl);
-    var txtEl=el("div",{style:{fontSize:"13px",color:cl.white,fontFamily:"'Inter',sans-serif",lineHeight:"1.45",fontWeight:"500"}});
-    txtEl.textContent=m.text;
-    body.appendChild(txtEl);
-    card.appendChild(body);
+    topRow.appendChild(tEl);
     var badge=el("div",{style:{
       background:m.tagColor+"18",color:m.tagColor,
       border:"1px solid "+m.tagColor+"45",borderRadius:"6px",
-      padding:"3px 7px",fontSize:"9px",fontWeight:"700",
-      fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.05em",
-      flexShrink:"0",alignSelf:"flex-start",whiteSpace:"nowrap"
+      padding:"2px 6px",fontSize:"8.5px",fontWeight:"700",
+      fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.05em",whiteSpace:"nowrap"
     }});
     badge.textContent=m.tag;
-    card.appendChild(badge);
+    topRow.appendChild(badge);
+    body.appendChild(topRow);
+    var areaEl=el("div",{style:{fontSize:"15px",color:cl.white,fontFamily:"'Space Grotesk',sans-serif",fontWeight:"800",marginBottom:"3px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}});
+    areaEl.textContent=m.area||"Dubai";
+    body.appendChild(areaEl);
+    var txtEl=el("div",{style:{fontSize:"11.5px",color:cl.sub,fontFamily:"'Inter',sans-serif",lineHeight:"1.4"}});
+    txtEl.textContent=m.text;
+    body.appendChild(txtEl);
+    card.appendChild(body);
+    // Hero stat — the one number that matters, pulled out big so the card
+    // is scannable at a glance instead of needing to read a full sentence.
+    var statWrap=el("div",{style:{flexShrink:"0",textAlign:"right",paddingLeft:"6px"}});
+    var statVal=el("div",{style:{fontSize:"20px",fontWeight:"800",color:m.timingColor,fontFamily:"'Space Grotesk',monospace",lineHeight:"1.1",whiteSpace:"nowrap"}});
+    statVal.textContent=m.statValue!=null?m.statValue:"";
+    statWrap.appendChild(statVal);
+    if(m.statLabel){
+      var statLbl=el("div",{style:{fontSize:"8.5px",color:cl.sub,fontFamily:"'Inter',sans-serif",marginTop:"2px",whiteSpace:"nowrap"}});
+      statLbl.textContent=m.statLabel;
+      statWrap.appendChild(statLbl);
+    }
+    card.appendChild(statWrap);
     card.addEventListener("click",function(){
       if(m.area){
         if(!window._qcState)window._qcState={area:"",beds:"2 BR",building:"",price:"",result:null,rangeResult:null,mode:"sale"};
@@ -1831,8 +1870,8 @@ function renderMarketMoments(cl){
       }
       setSection("Market","Index");
     });
-    card.addEventListener("mouseenter",function(){card.style.background=cl.raised;card.style.borderColor=cl.borderHi;});
-    card.addEventListener("mouseleave",function(){card.style.background=cl.surface;card.style.borderColor=borderCol;});
+    card.addEventListener("mouseenter",function(){card.style.transform="translateY(-2px)";card.style.borderColor=cl.borderHi;card.style.boxShadow="0 8px 24px rgba(0,0,0,0.25)";});
+    card.addEventListener("mouseleave",function(){card.style.transform="";card.style.borderColor=borderCol;card.style.boxShadow="";});
     sec.appendChild(card);
   });
 
@@ -2044,65 +2083,21 @@ function renderHome(){
   srchWrap.appendChild(chips);
   wrap.appendChild(srchWrap);
 
-  // ── ③ MARKET PULSE ───────────────────────────────────────────────
-  // (Buildings/Areas/PSF/Yield stats already shown once in the Hero stats
-  // bar above — this section now only surfaces the one thing that isn't
-  // shown anywhere else on Home: the current top-growth area. The old
-  // "Quick Actions" section was removed entirely: its big Analyzer card
-  // duplicated the Hero CTA, and its Deal Board/Portfolio/Market Index
-  // tiles duplicated the Explore Platform carousel, Hero secondary CTA,
-  // and the Your Portfolio card further down respectively.)
-  (function(){
-    var aE=Object.entries(AREAS||{});
-    var byG=[];
-    aE.forEach(function(e){var a=e[1];if(a.g&&a.g[0]>0)byG.push(e);});
-    byG.sort(function(a,b){return b[1].g[0]-a[1].g[0];});
-    var top=byG[0];
-    if(!top)return;
-
-    var pw=el('div',{className:'dv-fu dv-fu-3',style:{padding:'24px 16px 0'}});
-    var phdr=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px'}});
-    phdr.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase'},'Market Pulse'));
-    var liveTag=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:'rgba(0,200,150,0.08)',border:'1px solid rgba(0,200,150,0.20)',borderRadius:'20px',padding:'3px 9px'}});
-    var liveDot=el('div',{style:{width:'5px',height:'5px',borderRadius:'50%',background:'#00C896',animation:'dvPulse 2s ease infinite'}});
-    liveTag.appendChild(liveDot);
-    liveTag.appendChild(span({fontSize:'9px',color:'#00C896',fontFamily:"'Space Grotesk',sans-serif",fontWeight:'700',letterSpacing:'0.08em'},'LIVE'));
-    phdr.appendChild(liveTag);
-    pw.appendChild(phdr);
-
-    var tb=el('div',{style:{
-      display:'flex',alignItems:'center',gap:'12px',
-      background:'linear-gradient(135deg,rgba(0,200,150,0.07),rgba(0,200,150,0.02))',
-      border:'1px solid rgba(0,200,150,0.18)',borderRadius:'14px',
-      padding:'14px 16px',cursor:'pointer',transition:'all 0.2s ease',marginBottom:'4px'
-    }});
-    tb.addEventListener('click',function(){setSection('Market','Index');});
-    tb.addEventListener('mouseenter',function(){tb.style.borderColor='rgba(0,200,150,0.35)';});
-    tb.addEventListener('mouseleave',function(){tb.style.borderColor='rgba(0,200,150,0.18)';});
-    var tbIc=el('div',{style:{width:'36px',height:'36px',borderRadius:'10px',background:'rgba(0,200,150,0.12)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:'0'}});
-    tbIc.innerHTML='<i data-lucide="trending-up" style="width:18px;height:18px;color:#00C896"></i>';
-    tb.appendChild(tbIc);
-    var tbTxt=el('div',{style:{flex:'1',minWidth:'0'}});
-    tbTxt.appendChild(div({fontSize:'11px',color:'#9BA8C8',fontFamily:"'Inter',sans-serif",marginBottom:'2px'},'Top Performing Area'));
-    tbTxt.appendChild(div({fontSize:'14px',fontWeight:'700',color:'#E8EDF5',fontFamily:"'Space Grotesk',sans-serif"},
-      top[0]+' — +'+top[1].g[0].toFixed(1)+'% YoY growth'));
-    tb.appendChild(tbTxt);
-    var tbArr=el('div',{style:{color:'rgba(0,200,150,0.5)',flexShrink:'0'}});
-    tbArr.innerHTML='<i data-lucide="chevron-right" style="width:16px;height:16px"></i>';
-    tb.appendChild(tbArr);
-    pw.appendChild(tb);
-    wrap.appendChild(pw);
-  })();
-
-  // ── ④ TOP OPPORTUNITIES ──────────────────────────────────────────
+  // ── ③ TOP OPPORTUNITIES ──────────────────────────────────────────
+  // The old standalone "Market Pulse" banner (single "Top Performing Area"
+  // card) was removed entirely 2026-07-15: it surfaced the exact same fact
+  // as Top Opportunities' own "1-Year Growth Leader" card (both sorted by
+  // the same AREAS[].g[0] metric), so the two sections showed the same
+  // area twice in a row. Top Opportunities now covers that insight (plus 5
+  // more real metrics), so it's the single home for "what's hot right now."
   // (renderMarketMoments() already renders its own "Top Opportunities" + LIVE
   // header internally — the outer label here used to duplicate it.)
-  var momWrap=el('div',{className:'dv-fu dv-fu-4',style:{padding:'24px 16px 0'}});
+  var momWrap=el('div',{className:'dv-fu dv-fu-3',style:{padding:'24px 16px 0'}});
   momWrap.appendChild(renderMarketMoments(cl));
   wrap.appendChild(momWrap);
 
-  // ── ⑤ EXPLORE ────────────────────────────────────────────────────
-  var expWrap=el('div',{className:'dv-fu dv-fu-5',style:{padding:'24px 16px 0'}});
+  // ── ④ EXPLORE ────────────────────────────────────────────────────
+  var expWrap=el('div',{className:'dv-fu dv-fu-4',style:{padding:'24px 16px 0'}});
   expWrap.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'14px'},'Explore Platform'));
   var expScroll=el('div',{style:{display:'flex',gap:'10px',overflowX:'auto',paddingBottom:'8px',scrollSnapType:'x mandatory',WebkitOverflowScrolling:'touch'}});
   expScroll.style.cssText+=';-ms-overflow-style:none;scrollbar-width:none';
@@ -2132,7 +2127,7 @@ function renderHome(){
   expWrap.appendChild(wrapHScroll(expScroll));
   wrap.appendChild(expWrap);
 
-  // ── ⑥ PORTFOLIO ──────────────────────────────────────────────────
+  // ── ⑤ PORTFOLIO ──────────────────────────────────────────────────
   var pAssets=[];
   try{pAssets=JSON.parse(localStorage.getItem('dubaival_portfolio')||'[]');}catch(e){}
   var pfWrap=el('div',{style:{padding:'24px 16px 0'}});
@@ -2184,7 +2179,7 @@ function renderHome(){
   }
   wrap.appendChild(pfWrap);
 
-  // ── ⑦ RECENT ACTIVITY ────────────────────────────────────────────
+  // ── ⑥ RECENT ACTIVITY ────────────────────────────────────────────
   var recent=[];
   try{recent=JSON.parse(localStorage.getItem('dubaival_recent')||'[]');}catch(e){}
   if(recent.length>0){
@@ -2751,6 +2746,10 @@ function render(preserveScroll){
     var reportWidget=renderReportIssueWidget();
     if(reportWidget)app.appendChild(reportWidget);
   }
+  if(typeof renderPwaInstallBanner==="function"){
+    var pwaBanner=renderPwaInstallBanner();
+    if(pwaBanner)app.appendChild(pwaBanner);
+  }
 
   if(window._autoValuate&&analyzerState.f.area&&analyzerState.f.price){
     window._autoValuate=false;
@@ -2760,6 +2759,7 @@ function render(preserveScroll){
   }
 
   checkTourOnLoad();
+  if(typeof checkPwaPromptOnLoad==="function")checkPwaPromptOnLoad();
   if(preserveScroll&&_scrollY)requestAnimationFrame(function(){window.scrollTo(0,_scrollY);});
   if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
 

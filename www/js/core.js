@@ -1612,32 +1612,31 @@ var DV_TOUR={step:0,active:false,level:"quick",steps:[]};
 
 var TOUR_QUICK=[
   {type:"center",title:"Welcome to DubAIVal!",text:"AI-Powered Dubai Real Estate Intelligence Platform — 11,500+ properties, 347 areas, real-time analytics.",icon:"logo"},
-  {sel:function(){return document.querySelector('input[placeholder*="Describe"]')||document.querySelector('input[placeholder*="bedroom"]')||document.querySelector('input[placeholder*="describe"]');},title:"AI Smart Search",text:"Type or speak to describe any property — our AI parses it instantly and fills the form.",arrow:"bottom",needTab:"Analyzer"},
-  {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){if(bs[i].textContent.indexOf("Fair Price")!==-1)return bs[i];}return null;},title:"Fair Price Checker",text:"Quick check: is your deal fair? Just enter area, building, and price for an instant verdict.",arrow:"bottom"},
-  {tab:"Analyzer",title:"AI Valuation Engine",text:"Full AI valuation with confidence score, yield analysis, investment signal, and scenario planner.",arrow:"top"},
-  {tab:"Index",title:"Market Index",text:"Live market dashboard — track 347 areas and 11,500+ properties with heatmaps, histograms, and rankings.",arrow:"top"},
-  {tab:"Portfolio",title:"Portfolio Manager",text:"Track your investments with AI-powered analytics, health scores, projections, and opportunity alerts.",arrow:"top"},
-  {tab:"Deals",title:"Deal Network",text:"Agent-to-agent deal board — post listings, find AI-matched deals, connect with verified agents.",arrow:"top"},
-  {tab:"Workspace",title:"My Workspace",text:"Customize your dashboard and build personalized reports with voice commands and smart templates.",arrow:"top",quickLast:true}
+  {needTab:"Analyzer",sel:function(){var es=document.querySelectorAll("div");for(var i=0;i<es.length;i++){if((es[i].textContent||"").indexOf("Search Building, Cluster or Community")!==-1)return es[i];}return null;},title:"AI Valuation Engine",text:"Search any building or area — get an instant AI-powered valuation with fair price, rental yield, and a confidence score.",arrow:"bottom"},
+  {needTab:"QuickCheck",sel:function(){var es=document.querySelectorAll("div");for(var i=0;i<es.length;i++){if((es[i].textContent||"").indexOf("YOUR BUDGET")!==-1)return es[i];}return null;},title:"Quick Check",text:"Tell us your budget and bedroom count — instantly see which real buildings in Dubai you can afford to buy or rent.",arrow:"bottom"},
+  {needTab:"Index",title:"Market Index",text:"Live market dashboard — track 347 areas and 11,500+ properties with heatmaps, histograms, and rankings.",arrow:"top"},
+  {needTab:"Portfolio",title:"Portfolio Manager",text:"Track your investments with AI-powered analytics, health scores, projections, and opportunity alerts.",arrow:"top"},
+  {needTab:"Deals",title:"Deal Network",text:"Anonymous, AI-matched deal exchange — post what you have or need, and get matched with the other side automatically.",arrow:"top"},
+  {needTab:"Workspace",title:"My Workspace",text:"Customize your dashboard and build personalized reports with voice commands and smart templates.",arrow:"top",quickLast:true}
 ];
 
 var TOUR_FULL=[
-  {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){if(bs[i].textContent===""&&bs[i].style.borderRadius==="50%")return bs[i];}return null;},title:"Voice Command",text:"Tap the mic to speak — describe properties, deals, or report preferences by voice.",arrow:"bottom",needTab:"Analyzer"},
-  {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){var tx=bs[i].textContent||"";if(tx.indexOf("EN")!==-1||tx.indexOf("AR")!==-1)return bs[i];}return null;},title:"Multi-language Toggle",text:"Switch between English and العربية anytime — the entire interface adapts instantly.",arrow:"bottom"},
-  {tab:"Compare",title:"Neighborhood Comparison",text:"Compare 2–3 areas side by side with AI verdict, yield spreads, and growth trajectories.",arrow:"top"},
-  {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){if((bs[i].textContent||"").indexOf("Scenario")!==-1||(bs[i].textContent||"").indexOf("scenario")!==-1)return bs[i];}return null;},title:"Investment Calculator",text:"Plan scenarios with IRR, cash flow projections, and equity growth over 1–30 years.",arrow:"bottom",needTab:"Analyzer"},
-  {sel:function(){var es=document.querySelectorAll("[style]");for(var i=0;i<es.length;i++){if((es[i].textContent||"").indexOf("Sustainability")!==-1)return es[i];}return null;},title:"Sustainability Score",text:"See building efficiency and green ratings — make environmentally conscious investment decisions.",arrow:"bottom"},
-  {tab:"Workspace",title:"Custom Report Builder",text:"Build personalized PDF reports — click sections, type descriptions, or use voice commands.",arrow:"top"},
-  {sel:function(){var bs=document.querySelectorAll("button,div");for(var i=0;i<bs.length;i++){if((bs[i].textContent||"")===""&&bs[i].style&&bs[i].style.borderRadius==="20px"&&bs[i].tagName==="BUTTON")return bs[i];}return null;},title:"Notification Bell",text:"Get alerts for new inquiries, deal matches, portfolio opportunities, and market changes.",arrow:"bottom"},
-  {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){var tx=bs[i].textContent||"";if(tx.indexOf("Save")!==-1&&tx.indexOf("Search")!==-1)return bs[i];}return null;},title:"Saved Searches & Favorites",text:"Save valuations and bookmark favorite deals and areas — access them instantly from any tab.",arrow:"bottom",needTab:"Analyzer"},
-  {sel:function(){var bs=document.querySelectorAll("a,button");for(var i=0;i<bs.length;i++){var tx=bs[i].textContent||"";if(tx.indexOf("WhatsApp")!==-1||tx.indexOf("whatsapp")!==-1)return bs[i];}return null;},title:"Social Share",text:"Share valuations on WhatsApp, LinkedIn, X, and Telegram with one tap.",arrow:"bottom"},
-  {sel:function(){return null;},title:"Export CSV",text:"Data export is currently disabled.",arrow:"bottom"},
-  {sel:function(){var es=document.querySelectorAll("[style]");for(var i=0;i<es.length;i++){if((es[i].textContent||"").indexOf("Anomal")!==-1||(es[i].textContent||"").indexOf("anomal")!==-1)return es[i];}return null;},title:"Price Anomaly Detection",text:"AI flags suspicious pricing patterns to protect market integrity and your investments.",arrow:"bottom",needTab:"Index"},
-  {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){if((bs[i].textContent||"").indexOf("Arabic")!==-1||(bs[i].textContent||"").indexOf("عربي")!==-1)return bs[i];}return null;},title:"Arabic PDF Reports",text:"Generate professional valuation reports in Arabic with full RTL layout support.",arrow:"bottom"},
-  {sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){if((bs[i].textContent||"").indexOf("Agent Hub")!==-1||(bs[i].textContent||"").indexOf("Register")!==-1)return bs[i];}return null;},title:"Agent Hub & Referral",text:"Register as an agent, receive referrals, and manage your subscription tier.",arrow:"bottom",needTab:"Deals"},
-  {sel:function(){var es=document.querySelectorAll("[style]");for(var i=0;i<es.length;i++){if((es[i].textContent||"").indexOf("RERA")!==-1||(es[i].textContent||"").indexOf("Verified")!==-1)return es[i];}return null;},title:"RERA Verification",text:"Verified badge for agents with valid RERA numbers — builds trust with buyers.",arrow:"bottom",needTab:"Deals"},
-  {sel:function(){var es=document.querySelectorAll("[style]");for(var i=0;i<es.length;i++){if((es[i].textContent||"").indexOf("Photo")!==-1||(es[i].textContent||"").indexOf("Gallery")!==-1||(es[i].textContent||"").indexOf("Media")!==-1)return es[i];}return null;},title:"Deal Media Gallery",text:"Upload photos and videos — buyers request access, owners approve for privacy control.",arrow:"bottom",needTab:"Deals"},
-  {type:"center",title:"You've seen everything!",text:"Explore DubAIVal at your own pace or revisit any tour anytime from About or Workspace.",fullLast:true}
+  {needTab:"Analyzer",sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){if(bs[i].textContent===""&&bs[i].style.borderRadius==="50%")return bs[i];}return null;},title:"Voice Command",text:"Tap the mic to speak — describe properties, deals, or report preferences by voice.",arrow:"bottom"},
+  {needTab:"Compare",title:"Neighborhood Comparison",text:"Compare 2–3 areas side by side with AI verdict, yield spreads, and growth trajectories.",arrow:"top"},
+  {needTab:"Map",title:"Interactive Map",text:"Explore Dubai's real map with live area and building data — yield, growth, price, and liquidity overlays.",arrow:"top"},
+  {needTab:"Advisor",title:"Personal Advisor",text:"Answer a few questions about your budget, lifestyle, and goals — get 3 AI-matched area recommendations.",arrow:"top"},
+  {needTab:"Reports",title:"Custom Report Builder",text:"Build personalized PDF reports bound to a real property and client — click sections, type descriptions, or use voice commands.",arrow:"top"},
+  {sel:function(){var bell=document.querySelector('i[data-lucide="bell"]');return bell?bell.closest("button"):null;},title:"Notification Bell",text:"Get alerts for new inquiries, deal matches, portfolio opportunities, and market changes.",arrow:"bottom"},
+  {needTab:"Analyzer",sel:function(){var bs=document.querySelectorAll("button");for(var i=0;i<bs.length;i++){var tx=bs[i].textContent||"";if(tx.indexOf("Save")!==-1&&tx.indexOf("Search")!==-1)return bs[i];}return null;},title:"Saved Searches & Favorites",text:"Save valuations and bookmark favorite deals and areas — access them instantly from any tab.",arrow:"bottom"},
+  {needTab:"News",title:"Live Market News",text:"Real-time Dubai real estate news, auto-tagged by area and developer, with a dedicated Launch Bank for new project announcements.",arrow:"top"},
+  {needTab:"SocialStudio",title:"Social Media Manager",text:"AI-powered content studio for agents — posts, videos, captions, hashtags, and a full content calendar.",arrow:"top"},
+  {needTab:"SocialVideo",title:"Video Platform",text:"Browse agent video listings, follow your favorite agents and areas, and build your own video profile.",arrow:"top"},
+  {needTab:"Chat",title:"AI Agents",text:"8 specialized AI agents — valuation, negotiation, marketing, legal, investment advice, and more, in one chat.",arrow:"top"},
+  {needTab:"Chiefs",title:"AI Chief of Staff",text:"An agent's private workspace — pocket listings, client requirements, auto-matching, and a deal pipeline.",arrow:"top"},
+  {needTab:"Alerts",title:"Price Alerts",text:"Watch any area's price and get an email the moment the market moves in your favor.",arrow:"top"},
+  {needTab:"Deals",title:"Deal Network",text:"Anonymous, AI-matched deal exchange with real document verification and built-in scam reporting for buyer/seller trust.",arrow:"top"},
+  {needTab:"About",title:"About DubAIVal",text:"Learn about the technology, methodology, and mission behind DubAIVal — and how to reach us.",arrow:"top"},
+  {type:"center",title:"You've seen everything!",text:"Explore DubAIVal at your own pace or revisit any tour anytime from the About page.",fullLast:true}
 ];
 
 function startTour(level){
@@ -1677,14 +1676,28 @@ function showTourStep(){
   var isQuickLast=!!s.quickLast&&DV_TOUR.level==="quick";
 
   if(s.needTab&&typeof currentTab!=="undefined"){
-    if(TAB_TO_SECTION&&TAB_TO_SECTION[s.needTab]){setSection(TAB_TO_SECTION[s.needTab][0],TAB_TO_SECTION[s.needTab][1]);}
-    else{currentTab=s.needTab;render();}
-    setTimeout(showTourStep,400);return;
+    var _needMapped=TAB_TO_SECTION&&TAB_TO_SECTION[s.needTab];
+    var _alreadyThere=_needMapped?(currentSection===_needMapped[0]&&currentSubTab===_needMapped[1]):(currentTab===s.needTab);
+    if(!_alreadyThere){
+      // Only navigate once per step -- without this check, every re-render
+      // this navigation itself triggers (setSection -> render) re-enters this
+      // exact branch and navigates again forever, so the card below never
+      // gets a chance to actually render.
+      if(_needMapped){setSection(_needMapped[0],_needMapped[1]);}
+      else{currentTab=s.needTab;render();}
+      setTimeout(showTourStep,400);return;
+    }
   }
 
   var target=null;
   if(s.tab)target=_findTabBtn(s.tab);
   else if(s.sel)target=s.sel();
+  // Steps that only navigate (needTab) with no explicit target: spotlight
+  // the now-active bottom-tab/sidebar entry instead of leaving no highlight
+  // at all -- reliable regardless of which section it lands on, and doesn't
+  // depend on brittle text-scanning of nav elements (bottom-tab items are
+  // <div>s, not <button>s, so _findTabBtn can never find them anyway).
+  if(!target&&s.needTab)target=document.querySelector(".dv-bottom-tab.active")||document.querySelector(".dv-sidebar-item.active");
 
   if(!document.getElementById("dv-tour-css")){
     var css=document.createElement("style");css.id="dv-tour-css";
@@ -1762,8 +1775,95 @@ function showTourStep(){
 }
 
 function checkTourOnLoad(){
+  // render() calls this on every single re-render, including the ones the
+  // tour itself triggers when a step navigates via setSection (needTab).
+  // Without this guard, that navigation's own render() call would re-fire
+  // this function, which (seeing dv_tour_done still unset mid-tour) would
+  // schedule a fresh startTour("quick") and reset DV_TOUR.step back to 0 --
+  // making it impossible to ever advance past the first needTab step.
+  if(DV_TOUR.active)return;
   try{if(localStorage.getItem("dv_tour_done"))return;}catch(e){return;}
   setTimeout(function(){startTour("quick");},800);
+}
+
+// --- PWA "Add to Home Screen" prompt (mobile only) ---------------------------
+var DV_PWA={deferredPrompt:null,show:false,platform:null,scheduled:false};
+
+window.addEventListener("beforeinstallprompt",function(e){
+  e.preventDefault();
+  DV_PWA.deferredPrompt=e;
+  DV_PWA.platform=DV_PWA.platform||"android";
+  _maybeShowPwaPrompt();
+});
+window.addEventListener("appinstalled",function(){
+  DV_PWA.show=false;DV_PWA.deferredPrompt=null;
+  try{localStorage.setItem("dv_pwa_install_never","true");}catch(e){}
+});
+
+function _dvIsMobileDevice(){return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);}
+function _dvIsIOS(){return /iPhone|iPad|iPod/i.test(navigator.userAgent)&&!window.MSStream;}
+function _dvIsStandalone(){
+  try{return window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true;}catch(e){return false;}
+}
+function _dvPwaDismissedRecently(){
+  try{
+    var d=localStorage.getItem("dv_pwa_install_dismissed_at");
+    if(!d)return false;
+    return (Date.now()-parseInt(d,10))/86400000<14;
+  }catch(e){return false;}
+}
+function _maybeShowPwaPrompt(){
+  if(DV_PWA.scheduled||DV_PWA.show)return;
+  if(!_dvIsMobileDevice()||_dvIsStandalone())return;
+  try{if(localStorage.getItem("dv_pwa_install_never"))return;}catch(e){return;}
+  if(_dvPwaDismissedRecently())return;
+  DV_PWA.scheduled=true;
+  setTimeout(function(){DV_PWA.show=true;render();},4000);
+}
+function checkPwaPromptOnLoad(){
+  // Android/Chrome sets DV_PWA.platform itself via the real beforeinstallprompt
+  // event above -- iOS Safari never fires that event at all, so it needs its
+  // own explicit check for the manual "Share -> Add to Home Screen" flow.
+  if(DV_PWA.platform)return;
+  if(_dvIsIOS()&&!_dvIsStandalone()){
+    DV_PWA.platform="ios";
+    _maybeShowPwaPrompt();
+  }
+}
+function renderPwaInstallBanner(){
+  if(!DV_PWA.show)return null;
+  var cl=C();
+  var wrap=div({position:"fixed",left:"12px",right:"12px",bottom:"calc(84px + env(safe-area-inset-bottom))",zIndex:"9400",background:cl.surfaceSolid||cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"14px 16px",boxShadow:"0 8px 30px rgba(0,0,0,0.45)",display:"flex",alignItems:"center",gap:"12px",animation:"fadeInUp 0.35s ease"});
+  wrap.className="dv-pwa-install-banner";
+  wrap.appendChild(el("img",{src:"logo.png",alt:"DubAIVal",style:{width:"38px",height:"38px",objectFit:"contain",flexShrink:"0"}}));
+  var textWrap=div({flex:"1",minWidth:"0"});
+  textWrap.appendChild(div({color:cl.white,fontSize:"12.5px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"Install DubAIVal"));
+  textWrap.appendChild(div({color:cl.sub,fontSize:"10.5px",fontFamily:"'Inter',sans-serif",marginTop:"2px",lineHeight:"1.4"},
+    DV_PWA.platform==="ios"?'Tap Share, then "Add to Home Screen"':"Add to your home screen for quick, app-like access"));
+  wrap.appendChild(textWrap);
+  var btnWrap=div({display:"flex",gap:"6px",flexShrink:"0",alignItems:"center"});
+  if(DV_PWA.platform!=="ios"){
+    var installBtn=el("button",{style:{background:"linear-gradient(135deg,"+cl.gold+",#7A5E28)",border:"none",color:"#08090C",padding:"9px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",whiteSpace:"nowrap"}});
+    installBtn.textContent="Install";
+    installBtn.addEventListener("click",function(){
+      DV_PWA.show=false;
+      var dp=DV_PWA.deferredPrompt;
+      if(dp){dp.prompt();dp.userChoice.then(function(){DV_PWA.deferredPrompt=null;}).catch(function(){});}
+      render();
+    });
+    btnWrap.appendChild(installBtn);
+  }
+  var dismissBtn=el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"9px 11px",borderRadius:"8px",fontSize:"13px",cursor:"pointer",lineHeight:"1"}});
+  dismissBtn.innerHTML="✕";
+  dismissBtn.title="Not now";
+  dismissBtn.addEventListener("click",function(){
+    DV_PWA.show=false;
+    try{localStorage.setItem("dv_pwa_install_dismissed_at",String(Date.now()));}catch(e){}
+    render();
+  });
+  btnWrap.appendChild(dismissBtn);
+  wrap.appendChild(btnWrap);
+  return wrap;
 }
 
 // --- VAL MASCOT (DubaiVal AI Falcon — profile view, facing right) ------------
