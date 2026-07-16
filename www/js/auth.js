@@ -1,6 +1,13 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- AUTH MODULE ---
 var DV_AUTH={user:null,profile:null,loading:true,showModal:false,modalTab:"signin",error:"",busy:false,resetSent:false,recoveryToken:null,passwordUpdated:false,isDemo:false,emailDraft:(function(){try{return localStorage.getItem("dv_last_email")||"";}catch(e){return "";}})()};
+// Tracks whether opening the auth modal pushed a history entry (see renderAuthModal
+// below) so the physical/browser back button closes the modal instead of appearing
+// to do nothing — real bug reported 2026-07-16: the modal is a pure in-memory
+// overlay with no history entry of its own, so pressing back silently changed the
+// underlying section behind the still-open, full-screen modal, which looked from
+// the outside like back was completely broken.
+var _dvModalHistoryPushed=false;
 
 function activateDemoMode(){
   var DEMO_PORTFOLIO=[
@@ -276,7 +283,14 @@ function portfolioChanged(){
 
 // --- AUTH MODAL ---
 function renderAuthModal(){
-  if(!DV_AUTH.showModal)return null;
+  if(!DV_AUTH.showModal){
+    if(_dvModalHistoryPushed){_dvModalHistoryPushed=false;try{history.back();}catch(e){}}
+    return null;
+  }
+  if(!_dvModalHistoryPushed){
+    _dvModalHistoryPushed=true;
+    try{history.pushState({section:currentSection,sub:currentSubTab,dvModal:true},"",location.hash);}catch(e){}
+  }
   var cl=C();
   var overlay=el("div",{style:{position:"fixed",top:"0",left:"0",right:"0",bottom:"0",background:"rgba(0,0,0,0.7)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",zIndex:"9999",display:"flex",alignItems:"center",justifyContent:"center"}});
   overlay.addEventListener("click",function(e){if(e.target===overlay){DV_AUTH.showModal=false;DV_AUTH.error="";render();}});

@@ -461,6 +461,47 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-16 (session 13, browser back button appears dead while the auth
+  modal is open)**: User-reported, screenshot-confirmed bug: after opening
+  Sign In / Forgot Password, pressing the browser's own back button/arrow
+  did nothing at all — screen stayed frozen on the same modal.
+  - **Root cause**: `DV_AUTH.showModal` (`js/auth.js`) is a pure in-memory
+    boolean flip with no history entry of its own — none of the 10 call
+    sites across `js/auth.js`/`js/app.js`/`js/chat.js`/`js/core.js` that set
+    it ever pushed history state. So a real back-button press DID fire a
+    normal `popstate` and DID change the underlying section behind the
+    scenes (via `js/core.js`'s existing tab-navigation history handling) —
+    but the modal is a full-screen fixed overlay, so nothing about that
+    change was visible, and it looked from the outside exactly like "back
+    does nothing." This is a different bug from the 2026-07-15 native
+    Android hardware-back-button fix (that one was about
+    `window.history.length` never shrinking); this one is a desktop/mobile
+    web browser back button interacting with a modal that never
+    participated in SPA history at all.
+  - **Fix**: `renderAuthModal()` now edge-triggers a `history.pushState`
+    (tagged `dvModal:true`) the moment `DV_AUTH.showModal` flips to `true`
+    (covers all 10 call sites for free, no need to touch each one), tracked
+    via a new module-level `_dvModalHistoryPushed` flag. Symmetrically, the
+    same function calls `history.back()` once to pop that entry back off
+    the moment `showModal` flips back to `false` through any NON-back-button
+    path (X button, overlay click, successful sign-in, etc.) — so browser
+    history never accumulates orphan entries just because a modal was
+    opened and closed by other means. `js/core.js`'s `popstate` listener
+    gained an early check: if the modal is open when a real back-button
+    `popstate` fires, close the modal and reset the flag WITHOUT applying
+    the new state's section (so a single back press only dismisses the
+    modal — the section underneath stays exactly where the user left it —
+    consistent with how a dialog/back-button interaction is expected to
+    behave; a second back press then navigates sections normally).
+  - Verified: a Node vm-sandbox test with a real push/pop history-stack
+    mock (not just assertions on isolated calls) — confirmed opening the
+    modal pushes exactly one entry, closing it via a non-back path (X
+    button) pops that exact entry back off with zero effect on the
+    underlying section, a simulated real back-button press while the modal
+    is open closes it and leaves the section completely unchanged, and a
+    SECOND back press (with the modal already closed) correctly navigates
+    sections as normal. `node -c` on both touched files.
+
 - **2026-07-16 (session 13, Buyer Advisory: 5-year card overflow + fee-color
   misuse)**: Two more user-reported, screenshot-confirmed visual bugs, both
   in the Analyzer's "Buyer Advisory" card (`js/market.js`, sale-mode results,

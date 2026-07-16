@@ -401,6 +401,17 @@ function setSection(sec,sub){
   render();
 }
 window.addEventListener("popstate",function(e){
+  // If the auth modal is open, a real back-button press should close it instead
+  // of silently changing the section behind it (see renderAuthModal in auth.js —
+  // that's what pushed this history entry in the first place). Reset the push
+  // flag without calling history.back() again — the browser already moved once.
+  if(typeof DV_AUTH!=="undefined"&&DV_AUTH.showModal){
+    DV_AUTH.showModal=false;
+    DV_AUTH.error="";
+    if(typeof _dvModalHistoryPushed!=="undefined")_dvModalHistoryPushed=false;
+    render();
+    return;
+  }
   if(!e.state||!e.state.section){
     // Backed past the app's own root entry (e.g. no earlier in-app state left,
     // or a native WebView lost its state after being backgrounded). history.go(1)
