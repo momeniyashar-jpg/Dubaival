@@ -2350,7 +2350,7 @@ function renderAnalyzerResult(wrap){
     var susCircWrap=div({display:"flex",alignItems:"center",gap:"20px",marginBottom:"16px"});
     var scoreAngle=Math.round(sus.score/100*360);
     var circle=div({width:"90px",height:"90px",borderRadius:"50%",background:"conic-gradient("+susColor+" "+scoreAngle+"deg, "+cl.border+" "+scoreAngle+"deg)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 20px "+hexAlpha(susColor,0.2),flexShrink:"0"});
-    var inner=div({width:"68px",height:"68px",borderRadius:"50%",background:cl.surface,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"});
+    var inner=div({width:"68px",height:"68px",borderRadius:"50%",background:cl.surfaceSolid||cl.surface,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"});
     inner.appendChild(span({color:susColor,fontSize:"26px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",lineHeight:"1"},String(sus.score)));
     inner.appendChild(span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"/100"));
     circle.appendChild(inner);susCircWrap.appendChild(circle);

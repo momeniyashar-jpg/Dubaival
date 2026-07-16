@@ -461,6 +461,27 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-16 (session 13, donut-chart score number blending into its own
+  ring color)**: User-reported, screenshot-confirmed visual bug: the score
+  number inside the Sustainability & Efficiency Score donut (Analyzer
+  result, `js/market.js`) was nearly unreadable — "78" rendered in the same
+  green as the conic-gradient ring behind it. Root cause: the small inner
+  circle meant to sit on top of the colored ring and hold the score digits
+  used `background:cl.surface` — in dark mode `cl.surface` is only 5% opaque
+  (`rgba(255,255,255,0.05)`, the same token whose transparency caused the
+  2026-07-13 dropdown-bleed-through bug in Find/Analyzer/Chiefs/Deal Board
+  search suggestions) — so the ring's own green showed straight through the
+  "opaque" inner circle instead of being covered by it, and the green score
+  text on top of that near-invisible backing blended into the ring. Fixed
+  by switching to `cl.surfaceSolid` (the real opaque token already
+  established for exactly this class of bug). Grepped for every
+  `conic-gradient` donut in the codebase (only 2 exist) and found the
+  identical bug in Portfolio Health Score's donut (`js/portfolio.js`) —
+  fixed there too, same one-line change. Verified via `node -c` on both
+  files; not yet re-screenshotted live (no network/live data in this
+  sandbox to reproduce the exact Analyzer result), but the fix is the
+  identical, already-proven pattern from the 2026-07-13 dropdown fix.
+
 - **2026-07-15 (session 12, real Google Analytics 4 property)**: User
   noticed the site's existing GA tracking used `G-DUBAIVAL01` — a
   human-chosen placeholder, not a real Google-issued Measurement ID — and

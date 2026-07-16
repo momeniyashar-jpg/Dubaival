@@ -899,7 +899,7 @@ function renderPortfolio(mode){
       var scoreAngle=Math.round(health.score/100*360);
       var circleWrap=div({display:"flex",flexDirection:"column",alignItems:"center",marginBottom:"18px"});
       var circle=div({width:"110px",height:"110px",borderRadius:"50%",background:"conic-gradient("+hScColor+" "+scoreAngle+"deg, "+cl.border+" "+scoreAngle+"deg)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 24px "+hScColor+"30"});
-      var inner=div({width:"84px",height:"84px",borderRadius:"50%",background:cl.surface,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"});
+      var inner=div({width:"84px",height:"84px",borderRadius:"50%",background:cl.surfaceSolid||cl.surface,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"});
       inner.appendChild(span({color:hScColor,fontSize:"32px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",lineHeight:"1"},String(health.score)));
       inner.appendChild(span({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},"/100"));
       circle.appendChild(inner);circleWrap.appendChild(circle);
