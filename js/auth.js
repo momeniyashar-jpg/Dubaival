@@ -281,6 +281,26 @@ function portfolioChanged(){
   }catch(e){}
 })();
 
+// Wraps a password <input> with a SHOW/HIDE toggle button so users can verify
+// what they actually typed before submitting — added 2026-07-16 after a user
+// couldn't tell why sign-in kept failing and asked why there's no eye icon to
+// reveal the password field, same class of friction that caused the original
+// "Invalid login credentials" confusion this session already fixed once.
+function _dvPasswordField(inputEl,cl){
+  var wrap=el("div",{style:{position:"relative",width:"100%"}});
+  inputEl.style.paddingRight="52px";
+  var toggle=el("button",{type:"button",style:{position:"absolute",right:"6px",top:"50%",transform:"translateY(-50%)",background:"transparent",border:"none",color:cl.sub,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",padding:"6px 8px",letterSpacing:"0.05em"}});
+  toggle.textContent="SHOW";
+  toggle.addEventListener("click",function(e){
+    e.preventDefault();
+    if(inputEl.type==="password"){inputEl.type="text";toggle.textContent="HIDE";}
+    else{inputEl.type="password";toggle.textContent="SHOW";}
+  });
+  wrap.appendChild(inputEl);
+  wrap.appendChild(toggle);
+  return wrap;
+}
+
 // --- AUTH MODAL ---
 function renderAuthModal(){
   if(!DV_AUTH.showModal){
@@ -340,9 +360,9 @@ function renderAuthModal(){
     if(DV_AUTH.error)modal.appendChild(div({background:hexAlpha("#EF4444",0.1),border:"1px solid "+hexAlpha("#EF4444",0.3),borderRadius:"8px",padding:"8px 12px",marginBottom:"12px",color:"#EF4444",fontSize:"11px",fontFamily:"'Inter',sans-serif"},DV_AUTH.error));
     var inpStyle2={width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"};
     var newPassInp=el("input",{type:"password",placeholder:"New password (min. 8 characters)",style:inpStyle2});
-    modal.appendChild(newPassInp);
+    modal.appendChild(_dvPasswordField(newPassInp,cl));
     var confPassInp=el("input",{type:"password",placeholder:"Confirm new password",style:Object.assign({},inpStyle2,{marginBottom:"16px"})});
-    modal.appendChild(confPassInp);
+    modal.appendChild(_dvPasswordField(confPassInp,cl));
     var setBtn=el("button",{style:{width:"100%",padding:"12px",borderRadius:"999px",border:"1px solid rgba(212,175,55,0.15)",background:DV_AUTH.busy?"rgba(75,85,99,0.3)":"rgba(212,175,55,0.10)",color:DV_AUTH.busy?"#9CA3AF":"#D4A843",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:DV_AUTH.busy?"not-allowed":"pointer",marginBottom:"8px"}});
     setBtn.textContent=DV_AUTH.busy?"...":"Set New Password";
     if(!DV_AUTH.busy)setBtn.addEventListener("click",function(){
@@ -396,7 +416,7 @@ function renderAuthModal(){
   passInp=el("input",{type:"password",placeholder:t("auth_password"),autocomplete:"off",readonly:true,style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"16px"}});
   passInp.addEventListener("focus",function(){this.removeAttribute("readonly");});
   passInp.addEventListener("keydown",function(e){if(e.key==="Enter")doSubmit();});
-  modal.appendChild(passInp);
+  modal.appendChild(_dvPasswordField(passInp,cl));
 
   if(DV_AUTH.error){
     modal.appendChild(div({background:hexAlpha("#EF4444",0.1),border:"1px solid "+hexAlpha("#EF4444",0.3),borderRadius:"8px",padding:"8px 12px",marginBottom:"12px",color:"#EF4444",fontSize:"11px",fontFamily:"'Inter',sans-serif"},DV_AUTH.error));

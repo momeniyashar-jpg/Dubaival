@@ -461,6 +461,26 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-16 (session 13, password visibility toggle)**: User asked why
+  there's no eye icon next to the Sign In password field to reveal what
+  was typed — directly relevant to their ongoing "Invalid login
+  credentials" debugging this session, since a masked field makes a typo
+  invisible until after a failed submit. Added `_dvPasswordField(inputEl,cl)`
+  (`js/auth.js`) — wraps a password `<input>` in a relatively-positioned
+  container with a small SHOW/HIDE text-button toggle (absolute-positioned,
+  input gets `paddingRight` to clear it) that flips `input.type` between
+  `"password"`/`"text"`. Applied to all 3 password inputs in the auth
+  modal: Sign In/Sign Up (`passInp`) and both Set-New-Password fields
+  (`newPassInp`/`confPassInp`) — the latter is the exact screen a user
+  lands on after clicking a real password-reset email link, so being able
+  to confirm the new password was typed correctly there matters at least
+  as much as at sign-in.
+  - Verified: a real-browser Playwright test opening the Sign In modal,
+    typing into the password field, confirming a "SHOW" toggle button
+    exists, clicking it flips the input to `type="text"` and the label to
+    "HIDE", and clicking again correctly reverts to `type="password"` —
+    zero console errors. `node -c js/auth.js`.
+
 - **2026-07-16 (session 13, browser back button appears dead while the auth
   modal is open)**: User-reported, screenshot-confirmed bug: after opening
   Sign In / Forgot Password, pressing the browser's own back button/arrow
