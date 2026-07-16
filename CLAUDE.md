@@ -461,6 +461,58 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-16 (session 13, CRITICAL — Inbox feature has silently never
+  stored a single message on any platform since it was built)**: Found
+  while live-debugging why a real WhatsApp test message never appeared in
+  the Inbox, after confirming step-by-step that everything upstream was
+  correct: Meta was generating real webhook payloads (confirmed via the
+  "Check test webhooks" panel), the callback URL was verified, the
+  `messages` field was subscribed, the app was subscribed to the WABA
+  (`POST /{waba-id}/subscribed_apps` — a genuinely separate, easy-to-miss
+  required step for WhatsApp Cloud API, unlike Instagram/Facebook), and the
+  test recipient number was verified. A manual `curl` POST of a real
+  payload straight to `/api/inbox?action=whatsapp-webhook` (run from the
+  user's own machine, since this sandbox's outbound proxy blocks
+  dubaival.com) returned the expected `{"ok":true}` — but a direct
+  `SELECT * FROM social_inbox` in Supabase SQL Editor came back with zero
+  rows, proving the message was never actually persisted despite the
+  success response.
+  - **Root cause**: `email_inbox` and `social_inbox`
+    (`supabase-inbox-schema.sql`) were created with NO `user_id` column at
+    all — but `api/inbox.js` (every ingestion path: Gmail/email, Instagram,
+    Facebook, WhatsApp) has always built its insert row with a `user_id`
+    field, and `js/inbox.js` (the client Inbox UI) has always queried with
+    `?user_id=eq....`. Since PostgREST rejects inserting a column that
+    doesn't exist, every single insert into either table has been failing
+    since this feature was first built — completely silently, since
+    `api/inbox.js`'s insert call sites are wrapped in empty `catch (e) {}`
+    blocks and the outer handler always returns `{"ok":true}` regardless
+    (a deliberate "never break Meta's webhook retry logic" choice that
+    also happened to hide this bug perfectly). This means the Inbox
+    feature has never actually stored a real message on ANY platform —
+    not just WhatsApp — despite being described as working in every prior
+    session's notes, none of which apparently did an end-to-end live
+    verification against the actual table contents.
+  - **Compounding discovery**: `supabase-inbox-rls-lockdown.sql`'s policies
+    (written 2026-07-11 to fix the exact same "no TO clause" wide-open RLS
+    bug as the `social_credentials` fix earlier tonight) reference
+    `user_id` in their `USING` clause — meaning that migration could never
+    have been successfully applied either, since the column it depends on
+    never existed. The original wide-open `USING(true)` policies from
+    `supabase-inbox-schema.sql` are very likely still the live ones.
+  - **Fix**: new migration `supabase-inbox-user-id-fix.sql` (requires
+    manual execution — see Outstanding items) adds the missing `user_id`
+    column to both tables with an index, then drops whichever
+    policies currently exist (handles either the original wide-open ones
+    or the never-actually-applied lockdown ones) and re-creates the
+    correct owner-only SELECT/UPDATE policies in one idempotent script —
+    combining the schema fix and the security fix in a single run.
+  - Diagnostic trail preserved for future sessions: manually POSTing a
+    known-good webhook payload directly to a suspect ingestion endpoint
+    (bypassing the third-party webhook sender entirely) is what isolated
+    "our code returns success" from "our code actually persisted the
+    data" — the `{"ok":true}` response alone was not sufficient proof.
+
 - **2026-07-16 (session 13, CRITICAL security fix — any user's social API
   tokens could be read/overwritten by anyone on the internet)**: User asked
   a sharp, direct question after the Social Setup navigation fix above:
@@ -4060,6 +4112,17 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🔴 CRITICAL, NOT YET LIVE — Inbox feature (email/Instagram/Facebook/
+  WhatsApp) has never stored a single message, needs manual SQL execution
+  NOW** (added 2026-07-16, session 13): run
+  `supabase-inbox-user-id-fix.sql` in Supabase SQL Editor immediately.
+  `email_inbox`/`social_inbox` are missing a `user_id` column that
+  `api/inbox.js` and `js/inbox.js` have always assumed exists — every
+  message ingestion (Gmail, Instagram DM, Facebook DM, WhatsApp) has been
+  silently failing to persist since this feature was built. See the
+  2026-07-16 "Inbox feature has silently never stored a single message"
+  work-log entry above for the full diagnostic trail.
 
 - **🔴 CRITICAL, NOT YET LIVE — social_credentials/scheduled_posts/
   post_engagement RLS fix needs manual SQL execution NOW** (added
