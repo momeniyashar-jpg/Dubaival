@@ -515,10 +515,14 @@ async function handleWhatsAppWebhook(req, res) {
             raw_payload: JSON.stringify(msg),
           };
           try {
-            await shared.supabaseRequest("/social_inbox", {
+            var insResp = await shared.supabaseRequest("/social_inbox", {
               method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(row),
             });
-          } catch (e) {}
+            if (!insResp.ok) {
+              var insErrText = await insResp.text();
+              console.error("whatsapp-webhook social_inbox insert failed:", insResp.status, insErrText);
+            }
+          } catch (e) { console.error("whatsapp-webhook social_inbox insert threw:", e.message); }
         }
       }
     }
