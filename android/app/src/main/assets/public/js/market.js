@@ -2769,7 +2769,7 @@ function renderAnalyzerResult(wrap){
       buyerCard.appendChild(div({background:cl.raised,borderRadius:"10px",padding:"14px",marginBottom:"12px"},[
         div({color:cl.sub,fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"Profit Projection If You Buy at AED "+price.toLocaleString()),
         div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px"},[
-          div({background:hexAlpha(cl.yellow,0.08),border:"1px solid "+hexAlpha(cl.yellow,0.2),borderRadius:"10px",padding:"12px",textAlign:"center"},[
+          div({background:hexAlpha(cl.yellow,0.08),border:"1px solid "+hexAlpha(cl.yellow,0.2),borderRadius:"10px",padding:"12px",textAlign:"center",minWidth:"0"},[
             div({color:cl.yellow,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"1 YEAR"),
             div({color:cl.subHi,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},"Value: AED "+proj1y.toLocaleString()),
             div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif"},"Rent: +"+rent1.toLocaleString()),
@@ -2778,7 +2778,7 @@ function renderAnalyzerResult(wrap){
               div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"ROI: "+roi1+"%"),
             ]),
           ]),
-          div({background:hexAlpha(_bC2,0.08),border:"1px solid "+hexAlpha(_bC2,0.3),borderRadius:"10px",padding:"12px",textAlign:"center"},[
+          div({background:hexAlpha(_bC2,0.08),border:"1px solid "+hexAlpha(_bC2,0.3),borderRadius:"10px",padding:"12px",textAlign:"center",minWidth:"0"},[
             div({color:_bC,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"3 YEARS"),
             div({color:cl.subHi,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},"Value: AED "+proj3y.toLocaleString()),
             div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif"},"Rent: +"+rent3.toLocaleString()),
@@ -2787,7 +2787,7 @@ function renderAnalyzerResult(wrap){
               div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"ROI: "+roi3+"%"),
             ]),
           ]),
-          div({background:hexAlpha(cl.gold,0.08),border:"1px solid "+hexAlpha(cl.gold,0.2),borderRadius:"10px",padding:"12px",textAlign:"center"},[
+          div({background:hexAlpha(cl.gold,0.08),border:"1px solid "+hexAlpha(cl.gold,0.2),borderRadius:"10px",padding:"12px",textAlign:"center",minWidth:"0"},[
             div({color:cl.gold,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"5 YEARS"),
             div({color:cl.subHi,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},"Value: AED "+proj5y.toLocaleString()),
             div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif"},"Rent: +"+rent5.toLocaleString()),
@@ -2804,9 +2804,9 @@ function renderAnalyzerResult(wrap){
         div({color:cl.sub,fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"Total Cash Required"),
         div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"8px"},[
           div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Property Price"),div({color:cl.subHi,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+price.toLocaleString())]),
-          div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"DLD Fee (4%)"),div({color:"#EF4444",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"+AED "+Math.round(price*0.04).toLocaleString())]),
-          div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Agent Fee (2%)"),div({color:"#EF4444",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"+AED "+Math.round(price*0.02).toLocaleString())]),
-          div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Processing (0.5%)"),div({color:"#EF4444",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"+AED "+Math.round(price*0.005).toLocaleString())]),
+          div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"DLD Fee (4%)"),div({color:cl.subHi,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"+AED "+Math.round(price*0.04).toLocaleString())]),
+          div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Agent Fee (2%)"),div({color:cl.subHi,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"+AED "+Math.round(price*0.02).toLocaleString())]),
+          div({},[div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Processing (0.5%)"),div({color:cl.subHi,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"+AED "+Math.round(price*0.005).toLocaleString())]),
         ]),
         div({borderTop:"1px solid "+cl.border,paddingTop:"10px",display:"flex",justifyContent:"space-between",alignItems:"center"},[
           span({color:cl.subHi,fontSize:"12px",fontWeight:"700",fontFamily:"'Inter',sans-serif"},"Total Investment"),

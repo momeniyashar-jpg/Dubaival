@@ -461,6 +461,41 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-16 (session 13, Buyer Advisory: 5-year card overflow + fee-color
+  misuse)**: Two more user-reported, screenshot-confirmed visual bugs, both
+  in the Analyzer's "Buyer Advisory" card (`js/market.js`, sale-mode results,
+  the "Profit Projection If You Buy at AED..." 1/3/5-year grid and the "Total
+  Cash Required" breakdown right below it).
+  - **5 YEARS card overflowing its container**: the 3-column projection grid
+    (`gridTemplateColumns:"1fr 1fr 1fr"`) had no `minWidth:"0"` on its grid-item
+    divs — a well-known CSS Grid default (grid items refuse to shrink below
+    their own content's intrinsic min-content width unless told otherwise),
+    so once the projected value/rent/ROI numbers got long enough (5-year
+    projections are the largest numbers of the three), the rightmost "5
+    YEARS" card was pushed wider than its actual 1fr track and visibly bled
+    past the parent card's right edge — exactly what the user's screenshot
+    showed. Fixed by adding `minWidth:"0"` to all 3 grid-item wrappers (1
+    YEAR / 3 YEARS / 5 YEARS), the same fix pattern already used elsewhere
+    in this file (e.g. the Track Record name-truncation rows) for the
+    identical class of overflow.
+  - **Red color misuse on DLD Fee / Agent Fee / Processing fee**: all 3
+    appeared in `#EF4444` (warning red) in the "Total Cash Required"
+    breakdown, despite being ordinary, expected, correctly-calculated
+    transaction costs — not a warning, not a bad number. This is the exact
+    same anti-pattern already identified and fixed for the Mortgage
+    Calculator's "Total Interest" stat in the 2026-07-15 red-color audit
+    (see that entry below) — this specific trio was apparently missed in
+    that earlier pass since it lives in the Analyzer's Buyer Advisory card,
+    not the standalone Mortgage tab. Switched all 3 to `cl.subHi`, matching
+    the neutral styling already used one row above for "Property Price" in
+    the same grid. Grepped the rest of the codebase for the same 3 fee
+    labels — `js/mortgage.js`'s own DLD Fee row was already correctly
+    neutral (`cl.sub`); no other occurrences found.
+  - Verified: `node -c js/market.js`; not re-screenshotted live in this
+    sandbox (no live network/valuation data to reproduce the exact Analyzer
+    result), but both fixes are minimal, targeted, and follow established
+    patterns already proven elsewhere in this codebase.
+
 - **2026-07-16 (session 13, donut-chart score number blending into its own
   ring color)**: User-reported, screenshot-confirmed visual bug: the score
   number inside the Sustainability & Efficiency Score donut (Analyzer
