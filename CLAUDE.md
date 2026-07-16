@@ -461,6 +461,41 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-16 (session 13, "Social Setup" card opened the wrong panel —
+  WhatsApp Business fields were unreachable)**: Direct continuation of the
+  WhatsApp Business API onboarding started earlier this session — user
+  went looking for the Social Setup screen (SocialMedia → Studio → profile
+  icon → the "Social Setup" card) to paste their WhatsApp Phone Number
+  ID/Access Token/WABA ID, and genuinely could not find those 3 fields
+  anywhere, despite following the exact navigation path.
+  - **Root cause, confirmed by reading both panels**: `renderMediaStudio()`
+    (`js/chat.js`) builds a "Social Setup" config card (wrench icon,
+    labeled "Social Setup") whose click handler (`onSetup`, unconfigured
+    state) AND "Edit" button (`onEdit`, configured state) were both wired
+    to `function(){showProfilePanel=true;render();}` — opening
+    `renderProfilePanel()` (`js/app.js`), a DIFFERENT overlay entirely.
+    That panel has Groq/Gemini/Unsplash/Pexels/Instagram/Facebook/
+    LinkedIn/Twitter/TikTok credential fields and a plain personal
+    "WhatsApp" CONTACT NUMBER field (`dv_whatsapp_number`) — but never had
+    the 3 WhatsApp BUSINESS API fields (`dv_whatsapp_token`,
+    `dv_whatsapp_phone_id`, `dv_whatsapp_waba_id`) at all. Those 3 fields
+    only exist in the OTHER modal, `showSocialSetup()` (also `js/chat.js`,
+    added in the 2026-07-15 WhatsApp session) — meaning the card literally
+    named "Social Setup" pointed at the one screen that doesn't have
+    WhatsApp Business fields, while the correct screen sharing the same
+    name was only reachable via a separate, easy-to-miss onboarding banner
+    button ("Open Social Setup →", only shown when zero platforms are
+    connected) or a buried "Setup" button inside a generated post's tool
+    row. A real, confirmed navigation bug, not user error.
+  - **Fix**: both handlers (`onSetup` and `onEdit`) now call
+    `showSocialSetup()` instead of opening the Profile Panel — the card's
+    name now matches where it actually goes, and it's the same modal that
+    already has all 3 WhatsApp Business fields plus every other platform's
+    credentials. Grepped for any other `showProfilePanel=true` call sites
+    in `js/chat.js` this change might have touched — confirmed these were
+    the only 2, both fixed correctly, no unintended replacements.
+  - Verified: `node -c js/chat.js`.
+
 - **2026-07-16 (session 13, password visibility toggle)**: User asked why
   there's no eye icon next to the Sign In password field to reveal what
   was typed — directly relevant to their ongoing "Invalid login

@@ -8817,12 +8817,12 @@ function renderMediaStudio(mode){
     [div({color:"#E8EDF5",fontSize:"12px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},platforms.join(" · ")),
      div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},platforms.length+" platform"+(platforms.length!==1?"s":"")+" connected")],
     "wrench","Social Setup","Platform accounts",
-    function(){showProfilePanel=true;render();},
+    function(){showSocialSetup();},
     function(){if(confirm("Disconnect all social accounts?")){
       ["dv_ig_token","dv_ig_id","dv_fb_id","dv_linkedin_token","dv_linkedin_urn","dv_youtube_token","dv_youtube_refresh","dv_youtube_client_id","dv_youtube_client_secret","dv_twitter_consumer_key","dv_twitter_consumer_secret","dv_twitter_access_token","dv_twitter_access_secret","dv_tiktok_token","dv_whatsapp_number","dv_whatsapp_token","dv_whatsapp_phone_id","dv_whatsapp_waba_id"].forEach(function(k){localStorage.removeItem(k);});
       render();
     }},
-    function(){showProfilePanel=true;render();}
+    function(){showSocialSetup();}
   );
 
   var setupSec=el("div",{style:{marginBottom:"24px"}});
