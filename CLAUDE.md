@@ -461,6 +461,37 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-16/17 (session 13, follow-up — Inbox stayed empty even after
+  the user_id fix, because social_inbox's live schema drifted from the repo's
+  own schema file)**: Direct continuation of the `user_id` fix above. After
+  running `supabase-inbox-user-id-fix.sql` and re-sending the manual curl
+  webhook test, `SELECT * FROM social_inbox` still came back empty — until
+  introspecting the ACTUAL live columns (`information_schema.columns`, since
+  the repo's `supabase-inbox-schema.sql` turned out not to be trustworthy
+  ground truth) revealed `social_inbox` has no `received_at` column at all —
+  it has `created_at` instead — while `email_inbox` genuinely does have
+  `received_at` (confirmed the same way). `js/inbox.js` fetched BOTH tables
+  with the same `&order=received_at.desc` — which 400's outright for
+  `social_inbox`, so the Inbox fetch for social messages has always failed
+  silently regardless of whether any rows existed underneath.
+  - **Fix**: `js/inbox.js`'s `social_inbox` fetch now orders by `created_at`
+    instead; the client-side sort key (`ts: s.received_at` → `s.created_at`)
+    and the per-card timestamp display (`d.received_at || d.ts` → `d.received_at
+    || d.created_at`) updated to match. `email_inbox`'s `received_at` usage
+    (fetch order + `api/inbox.js`'s Gmail ingestion) was double-checked
+    against its own live schema and left untouched — correct as-is.
+  - **Lesson for future sessions, written into the fix itself as a code
+    comment**: this repo's `supabase-*.sql` files are not guaranteed to match
+    what's actually deployed — a table can drift (extra/missing/renamed
+    columns) from whatever the schema file says, especially for older
+    features. When a query against a real table errors or silently returns
+    nothing, check `information_schema.columns` directly before assuming the
+    repo's schema file is accurate.
+  - Verified: `node -c js/inbox.js`; not yet re-confirmed end-to-end live in
+    this sandbox (no network access to the real Supabase project), but the
+    fix directly matches the exact column set the user confirmed via a live
+    `information_schema.columns` query against production.
+
 - **2026-07-16 (session 13, CRITICAL — Inbox feature has silently never
   stored a single message on any platform since it was built)**: Found
   while live-debugging why a real WhatsApp test message never appeared in

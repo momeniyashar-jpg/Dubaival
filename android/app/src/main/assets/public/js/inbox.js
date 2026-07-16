@@ -42,9 +42,14 @@ async function _loadInbox() {
     }
     var headers = { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + token };
     var uid = "user_id=eq." + encodeURIComponent(userId);
+    // email_inbox really has a received_at column; social_inbox's live schema
+    // (confirmed 2026-07-16 while debugging the WhatsApp pipeline) never got
+    // one and uses its own created_at instead — ordering social_inbox by
+    // received_at silently 400'd on every fetch, which is why the whole
+    // Inbox looked permanently empty even after messages started saving.
     var [emailResp, socialResp] = await Promise.all([
       fetch(SUPABASE_URL + "/rest/v1/email_inbox?" + uid + "&select=*&order=received_at.desc&limit=100", { headers: headers }),
-      fetch(SUPABASE_URL + "/rest/v1/social_inbox?" + uid + "&select=*&order=received_at.desc&limit=100", { headers: headers })
+      fetch(SUPABASE_URL + "/rest/v1/social_inbox?" + uid + "&select=*&order=created_at.desc&limit=100", { headers: headers })
     ]);
     INBOX_STATE.emails = emailResp.ok ? await emailResp.json() : [];
     INBOX_STATE.social = socialResp.ok ? await socialResp.json() : [];
@@ -287,7 +292,7 @@ function renderInbox() {
   if (INBOX_STATE.tab === "all" || INBOX_STATE.tab === "instagram" || INBOX_STATE.tab === "facebook" || INBOX_STATE.tab === "whatsapp") {
     INBOX_STATE.social.forEach(function(s) {
       if (INBOX_STATE.tab === "all" || s.platform === INBOX_STATE.tab) {
-        allItems.push({ type: "social", data: s, ts: s.received_at });
+        allItems.push({ type: "social", data: s, ts: s.created_at });
       }
     });
   }
@@ -371,7 +376,7 @@ function _renderItem(item) {
 
   // Right: time + status
   var right = div("display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0");
-  right.appendChild(span("font-size:12px;color:#556677", _timeAgo(d.received_at || d.ts)));
+  right.appendChild(span("font-size:12px;color:#556677", _timeAgo(d.received_at || d.created_at)));
   right.innerHTML += _statusBadge(d.status, platform);
   cardHeader.appendChild(right);
   card.appendChild(cardHeader);
