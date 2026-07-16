@@ -461,6 +461,68 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-16 (session 13, CRITICAL security fix — any user's social API
+  tokens could be read/overwritten by anyone on the internet)**: User asked
+  a sharp, direct question after the Social Setup navigation fix above:
+  "if another person signs up and opens their own Profile, would they see
+  OUR data?" — investigating this properly (rather than reassuring without
+  checking) surfaced a real, serious, pre-existing vulnerability, unrelated
+  to the navigation bug.
+  - **Root cause**: `supabase-autopost-schema.sql`'s 3 RLS policies —
+    `social_credentials`, `scheduled_posts`, `post_engagement` — were all
+    written as `FOR ALL USING(true) WITH CHECK(true)` with NO `TO
+    service_role` clause, despite being named "Service role full access...".
+    In Postgres/Supabase, a policy with no `TO` clause applies to **every
+    role**, including the anonymous `anon` role — the name was aspirational,
+    not enforced. Compounding this, every client-side fetch to these 3
+    tables in `js/chat.js` (`_syncCredsToServer`, `_syncCredsFromServer`,
+    `_syncCalEventToServer`, `_deleteCalEventFromServer`,
+    `_fetchServerEngagement` — 7 call sites total) sent only the public
+    **anon key** as the Authorization header, never the signed-in user's own
+    access token. Since `user_id` in these tables is the user's plain email
+    address (`_getPostUserId()`), the combination meant **anyone on the
+    internet — not just other registered users, no sign-in required at
+    all** — could construct a direct REST call to Supabase using the anon
+    key (itself public, embedded in the site's own JS bundle) and read or
+    overwrite ANY user's stored Instagram/Facebook/LinkedIn/Twitter/
+    YouTube/TikTok/WhatsApp Business API tokens just by guessing their
+    email address. Same bug class as the 2026-07-11 OFM RLS lockdown, just
+    never applied here since this table predates that audit's scope.
+  - **Fix, both sides required**:
+    1. New migration `supabase-social-credentials-rls-fix.sql` (requires
+       manual execution — see Outstanding items) drops the 3 public
+       policies and replaces each with `TO authenticated USING (auth.email()
+       = user_id) WITH CHECK (auth.email() = user_id)` — now only resolves
+       for a request carrying a real, cryptographically-signed Supabase JWT
+       whose email claim matches the row, not a client-suppliable value.
+    2. `js/chat.js` gained a shared `_socialCredHeaders(extra)` helper
+       (sends `dv_access_token`, the real per-user JWT already generated at
+       sign-in, as the Authorization Bearer instead of the anon key) and all
+       7 call sites across the 3 tables now use it.
+  - **Server-side cron unaffected**: `api/auto-post.js`/`api/sync-
+    engagement.js` already authenticate via `SUPABASE_SERVICE_ROLE_KEY`
+    (`api/_lib/shared.js`'s `supabaseRequest()`), which always bypasses RLS
+    regardless of policy — confirmed by reading the helper before assuming
+    tightening RLS was safe to ship.
+  - Verified: `node -c js/chat.js`; grepped for every remaining
+    `social_credentials`/`scheduled_posts`/`post_engagement` reference in
+    `js/chat.js` to confirm all 7 call sites were updated and none were
+    missed or double-touched.
+  - **Manual step required — this fix is NOT live until run**: execute
+    `supabase-social-credentials-rls-fix.sql` in Supabase SQL Editor. Until
+    then, the OLD permissive policies remain in effect in production
+    (dropping/recreating policies isn't something client code can do) —
+    the client-side header fix alone does not close the hole, since the
+    old RLS would still accept the anon-key-only path from anyone else.
+  - **Separately answered the user's original design question**: the
+    per-user Social Setup panel (each agent brings their own social/API
+    keys — makes sense, since agents post to their OWN Instagram/LinkedIn
+    accounts) is architecturally different from true site-wide ADMIN
+    config, which already has its own dedicated, separate, password-gated
+    home: `renderAdmin()` in `js/app.js` (hidden `#admin` route, not part of
+    any regular user's profile). No new icon/section was needed — pointed
+    the user at the existing one rather than building a duplicate.
+
 - **2026-07-16 (session 13, "Social Setup" card opened the wrong panel —
   WhatsApp Business fields were unreachable)**: Direct continuation of the
   WhatsApp Business API onboarding started earlier this session — user
@@ -3998,6 +4060,19 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🔴 CRITICAL, NOT YET LIVE — social_credentials/scheduled_posts/
+  post_engagement RLS fix needs manual SQL execution NOW** (added
+  2026-07-16, session 13): run `supabase-social-credentials-rls-fix.sql` in
+  Supabase SQL Editor immediately. Until this runs, the OLD, unrestricted
+  policies remain live in production — meaning anyone on the internet can
+  currently read/overwrite any user's stored Instagram/Facebook/LinkedIn/
+  Twitter/YouTube/TikTok/WhatsApp Business API tokens via a direct REST call
+  using the public anon key, no sign-in required. The `js/chat.js` code fix
+  (sending the real per-user JWT instead of the anon key) is already
+  deployed-ready, but it does NOT close the hole by itself — the old RLS
+  policy would still accept requests from anyone else regardless. See the
+  2026-07-16 "CRITICAL security fix" work-log entry above for full details.
 
 - **🟡 Pay-per-use WhatsApp Business API — needs manual SQL + Meta Business
   verification (external, in progress)** (added 2026-07-15, session 12):

@@ -873,6 +873,19 @@ setTimeout(startAutoPostEngine,5000);
 function _getPostUserId(){
   try{var u=JSON.parse(localStorage.getItem("dv_user")||"{}");return u.email||u.id||"default";}catch(e){return "default";}
 }
+// Real bug found 2026-07-16: every fetch() below sent only the public anon
+// key as the Authorization header, never the signed-in user's own access
+// token. Combined with a since-fixed RLS policy that had no "TO service_role"
+// restriction (see supabase-social-credentials-rls-fix.sql), this meant ANY
+// caller on the internet — not just other registered users — could read or
+// overwrite any user's stored social-platform tokens by guessing their email.
+// The RLS fix requires auth.email() to match the row's user_id, which only
+// resolves when a real Supabase-issued JWT is sent — so every call site must
+// use this helper instead of the bare anon key.
+function _socialCredHeaders(extra){
+  var tok=localStorage.getItem("dv_access_token")||SUPABASE_KEY;
+  return Object.assign({"apikey":SUPABASE_KEY,"Authorization":"Bearer "+tok,"Content-Type":"application/json"},extra||{});
+}
 
 function _syncCredsToServer(){
   try{
@@ -900,18 +913,18 @@ function _syncCredsToServer(){
     };
     fetch(SUPABASE_URL+"/rest/v1/social_credentials?user_id=eq."+encodeURIComponent(userId),{
       method:"GET",
-      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"}
+      headers:_socialCredHeaders()
     }).then(function(r){return r.json();}).then(function(existing){
       if(existing&&existing.length>0){
         fetch(SUPABASE_URL+"/rest/v1/social_credentials?user_id=eq."+encodeURIComponent(userId),{
           method:"PATCH",
-          headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},
+          headers:_socialCredHeaders({"Prefer":"return=minimal"}),
           body:JSON.stringify(payload)
         });
       }else{
         fetch(SUPABASE_URL+"/rest/v1/social_credentials",{
           method:"POST",
-          headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},
+          headers:_socialCredHeaders({"Prefer":"return=minimal"}),
           body:JSON.stringify(payload)
         });
       }
@@ -935,7 +948,7 @@ async function _syncCredsFromServer(){
     var tries=userId==="default"?["default"]:[userId,"default"];
     for(var i=0;i<tries.length;i++){
       var r=await fetch(SUPABASE_URL+"/rest/v1/social_credentials?user_id=eq."+encodeURIComponent(tries[i]),{
-        headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY}
+        headers:_socialCredHeaders()
       });
       var rows=await r.json();
       if(rows&&rows.length>0){
@@ -965,7 +978,7 @@ async function _syncCalEventToServer(evt,imageUrl){
     };
     await fetch(SUPABASE_URL+"/rest/v1/scheduled_posts",{
       method:"POST",
-      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},
+      headers:_socialCredHeaders({"Prefer":"return=minimal"}),
       body:JSON.stringify(payload)
     });
   }catch(e){}
@@ -976,7 +989,7 @@ async function _deleteCalEventFromServer(clientId){
     var userId=_getPostUserId();
     await fetch(SUPABASE_URL+"/rest/v1/scheduled_posts?client_id=eq."+encodeURIComponent(clientId)+"&user_id=eq."+encodeURIComponent(userId),{
       method:"PATCH",
-      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},
+      headers:_socialCredHeaders({"Prefer":"return=minimal"}),
       body:JSON.stringify({status:"cancelled",updated_at:new Date().toISOString()})
     });
   }catch(e){}
@@ -996,7 +1009,7 @@ function _fetchServerEngagement(){
   try{
     var userId=_getPostUserId();
     fetch(SUPABASE_URL+"/rest/v1/post_engagement?user_id=eq."+encodeURIComponent(userId)+"&select=*&order=checked_at.desc&limit=50",{
-      headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"}
+      headers:_socialCredHeaders()
     }).then(function(r){return r.json();}).then(function(data){
       if(data&&data.length>0){
         localStorage.setItem("dv_server_engagement",JSON.stringify(data));
