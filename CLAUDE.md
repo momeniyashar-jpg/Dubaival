@@ -5755,44 +5755,79 @@ These files contain critical business logic and data:
 
 ## Outstanding / open items
 
-- **🔴 Directive #4 violation found, NOT YET FIXED — Gemini/Unsplash/Pexels
-  keys have NO server-side fallback, unlike Groq** (found 2026-07-17, session
-  14, while walking the user through Profile Panel settings — fix explicitly
-  deferred to the next session per the user's own "بیخیالش، فردا شروعش کن"):
-  `renderProfilePanel()` (`js/app.js`) has an "AI API Keys" section with 4
-  fields — Groq, Gemini, Unsplash, Pexels. Groq is genuinely optional:
-  `askAI()` (`js/api.js`) falls back to the shared platform key via
-  `/api/proxy-groq` when `localStorage.dv_groq` is empty, so the app works
-  fully without a user ever touching that field. **Gemini/Unsplash/Pexels do
-  NOT have this fallback** — confirmed via grep, ~20+ call sites across
-  `js/chat.js` (AI image generation, AI-written captions/subtitles,
-  translation, hashtag intelligence, HSO generator, bulk 30-day post
-  generator, story templates, emoji suggestions, A/B caption testing, etc.)
-  all read `localStorage.getItem("dv_gemini_key")` (or `dv_unsplash_key`/
-  `dv_pexels_key`) directly and either `return null`/silently no-op or show
-  an alert like "Gemini key needed" when it's empty — calling Gemini's REST
-  API straight from the client with the user's own key, no proxy at all.
-  This means every agent who wants to use most of the Social Media Manager's
-  AI-powered tools currently MUST go generate and paste in their own Gemini/
-  Unsplash/Pexels API keys themselves — a real, sizable violation of
-  directive #4 (only Instagram/Facebook, via real OAuth in the same panel,
-  and Groq are actually zero-touch today).
-  - **Fix for next session**: build a server-side proxy for Gemini (reusing
-    an existing `api/*.js` file — the project is at Vercel Hobby's
-    12-function ceiling — `api/proxy-groq.js` is the natural fit, extend it
-    with a `?provider=gemini` branch, or extend `api/knowledge-query.js`
-    which already has Gemini embedding logic in `api/_lib/embeddings.js` to
-    reuse for generation too) so these tools work off a shared platform key
-    the same way Groq already does, then migrate the ~20+ call sites in
-    `js/chat.js` to call the new proxy instead of `https://
-    generativelanguage.googleapis.com/...` directly with a per-user key.
-    Whether the same treatment is worth extending to Unsplash/Pexels (lower
-    priority — stock photo APIs, not AI generation, and typically have very
-    generous free tiers that could arguably justify a platform-wide shared
-    key too) should be decided as part of the same pass. The "AI API Keys"
-    Profile Panel fields should stay as an OPTIONAL power-user override
-    (bring-your-own-key to avoid a shared rate limit) once the proxy exists,
-    matching the pattern Groq already has — not removed entirely.
+- **🔴 Directive #4 — ALL API keys must move fully to the admin/platform
+  side, ZERO key fields left in any user-facing screen, NOT YET FIXED**
+  (found + scope finalized 2026-07-17, session 14, while walking the user
+  through Profile Panel settings — explicitly deferred to the next session:
+  "بیخیالش، فردا شروعش کن" then, once the Gemini gap above was reported,
+  the user gave the FULL standing instruction for tomorrow verbatim: "تمام
+  کلیدها رو بیاریم سمت ادمین، هیچ چیزی نباید برای کاربرها در دسترس باشه...
+  هیچکدوم از تنظیمات نباید سمت کاربر باشه جز شماره تلفن، ایمیل، سوشال
+  اکانتها، و مشخصات کاربر که خودش باید وارد کنه" — bring ALL keys to the
+  admin side, nothing should be user-facing except phone number, email,
+  social accounts, and the user's own profile details. This supersedes and
+  broadens the narrower "just add a Gemini fallback, keep the field
+  optional" framing from the initial finding below — the user does NOT want
+  an optional bring-your-own-key override left in user hands either; every
+  key becomes platform-only.
+  - **The concrete finding that triggered this** (`renderProfilePanel()` in
+    `js/app.js`, "AI API Keys" section, 4 fields — Groq/Gemini/Unsplash/
+    Pexels): Groq is technically already safe to remove from the user's
+    view since `askAI()` (`js/api.js`) already falls back to the shared
+    platform key via `/api/proxy-groq` when `localStorage.dv_groq` is empty
+    — the field is currently just a redundant optional override, not a
+    requirement. **Gemini/Unsplash/Pexels have NO such fallback at all** —
+    confirmed via grep, ~20+ call sites across `js/chat.js` (AI image
+    generation, AI-written captions/subtitles, translation, hashtag
+    intelligence, HSO generator, bulk 30-day post generator, story
+    templates, emoji suggestions, A/B caption testing, etc.) call Gemini's
+    REST API directly from the client using `localStorage.getItem
+    ("dv_gemini_key")` and either silently `return null` or show an alert
+    like "Gemini key needed" when empty — meaning most Social Media
+    Manager AI tools are currently unusable for any agent who hasn't gone
+    and pasted in their own key.
+  - **Full scope for tomorrow, per the user's explicit instruction — two
+    genuinely different categories, need different fixes**:
+    1. **Shared/platform-level keys that have NOTHING to do with any
+       specific user's own account** — Groq, Gemini, Unsplash, Pexels,
+       ElevenLabs (`dv_elevenlabs_key`/`dv_elevenlabs_voice`, also found in
+       `showSocialSetup()`, `js/chat.js`). These should be removed from
+       every user-facing screen ENTIRELY (Profile Panel's "AI API Keys"
+       section and Social Setup's Unsplash/Pexels/Gemini/ElevenLabs fields)
+       — no optional override left behind either, per the user's explicit
+       "nothing should be available to users." Build server-side proxies
+       for each (reusing existing `api/*.js` files — the project is at
+       Vercel Hobby's 12-function ceiling, so this means extending
+       `api/proxy-groq.js` and/or `api/knowledge-query.js`'s existing
+       Gemini logic with new provider branches, not new files) reading a
+       platform-level env var (`GEMINI_API_KEY` already exists for RAG
+       embeddings — confirm whether generation needs the same key or a
+       separate one; new `ELEVENLABS_API_KEY` if not already set), then
+       migrate every one of the ~20+ `js/chat.js` call sites (plus any
+       Unsplash/Pexels/ElevenLabs call sites) to call the new proxy instead
+       of the provider's API directly with a per-user key.
+    2. **Per-agent business assets that genuinely can't be "moved to
+       admin"** since each agent owns a different real-world account —
+       WhatsApp Business Token/Phone ID/WABA ID, Meta Ads Pixel ID/CAPI
+       Token, and every other platform's raw API key (Instagram/Facebook/
+       LinkedIn/Twitter/TikTok/YouTube) in `showSocialSetup()`. Admin can't
+       hold these on the agent's behalf — the fix here is NOT "move to
+       admin," it's the OAuth/Embedded-Signup migration already described
+       at length in directive #4's main text above (WhatsApp Embedded
+       Signup, Facebook Login for Business, Marketing API Pixel
+       auto-discovery) — still blocked on the operator completing Meta App
+       Review, unchanged from before. Don't conflate this category with
+       category 1 when scoping tomorrow's work — a per-agent WhatsApp
+       number/Pixel literally cannot be "admin's key," only OAuth-automated.
+    3. Also re-check the **Phone/WhatsApp fields in the "Account" section**
+       of the same Profile Panel (`js/app.js`, plain `dv_phone`/
+       `dv_whatsapp_number` text inputs) — these ARE on the user's allowed
+       list (phone number) per the user's own instruction, but should be
+       reconciled with the new OTP-verified `phone`/`phone_verified` fields
+       on `user_profiles` added this same session (`js/auth.js` Sign Up) —
+       right now there may be 2 separate, unreconciled phone fields (one
+       unverified in Profile Panel, one OTP-verified at Sign Up) worth
+       unifying into one single verified value rather than leaving both.
 
 - **🟡 Zero-touch onboarding OTP system — needs manual SQL + platform
   WhatsApp number + approved Meta template** (added 2026-07-17, session 14):
