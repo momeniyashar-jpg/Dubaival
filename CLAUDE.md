@@ -461,6 +461,26 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-17 (session 14, follow-up — global sub-tab pill bar lightened)**:
+  Direct continuation of the spacing feedback above — user also asked
+  whether the top sub-tab row's large/bold text ("Deal Board / AI Agents /
+  AI Chief of Staff", etc.) was good design, flagged because it now sits
+  directly above the new colored agent-selector pill row and the two looked
+  like competing rows of navigation. Confirmed this is `.dv-pill`/
+  `.dv-subtabs` in `index.html` — ONE shared CSS component used for every
+  section's sub-navigation app-wide (Market, Portfolio, Network, SocialMedia,
+  More), not something scoped to AI Assistant — so this needed a decision
+  before touching it. Asked via `AskUserQuestion`; user chose "lighten it
+  everywhere" (the recommended option) over a page-scoped-only fix.
+  - **Fix**: `.dv-pill` font-size 13px→12px, font-weight 600→500 (700→600
+    when active), padding 8px 16px→7px 14px. Purely a CSS token change, no
+    JS touched — applies identically to every sub-tab bar across the whole
+    app, giving these page-level nav rows a quieter, secondary visual weight
+    relative to feature-level controls like the new agent-selector pills.
+  - Verified: a Playwright screenshot of the AI Agents chat view confirming
+    the top sub-tab row (Deal Board/AI Agents/AI Chief of Staff) now reads
+    clearly secondary to the colored agent-selector pill row beneath it.
+
 - **2026-07-17 (session 14, follow-up — AI Agents chat spacing)**: User
   shared 2 real screenshots from the live deployed site. One (AI Assistant /
   Chat tab, Valuation Agent active) confirmed the earlier AI Agents redesign
