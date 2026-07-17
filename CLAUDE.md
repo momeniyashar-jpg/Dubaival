@@ -100,6 +100,56 @@ validated against real market data before deployment.** When in doubt, cross-che
 with Property Finder / Bayut live listings. A 20% error (like the AFV Tower 3
 incident: 198k vs 400k+ actual) is unacceptable and must never happen again.
 
+## 🔴 #3 CRITICAL DIRECTIVE — AI Chief of Staff: Automation-First, Per-Process Auto/Approval Toggle
+
+Standing product requirement from the user (2026-07-17, session 14), given as a
+reminder for whenever work resumes on this tab — not yet implemented, no code
+changed for this directive as of the date it was written.
+
+**The vision**: an agent/user using AI Chief of Staff should feel like they hired
+a real personal assistant — one 100x smarter and faster than a human — not a
+tool they have to babysit with manual steps. Every capability in this tab should
+default to fully autonomous operation.
+
+**Concretely**:
+- **No manual/paste-based steps should exist as the primary flow for anything**
+  this tab can plausibly automate — this applies broadly, not just replying to
+  messages: note-taking/extraction while an agent is on a phone call with a
+  client, note-taking/extraction from an in-progress chat with a client,
+  drafting/sending replies, and any other current or future AI Chief of Staff
+  capability.
+- **For every such automatable process, there must be one simple toggle**:
+  should THIS process run **fully automatic** (AI does it and acts on its own —
+  sends the reply, saves the extracted note, etc., no human in the loop), or
+  **require approval first** (AI prepares the result — drafts the reply,
+  extracts the note — but a human/agent must review and click one button to
+  approve before it's actually sent/saved/executed)?
+  - "Manual" in this feature's vocabulary means ONLY this second case (AI does
+    the work, human approves with one click) — it does NOT mean the user types
+    or copy-pastes anything by hand as the normal flow.
+- **Default state should lean toward automatic** — the tab's whole character
+  should read as vigilant and automation-first; a user has to deliberately flip
+  a process to "requires approval" if they want a human checkpoint, not the
+  other way around.
+- Applies to (at minimum, likely more as the tab grows): the WhatsApp/DM
+  auto-reply pipeline (already built, already defaults to automatic per
+  existing session-13/14 work — confirm it matches this toggle model exactly
+  when revisited), the Conversation Scanner (chat note extraction), and the
+  voice-call-transcription-into-Client-Memory-Bank feature (phone call note
+  extraction) — both of the latter two currently require the agent to
+  manually paste text or upload a recording as their ENTRY point, which is
+  fine (that's how the raw data gets in), but what happens to the EXTRACTED
+  result afterward (auto-saved to Client Memory Bank vs. shown for one-click
+  approval first) should follow this same per-process toggle, not be
+  hardcoded either way.
+
+**Not yet scoped or built**: the exact UI for this toggle (likely a settings
+panel inside AI Chief of Staff, one switch per process), which processes need
+their own Supabase-persisted setting vs. a shared one, and how it interacts
+with the existing credit-gated WhatsApp window logic. Flagged here so the next
+session that touches AI Chief of Staff addresses this deliberately rather than
+guessing at automation defaults per-feature ad hoc.
+
 ## What this is
 
 DubaiVal is a Dubai real-estate valuation web app: user enters a building +
