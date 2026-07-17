@@ -158,6 +158,103 @@ with the existing credit-gated WhatsApp window logic. Flagged here so the next
 session that touches AI Chief of Staff addresses this deliberately rather than
 guessing at automation defaults per-feature ad hoc.
 
+## 🔴 #4 CRITICAL DIRECTIVE — Zero-Touch Onboarding: OTP-Only Verification, No User-Facing Tokens/API Keys
+
+Standing product requirement from the user (2026-07-17, session 14). Read this
+before touching ANY onboarding step, Social Setup field, credential form, or
+subscription-activation flow, for any user type (individual agent, company,
+plain consumer).
+
+**The vision**: agents, companies, and every other user of this platform must
+NEVER perform manual technical setup to connect anything to DubaiVal. A user's
+entire job, for connecting any channel/account/subscription, is limited to
+exactly these inputs and nothing more:
+1. Their phone number.
+2. Their email.
+3. Their social media account — connected by clicking "Connect Instagram" /
+   "Connect Facebook" / etc. and approving on that platform's OWN consent
+   screen, never by pasting a raw credential into our UI.
+
+Everything else — API keys, access tokens, webhook subscriptions, Phone
+Number IDs, WABA IDs, Ads Pixel IDs, Conversions API tokens, or any other
+platform-side credential — must be provisioned AUTOMATICALLY by DubaiVal
+itself, the instant the user's ownership of that phone/email/account is
+verified. A user must never be sent into a 3rd-party developer dashboard
+(Meta Business Settings, a Graph API Explorer, a "generate a permanent
+token" wizard, etc.) to fetch a value and paste it back into DubaiVal.
+
+**The only verification mechanism allowed is OTP** (a one-time code) —
+delivered via email or via a WhatsApp message. Nothing else. No "go copy
+your access token," no "go find your Phone Number ID," no manual multi-step
+external-dashboard walkthrough ever shown to an end user.
+
+**Paid features/subscriptions**: activation must be fully automatic,
+triggered by a real payment-confirmation webhook (Stripe), the moment
+payment is confirmed — never a manual admin action performed per customer.
+
+**The ONE exception — us**: the platform operator (this project's own Meta
+App, Vercel project, Supabase project, Stripe account) is the only party
+ever allowed to do manual setup — e.g., completing Meta Business/App
+verification, configuring a Meta App's Embedded Signup product, setting
+Vercel environment variables, running a Supabase SQL migration. This is
+infrastructure-level, one-time work done by us — never per-user, never
+per-agent, never per-company. If a task can plausibly be automated but
+currently requires the OPERATOR to do a one-time platform-level setup step,
+that's fine and expected; if it requires an individual END USER to do
+anything beyond the 3 inputs above, that's a violation of this directive.
+
+**Concrete implication — much of the current onboarding violates this
+directive today, and migrating it is a standing priority**: several existing
+Social Setup fields (`js/chat.js` `showSocialSetup()`) currently ask a user
+to manually paste a raw credential — WhatsApp Permanent Access
+Token/Phone Number ID/WABA ID; Meta Ads Pixel ID/Conversions API Access
+Token (added this same session, see the "Meta Ads conversion feedback loop"
+work-log entry below — already a known, disclosed exception to this
+directive, not yet migrated); and every other platform's raw API key
+(Instagram/Facebook/LinkedIn/Twitter/TikTok/YouTube). Per this directive,
+every one of these should eventually be replaced with a real OAuth/
+embedded-consent flow instead:
+- **WhatsApp** → Meta's own "WhatsApp Embedded Signup" (part of Facebook
+  Login for Business) — the user clicks "Connect WhatsApp," logs into their
+  own Meta Business Manager inside an embedded flow, and Meta itself both
+  verifies their phone number AND returns the Phone Number ID/WABA ID/token
+  to our backend automatically via a server-side token exchange. The user
+  never sees or types any of these values.
+- **Instagram / Facebook** → standard Facebook Login for Business OAuth
+  (user clicks "Connect," grants permissions on Meta's own consent screen,
+  our backend receives a long-lived access token server-side, no copy-paste).
+- **Meta Ads Pixel** → once a business's ad account is connected via the same
+  Facebook Login flow (with `ads_management`/`business_management` scope),
+  the Pixel ID should be auto-discovered via the Marketing API instead of
+  typed in by the user.
+- **LinkedIn / Twitter / TikTok / YouTube** → same principle, each
+  platform's own OAuth "Connect" flow.
+
+**Hard external dependency — disclosed, not hidden**: every OAuth-based flow
+above requires OUR OWN Meta App (and the equivalent LinkedIn/Twitter/TikTok/
+Google apps) to complete that platform's App Review / Business Verification
+process first — a real, external, days-to-weeks process that only the
+platform operator can initiate (the same category of external process as
+the WhatsApp Business API verification already documented in the 2026-07-15
+work-log entries below). This is "our" manual setup (allowed under this
+directive), never the end user's — but it means this migration cannot ship
+instantly; it needs the operator to start/complete each platform's review
+before the corresponding "Connect X" button can go live for real users.
+**Any session picking up this work must disclose this dependency plainly and
+confirm current Meta/LinkedIn/Twitter/TikTok App Review status with the user
+before assuming a "Connect X" button can go fully live** — do not silently
+promise instant automation that a pending external review actually blocks.
+
+**Not yet built** (as of 2026-07-17): the OTP verification system itself
+(phone via WhatsApp message + email), and any of the OAuth "Connect X" flows
+described above — every current social/WhatsApp/ad connection still uses
+manual credential paste-in. Every future session that touches onboarding,
+Social Setup, or any per-user credential field should treat this directive
+as the target architecture and actively push toward it — never add a new
+"paste your API key/token here" field without logging it here as a
+deliberate, explicit, temporary exception (the way the Meta Pixel/CAPI token
+fields added this session are logged above).
+
 ## What this is
 
 DubaiVal is a Dubai real-estate valuation web app: user enters a building +
