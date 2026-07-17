@@ -638,6 +638,128 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-17 (session 14, directive #4 category 1 shipped — Gemini/
+  Unsplash/Pexels/ElevenLabs moved fully to a platform-shared server proxy,
+  Profile Panel consolidation)**: Direct continuation of the Gemini-gap
+  finding above, per the user's explicit "همین الان انجام بده" (do this part
+  now) — only the Meta OAuth/App-Review piece (category 2) is deferred to
+  tomorrow; this shipped tonight in full.
+  - **`api/proxy-groq.js` extended** (not a new file — Vercel Hobby's
+    12-function ceiling — this file's job broadened from "Groq chat proxy"
+    to "shared AI/content proxy," documented as such in a new top-of-file
+    comment) with a `?provider=` switch: `gemini` (text + image generation
+    via `gemini-2.0-flash`/`gemini-2.0-flash-exp`, `GEMINI_API_KEY`),
+    `unsplash` (`UNSPLASH_ACCESS_KEY`), `pexels` (`PEXELS_API_KEY`),
+    `elevenlabs` (text-to-speech, `ELEVENLABS_API_KEY` — returns
+    base64-encoded audio in a JSON body, since a Vercel function returns one
+    JSON-compatible response, not a raw stream; the client decodes it back
+    into a Blob). No `provider` param keeps the original Groq behavior
+    100% unchanged (default branch, zero risk to the existing, already-
+    working chat proxy).
+  - **`js/chat.js`**: migrated every direct-to-Gemini call site (16 — AI
+    image generation, AI-written captions/subtitles, translation, hashtag
+    intelligence, HSO generator, bulk 30-day post generator, story
+    templates, emoji suggestions, A/B caption testing, HSO slide extraction
+    with Groq fallback, avatar image generation, etc.) off
+    `localStorage.getItem("dv_gemini_key")` and the direct
+    `generativelanguage.googleapis.com` URL, onto the new proxy — done as a
+    mechanical, minimal-diff URL substitution (`replace_all` on the exact
+    identical URL string across all 15 `gemini-2.0-flash` sites, one more
+    for the `gemini-2.0-flash-exp` image-gen site) so the surrounding
+    request/response-parsing code needed zero changes. Removed every
+    now-dead `if(!geminiKey)...` early-return/alert gate (8 identical
+    single-line guards removed in one pass, the rest individually since
+    each had different surrounding logic — 2 were actually "try Gemini
+    first, else fall back to Groq/Unsplash" branches, which now always
+    attempt Gemini first since the platform proxy is always available
+    rather than being conditional on a personal key). Same treatment for
+    `searchUnsplash()`/`searchUnsplashMulti()`/`searchPexels()`/
+    `searchPexelsMulti()` (4 functions) and `speakVoiceoverEL()` (ElevenLabs
+    voiceover) — the latter also removed 2 now-unnecessary "no ElevenLabs
+    key — add one or skip narration" gates (one was a whole confirmation
+    screen, `_renderNarrationGate()`, deleted entirely since asking a user
+    to "add a free ElevenLabs key" is exactly the manual step this
+    directive eliminates; narration now just always attempts, and
+    gracefully falls back to the existing `speakVoiceoverFallback()` if the
+    operator hasn't set `ELEVENLABS_API_KEY` yet — same as before, just no
+    longer keyed off a personal credential).
+  - **`api/auto-post.js`**: `findImageForPost()` (used by the scheduled
+    auto-posting cron to pick an image when a post has none) switched from
+    each user's own `social_credentials.pexels_key` to the same platform-
+    level `PEXELS_API_KEY` env var — this was a real, independent instance
+    of the same problem on the SERVER side, not just the client tools.
+  - **Every trace of the 4 keys removed from BOTH user-facing surfaces**:
+    `js/app.js` `renderProfilePanel()`'s whole "AI API Keys" section (Groq/
+    Gemini/Unsplash/Pexels fields) deleted outright — not kept as an
+    optional override, per the user's explicit "nothing should be
+    available to users" — and `js/chat.js` `showSocialSetup()`'s
+    corresponding 4 field definitions (Unsplash/Pexels/Gemini/ElevenLabs
+    key+voice) removed, plus the now-pointless `pexels_key` column from the
+    `_syncCredsToServer()`/`_syncCredsFromServer()` push/pull payloads and
+    the dead `pexels` field from `getSocialCreds()` (confirmed unused
+    anywhere via grep before removing).
+  - **Consolidation into ONE user-facing settings surface, per the user's
+    explicit, repeated instruction** ("فقط همون موارد مربوط به کاربر بمونه
+    سمت سایت که اونم همگی تو قسمت پروفایل باشه" — only user-related items
+    stay on the site, and they should ALL be in the Profile section):
+    `showSocialSetup()`'s remaining real fields — WhatsApp Business
+    Token/Phone Number ID/WABA ID, Meta Ads Pixel ID/Conversions API Token,
+    plus 2 YouTube fields (Client Secret, initial Access Token) that
+    Profile Panel was missing — were moved into `renderProfilePanel()`
+    using the EXACT SAME localStorage keys already in use, so anything a
+    user had already entered pre-fills automatically with zero data loss
+    (verified explicitly, see below). The WhatsApp pay-per-window credit
+    balance + "Buy Credit" row (previously only shown inside the separate
+    Social Setup modal) moved along with it. `showSocialSetup()` itself is
+    now a 3-line redirect (`showProfilePanel=true;render();`) rather than
+    being deleted outright, since multiple call sites across `js/chat.js`
+    still reference it by name — this way none of them needed to be
+    individually hunted down and changed.
+  - **Explicitly NOT touched tonight** (per the user's own sequencing —
+    Meta App Review is tomorrow): WhatsApp Business Token/Phone ID/WABA ID
+    and Meta Ads Pixel ID/CAPI Token fields themselves are STILL manual-
+    paste fields (just relocated, not yet OAuth-automated) — that migration
+    needs the operator's Meta App Review to complete first, per directive
+    #4's existing text above. Also not touched: the pre-existing LinkedIn/
+    Twitter/TikTok manual-paste fields (same category-2 reasoning), and a
+    pre-existing, unrelated small inconsistency noticed in passing —
+    Profile Panel's LinkedIn URN field is labeled "Organization URN" while
+    the old Social Setup version called the identical `dv_linkedin_urn` key
+    "Person URN" — flagged here rather than guessed at and silently changed.
+  - Verified: `node -c` on all 4 touched files; a mocked-fetch Node test
+    harness against the real `api/proxy-groq.js` handler (12 cases) —
+    Groq's default (no `provider` param) behavior is completely unchanged;
+    Gemini generate returns real candidates using the platform key (never
+    exposed to the client) with the correct model in the URL; a disallowed
+    model is rejected; a missing `GEMINI_API_KEY` 500s with a clear message;
+    Unsplash/Pexels search both return real results using the correct
+    server-side auth header; ElevenLabs returns valid base64-encoded audio
+    that decodes correctly; an overlong ElevenLabs text 413s; a GET request
+    is rejected — all PASS; the pre-existing OTP (18 checks) and Meta-
+    conversion (12 checks) test suites re-run with zero regressions,
+    confirming this refactor didn't disturb unrelated features; and a
+    dedicated real-browser Playwright test (13 checks) that pre-seeded
+    localStorage with realistic "already configured in a previous session"
+    values (Instagram token, WhatsApp Business token/phone ID, Meta Pixel
+    ID, LinkedIn token, YouTube client ID, and — deliberately — old, now-
+    unused Gemini/Pexels keys) before loading the app: confirmed every one
+    of those values renders pre-filled in the consolidated Profile Panel
+    (nothing reset to blank), confirmed the AI API Keys section and its
+    Groq/Gemini fields are gone, confirmed the old unused Gemini/Pexels
+    localStorage values are still readable afterward (proving no
+    `removeItem` ever touched them), and confirmed calling
+    `showSocialSetup()` now opens the Profile Panel with no second modal
+    appearing — zero console errors.
+  - **Manual steps required before this is fully live**: set
+    `GEMINI_API_KEY` (may already be set for the RAG pipeline — the same
+    key works for generation too), `UNSPLASH_ACCESS_KEY`, `PEXELS_API_KEY`,
+    and `ELEVENLABS_API_KEY` in Vercel env vars. Until each is set, that
+    specific tool degrades gracefully exactly like every other Meta/API-
+    gated feature in this project (Gemini tools return a clear 500 rather
+    than crash; ElevenLabs narration silently falls back to the existing
+    music-only path; Unsplash/Pexels image search simply returns no
+    results, and the app's other free image sources still work).
+
 - **2026-07-17 (session 14, follow-up — OTP made genuinely zero-typing: a
   WhatsApp button tap or an email magic link, not just a typed code)**: User
   asked directly, right after the OTP system above shipped, whether a user
@@ -5755,8 +5877,18 @@ These files contain critical business logic and data:
 
 ## Outstanding / open items
 
-- **🔴 Directive #4 — ALL API keys must move fully to the admin/platform
-  side, ZERO key fields left in any user-facing screen, NOT YET FIXED**
+- **🟡 Directive #4 — category 1 (shared platform keys) SHIPPED same night;
+  category 2 (per-agent OAuth) still needs tomorrow's Meta App Review.** See
+  the "directive #4 category 1 shipped" work-log entry above for full
+  details — Gemini/Unsplash/Pexels/ElevenLabs are now 100% server-proxied
+  with zero user-facing key fields anywhere (removed, not just optional),
+  and every remaining real user-facing field (WhatsApp Business/Meta Pixel/
+  LinkedIn/Twitter/TikTok/YouTube) was consolidated into ONE place —
+  `renderProfilePanel()` (`js/app.js`) — with `showSocialSetup()` now a
+  thin redirect to it. What's LEFT for tomorrow is exactly category 2
+  below: those consolidated WhatsApp Business/Meta Pixel fields are still
+  manual-paste (just relocated, not yet OAuth-automated) — that migration
+  needs the operator's Meta App Review to complete first.
   (found + scope finalized 2026-07-17, session 14, while walking the user
   through Profile Panel settings — explicitly deferred to the next session:
   "بیخیالش، فردا شروعش کن" then, once the Gemini gap above was reported,
@@ -5786,26 +5918,14 @@ These files contain critical business logic and data:
     like "Gemini key needed" when empty — meaning most Social Media
     Manager AI tools are currently unusable for any agent who hasn't gone
     and pasted in their own key.
-  - **Full scope for tomorrow, per the user's explicit instruction — two
-    genuinely different categories, need different fixes**:
-    1. **Shared/platform-level keys that have NOTHING to do with any
-       specific user's own account** — Groq, Gemini, Unsplash, Pexels,
-       ElevenLabs (`dv_elevenlabs_key`/`dv_elevenlabs_voice`, also found in
-       `showSocialSetup()`, `js/chat.js`). These should be removed from
-       every user-facing screen ENTIRELY (Profile Panel's "AI API Keys"
-       section and Social Setup's Unsplash/Pexels/Gemini/ElevenLabs fields)
-       — no optional override left behind either, per the user's explicit
-       "nothing should be available to users." Build server-side proxies
-       for each (reusing existing `api/*.js` files — the project is at
-       Vercel Hobby's 12-function ceiling, so this means extending
-       `api/proxy-groq.js` and/or `api/knowledge-query.js`'s existing
-       Gemini logic with new provider branches, not new files) reading a
-       platform-level env var (`GEMINI_API_KEY` already exists for RAG
-       embeddings — confirm whether generation needs the same key or a
-       separate one; new `ELEVENLABS_API_KEY` if not already set), then
-       migrate every one of the ~20+ `js/chat.js` call sites (plus any
-       Unsplash/Pexels/ElevenLabs call sites) to call the new proxy instead
-       of the provider's API directly with a per-user key.
+  - **Full scope, per the user's explicit instruction — two genuinely
+    different categories, need different fixes**:
+    1. ✅ **DONE same night — shared/platform-level keys that have NOTHING
+       to do with any specific user's own account** — Groq, Gemini,
+       Unsplash, Pexels, ElevenLabs. See the work-log entry above for the
+       full implementation (`api/proxy-groq.js` extended with a
+       `?provider=` switch, all ~20 `js/chat.js` call sites migrated, both
+       user-facing fields removed entirely). Nothing left to do here.
     2. **Per-agent business assets — the fix is OAuth/Embedded Signup, NOT
        "the agent gets their own token."** WhatsApp Business Token/Phone
        ID/WABA ID, Meta Ads Pixel ID/CAPI Token, and every other platform's

@@ -630,8 +630,6 @@ async function fetchIGProfile(){
 }
 
 async function analyzeWithGemini(profileData,posts){
-  var geminiKey=localStorage.getItem("dv_gemini_key");
-  if(!geminiKey)return null;
   var postSummary=posts.slice(0,20).map(function(p,i){
     return(i+1)+". "+(p.caption||"(no caption)").substring(0,200)+" [Likes:"+((p.like_count)||0)+", Comments:"+((p.comments_count)||0)+", Type:"+(p.media_type||"IMAGE")+"]";
   }).join("\n");
@@ -663,7 +661,7 @@ async function analyzeWithGemini(profileData,posts){
     "Be specific and derive insights ONLY from the actual data provided. Do not fabricate.";
 
   try{
-    var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+    var r=await fetch("/api/proxy-groq?provider=gemini&model=gemini-2.0-flash",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.3}})
@@ -683,9 +681,7 @@ async function analyzeWithGemini(profileData,posts){
 async function runBehavioralProfiling(){
   var token=localStorage.getItem("dv_ig_token");
   var igId=localStorage.getItem("dv_ig_id");
-  var geminiKey=localStorage.getItem("dv_gemini_key");
   if(!token||!igId){alert("First connect your Instagram in Social Setup");return;}
-  if(!geminiKey){alert("First add your Gemini API key in Social Setup");return;}
 
   var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.8)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center"},id:"profiling-modal"});
   var card=div({background:"#1A1F2E",border:"1px solid #8B5CF6",borderRadius:"16px",padding:"32px",width:"400px",maxWidth:"90vw",textAlign:"center"});
@@ -904,7 +900,6 @@ function _syncCredsToServer(){
       youtube_refresh:localStorage.getItem("dv_youtube_refresh")||null,
       youtube_client_id:localStorage.getItem("dv_youtube_client_id")||null,
       youtube_client_secret:localStorage.getItem("dv_youtube_client_secret")||null,
-      pexels_key:localStorage.getItem("dv_pexels_key")||null,
       tiktok_token:localStorage.getItem("dv_tiktok_token")||null,
       whatsapp_token:localStorage.getItem("dv_whatsapp_token")||null,
       whatsapp_phone_id:localStorage.getItem("dv_whatsapp_phone_id")||null,
@@ -940,11 +935,11 @@ async function _syncCredsFromServer(){
     var userId=_getPostUserId();
     var COLS=["ig_token","ig_id","fb_id","linkedin_token","linkedin_urn",
       "twitter_consumer_key","twitter_consumer_secret","twitter_access_token","twitter_access_secret",
-      "youtube_refresh","youtube_client_id","youtube_client_secret","pexels_key","tiktok_token",
+      "youtube_refresh","youtube_client_id","youtube_client_secret","tiktok_token",
       "whatsapp_token","whatsapp_phone_id","whatsapp_waba_id","meta_pixel_id","meta_capi_token"];
     var LKEYS=["dv_ig_token","dv_ig_id","dv_fb_id","dv_linkedin_token","dv_linkedin_urn",
       "dv_twitter_consumer_key","dv_twitter_consumer_secret","dv_twitter_access_token","dv_twitter_access_secret",
-      "dv_youtube_refresh","dv_youtube_client_id","dv_youtube_client_secret","dv_pexels_key","dv_tiktok_token",
+      "dv_youtube_refresh","dv_youtube_client_id","dv_youtube_client_secret","dv_tiktok_token",
       "dv_whatsapp_token","dv_whatsapp_phone_id","dv_whatsapp_waba_id","dv_meta_pixel_id","dv_meta_capi_token"];
     // Try user-specific first, then 'default' as legacy fallback
     var tries=userId==="default"?["default"]:[userId,"default"];
@@ -1137,7 +1132,7 @@ function getSocialCreds(){
   var ig=localStorage.getItem("dv_ig_id");
   var fb=localStorage.getItem("dv_fb_id");
   if(!t||!ig)return null;
-  return{token:t,igId:ig,fbId:fb||"",pexels:localStorage.getItem("dv_pexels_key")||""};
+  return{token:t,igId:ig,fbId:fb||""};
 }
 
 // --- AI VIDEO EDITOR (world-class rebuild) -----------------------------------
@@ -1271,8 +1266,6 @@ function showVideoEditor(){
 
   // ── AI ANALYSIS (shared helper) ──────────────────────────────────────────────
   async function aiAnalyzeVideo(statusCb){
-    var geminiKey=localStorage.getItem("dv_gemini_key");
-    if(!geminiKey)throw new Error("Gemini key not set — go to Setup → Social Setup");
     var dur=VIDEO_EDITOR_STATE.duration;
     if(!dur)throw new Error("No video loaded");
     statusCb("Capturing frames…");
@@ -1308,7 +1301,7 @@ function showVideoEditor(){
     frames.forEach(function(f,fi){parts.push({text:"Frame "+fi+" at t="+f.t+"s:"});parts.push({inlineData:{mimeType:"image/jpeg",data:f.data}});});
     parts.push({text:"Dubai real estate video, "+dur.toFixed(0)+"s total, "+frameCount+" frames captured at the timestamps labeled above. Target platform: "+plat.label+" (max "+plat.maxSec+"s total). Agent brand: "+(bp.name||"DubAIVal")+(bp.tone?", tone: "+bp.tone:"")+".\n\nPick up to 3 of the MOST COMPELLING, NON-OVERLAPPING segments from across the ENTIRE video (not just the start) — e.g. a strong opening shot, then a standout interior/view moment, then a closing/exterior shot — whose combined length fits the platform's max duration. If the video is short, 1 clip covering most of it is fine. Respond ONLY in this JSON (no markdown):\n{\"clips\":[{\"start\":0,\"end\":10},{\"start\":85,\"end\":100}],\"subtitles\":[{\"time\":0,\"text\":\"...\"},{\"time\":5,\"text\":\"...\"}],\"caption\":\"compelling Instagram caption with 5-8 hashtags\",\"colorGrade\":\"cinematic\",\"reason\":\"brief explanation of why these segments were chosen\"}\nsubtitles[].time is seconds from the START OF THE FINAL STITCHED VIDEO (after the clips above are joined back-to-back), not from the original source timeline."});
     statusCb("AI analyzing content…");
-    var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+    var r=await fetch("/api/proxy-groq?provider=gemini&model=gemini-2.0-flash",{
       method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({contents:[{parts:parts}],generationConfig:{temperature:0.2,maxOutputTokens:1000}})
     });
@@ -1871,13 +1864,11 @@ function showVideoEditor(){
     var aiSubBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#8B5CF6,#A78BFA)",color:"#FFF",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
     aiSubBtn.textContent="✨ AI Generate Subtitles";
     aiSubBtn.onclick=async function(){
-      var geminiKey=localStorage.getItem("dv_gemini_key");
-      if(!geminiKey){alert("Gemini key needed — go to Setup");return;}
       aiSubBtn.disabled=true;aiSubBtn.textContent="Generating…";
       try{
         var dur=VIDEO_EDITOR_STATE.trimEnd-VIDEO_EDITOR_STATE.trimStart||VIDEO_EDITOR_STATE.duration;
         var bp=getBrandProfile()||{};
-        var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+        var r=await fetch("/api/proxy-groq?provider=gemini&model=gemini-2.0-flash",{
           method:"POST",headers:{"Content-Type":"application/json"},
           body:JSON.stringify({contents:[{parts:[{text:"Write 5-8 professional subtitle lines for a "+Math.round(dur)+"s Dubai real estate Instagram Reel. Agent: "+(bp.name||"")+" Tone: "+(bp.tone||"luxury professional")+". Format: M:SS Text (one per line, max 7 words each, compelling, Arabic-market-friendly). No markdown."}]}],generationConfig:{temperature:0.6}})
         });
@@ -1931,13 +1922,11 @@ function showVideoEditor(){
     var aiCapBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#10B981,#34D399)",color:"#000",border:"none",borderRadius:"8px",padding:"8px",fontSize:"11px",fontWeight:"600",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
     aiCapBtn.textContent="✨ AI Write Caption";
     aiCapBtn.onclick=async function(){
-      var geminiKey=localStorage.getItem("dv_gemini_key");
-      if(!geminiKey){alert("Gemini key needed");return;}
       aiCapBtn.disabled=true;aiCapBtn.textContent="Writing…";
       try{
         var bp=getBrandProfile()||{};
         var platLabel=(PLATFORMS[VIDEO_EDITOR_STATE.platform]||PLATFORMS.reel).label;
-        var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+        var r=await fetch("/api/proxy-groq?provider=gemini&model=gemini-2.0-flash",{
           method:"POST",headers:{"Content-Type":"application/json"},
           body:JSON.stringify({contents:[{parts:[{text:"Write a professional "+platLabel+" caption for a Dubai real estate video. Agent: "+(bp.name||"DubAIVal")+(bp.tone?", tone: "+bp.tone:"")+". Include: hook, 3 selling points, call to action, 6-8 relevant Dubai real estate hashtags. Under 150 words. "+(bp.hashtags?"Always include: "+bp.hashtags:"")}]}],generationConfig:{temperature:0.7}})
         });
@@ -2528,22 +2517,19 @@ async function parseVideoPromptAI(userPrompt){
     return null;
   }
 
-  // Try Gemini first if key available
-  var geminiKey=localStorage.getItem("dv_gemini_key");
-  if(geminiKey){
-    try{
-      var gr=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
-        method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({contents:[{parts:[{text:sysPrompt+"\n\n"+userMsg}]}],generationConfig:{temperature:0.4}})
-      });
-      if(gr.ok){
-        var gd=await gr.json();
-        var gtxt=gd.candidates&&gd.candidates[0]&&gd.candidates[0].content.parts[0].text||"";
-        var gp=extractJSON(gtxt);
-        if(gp&&gp.slides&&gp.slides.length)return gp;
-      }
-    }catch(e){}
-  }
+  // Try Gemini first (server-proxied — always available)
+  try{
+    var gr=await fetch("/api/proxy-groq?provider=gemini&model=gemini-2.0-flash",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({contents:[{parts:[{text:sysPrompt+"\n\n"+userMsg}]}],generationConfig:{temperature:0.4}})
+    });
+    if(gr.ok){
+      var gd=await gr.json();
+      var gtxt=gd.candidates&&gd.candidates[0]&&gd.candidates[0].content.parts[0].text||"";
+      var gp=extractJSON(gtxt);
+      if(gp&&gp.slides&&gp.slides.length)return gp;
+    }
+  }catch(e){}
 
   // Fallback: Groq via server proxy (always available)
   try{
@@ -3077,19 +3063,19 @@ function drawDecorLine(ctx,x,y,w,color,progress){
 
 async function speakVoiceoverEL(lines,secPerSlide){
   if(!lines||lines.length===0)return null;
-  var elKey=localStorage.getItem("dv_elevenlabs_key");
-  if(!elKey)return speakVoiceoverFallback(lines,secPerSlide);
   var voiceId=localStorage.getItem("dv_elevenlabs_voice")||"21m00Tcm4TlvDq8ikWAM";
   var fullText=lines.join(". ");
   try{
-    var resp=await fetch("https://api.elevenlabs.io/v1/text-to-speech/"+voiceId+"/stream",{
+    var resp=await fetch("/api/proxy-groq?provider=elevenlabs",{
       method:"POST",
-      headers:{"Content-Type":"application/json","xi-api-key":elKey},
-      body:JSON.stringify({text:fullText,model_id:"eleven_turbo_v2_5",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({text:fullText,voice_id:voiceId,model_id:"eleven_turbo_v2_5",
         voice_settings:{stability:0.65,similarity_boost:0.78,style:0.35,use_speaker_boost:true}})
     });
     if(!resp.ok)throw new Error("EL "+resp.status);
-    var blob=await resp.blob();
+    var d=await resp.json();
+    if(!d.audio_base64)throw new Error("EL: no audio returned");
+    var blob=await fetch("data:"+(d.mime_type||"audio/mpeg")+";base64,"+d.audio_base64).then(function(r){return r.blob();});
     var url=URL.createObjectURL(blob);
     var audio=new Audio(url);
     audio.volume=0.85;
@@ -3793,13 +3779,6 @@ async function showVideoGenUI(initialPrompt, propertyCtx){
       vgBody.innerHTML="";
       Object.keys(vgStepEls).forEach(function(k){delete vgStepEls[k];});
       if(VG_STATE.engine==="slideshow"){
-        if(!localStorage.getItem("dv_elevenlabs_key")&&!VG_STATE.skipNarration){
-          _renderNarrationGate(function(){
-            _renderVGSlideshowProgress();
-            setTimeout(runVGPipeline,100);
-          });
-          return;
-        }
         _renderVGSlideshowProgress();
         setTimeout(runVGPipeline,100);
       }else{
@@ -3811,29 +3790,6 @@ async function showVideoGenUI(initialPrompt, propertyCtx){
     if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
   }
 
-  // No ElevenLabs key configured — ask the user up front instead of silently
-  // degrading to the browser's built-in robotic TTS (which was also never
-  // actually embedded into the exported video — see the render fix below).
-  function _renderNarrationGate(onContinue){
-    vgBody.innerHTML="";
-    var wrap=div({textAlign:"center",padding:"20px 10px"});
-    var icoWrap=div({width:"52px",height:"52px",borderRadius:"50%",background:"rgba(139,92,246,0.12)",border:"2px solid #8B5CF6",margin:"0 auto 16px",display:"flex",alignItems:"center",justifyContent:"center"});
-    icoWrap.innerHTML='<i data-lucide="mic" style="width:24px;height:24px;color:#8B5CF6"></i>';
-    wrap.appendChild(icoWrap);
-    wrap.appendChild(div({color:"#F0F2F5",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Add a Professional Voiceover?"));
-    wrap.appendChild(div({color:"#8899AA",fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6",marginBottom:"20px",maxWidth:"420px",marginLeft:"auto",marginRight:"auto"},
-      "No ElevenLabs voice key is set up. Add a free key for a real AI narrator, or continue with background music only (no narration) — either way you'll get a clean, exportable video."));
-    var elBtn=el("button",{style:{width:"100%",background:"linear-gradient(135deg,#8B5CF6,#6D28D9)",color:"#fff",border:"none",borderRadius:"12px",padding:"14px",fontSize:"13px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"}});
-    elBtn.innerHTML='<i data-lucide="key" style="width:14px;height:14px;vertical-align:middle;margin-right:6px"></i>Add Free ElevenLabs Key';
-    elBtn.onclick=function(){showSocialSetup();};
-    wrap.appendChild(elBtn);
-    var skipBtn=el("button",{style:{width:"100%",background:"transparent",border:"1px solid #2A3040",color:"#C0C8D8",borderRadius:"12px",padding:"14px",fontSize:"13px",fontWeight:"600",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
-    skipBtn.textContent="Continue Without Narration (music only)";
-    skipBtn.onclick=function(){VG_STATE.skipNarration=true;onContinue();};
-    wrap.appendChild(skipBtn);
-    vgBody.appendChild(wrap);
-    if(typeof lucide!=="undefined"&&lucide.createIcons)try{lucide.createIcons();}catch(e){}
-  }
 
   function _renderVGSlideshowProgress(){
     var steps=[
@@ -4224,16 +4180,6 @@ async function showVideoGenUI(initialPrompt, propertyCtx){
     goBtn.onclick=function(){
       var text=narInp.value.trim();
       if(!text){alert("Please write what the narrator should say.");return;}
-      // Unlike music (synthesized locally), narration can only be embedded
-      // into the exported file via ElevenLabs — the browser's built-in voice
-      // (speechSynthesis) plays live through the OS and can't be captured
-      // into a recording, so there's no usable "basic voice" fallback here.
-      if(!localStorage.getItem("dv_elevenlabs_key")){
-        if(confirm("Adding a real voiceover needs a free ElevenLabs key (the browser's built-in voice can't be saved into a video file). Add one now in Setup?")){
-          showSocialSetup();
-        }
-        return;
-      }
       goBtn.disabled=true;goBtn.textContent="Working...";
       _muxNarrationOntoVideo(VG_STATE.resultUrl,text,musSel.value,function(msg){statusEl.textContent=msg;})
         .then(function(newBlob){
@@ -4549,12 +4495,8 @@ function extractImageKeywords(caption){
 }
 
 async function searchUnsplash(query){
-  var key=localStorage.getItem("dv_unsplash_key");
-  if(!key)return null;
   try{
-    var r=await fetch("https://api.unsplash.com/search/photos?query="+encodeURIComponent(query)+"&per_page=5&orientation=squarish",{
-      headers:{"Authorization":"Client-ID "+key}
-    });
+    var r=await fetch("/api/proxy-groq?provider=unsplash",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query:query,per_page:5})});
     var d=await r.json();
     if(d.results&&d.results.length>0){
       var idx=Math.floor(Math.random()*Math.min(d.results.length,3));
@@ -4565,12 +4507,8 @@ async function searchUnsplash(query){
 }
 
 async function searchPexels(query){
-  var key=localStorage.getItem("dv_pexels_key");
-  if(!key)return null;
   try{
-    var r=await fetch("https://api.pexels.com/v1/search?query="+encodeURIComponent(query)+"&per_page=5&orientation=square",{
-      headers:{"Authorization":key}
-    });
+    var r=await fetch("/api/proxy-groq?provider=pexels",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query:query,per_page:5})});
     var d=await r.json();
     if(d.photos&&d.photos.length>0){
       var idx=Math.floor(Math.random()*Math.min(d.photos.length,3));
@@ -4800,11 +4738,9 @@ async function generateFalImage(prompt,portrait){
 }
 
 async function generateGeminiImage(query){
-  var key=localStorage.getItem("dv_gemini_key");
-  if(!key)return null;
   try{
     var prompt="Generate a photorealistic image of "+query+". Professional real estate photography, high resolution, architectural detail, golden hour lighting, cinematic composition. No text, no watermarks, no logos.";
-    var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key="+key,{
+    var r=await fetch("/api/proxy-groq?provider=gemini&model=gemini-2.0-flash-exp",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{responseModalities:["IMAGE","TEXT"],imageMimeType:"image/jpeg"}})
@@ -4826,12 +4762,8 @@ async function generateGeminiImage(query){
 }
 
 async function searchUnsplashMulti(query,count){
-  var key=localStorage.getItem("dv_unsplash_key");
-  if(!key)return[];
   try{
-    var r=await fetch("https://api.unsplash.com/search/photos?query="+encodeURIComponent(query)+"&per_page="+Math.min(count+2,10)+"&orientation=squarish",{
-      headers:{"Authorization":"Client-ID "+key}
-    });
+    var r=await fetch("/api/proxy-groq?provider=unsplash",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query:query,per_page:Math.min(count+2,10)})});
     var d=await r.json();
     if(d.results&&d.results.length>0)return d.results.map(function(p){return p.urls.regular||p.urls.full;});
   }catch(e){}
@@ -4839,12 +4771,8 @@ async function searchUnsplashMulti(query,count){
 }
 
 async function searchPexelsMulti(query,count){
-  var key=localStorage.getItem("dv_pexels_key");
-  if(!key)return[];
   try{
-    var r=await fetch("https://api.pexels.com/v1/search?query="+encodeURIComponent(query)+"&per_page="+Math.min(count+2,10)+"&orientation=square",{
-      headers:{"Authorization":key}
-    });
+    var r=await fetch("/api/proxy-groq?provider=pexels",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query:query,per_page:Math.min(count+2,10)})});
     var d=await r.json();
     if(d.photos&&d.photos.length>0)return d.photos.map(function(p){return p.src.large2x||p.src.large;});
   }catch(e){}
@@ -4862,16 +4790,13 @@ async function findMultipleImages(caption,count){
   var query=extractImageKeywords(caption);
   var collected=[];
 
-  var geminiKey=localStorage.getItem("dv_gemini_key");
-  if(geminiKey){
-    var geminiPromises=[];
-    for(var g=0;g<count;g++)geminiPromises.push(generateGeminiImage(query+(g>0?" different angle "+(g+1):"")));
-    var geminiResults=await Promise.all(geminiPromises);
-    for(var gi=0;gi<geminiResults.length&&collected.length<count;gi++){
-      if(geminiResults[gi])collected.push(geminiResults[gi]);
-    }
-    if(collected.length>=count){console.log("[DubAIVal] "+collected.length+" images from Gemini AI");return collected;}
+  var geminiPromises=[];
+  for(var g=0;g<count;g++)geminiPromises.push(generateGeminiImage(query+(g>0?" different angle "+(g+1):"")));
+  var geminiResults=await Promise.all(geminiPromises);
+  for(var gi=0;gi<geminiResults.length&&collected.length<count;gi++){
+    if(geminiResults[gi])collected.push(geminiResults[gi]);
   }
+  if(collected.length>=count){console.log("[DubAIVal] "+collected.length+" images from Gemini AI");return collected;}
 
   var unsplashImgs=await searchUnsplashMulti(query,count-collected.length);
   for(var u=0;u<unsplashImgs.length&&collected.length<count;u++)collected.push(unsplashImgs[u]);
@@ -5236,11 +5161,10 @@ function savePostToHistory(post){
 }
 // --- AI CAPTION REWRITER (Platform-Optimized) ---
 async function rewriteCaptionForPlatform(caption,targetPlatform){
-  var geminiKey=localStorage.getItem("dv_gemini_key");if(!geminiKey)return null;
   var bp=getBrandProfile();var brandCtx=bp?" Brand: "+bp.name+(bp.tone?", Tone: "+bp.tone:""):"";
   var limits={instagram:"2200 chars, 30 hashtags max, emoji-rich, visual hooks",facebook:"63206 chars, longer form OK, link-friendly, professional",linkedin:"3000 chars, professional/corporate, no emojis overload, thought-leadership",twitter:"280 chars STRICT, punchy, thread-friendly, 2-3 hashtags max",tiktok:"2200 chars, Gen-Z friendly, trending sounds reference, casual",whatsapp:"Short & punchy, 3-4 lines, broadcast-friendly, direct CTA"};
   try{
-    var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+    var r=await fetch("/api/proxy-groq?provider=gemini&model=gemini-2.0-flash",{
       method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({contents:[{parts:[{text:"You are an expert social media copywriter for Dubai luxury real estate."+brandCtx+"\n\nOriginal caption:\n"+caption+"\n\nRewrite this caption SPECIFICALLY optimized for "+targetPlatform+".\nPlatform rules: "+limits[targetPlatform]+"\n\nDubai real estate context. Keep all data/numbers accurate. Adapt tone, length, hashtags, emojis, and CTA for "+targetPlatform+".\n\nRespond in valid JSON:\n{\"caption\":\"THE REWRITTEN CAPTION\",\"charCount\":123,\"tips\":\"Brief tip about why this version works better for "+targetPlatform+"\"}"}]}],generationConfig:{responseMimeType:"application/json"}})
     });
@@ -5283,9 +5207,8 @@ function showCaptionRewriter(caption){
 
 // --- COMPETITOR HASHTAG SPY ---
 async function spyCompetitorHashtags(competitors){
-  var geminiKey=localStorage.getItem("dv_gemini_key");if(!geminiKey)return null;
   try{
-    var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+    var r=await fetch("/api/proxy-groq?provider=gemini&model=gemini-2.0-flash",{
       method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({contents:[{parts:[{text:"You are a Dubai real estate social media intelligence expert.\n\nAnalyze the hashtag strategies of these Dubai real estate competitors/accounts:\n"+(competitors||"@dubaiproperties, @emaborhman, @faborhman, @aboralianrealtor, @dubailuxury")+"\n\nBased on your knowledge of Dubai real estate Instagram marketing:\n1. What are their most-used hashtags?\n2. What niche hashtags do they use that have less competition?\n3. What hashtags are they missing that could boost reach?\n4. Suggest unique hashtag combinations we can own\n\nRespond in valid JSON:\n{\"competitors\":[{\"name\":\"@account\",\"top_hashtags\":[\"#tag1\"],\"strategy\":\"brief description\"}],\"niche_gems\":[{\"tag\":\"#tag\",\"why\":\"reason\"}],\"gaps\":[{\"tag\":\"#tag\",\"opportunity\":\"why\"}],\"unique_combos\":[\"#combo1 #combo2 #combo3\"],\"summary\":\"overall strategy recommendation\"}"}]}],generationConfig:{responseMimeType:"application/json"}})
     });
@@ -5340,14 +5263,13 @@ function showCompetitorSpy(){
 
 // --- BULK POST GENERATOR (30 posts for 1 month) ---
 async function generateBulkPosts(config){
-  var geminiKey=localStorage.getItem("dv_gemini_key");if(!geminiKey)return null;
   var bp=getBrandProfile();var brandCtx=bp?" Agent: "+bp.name+(bp.agency?", Agency: "+bp.agency:"")+(bp.tone?", Tone: "+bp.tone:""):"";
   var areaData="";
   try{var top=Object.keys(AREAS).map(function(k){var a=AREAS[k];return{n:k,p:a.psf,y:a.y?((a.y[0]+a.y[1])/2):0,g:a.g?a.g[0]:0};}).sort(function(a,b){return(b.y+b.g)-(a.y+a.g);}).slice(0,15);
     areaData=top.map(function(a){return a.n+":PSF"+a.p+",Y"+a.y.toFixed(1)+"%";}).join("|");
   }catch(e){}
   try{
-    var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+    var r=await fetch("/api/proxy-groq?provider=gemini&model=gemini-2.0-flash",{
       method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({contents:[{parts:[{text:"You are an expert Dubai real estate social media content planner."+brandCtx+"\n\nReal market data: "+areaData+"\n\nGenerate "+(config.count||30)+" social media posts for "+(config.platform||"Instagram")+" covering the next month.\n\nContent pillars to rotate:\n1. Market Data/Insights (PSF, yields, growth)\n2. Area Spotlights (specific areas with real data)\n3. Investment Tips & Education\n4. Lifestyle/Luxury Dubai content\n5. Success Stories / Testimonials (templated)\n6. Behind the Scenes / Market Tours\n7. FAQ / Myth Busting\n8. Trending News / Market Updates\n\nEach post should have a suggested date (starting tomorrow), time, content pillar, and full caption with hashtags.\n\nRespond in valid JSON:\n{\"posts\":[{\"day\":1,\"date\":\"2026-06-28\",\"time\":\"10:00\",\"pillar\":\"Market Data\",\"caption\":\"Full post caption with emojis and hashtags\",\"type\":\"post\",\"imageHint\":\"what image to use\"}]}"}]}],generationConfig:{responseMimeType:"application/json",maxOutputTokens:8192}})
     });
@@ -5427,11 +5349,9 @@ function showContentRecycler(){
       var capEl=el("div",{style:{color:"#CCC",fontSize:"10px",lineHeight:"1.4",marginTop:"4px",maxHeight:"40px",overflow:"hidden"}});capEl.textContent=(p.caption||"").substring(0,120);pCard.appendChild(capEl);
       var recycleBtn=el("button",{style:{marginTop:"6px",background:"#F9731622",border:"1px solid #F9731644",color:"#F97316",padding:"4px 10px",borderRadius:"6px",fontSize:"10px",cursor:"pointer",fontFamily:"monospace"},onclick:async function(){
         recycleBtn.textContent="Refreshing...";
-        var geminiKey=localStorage.getItem("dv_gemini_key");
-        if(!geminiKey){recycleBtn.textContent="Need Gemini key";return;}
         var areaData="";try{var top=Object.keys(AREAS).slice(0,20).map(function(k){return k+":PSF"+AREAS[k].psf;}).join(",");areaData=top;}catch(e){}
         try{
-          var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+          var r=await fetch("/api/proxy-groq?provider=gemini&model=gemini-2.0-flash",{
             method:"POST",headers:{"Content-Type":"application/json"},
             body:JSON.stringify({contents:[{parts:[{text:"Refresh this old Dubai real estate social media post with:\n1. Updated market data: "+areaData+"\n2. Fresh angle/hook\n3. New hashtags\n4. Keep the core message but make it feel NEW\n\nOriginal post:\n"+p.caption+"\n\nRespond with ONLY the refreshed caption (no JSON, no explanation)."}]}]})
           });
@@ -5544,7 +5464,6 @@ var STORY_TEMPLATES=[
   {id:"ama",name:"AMA",color:"#10B981",description:"Ask Me Anything about Dubai real estate"}
 ];
 async function generateStoryContent(templateId){
-  var geminiKey=localStorage.getItem("dv_gemini_key");if(!geminiKey)return null;
   var areaData="";try{var top=Object.keys(AREAS).slice(0,20).map(function(k){return k+":PSF"+AREAS[k].psf;}).join(",");areaData=top;}catch(e){}
   var prompts={
     quiz:"Generate an Instagram Story quiz about Dubai real estate. 1 question with 4 options (only 1 correct). Use real market data: "+areaData+"\nJSON: {\"question\":\"...\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"correct\":0,\"explanation\":\"why\"}",
@@ -5555,7 +5474,7 @@ async function generateStoryContent(templateId){
     ama:"Generate 3 engaging AMA (Ask Me Anything) story prompts for a Dubai real estate agent.\nJSON: {\"prompts\":[{\"question\":\"...\",\"sampleAnswer\":\"...\"}],\"intro\":\"story intro text\"}"
   };
   try{
-    var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+    var r=await fetch("/api/proxy-groq?provider=gemini&model=gemini-2.0-flash",{
       method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({contents:[{parts:[{text:prompts[templateId]||prompts.quiz}]}],generationConfig:{responseMimeType:"application/json"}})
     });
@@ -5712,9 +5631,8 @@ function showCaptionOptimizer(caption){
 
 // --- EMOJI INTELLIGENCE ---
 async function suggestEmojis(caption){
-  var geminiKey=localStorage.getItem("dv_gemini_key");if(!geminiKey)return null;
   try{
-    var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+    var r=await fetch("/api/proxy-groq?provider=gemini&model=gemini-2.0-flash",{
       method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({contents:[{parts:[{text:"You are an emoji optimization expert for social media.\n\nCaption:\n"+caption+"\n\nSuggest the BEST emojis to enhance this Dubai real estate post:\n1. Hook emojis (first 2-3 to grab attention)\n2. Separator emojis (to break text sections)\n3. CTA emojis (to drive action)\n4. Avoid overuse — suggest optimal count\n\nRespond in valid JSON:\n{\"hook\":[\"🏠\",\"💎\"],\"separators\":[\"▪️\",\"•\"],\"cta\":[\"📲\",\"🔗\"],\"enhanced_caption\":\"The caption with emojis placed optimally\",\"total_emojis\":8,\"tip\":\"brief advice\"}"}]}],generationConfig:{responseMimeType:"application/json"}})
     });
@@ -6252,11 +6170,9 @@ function showPostDesigner(caption,existingImg){
 
 // --- A/B CAPTION TESTING ---
 async function generateCaptionVariants(caption,platform){
-  var geminiKey=localStorage.getItem("dv_gemini_key");
-  if(!geminiKey)return null;
   var bp=getBrandProfile();var brandCtx=bp?" Agent: "+bp.name+(bp.tone?", Tone: "+bp.tone:""):"";
   try{
-    var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+    var r=await fetch("/api/proxy-groq?provider=gemini&model=gemini-2.0-flash",{
       method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({contents:[{parts:[{text:"You are a social media A/B testing expert."+brandCtx+"\n\nOriginal caption:\n"+caption+"\n\nGenerate 2 alternative versions optimized for higher engagement on "+(platform||"Instagram")+".\nVariant A: More emotional/storytelling approach\nVariant B: More data-driven/FOMO approach\n\nRespond in valid JSON:\n{\"variantA\":\"...\",\"variantB\":\"...\",\"analysis\":\"Brief comparison of which might perform better and why\"}"}]}],generationConfig:{responseMimeType:"application/json"}})
     });
@@ -6307,9 +6223,8 @@ function showABTest(caption,platform){
 
 // --- HASHTAG INTELLIGENCE ---
 async function analyzeHashtags(text){
-  var geminiKey=localStorage.getItem("dv_gemini_key");if(!geminiKey)return null;
   try{
-    var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+    var r=await fetch("/api/proxy-groq?provider=gemini&model=gemini-2.0-flash",{
       method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({contents:[{parts:[{text:"You are a Dubai real estate Instagram hashtag specialist.\n\nPost text:\n"+text+"\n\nAnalyze and suggest the BEST hashtags organized by category. Consider:\n- Trending Dubai real estate hashtags\n- Location-specific hashtags\n- Property type hashtags\n- Investment/lifestyle hashtags\n- Branded hashtags\n\nRespond in valid JSON:\n{\"trending\":[{\"tag\":\"#DubaiRealEstate\",\"reach\":\"High\"}],\"location\":[],\"property\":[],\"investment\":[],\"lifestyle\":[],\"total_suggested\":15,\"best_combo\":\"The optimal 8-10 hashtags for max reach\"}"}]}],generationConfig:{responseMimeType:"application/json"}})
     });
@@ -6533,10 +6448,9 @@ async function translatePost(caption,targetLang,langCode){
   var hash=_simpleHash(caption);
   var cached=_getCachedTranslation(hash,langCode||"xx");
   if(cached)return cached;
-  var geminiKey=localStorage.getItem("dv_gemini_key");if(!geminiKey)return null;
   var termGlossary=_RE_TERMS[langCode]?"\n\nUse this real estate glossary for accurate terminology:\n"+Object.keys(_RE_TERMS[langCode]).map(function(k){return k+" → "+_RE_TERMS[langCode][k];}).join(", "):"";
   try{
-    var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+    var r=await fetch("/api/proxy-groq?provider=gemini&model=gemini-2.0-flash",{
       method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({contents:[{parts:[{text:"You are a professional multilingual real estate marketing translator specializing in Dubai luxury property."+termGlossary+"\n\nOriginal post:\n"+caption+"\n\nTranslate to "+targetLang+".\nRules:\n- Keep emojis and formatting intact\n- Adapt hashtags: keep top English ones + add 3-5 local language hashtags\n- Keep numbers (AED, sqft, %) in original format — NEVER convert currencies\n- Adapt cultural tone for "+targetLang+" luxury real estate audience\n- Keep brand mentions (DubAIVal, dubaival.com) unchanged\n- Arabic/Farsi: right-to-left friendly, use ، instead of , for lists\n- Chinese: use 万/亿 for large numbers if natural\n- Russian: formal Вы for addressing readers\n\nRespond in valid JSON:\n{\"translated\":\"FULL TRANSLATED POST\",\"lang\":\""+targetLang+"\",\"notes\":\"Cultural adaptations made\",\"hashtags_added\":[\"#tag\"],\"confidence\":85,\"wordCount\":0}"}]}],generationConfig:{responseMimeType:"application/json"}})
     });
@@ -6627,7 +6541,6 @@ function showMultiLanguage(caption){
 
 // --- HOOK-STORY-OFFER GENERATOR (Neuromarketing) ---
 async function generateHSO(caption,framework){
-  var geminiKey=localStorage.getItem("dv_gemini_key");if(!geminiKey)return null;
   var bp=getBrandProfile();var brandCtx=bp?" Brand: "+bp.name+(bp.tone?", Tone: "+bp.tone:""):"";
   var frameworks={
     "hook-story-offer":"HOOK-STORY-OFFER:\n- HOOK (1-2 lines): Pattern interrupt, bold claim, or question that stops the scroll. Use numbers, curiosity gap, or controversy.\n- STORY (3-5 lines): Personal anecdote, client success, or market insight. Create emotional connection. Use sensory language.\n- OFFER (2-3 lines): Clear CTA. What they get, how to get it, why now (urgency/scarcity).",
@@ -6638,7 +6551,7 @@ async function generateHSO(caption,framework){
   };
   var fwDesc=frameworks[framework]||frameworks["hook-story-offer"];
   try{
-    var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+geminiKey,{
+    var r=await fetch("/api/proxy-groq?provider=gemini&model=gemini-2.0-flash",{
       method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({contents:[{parts:[{text:"You are an expert neuromarketing copywriter for Dubai luxury real estate."+brandCtx+"\n\nOriginal caption:\n"+caption+"\n\nRewrite using the "+framework.toUpperCase()+" framework:\n"+fwDesc+"\n\nNeuromarketing principles to apply:\n- Power words: exclusive, limited, premium, verified, proven, guaranteed\n- Numbers: specific AED figures, %, ROI numbers from the original\n- Sensory language: imagine waking up to, picture yourself, feel the breeze\n- Social proof: used by X investors, X properties sold, trusted by\n- Scarcity: only X available, limited time, prices rising\n- Authority: DLD-verified, RERA-approved, award-winning\n\nRespond in valid JSON:\n{\"rewritten\":\"FULL POST with framework applied\",\"framework\":\""+framework+"\",\"hook_type\":\"type of hook used\",\"psychology_used\":[\"scarcity\",\"social proof\"],\"predicted_engagement\":\"High/Medium/Low\",\"why\":\"Brief explanation of why this version converts better\"}"}]}],generationConfig:{responseMimeType:"application/json"}})
     });
@@ -7411,9 +7324,7 @@ function showAvatarBuilder(editId){
     var basePrompt=customPromptInp.value.trim()||style.prompt;
     var fullPrompt=basePrompt+", professional portrait headshot, photorealistic, 4k, face clearly visible, looking at camera, soft studio lighting, real estate agent Dubai";
     try{
-      var url=null;
-      var geminiKey=localStorage.getItem("dv_gemini_key");
-      if(geminiKey){url=await generateGeminiImage(fullPrompt);}
+      var url=await generateGeminiImage(fullPrompt);
       if(!url){
         genAvatarBtn.textContent="⏳ Generating via Fal.ai FLUX...";
         url=await generateFalImage(fullPrompt,true);
@@ -8456,75 +8367,19 @@ function renderSocialSettings(){
   return wrap;
 }
 
+// Zero-touch onboarding (CLAUDE.md #4): every user-facing field now lives
+// in ONE place — the Profile panel — instead of a separate "Social Setup"
+// modal duplicating some of the same fields. This used to render its own
+// overlay with 19 fields (several already unused since the Gemini/Unsplash/
+// Pexels/ElevenLabs migration above); all real fields it held (Instagram/
+// Facebook/WhatsApp Business/Meta Pixel/LinkedIn/Twitter/TikTok/YouTube)
+// were moved into renderProfilePanel() (js/app.js) using the EXACT SAME
+// localStorage keys, so anything already entered pre-fills there
+// automatically — nothing was reset. Kept as a thin redirect (not deleted
+// outright) since several call sites across this file still reference it.
 function showSocialSetup(){
-  var existing=document.getElementById("social-setup-modal");
-  if(existing)existing.remove();
-  var overlay=el("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.7)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center"},id:"social-setup-modal"});
-  var card=div({background:"#1A1F2E",border:"1px solid #2A3040",borderRadius:"16px",padding:"24px",width:"380px",maxWidth:"90vw",maxHeight:"85vh",overflowY:"auto"});
-  var title=el("h3",{style:{color:"#C9A84C",margin:"0 0 16px",fontSize:"15px",fontFamily:"'Space Grotesk',monospace"}});
-  title.textContent="Social Media Setup";
-  card.appendChild(title);
-  var fields=[
-    {key:"dv_ig_token",label:"Page Access Token",ph:"EAATsXN..."},
-    {key:"dv_ig_id",label:"Instagram Account ID",ph:"17841416622862972"},
-    {key:"dv_fb_id",label:"Facebook Page ID (optional)",ph:"123456789"},
-    {key:"dv_whatsapp_token",label:"WhatsApp Permanent Access Token",ph:"From Meta App Dashboard → WhatsApp → API Setup"},
-    {key:"dv_whatsapp_phone_id",label:"WhatsApp Phone Number ID",ph:"e.g. 109876543212345"},
-    {key:"dv_whatsapp_waba_id",label:"WhatsApp Business Account ID (optional)",ph:"e.g. 123456789012345"},
-    {key:"dv_meta_pixel_id",label:"Meta Ads Pixel ID (for AI Chief of Staff ad tracking)",ph:"e.g. 987654321098765"},
-    {key:"dv_meta_capi_token",label:"Meta Conversions API Access Token",ph:"From Meta Events Manager → Settings → Conversions API"},
-    {key:"dv_unsplash_key",label:"Unsplash API Key (best quality)",ph:"Free at unsplash.com/developers"},
-    {key:"dv_pexels_key",label:"Pexels API Key",ph:"Free at pexels.com/api"},
-    {key:"dv_gemini_key",label:"Gemini API Key (AI image gen)",ph:"Free at aistudio.google.com/apikey"},
-    {key:"dv_elevenlabs_key",label:"ElevenLabs API Key (premium voiceover)",ph:"Free at elevenlabs.io/app/settings/api-keys"},
-    {key:"dv_elevenlabs_voice",label:"ElevenLabs Voice ID (optional)",ph:"Default: Rachel — or paste custom voice ID"},
-    {key:"dv_linkedin_token",label:"LinkedIn Access Token",ph:"OAuth2 token from linkedin.com/developers"},
-    {key:"dv_linkedin_urn",label:"LinkedIn Person URN",ph:"urn:li:person:XXXXXXXXX"},
-    {key:"dv_twitter_consumer_key",label:"𝕏 X Consumer Key (API Key)",ph:"D3gVfd..."},
-    {key:"dv_twitter_consumer_secret",label:"𝕏 X Consumer Secret",ph:"w4EHpI..."},
-    {key:"dv_twitter_access_token",label:"𝕏 X Access Token",ph:"20708..."},
-    {key:"dv_twitter_access_secret",label:"𝕏 X Access Token Secret",ph:"DF6Upt..."},
-    {key:"dv_tiktok_token",label:"TikTok Access Token",ph:"From developers.tiktok.com"},
-    {key:"dv_youtube_token",label:"YouTube Access Token",ph:"Auto-refreshed — paste initial token here"},
-    {key:"dv_youtube_refresh",label:"YouTube Refresh Token",ph:"1//0c... — permanent, auto-renews access token"},
-    {key:"dv_youtube_client_id",label:"YouTube Client ID",ph:"916354...apps.googleusercontent.com"},
-    {key:"dv_youtube_client_secret",label:"YouTube Client Secret",ph:"GOCSPX-..."},
-  ];
-  var inputs=[];
-  fields.forEach(function(f){
-    var lbl=el("label",{style:{color:"#8899AA",fontSize:"11px",display:"block",marginBottom:"4px",fontFamily:"'Space Grotesk',monospace"}});
-    lbl.textContent=f.label;
-    var inp=el("input",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"8px",padding:"8px 10px",color:"#E0E0E0",fontSize:"12px",marginBottom:"12px",fontFamily:"monospace",boxSizing:"border-box"},placeholder:f.ph,value:localStorage.getItem(f.key)||""});
-    card.appendChild(lbl);card.appendChild(inp);
-    inputs.push({key:f.key,inp:inp});
-  });
-  // WhatsApp is billed per-message by Meta (unlike IG/FB DMs, which are
-  // free via a connected Page token) — surface the pay-per-use balance
-  // right here where the connection fields live, same pattern as the
-  // video-generation credit row in showVideoGenUI().
-  var waCredits=(typeof DV_AUTH!=="undefined"&&DV_AUTH.profile&&DV_AUTH.profile.whatsapp_credits)||0;
-  var waCredRow=div({display:"flex",alignItems:"center",justifyContent:"space-between",gap:"8px",marginBottom:"12px",padding:"8px 10px",background:"rgba(37,211,102,0.06)",border:"1px solid rgba(37,211,102,0.25)",borderRadius:"8px"});
-  waCredRow.appendChild(div({color:"#8899AA",fontSize:"10px",fontFamily:"'Inter',sans-serif"},"1 credit = 1 day of messaging per contact (unlimited replies within 24h) · Balance: "+waCredits));
-  var waBuyBtn=el("button",{style:{background:"transparent",border:"1px solid #25D366",color:"#25D366",borderRadius:"6px",padding:"4px 9px",fontSize:"10px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",flexShrink:"0"}});
-  waBuyBtn.textContent="+ Buy Credit ($0.49)";
-  waBuyBtn.onclick=function(){_startWhatsAppCreditCheckout().catch(function(e){alert(e.message);});};
-  waCredRow.appendChild(waBuyBtn);
-  card.appendChild(waCredRow);
-
-  var btnRow=div({display:"flex",gap:"8px",marginTop:"8px"});
-  var saveBtn=el("button",{style:{flex:1,background:"#C9A84C",color:"#000",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){
-    inputs.forEach(function(i){if(i.inp.value.trim())localStorage.setItem(i.key,i.inp.value.trim());else localStorage.removeItem(i.key);});
-    _syncCredsToServer();
-    overlay.remove();
-  }});
-  saveBtn.textContent="Save";
-  var cancelBtn=el("button",{style:{flex:1,background:"#2A3040",color:"#8899AA",border:"none",borderRadius:"8px",padding:"10px",fontSize:"12px",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:function(){overlay.remove();}});
-  cancelBtn.textContent="Cancel";
-  btnRow.appendChild(saveBtn);btnRow.appendChild(cancelBtn);
-  card.appendChild(btnRow);
-  overlay.appendChild(card);
-  overlay.addEventListener("click",function(e){if(e.target===overlay)overlay.remove();});
-  document.body.appendChild(overlay);
+  showProfilePanel=true;
+  render();
 }
 
 // --- CHAT STATE (agent-aware) ------------------------------------------------

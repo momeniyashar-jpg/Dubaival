@@ -215,7 +215,11 @@ async function publishTW(text, creds) {
   } catch (e) { return { p: "twitter", ok: false, err: e.message }; }
 }
 
-async function findImageForPost(caption, pexelsKey) {
+// Uses the platform-shared PEXELS_API_KEY (zero-touch onboarding directive,
+// CLAUDE.md #4) — Pexels is a stock-photo service with nothing per-user
+// about it, so no agent should ever need their own key for this.
+async function findImageForPost(caption) {
+  var pexelsKey = process.env.PEXELS_API_KEY;
   if (!pexelsKey) return null;
   try {
     var words = caption.replace(/[#@🏙️🏡💰📊🔥✨🌊⛳🏖️🌴]/g, "").split(/\s+/).filter(function (w) { return w.length > 3; }).slice(0, 3).join(" ");
@@ -307,7 +311,7 @@ async function handleAutoPost(req, res) {
       var caption = post.caption || "";
       var platform = post.platform || "all";
       var imageUrl = post.image_url;
-      if (!imageUrl) imageUrl = await findImageForPost(caption, creds.pexels_key);
+      if (!imageUrl) imageUrl = await findImageForPost(caption);
 
       var results = [];
       if (platform === "instagram" || platform === "all") {

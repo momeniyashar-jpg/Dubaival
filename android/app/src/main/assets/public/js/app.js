@@ -2784,14 +2784,15 @@ function renderProfilePanel(){
 
   maxW.appendChild(acctGrid);
 
-  // ── AI API KEYS ────────────────────────────────────────────────
-  maxW.appendChild(secLabel("AI API Keys"));
-  var aiGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"12px",marginBottom:"20px"}});
-  aiGrid.appendChild(socialInp("dv_groq","Groq API Key (AI Chat)","gsk_... — free at console.groq.com","password"));
-  aiGrid.appendChild(socialInp("dv_gemini_key","Gemini API Key (AI Image + RAG Memory)","AIza... — free at aistudio.google.com/apikey","password"));
-  aiGrid.appendChild(socialInp("dv_unsplash_key","Unsplash API Key (Property Photos)","Free at unsplash.com/developers"));
-  aiGrid.appendChild(socialInp("dv_pexels_key","Pexels API Key (Property Photos)","Free at pexels.com/api"));
-  maxW.appendChild(aiGrid);
+  // Zero-touch onboarding (CLAUDE.md #4 CRITICAL DIRECTIVE): Groq/Gemini/
+  // Unsplash/Pexels/ElevenLabs are shared platform services with nothing
+  // per-user about them — every AI tool in the app now runs off a single
+  // platform-level key (server-side proxy, api/proxy-groq.js), so no user
+  // should ever need to find/generate/paste one of these themselves. The
+  // "AI API Keys" section that used to live here is gone entirely, not just
+  // made optional — removing localStorage.dv_groq/dv_gemini_key/etc. was
+  // deliberately NOT done (no data was cleared), these keys simply stop
+  // being read by anything now.
 
   // ── SOCIAL ACCOUNTS ────────────────────────────────────────────
   maxW.appendChild(secLabel("Social Accounts"));
@@ -2852,6 +2853,39 @@ function renderProfilePanel(){
   fbSection.appendChild(fbGrid);
   maxW.appendChild(fbSection);
 
+  // WhatsApp Business API — moved here from the separate Social Setup modal
+  // per the user's explicit request that every user-facing field live in
+  // ONE place (Profile). Same localStorage keys as before, so anything
+  // already entered pre-fills automatically — nothing was reset.
+  var waBizSection=el("div",{style:{marginBottom:"14px"}});
+  waBizSection.appendChild(div({color:"#25D366",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"💬 WhatsApp Business API"));
+  var waBizGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"10px"}});
+  waBizGrid.appendChild(socialInp("dv_whatsapp_token","Permanent Access Token","From Meta App Dashboard → WhatsApp → API Setup","password"));
+  waBizGrid.appendChild(socialInp("dv_whatsapp_phone_id","Phone Number ID","e.g. 109876543212345"));
+  waBizGrid.appendChild(socialInp("dv_whatsapp_waba_id","Business Account ID (optional)","e.g. 123456789012345"));
+  waBizSection.appendChild(waBizGrid);
+  // WhatsApp is billed per-window by Meta (unlike IG/FB DMs, free via a
+  // connected Page token) — surface the pay-per-use balance right here,
+  // same content the old separate Social Setup modal used to show.
+  var waCredits=(typeof DV_AUTH!=="undefined"&&DV_AUTH.profile&&DV_AUTH.profile.whatsapp_credits)||0;
+  var waCredRow=div({display:"flex",alignItems:"center",justifyContent:"space-between",gap:"8px",marginTop:"10px",padding:"8px 10px",background:"rgba(37,211,102,0.06)",border:"1px solid rgba(37,211,102,0.25)",borderRadius:"8px"});
+  waCredRow.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},"1 credit = 1 day of messaging per contact (unlimited replies within 24h) · Balance: "+waCredits));
+  var waBuyBtn=el("button",{style:{background:"transparent",border:"1px solid #25D366",color:"#25D366",borderRadius:"6px",padding:"4px 9px",fontSize:"10px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",flexShrink:"0"}});
+  waBuyBtn.textContent="+ Buy Credit ($0.49)";
+  waBuyBtn.onclick=function(){if(typeof _startWhatsAppCreditCheckout==="function")_startWhatsAppCreditCheckout().catch(function(e){alert(e.message);});};
+  waCredRow.appendChild(waBuyBtn);
+  waBizSection.appendChild(waCredRow);
+  maxW.appendChild(waBizSection);
+
+  // Meta Ads Pixel — same reasoning, moved from Social Setup.
+  var pixelSection=el("div",{style:{marginBottom:"14px"}});
+  pixelSection.appendChild(div({color:"#1877F2",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"📊 Meta Ads Pixel (AI Chief of Staff ad tracking)"));
+  var pixelGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"10px"}});
+  pixelGrid.appendChild(socialInp("dv_meta_pixel_id","Pixel ID","e.g. 987654321098765"));
+  pixelGrid.appendChild(socialInp("dv_meta_capi_token","Conversions API Access Token","From Meta Events Manager → Conversions API","password"));
+  pixelSection.appendChild(pixelGrid);
+  maxW.appendChild(pixelSection);
+
   // Gmail
   var gmailSection=el("div",{style:{marginBottom:"14px"}});
   var gmailHeader=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"8px"}});
@@ -2895,6 +2929,8 @@ function renderProfilePanel(){
   ytSection.appendChild(div({color:"#FF0000",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"▶ YouTube"));
   var ytGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"10px"}});
   ytGrid.appendChild(socialInp("dv_youtube_client_id","Client ID","client_id.apps.google..."));
+  ytGrid.appendChild(socialInp("dv_youtube_client_secret","Client Secret","GOCSPX-...","password"));
+  ytGrid.appendChild(socialInp("dv_youtube_token","Access Token (initial)","Auto-refreshed after first paste","password"));
   ytGrid.appendChild(socialInp("dv_youtube_refresh","Refresh Token","refresh_token...","password"));
   ytSection.appendChild(ytGrid);
   maxW.appendChild(ytSection);
