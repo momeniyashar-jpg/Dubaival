@@ -367,6 +367,7 @@ var NAV_SECTIONS=[
     {id:"Index",label:"Market Index"},
     {id:"Compare",label:"Compare"},
     {id:"Find",label:"Find"},
+    {id:"OffPlan",label:"Off-Plan"},
     {id:"Map",label:"Map"},
     {id:"Advisor",label:"Advisor"},
     {id:"News",label:"News"}

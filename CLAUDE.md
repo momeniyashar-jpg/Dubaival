@@ -24,6 +24,7 @@ accompanied by an update to this table. Treat this as the single source of truth
 | | Index | Market Index | `renderMarketIndex()` | `js/marketindex.js` |
 | | Compare | Compare | `renderCompare()` | `js/portfolio.js` |
 | | Find | Find | `renderFind()` | `js/app.js` |
+| | OffPlan | Off-Plan | `renderOffPlan()` | `js/offplan.js` |
 | | Map | Map | `renderMap()` | `js/map.js` |
 | | Advisor | Advisor | `renderPersonal()` | `js/portfolio.js` |
 | | News | News | `renderNews()` | `js/market.js` |
@@ -162,6 +163,16 @@ The app was split from a single 1.1MB `index-6.html` into modular files:
   registry, composite Investment Score.
 - **`js/deals.js`** — Deal Network, `renderDeals()`, `renderDealForm()`,
   `renderAgentHub()`, `renderAdminDashboard()`, media, inquiries, referrals.
+- **`js/offplan.js`** — Off-Plan Projects tab (added 2026-07-17),
+  `renderOffPlan()`, `computeOffPlanForecast()` (launch→handover→+5yr price
+  forecast, blends `AREAS[].g` real growth data with each developer's own
+  track record when one exists). Data lives in Supabase
+  (`offplan_projects`/`developer_track_record` —
+  `supabase-offplan-schema.sql`, requires manual execution), not a static
+  JS file. Admin review queue (pending submissions, quick-add, developer
+  track record editor) lives in `renderAdmin()` in `js/app.js`, not in this
+  file — matches the OFM document-verification precedent of keeping
+  admin-only review UI inside the Admin Dashboard.
 - **`js/chat.js`** — `renderChat()`.
 - **`js/about.js`** — About/Mission tab.
 - **`js/workspace.js`** — My Workspace tab, custom report builder.
@@ -235,6 +246,8 @@ Code is now split across `js/*.js` files. To find anything, grep across `js/`:
 | `price_watches` | `supabase-price-alerts-schema.sql` | Price alert subscriptions |
 | `ofm_reports` | `supabase-ofm-trust-safety.sql` | In-chat abuse/scam reports on OFM matches — admin-reviewed via `admin_pending_reports`/`admin_resolve_report` RPCs (requires manual execution, see Outstanding items) |
 | `market_config` | (pre-existing) | Macro yield/growth adjustment knobs |
+| `offplan_projects` | `supabase-offplan-schema.sql` | Off-Plan Projects tab — tracked launches (name/developer/area/launch+handover dates/PSF), `status` pending/published/rejected, admin-reviewed via `admin_pending_offplan_projects`/`admin_review_offplan_project`/`admin_add_offplan_project` RPCs (requires manual execution, see Outstanding items) |
+| `developer_track_record` | `supabase-offplan-schema.sql` | Per-developer historical price-growth performance, feeds `computeOffPlanForecast()` in `js/offplan.js`; admin-only write via `admin_upsert_developer_track_record` RPC |
 | `knowledge_base` | `supabase-knowledge-base-schema.sql` + `supabase-knowledge-base-recency-fix.sql` + `supabase-forecast-accuracy-schema.sql` | RAG vector store — 768-dim embeddings (Jina or Gemini) of live news, daily market snapshots, and weekly forecast-accuracy audits (see below). Recency-weighted retrieval. Live since 2026-07-11 (see Outstanding items). |
 | `area_benchmarks` | (inside `api/refresh-market-data.js` workflow, already deployed) | Live PSF + rent data per area, refreshed daily by cron; also carries `rent_active_count`/`rent_avg_days_listed` (session 11n, requires manual execution — see Outstanding items) |
 | `price_history` | (inside `api/refresh-market-data.js` workflow, already deployed) | Historical PSF per area per day — also the ground truth for the forecast-accuracy audit below |
@@ -460,6 +473,100 @@ features continue working exactly as before. Zero breakage.
 - `theme-color` meta tag added (`#070B14`)
 
 ## Recent work log (most recent first)
+
+- **2026-07-17 (session 14, new feature — Off-Plan Projects tab)**: User
+  asked for a section where off-plan projects from different developers can
+  be tracked, with a price-growth forecast from launch→handover and
+  handover→+5yr, based on each developer's own track record, similar
+  developer projects, other developers' projects in the same area, and
+  current market trends — "so people can analyze a project before buying
+  with a better result." Scoped through several clarifying rounds before
+  building: (1) data sourcing — user wants Property Finder/Bayut (already
+  integrated via `api/proxy-rapidapi.js`) plus Tamani Properties and
+  developer-own websites, but this session has no live network access to
+  actually pull that data; (2) prediction approach — reuse the existing,
+  already-trusted `AREAS[].g` growth engine rather than building a separate
+  model (user's explicit preference); (3) nav placement — new sub-tab under
+  Market, alongside Analyzer/Find/Map (frozen-nav rule requires explicit
+  approval + table sync for any new sub-tab); (4) who can add/edit projects —
+  user asked for my take on combining admin-direct vs. community-submission;
+  proposed and built a hybrid (below).
+  - **Explicit scope for this session**: build the complete structure (data
+    schema, forecast engine, UI, admin review workflow) with ZERO fabricated
+    project or developer data — DubaiVal's own Directive #2 (max 3% error,
+    "ALL numbers... MUST be accurate") makes seeding a live production
+    database with placeholder project names or invented developer stats
+    unacceptable, even clearly labeled. The tab ships with a real, working,
+    graceful empty state instead; real data gets added once sourced, per a
+    plan to be worked out with the user next.
+  - **New Supabase migration**: `supabase-offplan-schema.sql` (requires
+    manual execution) — `offplan_projects` (name/developer/area/launch date/
+    expected handover/launch PSF/unit types/size range/source/status) and
+    `developer_track_record` (tier, projects tracked, avg growth
+    launch→handover %, avg growth handover→+5yr %). RLS: public can only
+    ever see `status='published'` rows; every write goes through a
+    SECURITY DEFINER RPC (`_admin_password_ok()`, same pattern as every
+    other admin RPC in this project), never a raw client INSERT, so a
+    tampered client request can't self-publish a submission.
+  - **Ownership model (hybrid, per user's explicit ask)**:
+    `submit_offplan_project()` — any signed-in user can submit a project;
+    always lands as `status='pending'`, invisible publicly.
+    `admin_add_offplan_project()` — admin adds directly as already-published
+    (admin is the trusted curator, no second review step needed for their
+    own additions). `admin_review_offplan_project()` — approve/reject a
+    pending submission, with an optional rejection reason. This is the exact
+    same "queued, then admin-verified" pattern already used for OFM listing
+    document verification (`supabase-ofm-trust-safety.sql`) — reused
+    deliberately rather than inventing a second review mechanism.
+  - **`js/offplan.js`** (new file) — `computeOffPlanForecast(project,
+    devRecord)`: uses the area's own real `AREAS[].g` growth curve
+    (annualizing the 1-3yr figure as the construction-period proxy,
+    compounded over the actual launch→handover span) as the PRIMARY driver;
+    when a developer's track record exists (`projects_tracked>=1` and a
+    real average growth figure entered), blends it in at a damped 30% weight
+    so a handful of past projects can't swing the number wildly — with NO
+    developer data, stays 100% area-based and is explicitly labeled
+    "Indicative — area growth only, no developer history yet" rather than
+    silently implying developer-specific insight it doesn't have.
+    `renderOffPlan()`: area/developer filters, sort (handover date/highest
+    growth/newest), a public "Submit a Project" form (any signed-in user —
+    prompts sign-in if not), and a 3-stat forecast card per project (Launch
+    PSF → At Handover → +5yr Post-Handover, with % change and a confidence
+    line). Graceful empty states both for "no projects tracked yet" and for
+    the Supabase tables not existing yet (pre-migration).
+  - **`js/app.js` `renderAdmin()`** — new "◆ Off-Plan Projects" card:
+    pending-submissions queue (Approve / Reject with optional reason), a
+    "Quick Add (Published Immediately)" form, and a "Developer Track Record"
+    editor (tier, projects tracked, both avg-growth figures, notes) — this
+    is the ONLY place real developer performance data enters the system,
+    and the forecast engine reads it back automatically via the public
+    `developer_track_record` table.
+  - **Nav wiring**: `js/core.js` `NAV_SECTIONS` — added `{id:"OffPlan",
+    label:"Off-Plan"}` to Market's `subs`, right after `Find`. `js/app.js`
+    — added the routing branch and a `TAB_TO_SECTION` entry (for the tour/
+    deep-link system). This file's frozen-nav table updated to match (all
+    3 kept in sync per the standing rule).
+  - Verified: a Node vm-sandbox test of `computeOffPlanForecast()` — confirms
+    it stays area-only with no developer record (correctly labeled
+    "Indicative"), correctly shifts the projection once a developer record
+    is supplied, produces sensible non-negative growth for a real area
+    (Business Bay) and gracefully falls back (no throw) for a completely
+    unknown area name; `node -c` on all 3 touched files; and 2 real-browser
+    Playwright passes — one on the public Off-Plan tab (mocked Supabase 404s
+    to simulate the pre-migration state) confirming the graceful "Off-Plan
+    data isn't available yet" message renders and the full "Submit a
+    Project" form opens with all fields correctly, one on the Admin
+    Dashboard (mocked a pending submission) confirming the review queue,
+    Approve/Reject buttons, Quick Add form, and Developer Track Record
+    editor all render correctly — zero non-network console errors in either
+    pass.
+  - **Not done this session, explicitly deferred to a follow-up with the
+    user**: actually sourcing real off-plan project data (Property Finder/
+    Bayut API integration for off-plan listings specifically, Tamani
+    Properties, developer websites) and seeding real developer track-record
+    figures — this session has no live network access to pull any of that,
+    and the user asked to build the structure first, then decide together
+    how to connect real data sources.
 
 - **2026-07-17 (session 14, service charge made fully manual in the single-
   property Analyzer)**: User reported checking service charges shown by the
@@ -4477,6 +4584,24 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🟡 Off-Plan Projects — needs manual SQL + real data sourcing** (added
+  2026-07-17, session 14): run `supabase-offplan-schema.sql` in Supabase SQL
+  Editor (requires `supabase-admin-security-fix.sql` already applied, which
+  it is — reuses `_admin_password_ok()`). Until it's run, the tab shows a
+  graceful "Off-Plan data isn't available yet" message instead of an error.
+  Once it's run, the tab is fully functional but the database starts
+  completely EMPTY (deliberately — no fabricated project/developer data was
+  seeded, per this project's own accuracy directive). Next step, to be
+  worked out with the user: how to actually source real off-plan project
+  data (Property Finder/Bayut API — likely extendable from the existing
+  `api/proxy-rapidapi.js` integration — plus Tamani Properties and developer
+  websites, none of which this session had live network access to
+  investigate) and real developer track-record figures (avg growth
+  launch→handover / handover→+5yr per developer, entered via the new
+  "Developer Track Record" editor in the Admin Dashboard). See the
+  2026-07-17 "Off-Plan Projects tab" work-log entry above for the full
+  design and scoping conversation.
 
 - **🔴 CRITICAL, NOT YET LIVE — Inbox feature (email/Instagram/Facebook/
   WhatsApp) has never stored a single message, needs manual SQL execution

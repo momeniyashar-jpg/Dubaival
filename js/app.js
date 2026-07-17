@@ -1448,6 +1448,85 @@ async function _fetchAdminEventReports(){
   ADMIN_EVENTS_STATE.loading=false;ADMIN_EVENTS_STATE.loaded=true;render();
 }
 
+// ── Off-Plan Projects — admin review queue (added 2026-07-17) ───────────────
+// Same "queued, then admin-verified" pattern as OFM listing document
+// verification — pending submissions from js/offplan.js's public submit
+// form are invisible until approved/rejected here.
+var ADMIN_OFFPLAN_STATE={loading:false,loaded:false,pending:[],error:null,
+  quickAdd:{name:"",developer:"",area:"",launchDate:"",expectedHandover:"",launchPSF:"",sizeMin:"",sizeMax:"",unitTypes:"",source:"admin",sourceUrl:"",notes:""},
+  devForm:{developer:"",tier:"",projectsTracked:"",avgGrowthHandover:"",avgGrowth5yr:"",notes:""},
+  rejectingId:null,rejectReason:""};
+async function _fetchAdminOffplanPending(){
+  if(!window._adminPw)return;
+  ADMIN_OFFPLAN_STATE.loading=true;ADMIN_OFFPLAN_STATE.error=null;render();
+  try{
+    var r=await fetch(SUPABASE_URL+"/rest/v1/rpc/admin_pending_offplan_projects",{
+      method:"POST",headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
+      body:JSON.stringify({p_admin_password:window._adminPw})
+    });
+    if(r.ok)ADMIN_OFFPLAN_STATE.pending=await r.json();
+    else ADMIN_OFFPLAN_STATE.error="Off-Plan tables unavailable yet — run supabase-offplan-schema.sql in Supabase.";
+  }catch(e){ADMIN_OFFPLAN_STATE.error="Network error fetching pending submissions.";}
+  ADMIN_OFFPLAN_STATE.loading=false;ADMIN_OFFPLAN_STATE.loaded=true;render();
+}
+async function _adminReviewOffplanProject(id,approve,reason){
+  if(!window._adminPw)return;
+  try{
+    await fetch(SUPABASE_URL+"/rest/v1/rpc/admin_review_offplan_project",{
+      method:"POST",headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
+      body:JSON.stringify({p_admin_password:window._adminPw,p_project_id:id,p_approve:approve,p_rejection_reason:reason||null})
+    });
+  }catch(e){}
+  ADMIN_OFFPLAN_STATE.rejectingId=null;ADMIN_OFFPLAN_STATE.rejectReason="";
+  _fetchAdminOffplanPending();
+}
+async function _adminQuickAddOffplan(){
+  if(!window._adminPw)return;
+  var f=ADMIN_OFFPLAN_STATE.quickAdd;
+  if(!f.name||!f.developer||!f.area||!f.launchDate||!f.expectedHandover||!f.launchPSF){
+    ADMIN_OFFPLAN_STATE.error="Fill in project name, developer, area, both dates, and launch PSF.";render();return;
+  }
+  try{
+    var unitTypesArr=(f.unitTypes||"").split(",").map(function(s){return s.trim();}).filter(Boolean);
+    var r=await fetch(SUPABASE_URL+"/rest/v1/rpc/admin_add_offplan_project",{
+      method:"POST",headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
+      body:JSON.stringify({
+        p_admin_password:window._adminPw,p_name:f.name,p_developer:f.developer,p_area:f.area,
+        p_launch_date:f.launchDate,p_expected_handover:f.expectedHandover,p_launch_psf:parseFloat(f.launchPSF)||0,
+        p_unit_types:unitTypesArr,p_size_min:f.sizeMin?parseInt(f.sizeMin):null,p_size_max:f.sizeMax?parseInt(f.sizeMax):null,
+        p_source:f.source||"admin",p_source_url:f.sourceUrl||null,p_notes:f.notes||null
+      })
+    });
+    if(r.ok){
+      ADMIN_OFFPLAN_STATE.quickAdd={name:"",developer:"",area:"",launchDate:"",expectedHandover:"",launchPSF:"",sizeMin:"",sizeMax:"",unitTypes:"",source:"admin",sourceUrl:"",notes:""};
+      ADMIN_OFFPLAN_STATE.error=null;
+    }else{ADMIN_OFFPLAN_STATE.error="Could not add project — check the fields and try again.";}
+  }catch(e){ADMIN_OFFPLAN_STATE.error="Network error adding project.";}
+  render();
+}
+async function _adminSaveDeveloperTrackRecord(){
+  if(!window._adminPw)return;
+  var f=ADMIN_OFFPLAN_STATE.devForm;
+  if(!f.developer){ADMIN_OFFPLAN_STATE.error="Enter a developer name.";render();return;}
+  try{
+    var r=await fetch(SUPABASE_URL+"/rest/v1/rpc/admin_upsert_developer_track_record",{
+      method:"POST",headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
+      body:JSON.stringify({
+        p_admin_password:window._adminPw,p_developer:f.developer,
+        p_tier:f.tier?parseInt(f.tier):null,p_projects_tracked:f.projectsTracked?parseInt(f.projectsTracked):0,
+        p_avg_growth_launch_to_handover:f.avgGrowthHandover?parseFloat(f.avgGrowthHandover):null,
+        p_avg_growth_handover_to_5yr:f.avgGrowth5yr?parseFloat(f.avgGrowth5yr):null,
+        p_notes:f.notes||null
+      })
+    });
+    if(r.ok){
+      ADMIN_OFFPLAN_STATE.devForm={developer:"",tier:"",projectsTracked:"",avgGrowthHandover:"",avgGrowth5yr:"",notes:""};
+      ADMIN_OFFPLAN_STATE.error=null;
+    }else{ADMIN_OFFPLAN_STATE.error="Could not save developer track record.";}
+  }catch(e){ADMIN_OFFPLAN_STATE.error="Network error saving developer track record.";}
+  render();
+}
+
 function renderAdmin(){
   var cl=C();
   var wrap=el("div",{style:{padding:"20px",maxWidth:"500px",margin:"0 auto"}});
@@ -1480,6 +1559,7 @@ function renderAdmin(){
           window._adminPw=pwVal;
           window.ADMIN_UNLOCKED=true;
           _fetchAdminEventReports();
+          _fetchAdminOffplanPending();
           render();
         } else {
           var att=parseInt(sessionStorage.getItem(attKey)||"0")+1;
@@ -1656,6 +1736,98 @@ function renderAdmin(){
   }
   wrap.appendChild(evCard);
 
+  // -- OFF-PLAN PROJECTS REVIEW (added 2026-07-17) --
+  var opCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginTop:"16px"}});
+  var opHeader=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}});
+  opHeader.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ Off-Plan Projects"));
+  var opRefresh=el("button",{style:{background:cl.raised,border:"1px solid "+cl.border,color:cl.sub,borderRadius:"6px",padding:"4px 10px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+  opRefresh.textContent=ADMIN_OFFPLAN_STATE.loading?"Loading...":"↻ Refresh";
+  opRefresh.disabled=ADMIN_OFFPLAN_STATE.loading;
+  opRefresh.onclick=function(){_fetchAdminOffplanPending();};
+  opHeader.appendChild(opRefresh);
+  opCard.appendChild(opHeader);
+
+  if(ADMIN_OFFPLAN_STATE.error)opCard.appendChild(div({color:"#F59E0B",fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"10px"},ADMIN_OFFPLAN_STATE.error));
+
+  if(!ADMIN_OFFPLAN_STATE.loaded&&!ADMIN_OFFPLAN_STATE.loading){
+    var opLoadBtn=el("button",{style:{width:"100%",padding:"10px",background:cl.raised,border:"1px solid "+cl.border,color:cl.gold,borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+    opLoadBtn.textContent="Load Pending Submissions";
+    opLoadBtn.onclick=function(){_fetchAdminOffplanPending();};
+    opCard.appendChild(opLoadBtn);
+  }else{
+    opCard.appendChild(div({color:cl.sub,fontSize:"10px",letterSpacing:"0.08em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",marginTop:"8px"},"Pending Submissions ("+ADMIN_OFFPLAN_STATE.pending.length+")"));
+    if(!ADMIN_OFFPLAN_STATE.pending.length){
+      opCard.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",padding:"8px 0"},"No pending submissions."));
+    }
+    ADMIN_OFFPLAN_STATE.pending.forEach(function(proj){
+      var row=el("div",{style:{padding:"10px 0",borderBottom:"1px solid "+cl.border}});
+      row.appendChild(div({color:cl.white,fontSize:"12.5px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},proj.name+" — "+proj.developer));
+      row.appendChild(div({color:cl.sub,fontSize:"10.5px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},proj.area+" · Launch PSF "+proj.launch_psf+" · submitted by "+(proj.submitted_by||"—")));
+      var btnRow=el("div",{style:{display:"flex",gap:"6px",marginTop:"8px"}});
+      var apBtn=el("button",{style:{background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.3)",color:"#10B981",borderRadius:"6px",padding:"5px 12px",fontSize:"10.5px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+      apBtn.textContent="✓ Approve";
+      apBtn.onclick=function(){_adminReviewOffplanProject(proj.id,true,null);};
+      btnRow.appendChild(apBtn);
+      if(ADMIN_OFFPLAN_STATE.rejectingId===proj.id){
+        var reasonInp=inp(Object.assign({},I(),{fontSize:"11px",padding:"5px 8px",flex:"1"}),"Reason (optional)","text",ADMIN_OFFPLAN_STATE.rejectReason,function(v){ADMIN_OFFPLAN_STATE.rejectReason=v;});
+        btnRow.appendChild(reasonInp);
+        var confirmRejBtn=el("button",{style:{background:"rgba(239,68,68,0.15)",border:"1px solid rgba(239,68,68,0.4)",color:"#EF4444",borderRadius:"6px",padding:"5px 12px",fontSize:"10.5px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+        confirmRejBtn.textContent="Confirm Reject";
+        confirmRejBtn.onclick=function(){_adminReviewOffplanProject(proj.id,false,ADMIN_OFFPLAN_STATE.rejectReason);};
+        btnRow.appendChild(confirmRejBtn);
+      }else{
+        var rjBtn=el("button",{style:{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.25)",color:"#EF4444",borderRadius:"6px",padding:"5px 12px",fontSize:"10.5px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+        rjBtn.textContent="✕ Reject";
+        rjBtn.onclick=function(){ADMIN_OFFPLAN_STATE.rejectingId=proj.id;ADMIN_OFFPLAN_STATE.rejectReason="";render();};
+        btnRow.appendChild(rjBtn);
+      }
+      row.appendChild(btnRow);
+      opCard.appendChild(row);
+    });
+
+    // Quick-add: publish a project directly (admin is the trusted curator,
+    // so their own additions skip the review queue).
+    opCard.appendChild(div({color:cl.sub,fontSize:"10px",letterSpacing:"0.08em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",marginTop:"16px"},"Quick Add (Published Immediately)"));
+    var qa=ADMIN_OFFPLAN_STATE.quickAdd;
+    var qaGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px"}});
+    function qaField(placeholder,key,type){return inp(Object.assign({},I(),{fontSize:"11px",padding:"6px 8px"}),placeholder,type||"text",qa[key],function(v){qa[key]=v;});}
+    qaGrid.appendChild(qaField("Project name","name"));
+    qaGrid.appendChild(qaField("Developer","developer"));
+    var qaAreaNames=(typeof AREAS!=="undefined")?Object.keys(AREAS).sort():[];
+    qaGrid.appendChild(mkAuto(Object.assign({},I(),{fontSize:"11px",padding:"6px 8px"}),qaAreaNames,qa.area,function(v){qa.area=v;},"Area…"));
+    qaGrid.appendChild(qaField("Launch PSF","launchPSF","number"));
+    qaGrid.appendChild(qaField("Launch date","launchDate","date"));
+    qaGrid.appendChild(qaField("Expected handover","expectedHandover","date"));
+    qaGrid.appendChild(qaField("Size min (sqft)","sizeMin","number"));
+    qaGrid.appendChild(qaField("Size max (sqft)","sizeMax","number"));
+    qaGrid.appendChild(qaField("Unit types (comma-sep)","unitTypes"));
+    qaGrid.appendChild(qaField("Source URL","sourceUrl"));
+    opCard.appendChild(qaGrid);
+    var qaBtn=el("button",{style:{width:"100%",marginTop:"8px",padding:"9px",background:"linear-gradient(135deg,#C9A84C,#D4A843)",border:"none",color:"#070B14",borderRadius:"8px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+    qaBtn.textContent="+ Add & Publish";
+    qaBtn.onclick=_adminQuickAddOffplan;
+    opCard.appendChild(qaBtn);
+
+    // Developer track record editor — feeds the forecast engine's
+    // developer-specific adjustment (js/offplan.js computeOffPlanForecast()).
+    opCard.appendChild(div({color:cl.sub,fontSize:"10px",letterSpacing:"0.08em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",marginTop:"16px"},"Developer Track Record"));
+    var df=ADMIN_OFFPLAN_STATE.devForm;
+    var dfGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px"}});
+    function dfField(placeholder,key,type){return inp(Object.assign({},I(),{fontSize:"11px",padding:"6px 8px"}),placeholder,type||"text",df[key],function(v){df[key]=v;});}
+    dfGrid.appendChild(dfField("Developer name","developer"));
+    dfGrid.appendChild(dfField("Tier (1-3, optional)","tier","number"));
+    dfGrid.appendChild(dfField("Projects tracked","projectsTracked","number"));
+    dfGrid.appendChild(dfField("Avg growth launch→handover %","avgGrowthHandover","number"));
+    dfGrid.appendChild(dfField("Avg growth handover→+5yr %","avgGrowth5yr","number"));
+    dfGrid.appendChild(dfField("Notes","notes"));
+    opCard.appendChild(dfGrid);
+    var dfBtn=el("button",{style:{width:"100%",marginTop:"8px",padding:"9px",background:cl.raised,border:"1px solid "+cl.border,color:cl.gold,borderRadius:"8px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+    dfBtn.textContent="Save Track Record";
+    dfBtn.onclick=_adminSaveDeveloperTrackRecord;
+    opCard.appendChild(dfBtn);
+  }
+  wrap.appendChild(opCard);
+
   // -- DATA COVERAGE REPORT --
   var covCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginTop:"12px"}});
   covCard.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"◆ Data Coverage"));
@@ -1684,6 +1856,7 @@ function renderAdmin(){
 var TAB_TO_SECTION={
   "Market":["Market","Dashboard"],"Index":["Market","Index"],"Analyzer":["Market","Analyzer"],
   "QuickCheck":["Market","QuickCheck"],"Map":["Market","Map"],"Find":["Market","Find"],"Compare":["Market","Compare"],
+  "OffPlan":["Market","OffPlan"],
   "Portfolio":["Portfolio","Assets"],"Alerts":["Portfolio","Alerts"],
   "Deals":["Network","Deals"],"AgentHub":["Network","AgentHub"],"Chat":["Network","Chat"],
   "Chiefs":["Network","Chiefs"],"News":["Market","News"],"Advisor":["Market","Advisor"],
@@ -2721,6 +2894,7 @@ function render(preserveScroll){
     else if(currentSubTab==="Index")content.appendChild(renderMarketIndex());
     else if(currentSubTab==="Compare")content.appendChild(renderCompare());
     else if(currentSubTab==="Find")content.appendChild(renderFind());
+    else if(currentSubTab==="OffPlan")content.appendChild(renderOffPlan());
     else if(currentSubTab==="Map")content.appendChild(renderMap());
     else if(currentSubTab==="Advisor")content.appendChild(renderPersonal());
     else if(currentSubTab==="News"&&typeof renderNews==="function")content.appendChild(renderNews());
