@@ -8716,15 +8716,25 @@ function renderMediaStudio(mode){
 
   var wrap=el("div",{style:{padding:"20px",maxWidth:"900px",margin:"0 auto",paddingBottom:"80px"}});
 
+  // Redesigned 2026-07-17: this used to render `tool.icon` (a lucide icon
+  // NAME like "video"/"scissors"/"palette") as literal 24px text via
+  // div({fontSize:"24px"},tool.icon) — every single tool card across this
+  // whole page showed the raw word "video"/"scissors"/etc. instead of an
+  // actual icon, which was the single biggest contributor to the "looks like
+  // an old/dead website" complaint (confirmed via a real screenshot before
+  // this fix). Now renders a real lucide icon inside a colored badge, at
+  // rest (not just on hover) — same visual language as the AI Agents pills.
   function makeToolGrid(tools,color){
     var grid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:"10px"}});
     tools.forEach(function(tool){
-      var card=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"16px 12px",textAlign:"center",cursor:"pointer",transition:"all 0.2s ease",minHeight:"90px",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"6px"}});
-      card.appendChild(div({fontSize:"24px"},tool.icon));
+      var card=el("div",{style:{background:cl.surface,border:"1px solid "+hexAlpha(color,0.18),borderRadius:"12px",padding:"16px 12px",textAlign:"center",cursor:"pointer",transition:"all 0.2s ease",minHeight:"96px",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"7px"}});
+      var badge=el("div",{style:{width:"36px",height:"36px",borderRadius:"10px",background:hexAlpha(color,0.14),display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0",transition:"background 0.2s"}});
+      badge.innerHTML='<i data-lucide="'+tool.icon+'" style="width:18px;height:18px;color:'+color+'"></i>';
+      card.appendChild(badge);
       card.appendChild(div({color:"#E8EDF5",fontSize:"11px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},tool.label));
       card.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},tool.desc));
-      card.addEventListener("mouseenter",function(){this.style.borderColor=color;this.style.background="#131926";this.style.transform="translateY(-2px)";this.style.boxShadow="0 4px 16px "+hexAlpha(color,0.15);});
-      card.addEventListener("mouseleave",function(){this.style.borderColor=cl.border;this.style.background=cl.surface;this.style.transform="";this.style.boxShadow="";});
+      card.addEventListener("mouseenter",function(){this.style.borderColor=color;this.style.background="#131926";this.style.transform="translateY(-2px)";this.style.boxShadow="0 4px 16px "+hexAlpha(color,0.2);badge.style.background=hexAlpha(color,0.26);});
+      card.addEventListener("mouseleave",function(){this.style.borderColor=hexAlpha(color,0.18);this.style.background=cl.surface;this.style.transform="";this.style.boxShadow="";badge.style.background=hexAlpha(color,0.14);});
       card.addEventListener("click",tool.fn);
       grid.appendChild(card);
     });
@@ -8767,7 +8777,7 @@ function renderMediaStudio(mode){
     wrap.appendChild(avHero);
     wrap.appendChild(makeToolGrid([
       {icon:"image",label:"Gallery",desc:"Avatar collection",fn:function(){showAvatarStudio();}},
-      {icon:"LM",label:"Create Avatar",desc:"Build new avatar",fn:function(){showAvatarBuilder();}},
+      {icon:"user-plus",label:"Create Avatar",desc:"Build new avatar",fn:function(){showAvatarBuilder();}},
       {icon:"file-text",label:"Generate",desc:"Content as avatar",fn:function(){showAvatarContentGen();}},
       {icon:"video",label:"Avatar Video",desc:"Avatar video",fn:function(){showAvatarVideoGen();}},
       {icon:"bot",label:"AutoPilot",desc:"Auto content",fn:function(){showAvatarAutoPilot();}},
@@ -8872,41 +8882,38 @@ function renderMediaStudio(mode){
   wrap.appendChild(setupSec);
 
   // ── CREATE (prominent) ─────────────────────────────────────────────────────
+  // Redesigned 2026-07-17, same pass as the AI Agents page: the chat used to
+  // be sandwiched between two separate tool-card rows behind a line-divider
+  // label that used a totally different visual language from every other
+  // section header on this page (a centered emoji label between two 1px
+  // rules vs. everywhere else's left-border makeSectionHeader) — it read as
+  // an unrelated patch dropped mid-grid rather than a real part of the
+  // layout. The 5 create tools now form one contiguous grid (video tools
+  // still lead, preserving the 2026-07-13 session's deliberate
+  // value-ordering decision), and the chat gets its own clearly-labeled
+  // block placed after them, styled in the agent's own color instead of
+  // borrowing this section's gold.
   var createSection=el("div",{style:{marginBottom:"20px"}});
   createSection.appendChild(makeSectionHeader("CREATE","#D4AF37"));
-
-  // Row 1: Video tools
   createSection.appendChild(makeToolGrid([
     {icon:"video",label:"AI Video Studio",desc:"8 AI engines",fn:function(){showVideoGenUI("");}},
-    {icon:"scissors",label:"Edit Video",desc:"Trim, subtitles, music",fn:function(){showVideoEditor();}}
-  ],"#D4AF37"));
-
-  // ── Inline SMM AI chat ─────────────────────────────────────────────────────
-  var smmDiv=el("div",{style:{display:"flex",alignItems:"center",gap:"10px",margin:"16px 0 14px"}});
-  var smmLine1=div({style:{flex:"1",height:"1px",background:"rgba(212,175,55,0.18)"}});
-  var smmLabel=span({style:{color:"#D4AF37",fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.14em",whiteSpace:"nowrap",flexShrink:"0"}},"💬  AI SOCIAL MEDIA MANAGER");
-  var smmLine2=div({style:{flex:"1",height:"1px",background:"rgba(212,175,55,0.18)"}});
-  smmDiv.appendChild(smmLine1);smmDiv.appendChild(smmLabel);smmDiv.appendChild(smmLine2);
-  createSection.appendChild(smmDiv);
-
-  var smmChatWrap=el("div",{style:{background:"rgba(212,175,55,0.025)",border:"1px solid rgba(212,175,55,0.16)",borderRadius:"14px",overflow:"hidden",marginBottom:"14px"}});
-  var prevAgentId=chatState.agentId;
-  chatState.agentId="outreach";
-  smmChatWrap.appendChild(renderChat({inlineAgent:"outreach"}));
-  chatState.agentId=prevAgentId;
-  createSection.appendChild(smmChatWrap);
-
-  var smmDiv2=div({style:{height:"1px",background:"rgba(212,175,55,0.18)",marginBottom:"14px"}});
-  createSection.appendChild(smmDiv2);
-
-  // Row 2: Design & preview tools
-  createSection.appendChild(makeToolGrid([
+    {icon:"scissors",label:"Edit Video",desc:"Trim, subtitles, music",fn:function(){showVideoEditor();}},
     {icon:"palette",label:"Design Post",desc:"Visual canvas editor",fn:function(){showPostDesigner("","");}},
     {icon:"smartphone",label:"Story Templates",desc:"Ready-made formats",fn:function(){showStoryTemplates();}},
     {icon:"eye",label:"Post Preview",desc:"Smart preview",fn:function(){showPostPreview("","");}}
   ],"#D4AF37"));
-
   wrap.appendChild(createSection);
+
+  // ── AI Social Media Manager chat — the "or just ask" path ──────────────────
+  var smmSection=el("div",{style:{marginBottom:"20px"}});
+  smmSection.appendChild(makeSectionHeader("OR CHAT WITH YOUR AGENT","#F97316"));
+  var smmChatWrap=el("div",{style:{background:"rgba(249,115,22,0.025)",border:"1px solid rgba(249,115,22,0.16)",borderRadius:"14px",overflow:"hidden"}});
+  var prevAgentId=chatState.agentId;
+  chatState.agentId="outreach";
+  smmChatWrap.appendChild(renderChat({inlineAgent:"outreach"}));
+  chatState.agentId=prevAgentId;
+  smmSection.appendChild(smmChatWrap);
+  wrap.appendChild(smmSection);
 
   // ── ANALYTICS (post-create) ────────────────────────────────────────────────
   var analyticsSection=el("div",{style:{marginBottom:"24px"}});
@@ -8923,7 +8930,7 @@ function renderMediaStudio(mode){
     aiSec.appendChild(makeSectionHeader("AI INTELLIGENCE","#8B5CF6"));
     aiSec.appendChild(makeToolGrid([
       {icon:"brain",label:"Neuro Hook",desc:"Hook-Story-Offer",fn:function(){showHookStoryOffer("");}},
-      {icon:"HD",label:"Translate",desc:"Multi-language",fn:function(){showMultiLanguage("");}},
+      {icon:"languages",label:"Translate",desc:"Multi-language",fn:function(){showMultiLanguage("");}},
       {icon:"scale",label:"A/B Test",desc:"Variant generator",fn:function(){showABTest("","");}},
       {icon:"hash",label:"Hashtags",desc:"Intelligence",fn:function(){showHashtagIntelligence("");}},
       {icon:"pen-line",label:"Rewrite",desc:"Caption rewriter",fn:function(){showCaptionRewriter("");}},

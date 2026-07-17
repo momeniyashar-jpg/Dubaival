@@ -461,6 +461,69 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-17 (session 14, follow-up — Social Media Manager / Media Studio
+  redesign)**: Direct continuation of the AI Agents redesign above — user
+  raised the same "old/dead website" complaint about Network → SocialMedia →
+  Studio (where AI Video Studio, Edit Video, and the Social Media Manager
+  agent all live), asking whether the SMM agent should be moved back out to
+  the main AI Agents tab or whether the design itself could just be fixed.
+  Recommended (and, after user agreement, executed) keeping the agent where
+  it is — moving it back would recreate the exact "SMM tools scattered
+  across tabs" problem a past session deliberately consolidated — and fixing
+  the visual design instead.
+  - **Real bug found, much bigger than expected**: `makeToolGrid()`
+    (`js/chat.js`, `renderMediaStudio()`) rendered every tool card's `icon`
+    field via `div({fontSize:"24px"},tool.icon)` — since `div()`/`el()` set
+    that as plain `textContent`, and `tool.icon` values are lucide ICON
+    NAMES ("video", "scissors", "palette", "smartphone", "eye", "rocket",
+    "brain", "hash", etc.), every single tool card on this page — Setup
+    excluded, ~25 cards across Create/Analytics/Advanced AI Tools/Avatar
+    Studio — was literally displaying the raw word "video"/"scissors"/
+    "palette"/etc. at 24px instead of an icon. Confirmed via a real
+    Playwright screenshot before touching any code. This was almost
+    certainly the single biggest driver of the "looks like an old/dead
+    website" complaint — a page where every card shows a stray English word
+    instead of an icon reads as broken/unfinished at a glance. Also found 2
+    bogus icon names hiding inside an otherwise-correct lucide-name list —
+    `"LM"` (Create Avatar) and `"HD"` (Translate) — neither is a real lucide
+    icon or a meaningful abbreviation (unlike the deliberate "IG"/"FB"/"WA"
+    platform-monogram convention used elsewhere in this file); fixed to
+    `"user-plus"` and `"languages"` respectively.
+  - **Fix**: `makeToolGrid()` now renders a real `<i data-lucide="...">`
+    icon inside a colored badge (`hexAlpha(color,0.14)` circle at rest,
+    brightening on hover) — same visual language as the AI Agents pill
+    redesign above, and the card border itself now carries a faint
+    permanent tint of its section's color (`hexAlpha(color,0.18)`) instead
+    of being neutral gray until hovered.
+  - **Layout fix — the SMM chat was sandwiched mid-grid behind an
+    inconsistent divider style**: the CREATE section used to render 2 video
+    tools, then a centered-emoji-label-between-two-1px-rules divider
+    ("💬 AI SOCIAL MEDIA MANAGER"), then the embedded outreach-agent chat,
+    then a second divider, then 3 more tool cards — a visual language
+    (line-dividers) used nowhere else on this page (every other section
+    uses `makeSectionHeader`'s left-border label). Restructured: all 5
+    CREATE tools now form one contiguous grid (video tools still lead,
+    preserving the 2026-07-13 session's deliberate value-ordering decision
+    that video tools should come first), and the chat moved to its own
+    section afterward with a real `makeSectionHeader` label ("OR CHAT WITH
+    YOUR AGENT") in the outreach agent's own orange (`#F97316`) instead of
+    the arbitrary gold borrowed from CREATE — consistent with every other
+    section header on the page, and no longer reads as an unrelated patch
+    dropped mid-layout.
+  - Verified: `node -c js/chat.js`; Playwright screenshots of Media Studio
+    (before/after — before clearly shows literal "video"/"scissors"/
+    "palette"/"smartphone"/"eye" text instead of icons; after shows clean
+    uniform badge cards and the chat correctly separated under its own
+    orange header), the expanded Analytics section, and the Avatar Studio
+    tab (confirms the same fix + the "LM"→"user-plus" rename render
+    correctly there too) — zero console errors in any pass. Same sandbox
+    limitation as the AI Agents redesign: actual icon GLYPHS don't render
+    in these screenshots since `lucide.js` loads from the `unpkg.com` CDN
+    and this sandbox's proxy blocks it — confirmed this is a
+    test-environment limitation, not a code defect (the icon-injection
+    pipeline itself, `lucide.createIcons()` in `js/app.js`, is unchanged);
+    icons will render correctly on the live site.
+
 - **2026-07-17 (session 14, AI Agents visual redesign)**: User paused the
   WhatsApp real-message-delivery investigation to raise a direct design
   complaint about Network → AI Agents: "دیزاین کارتها و خود قالب AI agents
