@@ -461,6 +461,47 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-17 (session 14, follow-up — AI Agents chat spacing)**: User
+  shared 2 real screenshots from the live deployed site. One (AI Assistant /
+  Chat tab, Valuation Agent active) confirmed the earlier AI Agents redesign
+  IS live and rendering correctly (real colored icon badges, not text) — but
+  flagged the vertical spacing in that same view as too tight ("فاصله بین
+  نوار بالا و مثال‌های پایین... فاصله کم نیست؟"): the active-agent header
+  card, the first assistant message bubble, the suggestion chips, and the
+  input row were all bunched close together with minimal breathing room.
+  Confirmed by inspection: `hdr` had only `marginBottom:"10px"`, `msgsDiv`
+  had `paddingTop:"8px"`, and the suggestions block had `marginBottom:"10px"`
+  — all tight margins stacked on top of each other.
+  - **Fix, `renderChat()` in `js/chat.js`**: increased breathing room across
+    the whole header→messages→suggestions→input stack — `hdr` marginBottom
+    10px→18px (plus a small marginTop for extra separation from the agent
+    selector row above it), `msgsDiv` paddingTop 8px→4px/gap 12px→14px/
+    paddingBottom 12px→16px, suggestions gap 7px→8px/marginBottom 10px→16px,
+    and the agent-selector bar's own paddingBottom 12px→14px.
+  - The other screenshot (Media Studio/Studio tab) still showed the OLD
+    raw-icon-as-text bug (literal "palette"/"smartphone"/"eye"/"rocket"/
+    "trending-up" text) despite that fix having already been committed and
+    pushed earlier this session — almost certainly because the user
+    redeployed once (picking up the AI Agents fix, confirmed live in the
+    first screenshot) but hadn't yet re-run the deploy commands a second
+    time to pick up the separate, later Media Studio commit. Flagged this
+    explicitly to the user rather than assuming the fix itself had failed.
+  - Also flagged, not yet acted on (deferred to the user's decision since it
+    has app-wide blast radius): the top-level sub-tab pill bar (`.dv-pill`/
+    `.dv-subtabs` in `index.html`, used identically for EVERY section's
+    sub-navigation — Market/Portfolio/Network/SocialMedia/More, not
+    exclusive to AI Assistant) renders at 13px font-size / 600-700 font-
+    weight, which the user felt looked heavy/oversized, especially now that
+    it sits directly above the new, visually similar (but smaller/lighter)
+    agent-selector pill row from this session's AI Agents redesign — two
+    stacked rows of pill-shaped buttons with different weights can read as
+    competing navigation. Not changed without confirmation since it's a
+    single shared component affecting every tab in the app, not scoped to
+    this page.
+  - Verified: `node -c js/chat.js`; a Playwright screenshot of the Valuation
+    Agent chat view confirming visibly more breathing room between the
+    header card, first message, and suggestion chips.
+
 - **2026-07-17 (session 14, follow-up — Social Media Manager / Media Studio
   redesign)**: Direct continuation of the AI Agents redesign above — user
   raised the same "old/dead website" complaint about Network → SocialMedia →

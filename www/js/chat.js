@@ -8549,7 +8549,7 @@ function renderChat(opts){
   // gets its own colored icon badge and a card-like pill with a soft glow
   // when active, so the row actually reads as 8 distinct specialists.
   if(!_inline){
-    var agentBar=div({display:"flex",gap:"8px",overflowX:"auto",paddingBottom:"12px",paddingTop:"10px",flexShrink:"0"});
+    var agentBar=div({display:"flex",gap:"8px",overflowX:"auto",paddingBottom:"14px",paddingTop:"10px",flexShrink:"0"});
     AI_AGENTS.forEach(function(agent){
       var active=chatState.agentId===agent.id;
       var btn=el("button",{style:{
@@ -8575,7 +8575,7 @@ function renderChat(opts){
   // reads as "you're now talking to the Valuation specialist" rather than a
   // plain text label, matching the redesigned selector above.
   var activeAgent=AI_AGENTS.find(function(a){return a.id===chatState.agentId;})||AI_AGENTS[0];
-  var hdr=div({display:"flex",alignItems:"center",gap:"12px",padding:"12px 14px",borderRadius:"14px",background:"linear-gradient(135deg,"+hexAlpha(activeAgent.color,0.12)+",transparent)",border:"1px solid "+hexAlpha(activeAgent.color,0.22),marginBottom:"10px",flexShrink:"0"});
+  var hdr=div({display:"flex",alignItems:"center",gap:"12px",padding:"14px 16px",borderRadius:"14px",background:"linear-gradient(135deg,"+hexAlpha(activeAgent.color,0.12)+",transparent)",border:"1px solid "+hexAlpha(activeAgent.color,0.22),marginTop:_inline?"0":"4px",marginBottom:"18px",flexShrink:"0"});
   var iconCircle=div({width:"42px",height:"42px",borderRadius:"12px",background:hexAlpha(activeAgent.color,0.18),border:"1px solid "+hexAlpha(activeAgent.color,0.35),boxShadow:"0 0 16px "+hexAlpha(activeAgent.color,0.35),display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"});
   iconCircle.innerHTML='<i data-lucide="'+activeAgent.icon+'" style="width:22px;height:22px;color:'+activeAgent.color+'"></i>';
   hdr.appendChild(iconCircle);
@@ -8611,7 +8611,7 @@ function renderChat(opts){
 
   // Messages
   var msgs=getAgentMsgs(chatState.agentId);
-  var msgsDiv=div({flex:"1",overflowY:"auto",display:"flex",flexDirection:"column",gap:"12px",paddingTop:"8px",paddingBottom:"12px",minHeight:"0"});
+  var msgsDiv=div({flex:"1",overflowY:"auto",display:"flex",flexDirection:"column",gap:"14px",paddingTop:"4px",paddingBottom:"16px",minHeight:"0"});
   msgs.forEach(function(m){
     var isA=m.role==="assistant";
     var row=div({display:"flex",justifyContent:isA?"flex-start":"flex-end",gap:"8px"});
@@ -8647,7 +8647,7 @@ function renderChat(opts){
 
   // Suggestions (only when few messages)
   if(msgs.length<=1){
-    var suggs=div({display:"flex",flexDirection:"column",gap:"7px",marginBottom:"10px"});
+    var suggs=div({display:"flex",flexDirection:"column",gap:"8px",marginBottom:"16px"});
     activeAgent.suggestions.forEach(function(s){
       suggs.appendChild(el("button",{style:{background:hexAlpha(activeAgent.color,0.06),border:"1px solid "+hexAlpha(activeAgent.color,0.15),color:cl.sub,padding:"9px 14px",borderRadius:"10px",cursor:"pointer",fontSize:"12.5px",fontFamily:"'Inter',sans-serif",textAlign:"left"},onclick:function(){sendChat(s);}},s));
     });
