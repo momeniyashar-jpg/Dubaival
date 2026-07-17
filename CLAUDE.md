@@ -5806,19 +5806,38 @@ These files contain critical business logic and data:
        migrate every one of the ~20+ `js/chat.js` call sites (plus any
        Unsplash/Pexels/ElevenLabs call sites) to call the new proxy instead
        of the provider's API directly with a per-user key.
-    2. **Per-agent business assets that genuinely can't be "moved to
-       admin"** since each agent owns a different real-world account —
-       WhatsApp Business Token/Phone ID/WABA ID, Meta Ads Pixel ID/CAPI
-       Token, and every other platform's raw API key (Instagram/Facebook/
-       LinkedIn/Twitter/TikTok/YouTube) in `showSocialSetup()`. Admin can't
-       hold these on the agent's behalf — the fix here is NOT "move to
-       admin," it's the OAuth/Embedded-Signup migration already described
-       at length in directive #4's main text above (WhatsApp Embedded
-       Signup, Facebook Login for Business, Marketing API Pixel
-       auto-discovery) — still blocked on the operator completing Meta App
-       Review, unchanged from before. Don't conflate this category with
-       category 1 when scoping tomorrow's work — a per-agent WhatsApp
-       number/Pixel literally cannot be "admin's key," only OAuth-automated.
+    2. **Per-agent business assets — the fix is OAuth/Embedded Signup, NOT
+       "the agent gets their own token."** WhatsApp Business Token/Phone
+       ID/WABA ID, Meta Ads Pixel ID/CAPI Token, and every other platform's
+       raw API key (Instagram/Facebook/LinkedIn/Twitter/TikTok/YouTube) in
+       `showSocialSetup()` are currently manual-paste fields — that's the
+       bug to fix, and "admin can't hold a shared token here since every
+       agent has their own different number/account" does NOT mean the
+       agent has to go generate/find/copy that token themselves either.
+       **Explicit correction, per the user's direct pushback this same
+       session** (they were clear: the agent's ENTIRE job is limited to
+       typing their own phone number, WhatsApp number, email, and a social
+       handle/username — never a token, never a Phone Number ID, never a
+       WABA ID, full stop): the real fix is the SAME "Connect X" pattern
+       Instagram/Facebook already use successfully in `renderProfilePanel()`
+       (`js/app.js` — click Connect, approve on Meta's own screen, Account
+       ID/Access Token/Page ID come back "AUTO-FILLED AFTER CONNECT," the
+       agent never sees or types either one). WhatsApp needs its exact
+       equivalent: **WhatsApp Embedded Signup** — the agent clicks "Connect
+       WhatsApp," Meta's own embedded flow handles phone verification
+       INTERNALLY (Meta sends and checks that OTP itself, as part of their
+       hosted flow — not something DubaiVal asks the agent to do
+       separately), and our server receives the Phone Number ID + Access
+       Token automatically via a server-side authorization-code exchange.
+       Meta Ads Pixel ID should likewise auto-discover via the Marketing
+       API once ads_management scope is granted through the same Facebook
+       Login flow — never typed in. Still blocked on the operator
+       completing Meta App Review for these specific products (Facebook
+       Login for Business + WhatsApp Embedded Signup), unchanged from
+       before — but once that's done, category 2 becomes exactly as
+       zero-touch as category 1, just via OAuth instead of a shared key.
+       Don't scope tomorrow's work as "the agent still needs a token, we
+       just can't share it" — that framing is wrong and was corrected here.
     3. Also re-check the **Phone/WhatsApp fields in the "Account" section**
        of the same Profile Panel (`js/app.js`, plain `dv_phone`/
        `dv_whatsapp_number` text inputs) — these ARE on the user's allowed
