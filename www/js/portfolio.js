@@ -673,6 +673,195 @@ if(!window.PORTFOLIO_STATE){
   var _pg;try{_pg=JSON.parse(localStorage.getItem("dubaival_portfolio_goals"))||{risk:"Moderate",horizon:"3-5 years",target:"Capital Growth"};}catch(e){_pg={risk:"Moderate",horizon:"3-5 years",target:"Capital Growth"};}
   window.PORTFOLIO_STATE={assets:_pa,goals:_pg,showAdd:false,aiAnalysis:"",aiLoading:false,aiErr:"",expandedId:null};
 }
+// ── Portfolio value history (added 2026-07-17) ──────────────────────────────
+// user_portfolios (supabase-user-profiles-schema.sql) already cloud-syncs the
+// CURRENT asset list/goals for signed-in users (see syncPortfolioToCloud() /
+// syncPortfolioFromCloud() / portfolioChanged() in js/auth.js) — but nothing
+// ever recorded how total value moved over time, so there was no way to see
+// a real trend, only a live snapshot. This adds one throttled snapshot write
+// per signed-in user per day (never more — see the localStorage date guard)
+// into portfolio_value_snapshots (supabase-portfolio-history-schema.sql,
+// requires manual execution), plus a fetch + SVG line chart on the Health tab.
+function _portfolioSnapshotHeaders(token){
+  return {"apikey":SUPABASE_KEY,"Authorization":"Bearer "+(token||localStorage.getItem("dv_access_token")||SUPABASE_KEY),"Content-Type":"application/json"};
+}
+async function _capturePortfolioSnapshot(totalValue,totalPurchase,totalROI,avgGrossYield,avgNetYield,assetCount){
+  if(typeof DV_AUTH==="undefined"||!DV_AUTH.user||!assetCount)return;
+  var today=new Date().toISOString().slice(0,10);
+  if(localStorage.getItem("dv_portfolio_snapshot_date")===today)return;
+  try{
+    var token=(typeof getValidToken==="function")?await getValidToken():localStorage.getItem("dv_access_token");
+    if(!token)return;
+    var body={user_id:DV_AUTH.user.id,snapshot_date:today,total_value:Math.round(totalValue),total_purchase:Math.round(totalPurchase),total_roi:Math.round(totalROI*10)/10,avg_gross_yield:Math.round(avgGrossYield*10)/10,avg_net_yield:Math.round(avgNetYield*10)/10,asset_count:assetCount};
+    var r=await fetch(SUPABASE_URL+"/rest/v1/portfolio_value_snapshots",{
+      method:"POST",
+      headers:Object.assign({},_portfolioSnapshotHeaders(token),{"Prefer":"resolution=merge-duplicates,return=minimal"}),
+      body:JSON.stringify(body)
+    });
+    if(r.ok){localStorage.setItem("dv_portfolio_snapshot_date",today);if(window.PORTFOLIO_STATE)window.PORTFOLIO_STATE._history=undefined;}
+  }catch(e){}
+}
+async function _fetchPortfolioHistory(){
+  if(typeof DV_AUTH==="undefined"||!DV_AUTH.user)return[];
+  try{
+    var token=(typeof getValidToken==="function")?await getValidToken():localStorage.getItem("dv_access_token");
+    if(!token)return[];
+    var r=await fetch(SUPABASE_URL+"/rest/v1/portfolio_value_snapshots?user_id=eq."+DV_AUTH.user.id+"&order=snapshot_date.asc&limit=180",{headers:_portfolioSnapshotHeaders(token)});
+    if(!r.ok)return[];
+    return await r.json();
+  }catch(e){return[];}
+}
+// Same smoothed cubic-bezier SVG line-chart technique already used by the
+// Market Dashboard's PSF Trend chart (js/market.js) — kept self-contained
+// here rather than extracted into a shared helper, matching this codebase's
+// existing per-file chart convention.
+function _renderPortfolioHistoryChart(cl,rows){
+  var wrap=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"});
+  wrap.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"◆ Portfolio Value History"));
+  var values=rows.map(function(r){return r.total_value;});
+  var labels=rows.map(function(r){return r.snapshot_date;});
+  var n=values.length;
+  var minV=Math.min.apply(null,values),maxV=Math.max.apply(null,values);
+  var first=values[0],last=values[n-1];
+  var changePct=first>0?((last-first)/first*100):0;
+  var isUp=last>=first;
+  var statsRow=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"12px"});
+  [
+    {l:"Current Value",v:"AED "+Math.round(last).toLocaleString(),c:cl.gold},
+    {l:"Since First Snapshot",v:(isUp?"+":"")+changePct.toFixed(1)+"%",c:isUp?cl.green:cl.red},
+    {l:"Range",v:"AED "+Math.round(minV/1000)+"K–"+Math.round(maxV/1000)+"K",c:cl.sub}
+  ].forEach(function(s){
+    var cell=div({background:cl.raised,borderRadius:"8px",padding:"8px 10px"});
+    cell.appendChild(div({color:cl.sub,fontSize:"7.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},s.l));
+    cell.appendChild(div({color:s.c,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},s.v));
+    statsRow.appendChild(cell);
+  });
+  wrap.appendChild(statsRow);
+  var chartH=110,chartW=600,padL=44,padR=10,padT=10,padB=22;
+  var plotW=chartW-padL-padR,plotH=chartH-padT-padB;
+  var yRound=Math.max(1,Math.pow(10,Math.floor(Math.log10(Math.max(1,maxV-minV||maxV)))-1));
+  var yMin=Math.floor(minV*0.96/yRound)*yRound;
+  var yMax=Math.ceil(maxV*1.04/yRound)*yRound;
+  function xPos(i){return n>1?padL+i/(n-1)*plotW:padL+plotW/2;}
+  function yPos(v){return yMax>yMin?padT+plotH-(v-yMin)/(yMax-yMin)*plotH:padT+plotH/2;}
+  var pathD="M"+xPos(0)+","+yPos(values[0]);
+  for(var i=1;i<n;i++){
+    var x0=xPos(i-1),y0=yPos(values[i-1]),x1=xPos(i),y1=yPos(values[i]);
+    var cx=(x0+x1)/2;
+    pathD+=" C"+cx+","+y0+" "+cx+","+y1+" "+x1+","+y1;
+  }
+  var fillD=pathD+" L"+xPos(n-1)+","+(padT+plotH)+" L"+padL+","+(padT+plotH)+" Z";
+  var lineColor=isUp?"#10B981":"#EF4444";
+  var xLabelStep=Math.max(1,Math.floor(n/6));
+  var xLabels=[];
+  for(var j=0;j<n;j+=xLabelStep){
+    xLabels.push('<text x="'+xPos(j)+'" y="'+(padT+plotH+15)+'" fill="'+hexAlpha(cl.sub,0.6)+'" font-size="8" text-anchor="middle" font-family="monospace">'+labels[j].slice(5)+'</text>');
+  }
+  var gradId="dvPfHist"+Date.now();
+  var svgHTML='<svg viewBox="0 0 '+chartW+' '+chartH+'" style="width:100%;height:auto;display:block;">'+
+    '<defs><linearGradient id="'+gradId+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="'+lineColor+'" stop-opacity="0.2"/><stop offset="100%" stop-color="'+lineColor+'" stop-opacity="0"/></linearGradient></defs>'+
+    '<path d="'+fillD+'" fill="url(#'+gradId+')"/>'+
+    '<path d="'+pathD+'" fill="none" stroke="'+lineColor+'" stroke-width="2" stroke-linecap="round"/>'+
+    xLabels.join('')+
+    '</svg>';
+  var svgWrap=div({borderRadius:"8px",overflow:"hidden",background:cl.raised});
+  svgWrap.innerHTML=svgHTML;
+  wrap.appendChild(svgWrap);
+  wrap.appendChild(div({marginTop:"8px",color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},n+" snapshot(s) · "+labels[0]+" to "+labels[n-1]+" · one snapshot captured per day you visit"));
+  return wrap;
+}
+// ── Portfolio PDF Report (added 2026-07-17) ─────────────────────────────────
+// Reuses the EXACT SAME print/PDF mechanism the Analyzer's generatePDF()
+// (js/app.js) already established — build an HTML string, inject into the
+// shared #print-report div, window.print(), clear afterward — no new library.
+// Pro-gated the same way (isProUser()/openUpgradeModal()), since a polished
+// branded portfolio report is the kind of thing an agent would pay for to
+// hand to a client, matching the Analyzer PDF's existing Pro gate.
+function generatePortfolioPDF(metrics,totalValue,totalPurchase,totalROI,avgGrossYield,avgNetYield,health){
+  if(typeof isProUser==="function"&&!isProUser()){if(typeof openUpgradeModal==="function")openUpgradeModal();return;}
+  if(!metrics.length)return;
+  var now=new Date();
+  var dateStr=now.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
+  var areaDist={};
+  metrics.forEach(function(a){areaDist[a.area]=(areaDist[a.area]||0)+a.m.currentValue;});
+  var areaEntries=Object.entries(areaDist).sort(function(a,b){return b[1]-a[1];});
+  var pnl=totalValue-totalPurchase;
+
+  var h='<div style="width:210mm;min-height:297mm;padding:18mm 16mm;box-sizing:border-box;font-family:Inter,sans-serif">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #C9A84C;padding-bottom:12px;margin-bottom:20px">';
+  h+='<div><div style="font-size:20px;font-weight:800"><span style="color:#111">Dub</span><span style="color:#C9A84C">AI</span><span style="color:#111">Val</span></div>';
+  h+='<div style="font-size:9px;color:#888;letter-spacing:0.12em;text-transform:uppercase">Property Intelligence &bull; DLD-Verified</div></div>';
+  h+='<div style="text-align:right;font-size:10px;color:#666">';
+  h+='<div style="font-weight:700;font-size:12px;color:#111">Portfolio Report</div>';
+  h+='<div>'+dateStr+'</div>';
+  if(health)h+='<div style="margin-top:3px;font-size:9px;color:#C9A84C">Health Score: '+health.score+'/100 ('+health.tier+')</div>';
+  h+='</div></div>';
+
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:18px">';
+  [
+    {l:"Total Value",v:"AED "+Math.round(totalValue).toLocaleString()},
+    {l:"Total ROI",v:(totalROI>=0?"+":"")+totalROI.toFixed(1)+"%"},
+    {l:"Gross Yield",v:avgGrossYield.toFixed(1)+"%"},
+    {l:"Net Yield",v:avgNetYield.toFixed(1)+"%"},
+    {l:"Assets",v:String(metrics.length)},
+    {l:"Unrealized P&L",v:(pnl>=0?"+":"")+"AED "+Math.round(pnl).toLocaleString()}
+  ].forEach(function(m){
+    h+='<div style="border:1px solid #e0e0e0;border-radius:6px;padding:10px 12px">';
+    h+='<div style="font-size:8.5px;text-transform:uppercase;letter-spacing:0.1em;color:#888;margin-bottom:3px">'+m.l+'</div>';
+    h+='<div style="font-size:15px;font-weight:700;color:#111">'+m.v+'</div>';
+    h+='</div>';
+  });
+  h+='</div>';
+
+  h+='<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:#C9A84C;font-weight:700;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e0e0e0">Area Allocation</div>';
+  h+='<div style="margin-bottom:18px">';
+  areaEntries.forEach(function(e){
+    var pct=(e[1]/totalValue*100).toFixed(0);
+    h+='<div style="display:flex;justify-content:space-between;font-size:11px;color:#333;padding:4px 0;border-bottom:1px solid #f0f0f0">';
+    h+='<span>'+e[0]+'</span><span style="font-weight:700">'+pct+'% &bull; AED '+Math.round(e[1]).toLocaleString()+'</span></div>';
+  });
+  h+='</div>';
+
+  h+='<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:#C9A84C;font-weight:700;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e0e0e0">Assets</div>';
+  h+='<table style="width:100%;border-collapse:collapse;font-size:9.5px;margin-bottom:18px">';
+  h+='<tr style="background:#f8f8f8"><th style="text-align:left;padding:6px 8px;color:#666">Property</th><th style="text-align:left;padding:6px 8px;color:#666">Area</th><th style="text-align:right;padding:6px 8px;color:#666">Value</th><th style="text-align:right;padding:6px 8px;color:#666">ROI</th><th style="text-align:right;padding:6px 8px;color:#666">Net Yield</th><th style="text-align:right;padding:6px 8px;color:#666">Signal</th></tr>';
+  metrics.forEach(function(a){
+    h+='<tr style="border-bottom:1px solid #eee">';
+    h+='<td style="padding:6px 8px;color:#111;font-weight:600">'+(a.building||a.area)+'</td>';
+    h+='<td style="padding:6px 8px;color:#555">'+a.area+'</td>';
+    h+='<td style="padding:6px 8px;text-align:right;color:#111">AED '+Math.round(a.m.currentValue).toLocaleString()+'</td>';
+    h+='<td style="padding:6px 8px;text-align:right;color:'+(a.m.roi>=0?"#10B981":"#EF4444")+'">'+(a.m.roi>=0?"+":"")+a.m.roi.toFixed(1)+'%</td>';
+    h+='<td style="padding:6px 8px;text-align:right;color:#111">'+a.m.netYield.toFixed(1)+'%</td>';
+    h+='<td style="padding:6px 8px;text-align:right;color:#555">'+a.m.investSignal+'</td>';
+    h+='</tr>';
+  });
+  h+='</table>';
+
+  if(health){
+    h+='<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:#C9A84C;font-weight:700;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e0e0e0">Portfolio Health</div>';
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">';
+    [{l:"Diversification",v:health.div},{l:"Liquidity",v:health.liq},{l:"Risk-Return",v:health.rr},{l:"Growth",v:health.gr}].forEach(function(c){
+      h+='<div style="border:1px solid #e0e0e0;border-radius:6px;padding:8px 10px;text-align:center">';
+      h+='<div style="font-size:8px;text-transform:uppercase;letter-spacing:0.08em;color:#888;margin-bottom:3px">'+c.l+'</div>';
+      h+='<div style="font-size:14px;font-weight:700;color:#111">'+c.v+'</div></div>';
+    });
+    h+='</div>';
+    if(health.insight)h+='<div style="font-size:10.5px;color:#555;background:#fdf8ef;border-left:3px solid #C9A84C;padding:8px 12px;margin-bottom:18px">'+health.insight+'</div>';
+  }
+
+  h+='<div style="border-top:1px solid #e0e0e0;padding-top:14px;margin-top:14px;text-align:right">';
+  h+='<div style="font-weight:700;font-size:13px"><span style="color:#111">Dub</span><span style="color:#C9A84C">AI</span><span style="color:#111">Val</span></div><div style="font-size:10px;color:#888">dubaival.com</div>';
+  h+='</div>';
+  h+='<div style="font-size:8px;color:#aaa;margin-top:16px;border-top:1px solid #eee;padding-top:8px">Valuations use DubAIVal\'s Cascade AVM with hedonic pricing (11,500+ properties &bull; 347 areas). This is an AI-generated estimate for informational purposes only and is not a RERA- or RICS-certified valuation. Not financial advice — consult a licensed advisor for investment decisions. &bull; Generated '+dateStr+'</div>';
+  h+='</div>';
+
+  var printEl=document.getElementById("print-report");
+  if(printEl)printEl.innerHTML=h;
+  setTimeout(function(){
+    window.print();
+    setTimeout(function(){if(printEl)printEl.innerHTML="";},2000);
+  },150);
+}
 function computeAssetMetrics(asset){
   // Shares the exact same base-PSF resolution + full hedonic premium stack
   // (view/floor grade-differential logic, loft/penthouse/maid/study/pool/
@@ -827,6 +1016,10 @@ function renderPortfolio(mode){
   var avgGrossYield=totalValue>0?(totalRent/totalValue*100):0;
   var avgNetYield=totalValue>0?((totalRent-totalSC)/totalValue*100):0;
 
+  // Throttled to once per signed-in user per day internally — safe to call
+  // on every render regardless of which sub-tab is showing.
+  _capturePortfolioSnapshot(totalValue,totalPurchase,totalROI,avgGrossYield,avgNetYield,metrics.length);
+
   // Portfolio Overview (show on assets tab only)
   if(ps.assets.length>0&&mode==="assets"){
     var sumCard=div({background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"24px",marginBottom:"14px",position:"relative",overflow:"hidden",boxShadow:cl.glassShadow});
@@ -878,18 +1071,37 @@ function renderPortfolio(mode){
     wrap.appendChild(sumCard);
 
     // CSV Export
-    wrap.appendChild(el("div",{style:{marginBottom:"14px"}},[csvExportBtn("Export Portfolio (CSV)",cl,function(){
-      var hdrs=["building","area","type","beds","size_sqft","purchase_price","purchase_date","current_value","roi_pct","gross_yield","net_yield","growth_1y","sustainability_score"];
-      var rows=metrics.map(function(a){var ss=typeof computeSustainabilityScore==="function"?computeSustainabilityScore(a.building,a.area,null,AREAS[a.area]):null;
-        return[a.building||"",a.area,a.type||"Apartment",a.beds,a.size,a.purchasePrice||a.m.purchasePrice,a.purchaseDate||"",a.m.currentValue,a.m.roi.toFixed(1),a.m.grossYield.toFixed(1),a.m.netYield.toFixed(1),(AREAS[a.area]&&AREAS[a.area].g?AREAS[a.area].g[0]:0),ss?ss.score:""];});
-      exportCSV("DubAIVal_Portfolio_"+csvDate()+".csv",hdrs,rows);
-    })]));
+    wrap.appendChild(el("div",{style:{marginBottom:"14px",display:"flex",gap:"8px",flexWrap:"wrap"}},[
+      csvExportBtn("Export Portfolio (CSV)",cl,function(){
+        var hdrs=["building","area","type","beds","size_sqft","purchase_price","purchase_date","current_value","roi_pct","gross_yield","net_yield","growth_1y","sustainability_score"];
+        var rows=metrics.map(function(a){var ss=typeof computeSustainabilityScore==="function"?computeSustainabilityScore(a.building,a.area,null,AREAS[a.area]):null;
+          return[a.building||"",a.area,a.type||"Apartment",a.beds,a.size,a.purchasePrice||a.m.purchasePrice,a.purchaseDate||"",a.m.currentValue,a.m.roi.toFixed(1),a.m.grossYield.toFixed(1),a.m.netYield.toFixed(1),(AREAS[a.area]&&AREAS[a.area].g?AREAS[a.area].g[0]:0),ss?ss.score:""];});
+        exportCSV("DubAIVal_Portfolio_"+csvDate()+".csv",hdrs,rows);
+      }),
+      csvExportBtn("PDF Report"+(typeof isProUser==="function"&&!isProUser()?" (Pro)":""),cl,function(){
+        generatePortfolioPDF(metrics,totalValue,totalPurchase,totalROI,avgGrossYield,avgNetYield,computePortfolioHealth(metrics,totalValue));
+      })
+    ]));
 
   } // end assets overview
 
     // Portfolio Health Score — Health tab only (was also shown on Assets,
     // making the dedicated Health tab redundant; see CLAUDE.md nav table)
   if(mode==="health"){
+    // Portfolio Value History chart — signed-in users only (matches the
+    // cloud-sync gating everywhere else in this file). Fetched once per
+    // page (ps._history undefined -> not yet requested), re-fetched
+    // automatically after a fresh snapshot is captured (see
+    // _capturePortfolioSnapshot() resetting ps._history to undefined).
+    if(typeof DV_AUTH!=="undefined"&&DV_AUTH.user){
+      if(ps._history===undefined){
+        ps._history=null;
+        _fetchPortfolioHistory().then(function(rows){ps._history=rows;render();});
+      }
+      if(Array.isArray(ps._history)&&ps._history.length>=2){
+        wrap.appendChild(_renderPortfolioHistoryChart(cl,ps._history));
+      }
+    }
     var health=computePortfolioHealth(metrics,totalValue);
     if(health){
       var hCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"20px",marginBottom:"14px",position:"relative",overflow:"hidden"});
@@ -1474,10 +1686,15 @@ function renderPortfolio(mode){
     wrap.appendChild(formCard);
   }
 
-  // AI Analysis
+  // AI Analysis — Pro-gated (matches the Analyzer's PDF export gate): a
+  // decisive BUY/HOLD/SELL-per-asset CFA-style report is exactly the kind
+  // of premium output that justifies a Pro subscription, same reasoning
+  // already applied to the Analyzer's PDF export.
   if(ps.assets.length>0){
-    wrap.appendChild(btn({width:"100%",padding:"13px",borderRadius:"10px",border:"none",background:ps.aiLoading?cl.border:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",color:ps.aiLoading?cl.sub:"#070B14",fontSize:"13px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",marginBottom:"10px",opacity:ps.aiLoading?"0.5":"1"},ps.aiLoading?"ANALYZING PORTFOLIO…":"AI PORTFOLIO ANALYSIS ◆",function(){
+    var _pfIsPro=typeof isProUser!=="function"||isProUser();
+    wrap.appendChild(btn({width:"100%",padding:"13px",borderRadius:"10px",border:"none",background:ps.aiLoading?cl.border:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",color:ps.aiLoading?cl.sub:"#070B14",fontSize:"13px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",marginBottom:"10px",opacity:ps.aiLoading?"0.5":"1"},ps.aiLoading?"ANALYZING PORTFOLIO…":"AI PORTFOLIO ANALYSIS ◆"+(_pfIsPro?"":" (PRO)"),function(){
       if(ps.aiLoading)return;
+      if(!_pfIsPro){if(typeof openUpgradeModal==="function")openUpgradeModal();return;}
       ps.aiLoading=true;ps.aiAnalysis="";ps.aiErr="";render();
       var areaDist2={};metrics.forEach(function(a){areaDist2[a.area]=(areaDist2[a.area]||0)+a.m.currentValue;});
       var areaEntries2=Object.entries(areaDist2).sort(function(a,b){return b[1]-a[1];});

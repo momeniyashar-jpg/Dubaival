@@ -1,4 +1,4 @@
-const { supabaseRequest, SUPABASE_URL } = require("./_lib/shared");
+const { supabaseRequest, SUPABASE_URL, sendEmail } = require("./_lib/shared");
 const embeddings = require("./_lib/embeddings");
 
 const UAE_RE_HOST = "uae-real-estate2.p.rapidapi.com";
@@ -492,6 +492,90 @@ async function handleRentalVelocity(req, res) {
   }
 }
 
+// Weekly Portfolio Digest (added 2026-07-17) — closes a real retention gap
+// found while auditing the Portfolio Manager: 5 of its 6 Opportunity Alert
+// types (DLD Fee Recovery, Optimal Exit Window, Equity Release, Airbnb vs
+// Long-term, Renovation ROI) never proactively notify the user at all — only
+// "Rent Optimization" pushes an in-app notification, and even that requires
+// the app to be open to be seen. This sends a real EMAIL (via the same
+// Resend `sendEmail()` helper the Price Alerts feature already uses for
+// out-of-app delivery) once a week, using the value snapshots already
+// captured by _capturePortfolioSnapshot() (js/portfolio.js) rather than
+// re-running the full client-side valuation engine server-side (which would
+// mean loading the entire building database into a serverless function just
+// for this).
+async function handlePortfolioDigest(req, res) {
+  var results = { sent: 0, skipped: 0, errors: 0 };
+  try {
+    var pResp = await supabaseRequest("/user_portfolios?select=user_id,portfolio_data,last_digest_sent_at");
+    var portfolios = pResp.ok ? await pResp.json() : [];
+    var cutoff = new Date(Date.now() - 6 * 86400000).toISOString();
+
+    for (var i = 0; i < portfolios.length; i++) {
+      var p = portfolios[i];
+      if (!Array.isArray(p.portfolio_data) || !p.portfolio_data.length) { results.skipped++; continue; }
+      if (p.last_digest_sent_at && p.last_digest_sent_at > cutoff) { results.skipped++; continue; }
+      try {
+        var snapResp = await supabaseRequest("/portfolio_value_snapshots?user_id=eq." + p.user_id + "&select=snapshot_date,total_value,total_roi,avg_net_yield&order=snapshot_date.desc&limit=14");
+        var snaps = snapResp.ok ? await snapResp.json() : [];
+        if (snaps.length < 2) { results.skipped++; continue; }
+
+        var latest = snaps[0];
+        var latestDate = new Date(latest.snapshot_date);
+        var weekAgoTarget = latestDate.getTime() - 7 * 86400000;
+        var weekAgo = null, bestDiff = Infinity;
+        for (var s = 1; s < snaps.length; s++) {
+          var diff = Math.abs(new Date(snaps[s].snapshot_date).getTime() - weekAgoTarget);
+          if (diff < bestDiff) { bestDiff = diff; weekAgo = snaps[s]; }
+        }
+        if (!weekAgo) { results.skipped++; continue; }
+
+        var profResp = await supabaseRequest("/user_profiles?id=eq." + p.user_id + "&select=email,display_name");
+        var profRows = profResp.ok ? await profResp.json() : [];
+        var email = profRows[0] && profRows[0].email;
+        if (!email) { results.skipped++; continue; }
+        var name = (profRows[0] && profRows[0].display_name) || "there";
+
+        var valueChange = latest.total_value - weekAgo.total_value;
+        var valueChangePct = weekAgo.total_value > 0 ? (valueChange / weekAgo.total_value * 100) : 0;
+        var roiChange = (latest.total_roi || 0) - (weekAgo.total_roi || 0);
+        var isUp = valueChange >= 0;
+
+        var subject = "Your Weekly Portfolio Update — " + (isUp ? "+" : "") + valueChangePct.toFixed(1) + "%";
+        var html = "<div style=\"font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto\">" +
+          "<div style=\"font-size:18px;font-weight:800;margin-bottom:4px\"><span style=\"color:#111\">Dub</span><span style=\"color:#C9A84C\">AI</span><span style=\"color:#111\">Val</span></div>" +
+          "<div style=\"font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:18px\">Weekly Portfolio Digest</div>" +
+          "<p style=\"font-size:14px;color:#333\">Hi " + name + ",</p>" +
+          "<p style=\"font-size:14px;color:#333;line-height:1.6\">Your portfolio is now worth <strong>AED " + Math.round(latest.total_value).toLocaleString() + "</strong>, " +
+          (isUp ? "up" : "down") + " <strong style=\"color:" + (isUp ? "#10B981" : "#EF4444") + "\">" + (isUp ? "+" : "") + valueChangePct.toFixed(1) + "%</strong> since " + weekAgo.snapshot_date + ".</p>" +
+          "<p style=\"font-size:14px;color:#333;line-height:1.6\">Overall ROI: <strong>" + ((latest.total_roi || 0) >= 0 ? "+" : "") + (latest.total_roi || 0).toFixed(1) + "%</strong>" +
+          (roiChange ? " (" + (roiChange >= 0 ? "+" : "") + roiChange.toFixed(1) + "pp this week)" : "") +
+          " &bull; Net yield: <strong>" + (latest.avg_net_yield || 0).toFixed(1) + "%</strong></p>" +
+          "<a href=\"https://www.dubaival.com/#Portfolio\" style=\"display:inline-block;margin-top:16px;padding:10px 20px;background:linear-gradient(135deg,#C9A84C,#D4A843);color:#070B14;font-weight:700;text-decoration:none;border-radius:8px;font-size:13px\">View Full Portfolio &rarr;</a>" +
+          "<p style=\"font-size:10px;color:#999;margin-top:24px\">You're receiving this because you have properties tracked in DubAIVal Portfolio Manager.</p>" +
+          "</div>";
+
+        var sent = await sendEmail(email, subject, html);
+        if (sent) {
+          await supabaseRequest("/user_portfolios?user_id=eq." + p.user_id, {
+            method: "PATCH",
+            headers: { Prefer: "return=minimal" },
+            body: JSON.stringify({ last_digest_sent_at: new Date().toISOString() })
+          });
+          results.sent++;
+        } else {
+          results.errors++;
+        }
+      } catch (e) {
+        results.errors++;
+      }
+    }
+    res.status(200).json({ ok: true, results: results });
+  } catch (e) {
+    res.status(200).json({ ok: false, error: e.message, results: results });
+  }
+}
+
 module.exports = async function handler(req, res) {
   if (!process.env.CRON_SECRET || req.headers.authorization !== "Bearer " + process.env.CRON_SECRET) {
     return res.status(401).json({ error: "Unauthorized" });
@@ -505,6 +589,9 @@ module.exports = async function handler(req, res) {
   }
   if (req.query && req.query.action === "rental-velocity") {
     return handleRentalVelocity(req, res);
+  }
+  if (req.query && req.query.action === "portfolio-digest") {
+    return handlePortfolioDigest(req, res);
   }
 
   var areas = Object.keys(AREA_LOCATION_MAP);

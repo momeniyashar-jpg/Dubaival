@@ -251,6 +251,8 @@ Code is now split across `js/*.js` files. To find anything, grep across `js/`:
 | `price_watches` | `supabase-price-alerts-schema.sql` | Price alert subscriptions |
 | `ofm_reports` | `supabase-ofm-trust-safety.sql` | In-chat abuse/scam reports on OFM matches — admin-reviewed via `admin_pending_reports`/`admin_resolve_report` RPCs (requires manual execution, see Outstanding items) |
 | `market_config` | (pre-existing) | Macro yield/growth adjustment knobs |
+| `user_portfolios` | `supabase-user-profiles-schema.sql` (+ `supabase-portfolio-digest-schema.sql` for `last_digest_sent_at`) | Cloud-synced portfolio (`portfolio_data`/`goals_data` jsonb) per signed-in user — owner-only RLS via `auth.uid()=user_id`; synced by `syncPortfolioToCloud()`/`syncPortfolioFromCloud()` (`js/auth.js`) |
+| `portfolio_value_snapshots` | `supabase-portfolio-history-schema.sql` | One portfolio-value snapshot per signed-in user per day (`unique(user_id,snapshot_date)`), captured by `_capturePortfolioSnapshot()` (`js/portfolio.js`); powers the Health tab's value-history chart and the weekly digest email (requires manual execution, see Outstanding items) |
 | `offplan_projects` | `supabase-offplan-schema.sql` | Off-Plan Projects tab — tracked launches (name/developer/area/`project_stage` prelaunch-launched-under_construction-handed_over/`eoi_open_date`/launch+handover dates/`payment_plan`), `review_status` pending/published/rejected, admin-reviewed via `admin_pending_offplan_projects`/`admin_review_offplan_project`/`admin_add_offplan_project` RPCs (requires manual execution, see Outstanding items) |
 | `offplan_unit_types` | `supabase-offplan-schema.sql` | Per-unit-type pricing for an Off-Plan project (unit_type/launch_psf/size_min/size_max) — one row per unit type since a studio and a villa in the same masterplan price completely differently; FK to `offplan_projects`, RLS gated on parent's `review_status='published'` |
 | `developer_track_record` | `supabase-offplan-schema.sql` | Per-developer historical price-growth performance, feeds `computeOffPlanForecast()` in `js/offplan.js`; admin-only write via `admin_upsert_developer_track_record` RPC |
@@ -479,6 +481,106 @@ features continue working exactly as before. Zero breakage.
 - `theme-color` meta tag added (`#070B14`)
 
 ## Recent work log (most recent first)
+
+- **2026-07-17 (session 14, Portfolio Manager audit follow-through — 4
+  prioritized improvements)**: Direct continuation of a full multi-
+  disciplinary audit of the Portfolio Manager (Compare/Personal Advisor/
+  Assets/Health/Projections, `js/portfolio.js`) the user requested,
+  evaluating it as a potential high-value, monetizable feature. The audit
+  surfaced 4 priorities; user asked to implement all of them in order.
+  - **Priority 1, cloud sync — audit corrected mid-implementation**: the
+    audit had flagged "portfolio only lives in localStorage, no cloud sync"
+    as a gap. Starting the implementation surfaced that this was WRONG —
+    `syncPortfolioToCloud()`/`syncPortfolioFromCloud()`/`portfolioChanged()`
+    (`js/auth.js`) already fully implement this, backed by a real
+    `user_portfolios` table (`supabase-user-profiles-schema.sql`) with
+    correct owner-only RLS (`auth.uid() = user_id`, a real JWT claim, not a
+    client-suppliable value) — called on sign-in and on every asset/goal
+    mutation. The audit missed this because it only read `js/portfolio.js`,
+    not `js/auth.js`. No work needed here; flagged to the user as a
+    correction rather than silently skipped.
+  - **Priority 2, portfolio value history + chart (the genuinely missing
+    piece)**: new `portfolio_value_snapshots` table
+    (`supabase-portfolio-history-schema.sql`, requires manual execution) —
+    one row per signed-in user per day (`unique(user_id, snapshot_date)`),
+    same owner-only RLS pattern as `user_portfolios`. `js/portfolio.js`
+    gained `_capturePortfolioSnapshot()` (fires on every `renderPortfolio()`
+    call, throttled to once/day via a `localStorage` date guard — safe to
+    call unconditionally regardless of which sub-tab is open),
+    `_fetchPortfolioHistory()`, and `_renderPortfolioHistoryChart()` — the
+    same smoothed cubic-bezier SVG line-chart technique the Market
+    Dashboard's PSF Trend chart already uses (kept self-contained here,
+    matching this codebase's existing per-file chart convention rather than
+    extracting a shared utility). Rendered at the top of the Health tab,
+    signed-in users only, once 2+ snapshots exist.
+  - **Priority 3, PDF report + Pro-gated AI Analysis**: `generatePortfolioPDF()`
+    reuses the EXACT SAME print/PDF mechanism the Analyzer's `generatePDF()`
+    (`js/app.js`) already established (build HTML → inject into the shared
+    `#print-report` div → `window.print()` → clear) — header, overview
+    stats, area allocation, per-asset table, health-score breakdown if
+    computed, same disclaimer footer style. New "PDF Report" button next to
+    the existing CSV export on the Assets tab. Both this and the existing
+    "AI PORTFOLIO ANALYSIS" button are now gated behind `isProUser()` (same
+    pattern as the Analyzer's PDF gate) — a decisive BUY/HOLD/SELL-per-asset
+    CFA-style report and a branded PDF are exactly the kind of premium
+    output an agent would pay for, and the Upgrade modal's own marketing
+    copy already promised "PDF & Arabic report export" as a Pro benefit
+    without this actually existing for Portfolio until now.
+  - **Priority 4, weekly digest email**: closes the real retention gap the
+    audit found — 5 of 6 Opportunity Alert types (everything except Rent
+    Optimization) never proactively notify the user, and even the one that
+    does is in-app-only (invisible unless the app happens to be open). New
+    `handlePortfolioDigest()` in `api/refresh-market-data.js` (extended, not
+    a new file — the project is already at Vercel Hobby's 12-function
+    ceiling), a new Sunday 08:15 UTC cron
+    (`?action=portfolio-digest`, `vercel.json`) — for every user with a
+    non-empty portfolio and 2+ value snapshots, compares the latest
+    snapshot to the one closest to 7 days prior and emails (via the same
+    Resend `sendEmail()` helper Price Alerts already uses) a real
+    week-over-week value/ROI/yield summary, deliberately built from the
+    already-captured snapshot deltas rather than re-running the full
+    client-side valuation engine (building database + hedonic pricing
+    stack) inside a serverless function. New
+    `supabase-portfolio-digest-schema.sql` adds a `last_digest_sent_at`
+    column on `user_portfolios` as a 6-day idempotency guard (skips a user
+    already digested this week, so a manual re-trigger or cron double-fire
+    can't double-email).
+  - Verified: `node -c` on all 3 touched files; a Node vm-sandbox test (7
+    cases) for the snapshot/chart logic — not-signed-in short-circuits with
+    zero network calls, a signed-in first capture POSTs the correct rounded
+    body with a `merge-duplicates` upsert header, a same-day second call is
+    correctly throttled, zero assets short-circuits, history fetch
+    correctly no-ops when signed out and fetches/returns real rows when
+    signed in, and the chart renders without throwing; a second Node test
+    (3 cases) for the PDF export confirming it's correctly blocked (no
+    `window.print()` call, `#print-report` left untouched) when not Pro,
+    correctly builds real HTML with the exact portfolio data and calls
+    print when Pro, and no-ops on an empty portfolio; a mocked-fetch Node
+    test harness against the real `api/refresh-market-data.js` handler (5
+    cases) for the digest — wrong bearer token 401s with zero calls, a real
+    user with 3 weeks of snapshots gets a correctly-addressed email with
+    the right subject/value/ROI figures and `last_digest_sent_at` gets
+    updated, a user already digested within 6 days is skipped with zero
+    email calls, a user with an empty portfolio is skipped, and a user with
+    only 1 snapshot (not enough for a week-over-week comparison) is
+    skipped; and 2 real-browser Playwright passes — one on the Health tab
+    (mocked snapshot history) confirming the chart renders with correct
+    stats matching the Node test exactly, one on the Assets tab confirming
+    the PDF button is correctly blocked pre-Pro (upgrade modal shown,
+    `window.print()` never called) and correctly fires `window.print()`
+    once `DV_AUTH.profile.is_pro` is set — zero non-network console errors
+    in either pass.
+  - **Manual steps required before Priorities 2-4 are live**: run
+    `supabase-portfolio-history-schema.sql` and
+    `supabase-portfolio-digest-schema.sql` in Supabase SQL Editor (both
+    require `supabase-user-profiles-schema.sql` already applied, which it
+    is, since cloud sync already depends on it). `RESEND_API_KEY` and
+    `CRON_SECRET` are already required env vars (Price Alerts already uses
+    both) — no new secrets needed. Until the SQL runs: the Health tab
+    chart simply never appears (graceful — `_fetchPortfolioHistory()`
+    returns an empty array on a 404 from the missing table), and the
+    weekly digest cron will find zero snapshots to compare and skip every
+    user harmlessly.
 
 - **2026-07-17 (session 14, standing instruction — research findings now get
   injected into the AI's RAG knowledge base)**: User gave a general,
@@ -4930,6 +5032,18 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🟡 Portfolio value history + weekly digest — needs manual SQL** (added
+  2026-07-17, session 14): run `supabase-portfolio-history-schema.sql` and
+  `supabase-portfolio-digest-schema.sql` in Supabase SQL Editor (both
+  require `supabase-user-profiles-schema.sql` already applied, which it is
+  — cloud sync already depends on it). Until then: the Health tab's
+  "Portfolio Value History" chart never appears (fails gracefully — no
+  error), and the weekly digest cron (`?action=portfolio-digest`, Sundays
+  08:15 UTC) finds no snapshot rows to compare and skips every user. Both
+  `RESEND_API_KEY` and `CRON_SECRET` are already required (Price Alerts
+  already uses both) — no new env vars needed. See the "Portfolio Manager
+  audit follow-through" work-log entry above for the full design.
 
 - **🟡 AI Knowledge Base Research Injection — needs manual SQL** (added
   2026-07-17, session 14): run `supabase-knowledge-research-notes-schema.sql`
