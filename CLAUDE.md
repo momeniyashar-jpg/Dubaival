@@ -5755,6 +5755,45 @@ These files contain critical business logic and data:
 
 ## Outstanding / open items
 
+- **🔴 Directive #4 violation found, NOT YET FIXED — Gemini/Unsplash/Pexels
+  keys have NO server-side fallback, unlike Groq** (found 2026-07-17, session
+  14, while walking the user through Profile Panel settings — fix explicitly
+  deferred to the next session per the user's own "بیخیالش، فردا شروعش کن"):
+  `renderProfilePanel()` (`js/app.js`) has an "AI API Keys" section with 4
+  fields — Groq, Gemini, Unsplash, Pexels. Groq is genuinely optional:
+  `askAI()` (`js/api.js`) falls back to the shared platform key via
+  `/api/proxy-groq` when `localStorage.dv_groq` is empty, so the app works
+  fully without a user ever touching that field. **Gemini/Unsplash/Pexels do
+  NOT have this fallback** — confirmed via grep, ~20+ call sites across
+  `js/chat.js` (AI image generation, AI-written captions/subtitles,
+  translation, hashtag intelligence, HSO generator, bulk 30-day post
+  generator, story templates, emoji suggestions, A/B caption testing, etc.)
+  all read `localStorage.getItem("dv_gemini_key")` (or `dv_unsplash_key`/
+  `dv_pexels_key`) directly and either `return null`/silently no-op or show
+  an alert like "Gemini key needed" when it's empty — calling Gemini's REST
+  API straight from the client with the user's own key, no proxy at all.
+  This means every agent who wants to use most of the Social Media Manager's
+  AI-powered tools currently MUST go generate and paste in their own Gemini/
+  Unsplash/Pexels API keys themselves — a real, sizable violation of
+  directive #4 (only Instagram/Facebook, via real OAuth in the same panel,
+  and Groq are actually zero-touch today).
+  - **Fix for next session**: build a server-side proxy for Gemini (reusing
+    an existing `api/*.js` file — the project is at Vercel Hobby's
+    12-function ceiling — `api/proxy-groq.js` is the natural fit, extend it
+    with a `?provider=gemini` branch, or extend `api/knowledge-query.js`
+    which already has Gemini embedding logic in `api/_lib/embeddings.js` to
+    reuse for generation too) so these tools work off a shared platform key
+    the same way Groq already does, then migrate the ~20+ call sites in
+    `js/chat.js` to call the new proxy instead of `https://
+    generativelanguage.googleapis.com/...` directly with a per-user key.
+    Whether the same treatment is worth extending to Unsplash/Pexels (lower
+    priority — stock photo APIs, not AI generation, and typically have very
+    generous free tiers that could arguably justify a platform-wide shared
+    key too) should be decided as part of the same pass. The "AI API Keys"
+    Profile Panel fields should stay as an OPTIONAL power-user override
+    (bring-your-own-key to avoid a shared rate limit) once the proxy exists,
+    matching the pattern Groq already has — not removed entirely.
+
 - **🟡 Zero-touch onboarding OTP system — needs manual SQL + platform
   WhatsApp number + approved Meta template** (added 2026-07-17, session 14):
   run `supabase-otp-verification-schema.sql` in Supabase SQL Editor. Email
