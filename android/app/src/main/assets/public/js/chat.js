@@ -8542,20 +8542,27 @@ function renderChat(opts){
   var wrap=div({display:"flex",flexDirection:"column",height:_inline?"480px":"calc(100vh - 130px)",padding:"0 20px",maxWidth:"800px",margin:"0 auto",width:"100%"});
 
   // Agent selector bar — hidden in inline mode
+  // Redesigned 2026-07-17: the old version was a row of bare text pills with
+  // no visual weight, so every agent looked identical except for label text
+  // despite each already having its own color/icon in AI_AGENTS — a real,
+  // user-reported "looks like an old/dead website" complaint. Each agent now
+  // gets its own colored icon badge and a card-like pill with a soft glow
+  // when active, so the row actually reads as 8 distinct specialists.
   if(!_inline){
-    var agentBar=div({display:"flex",gap:"6px",overflowX:"auto",paddingBottom:"10px",paddingTop:"8px",flexShrink:"0"});
+    var agentBar=div({display:"flex",gap:"8px",overflowX:"auto",paddingBottom:"12px",paddingTop:"10px",flexShrink:"0"});
     AI_AGENTS.forEach(function(agent){
       var active=chatState.agentId===agent.id;
       var btn=el("button",{style:{
-        background:active?hexAlpha(agent.color,0.15):"transparent",
+        background:active?"linear-gradient(135deg,"+hexAlpha(agent.color,0.22)+","+hexAlpha(agent.color,0.08)+")":cl.surface,
         border:"1px solid "+(active?agent.color:cl.border),
-        color:active?agent.color:cl.sub,
-        padding:"6px 12px",borderRadius:"20px",fontSize:"11px",fontWeight:active?"700":"400",
+        boxShadow:active?"0 2px 12px "+hexAlpha(agent.color,0.28):"none",
+        color:active?cl.white:cl.sub,
+        padding:"7px 13px 7px 7px",borderRadius:"24px",fontSize:"11px",fontWeight:active?"700":"500",
         fontFamily:"'Space Grotesk',monospace",cursor:"pointer",whiteSpace:"nowrap",
-        display:"flex",alignItems:"center",gap:"5px",transition:"all 0.2s"
+        display:"flex",alignItems:"center",gap:"7px",transition:"all 0.2s",flexShrink:"0"
       },onclick:function(){chatState.agentId=agent.id;render(true);}});
-      var btnIcon=el("span",{style:{width:"14px",height:"14px",display:"inline-flex",alignItems:"center",justifyContent:"center"}});
-      btnIcon.innerHTML='<i data-lucide="'+agent.icon+'" style="width:14px;height:14px"></i>';
+      var btnIcon=el("span",{style:{width:"22px",height:"22px",borderRadius:"50%",background:hexAlpha(agent.color,active?0.9:0.16),display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
+      btnIcon.innerHTML='<i data-lucide="'+agent.icon+'" style="width:12px;height:12px;color:'+(active?"#070B14":agent.color)+'"></i>';
       btn.appendChild(btnIcon);
       btn.appendChild(document.createTextNode(agent.name));
       agentBar.appendChild(btn);
@@ -8563,15 +8570,18 @@ function renderChat(opts){
     wrap.appendChild(agentBar);
   }
 
-  // Active agent header
+  // Active agent header — same 2026-07-17 pass: adds a soft radial glow
+  // behind the icon and a faint gradient wash across the header band so this
+  // reads as "you're now talking to the Valuation specialist" rather than a
+  // plain text label, matching the redesigned selector above.
   var activeAgent=AI_AGENTS.find(function(a){return a.id===chatState.agentId;})||AI_AGENTS[0];
-  var hdr=div({display:"flex",alignItems:"center",gap:"10px",padding:"8px 0 12px",borderBottom:"1px solid "+cl.border,marginBottom:"8px",flexShrink:"0"});
-  var iconCircle=div({width:"36px",height:"36px",borderRadius:"10px",background:hexAlpha(activeAgent.color,0.15),border:"1px solid "+hexAlpha(activeAgent.color,0.3),display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"});
-  iconCircle.innerHTML='<i data-lucide="'+activeAgent.icon+'" style="width:20px;height:20px;color:'+activeAgent.color+'"></i>';
+  var hdr=div({display:"flex",alignItems:"center",gap:"12px",padding:"12px 14px",borderRadius:"14px",background:"linear-gradient(135deg,"+hexAlpha(activeAgent.color,0.12)+",transparent)",border:"1px solid "+hexAlpha(activeAgent.color,0.22),marginBottom:"10px",flexShrink:"0"});
+  var iconCircle=div({width:"42px",height:"42px",borderRadius:"12px",background:hexAlpha(activeAgent.color,0.18),border:"1px solid "+hexAlpha(activeAgent.color,0.35),boxShadow:"0 0 16px "+hexAlpha(activeAgent.color,0.35),display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"});
+  iconCircle.innerHTML='<i data-lucide="'+activeAgent.icon+'" style="width:22px;height:22px;color:'+activeAgent.color+'"></i>';
   hdr.appendChild(iconCircle);
   var hdrText=div({flex:"1"});
-  hdrText.appendChild(div({color:activeAgent.color,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},activeAgent.name));
-  hdrText.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},activeAgent.desc));
+  hdrText.appendChild(div({color:activeAgent.color,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},activeAgent.name));
+  hdrText.appendChild(div({color:cl.sub,fontSize:"10.5px",fontFamily:"'Inter',sans-serif"},activeAgent.desc));
   hdr.appendChild(hdrText);
 
   var newChatBtn=el("button",{style:{

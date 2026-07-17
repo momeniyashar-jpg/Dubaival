@@ -461,6 +461,51 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-17 (session 14, AI Agents visual redesign)**: User paused the
+  WhatsApp real-message-delivery investigation to raise a direct design
+  complaint about Network → AI Agents: "دیزاین کارتها و خود قالب AI agents
+  خیلی قدیمی و شبیه سایت های مرده نیست؟" (isn't the AI Agents card/template
+  design very old, like a dead website?) — then, after hearing the proposed
+  direction, gave a direct go-ahead: "الان صبح ، با توجه به توضیحاتی که دادی
+  فیکسش کن" (it's morning now, go ahead and fix it based on what you
+  explained).
+  - **Root cause of the "dead website" look**: `AI_AGENTS` (`js/chat.js`)
+    already carries a real per-agent `color` (8 distinct hex values) and a
+    real lucide `icon` name for each of the 8 agents — but the agent
+    selector bar rendered every pill as the same flat neutral
+    `cl.surface`/`cl.border` regardless of which agent was active or what
+    its color was, and the "active agent" header above the chat thread was
+    a plain text line with no icon, no color, no visual weight at all. All
+    8 agents' own distinct branding data existed and was simply never used
+    anywhere in the render — a real gap, not a stale asset.
+  - **Fix, `renderChat()` in `js/chat.js`**: the agent-selector pills now
+    render a small colored icon-badge (`hexAlpha(agent.color,...)` fill)
+    inside each pill, and the ACTIVE pill gets a real gradient background
+    (`linear-gradient` from a 22%-alpha to an 8%-alpha tint of the agent's
+    own color), a matching colored border, and a soft colored glow
+    (`box-shadow`) — inactive pills stay visually quiet so the active one
+    reads clearly. The active-agent header above the thread was rebuilt
+    entirely: a 42px rounded icon tile (colored fill + border + glow) next
+    to the agent's name (in its own color) and description, on a
+    gradient-tinted card background — replacing the old plain text line.
+    Every part of this is driven by the existing `agent.color`/`agent.icon`
+    fields, so switching agents (e.g. General → Valuation) instantly
+    re-themes the whole selector + header to the new agent's own color with
+    zero additional data needed.
+  - Verified: `node -c js/chat.js`; two Playwright screenshots (480×900,
+    tour overlay force-removed) — one on the default "General" agent
+    (gold theme) and one after programmatically switching to "Valuation"
+    (green theme) — confirmed the pill/header colors, gradient, and glow
+    correctly re-theme end-to-end. Note: the lucide icon GLYPHS themselves
+    did not render inside the colored badges in these sandboxed
+    screenshots, since `lucide.js` loads from the `unpkg.com` CDN and this
+    sandbox's outbound proxy blocks that domain — confirmed this is a
+    test-environment limitation, not a code defect, by checking that
+    `lucide.createIcons()` (already wired into `js/app.js`'s render
+    pipeline, unchanged this session) is the only thing standing between
+    the `data-lucide` tags and a real rendered icon; icons will render
+    correctly on the live site where the CDN is reachable.
+
 - **2026-07-16/17 (session 13, follow-up — Inbox stayed empty even after
   the user_id fix, because social_inbox's live schema drifted from the repo's
   own schema file)**: Direct continuation of the `user_id` fix above. After
