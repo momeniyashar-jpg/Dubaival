@@ -1,6 +1,11 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- AUTH MODULE ---
-var DV_AUTH={user:null,profile:null,loading:true,showModal:false,modalTab:"signin",error:"",busy:false,resetSent:false,recoveryToken:null,passwordUpdated:false,isDemo:false,emailDraft:(function(){try{return localStorage.getItem("dv_last_email")||"";}catch(e){return "";}})()};
+var DV_AUTH={user:null,profile:null,loading:true,showModal:false,modalTab:"signin",error:"",busy:false,resetSent:false,recoveryToken:null,passwordUpdated:false,isDemo:false,emailDraft:(function(){try{return localStorage.getItem("dv_last_email")||"";}catch(e){return "";}})(),
+  // Zero-touch onboarding (CLAUDE.md #4 CRITICAL DIRECTIVE): the only thing a
+  // user ever types for phone verification is the phone number itself and the
+  // OTP code we send them — never a token, never an API key. This tracks that
+  // one small sign-up sub-flow.
+  signupPhone:"",phoneVerified:false,otpSent:false,otpCode:"",otpBusy:false,otpError:"",otpUnavailable:false};
 // Tracks whether opening the auth modal pushed a history entry (see renderAuthModal
 // below) so the physical/browser back button closes the modal instead of appearing
 // to do nothing — real bug reported 2026-07-16: the modal is a pure in-memory
@@ -83,12 +88,53 @@ async function dvSignUp(name,email,password){
     var data=await sbAuth("signup?redirect_to="+_dvAuthRedirectTo(),{email:email,password:password,data:{display_name:name}});
     if(data.access_token){
       await setAuthSession(data);
-      await fetch(SUPABASE_URL+"/rest/v1/user_profiles",{method:"POST",headers:Object.assign({},sbHeaders(data.access_token),{"Prefer":"return=minimal"}),body:JSON.stringify({id:data.user.id,display_name:name,email:email,role:"user",preferred_lang:dvLang})});
-      if(typeof dvTrack==="function")dvTrack("signup_completed",{});
+      var profileRow={id:data.user.id,display_name:name,email:email,role:"user",preferred_lang:dvLang};
+      // Only attach a phone if the user actually typed one in — never block
+      // account creation on phone verification succeeding (WhatsApp OTP may
+      // not be configured yet; see dvSendPhoneOtp below), per the zero-touch
+      // onboarding directive's graceful-degradation principle used app-wide.
+      if(DV_AUTH.signupPhone){profileRow.phone=DV_AUTH.signupPhone;profileRow.phone_verified=!!DV_AUTH.phoneVerified;}
+      await fetch(SUPABASE_URL+"/rest/v1/user_profiles",{method:"POST",headers:Object.assign({},sbHeaders(data.access_token),{"Prefer":"return=minimal"}),body:JSON.stringify(profileRow)});
+      if(typeof dvTrack==="function")dvTrack("signup_completed",{phone_verified:!!DV_AUTH.phoneVerified});
     }
     DV_AUTH.showModal=false;
+    DV_AUTH.signupPhone="";DV_AUTH.phoneVerified=false;DV_AUTH.otpSent=false;DV_AUTH.otpCode="";DV_AUTH.otpError="";DV_AUTH.otpUnavailable=false;
   }catch(e){DV_AUTH.error=e.message;}
   DV_AUTH.busy=false;render();
+}
+
+// Sends a 6-digit WhatsApp OTP to the phone the user typed into Sign Up —
+// the ONLY verification mechanism the zero-touch onboarding directive
+// allows (CLAUDE.md #4). Degrades gracefully (never blocks account
+// creation) if the platform's own WhatsApp sending number isn't configured
+// yet server-side — see api/inbox.js handleSendOtp's whatsapp_otp_unavailable
+// response, which only exists until the operator connects DV_PLATFORM_
+// WHATSAPP_PHONE_ID/DV_PLATFORM_WHATSAPP_TOKEN.
+async function dvSendPhoneOtp(phone){
+  DV_AUTH.otpBusy=true;DV_AUTH.otpError="";render();
+  try{
+    var resp=await fetch("/api/inbox?action=send-otp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contact_type:"phone",contact_value:phone,purpose:"signup"})});
+    var d=await resp.json().catch(function(){return{};});
+    if(resp.status===503&&d.code==="whatsapp_otp_unavailable"){
+      DV_AUTH.otpUnavailable=true;DV_AUTH.otpSent=false;
+    }else if(!resp.ok){
+      DV_AUTH.otpError=d.error||"Could not send the code — please try again";
+    }else{
+      DV_AUTH.otpSent=true;DV_AUTH.otpUnavailable=false;
+    }
+  }catch(e){DV_AUTH.otpError="Could not send the code — please try again";}
+  DV_AUTH.otpBusy=false;render();
+}
+
+async function dvVerifyPhoneOtp(phone,code){
+  DV_AUTH.otpBusy=true;DV_AUTH.otpError="";render();
+  try{
+    var resp=await fetch("/api/inbox?action=verify-otp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contact_type:"phone",contact_value:phone,code:code,purpose:"signup"})});
+    var d=await resp.json().catch(function(){return{};});
+    if(d.ok){DV_AUTH.phoneVerified=true;DV_AUTH.otpError="";}
+    else{DV_AUTH.otpError=d.error||"Incorrect code";}
+  }catch(e){DV_AUTH.otpError="Could not verify — please try again";}
+  DV_AUTH.otpBusy=false;render();
 }
 
 async function dvSignIn(email,password){
@@ -396,9 +442,53 @@ function renderAuthModal(){
   // Form fields
   var nameInp,emailInp,passInp;
 
+  var phoneInp;
   if(DV_AUTH.modalTab==="signup"){
     nameInp=el("input",{type:"text",placeholder:t("auth_name"),style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"}});
     modal.appendChild(nameInp);
+
+    // Phone + WhatsApp OTP — the only 3 inputs zero-touch onboarding ever
+    // asks for are phone/email/social-connect (CLAUDE.md #4). Verification
+    // is a 6-digit code, never a token/API key the user has to go find.
+    var phoneRow=el("div",{style:{display:"flex",gap:"8px",marginBottom:"6px"}});
+    phoneInp=el("input",{type:"tel",placeholder:"Phone number (e.g. 9715XXXXXXXX)",value:DV_AUTH.signupPhone||"",disabled:DV_AUTH.phoneVerified,style:{flex:"1",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+    phoneInp.addEventListener("input",function(){DV_AUTH.signupPhone=this.value.trim();DV_AUTH.otpSent=false;DV_AUTH.phoneVerified=false;DV_AUTH.otpUnavailable=false;});
+    phoneRow.appendChild(phoneInp);
+    if(!DV_AUTH.phoneVerified){
+      var sendCodeBtn=el("button",{style:{whiteSpace:"nowrap",padding:"0 14px",borderRadius:"10px",border:"1px solid rgba(212,175,55,0.15)",background:"rgba(212,175,55,0.10)",color:"#D4A843",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:DV_AUTH.otpBusy?"not-allowed":"pointer"}});
+      sendCodeBtn.textContent=DV_AUTH.otpBusy?"...":(DV_AUTH.otpSent?"Resend":"Verify");
+      sendCodeBtn.addEventListener("click",function(){
+        var p=phoneInp.value.trim();
+        if(!p){DV_AUTH.otpError="Enter your phone number first";render();return;}
+        DV_AUTH.signupPhone=p;dvSendPhoneOtp(p);
+      });
+      phoneRow.appendChild(sendCodeBtn);
+    }
+    modal.appendChild(phoneRow);
+
+    if(DV_AUTH.phoneVerified){
+      modal.appendChild(div({color:"#10B981",fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"10px"},"✓ Phone verified via WhatsApp"));
+    }else if(DV_AUTH.otpUnavailable){
+      modal.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginBottom:"10px",lineHeight:"1.4"},"WhatsApp verification isn't switched on yet — you can still create your account now and verify your phone later from your profile."));
+    }else if(DV_AUTH.otpSent){
+      var codeRow=el("div",{style:{display:"flex",gap:"8px",marginBottom:"6px"}});
+      var codeInp=el("input",{type:"text",inputMode:"numeric",maxLength:"6",placeholder:"6-digit code",value:DV_AUTH.otpCode||"",style:{flex:"1",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"10px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",letterSpacing:"3px"}});
+      codeInp.addEventListener("input",function(){DV_AUTH.otpCode=this.value.trim();});
+      codeRow.appendChild(codeInp);
+      var confirmCodeBtn=el("button",{style:{whiteSpace:"nowrap",padding:"0 14px",borderRadius:"10px",border:"1px solid rgba(16,185,129,0.3)",background:"rgba(16,185,129,0.08)",color:"#10B981",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:DV_AUTH.otpBusy?"not-allowed":"pointer"}});
+      confirmCodeBtn.textContent=DV_AUTH.otpBusy?"...":"Confirm";
+      confirmCodeBtn.addEventListener("click",function(){
+        var c=codeInp.value.trim();
+        if(!c){DV_AUTH.otpError="Enter the code we sent you";render();return;}
+        dvVerifyPhoneOtp(DV_AUTH.signupPhone,c);
+      });
+      codeRow.appendChild(confirmCodeBtn);
+      modal.appendChild(codeRow);
+      modal.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginBottom:"10px"},"We sent a 6-digit code to "+DV_AUTH.signupPhone+" via WhatsApp."));
+    }else{
+      modal.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginBottom:"10px"},"Optional, but recommended — we'll text a one-time code to confirm it's really you."));
+    }
+    if(DV_AUTH.otpError)modal.appendChild(div({background:hexAlpha("#EF4444",0.1),border:"1px solid "+hexAlpha("#EF4444",0.3),borderRadius:"8px",padding:"8px 12px",marginBottom:"10px",color:"#EF4444",fontSize:"11px",fontFamily:"'Inter',sans-serif"},DV_AUTH.otpError));
   }
 
   // Real bug found 2026-07-15: this field never remembered the last email

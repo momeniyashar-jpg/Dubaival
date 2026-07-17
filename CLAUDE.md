@@ -638,6 +638,139 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-17 (session 14, zero-touch onboarding — OTP verification system,
+  first concrete step on the new #4 CRITICAL DIRECTIVE)**: Direct follow-up
+  to writing the standing directive above. User was explicit that this isn't
+  just documentation — the actual onboarding flow must change now so a user's
+  job is limited to phone/email/social-connect, with OTP as the only
+  verification mechanism. Built the foundational, reusable primitive every
+  future "confirm you own this contact" step should build on, then applied it
+  to the one concrete gap it could close today without an external Meta
+  approval blocking it: phone verification during Sign Up (previously,
+  Sign Up never collected a phone number at all).
+  - **New migration**: `supabase-otp-verification-schema.sql` (requires
+    manual execution) — `otp_verifications` table (contact_type/contact_
+    value/code_hash/purpose/attempts/expires_at/verified_at), RLS enabled
+    with zero policies (service-role-only by construction — no client, anon
+    or authenticated, ever reads/writes this table directly; a code is only
+    ever generated/checked server-side). Also adds `user_profiles.phone_
+    verified boolean default false` — the existing `phone` column already
+    existed pre-session, this just adds the flag that distinguishes "typed
+    in" from "actually confirmed theirs."
+  - **`api/inbox.js` extended** (not a new file — the project is already at
+    Vercel Hobby's 12-function ceiling): 2 new actions.
+    - `action=send-otp` — generates a 6-digit code, SHA-256-hashes it before
+      storing (the plaintext code is never persisted anywhere), 10-minute
+      expiry, and a per-contact throttle (max 3 codes per contact per 15
+      minutes, checked via a direct Supabase query — independent of the
+      existing per-IP `rateLimitExceeded` limiter also applied on top, so
+      someone can't OTP-bomb one specific phone/email from many different
+      IPs). For `contact_type:"email"`, sends via the existing
+      `shared.sendEmail()` (Resend — already configured, works today, zero
+      new setup). For `contact_type:"phone"`, sends via a new
+      `sendWhatsAppOtpTemplate()` using a **platform-level** WhatsApp
+      Business number (new `DV_PLATFORM_WHATSAPP_PHONE_ID`/`DV_PLATFORM_
+      WHATSAPP_TOKEN` env vars) — deliberately separate from any individual
+      agent's own per-agent WABA connection (`social_credentials`), since
+      this is DubaiVal's own system number sending a first-contact message
+      to a brand-new signup, not an agent messaging their own client.
+      **Real technical accuracy point**: unlike the plain-text
+      `sendWhatsAppMessage()` used for agent↔client chat inside an
+      already-open 24h conversation window, a signup contact has no such
+      window with our platform's number — Meta only allows a business to
+      message a number that's never messaged us first via a **pre-approved
+      "Authentication" category template**, not a free-form text message.
+      `sendWhatsAppOtpTemplate()`'s component shape (body variable + a
+      copy-code button) matches Meta's standard Authentication template
+      format, but this could not be tested against a real, approved Meta
+      template in this sandbox — if the operator's actual approved template
+      differs in its component structure, this needs a one-line adjustment
+      to match once tested live. Graceful degradation: if the platform
+      WhatsApp env vars aren't set (true today), returns a clear
+      `503 {code:"whatsapp_otp_unavailable"}` rather than crashing or
+      silently doing nothing — the client already knows how to handle this
+      (see below).
+    - `action=verify-otp` — looks up the most recent non-expired,
+      non-verified code for that contact+purpose, hashes the submitted code
+      and compares, caps at 5 failed attempts (`429` after that, forcing a
+      fresh code rather than allowing unlimited guesses), and marks
+      `verified_at` on success.
+  - **`js/auth.js` Sign Up flow**: added a phone number field (previously
+    completely absent from Sign Up) right after Name, with a "Verify" button
+    that calls the new `send-otp` action, a 6-digit code-entry step once
+    sent, and a green "✓ Phone verified via WhatsApp" confirmation once
+    correct. Three new functions: `dvSendPhoneOtp()`, `dvVerifyPhoneOtp()`,
+    and `dvSignUp()` extended to attach `phone`/`phone_verified` to the
+    `user_profiles` insert only when a phone was actually entered — **never
+    blocks account creation** on phone verification succeeding, matching
+    this project's established graceful-degradation pattern for any
+    Meta-gated feature. If `send-otp` comes back `whatsapp_otp_unavailable`
+    (true today, since the platform WhatsApp number isn't connected yet),
+    the UI shows a plain, honest message — "WhatsApp verification isn't
+    switched on yet — you can still create your account now and verify your
+    phone later from your profile" — and Sign Up proceeds normally with
+    `phone_verified:false`. This is a deliberate, temporary, disclosed
+    exception to the directive's "OTP is the only mechanism" rule, not a
+    silent gap — the moment the operator connects the platform WhatsApp
+    number, this same code path starts actually verifying with zero further
+    changes needed.
+  - **Explicitly NOT built this session** (per the directive's own scoping,
+    and to avoid a risky, large, blind rewrite of the CORE sign-up/session
+    mechanism in one pass): replacing Supabase Auth's own email+password
+    session flow with a passwordless email-OTP-only login (Supabase Auth
+    does support this natively via `signInWithOtp`, but swapping the
+    project's actual live authentication mechanism — used by every existing
+    signed-in user today — is a materially bigger, higher-risk change than
+    adding a new, additive, non-blocking phone-verification step, and wasn't
+    what this pass targeted); any of the OAuth "Connect X" flows for
+    WhatsApp Embedded Signup / Instagram / Facebook / LinkedIn / Twitter /
+    TikTok / Meta Ads Pixel auto-discovery described in directive #4 above —
+    every one of those still needs the operator's own Meta/LinkedIn/Twitter/
+    TikTok App Review to complete first, a real external, days-to-weeks
+    process this session cannot shortcut; migrating the existing manual
+    WhatsApp Access Token/Phone Number ID/WABA ID and Meta Pixel ID/CAPI
+    token fields in Social Setup (`js/chat.js` `showSocialSetup()`) to the
+    OAuth-based flows the directive calls for — these are the biggest,
+    most-cited remaining violations of directive #4 and are the natural next
+    target once the operator confirms Meta App Review status for Facebook
+    Login for Business + WhatsApp Embedded Signup.
+  - Verified: `node -c` on both touched files; a mocked-fetch Node test
+    harness against the real `api/inbox.js` handlers (9 cases) — invalid
+    `contact_type` 400s, email OTP sends via Resend and never touches Meta's
+    Graph API, phone OTP with no platform WhatsApp number configured
+    correctly 503s with `whatsapp_otp_unavailable` and never calls Meta,
+    phone OTP WITH the platform number configured correctly calls the right
+    phone ID with a correctly-normalized (digits-only) phone number and a
+    real `type:"template"` payload, a per-contact throttle (3 recent codes
+    already sent) correctly 429s before ever sending a 4th, a correct code
+    verifies and marks `verified_at`, a wrong code fails and increments
+    `attempts` without marking verified, an expired code is correctly
+    rejected as expired (not "wrong code"), and a request with no pending
+    code at all gets a clear "request a new one" message; and a real-browser
+    Playwright pass on the actual Sign Up modal confirming the phone field
+    and Verify button render, the 6-digit code-entry UI appears once a code
+    is "sent," the green verified badge renders once `phoneVerified` is set,
+    and the graceful "WhatsApp verification isn't switched on yet" message
+    renders correctly when the backend reports the platform number isn't
+    configured — zero non-network console errors in either pass.
+  - **Manual steps required before phone verification is fully live**: (1)
+    run `supabase-otp-verification-schema.sql` in Supabase SQL Editor —
+    email OTP already works today without this being blocking (email send
+    itself needs no new table, only the throttle/expiry bookkeeping does,
+    so until this runs, email OTP send will fail at the insert step with a
+    clear 500 rather than silently pretending to succeed); (2) connect
+    DubaiVal's own platform WhatsApp Business number (separate from any
+    individual agent's own WABA connection) and set `DV_PLATFORM_WHATSAPP_
+    PHONE_ID`/`DV_PLATFORM_WHATSAPP_TOKEN` in Vercel env vars; (3) create
+    and get Meta approval for an "Authentication" category WhatsApp message
+    template (WhatsApp Manager → Message Templates), then set `DV_OTP_
+    WHATSAPP_TEMPLATE_NAME`/`DV_OTP_WHATSAPP_TEMPLATE_LANG` if the approved
+    name/language differ from the `otp_verification`/`en_US` defaults. Until
+    (2)+(3) are done, phone verification shows the honest "not switched on
+    yet" message and Sign Up proceeds without it — zero breakage, exactly
+    the same graceful-degradation pattern used throughout this project for
+    every other Meta-gated feature.
+
 - **2026-07-17 (session 14, AI Chief of Staff — Meta Ads conversion
   feedback loop, "report real leads back to Meta")**: User shared 4
   competitor ads (LogixContact — generic dev shop, irrelevant; **YCloud** —
@@ -5542,6 +5675,29 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🟡 Zero-touch onboarding OTP system — needs manual SQL + platform
+  WhatsApp number + approved Meta template** (added 2026-07-17, session 14):
+  run `supabase-otp-verification-schema.sql` in Supabase SQL Editor. Email
+  OTP (Sign Up phone-verification's fallback path, and any future email-OTP
+  use) works immediately once this runs — no other setup needed, reuses the
+  existing `RESEND_API_KEY`. WhatsApp OTP additionally needs: (1) the
+  operator connects DubaiVal's OWN platform WhatsApp Business number
+  (distinct from any individual agent's own connection in Social Setup) and
+  sets `DV_PLATFORM_WHATSAPP_PHONE_ID`/`DV_PLATFORM_WHATSAPP_TOKEN` in Vercel
+  env vars; (2) the operator creates and gets Meta's approval for an
+  "Authentication" category WhatsApp message template (WhatsApp Manager →
+  Message Templates), then sets `DV_OTP_WHATSAPP_TEMPLATE_NAME`/`DV_OTP_
+  WHATSAPP_TEMPLATE_LANG` env vars if the approved name/language differ from
+  the `otp_verification`/`en_US` defaults. Until (1)+(2), Sign Up's phone
+  step shows an honest "WhatsApp verification isn't switched on yet" message
+  and account creation proceeds without blocking on it — this is a
+  deliberate, disclosed, temporary exception to directive #4's "OTP is the
+  only mechanism" rule, not a silent gap. **This is the reusable primitive
+  for the rest of directive #4** — any future session building the WhatsApp
+  Embedded Signup / Facebook Login / other OAuth "Connect X" flows described
+  in that directive should reuse `send-otp`/`verify-otp` (`api/inbox.js`)
+  rather than inventing a second OTP mechanism.
 
 - **🟡 AI Chief of Staff → Meta Ads conversion feedback loop — needs manual
   SQL + per-agent Meta setup** (added 2026-07-17, session 14): run

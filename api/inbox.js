@@ -656,6 +656,167 @@ async function handleMetaConversion(req, res) {
   }
 }
 
+// ── ACTION: send-otp / verify-otp ─────────────────────────────────────────────
+// Shared, reusable OTP primitive backing the "zero-touch onboarding" standing
+// directive (CLAUDE.md #4) — a user's identity for a phone number or email is
+// confirmed ONLY via a one-time code we send, never by asking them to fetch
+// or paste anything from a 3rd-party developer dashboard. Used by Sign Up
+// (js/auth.js) today for phone verification; any future "confirm you own
+// this contact" step anywhere in the app should reuse these two actions
+// rather than inventing a new one.
+var PLATFORM_WHATSAPP_PHONE_ID = process.env.DV_PLATFORM_WHATSAPP_PHONE_ID;
+var PLATFORM_WHATSAPP_TOKEN = process.env.DV_PLATFORM_WHATSAPP_TOKEN;
+var OTP_WHATSAPP_TEMPLATE = process.env.DV_OTP_WHATSAPP_TEMPLATE_NAME || "otp_verification";
+var OTP_WHATSAPP_LANG = process.env.DV_OTP_WHATSAPP_TEMPLATE_LANG || "en_US";
+
+// Sends a WhatsApp "Authentication" category template message carrying a
+// one-time code. Unlike sendWhatsAppMessage() above (plain text, used for
+// agent<->client chat inside an already-open 24h conversation window), a
+// brand-new signup contact has no open window with our platform's own
+// WhatsApp number — Meta only allows a business to message a number that
+// has never messaged us first via a pre-approved template. The component
+// shape below (body variable + copy-code button) matches Meta's standard
+// Authentication template format; this could not be tested against a real,
+// approved Meta template in this sandbox, so if the operator's actual
+// template differs, adjust `components` to match what Meta actually expects.
+async function sendWhatsAppOtpTemplate(to, code) {
+  var r = await fetch(GRAPH_BASE + "/" + PLATFORM_WHATSAPP_PHONE_ID + "/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + PLATFORM_WHATSAPP_TOKEN },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to: to,
+      type: "template",
+      template: {
+        name: OTP_WHATSAPP_TEMPLATE,
+        language: { code: OTP_WHATSAPP_LANG },
+        components: [
+          { type: "body", parameters: [{ type: "text", text: code }] },
+          { type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: code }] },
+        ],
+      },
+    }),
+  });
+  var d = await r.json();
+  if (!r.ok || d.error) throw new Error((d.error && d.error.message) || "WhatsApp OTP send failed (HTTP " + r.status + ")");
+  return d;
+}
+
+function _otpNormalizeContact(type, value) {
+  if (type === "phone") return String(value || "").replace(/\D/g, "");
+  return String(value || "").trim().toLowerCase();
+}
+
+async function handleSendOtp(req, res) {
+  if (rateLimitExceeded(req, res, 60000, 10)) return;
+  try {
+    var body = req.body || {};
+    var contactType = body.contact_type;
+    var purpose = body.purpose || "signup";
+    if (contactType !== "email" && contactType !== "phone") {
+      return res.status(400).json({ error: "contact_type must be 'email' or 'phone'" });
+    }
+    var contact = _otpNormalizeContact(contactType, body.contact_value);
+    if (!contact || (contactType === "email" && !/.+@.+\..+/.test(contact)) || (contactType === "phone" && contact.length < 8)) {
+      return res.status(400).json({ error: "Please enter a valid " + contactType });
+    }
+
+    // Per-contact throttle (independent of the per-IP limiter above) — stops
+    // someone from OTP-bombing one specific phone/email from many IPs.
+    var recentResp = await shared.supabaseRequest(
+      "/otp_verifications?contact_type=eq." + contactType +
+        "&contact_value=eq." + encodeURIComponent(contact) +
+        "&created_at=gte." + new Date(Date.now() - 15 * 60000).toISOString() +
+        "&select=id",
+      { method: "GET" }
+    );
+    var recentRows = recentResp.ok ? await recentResp.json() : [];
+    if (recentRows.length >= 3) {
+      return res.status(429).json({ error: "Too many codes requested — please wait a few minutes and try again." });
+    }
+
+    var crypto = require("crypto");
+    var code = String(Math.floor(100000 + Math.random() * 900000));
+    var codeHash = crypto.createHash("sha256").update(code).digest("hex");
+    var expiresAt = new Date(Date.now() + 10 * 60000).toISOString();
+
+    var insertResp = await shared.supabaseRequest("/otp_verifications", {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ contact_type: contactType, contact_value: contact, code_hash: codeHash, purpose: purpose, expires_at: expiresAt }),
+    });
+    if (!insertResp.ok) return res.status(500).json({ error: "Could not create verification code" });
+
+    if (contactType === "email") {
+      var sent = await shared.sendEmail(
+        contact,
+        "Your DubaiVal verification code",
+        "<div style=\"font-family:sans-serif;padding:24px\"><h2 style=\"color:#0D1220\">Your verification code</h2>" +
+          "<p style=\"font-size:32px;letter-spacing:6px;font-weight:700;color:#D4AF37\">" + code + "</p>" +
+          "<p style=\"color:#556677\">This code expires in 10 minutes. If you didn't request this, you can ignore this email.</p></div>"
+      );
+      if (!sent) return res.status(502).json({ error: "Could not send the verification email right now" });
+    } else {
+      if (!PLATFORM_WHATSAPP_PHONE_ID || !PLATFORM_WHATSAPP_TOKEN) {
+        return res.status(503).json({ error: "WhatsApp verification isn't set up yet — please use email instead", code: "whatsapp_otp_unavailable" });
+      }
+      try {
+        await sendWhatsAppOtpTemplate(contact, code);
+      } catch (e) {
+        console.error("send-otp whatsapp error:", e.message);
+        return res.status(502).json({ error: "Could not send the WhatsApp code right now — please try email instead" });
+      }
+    }
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error("send-otp error:", e.message);
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+async function handleVerifyOtp(req, res) {
+  if (rateLimitExceeded(req, res, 60000, 20)) return;
+  try {
+    var body = req.body || {};
+    var contactType = body.contact_type;
+    var purpose = body.purpose || "signup";
+    var code = String(body.code || "").trim();
+    if (contactType !== "email" && contactType !== "phone") return res.status(400).json({ ok: false, error: "contact_type must be 'email' or 'phone'" });
+    var contact = _otpNormalizeContact(contactType, body.contact_value);
+    if (!contact || !code) return res.status(400).json({ ok: false, error: "Missing contact or code" });
+
+    var resp = await shared.supabaseRequest(
+      "/otp_verifications?contact_type=eq." + contactType +
+        "&contact_value=eq." + encodeURIComponent(contact) +
+        "&purpose=eq." + encodeURIComponent(purpose) +
+        "&verified_at=is.null&order=created_at.desc&limit=1",
+      { method: "GET" }
+    );
+    var rows = resp.ok ? await resp.json() : [];
+    var row = rows[0];
+    if (!row) return res.status(400).json({ ok: false, error: "No pending code for this contact — request a new one" });
+    if (new Date(row.expires_at).getTime() < Date.now()) return res.status(400).json({ ok: false, error: "Code expired — request a new one" });
+    if (row.attempts >= 5) return res.status(429).json({ ok: false, error: "Too many attempts — request a new code" });
+
+    var crypto = require("crypto");
+    var codeHash = crypto.createHash("sha256").update(code).digest("hex");
+    if (codeHash !== row.code_hash) {
+      await shared.supabaseRequest("/otp_verifications?id=eq." + row.id, {
+        method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ attempts: row.attempts + 1 }),
+      });
+      return res.status(400).json({ ok: false, error: "Incorrect code" });
+    }
+
+    await shared.supabaseRequest("/otp_verifications?id=eq." + row.id, {
+      method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ verified_at: new Date().toISOString() }),
+    });
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error("verify-otp error:", e.message);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+}
+
 // ── ACTION: email-inbound ─────────────────────────────────────────────────────
 // NOTE: unlike gmail-poll (which knows the owning user_id from the
 // social_credentials row it polled), a generic inbound-parse webhook has no
@@ -888,5 +1049,7 @@ module.exports = async function handler(req, res) {
   if (action === "email-inbound") return handleEmailInbound(req, res);
   if (action === "whatsapp-send") return handleWhatsAppSend(req, res);
   if (action === "meta-conversion") return handleMetaConversion(req, res);
+  if (action === "send-otp") return handleSendOtp(req, res);
+  if (action === "verify-otp") return handleVerifyOtp(req, res);
   return handleReply(req, res); // default POST action
 };
