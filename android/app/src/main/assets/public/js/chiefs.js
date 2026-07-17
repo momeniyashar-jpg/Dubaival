@@ -26,6 +26,27 @@ var CHIEFS_STATE = {
   briefing: { loading: false, text: null, generatedAt: null, error: null, checked: false }
 };
 
+// ── AUTOMATION SETTINGS (2026-07-17, standing product directive) ────────────
+// Per the user's explicit design requirement: this tab should feel like a
+// hired assistant, not a tool the agent babysits. Every automatable process
+// gets exactly one toggle — "automatic" (AI does it and acts on its own) or
+// "requires approval" (AI prepares it, one click executes it — never a
+// multi-step manual workflow). Default is ON (automatic) everywhere; the
+// agent opts INTO a human checkpoint, not the other way around. Persisted
+// locally per-browser for now (see CLAUDE.md for the cross-device/Supabase
+// follow-up note).
+var CHIEFS_AUTOMATION_DEFAULTS = { autoDraft: true, autoSend: true, autoSaveExtracted: true };
+var CHIEFS_AUTOMATION = (function() {
+  try {
+    var saved = JSON.parse(localStorage.getItem("dv_chiefs_automation") || "null");
+    if (saved) return Object.assign({}, CHIEFS_AUTOMATION_DEFAULTS, saved);
+  } catch (e) {}
+  return Object.assign({}, CHIEFS_AUTOMATION_DEFAULTS);
+})();
+function _chiefsSaveAutomation() {
+  try { localStorage.setItem("dv_chiefs_automation", JSON.stringify(CHIEFS_AUTOMATION)); } catch (e) {}
+}
+
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 function _chiefsId() {
   if (typeof DV_AUTH !== "undefined" && DV_AUTH.user && DV_AUTH.user.id) return DV_AUTH.user.id;
@@ -292,10 +313,47 @@ async function chiefsScanConversation() {
     var d = await r.json();
     var content = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content || "";
     CHIEFS_STATE.scanner.result = JSON.parse(content.trim());
+    // Automation: save straight to the Client Memory Bank — no "Use This
+    // Client" click, no opening the form for a second manual submit — unless
+    // the agent has turned "Auto-save extracted client info" off. Covers
+    // both entry points (pasted text and transcribed voice calls) since
+    // chiefsTranscribeVoiceCall funnels into this same function.
+    if (CHIEFS_AUTOMATION.autoSaveExtracted) {
+      CHIEFS_STATE.scanner.parsing = false;
+      await chiefsScannerAutoSave();
+      return;
+    }
   } catch(e) {
     CHIEFS_STATE.scanner.error = e.message || "Failed to parse conversation";
   }
   CHIEFS_STATE.scanner.parsing = false; render();
+}
+
+// Automation path: builds the same client row chiefsScannerApply() would
+// pre-fill into the form, but saves it directly via chiefsSaveClient()
+// instead of waiting for a second manual review-and-submit step.
+async function chiefsScannerAutoSave() {
+  var r = CHIEFS_STATE.scanner.result;
+  if (!r) return;
+  var srcLabel = CHIEFS_STATE.scanner.source || "conversation";
+  CHIEFS_STATE.cliForm = { open:false, editing:null,
+    client_name: r.client_name||"Unknown", client_phone:"", client_email:"",
+    purpose: r.purpose||"sale", prop_type: r.prop_type||"apartment",
+    beds_wanted: r.beds||"2 BR",
+    areas_wanted: Array.isArray(r.areas) ? r.areas.filter(function(a){return a;}) : [],
+    area_input:"", min_price:r.min_price?String(r.min_price):"", max_price:r.max_price?String(r.max_price):"",
+    min_size:r.min_size?String(r.min_size):"", max_size:r.max_size?String(r.max_size):"",
+    view_pref:r.view||"", furnished_pref:r.furnished||"",
+    timeline:r.timeline||"flexible", notes:r.notes||"", status:"active",
+    source: srcLabel, raw_conversation:CHIEFS_STATE.scanner.text };
+  var savedName = r.client_name || "New client";
+  CHIEFS_STATE.scanner = { open:false, text:"", parsing:false, result:null, error:null, source:"whatsapp", transcribing:false, transcribeError:null };
+  await chiefsSaveClient();
+  _chiefsToast("🤖","Auto-saved: "+savedName,"Extracted from "+srcLabel+" and added to Client Memory Bank.",function(){
+    CHIEFS_STATE.view="clients";
+    if(window.APP_STATE){window.APP_STATE.currentSection="Network";window.APP_STATE.currentSubTab="Chiefs";}
+    render();
+  });
 }
 
 function chiefsScannerApply() {
@@ -470,6 +528,18 @@ async function _chiefsAutoMatch(triggerSource) {
         body:JSON.stringify(newRows) });
       if (r.ok) {
         CHIEFS_STATE.loaded.matches = false; await chiefsLoadMatches();
+        // Automation: draft (and, per the autoSend toggle inside
+        // chiefsDraftMessage, send) each freshly-created match immediately —
+        // the agent shouldn't have to open Matches and click Draft one by
+        // one unless they've turned this off in Automation Settings.
+        if (CHIEFS_AUTOMATION.autoDraft) {
+          var freshMatches = CHIEFS_STATE.matches.filter(function(m) {
+            return m.status === "new" && newRows.some(function(nr) {
+              return nr.client_id === m.client_id && nr.inventory_id === m.inventory_id;
+            });
+          });
+          freshMatches.forEach(function(m) { chiefsDraftMessage(m.id); });
+        }
         // Proactive notification
         var clientIds = newRows.map(function(x){return x.client_id;}).filter(function(v,i,a){return a.indexOf(v)===i;});
         var listingIds = newRows.map(function(x){return x.inventory_id;}).filter(function(v,i,a){return a.indexOf(v)===i;});
@@ -519,26 +589,60 @@ async function chiefsDraftMessage(matchId) {
         body:JSON.stringify({draft_message:result.trim(),status:"draft_ready"}) });
       var m = CHIEFS_STATE.matches.find(function(x){ return x.id===matchId; });
       if (m) { m.draft_message = result.trim(); m.status = "draft_ready"; }
+      // Automation: send immediately without waiting for a click, unless the
+      // agent has turned "Auto-send matched messages" off in Automation
+      // Settings — matches the standing per-process auto/approval directive.
+      if (CHIEFS_AUTOMATION.autoSend) {
+        var sent = await chiefsSendMatchMessage(matchId);
+        if (sent) _chiefsToast("🤖","Auto-sent to "+client.client_name,listing.area+(listing.building?" · "+listing.building:""));
+      }
     }
   } catch(e) { alert("AI drafting failed: " + (e.message||"error")); }
   CHIEFS_STATE.matchDrafting[matchId] = false; render();
 }
 
-async function chiefsApproveMatch(matchId) {
+// Real send: POSTs to the connected WhatsApp Business API (same endpoint the
+// Inbox reply box uses) so "approve" means the message actually goes out,
+// not "copy it, then go paste it into WhatsApp yourself." Falls back to
+// clipboard + a wa.me deep-link (opens the agent's own WhatsApp app,
+// pre-filled) only when the agent hasn't connected WhatsApp Business API yet
+// or the client has no phone on file — never a hard failure.
+async function chiefsSendMatchMessage(matchId) {
   var match = CHIEFS_STATE.matches.find(function(m){ return m.id===matchId; });
-  if (!match || !match.draft_message) return;
-  try { await navigator.clipboard.writeText(match.draft_message); } catch(e) {}
+  if (!match || !match.draft_message) return false;
+  var client = CHIEFS_STATE.clients.find(function(c){ return c.id===match.client_id; });
+  var sent = false;
+  if (client && client.client_phone) {
+    sent = await _chiefsRawWhatsAppSend(client.client_phone, match.draft_message);
+  }
   try {
     await fetch(SUPABASE_URL + "/rest/v1/chiefs_matches?id=eq." + matchId, {
       method:"PATCH", headers:Object.assign({},_chiefsH(),{"Prefer":"return=minimal"}),
-      body:JSON.stringify({status:"approved",sent_at:new Date().toISOString()}) });
+      body:JSON.stringify({status: sent?"sent":"approved", sent_at:new Date().toISOString()}) });
     var m = CHIEFS_STATE.matches.find(function(x){ return x.id===matchId; });
-    if (m) m.status = "approved";
+    if (m) m.status = sent?"sent":"approved";
   } catch(e) {}
+  if (!sent && client && client.client_phone) {
+    try { await navigator.clipboard.writeText(match.draft_message); } catch(e) {}
+    var phone2 = client.client_phone.replace(/[^0-9+]/g,"");
+    window.open("https://wa.me/" + phone2 + "?text=" + encodeURIComponent(match.draft_message), "_blank", "noopener,noreferrer");
+  }
   render();
-  alert("✓ Message copied! Paste in WhatsApp to send.");
+  return sent;
 }
 
+// The single "one-click approval" action per the automation directive:
+// clicking Approve actually SENDS the message (real API), it doesn't just
+// copy it for the agent to paste elsewhere. Falls back gracefully (see
+// chiefsSendMatchMessage) if WhatsApp Business API isn't connected yet.
+async function chiefsApproveMatch(matchId) {
+  var sent = await chiefsSendMatchMessage(matchId);
+  if (sent) _chiefsToast("✅","Message sent!","Delivered via WhatsApp Business API.");
+  else alert("Couldn't send automatically (connect WhatsApp Business API in Social Setup, or this client has no phone on file). Message copied — your WhatsApp app should have opened to send it manually.");
+}
+
+// Manual override for an agent who deliberately wants to send from their own
+// personal WhatsApp app instead of the connected Business API number.
 async function chiefsWhatsApp(matchId) {
   var match = CHIEFS_STATE.matches.find(function(m){ return m.id===matchId; });
   if (!match || !match.draft_message) return;
@@ -547,7 +651,14 @@ async function chiefsWhatsApp(matchId) {
     var phone = client.client_phone.replace(/[^0-9+]/g,"");
     window.open("https://wa.me/" + phone + "?text=" + encodeURIComponent(match.draft_message), "_blank", "noopener,noreferrer");
   }
-  await chiefsApproveMatch(matchId);
+  try {
+    await fetch(SUPABASE_URL + "/rest/v1/chiefs_matches?id=eq." + matchId, {
+      method:"PATCH", headers:Object.assign({},_chiefsH(),{"Prefer":"return=minimal"}),
+      body:JSON.stringify({status:"approved",sent_at:new Date().toISOString()}) });
+    var m = CHIEFS_STATE.matches.find(function(x){ return x.id===matchId; });
+    if (m) m.status = "approved";
+  } catch(e) {}
+  render();
 }
 
 async function chiefsDismissMatch(matchId) {
@@ -635,6 +746,50 @@ function _chField(label, value) {
   return w;
 }
 function _chRow() { var r=el("div",{style:{display:"flex",flexWrap:"wrap",gap:"12px",marginTop:"8px"}}); Array.from(arguments).forEach(function(c){if(c)r.appendChild(c);}); return r; }
+
+// ── AUTOMATION SETTINGS UI ────────────────────────────────────────────────────
+function _chToggleRow(label, desc, checked, onChange, isLast) {
+  var cl = C();
+  var row = el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"10px",
+    padding:"10px 0",borderBottom:isLast?"none":"1px solid "+cl.border}});
+  var info = el("div",{style:{flex:"1",minWidth:"0"}});
+  info.appendChild(div({color:cl.white,fontSize:"12px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},label));
+  info.appendChild(div({color:cl.muted,fontSize:"10.5px",marginTop:"2px",fontFamily:"'Inter',sans-serif",lineHeight:"1.4"},desc));
+  row.appendChild(info);
+  var sw = el("button",{style:{width:"42px",height:"24px",borderRadius:"20px",border:"none",cursor:"pointer",
+    background:checked?"#10B981":"rgba(255,255,255,0.15)",position:"relative",flexShrink:"0",transition:"background 0.2s",padding:"0"}});
+  var knob = el("div",{style:{width:"18px",height:"18px",borderRadius:"50%",background:"#fff",position:"absolute",top:"3px",
+    left:checked?"21px":"3px",transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.4)"}});
+  sw.appendChild(knob);
+  sw.addEventListener("click",function(){ onChange(!checked); });
+  row.appendChild(sw);
+  return row;
+}
+
+// Per the standing product directive (2026-07-17): this tab should default
+// to fully autonomous operation. Each toggle here is the ONLY "manual"
+// concept this tab has — AI does the work either way, this just decides
+// whether it acts on its own or waits for one approval click.
+function _renderChiefsAutomationSettings() {
+  var cl = C();
+  var card = el("div",{style:{background:"linear-gradient(135deg,rgba(212,175,55,0.06),rgba(212,175,55,0.015))",
+    border:"1px solid rgba(212,175,55,0.22)",borderRadius:"14px",padding:"14px 16px",marginBottom:"16px"}});
+  var hdr = el("div",{style:{display:"flex",alignItems:"center",gap:"7px",marginBottom:"4px"}});
+  hdr.appendChild(span({fontSize:"14px"},"⚡"));
+  hdr.appendChild(div({color:"#D4AF37",fontSize:"11px",fontWeight:"800",letterSpacing:"0.08em",fontFamily:"'Space Grotesk',monospace"},"AUTOMATION"));
+  card.appendChild(hdr);
+  card.appendChild(div({color:cl.muted,fontSize:"10.5px",marginBottom:"2px",fontFamily:"'Inter',sans-serif",lineHeight:"1.4"},"Your AI assistant, on autopilot by default. Turn any of these off if you'd rather review and approve with one click first."));
+  card.appendChild(_chToggleRow("Auto-draft messages for new matches",
+    "The moment a client is matched to a listing, AI writes the WhatsApp message — no need to click Draft yourself.",
+    CHIEFS_AUTOMATION.autoDraft, function(v){ CHIEFS_AUTOMATION.autoDraft=v; _chiefsSaveAutomation(); render(); }));
+  card.appendChild(_chToggleRow("Auto-send matched messages",
+    "Sends the drafted message straight to the client's WhatsApp the moment it's ready. Turn off to review and approve each one first.",
+    CHIEFS_AUTOMATION.autoSend, function(v){ CHIEFS_AUTOMATION.autoSend=v; _chiefsSaveAutomation(); render(); }));
+  card.appendChild(_chToggleRow("Auto-save extracted client info",
+    "Scanned WhatsApp chats and transcribed calls save straight to your Client Memory Bank. Turn off to review the extracted details first.",
+    CHIEFS_AUTOMATION.autoSaveExtracted, function(v){ CHIEFS_AUTOMATION.autoSaveExtracted=v; _chiefsSaveAutomation(); render(); }, true));
+  return card;
+}
 
 function _chiefsToast(icon, title, subtitle, onView) {
   var ctr = document.getElementById("chiefs-toast-ctr");
@@ -889,6 +1044,8 @@ function _renderChiefsDashboard() {
 
   var briefingCard = _renderChiefsBriefing();
   if (briefingCard) wrap.appendChild(briefingCard);
+
+  wrap.appendChild(_renderChiefsAutomationSettings());
 
   // Stats row
   var inv = CHIEFS_STATE.inventory; var cli = CHIEFS_STATE.clients;
@@ -1165,6 +1322,7 @@ function _renderChiefsClients() {
     var scCard = _chCard(null,{background:"rgba(37,211,102,0.05)",border:"1px solid rgba(37,211,102,0.2)"});
     scCard.appendChild(div({color:"#25D366",fontSize:"11px",fontWeight:"700",letterSpacing:"0.1em",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"SCAN WHATSAPP / EMAIL / CALL"));
     scCard.appendChild(div({color:cl.sub,fontSize:"11px",marginBottom:"8px",fontFamily:"'Inter',sans-serif"},"Paste a conversation, or upload a recorded call — AI transcribes and extracts client requirements either way."));
+    scCard.appendChild(div({color:CHIEFS_AUTOMATION.autoSaveExtracted?"#10B981":"#F59E0B",fontSize:"10px",marginBottom:"8px",fontFamily:"'Inter',sans-serif"},CHIEFS_AUTOMATION.autoSaveExtracted?"⚡ Auto-save is ON — extracted client saves straight to your Client Memory Bank, no extra click. Turn off in ⚡ Automation (Dashboard) to review first.":"Auto-save is OFF — you'll review the extracted details before saving. Turn on in ⚡ Automation (Dashboard) to skip this step."));
 
     // Voice call upload — reuses the pay-per-use Whisper credit pool already
     // built for the Video Editor's real-subtitle feature.
@@ -1805,8 +1963,24 @@ function renderChiefsDocGenOverlay() {
 var CHIEFS_COPILOT = {
   open: false, text: "", source: "", senderName: "", senderContact: "",
   analyzing: false, needs: null, matches: [], draft: null, drafting: false,
-  error: null, saving: false
+  error: null, saving: false, sent: false
 };
+
+// Shared low-level send used by both the Matches pipeline and the Co-pilot —
+// tries the real, connected WhatsApp Business API first; returns false
+// (never throws) so callers can fall back to clipboard/wa.me gracefully.
+async function _chiefsRawWhatsAppSend(phone, text) {
+  if (!phone || !text) return false;
+  try {
+    var accessToken = localStorage.getItem("dv_access_token");
+    var resp = await fetch("/api/inbox?action=whatsapp-send", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ access_token: accessToken, to: phone.replace(/\D/g,""), message: text })
+    });
+    var data = await resp.json().catch(function(){ return {}; });
+    return resp.ok && data.ok !== false;
+  } catch (e) { return false; }
+}
 
 async function chiefsCopilotAnalyze(text, source, senderName, senderContact) {
   if (!text || !text.trim()) return;
@@ -1820,6 +1994,7 @@ async function chiefsCopilotAnalyze(text, source, senderName, senderContact) {
   CHIEFS_COPILOT.matches = [];
   CHIEFS_COPILOT.draft = null;
   CHIEFS_COPILOT.error = null;
+  CHIEFS_COPILOT.sent = false;
   render();
 
   // Ensure inventory is loaded
@@ -1952,6 +2127,17 @@ async function chiefsCopilotDraft() {
     var draftData = await draftR.json();
     var draft = draftData.choices && draftData.choices[0] && draftData.choices[0].message && draftData.choices[0].message.content;
     CHIEFS_COPILOT.draft = draft || "";
+    // Automation: for a real WhatsApp conversation (not email/Instagram/
+    // Facebook, which have no send API wired here), send the reply the
+    // moment it's drafted, unless the agent has turned auto-send off.
+    var isWhatsAppPhone = CHIEFS_COPILOT.source === "whatsapp" && CHIEFS_COPILOT.senderContact && !CHIEFS_COPILOT.senderContact.includes("@");
+    if (CHIEFS_AUTOMATION.autoSend && isWhatsAppPhone && CHIEFS_COPILOT.draft) {
+      var ok = await _chiefsRawWhatsAppSend(CHIEFS_COPILOT.senderContact, CHIEFS_COPILOT.draft);
+      if (ok) {
+        CHIEFS_COPILOT.sent = true;
+        _chiefsToast("🤖","Auto-replied via WhatsApp","Sent to "+(CHIEFS_COPILOT.senderName||"the client"));
+      }
+    }
   } catch(e) {
     CHIEFS_COPILOT.draft = "Could not generate draft. Please write your reply manually.";
   }
@@ -2078,15 +2264,30 @@ function renderChiefsCopilotOverlay() {
       dSpin.appendChild(dsp);
       dSpin.appendChild(div({ color: cl.sub, fontSize: "12px", fontFamily: "'Inter',sans-serif" }, "Drafting personalized reply..."));
       dSec.appendChild(dSpin);
+    } else if (CHIEFS_COPILOT.sent) {
+      var sentBox = el("div", { style: { background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.3)", borderRadius: "10px", padding: "12px", marginBottom: "8px" } });
+      sentBox.appendChild(div({ color: "#10B981", fontSize: "12px", fontWeight: "700", fontFamily: "'Space Grotesk',monospace", marginBottom: "6px" }, "✓ Sent automatically via WhatsApp"));
+      sentBox.appendChild(div({ color: cl.sub, fontSize: "12px", lineHeight: "1.5", fontFamily: "'Inter',sans-serif" }, CHIEFS_COPILOT.draft));
+      dSec.appendChild(sentBox);
     } else {
       var ta = el("textarea", { style: { width: "100%", boxSizing: "border-box", background: "#070B14", border: "1px solid rgba(212,175,55,0.3)", borderRadius: "10px", padding: "12px", color: "#fff", fontSize: "13px", fontFamily: "'Inter',sans-serif", lineHeight: "1.6", resize: "vertical", minHeight: "120px", outline: "none", display: "block", marginBottom: "8px" } });
       ta.value = CHIEFS_COPILOT.draft;
       ta.addEventListener("input", function() { CHIEFS_COPILOT.draft = this.value; });
       dSec.appendChild(ta);
       var actRow = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } });
+      var isWa = CHIEFS_COPILOT.source === "whatsapp" && CHIEFS_COPILOT.senderContact && !CHIEFS_COPILOT.senderContact.includes("@");
+      if (isWa) {
+        actRow.appendChild(_chBtn('<i data-lucide="send" style="width:11px;height:11px"></i>Approve & Send', "rgba(16,185,129,0.12)", "#10B981", function() {
+          var contact = CHIEFS_COPILOT.senderContact, msg = CHIEFS_COPILOT.draft;
+          _chiefsRawWhatsAppSend(contact, msg).then(function(ok) {
+            if (ok) { CHIEFS_COPILOT.sent = true; render(); }
+            else { navigator.clipboard.writeText(msg||"").catch(function(){}); window.open("https://wa.me/"+contact.replace(/\D/g,"")+"?text="+encodeURIComponent(msg||""),"_blank"); }
+          });
+        }, { border: "1px solid rgba(16,185,129,0.3)", fontSize: "12px" }));
+      }
       actRow.appendChild(_chBtn('<i data-lucide="copy" style="width:11px;height:11px"></i>Copy', "rgba(212,175,55,0.1)", "#D4AF37", function() { navigator.clipboard.writeText(CHIEFS_COPILOT.draft || "").catch(function(){}); }, { border: "1px solid rgba(212,175,55,0.25)", fontSize: "12px" }));
       if (CHIEFS_COPILOT.senderContact && !CHIEFS_COPILOT.senderContact.includes("@")) {
-        actRow.appendChild(_chBtn('<i data-lucide="message-circle" style="width:11px;height:11px"></i>WhatsApp', "rgba(37,211,102,0.1)", "#25D366", function() { var ph = CHIEFS_COPILOT.senderContact.replace(/\D/g,""); if(ph) window.open("https://wa.me/"+ph+"?text="+encodeURIComponent(CHIEFS_COPILOT.draft||""),"_blank"); }, { border: "1px solid rgba(37,211,102,0.25)", fontSize: "12px" }));
+        actRow.appendChild(_chBtn('<i data-lucide="message-circle" style="width:11px;height:11px"></i>WhatsApp App', "rgba(37,211,102,0.1)", "#25D366", function() { var ph = CHIEFS_COPILOT.senderContact.replace(/\D/g,""); if(ph) window.open("https://wa.me/"+ph+"?text="+encodeURIComponent(CHIEFS_COPILOT.draft||""),"_blank"); }, { border: "1px solid rgba(37,211,102,0.25)", fontSize: "12px" }));
       }
       actRow.appendChild(_chBtn('<i data-lucide="refresh-cw" style="width:11px;height:11px"></i>Regenerate', "rgba(255,255,255,0.04)", cl.sub, function() { chiefsCopilotDraft(); }, { border: "1px solid " + cl.border, fontSize: "12px" }));
       dSec.appendChild(actRow);

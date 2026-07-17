@@ -102,9 +102,17 @@ incident: 198k vs 400k+ actual) is unacceptable and must never happen again.
 
 ## 🔴 #3 CRITICAL DIRECTIVE — AI Chief of Staff: Automation-First, Per-Process Auto/Approval Toggle
 
-Standing product requirement from the user (2026-07-17, session 14), given as a
-reminder for whenever work resumes on this tab — not yet implemented, no code
-changed for this directive as of the date it was written.
+Standing product requirement from the user (2026-07-17, session 14).
+**Implemented later the same session** — see the "AI Chief of Staff —
+Automation Settings shipped" work-log entry below for exactly what was built
+(the `CHIEFS_AUTOMATION` toggle system, wired into auto-matching/drafting/
+sending/client-extraction) and what was deliberately left as an explicit
+per-action trigger (Document Assistant, and the inherently-manual Inventory/
+Client/Pipeline data-entry forms, which have no external source to automate
+from). Keep this directive's text below as the source-of-truth VISION for
+any future capability this tab grows — a new feature should be built
+automation-first from day one, matching the pattern already shipped, not
+re-litigated per feature.
 
 **The vision**: an agent/user using AI Chief of Staff should feel like they hired
 a real personal assistant — one 100x smarter and faster than a human — not a
@@ -531,6 +539,120 @@ features continue working exactly as before. Zero breakage.
 - `theme-color` meta tag added (`#070B14`)
 
 ## Recent work log (most recent first)
+
+- **2026-07-17 (session 14, AI Chief of Staff — Automation Settings shipped,
+  implementing the standing directive above)**: User asked for a full
+  inventory of every tool in AI Chief of Staff, then to bring each one to
+  the automation-first state described in the directive just written above
+  — no manual copy/paste-style workflow anywhere, one toggle per
+  automatable process, default ON.
+  - **Full tool inventory** (`js/chiefs.js`) reviewed end to end: Dashboard
+    (stats/quick actions/Smart To-Do), Daily Briefing (already auto-
+    generates once per session), Property Inventory CRUD (inherently manual
+    data entry — nobody else has an agent's own pocket-listing details to
+    pull in automatically), Client Memory Bank CRUD, **Conversation
+    Scanner** (previously: paste text → click Extract → review → click "Use
+    This Client" → form opens → click Save — a 2-click manual review even
+    after extraction), **Voice Call Transcription** (upload → auto-
+    transcribes → auto-runs the same scanner → same 2-click manual review),
+    **Auto-Matching Engine** (already automatic on every inventory/client
+    save), **AI Message Drafter** (previously: manual "Draft Message" click
+    per match), **match approval/send** (previously: "Copy & Approve" —
+    copies to clipboard, agent must paste into WhatsApp themselves — or
+    "Send via WhatsApp" — opens a wa.me deep-link, still requires the agent
+    to hit send in their own WhatsApp app), Deal Pipeline CRUD (inherently
+    manual — nobody else tracks an agent's own deal stages), Commission
+    Tracker (pure read-only computed report, no action to automate),
+    Document Assistant (AI already writes 100% of the text; kept as an
+    explicit per-deal trigger — there's no sensible "automatic" moment to
+    draft an Offer Letter or MOU without the agent choosing to, unlike a
+    routine data-collection task), **AI Chief Co-pilot** (Inbox's "Analyze
+    with Co-pilot" — previously: analyze → click "Generate Reply Draft" →
+    Copy or open wa.me manually).
+  - **Fix — real automation, not just a settings screen that does nothing**:
+    new `CHIEFS_AUTOMATION` state (`autoDraft`/`autoSend`/`autoSaveExtracted`,
+    all default `true`, persisted to `localStorage` — cross-device Supabase
+    sync flagged as a follow-up below) plus a visible "⚡ AUTOMATION" toggle
+    card at the top of the Dashboard (3 switches, plain language, no jargon).
+    Wired into the actual pipelines, not just cosmetic:
+    - `_chiefsAutoMatch()` now auto-drafts every freshly-created match
+      immediately (fire-and-forget `chiefsDraftMessage()` per match) when
+      `autoDraft` is on — the agent never has to open Matches and click
+      Draft one by one.
+    - `chiefsDraftMessage()` now auto-sends the moment drafting finishes,
+      when `autoSend` is on, via a new `chiefsSendMatchMessage()`.
+    - **The actual "send" mechanism was upgraded, not just gated by a
+      toggle**: `chiefsSendMatchMessage()`/the redesigned `chiefsApproveMatch()`
+      now POST to the real, already-working WhatsApp Business API endpoint
+      (`/api/inbox?action=whatsapp-send` — the exact pipeline fixed earlier
+      this same session) instead of copying to the clipboard and hoping the
+      agent pastes it in. This closes the actual gap the user was pointing
+      at: "approval" in this tab now means one click that DOES the action,
+      not one click that prepares the action for the agent to still do by
+      hand elsewhere. Falls back to the old clipboard+wa.me behavior only
+      when WhatsApp Business API isn't connected yet or the client has no
+      phone on file — never a hard failure, and the match status
+      (`sent` vs `approved`) reflects which actually happened. The old
+      `chiefsWhatsApp()` function is kept as a deliberate manual override
+      for an agent who wants to send from their own personal WhatsApp app
+      instead of the connected Business number.
+    - `chiefsScanConversation()` now calls a new `chiefsScannerAutoSave()`
+      immediately after AI extraction, when `autoSaveExtracted` is on —
+      saves straight to the Client Memory Bank (via the existing
+      `chiefsSaveClient()`, which itself already triggers auto-matching) with
+      zero further clicks. Since `chiefsTranscribeVoiceCall()` already funnels
+      into this same function, the voice-call entry point gets this for
+      free — one shared toggle covers both entry points, per the directive's
+      explicit requirement. When off, the existing 2-step manual review is
+      unchanged, now with a small status line explaining which mode is
+      active and where to change it.
+    - **AI Chief Co-pilot** (`chiefsCopilotDraft()`, Inbox's per-message
+      helper): now auto-sends via the same real WhatsApp API the instant a
+      reply is drafted — but ONLY when the source is genuinely a WhatsApp
+      conversation with a phone-shaped contact (email/Instagram/Facebook
+      replies have no send API wired here, so auto-send is a no-op for
+      those, exactly as before). When off (or not applicable), the overlay
+      now also gained a real "Approve & Send" button using the same API
+      call (falls back to clipboard+wa.me), alongside the pre-existing
+      "Copy"/"WhatsApp App" manual-override buttons — so even "approval"
+      mode here is a single real send, not copy-then-go-paste-elsewhere.
+  - **Deliberately NOT made automatic, with reasoning**: Property Inventory,
+    Client, and Pipeline manual CRUD forms — these are the agent's own
+    private data with no external source to pull from automatically; "type
+    it in" IS the entry mechanism here, not a routine-task complaint the
+    directive was aimed at. Document Assistant's generation trigger — stays
+    an explicit per-deal action since there's no sensible "automatic"
+    moment to draft a legal-adjacent document without being asked.
+  - **Accepted, disclosed trade-off**: with every toggle at its default
+    (all `true`), the AI now autonomously SENDS real WhatsApp messages to
+    real clients with no human ever reading them first, the moment a match
+    or an inbox reply is drafted. This is a real, deliberate consequence of
+    the user's own explicit design directive ("default should lean toward
+    automatic... a user has to deliberately flip a process to requires
+    approval") — flagged here plainly rather than silently softened, so a
+    future session (or the user, re-reading this) understands exactly what
+    shipping with these defaults means in production.
+  - Verified: a Node vm-sandbox test (17 checks) — automation defaults all
+    true, persists to and respects `localStorage` overrides, the scanner
+    auto-saves the AI-extracted client with the correct data and closes
+    itself with zero manual clicks when `autoSaveExtracted` is on, correctly
+    shows the review card instead when it's off, `chiefsSendMatchMessage()`
+    tries the real API first and correctly falls back to clipboard+wa.me
+    (status `approved`) on failure, correctly reports `sent` status on a
+    real API success, and `_chiefsAutoMatch()` genuinely triggers
+    `chiefsDraftMessage()` for a freshly-created match when `autoDraft` is
+    on (confirmed the match object actually has a `draft_message` after the
+    fire-and-forget call resolves); `node -c js/chiefs.js`; and a
+    real-browser Playwright pass confirming the new "⚡ AUTOMATION" card
+    renders on the Dashboard with all 3 toggles at their correct default
+    (on) state, and clicking a toggle flips both the in-memory state and
+    the persisted `localStorage` value — zero console errors.
+  - **Follow-up not done this session**: per-device-only persistence
+    (`localStorage`) means these toggles don't sync across an agent's
+    devices/browsers — a small `chiefs_settings` Supabase table (or a new
+    column on `user_profiles`) would fix this, flagged for whenever cross-
+    device consistency for this tab actually matters to the user, not built
+    speculatively here.
 
 - **2026-07-17 (session 14, CRITICAL — real root cause of "WhatsApp messages
   never arrive" finally found: the `messages` webhook field was never
