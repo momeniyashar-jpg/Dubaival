@@ -563,6 +563,26 @@ features continue working exactly as before. Zero breakage.
     it, so it's obvious the migration is still pending. `JINA_API_KEY`/
     `GEMINI_API_KEY` and `SUPABASE_SERVICE_ROLE_KEY` were already required
     for the rest of the RAG pipeline and need no additional setup.
+  - **Follow-up same session**: user asked to also cover research/domain
+    knowledge already established earlier in this project (not just this
+    session's off-plan work) — added a 2nd seed,
+    `_adminResearchLoadEstablishedFactsPack()` (a "↓ Load Established
+    Market/Regulation Facts (3 more)" button next to the off-plan one): the
+    Dubai market cycle history (2002 freehold boom through the 2026
+    moderation phase — the same era narrative already shown on the Market
+    Dashboard's "All" chart view), DLD transfer fee + other closing costs
+    (4% DLD fee, ~2% agency commission, mortgage registration fee — the same
+    figures already used in the mortgage calculator/Analyzer cost
+    breakdowns), and UAE mortgage LTV rules (expat vs. national caps,
+    tiered by price — from the mortgage engine). Deliberately did NOT
+    include this session's OWN research into Bayut/RapidAPI endpoint names
+    or the DLD Dubai Pulse open-data API — those describe options for OUR
+    data pipeline, not real-estate knowledge a user's question would ever
+    need, so adding them would only dilute retrieval with irrelevant
+    internal facts. Both seed buttons push into the same queue and dedupe
+    by title (clicking either twice doesn't double-add) — verified via a
+    Playwright test confirming all 8 notes queue correctly together and
+    re-clicking both buttons a second time still leaves exactly 8.
 
 - **2026-07-17 (session 14, follow-up — Off-Plan Projects: "Paste & Extract"
   AI ingestion, 3rd data-connection path)**: Direct continuation of the

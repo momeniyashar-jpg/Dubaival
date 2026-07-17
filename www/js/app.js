@@ -1502,6 +1502,27 @@ function _adminResearchLoadOffplanPack(){
   pack.forEach(function(n){if(existingTitles.indexOf(n.title)===-1)ADMIN_RESEARCH_STATE.queue.push(n);});
   render();
 }
+// Convenience seed #2 (added 2026-07-17, follow-up to the off-plan pack —
+// user asked to also cover research/domain knowledge already established
+// earlier in this project, not just this session's off-plan work): 3 more
+// genuine Dubai real-estate domain facts already verified/used elsewhere in
+// this exact app (market cycle chart, mortgage calculator, DLD fee
+// breakdowns) but never previously fed into the RAG knowledge base.
+// Deliberately does NOT include this session's Bayut/RapidAPI-endpoint or
+// DLD-Dubai-Pulse-open-data research — those are about OUR OWN data source
+// integration options, not real estate knowledge a user's question would
+// ever need, so injecting them would just dilute retrieval with irrelevant
+// internal facts.
+function _adminResearchLoadEstablishedFactsPack(){
+  var pack=[
+    {title:"Dubai real estate market cycle since 2002",tag:"market-history",area:null,content:"Dubai's freehold real estate market has moved through several distinct cycles since foreign freehold ownership was introduced in 2002: a strong freehold boom from 2002 to 2008 with roughly +400% cumulative price growth; a sharp correction of about -50% during the 2008 global financial crisis; a recovery phase from around 2008 to 2011; an oversupply-driven correction from 2014 to 2019; a COVID-19 dip in 2020; a strong post-pandemic super-cycle from 2021 to 2025 driven by population growth, visa reforms, and safe-haven demand; and a moderation phase beginning in 2026. This is illustrative historical context reconstructed from known market eras, not exact transaction-level data for every single year."},
+    {title:"Dubai property transaction costs (DLD fee and other closing costs)",tag:"regulation",area:null,content:"Buying property in Dubai typically involves a Dubai Land Department (DLD) transfer fee of 4% of the property value, one of the largest one-time closing costs. Additional typical costs include a real estate agency commission (commonly around 2% of the price), a mortgage registration fee (a small percentage of the loan amount, if financing), and NOC (No Objection Certificate) or admin fees charged by some developers/buildings. Buyers should budget for these on top of the property price and any down payment."},
+    {title:"UAE mortgage loan-to-value (LTV) rules",tag:"regulation",area:null,content:"The UAE Central Bank sets maximum loan-to-value ratios for mortgages, which vary by buyer nationality/residency and property price. Expatriate buyers typically face a lower maximum LTV than UAE nationals, and the maximum LTV is generally lower for higher-priced properties (a common structure applies one LTV cap for properties under AED 5 million and a lower cap above that threshold). These caps directly affect the down payment a buyer needs and should always be confirmed against the buyer's own bank and current regulations, since specific percentages can be adjusted by regulators over time."}
+  ];
+  var existingTitles2=ADMIN_RESEARCH_STATE.queue.map(function(n){return n.title;});
+  pack.forEach(function(n){if(existingTitles2.indexOf(n.title)===-1)ADMIN_RESEARCH_STATE.queue.push(n);});
+  render();
+}
 async function _adminResearchInject(){
   if(!window._adminPw)return;
   if(!ADMIN_RESEARCH_STATE.queue.length){ADMIN_RESEARCH_STATE.error="Queue is empty — add at least one note first.";render();return;}
@@ -2041,10 +2062,14 @@ function renderAdmin(){
   rsCard.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"◆ AI Knowledge Base — Research Injection"));
   rsCard.appendChild(div({color:cl.sub,fontSize:"10.5px",fontFamily:"'Inter',sans-serif",marginBottom:"12px",lineHeight:"1.5"},"Add durable real-estate domain facts (process/regulation knowledge, not one-off news) into the AI's grounded knowledge base — makes Chat Agents/Advisor/Portfolio Analysis answers more expert over time."));
   var rs=ADMIN_RESEARCH_STATE;
-  var rsSeedBtn=el("button",{style:{width:"100%",padding:"8px",borderRadius:"8px",border:"1px dashed "+cl.border,background:"transparent",color:cl.sub,fontSize:"10.5px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",marginBottom:"10px"}});
+  var rsSeedBtn=el("button",{style:{width:"100%",padding:"8px",borderRadius:"8px",border:"1px dashed "+cl.border,background:"transparent",color:cl.sub,fontSize:"10.5px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",marginBottom:"6px"}});
   rsSeedBtn.textContent="↓ Load This Session's Off-Plan Research (5 facts)";
   rsSeedBtn.onclick=function(){_adminResearchLoadOffplanPack();};
   rsCard.appendChild(rsSeedBtn);
+  var rsSeedBtn2=el("button",{style:{width:"100%",padding:"8px",borderRadius:"8px",border:"1px dashed "+cl.border,background:"transparent",color:cl.sub,fontSize:"10.5px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",marginBottom:"10px"}});
+  rsSeedBtn2.textContent="↓ Load Established Market/Regulation Facts (3 more)";
+  rsSeedBtn2.onclick=function(){_adminResearchLoadEstablishedFactsPack();};
+  rsCard.appendChild(rsSeedBtn2);
 
   var rsGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px"}});
   function rsField(placeholder,key,type){return inp(Object.assign({},I(),{fontSize:"11px",padding:"6px 8px"}),placeholder,type||"text",rs.draft[key],function(v){rs.draft[key]=v;});}
