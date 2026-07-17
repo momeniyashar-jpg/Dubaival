@@ -733,7 +733,12 @@ function computeValuation(f,buildingVal,liveData){
   rent=Math.round(rent*_furnRentM);
   if(f.view&&f.view!=="Not specified"){var _vl=f.view.toLowerCase();var _vrm=_vl==="burj khalifa + fountain"?1.18:_vl.indexOf("fountain")>=0?1.15:_vl.indexOf("full sea")>=0||_vl.indexOf("burj khalifa")>=0?1.12:_vl.indexOf("beach access")>=0||_vl.indexOf("palm")>=0?1.10:_vl.indexOf("marina")>=0||_vl.indexOf("full canal")>=0||_vl.indexOf("partial burj")>=0?1.08:_vl.indexOf("partial sea")>=0?1.07:_vl.indexOf("golf")>=0||_vl.indexOf("boulevard")>=0?1.06:_vl.indexOf("lagoon")>=0||_vl.indexOf("creek")>=0||_vl.indexOf("lake")>=0?1.05:_vl.indexOf("skyline")>=0?1.04:_vl.indexOf("partial canal")>=0||_vl.indexOf("sheikh zayed")>=0?1.03:_vl.indexOf("garden")>=0||_vl.indexOf("park")>=0?1.02:_vl.indexOf("pool")>=0||_vl.indexOf("community")>=0?1.01:1.0;rent=Math.round(rent*_vrm);}
   if(!isVilla&&f.floor){var _fl=parseInt(f.floor)||0;if(_fl>=40)rent=Math.round(rent*1.05);else if(_fl>=25)rent=Math.round(rent*1.03);else if(_fl>=15)rent=Math.round(rent*1.02);}
-  const sc=(parseFloat(f.serviceCharge)||(bData&&bData.sc)||aData.sc||15)*size;
+  // Service charge is now fully manual (2026-07-17) — per-building sc figures
+  // in the DB had confirmed errors, and silently substituting them into a
+  // headline Net Yield number was worse than a disclosed generic estimate.
+  // Only the user's own entered value is trusted here; the flat 15 fallback
+  // is a neutral Dubai-wide placeholder, never presented as building-specific.
+  const sc=(parseFloat(f.serviceCharge)||15)*size;
   const grossYield=(rent/price*100).toFixed(1);
   const netYield=((rent-sc)/price*100).toFixed(1);
   const gr=aData.g||[3,9,16];
@@ -771,9 +776,14 @@ function computeValuation(f,buildingVal,liveData){
   const vsPctNum=parseFloat(vsPct)||0;
   const priceGapScore=vsPctNum<=-20?95:vsPctNum<=-12?85:vsPctNum<=-5?72:vsPctNum<=0?58:vsPctNum<=5?42:vsPctNum<=12?25:10;
   // Component 2: Building Quality & Condition (20% weight)
-  const scPSF=parseFloat(f.serviceCharge)||(bData&&bData.sc)||aData.sc||15;
+  // scPSF (the actual figure being judged) is now manual-only, same reasoning
+  // as the sc calc above — but expectedSC stays an AREA-level average (an
+  // aggregate across many buildings, not one potentially-wrong per-building
+  // DB entry) since it's only ever used as a comparison benchmark here, never
+  // reported to the user as this property's own service charge.
+  const scPSF=parseFloat(f.serviceCharge)||15;
   const areaSCAvg=aData.sc||15;
-  const expectedSC=bData&&bData.sc?bData.sc:areaSCAvg;
+  const expectedSC=areaSCAvg;
   const scRatio=expectedSC>0?scPSF/expectedSC:1;
   const scScore=scRatio<=0.85?90:scRatio<=1.05?80:scRatio<=1.20?60:scRatio<=1.50?40:20;
   const bGrade=bData?bData.g:null;
@@ -865,7 +875,9 @@ function computeSmartRent(f,liveRentals){
     sourceLabel="Hedonic Model Estimate";
   }
   // --- Yield recalculation ---
-  var sc=(parseFloat(f.serviceCharge)||(bData&&bData.sc)||(aData&&aData.sc)||15)*size;
+  // Service charge is fully manual (2026-07-17) — see computeValuation() for
+  // why per-building/area DB sc figures were removed from this calculation.
+  var sc=(parseFloat(f.serviceCharge)||15)*size;
   var grossYield=price>0?(finalRent/price*100).toFixed(1):"0.0";
   var netYield=price>0?((finalRent-sc)/price*100).toFixed(1):"0.0";
   var grossYieldNum=parseFloat(grossYield);
@@ -1103,7 +1115,9 @@ function computeRentalValuation(f){
   var askRentPSF=size>0?Math.round(askRent/size):0;
   var estRentPSF=size>0?Math.round(estRent/size):0;
   // Service charge and net rent
-  var sc=(parseFloat(f.serviceCharge)||(bData&&bData.sc)||aData.sc||15)*(size||0);
+  // Service charge is fully manual (2026-07-17) — see computeValuation() for
+  // why per-building/area DB sc figures were removed from this calculation.
+  var sc=(parseFloat(f.serviceCharge)||15)*(size||0);
   var netRent=askRent-sc;
   // Area rental benchmarks for comparison
   var areaRents=[];

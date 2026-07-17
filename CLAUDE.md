@@ -461,6 +461,63 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-17 (session 14, service charge made fully manual in the single-
+  property Analyzer)**: User reported checking service charges shown by the
+  app and finding several wrong ones, tracing it to the engine's automatic
+  fallback to the building/area database's `sc` field whenever the
+  Analyzer's optional "Service Charge (AED/sqft/yr)" field was left blank.
+  Explicitly scoped the fix after a clarifying exchange: manual-only applies
+  **strictly to the single-property Analyzer flow** (sale valuation, rental
+  valuation, Smart Rent check) — bulk/multi-building contexts (Smart
+  Discovery/Screener, Map, Portfolio-wide sustainability scoring) have no
+  per-property manual entry point at all and were explicitly left untouched,
+  still using the database/live-data fallback as before.
+  - **`js/valuation.js`** — 4 functions that reference the Analyzer's `f`
+    (form) object no longer fall back to `bData.sc`/`aData.sc` for the
+    ACTUAL reported service charge figure, only `parseFloat(f.serviceCharge)`
+    or a flat, clearly-generic 15 AED/sqft/yr placeholder if left blank:
+    `computeValuation()`'s netYield calc, `computeSmartRent()`, and
+    `computeRentalValuation()`. `computeValuation()`'s Margin-of-Safety
+    "Building Quality & Condition" component keeps `aData.sc` (an area-wide
+    average, not one potentially-wrong per-building entry) as the
+    COMPARISON BENCHMARK only — the number being judged (`scPSF`) is
+    manual-only, same as everywhere else. Left the 3 bulk-scan functions
+    (`estimateBuildingYield`, `estimateBuildingRentYield`,
+    `estimateRentalDemandScore` — none take an `f` param, all iterate many
+    buildings at once for Find/Map/Discovery) completely unchanged.
+  - **`js/core.js`** — `computeSustainabilityScore()`'s "Service Charge
+    Efficiency" component (25% of the score) previously scored `bData.sc`
+    directly with zero connection to the Analyzer form at all. Added an
+    optional 5th `manualSC` param; the efficiency sub-score now stays
+    neutral (70, no penalty/bonus) unless the user has actually entered
+    their own service charge, comparing it against the area average
+    (again, a benchmark only). Portfolio's 3 bulk sustainability call sites
+    (`js/portfolio.js`) deliberately left unchanged — no per-asset manual
+    override field exists there, out of scope per the user's own framing.
+  - **`js/market.js`** — Analyzer result's own `computeSustainabilityScore`
+    call site now passes `f.serviceCharge`; added a new "Service Charge"
+    row to the existing "Confidence Factors" panel
+    (User-provided / Not provided — generic estimate used) so the new
+    manual-only behavior is visible, not a silent change.
+  - **`js/workspace.js`** — Report Builder's sustainability section call
+    site (reads from `analyzerState.f`) updated to pass
+    `analyzerState.f.serviceCharge` too.
+  - **`js/app.js`** — both PDF export templates (English + Arabic) had a
+    sub-caption literally printing `val.bData.sc` next to the Service
+    Charge metric, presenting the untrusted per-building DB figure as fact
+    on an exported document. Now shows "User-provided" vs "Generic estimate
+    — enter yours for accuracy" (Arabic: "أدخلها المستخدم" / "تقدير عام")
+    based on whether `f.serviceCharge` was actually entered.
+  - Verified: `node -c` on all 5 touched files; a Node vm-sandbox test
+    confirming a real building with a real (non-15) `bData.sc` no longer
+    gets silently substituted into `val.sc`/netYield when the field is left
+    blank (uses the flat 15 default instead), confirming the manual value IS
+    used correctly when provided, and confirming the sustainability score's
+    efficiency component stays neutral (70) with no input and reacts
+    correctly once one is given; a broader regression pass computing
+    `computeValuation()` across a sample of real buildings/areas with mixed
+    manual-SC-present/absent inputs, 0 throws.
+
 - **2026-07-17 (session 14, follow-up — Market Dashboard's PSF/Yield
   histograms made clickable)**: Direct follow-up to the Home redesign above
   — user flagged the "PSF Distribution"/"Yield Distribution" bar charts on

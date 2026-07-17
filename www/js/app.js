@@ -1054,7 +1054,10 @@ function generatePDF(){
   var dateStr=now.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
   var propName=(f.building||f.cluster||f.area||'Property')+' - '+(f.beds||'')+' '+(f.propCategory==='villa'?'Villa':'Apartment');
   var suggestStr=val.suggestedOffer?'Negotiate to AED '+val.suggestedOffer.toLocaleString():'At asking price';
-  var scStr=val.bData&&val.bData.sc?val.bData.sc+' AED/sqft':'Estimated';
+  // Service charge is fully manual (2026-07-17) — no longer shows val.bData.sc
+  // (a per-building DB figure with confirmed errors) as if it were this
+  // property's own fact; only reflects what the user actually entered.
+  var scStr=f.serviceCharge?'User-provided':'Generic estimate — enter yours for accuracy';
   var layerStr=['','Verified DB','Live Comps','','Area Benchmark'][val.dataLayer]||'Estimate';
   var viewStr=f.view&&f.view!=='Not specified'?f.view:'—';
   var brokerHtml='';
@@ -1197,7 +1200,7 @@ function generateArabicPDF(){
     {l:'العائد الإجمالي',v:val.grossYield+'%',s:'صافي '+val.netYield+'%'},
     {l:'إشارة الاستثمار',v:investAr,s:'P/R '+(val.priceRentRatio||'—')},
     {l:'العائد الكلي السنوي',v:(val.totalReturnAnnual||'—')+'%',s:'عائد + نمو'},
-    {l:'رسوم الخدمة',v:'AED '+Math.round(val.sc).toLocaleString()+'/سنة',s:(val.bData&&val.bData.sc?val.bData.sc:'—')+' درهم/قدم'}
+    {l:'رسوم الخدمة',v:'AED '+Math.round(val.sc).toLocaleString()+'/سنة',s:f.serviceCharge?'أدخلها المستخدم':'تقدير عام'}
   ];
   arMetrics.forEach(function(m){
     h+='<div style="border:1px solid #e0e0e0;border-radius:6px;padding:10px 12px">';

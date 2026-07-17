@@ -116,18 +116,27 @@ function isRTL(){return dvLang==="ar";}
 function hexAlpha(c,a){if(c&&c.charAt(0)==="#"){var r=parseInt(c.slice(1,3),16),g=parseInt(c.slice(3,5),16),b=parseInt(c.slice(5,7),16);return"rgba("+r+","+g+","+b+","+a+")";}if(c&&c.indexOf("rgb(")===0)return c.replace("rgb(","rgba(").replace(")",","+a+")");return c||"rgba(255,255,255,0.05)";}
 
 var GREEN_AREAS={"Dubai Hills Estate":90,"Dubai Creek Harbour":88,"Expo City":92,"Sustainable City":95,"Town Square":80,"Tilal Al Ghaf":88,"The Valley":82,"Dubai South":78,"Emaar Beachfront":75,"Bluewaters Island":80,"MBR City":82,"DAMAC Hills":72,"Mudon":75,"Remraam":65};
-function computeSustainabilityScore(building,area,bData,aData){
+function computeSustainabilityScore(building,area,bData,aData,manualSC){
   var grade=bData?bData.g:"B";
   var ageScore=grade==="Ultra"||grade==="A+"?92:grade==="A"?85:grade==="A-"?75:grade==="B+"?65:grade==="B"?55:grade==="C"?35:50;
   var scEff=70;
-  if(bData&&bData.sc&&aData&&aData.sc&&aData.sc>0){
+  // Service charge is fully manual (2026-07-17) — this component used to
+  // score bData.sc (a per-building DB figure with confirmed errors) with no
+  // connection to whatever the user actually entered on the Analyzer form.
+  // Now only a real, user-provided service charge is scored; area-level
+  // aData.sc is kept as the comparison BENCHMARK only (an aggregate across
+  // many buildings, not one potentially-wrong entry), never as the reported
+  // figure itself. With no manual input, this component stays neutral (70)
+  // rather than silently scoring an unverified number.
+  var manualSCNum=parseFloat(manualSC)||0;
+  if(manualSCNum>0&&aData&&aData.sc&&aData.sc>0){
     // Branded residences (Ultra/A+) have higher SC for premium services (concierge, hotel amenities, spa)
     // Compare against grade-appropriate benchmark instead of raw area average
     var scBench=aData.sc;
     if(grade==="Ultra")scBench=aData.sc*1.25;
     else if(grade==="A+")scBench=aData.sc*1.15;
     else if(grade==="A")scBench=aData.sc*1.08;
-    var ratio=bData.sc/scBench;
+    var ratio=manualSCNum/scBench;
     scEff=ratio<0.8?90:ratio<=1.0?78:ratio<=1.2?55:30;
   }
   var greenScore=GREEN_AREAS[area]||50;

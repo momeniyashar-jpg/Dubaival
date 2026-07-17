@@ -578,7 +578,7 @@ function generateReport(){
     }else if(sid==="sustainability"){
       if(area&&aData){
         var bData=(analyzerState&&analyzerState.f&&analyzerState.f.building)?lookupBuilding(analyzerState.f.building,area):null;
-        var ss=computeSustainabilityScore((analyzerState&&analyzerState.f&&analyzerState.f.building)||"",area,bData,aData);
+        var ss=computeSustainabilityScore((analyzerState&&analyzerState.f&&analyzerState.f.building)||"",area,bData,aData,analyzerState&&analyzerState.f&&analyzerState.f.serviceCharge);
         h+='<div class="card"><span class="metric">Score: <strong class="accent">'+ss.score+"/100</strong></span>";
         h+='<span class="metric">Tier: <strong>'+ss.tier+"</strong></span></div>";
         h+="<table><tr><th>Factor</th><th>Score</th></tr>";

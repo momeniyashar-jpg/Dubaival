@@ -2340,7 +2340,7 @@ function renderAnalyzerResult(wrap){
   (function(){
     var bData=val.bData||null;
     var aData=AREAS[f.area]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
-    var sus=computeSustainabilityScore(f.building||"",f.area||"",bData,aData);
+    var sus=computeSustainabilityScore(f.building||"",f.area||"",bData,aData,f.serviceCharge);
     var susColor=sus.score>=75?"#10B981":sus.score>=50?"#EAB308":sus.score>=35?"#F97316":"#EF4444";
     var susCard=div({background:cl.surface,border:"1px solid "+hexAlpha(susColor,0.3),borderRadius:"14px",padding:"18px",marginBottom:"14px",position:"relative",overflow:"hidden"});
     susCard.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,"+susColor+","+susColor+",transparent)",animation:"shimmer 3s ease infinite"}));
@@ -2430,6 +2430,10 @@ function renderAnalyzerResult(wrap){
       {l:"Developer Furnished",v:val.isDevFurnished?"Yes — "+furnLabel:"No — "+furnLabel,ok:true},
       {l:"View Specified",v:analyzerState.f.view!=="Not specified"?analyzerState.f.view:"Not specified",ok:analyzerState.f.view!=="Not specified"},
       {l:"Floor Specified",v:analyzerState.f.floor?"Floor "+analyzerState.f.floor:"Not provided",ok:!!analyzerState.f.floor||analyzerState.f.propCategory==="villa"},
+      // Service charge is fully manual (2026-07-17) — per-building DB figures
+      // had confirmed errors, so Net Yield no longer silently substitutes one;
+      // surfacing this here makes the new "manual only" behavior visible.
+      {l:"Service Charge",v:analyzerState.f.serviceCharge?"User-provided":"Not provided — generic estimate used",ok:!!analyzerState.f.serviceCharge},
     ];
     const bWrap=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px 14px",marginTop:"12px"}});
     bWrap.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Confidence Factors"));
