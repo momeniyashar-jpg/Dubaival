@@ -482,6 +482,76 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-17 (session 14, CRITICAL — Admin login was broken because the
+  password previously given to the user was simply wrong, plus a real
+  password-wiping bug found while investigating)**: User reported the admin
+  password didn't work, and asked for a SHOW/HIDE toggle on the password
+  field first, then an investigation into why login fails.
+  - **Root cause #1 — wrong password communicated, never actually verified**:
+    an earlier session/turn told the user the admin password was
+    "DubaiVal2025!", based on a comment in `supabase-admin-security-fix.sql`
+    claiming the hardcoded hash in `_admin_password_ok()` was
+    `sha256("DubaiVal2025!")` — but this was never independently checked.
+    Computed `sha256("DubaiVal2025!")` directly this session
+    (`a5e091ad2b1b38009ac2005f93148976fe6adad289f8ed02c622249f84a39360`) and
+    confirmed it does NOT match the literal hash hardcoded in that file
+    (`67ed667fed4620ba36c09d97b542b81c39a5f63bcbdfe8d1931c234748498fc1`) —
+    the comment was simply wrong, and since SHA-256 is one-way, the actual
+    original password (whatever it was) cannot be recovered from the hash.
+    **Fix**: new migration `supabase-admin-password-reset.sql` (requires
+    manual execution) rotates `_admin_password_ok()`'s hash to a new,
+    definitely-correct password: **`DubaiVal-Admin-2026!`** — following the
+    exact rotation procedure the original file's own comment describes
+    ("replace this literal").
+  - **Root cause #2 — a real, independent bug, found while building the
+    requested SHOW toggle and testing the login flow end-to-end**: 4
+    separate background data-refresh functions in `js/core.js`
+    (`fetchLiveMarket`, `fetchSupabaseConfig`, `fetchMarketIntelligence`, and
+    the market-momentum/AI-intelligence chain that runs 800ms after page
+    load) each call the global `render()` completely unconditionally once
+    their own fetch settles — with no awareness of what the user is doing
+    elsewhere in the app. Since this app rebuilds its entire DOM from scratch
+    on every `render()` call (no virtual-DOM diffing), any of these firing
+    while the user is on the Admin lock screen — a very likely window, since
+    they all fire within the first ~1-13 seconds after page load, exactly
+    when someone opening `#admin` would be typing their password — silently
+    replaces the whole password field with a fresh, empty, un-toggled one,
+    wiping out whatever the user had just typed. Confirmed via a real
+    Playwright test: typing a password and clicking the new SHOW button
+    produced no visible change and the field's value was reset to empty
+    shortly after, even though the click handler itself was correct. This is
+    a completely different, additional bug from the wrong-password issue —
+    it would have caused login attempts to intermittently and confusingly
+    fail (or the field to unexpectedly clear) even with the CORRECT password,
+    depending on exact timing.
+  - **Fix**: added one shared `_dvSafeRender()` helper (`js/core.js`) that
+    skips the re-render specifically when the user is on the Admin section
+    with `!window.ADMIN_UNLOCKED` (none of this background data — market
+    momentum, live Groq/DLD adjustments, Supabase config — is ever shown on
+    that screen, so skipping it there costs nothing) and calls the real
+    `render()` otherwise. All 4 previously-unconditional `render()` calls in
+    the affected background functions now go through this helper instead.
+  - **SHOW/HIDE toggle**: `renderAdmin()`'s password-check block
+    (`js/app.js`) now wraps its password `<input>` with the existing
+    `_dvPasswordField(inputEl,cl)` helper (`js/auth.js`, already used for the
+    Sign In and Set-New-Password fields) instead of appending the raw input
+    directly — reused as-is, no new toggle component built.
+  - Verified: `node -c` on both touched files; a real-browser Playwright test
+    confirming the SHOW/HIDE toggle correctly flips the input's `type`
+    between `password`/`text` and its own label between SHOW/HIDE, that a
+    typed password now survives the background-render window (previously
+    reset to empty), and a full end-to-end login simulation (mocked
+    `admin_verify` RPC returning `true` for the new password) confirming the
+    real Admin Dashboard — Market Risk Controls, System Diagnostics, Live
+    Error & Issue Reports — renders correctly after login.
+  - **Manual step required — this fix is NOT live until run**: execute
+    `supabase-admin-password-reset.sql` in Supabase SQL Editor (requires
+    `supabase-admin-security-fix.sql` already applied, which it is). Until
+    then, the OLD (unknown, non-working) password hash remains live — the
+    new password `DubaiVal-Admin-2026!` will not work until this migration
+    runs. The SHOW/HIDE toggle and the background-render fix both work
+    immediately regardless, independent of the SQL migration.
+
 - **2026-07-17 (session 14, Portfolio Manager audit follow-through — 4
   prioritized improvements)**: Direct continuation of a full multi-
   disciplinary audit of the Portfolio Manager (Compare/Personal Advisor/
@@ -5032,6 +5102,17 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🔴 CRITICAL, NOT YET LIVE — Admin password rotation needs manual SQL
+  execution NOW** (added 2026-07-17, session 14): run
+  `supabase-admin-password-reset.sql` in Supabase SQL Editor immediately.
+  The password previously given to the user ("DubaiVal2025!") was wrong (a
+  stale/incorrect code comment, never actually verified against the real
+  hash) — the admin login has likely never worked with that password. The
+  new password, once this migration runs, is **`DubaiVal-Admin-2026!`**. See
+  the 2026-07-17 "Admin login was broken" work-log entry above for the full
+  root-cause trail (also includes an independent, already-fixed bug where
+  background data-refresh timers could wipe an in-progress password field).
 
 - **🟡 Portfolio value history + weekly digest — needs manual SQL** (added
   2026-07-17, session 14): run `supabase-portfolio-history-schema.sql` and

@@ -1701,7 +1701,7 @@ function renderAdmin(){
   if(!window.ADMIN_UNLOCKED){
     var pwWrap=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"24px",marginTop:"40px"}});
     pwWrap.appendChild(div({color:cl.gold,fontSize:"12px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"16px"},"◆ DubAIVal Admin"));
-    var pwInp=el("input",{type:"password",placeholder:"Enter admin password",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"12px",borderRadius:"8px",fontSize:"14px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"}});
+    var pwInp=el("input",{type:"password",placeholder:"Enter admin password",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"12px",borderRadius:"8px",fontSize:"14px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
     var pwBtn=el("button",{style:{width:"100%",padding:"12px",background:"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#08090C",border:"none",borderRadius:"8px",fontSize:"14px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
     pwBtn.textContent="Login";
     pwBtn.addEventListener("click",async function(){
@@ -1736,7 +1736,9 @@ function renderAdmin(){
         }
       }catch(e){pwBtn.textContent="Login";pwInp.style.borderColor="#EF4444";pwInp.value="";}
     });
-    pwWrap.appendChild(pwInp);
+    var pwFieldWrap=(typeof _dvPasswordField==="function")?_dvPasswordField(pwInp,cl):pwInp;
+    pwFieldWrap.style.marginBottom="10px";
+    pwWrap.appendChild(pwFieldWrap);
     pwWrap.appendChild(pwBtn);
     wrap.appendChild(pwWrap);
     return wrap;

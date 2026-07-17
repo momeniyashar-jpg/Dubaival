@@ -534,6 +534,19 @@ var LIVE_GEO={
   fetching:false
 };
 
+// Background data-refresh timers (market intel, momentum, live config) call
+// this instead of render() directly. They fire on their own schedule,
+// independent of what the user is doing, and this app rebuilds its DOM from
+// scratch on every render() rather than diffing it — so an unguarded
+// background render() firing while the user is mid-login on the Admin lock
+// screen would silently wipe out a password they've already typed. None of
+// this background data is ever shown on that screen, so skipping it there
+// costs nothing.
+function _dvSafeRender(){
+  if(typeof currentSection!=="undefined"&&currentSection==="More"&&typeof currentSubTab!=="undefined"&&currentSubTab==="Admin"&&typeof window!=="undefined"&&!window.ADMIN_UNLOCKED)return;
+  if(typeof render==="function")render();
+}
+
 // Live market data fetcher - queries Groq with DLD official context
 async function fetchLiveMarket(){
   if(MACRO_VARS.fetched||MACRO_VARS.fetching)return;
@@ -566,7 +579,7 @@ async function fetchLiveMarket(){
   }
   MACRO_VARS.fetched=true;
   MACRO_VARS.fetching=false;
-  render();
+  _dvSafeRender();
 }
 
 // ── SUPABASE LIVE CONFIG ──────────────────────────────────────────────────────
@@ -739,7 +752,7 @@ async function fetchSupabaseConfig(){
       MACRO_VARS.source="Supabase · Live · DLD Data";
       // Also fetch market intelligence from Groq with current DLD context
       fetchMarketIntelligence();
-      render();
+      _dvSafeRender();
     }
   }catch(e){
     console.warn("Supabase fetch failed:",e.message);
@@ -773,7 +786,7 @@ async function fetchMarketIntelligence(){
     if(parsed.reason)MACRO_VARS.reason=parsed.reason;
     if(parsed.label&&!MACRO_VARS.label)MACRO_VARS.label=parsed.label;
     MACRO_VARS.source="Groq AI · DLD Data · "+dateStr;
-    render();
+    _dvSafeRender();
   }catch(e){
     console.warn("Market intel fetch failed:",e.message);
   }
@@ -949,7 +962,7 @@ if(typeof window!=="undefined"){
         generateFallbackMomentum();
       }
     }
-    render();
+    _dvSafeRender();
   },800);
 }
 
