@@ -482,6 +482,80 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-17 (session 14, CRITICAL — real root cause of "WhatsApp messages
+  never arrive" finally found: the `messages` webhook field was never
+  actually subscribed, correcting a false claim from session 13)**: Direct
+  continuation of tonight's admin/Inbox debugging — after fixing the missing
+  `user_id` column (see the `supabase-inbox-user-id-fix.sql` entries below)
+  and confirming the test-recipient number was verified, a fresh WhatsApp
+  test message STILL never reached `social_inbox`. Root-caused live with the
+  user over many steps: confirmed Meta's own "Check test webhooks" panel
+  (Meta App Dashboard → WhatsApp → Step 1) showed the real message content
+  arriving on Meta's side; confirmed the System User permanent token was
+  correctly generated and saved; then checked real Vercel request logs for
+  `/api/inbox` around the exact test timestamp and found **only one hit**, a
+  bare `GET` returning **405** — meaning Meta's request never actually
+  carried `?action=whatsapp-webhook` in a way our own routing recognized,
+  which only happens when Meta never calls the webhook for this event type
+  at all (a 405 falls through the router's generic `POST only` guard, which
+  only fires when none of the specific `action` branches match). Traced this
+  to the App Dashboard's stand-alone **"Webhooks"** page (a sibling menu item
+  to "WhatsApp" in the left sidebar, not nested under it, and easy to miss
+  since the WhatsApp product's own "Step 1/2/3" pages don't surface it) —
+  its object-type selector was set to a different object (e.g. Page/User),
+  and under the correct **"WhatsApp Business Account"** object type, the
+  `messages` field's button still read **"Subscribe"** (never clicked) —
+  meaning Meta was never actually configured to deliver `messages` events to
+  our callback URL AT ALL, regardless of every other piece (Callback URL,
+  verify token, test-recipient verification, System User token) being
+  correct. Clicking "Subscribe" on `messages` under the WhatsApp Business
+  Account object immediately fixed it — the very next real WhatsApp test
+  message arrived in `social_inbox` and rendered correctly in the site's
+  Inbox tab.
+  - **This directly corrects a false claim in the 2026-07-16 (session 13)
+    entry below**, which stated "the `messages` field was subscribed" as
+    something already confirmed during that session's investigation — it was
+    not, in fact, subscribed (or was subscribed under the wrong object type
+    and silently reverted/never took effect). The user identified that an
+    earlier session had specifically instructed setting the Webhooks page's
+    object-type selector to **"User"** instead of **"WhatsApp Business
+    Account"** — this is almost certainly the exact origin of the false
+    "already subscribed" claim in that entry, since subscribing `messages`
+    under the wrong object type doesn't error, it just silently does nothing
+    for actual WhatsApp message delivery. Both the missing `user_id` column
+    (session 13's finding) and this webhook-field misconfiguration were real,
+    independent, fully-blocking bugs stacked on top of each other — fixing
+    only one without the other still would have left messages arriving
+    nowhere.
+  - **Lesson for future sessions, written here explicitly since it cost
+    real, significant user time tonight**: when debugging any Meta
+    webhook-delivery issue (WhatsApp, Instagram, Facebook), do not trust a
+    prior session's work-log claim that a webhook field was "confirmed
+    subscribed" — have the user re-check the live state directly in Meta's
+    stand-alone **"Webhooks"** dashboard page (not the product-specific
+    "Try it out"/"Configuration" sub-pages, which don't reliably surface
+    this), under the SPECIFIC correct object type for that product
+    (`whatsapp_business_account` for WhatsApp — not `user`, not `page`), and
+    confirm the exact field's button reads "Unsubscribe" (already on), not
+    "Subscribe" (still off). Real Vercel request logs (Project → Logs,
+    filtered to the exact test timestamp) were what actually broke this
+    case open — a 405 on a bare `GET /api/inbox` with no visible `action`
+    match proved Meta was never calling our endpoint for this event at all,
+    which a webhook-payload preview panel alone ("Check test webhooks") does
+    not prove, since apparently it can show simulated/echoed content
+    independent of whether live delivery is actually wired up.
+  - **Not independently re-checked this session**: whether Instagram/
+    Facebook DM webhook fields have the same "wrong object type" risk — the
+    user was advised to spot-check the Webhooks page's Instagram/Page object
+    types the same way, given this exact class of misconfiguration just cost
+    real time here, but this wasn't done as part of this session's own work.
+  - Verified live, end-to-end, with the user: a real WhatsApp message sent
+    from their own phone to the connected test number, immediately after
+    subscribing `messages` under the correct object type, landed in
+    `social_inbox` (confirmed via direct Supabase SQL query showing the real
+    message content, not the old "Manual test 3" row) and rendered in the
+    site's Network → AI Agents → Inbox tab.
+
 - **2026-07-17 (session 14, CRITICAL — Admin login was broken because the
   password previously given to the user was simply wrong, plus a real
   password-wiping bug found while investigating)**: User reported the admin
