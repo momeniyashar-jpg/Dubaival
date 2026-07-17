@@ -480,6 +480,73 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-17 (session 14, follow-up — Off-Plan Projects: Bayut "New
+  Projects" import, reduces manual typing per user's explicit ask)**: User
+  asked directly what could be done to connect real data without forcing
+  manual entry of every project. Presented 3 real options (Bayut/PropertyFinder
+  RapidAPI "New Projects Search" endpoint — same product already wired into
+  `api/proxy-rapidapi.js`; official DLD open-data project registry via Dubai
+  Pulse — needs a separate API key/registration, user's own task; AI-assisted
+  extraction from a pasted developer URL/text). User chose option 1
+  ("چون در حال حاظر اون API رو داریم" — because we already have that API).
+  - **Server**: `api/proxy-rapidapi.js` — added `"new-projects"` to the
+    Bayut endpoint allowlist (same host/rate-limit/auth already in place for
+    `properties/list`/`auto-complete`/etc. — this is the identical RapidAPI
+    product, just a different endpoint on it).
+  - **Honesty constraint, disclosed explicitly rather than guessed away**:
+    this session's WebFetch attempts against every Bayut/RapidAPI
+    documentation source (bayutapi.com, dlthub.com, apidojo.net,
+    rapidapi.com hub pages) were blocked (403 — bot protection), so the
+    exact response field names for this endpoint could not be verified
+    against a live key from this sandbox. Built accordingly: parsing is
+    deliberately defensive (`_parseBayutOffplanCandidate()` in `js/app.js`
+    tries several plausible field names per value — `title`/`name`/
+    `projectName`; `developer.name`/`developerName`/`company`; etc. — same
+    defensive multi-fallback pattern already established for Property
+    Finder/Bayut listing photos elsewhere in this app) and a failed/empty
+    response shows a clear, honest message telling the admin the endpoint
+    may need a one-time adjustment once tested live, rather than crashing
+    or silently returning nothing.
+  - **Scope, deliberately limited**: only name/developer/area/handover-date/
+    source-link are auto-filled from Bayut — per-unit-type PRICING is never
+    auto-filled, since list-level project data from this API isn't known to
+    reliably carry real per-unit PSF, and Directive #2 (max 3% error, all
+    numbers must be accurate) means an admin must always enter/verify real
+    pricing before anything publishes. This keeps a human review step (no
+    auto-publish of scraped data as fact) while genuinely removing the
+    "type every project by hand" burden the user was asking to eliminate.
+  - **`js/app.js` `renderAdmin()`**: new "Import from Bayut (New Projects)"
+    subsection inside the existing Off-Plan Projects admin card — area
+    input + Fetch button, each returned candidate shown as a name/developer/
+    area row with a "Use in Quick Add" button that pre-fills
+    `ADMIN_OFFPLAN_STATE.quickAdd` (name/developer/area/expectedHandover/
+    source/sourceUrl) so the admin only needs to add project stage, launch
+    date, payment plan, and real unit-type pricing before publishing —
+    reusing the exact same Quick Add form and `_adminQuickAddOffplan()` flow
+    already built, no new publish path.
+  - Verified: `node -c` on both touched files (a real bug was caught and
+    fixed here — a missing closing brace in the new "Use in Quick Add"
+    button's style object produced a genuine syntax error; found via a
+    custom string/comment-aware brace-balance checker after `node -c`'s own
+    error location proved slightly misleading on first read, confirmed
+    fixed via a clean re-run of the same checker + `node -c`); and a
+    real-browser Playwright pass with a mocked `new-projects` response
+    (2 candidates using 2 different field-name conventions on purpose, to
+    exercise the defensive fallback parsing) — confirmed both candidates
+    render with correctly-parsed developer/area, and clicking "Use in Quick
+    Add" on the first one correctly pre-fills `ADMIN_OFFPLAN_STATE.quickAdd`
+    with the parsed name/developer/area/handover date/source/sourceUrl —
+    zero non-network console errors.
+  - **Manual step required before this is useful live**: none beyond what
+    was already required (`supabase-offplan-schema.sql` still not run) — the
+    Bayut import itself needs no new env var or migration, since it reuses
+    the existing `RAPIDAPI_KEY` already configured for every other Bayut/PF
+    feature. The one thing to verify once live: confirm the `new-projects`
+    endpoint path/response shape actually matches what
+    `_parseBayutOffplanCandidate()` expects — if the admin's "Fetch" button
+    shows the new honest error message or an empty result, share the exact
+    HTTP status/response body and the parser can be corrected in one edit.
+
 - **2026-07-17 (session 14, follow-up — Off-Plan Projects schema revised to
   match how Dubai launches actually work, before the SQL was ever run)**:
   Direct continuation of the Off-Plan Projects build below — before running

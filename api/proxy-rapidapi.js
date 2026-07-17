@@ -21,7 +21,7 @@ module.exports = async function handler(req, res) {
     allowed = ["autocomplete-location", "search-sale", "search-rent"];
   } else {
     host = "uae-real-estate2.p.rapidapi.com";
-    allowed = ["auto-complete", "properties/list", "properties/detail", "transactions/list"];
+    allowed = ["auto-complete", "properties/list", "properties/detail", "transactions/list", "new-projects"];
   }
   if (!allowed.some(function (a) { return endpoint.startsWith(a); }))
     return res.status(403).json({ error: "Endpoint not allowed" });

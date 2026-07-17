@@ -1455,7 +1455,65 @@ async function _fetchAdminEventReports(){
 var ADMIN_OFFPLAN_STATE={loading:false,loaded:false,pending:[],error:null,
   quickAdd:{name:"",developer:"",area:"",projectStage:"prelaunch",eoiOpenDate:"",launchDate:"",expectedHandover:"",paymentPlan:"",unitPricing:"",source:"admin",sourceUrl:"",notes:""},
   devForm:{developer:"",tier:"",projectsTracked:"",avgGrowthHandover:"",avgGrowth5yr:"",notes:""},
-  rejectingId:null,rejectReason:""};
+  rejectingId:null,rejectReason:"",
+  bayutImport:{area:"",loading:false,error:null,results:[]}};
+
+// ── Bayut "New Projects" import (added 2026-07-17) ───────────────────────────
+// Removes the manual-typing burden for name/developer/area/handover-date by
+// pulling real candidates from the same RapidAPI Bayut product already wired
+// into api/proxy-rapidapi.js (the "properties/list" endpoint it already
+// proxies is the SAME underlying API). The exact "new-projects" endpoint
+// path/param/response shape could not be verified against a live key from
+// this sandbox (RapidAPI/Bayut docs sites block automated fetches) — parsing
+// is deliberately defensive (tries several plausible field names) and never
+// silently fails; if the live response shape differs, the error message
+// shown to the admin says so explicitly rather than crashing. Per-unit-type
+// pricing is NEVER auto-filled from this — Bayut's list-level project data
+// doesn't reliably carry per-unit PSF, and Directive #2 (accuracy) means an
+// admin must always enter/verify real pricing before publishing.
+function _parseBayutOffplanCandidate(raw){
+  if(!raw||typeof raw!=="object")return null;
+  var name=raw.title||raw.name||raw.projectName||raw.project_name;
+  if(!name)return null;
+  var developer=(raw.developer&&(raw.developer.name||raw.developer))||raw.developerName||raw.company||(raw.agency&&raw.agency.name)||"";
+  var areaName=(raw.location&&raw.location[0]&&raw.location[0].name)||raw.area||raw.community||"";
+  var handover=raw.deliveryDate||raw.completionDate||raw.handoverDate||raw.deliveryDateEstimate||null;
+  var externalID=raw.externalID||raw.id||raw.slug||"";
+  var sourceUrl=raw.url?("https://www.bayut.com"+raw.url):(externalID?("https://www.bayut.com/new-projects/"+externalID):null);
+  return{name:String(name),developer:String(developer||""),area:String(areaName||""),handover:handover,sourceUrl:sourceUrl};
+}
+async function _adminFetchBayutOffplan(){
+  var st=ADMIN_OFFPLAN_STATE.bayutImport;
+  if(!st.area){st.error="Enter an area to search.";render();return;}
+  st.loading=true;st.error=null;st.results=[];render();
+  try{
+    var locId=(typeof getUAELocationId==="function")?await getUAELocationId(st.area):null;
+    var qs="locationExternalIDs="+encodeURIComponent(locId||"")+"&hitsPerPage=25&page=0";
+    var r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=new-projects&"+qs);
+    if(!r.ok){
+      st.error="Bayut request failed (HTTP "+r.status+"). The New Projects endpoint name/params may need a quick adjustment once tested against the real key — share the exact response and it can be fixed in one edit.";
+    }else{
+      var data=await r.json();
+      var raw=data.hits||data.results||data.data||data.projects||(Array.isArray(data)?data:[]);
+      st.results=(raw||[]).map(_parseBayutOffplanCandidate).filter(Boolean);
+      if(!st.results.length)st.error="No projects came back for this area — try a broader/different area name, or the response shape may need adjusting.";
+    }
+  }catch(e){st.error="Network error: "+e.message;}
+  st.loading=false;render();
+}
+function _adminImportBayutCandidate(cand){
+  var qa=ADMIN_OFFPLAN_STATE.quickAdd;
+  qa.name=cand.name;
+  qa.developer=cand.developer;
+  qa.area=cand.area;
+  if(cand.handover){
+    var d=new Date(cand.handover);
+    if(!isNaN(d.getTime()))qa.expectedHandover=d.toISOString().slice(0,10);
+  }
+  qa.source="bayut";
+  qa.sourceUrl=cand.sourceUrl||"";
+  render();
+}
 async function _fetchAdminOffplanPending(){
   if(!window._adminPw)return;
   ADMIN_OFFPLAN_STATE.loading=true;ADMIN_OFFPLAN_STATE.error=null;render();
@@ -1752,6 +1810,36 @@ function renderAdmin(){
   opCard.appendChild(opHeader);
 
   if(ADMIN_OFFPLAN_STATE.error)opCard.appendChild(div({color:"#F59E0B",fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"10px"},ADMIN_OFFPLAN_STATE.error));
+
+  // Import from Bayut "New Projects" — reduces manual typing for
+  // name/developer/area/handover; unit pricing always stays manual (see
+  // comment on _parseBayutOffplanCandidate above).
+  opCard.appendChild(div({color:cl.sub,fontSize:"10px",letterSpacing:"0.08em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Import from Bayut (New Projects)"));
+  var bi=ADMIN_OFFPLAN_STATE.bayutImport;
+  var biRow=el("div",{style:{display:"flex",gap:"6px",marginBottom:"8px"}});
+  var biAreaNames=(typeof AREAS!=="undefined")?Object.keys(AREAS).sort():[];
+  biRow.appendChild(mkAuto(Object.assign({},I(),{fontSize:"11px",padding:"6px 8px",flex:"1"}),biAreaNames,bi.area,function(v){bi.area=v;},"Area…"));
+  var biBtn=el("button",{style:{background:cl.raised,border:"1px solid "+cl.border,color:cl.gold,borderRadius:"6px",padding:"6px 12px",fontSize:"10.5px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",whiteSpace:"nowrap"}});
+  biBtn.textContent=bi.loading?"Fetching...":"Fetch";
+  biBtn.disabled=bi.loading;
+  biBtn.onclick=function(){_adminFetchBayutOffplan();};
+  biRow.appendChild(biBtn);
+  opCard.appendChild(biRow);
+  if(bi.error)opCard.appendChild(div({color:"#F59E0B",fontSize:"10.5px",fontFamily:"'Inter',sans-serif",marginBottom:"8px",lineHeight:"1.5"},bi.error));
+  if(bi.results.length){
+    bi.results.forEach(function(cand){
+      var candRow=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"8px",padding:"6px 0",borderBottom:"1px solid "+cl.border}});
+      var candLeft=el("div",{});
+      candLeft.appendChild(div({color:cl.white,fontSize:"11.5px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},cand.name));
+      candLeft.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},(cand.developer||"—")+" · "+(cand.area||"—")));
+      candRow.appendChild(candLeft);
+      var useBtn=el("button",{style:{background:"rgba(212,175,55,0.1)",border:"1px solid rgba(212,175,55,0.3)",color:cl.gold,borderRadius:"6px",padding:"4px 10px",fontSize:"10px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",flexShrink:"0"}},"Use in Quick Add");
+      useBtn.onclick=function(){_adminImportBayutCandidate(cand);};
+      candRow.appendChild(useBtn);
+      opCard.appendChild(candRow);
+    });
+    opCard.appendChild(div({color:cl.sub,fontSize:"9.5px",fontFamily:"'Inter',sans-serif",fontStyle:"italic",marginTop:"6px",marginBottom:"12px",lineHeight:"1.5"},"Fills name/developer/area/handover into Quick Add below — you still enter real unit-type pricing and confirm before publishing."));
+  }
 
   if(!ADMIN_OFFPLAN_STATE.loaded&&!ADMIN_OFFPLAN_STATE.loading){
     var opLoadBtn=el("button",{style:{width:"100%",padding:"10px",background:cl.raised,border:"1px solid "+cl.border,color:cl.gold,borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
