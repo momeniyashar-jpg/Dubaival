@@ -1459,6 +1459,69 @@ var ADMIN_OFFPLAN_STATE={loading:false,loaded:false,pending:[],error:null,
   bayutImport:{area:"",loading:false,error:null,results:[]},
   aiExtract:{open:false,text:"",loading:false,error:null}};
 
+// ── AI Knowledge Base — Research Injection (added 2026-07-17) ───────────────
+// Standing instruction from the user: any real-estate domain knowledge
+// gathered via research (e.g. a web search Claude runs while building a
+// feature) should get a copy injected into the site's own RAG knowledge
+// base (knowledge_base table, already used to ground Chat Agents/Area
+// Comparison/Personal Advisor/Portfolio Analysis) so the site's AI keeps
+// getting more expert over time — not just a one-off for whatever prompted
+// this, a reusable mechanism for every future research pass. Reuses the
+// exact same embedding pipeline (api/_lib/embeddings.js) and knowledge_base
+// table every other ingestion source (news, market snapshots, forecast
+// accuracy) already writes to — just a new source_type, 'research_note'
+// (see supabase-knowledge-research-notes-schema.sql), for durable
+// process/regulation-style facts rather than time-sensitive numbers.
+var ADMIN_RESEARCH_STATE={queue:[],draft:{title:"",area:"",tag:"",content:""},injecting:false,error:null,result:null};
+function _adminResearchAddDraft(){
+  var d=ADMIN_RESEARCH_STATE.draft;
+  if(!d.title||!d.content){ADMIN_RESEARCH_STATE.error="Title and content are both required.";render();return;}
+  ADMIN_RESEARCH_STATE.queue.push({title:d.title,area:d.area||null,tag:d.tag||null,content:d.content});
+  ADMIN_RESEARCH_STATE.draft={title:"",area:"",tag:"",content:""};
+  ADMIN_RESEARCH_STATE.error=null;ADMIN_RESEARCH_STATE.result=null;
+  render();
+}
+function _adminResearchRemove(idx){
+  ADMIN_RESEARCH_STATE.queue.splice(idx,1);
+  render();
+}
+// Convenience seed: this session's actual off-plan research (EOI/pre-launch
+// process, payment plans, escrow/DLD, Oqood, off-plan market share) —
+// genuinely useful Dubai off-plan domain knowledge found via web search
+// while building the Off-Plan Projects tab, queued (not auto-injected) so
+// it still goes through the same review step as anything else here.
+function _adminResearchLoadOffplanPack(){
+  var pack=[
+    {title:"Dubai off-plan launch process (EOI to official launch)",tag:"off-plan",area:null,content:"Dubai off-plan projects typically open for \"Expression of Interest\" (EOI) registration several weeks before the official launch. During EOI, the developer shares area, design, community details, and unit counts, but final per-unit pricing isn't published yet. EOI deposits range from around AED 10,000 for studios up to several hundred thousand AED for luxury units, or roughly 5% of the average unit price; deposits are often refundable and give priority allocation once the project officially launches. On official launch day, the developer publishes real per-unit-type pricing — a studio, a townhouse, and a villa in the same masterplan can each have very different price-per-square-foot. Early EOI registrants sometimes see paper gains of 20-30% versus the newly announced official launch price."},
+    {title:"Dubai off-plan payment plan structures",tag:"off-plan",area:null,content:"Common off-plan payment plan structures in Dubai include: 10/70/20 (10% at booking, 70% during construction milestones, 20% at handover — common with Emaar and several other major developers), 40/60 and 60/40 splits, 80/20 plans, 1%-per-month plans, and post-handover payment plans that extend payments 1 to 8 years after handover. The payment plan structure is one of the most significant decision factors for an off-plan buyer, alongside price and location, since it directly affects cash-flow commitment over the construction period and beyond."},
+    {title:"Dubai off-plan escrow and DLD regulation",tag:"off-plan",area:null,content:"Every off-plan real estate project in Dubai must be registered with the Dubai Land Department (DLD), and buyer funds are held in a government-regulated escrow account. Money is released to the developer only as real, verified construction milestones are completed, protecting buyers if a developer fails to complete a project. This escrow requirement is a key structural protection distinguishing regulated Dubai off-plan sales from less-regulated markets."},
+    {title:"Oqood — Dubai's off-plan interim ownership registration",tag:"off-plan",area:null,content:"Oqood is Dubai Land Department's interim property registration system for off-plan units. It records a buyer's ownership interest in an off-plan property before construction is complete and before a final Title Deed can be issued. Registering under Oqood is a required part of the official off-plan purchase process; the Title Deed is issued only after handover once the unit is complete and fully registered."},
+    {title:"Off-plan share of Dubai real estate transactions",tag:"off-plan",area:null,content:"Off-plan sales represent a very large share of total Dubai real estate transaction volume in recent years — approximately 73-74% of all Dubai real estate transactions in 2026 were off-plan, reflecting continued strong demand for new-launch projects relative to the secondary (ready) market."}
+  ];
+  var existingTitles=ADMIN_RESEARCH_STATE.queue.map(function(n){return n.title;});
+  pack.forEach(function(n){if(existingTitles.indexOf(n.title)===-1)ADMIN_RESEARCH_STATE.queue.push(n);});
+  render();
+}
+async function _adminResearchInject(){
+  if(!window._adminPw)return;
+  if(!ADMIN_RESEARCH_STATE.queue.length){ADMIN_RESEARCH_STATE.error="Queue is empty — add at least one note first.";render();return;}
+  ADMIN_RESEARCH_STATE.injecting=true;ADMIN_RESEARCH_STATE.error=null;ADMIN_RESEARCH_STATE.result=null;render();
+  try{
+    var r=await fetch(API_BASE+"/knowledge-query",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({action:"ingest",admin_password:window._adminPw,notes:ADMIN_RESEARCH_STATE.queue})
+    });
+    var data=await r.json().catch(function(){return{};});
+    if(r.ok){
+      ADMIN_RESEARCH_STATE.result="Injected "+data.ingested+" note(s) into the knowledge base"+(data.skipped?(" ("+data.skipped+" skipped)"):"")+".";
+      ADMIN_RESEARCH_STATE.queue=[];
+    }else{
+      ADMIN_RESEARCH_STATE.error=data.error||("Request failed (HTTP "+r.status+")");
+    }
+  }catch(e){ADMIN_RESEARCH_STATE.error="Network error: "+e.message;}
+  ADMIN_RESEARCH_STATE.injecting=false;render();
+}
+
 // Admin-side "Paste & Extract" — same shared _offplanAIExtract() from
 // js/offplan.js (developer sites/Tamani/any pasted text), just populating
 // the Admin Quick Add form instead of the public submit form.
@@ -1972,6 +2035,57 @@ function renderAdmin(){
     opCard.appendChild(dfBtn);
   }
   wrap.appendChild(opCard);
+
+  // -- AI KNOWLEDGE BASE — RESEARCH INJECTION (added 2026-07-17) --
+  var rsCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginTop:"16px"}});
+  rsCard.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"◆ AI Knowledge Base — Research Injection"));
+  rsCard.appendChild(div({color:cl.sub,fontSize:"10.5px",fontFamily:"'Inter',sans-serif",marginBottom:"12px",lineHeight:"1.5"},"Add durable real-estate domain facts (process/regulation knowledge, not one-off news) into the AI's grounded knowledge base — makes Chat Agents/Advisor/Portfolio Analysis answers more expert over time."));
+  var rs=ADMIN_RESEARCH_STATE;
+  var rsSeedBtn=el("button",{style:{width:"100%",padding:"8px",borderRadius:"8px",border:"1px dashed "+cl.border,background:"transparent",color:cl.sub,fontSize:"10.5px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",marginBottom:"10px"}});
+  rsSeedBtn.textContent="↓ Load This Session's Off-Plan Research (5 facts)";
+  rsSeedBtn.onclick=function(){_adminResearchLoadOffplanPack();};
+  rsCard.appendChild(rsSeedBtn);
+
+  var rsGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px"}});
+  function rsField(placeholder,key,type){return inp(Object.assign({},I(),{fontSize:"11px",padding:"6px 8px"}),placeholder,type||"text",rs.draft[key],function(v){rs.draft[key]=v;});}
+  rsGrid.appendChild(rsField("Title (e.g. \"Off-plan payment plans\")","title"));
+  var rsAreaNames=(typeof AREAS!=="undefined")?Object.keys(AREAS).sort():[];
+  rsGrid.appendChild(mkAuto(Object.assign({},I(),{fontSize:"11px",padding:"6px 8px"}),rsAreaNames,rs.draft.area,function(v){rs.draft.area=v;},"Area (optional — leave blank for citywide facts)"));
+  rsGrid.appendChild(rsField("Tag (optional, e.g. off-plan)","tag"));
+  rsCard.appendChild(rsGrid);
+  var rsContentTa=el("textarea",{style:{width:"100%",minHeight:"70px",marginTop:"6px",background:cl.raised,border:"1px solid "+cl.border,borderRadius:"8px",color:cl.white,fontSize:"11px",fontFamily:"'Inter',sans-serif",padding:"8px",boxSizing:"border-box",resize:"vertical"},placeholder:"The actual fact/knowledge text to embed and ground AI answers with..."});
+  rsContentTa.value=rs.draft.content;
+  rsContentTa.addEventListener("input",function(){rs.draft.content=rsContentTa.value;});
+  rsCard.appendChild(rsContentTa);
+  var rsAddBtn=el("button",{style:{width:"100%",marginTop:"6px",padding:"7px",borderRadius:"8px",border:"1px solid "+cl.border,background:cl.raised,color:cl.gold,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+  rsAddBtn.textContent="+ Add to Queue";
+  rsAddBtn.onclick=function(){_adminResearchAddDraft();};
+  rsCard.appendChild(rsAddBtn);
+
+  if(rs.error)rsCard.appendChild(div({color:"#EF4444",fontSize:"10.5px",marginTop:"8px"},rs.error));
+  if(rs.result)rsCard.appendChild(div({color:"#10B981",fontSize:"10.5px",marginTop:"8px",fontWeight:"600"},rs.result));
+
+  if(rs.queue.length){
+    rsCard.appendChild(div({color:cl.sub,fontSize:"10px",letterSpacing:"0.08em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px",marginTop:"12px"},"Queued ("+rs.queue.length+")"));
+    rs.queue.forEach(function(n,idx){
+      var qRow=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"8px",padding:"6px 0",borderBottom:"1px solid "+cl.border}});
+      var qLeft=el("div",{});
+      qLeft.appendChild(div({color:cl.white,fontSize:"11px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},n.title));
+      qLeft.appendChild(div({color:cl.sub,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},(n.area||"citywide")+(n.tag?(" · "+n.tag):"")));
+      qRow.appendChild(qLeft);
+      var qRemove=el("button",{style:{background:"transparent",border:"none",color:"#EF4444",fontSize:"11px",cursor:"pointer",flexShrink:"0"}});
+      qRemove.textContent="✕";
+      qRemove.onclick=function(){_adminResearchRemove(idx);};
+      qRow.appendChild(qRemove);
+      rsCard.appendChild(qRow);
+    });
+    var rsInjectBtn=el("button",{style:{width:"100%",marginTop:"10px",padding:"9px",borderRadius:"8px",border:"none",background:"linear-gradient(135deg,#C9A84C,#D4A843)",color:"#070B14",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+    rsInjectBtn.textContent=rs.injecting?"Injecting…":("Inject "+rs.queue.length+" Note(s) into Knowledge Base");
+    rsInjectBtn.disabled=rs.injecting;
+    rsInjectBtn.onclick=function(){_adminResearchInject();};
+    rsCard.appendChild(rsInjectBtn);
+  }
+  wrap.appendChild(rsCard);
 
   // -- DATA COVERAGE REPORT --
   var covCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginTop:"12px"}});

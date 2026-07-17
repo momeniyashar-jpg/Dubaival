@@ -254,7 +254,7 @@ Code is now split across `js/*.js` files. To find anything, grep across `js/`:
 | `offplan_projects` | `supabase-offplan-schema.sql` | Off-Plan Projects tab — tracked launches (name/developer/area/`project_stage` prelaunch-launched-under_construction-handed_over/`eoi_open_date`/launch+handover dates/`payment_plan`), `review_status` pending/published/rejected, admin-reviewed via `admin_pending_offplan_projects`/`admin_review_offplan_project`/`admin_add_offplan_project` RPCs (requires manual execution, see Outstanding items) |
 | `offplan_unit_types` | `supabase-offplan-schema.sql` | Per-unit-type pricing for an Off-Plan project (unit_type/launch_psf/size_min/size_max) — one row per unit type since a studio and a villa in the same masterplan price completely differently; FK to `offplan_projects`, RLS gated on parent's `review_status='published'` |
 | `developer_track_record` | `supabase-offplan-schema.sql` | Per-developer historical price-growth performance, feeds `computeOffPlanForecast()` in `js/offplan.js`; admin-only write via `admin_upsert_developer_track_record` RPC |
-| `knowledge_base` | `supabase-knowledge-base-schema.sql` + `supabase-knowledge-base-recency-fix.sql` + `supabase-forecast-accuracy-schema.sql` | RAG vector store — 768-dim embeddings (Jina or Gemini) of live news, daily market snapshots, and weekly forecast-accuracy audits (see below). Recency-weighted retrieval. Live since 2026-07-11 (see Outstanding items). |
+| `knowledge_base` | `supabase-knowledge-base-schema.sql` + `supabase-knowledge-base-recency-fix.sql` + `supabase-forecast-accuracy-schema.sql` + `supabase-knowledge-research-notes-schema.sql` | RAG vector store — 768-dim embeddings (Jina or Gemini) of live news, daily market snapshots, weekly forecast-accuracy audits, and hand-curated `research_note` facts (durable domain/process knowledge from research — see below). Recency-weighted retrieval. Live since 2026-07-11 (see Outstanding items). |
 | `area_benchmarks` | (inside `api/refresh-market-data.js` workflow, already deployed) | Live PSF + rent data per area, refreshed daily by cron; also carries `rent_active_count`/`rent_avg_days_listed` (session 11n, requires manual execution — see Outstanding items) |
 | `price_history` | (inside `api/refresh-market-data.js` workflow, already deployed) | Historical PSF per area per day — also the ground truth for the forecast-accuracy audit below |
 | `rental_listings_seen` | `supabase-rental-liquidity-schema.sql` | Service-role-only tracking of individual for-rent listing first/last-seen dates — derivation input for the weekly rental-velocity job, never read by the client (requires manual execution, see Outstanding items) |
@@ -479,6 +479,90 @@ features continue working exactly as before. Zero breakage.
 - `theme-color` meta tag added (`#070B14`)
 
 ## Recent work log (most recent first)
+
+- **2026-07-17 (session 14, standing instruction — research findings now get
+  injected into the AI's RAG knowledge base)**: User gave a general,
+  forward-looking instruction after watching this session's off-plan
+  research work: any web search Claude runs to learn new Dubai real-estate
+  facts should also get a copy fed into the site's own knowledge base, so
+  the specialized real-estate AI gets more expert over time, not just the
+  one feature being built. Built a reusable mechanism (not a one-off) plus
+  immediately applied it to this session's actual off-plan research.
+  - **New Supabase migration**: `supabase-knowledge-research-notes-schema.sql`
+    (requires manual execution) — adds `'research_note'` as a 4th allowed
+    `knowledge_base.source_type` (alongside `news`/`market_snapshot`/
+    `forecast_accuracy`), same additive `alter table ... drop/add constraint`
+    pattern already used by `supabase-forecast-accuracy-schema.sql` for the
+    3rd one. `research_note` rows are meant to be durable domain/process
+    knowledge (how off-plan launches work, payment plan structures, escrow
+    rules, etc.) rather than time-sensitive numbers — written once (or
+    updated in place via a stable per-title key), not superseded daily like
+    market snapshots.
+  - **`api/knowledge-query.js` extended** (not a new file — the project is
+    already at Vercel Hobby's 12-function ceiling, same constraint noted
+    throughout this file): new `action:"ingest"` branch, admin-password-
+    gated via the existing `admin_verify()` RPC
+    (`supabase-admin-security-fix.sql`) called server-side (this is the
+    first `api/*.js` file to verify an admin password itself — every other
+    admin action so far was gated entirely inside a Postgres RPC; this one
+    needs a server-side check because embedding text requires the
+    JINA_API_KEY/GEMINI_API_KEY + SUPABASE_SERVICE_ROLE_KEY, neither of
+    which the client can use directly). Batch-embeds each note's content via
+    the existing `api/_lib/embeddings.js` `embedTexts()` helper and upserts
+    into `knowledge_base` with `source_type:"research_note"`, reusing the
+    exact same `resolution=merge-duplicates` insert pattern
+    `refresh-market-data.js` already established. Each note's `source_url`
+    key is a stable slug of its title (not date-stamped, unlike
+    `market_snapshot`) — re-injecting the same fact later updates it in
+    place instead of accumulating duplicate rows, since this is evergreen
+    knowledge, not a daily-changing figure. The existing plain-search
+    behavior (`action` absent/`"query"`) is completely unchanged.
+  - **Admin Dashboard — new "◆ AI Knowledge Base — Research Injection" card**
+    (`js/app.js` `renderAdmin()`): a small composer (Title, optional Area
+    autocomplete, optional Tag, Content textarea) with "+ Add to Queue",
+    a review list of queued notes (each removable before injecting — human
+    review stays in the loop, matching every other admin-curated flow in
+    this project, nothing auto-publishes), and an "Inject N Note(s)" button
+    calling the new endpoint. A "↓ Load This Session's Off-Plan Research (5
+    facts)" convenience button pre-populates the queue with this session's
+    actual researched content (Dubai off-plan EOI/pre-launch process,
+    payment plan structures, escrow/DLD regulation, the Oqood interim-
+    registration system, and off-plan's ~73-74% share of 2026 transaction
+    volume) — queued for review, not auto-injected, so the admin still sees
+    exactly what's about to be embedded before it happens.
+  - **Accepted trade-off, noted rather than engineered around**: the
+    existing recency-weighted `match_knowledge()` ranking (15% weight decays
+    to 0 over 180 days) applies uniformly to every `source_type`, including
+    `research_note` — so a genuinely evergreen fact loses its small recency
+    bonus after ~6 months and competes on pure similarity alone thereafter.
+    Content is never excluded or deleted, just no longer gets the freshness
+    boost — an acceptable default, not worth a source_type-specific carve-out
+    for this project's actual retrieval-quality needs.
+  - Verified: `node -c` on both touched files plus the same custom brace-
+    balance checker used for the two Off-Plan fixes above (clean); a
+    mocked-fetch Node test harness against the real `api/knowledge-query.js`
+    handler (5 cases) — a wrong admin password returns 401 with zero
+    embedding/insert calls ever made, a correct password with 2 valid notes
+    embeds and inserts both with the right `source_type`/merge-duplicates
+    header/stable slug, an empty notes array 400s with zero calls, a note
+    with blank content is filtered and correctly 400s ("every note needs
+    content"), and the pre-existing plain-search `action` path is completely
+    unaffected (regression check); and a real-browser Playwright pass on the
+    Admin Dashboard (mocked `knowledge-query` response) — confirmed the new
+    card renders, clicking the seed button queues exactly 5 notes with
+    correct titles/tags, clicking Inject calls the endpoint and clears the
+    queue with a success message, manual add-to-queue works, and an empty
+    draft is correctly rejected with a validation error — zero non-network
+    console errors.
+  - **Manual step required before this is usable**: run
+    `supabase-knowledge-research-notes-schema.sql` in Supabase SQL Editor
+    (requires `supabase-forecast-accuracy-schema.sql` and
+    `supabase-admin-security-fix.sql` already applied, which they are).
+    Until then, `action:"ingest"` will fail with a Postgres check-constraint
+    violation (HTTP 500) — the Admin UI shows this as-is rather than hiding
+    it, so it's obvious the migration is still pending. `JINA_API_KEY`/
+    `GEMINI_API_KEY` and `SUPABASE_SERVICE_ROLE_KEY` were already required
+    for the rest of the RAG pipeline and need no additional setup.
 
 - **2026-07-17 (session 14, follow-up — Off-Plan Projects: "Paste & Extract"
   AI ingestion, 3rd data-connection path)**: Direct continuation of the
@@ -4826,6 +4910,21 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🟡 AI Knowledge Base Research Injection — needs manual SQL** (added
+  2026-07-17, session 14): run `supabase-knowledge-research-notes-schema.sql`
+  in Supabase SQL Editor (requires `supabase-forecast-accuracy-schema.sql`
+  and `supabase-admin-security-fix.sql` already applied, which they are).
+  Until then, the Admin Dashboard's "AI Knowledge Base — Research Injection"
+  card's "Inject" button will fail with a clear Postgres constraint error
+  (HTTP 500) rather than silently doing nothing. Once run, click "↓ Load
+  This Session's Off-Plan Research (5 facts)" in the Admin Dashboard, review
+  the queued notes, and click "Inject" to get this session's actual
+  off-plan domain research (EOI/pre-launch process, payment plans, escrow/
+  DLD, Oqood, off-plan transaction share) into the AI's grounded knowledge
+  base. See the 2026-07-17 "research findings now get injected into the AI's
+  RAG knowledge base" work-log entry above for the full design — this is a
+  standing, reusable mechanism for any future research pass, not a one-off.
 
 - **🟡 Off-Plan Projects — needs manual SQL + real data sourcing** (added
   2026-07-17, session 14; schema revised same session before the SQL was
