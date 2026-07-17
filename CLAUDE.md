@@ -638,6 +638,85 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-17 (session 14, follow-up — OTP made genuinely zero-typing: a
+  WhatsApp button tap or an email magic link, not just a typed code)**: User
+  asked directly, right after the OTP system above shipped, whether a user
+  could connect "without receiving an OTP" at all — just enter phone/email/
+  account, click Connect, and have it auto-connect with no manual step.
+  Answered honestly rather than overpromising: for SOCIAL ACCOUNTS (Instagram/
+  Facebook/WhatsApp Business/etc.), yes — that's exactly what OAuth "Connect
+  X" achieves (the user clicks Connect and approves on that platform's own
+  screen, no typing at all; this is the directive #4 target, still pending
+  Meta App Review). For phone/email specifically, SOME proof of ownership is
+  unavoidable in principle (that's what "verification" means, and a $0-effort
+  phone/email field would let anyone type someone else's contact info) — but
+  the typed 6-digit code can be replaced with a genuine single TAP, matching
+  what the user was actually asking for. Built both:
+  - **WhatsApp: tap "✅ This is me," zero typing.** New `button_token` column
+    (`otp_verifications`) plus `sendWhatsAppOtpTapTemplate()` (`api/inbox.js`)
+    — sends a Utility-category WhatsApp template with ONE quick-reply button
+    whose payload is the token. **Real technical constraint, disclosed
+    plainly**: Meta restricts its "Authentication" template category (used by
+    the typed-code flow already shipped) to code-delivery mechanics only —
+    no custom buttons — so a true tap-to-confirm experience needs a SEPARATE
+    Utility-category template (new `DV_OTP_WHATSAPP_TAP_TEMPLATE_NAME` env
+    var), not a variant of the Authentication one. When the user taps the
+    button, WhatsApp sends the payload back through the SAME webhook already
+    receiving all inbound WhatsApp messages (`handleWhatsAppWebhook`) — a new
+    branch there (checked only when `phone_number_id` matches OUR OWN
+    platform number, never an individual agent's own connected number, since
+    that has nothing to do with account sign-up) matches the payload against
+    the pending `otp_verifications` row via `_consumeOtpButtonTap()` and
+    marks it verified — no code, no typing, ever. Falls back automatically to
+    the already-shipped typed-code Authentication template when the tap
+    template env var isn't set, so nothing regresses if the operator sets up
+    one template but not the other.
+  - **Email: click the link, zero typing.** New `link_token_hash` column plus
+    a `verifyUrl` included in the OTP email (kept alongside the 6-digit code,
+    not instead of it — some inbox/webmail clients mangle links, so the typed
+    code stays as a guaranteed fallback). New GET action
+    `action=verify-otp-link` (`api/inbox.js`) — a plain browser navigation,
+    verifies the matching row and shows a small branded confirmation page.
+  - **Auto-detection — the part that actually delivers "click Connect and it
+    just connects"**: none of the above is useful if the ORIGINAL browser tab
+    still just sits there waiting for the user to come back and click
+    something. New `action=otp-status` (GET, polled) plus `js/auth.js`
+    `_dvStartOtpPoll()`/`_dvStopOtpPoll()` — the Sign Up screen polls every 3s
+    the moment a code is sent, and the instant ANY of the 3 confirmation paths
+    (typed code, WhatsApp tap, email link) marks the row verified server-side,
+    the UI updates itself automatically with zero further clicks anywhere —
+    genuinely matching what the user described. Polling is torn down
+    consistently through the single `renderAuthModal()` "modal is closed"
+    guard (covers back-button/X/overlay-click/successful-sign-in in one
+    place) plus on phone-input-edit and after a successful account creation.
+  - Verified: extended the mocked-fetch Node test harness (9 more cases,
+    18 total across both files) — send-otp with the tap template configured
+    sends a real `quick_reply` template (not the code one) and returns
+    `tapMode:true`; the insert row carries both new tokens; the email body
+    contains the real magic-link URL; a WhatsApp button-tap webhook event on
+    the platform's own phone_number_id correctly matches and verifies the
+    pending row via PATCH and does NOT log itself as a normal inbox message;
+    the identical tap payload arriving on a DIFFERENT (agent-owned)
+    phone_number_id is correctly ignored; a genuine email magic-link GET
+    request verifies and shows the success page; an expired magic link is
+    rejected with a clear "expired" message; `otp-status` correctly reports
+    `false` before and `true` after verification; and a button-tap payload
+    with no matching pending row is silently ignored (never surfaced as an
+    error back to Meta, matching this webhook's existing "always 200"
+    convention) — all PASS, zero regressions on the original 9 cases. A
+    second, dedicated Playwright test drove the REAL polling loop end-to-end
+    (mocked `otp-status` responses) confirming the Sign Up screen
+    auto-detects verification, stops polling, and shows the green verified
+    badge with zero additional user action — exactly the flow the user asked
+    for. `node -c` on both touched files.
+  - **Manual steps**: same as the entry below, plus — if the operator wants
+    the genuine tap experience (recommended, matches what the user actually
+    asked for) rather than the typed-code fallback — create and get Meta's
+    approval for a Utility-category template with one quick-reply button,
+    then set `DV_OTP_WHATSAPP_TAP_TEMPLATE_NAME` (and confirm the button
+    payload wiring matches once tested live — this session could not test
+    against a real Meta webhook).
+
 - **2026-07-17 (session 14, zero-touch onboarding — OTP verification system,
   first concrete step on the new #4 CRITICAL DIRECTIVE)**: Direct follow-up
   to writing the standing directive above. User was explicit that this isn't
@@ -5685,15 +5764,20 @@ These files contain critical business logic and data:
   operator connects DubaiVal's OWN platform WhatsApp Business number
   (distinct from any individual agent's own connection in Social Setup) and
   sets `DV_PLATFORM_WHATSAPP_PHONE_ID`/`DV_PLATFORM_WHATSAPP_TOKEN` in Vercel
-  env vars; (2) the operator creates and gets Meta's approval for an
-  "Authentication" category WhatsApp message template (WhatsApp Manager →
-  Message Templates), then sets `DV_OTP_WHATSAPP_TEMPLATE_NAME`/`DV_OTP_
-  WHATSAPP_TEMPLATE_LANG` env vars if the approved name/language differ from
-  the `otp_verification`/`en_US` defaults. Until (1)+(2), Sign Up's phone
-  step shows an honest "WhatsApp verification isn't switched on yet" message
-  and account creation proceeds without blocking on it — this is a
-  deliberate, disclosed, temporary exception to directive #4's "OTP is the
-  only mechanism" rule, not a silent gap. **This is the reusable primitive
+  env vars; (2) the operator creates and gets Meta's approval for EITHER (or
+  both — the code prefers the tap template when set) of: an "Authentication"
+  category template for the typed-code fallback (`DV_OTP_WHATSAPP_TEMPLATE_
+  NAME`/`DV_OTP_WHATSAPP_TEMPLATE_LANG`, defaults `otp_verification`/`en_US`),
+  or — **recommended, since it's the genuine zero-typing "tap ✅ This is me"
+  experience the user specifically asked for** — a Utility-category template
+  with one quick-reply button (`DV_OTP_WHATSAPP_TAP_TEMPLATE_NAME`, no
+  default, must be set explicitly to activate tap mode). Until (1)+(2), Sign
+  Up's phone step shows an honest "WhatsApp verification isn't switched on
+  yet" message and account creation proceeds without blocking on it — this is
+  a deliberate, disclosed, temporary exception to directive #4's "OTP is the
+  only mechanism" rule, not a silent gap. The email magic-link path (click
+  the link in the OTP email, zero typing) already works today the moment the
+  base SQL migration runs — no extra setup beyond that. **This is the reusable primitive
   for the rest of directive #4** — any future session building the WhatsApp
   Embedded Signup / Facebook Login / other OAuth "Connect X" flows described
   in that directive should reuse `send-otp`/`verify-otp` (`api/inbox.js`)

@@ -17,6 +17,15 @@ create table if not exists otp_verifications (
   contact_type text not null check (contact_type in ('email','phone')),
   contact_value text not null,
   code_hash text not null,
+  -- One-tap alternatives to typing the code, added the same day after the
+  -- user asked for a true "just click Connect, zero manual steps" path:
+  -- link_token_hash backs the email magic-link (click once in the inbox,
+  -- no typing), button_token backs the WhatsApp "✅ This is me" quick-reply
+  -- button (tap once in the chat, no typing). Either one, when consumed,
+  -- verifies the SAME row a typed code would have — three redundant paths
+  -- to the same result, so whichever is easiest for a given user just works.
+  link_token_hash text,
+  button_token text,
   purpose text not null default 'signup',
   attempts int not null default 0,
   verified_at timestamptz,

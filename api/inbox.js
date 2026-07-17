@@ -463,9 +463,27 @@ async function handleWhatsAppWebhook(req, res) {
         var contactName = (value.contacts && value.contacts[0] && value.contacts[0].profile && value.contacts[0].profile.name) || null;
         for (var k = 0; k < messages.length; k++) {
           var msg = messages[k];
+          var from = msg.from;
+
+          // OTP tap-to-confirm ("✅ This is me") — only meaningful on our OWN
+          // platform WhatsApp number, never on an individual agent's own
+          // connected number (that has nothing to do with account sign-up).
+          // Must run before the `!text` continue below, since a template
+          // quick-reply button tap arrives with no msg.text at all — a
+          // template button reply is `type:"button"` with `button.payload`;
+          // an interactive quick-reply is `interactive.button_reply.id`.
+          // Checking both shapes defensively since this couldn't be tested
+          // against a live Meta webhook in this sandbox.
+          if (PLATFORM_WHATSAPP_PHONE_ID && phoneId === PLATFORM_WHATSAPP_PHONE_ID) {
+            var tapPayload = (msg.button && msg.button.payload) || (msg.interactive && msg.interactive.button_reply && msg.interactive.button_reply.id) || null;
+            if (tapPayload) {
+              try { await _consumeOtpButtonTap(from, tapPayload); } catch (e) { console.error("otp button-tap error:", e.message); }
+              continue; // never log an OTP confirmation tap as a normal inbox message
+            }
+          }
+
           var text = msg.text && msg.text.body;
           if (!text) continue; // images/voice/etc. not handled yet — logged nowhere, matches "text only" scope of the rest of this file
-          var from = msg.from;
 
           // Window gate BEFORE spending anything on an AI reply — matches
           // Meta's real per-24h-conversation-window billing (not per
@@ -668,6 +686,19 @@ var PLATFORM_WHATSAPP_PHONE_ID = process.env.DV_PLATFORM_WHATSAPP_PHONE_ID;
 var PLATFORM_WHATSAPP_TOKEN = process.env.DV_PLATFORM_WHATSAPP_TOKEN;
 var OTP_WHATSAPP_TEMPLATE = process.env.DV_OTP_WHATSAPP_TEMPLATE_NAME || "otp_verification";
 var OTP_WHATSAPP_LANG = process.env.DV_OTP_WHATSAPP_TEMPLATE_LANG || "en_US";
+// Optional: a Utility-category template with ONE quick-reply button (e.g.
+// "✅ This is me"). If the operator sets this up and configures its name
+// here, phone verification becomes a genuine single TAP with zero typing —
+// the button's reply arrives back through the normal WhatsApp webhook and
+// is auto-matched against the pending OTP row (see the button-tap handling
+// inside handleWhatsAppWebhook below). Meta restricts its "Authentication"
+// template category to code-delivery mechanics only (no custom buttons),
+// so a tap-to-confirm experience specifically needs a Utility template —
+// this is a real, separate template from OTP_WHATSAPP_TEMPLATE above, not a
+// variant of it. Falls back to the code-based Authentication template
+// (still fully supported, unchanged) whenever this isn't configured.
+var OTP_WHATSAPP_TAP_TEMPLATE = process.env.DV_OTP_WHATSAPP_TAP_TEMPLATE_NAME;
+var DV_SITE_ORIGIN = process.env.DV_SITE_ORIGIN || "https://www.dubaival.com";
 
 // Sends a WhatsApp "Authentication" category template message carrying a
 // one-time code. Unlike sendWhatsAppMessage() above (plain text, used for
@@ -702,9 +733,57 @@ async function sendWhatsAppOtpTemplate(to, code) {
   return d;
 }
 
+// Sends the tap-to-confirm variant: a Utility template whose one quick-reply
+// button carries `buttonToken` as its payload. When the user taps it in
+// WhatsApp (no typing at all), Meta sends the payload back to our webhook —
+// see the button-tap branch in handleWhatsAppWebhook, which matches it
+// against the pending otp_verifications row and marks it verified
+// automatically. Component/button shape for a Quick Reply button on a
+// Utility template; adjust to match the operator's actual approved template
+// if it differs — not tested against a live Meta template in this sandbox.
+async function sendWhatsAppOtpTapTemplate(to, buttonToken) {
+  var r = await fetch(GRAPH_BASE + "/" + PLATFORM_WHATSAPP_PHONE_ID + "/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + PLATFORM_WHATSAPP_TOKEN },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to: to,
+      type: "template",
+      template: {
+        name: OTP_WHATSAPP_TAP_TEMPLATE,
+        language: { code: OTP_WHATSAPP_LANG },
+        components: [
+          { type: "button", sub_type: "quick_reply", index: "0", parameters: [{ type: "payload", payload: buttonToken }] },
+        ],
+      },
+    }),
+  });
+  var d = await r.json();
+  if (!r.ok || d.error) throw new Error((d.error && d.error.message) || "WhatsApp tap-to-confirm send failed (HTTP " + r.status + ")");
+  return d;
+}
+
 function _otpNormalizeContact(type, value) {
   if (type === "phone") return String(value || "").replace(/\D/g, "");
   return String(value || "").trim().toLowerCase();
+}
+
+function _otpLinkPage(ok, message) {
+  return "<!doctype html><html><body style=\"font-family:sans-serif;background:#070B14;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0\">" +
+    "<div style=\"text-align:center;max-width:340px;padding:24px\">" +
+    "<div style=\"font-size:40px;margin-bottom:12px\">" + (ok ? "✅" : "⚠️") + "</div>" +
+    "<p style=\"color:" + (ok ? "#10B981" : "#EF4444") + ";font-size:15px;line-height:1.5\">" + message + "</p></div></body></html>";
+}
+
+// Looks up the caller's OWN pending row and marks it verified via whichever
+// signal proves ownership — a matching typed code, a matching button tap, or
+// a matching magic-link token. Shared by handleVerifyOtp/handleVerifyOtpLink/
+// the button-tap branch in handleWhatsAppWebhook so all 3 confirmation paths
+// funnel through one consistent state transition.
+async function _markOtpRowVerified(row) {
+  return shared.supabaseRequest("/otp_verifications?id=eq." + row.id, {
+    method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ verified_at: new Date().toISOString() }),
+  });
 }
 
 async function handleSendOtp(req, res) {
@@ -738,22 +817,30 @@ async function handleSendOtp(req, res) {
     var crypto = require("crypto");
     var code = String(Math.floor(100000 + Math.random() * 900000));
     var codeHash = crypto.createHash("sha256").update(code).digest("hex");
+    // One-tap alternatives to typing — added so "just click Connect" is a
+    // real, zero-typing option, not just the typed-code fallback.
+    var buttonToken = crypto.randomBytes(16).toString("hex");
+    var linkToken = crypto.randomBytes(24).toString("hex");
+    var linkTokenHash = crypto.createHash("sha256").update(linkToken).digest("hex");
     var expiresAt = new Date(Date.now() + 10 * 60000).toISOString();
 
     var insertResp = await shared.supabaseRequest("/otp_verifications", {
       method: "POST",
       headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({ contact_type: contactType, contact_value: contact, code_hash: codeHash, purpose: purpose, expires_at: expiresAt }),
+      body: JSON.stringify({ contact_type: contactType, contact_value: contact, code_hash: codeHash, button_token: buttonToken, link_token_hash: linkTokenHash, purpose: purpose, expires_at: expiresAt }),
     });
     if (!insertResp.ok) return res.status(500).json({ error: "Could not create verification code" });
 
     if (contactType === "email") {
+      var verifyUrl = DV_SITE_ORIGIN + "/api/inbox?action=verify-otp-link&token=" + linkToken + "&contact=" + encodeURIComponent(contact) + "&purpose=" + encodeURIComponent(purpose);
       var sent = await shared.sendEmail(
         contact,
         "Your DubaiVal verification code",
-        "<div style=\"font-family:sans-serif;padding:24px\"><h2 style=\"color:#0D1220\">Your verification code</h2>" +
-          "<p style=\"font-size:32px;letter-spacing:6px;font-weight:700;color:#D4AF37\">" + code + "</p>" +
-          "<p style=\"color:#556677\">This code expires in 10 minutes. If you didn't request this, you can ignore this email.</p></div>"
+        "<div style=\"font-family:sans-serif;padding:24px\"><h2 style=\"color:#0D1220\">Verify your email</h2>" +
+          "<p style=\"margin:16px 0\"><a href=\"" + verifyUrl + "\" style=\"display:inline-block;background:#D4AF37;color:#0D1220;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:700\">Verify Instantly →</a></p>" +
+          "<p style=\"color:#556677;font-size:12px\">Or, if you prefer, enter this code instead:</p>" +
+          "<p style=\"font-size:28px;letter-spacing:6px;font-weight:700;color:#D4AF37\">" + code + "</p>" +
+          "<p style=\"color:#556677\">This expires in 10 minutes. If you didn't request this, you can ignore this email.</p></div>"
       );
       if (!sent) return res.status(502).json({ error: "Could not send the verification email right now" });
     } else {
@@ -761,16 +848,92 @@ async function handleSendOtp(req, res) {
         return res.status(503).json({ error: "WhatsApp verification isn't set up yet — please use email instead", code: "whatsapp_otp_unavailable" });
       }
       try {
-        await sendWhatsAppOtpTemplate(contact, code);
+        if (OTP_WHATSAPP_TAP_TEMPLATE) {
+          await sendWhatsAppOtpTapTemplate(contact, buttonToken); // real single-tap, zero typing
+        } else {
+          await sendWhatsAppOtpTemplate(contact, code); // fallback: typed code
+        }
       } catch (e) {
         console.error("send-otp whatsapp error:", e.message);
         return res.status(502).json({ error: "Could not send the WhatsApp code right now — please try email instead" });
       }
     }
-    return res.status(200).json({ ok: true });
+    return res.status(200).json({ ok: true, tapMode: contactType === "phone" && !!OTP_WHATSAPP_TAP_TEMPLATE });
   } catch (e) {
     console.error("send-otp error:", e.message);
     return res.status(500).json({ error: e.message });
+  }
+}
+
+// Email magic link — clicking it (a plain GET, works from any inbox with no
+// typing at all) verifies the same row a typed code or button tap would.
+async function handleVerifyOtpLink(req, res) {
+  try {
+    var token = req.query.token;
+    var contact = _otpNormalizeContact("email", req.query.contact || "");
+    var purpose = req.query.purpose || "signup";
+    if (!token || !contact) return res.status(400).send(_otpLinkPage(false, "This link is missing information — please request a new one."));
+    var crypto = require("crypto");
+    var tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    var resp = await shared.supabaseRequest(
+      "/otp_verifications?contact_type=eq.email&contact_value=eq." + encodeURIComponent(contact) +
+        "&purpose=eq." + encodeURIComponent(purpose) +
+        "&link_token_hash=eq." + tokenHash + "&verified_at=is.null&order=created_at.desc&limit=1",
+      { method: "GET" }
+    );
+    var rows = resp.ok ? await resp.json() : [];
+    var row = rows[0];
+    if (!row) return res.status(400).send(_otpLinkPage(false, "This link is invalid or was already used — please request a new one."));
+    if (new Date(row.expires_at).getTime() < Date.now()) return res.status(400).send(_otpLinkPage(false, "This link has expired — please request a new code."));
+    await _markOtpRowVerified(row);
+    return res.status(200).send(_otpLinkPage(true, "Verified! You can close this tab and go back to DubaiVal — it will pick this up automatically."));
+  } catch (e) {
+    return res.status(500).send(_otpLinkPage(false, "Something went wrong — please request a new code."));
+  }
+}
+
+// Matches an inbound WhatsApp quick-reply button tap (payload = the
+// button_token we sent) against a pending OTP row for that phone and marks
+// it verified — the real, zero-typing "tap ✅ This is me" confirmation path.
+// Called from inside handleWhatsAppWebhook, ONLY for messages arriving on
+// our own platform WhatsApp number (never on an individual agent's own
+// connected number, which has nothing to do with account sign-up). A tap
+// with no matching/expired row is silently ignored (could be a stale or
+// duplicate retry) — never surfaced as an error back to Meta.
+async function _consumeOtpButtonTap(phone, token) {
+  var contact = _otpNormalizeContact("phone", phone);
+  var resp = await shared.supabaseRequest(
+    "/otp_verifications?contact_type=eq.phone&contact_value=eq." + encodeURIComponent(contact) +
+      "&button_token=eq." + encodeURIComponent(token) + "&verified_at=is.null&order=created_at.desc&limit=1",
+    { method: "GET" }
+  );
+  var rows = resp.ok ? await resp.json() : [];
+  var row = rows[0];
+  if (!row) return;
+  if (new Date(row.expires_at).getTime() < Date.now()) return;
+  await _markOtpRowVerified(row);
+}
+
+// Lets the client auto-detect verification with no further action from the
+// user — polled while a code/link/tap is pending, regardless of WHICH of
+// the 3 confirmation paths the user actually used.
+async function handleOtpStatus(req, res) {
+  if (rateLimitExceeded(req, res, 60000, 60)) return;
+  try {
+    var contactType = req.query.contact_type;
+    var purpose = req.query.purpose || "signup";
+    if (contactType !== "email" && contactType !== "phone") return res.status(400).json({ error: "contact_type must be 'email' or 'phone'" });
+    var contact = _otpNormalizeContact(contactType, req.query.contact_value || "");
+    if (!contact) return res.status(400).json({ error: "Missing contact_value" });
+    var resp = await shared.supabaseRequest(
+      "/otp_verifications?contact_type=eq." + contactType + "&contact_value=eq." + encodeURIComponent(contact) +
+        "&purpose=eq." + encodeURIComponent(purpose) + "&order=created_at.desc&limit=1&select=verified_at",
+      { method: "GET" }
+    );
+    var rows = resp.ok ? await resp.json() : [];
+    return res.status(200).json({ verified: !!(rows[0] && rows[0].verified_at) });
+  } catch (e) {
+    return res.status(200).json({ verified: false });
   }
 }
 
@@ -1042,6 +1205,9 @@ module.exports = async function handler(req, res) {
   if (action === "config" && req.method === "GET") return handleConfig(req, res);
   if (action === "gmail-poll") return handleGmailPoll(req, res);
   if (action === "send-replies") return handleSendReplies(req, res);
+  // Both GET: a clicked email link and a polled status check are always GET.
+  if (action === "verify-otp-link") return handleVerifyOtpLink(req, res);
+  if (action === "otp-status" && req.method === "GET") return handleOtpStatus(req, res);
 
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
   if (action === "oauth-meta") return handleOauthMeta(req, res);

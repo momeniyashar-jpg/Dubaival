@@ -5,7 +5,7 @@ var DV_AUTH={user:null,profile:null,loading:true,showModal:false,modalTab:"signi
   // user ever types for phone verification is the phone number itself and the
   // OTP code we send them — never a token, never an API key. This tracks that
   // one small sign-up sub-flow.
-  signupPhone:"",phoneVerified:false,otpSent:false,otpCode:"",otpBusy:false,otpError:"",otpUnavailable:false};
+  signupPhone:"",phoneVerified:false,otpSent:false,otpCode:"",otpBusy:false,otpError:"",otpUnavailable:false,otpTapMode:false};
 // Tracks whether opening the auth modal pushed a history entry (see renderAuthModal
 // below) so the physical/browser back button closes the modal instead of appearing
 // to do nothing — real bug reported 2026-07-16: the modal is a pure in-memory
@@ -13,6 +13,22 @@ var DV_AUTH={user:null,profile:null,loading:true,showModal:false,modalTab:"signi
 // underlying section behind the still-open, full-screen modal, which looked from
 // the outside like back was completely broken.
 var _dvModalHistoryPushed=false;
+// Polls otp-status while a code/link/tap is pending so verification is
+// detected automatically — the user never has to click a "check again"
+// button in our own UI, regardless of which of the 3 confirmation paths
+// (typed code, WhatsApp button tap, email magic link) they actually used.
+var _dvOtpPollTimer=null;
+function _dvStopOtpPoll(){if(_dvOtpPollTimer){clearInterval(_dvOtpPollTimer);_dvOtpPollTimer=null;}}
+function _dvStartOtpPoll(phone){
+  _dvStopOtpPoll();
+  _dvOtpPollTimer=setInterval(async function(){
+    try{
+      var resp=await fetch("/api/inbox?action=otp-status&contact_type=phone&contact_value="+encodeURIComponent(phone)+"&purpose=signup");
+      var d=await resp.json().catch(function(){return{};});
+      if(d.verified){_dvStopOtpPoll();DV_AUTH.phoneVerified=true;DV_AUTH.otpSent=false;render();}
+    }catch(e){}
+  },3000);
+}
 
 function activateDemoMode(){
   var DEMO_PORTFOLIO=[
@@ -98,7 +114,8 @@ async function dvSignUp(name,email,password){
       if(typeof dvTrack==="function")dvTrack("signup_completed",{phone_verified:!!DV_AUTH.phoneVerified});
     }
     DV_AUTH.showModal=false;
-    DV_AUTH.signupPhone="";DV_AUTH.phoneVerified=false;DV_AUTH.otpSent=false;DV_AUTH.otpCode="";DV_AUTH.otpError="";DV_AUTH.otpUnavailable=false;
+    DV_AUTH.signupPhone="";DV_AUTH.phoneVerified=false;DV_AUTH.otpSent=false;DV_AUTH.otpCode="";DV_AUTH.otpError="";DV_AUTH.otpUnavailable=false;DV_AUTH.otpTapMode=false;
+    _dvStopOtpPoll();
   }catch(e){DV_AUTH.error=e.message;}
   DV_AUTH.busy=false;render();
 }
@@ -121,6 +138,8 @@ async function dvSendPhoneOtp(phone){
       DV_AUTH.otpError=d.error||"Could not send the code — please try again";
     }else{
       DV_AUTH.otpSent=true;DV_AUTH.otpUnavailable=false;
+      DV_AUTH.otpTapMode=!!d.tapMode;
+      _dvStartOtpPoll(phone); // auto-detects a button tap with zero further clicks
     }
   }catch(e){DV_AUTH.otpError="Could not send the code — please try again";}
   DV_AUTH.otpBusy=false;render();
@@ -351,6 +370,7 @@ function _dvPasswordField(inputEl,cl){
 function renderAuthModal(){
   if(!DV_AUTH.showModal){
     if(_dvModalHistoryPushed){_dvModalHistoryPushed=false;try{history.back();}catch(e){}}
+    _dvStopOtpPoll(); // covers every close path (back button, X, overlay click, successful sign-in) in one place
     return null;
   }
   if(!_dvModalHistoryPushed){
@@ -452,7 +472,7 @@ function renderAuthModal(){
     // is a 6-digit code, never a token/API key the user has to go find.
     var phoneRow=el("div",{style:{display:"flex",gap:"8px",marginBottom:"6px"}});
     phoneInp=el("input",{type:"tel",placeholder:"Phone number (e.g. 9715XXXXXXXX)",value:DV_AUTH.signupPhone||"",disabled:DV_AUTH.phoneVerified,style:{flex:"1",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"12px 14px",borderRadius:"10px",fontSize:"13px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
-    phoneInp.addEventListener("input",function(){DV_AUTH.signupPhone=this.value.trim();DV_AUTH.otpSent=false;DV_AUTH.phoneVerified=false;DV_AUTH.otpUnavailable=false;});
+    phoneInp.addEventListener("input",function(){DV_AUTH.signupPhone=this.value.trim();DV_AUTH.otpSent=false;DV_AUTH.phoneVerified=false;DV_AUTH.otpUnavailable=false;_dvStopOtpPoll();});
     phoneRow.appendChild(phoneInp);
     if(!DV_AUTH.phoneVerified){
       var sendCodeBtn=el("button",{style:{whiteSpace:"nowrap",padding:"0 14px",borderRadius:"10px",border:"1px solid rgba(212,175,55,0.15)",background:"rgba(212,175,55,0.10)",color:"#D4A843",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:DV_AUTH.otpBusy?"not-allowed":"pointer"}});
@@ -484,7 +504,14 @@ function renderAuthModal(){
       });
       codeRow.appendChild(confirmCodeBtn);
       modal.appendChild(codeRow);
-      modal.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginBottom:"10px"},"We sent a 6-digit code to "+DV_AUTH.signupPhone+" via WhatsApp."));
+      // If the operator has a tap-to-confirm template configured, the
+      // WhatsApp message we sent ALSO has a "✅ This is me" button — tapping
+      // it verifies with zero typing, and this screen auto-detects that the
+      // moment it happens (via _dvStartOtpPoll) with no further click needed
+      // here at all. The typed code above still works either way.
+      modal.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginBottom:"10px",lineHeight:"1.4"},
+        (DV_AUTH.otpTapMode?"We sent a message to "+DV_AUTH.signupPhone+" on WhatsApp — tap \"✅ This is me\" there, or type the code below. ":"We sent a 6-digit code to "+DV_AUTH.signupPhone+" via WhatsApp. ")+
+        "This screen updates automatically once confirmed."));
     }else{
       modal.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginBottom:"10px"},"Optional, but recommended — we'll text a one-time code to confirm it's really you."));
     }
