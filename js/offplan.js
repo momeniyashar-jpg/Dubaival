@@ -55,7 +55,8 @@ var OFFPLAN_STATE = {
   submitting: false,
   submitError: "",
   submitOk: false,
-  form: { name:"", developer:"", area:"", projectStage:"prelaunch", eoiOpenDate:"", launchDate:"", expectedHandover:"", paymentPlan:"", unitPricing:"", source:"", sourceUrl:"", notes:"" }
+  form: { name:"", developer:"", area:"", projectStage:"prelaunch", eoiOpenDate:"", launchDate:"", expectedHandover:"", paymentPlan:"", unitPricing:"", source:"", sourceUrl:"", notes:"" },
+  aiExtract: { open:false, text:"", loading:false, error:null }
 };
 
 function _offplanH(){
@@ -89,6 +90,53 @@ function _formatUnitPricingForEdit(unitTypes){
     var sizePart=(u.size_min&&u.size_max)?(":"+u.size_min+"-"+u.size_max):"";
     return u.unit_type+":"+u.launch_psf+sizePart;
   }).join(", ");
+}
+
+// ── AI EXTRACTION ("Paste & Extract") — added 2026-07-17 ────────────────────
+// Removes manual typing for the THIRD data-connection path (developer sites /
+// Tamani / any off-plan text a user has on hand) that can't be safely
+// scraped server-side — many developer sites are JS-rendered SPAs a plain
+// serverless fetch() can't render, so instead of a fragile "give me a URL"
+// flow, the user pastes whatever text they already have (a brochure,
+// project page copy, WhatsApp forward) and the SAME Groq AI already used
+// throughout this app extracts structured fields — never invents a fact not
+// present in the text (explicit instruction below), matching the accuracy
+// principle used everywhere else in Off-Plan. Shared by both the public
+// Submit form (below) and the Admin Quick Add form (js/app.js) — one
+// extraction function, no duplicated prompt logic.
+function _offplanExtractJSON(txt){
+  try{
+    var jm=txt.match(/```json\s*([\s\S]*?)\s*```/);
+    if(jm)return JSON.parse(jm[1]);
+    var ob=txt.match(/\{[\s\S]*\}/);
+    if(ob)return JSON.parse(ob[0]);
+  }catch(e){}
+  return null;
+}
+async function _offplanAIExtract(text){
+  if(!text||!text.trim())return{error:"Paste some project text first."};
+  var areaNames=(typeof AREAS!=="undefined")?Object.keys(AREAS):[];
+  var stageKeys=["prelaunch","launched","under_construction","handed_over"];
+  var sys="You are a real-estate data-extraction assistant for a Dubai off-plan property tracker. "+
+    "Given raw text (a developer brochure, project page copy, or listing description), extract ONLY facts that are explicitly stated in the text. "+
+    "NEVER invent, estimate, or guess a figure that isn't actually present — use null instead. Return STRICT JSON only, no prose, no markdown fences, matching exactly this shape:\n"+
+    '{"name":string|null,"developer":string|null,"area":string|null,"projectStage":"prelaunch"|"launched"|"under_construction"|"handed_over"|null,'+
+    '"eoiOpenDate":"YYYY-MM-DD"|null,"launchDate":"YYYY-MM-DD"|null,"expectedHandover":"YYYY-MM-DD"|null,"paymentPlan":string|null,'+
+    '"unitTypes":[{"unit_type":string,"launch_psf":number|null,"size_min":number|null,"size_max":number|null}],"notes":string|null}\n'+
+    "For \"area\", pick the closest match from this known list if one clearly fits (else return your best plain-text guess): "+areaNames.slice(0,80).join(", ")+"\n"+
+    "For dates, convert a relative reference like \"Q3 2026\" or \"June 2029\" into a YYYY-MM-DD estimate (1st of the month/quarter) — but if no year at all is stated, leave it null rather than guessing a year.";
+  try{
+    var raw=await askAI([{role:"user",content:text}],sys);
+    var obj=_offplanExtractJSON(raw);
+    if(!obj)return{error:"Could not parse a structured result from the AI — try pasting more complete text."};
+    var unitTypes=(obj.unitTypes||[]).filter(function(u){return u&&u.unit_type&&u.launch_psf;});
+    return{
+      name:obj.name||"",developer:obj.developer||"",area:obj.area||"",
+      projectStage:stageKeys.indexOf(obj.projectStage)>=0?obj.projectStage:"prelaunch",
+      eoiOpenDate:obj.eoiOpenDate||"",launchDate:obj.launchDate||"",expectedHandover:obj.expectedHandover||"",
+      paymentPlan:obj.paymentPlan||"",unitPricing:_formatUnitPricingForEdit(unitTypes),notes:obj.notes||""
+    };
+  }catch(e){return{error:"AI extraction failed: "+e.message};}
 }
 
 async function offplanLoad(){
@@ -288,6 +336,20 @@ function renderOffPlan(){
   return wrap;
 }
 
+async function _offplanRunAIExtract(target){
+  var ae=OFFPLAN_STATE.aiExtract;
+  ae.error=null;ae.loading=true;render();
+  var result=await _offplanAIExtract(ae.text);
+  ae.loading=false;
+  if(result.error){ae.error=result.error;render();return;}
+  var f=OFFPLAN_STATE.form;
+  ["name","developer","area","projectStage","eoiOpenDate","launchDate","expectedHandover","paymentPlan","unitPricing"].forEach(function(k){
+    if(result[k])f[k]=result[k];
+  });
+  if(result.notes)f.notes=(f.notes?f.notes+" — ":"")+result.notes;
+  ae.open=false;ae.text="";
+  render();
+}
 function _renderOffplanSubmitForm(cl){
   var card=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginBottom:"16px"}});
   var f=OFFPLAN_STATE.form;
@@ -296,6 +358,30 @@ function _renderOffplanSubmitForm(cl){
     card.appendChild(div({color:"#10B981",fontSize:"12px",fontWeight:"600",padding:"10px 0"},"✓ Submitted — it'll appear once an admin reviews and publishes it."));
     return card;
   }
+
+  // Paste & Extract — AI fills the fields below from pasted brochure/project
+  // text (developer site, Tamani, WhatsApp forward) instead of typing by hand.
+  var ae=OFFPLAN_STATE.aiExtract;
+  var aeToggle=el("button",{style:{width:"100%",padding:"8px",borderRadius:"8px",border:"1px dashed "+cl.border,background:"transparent",color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",marginBottom:"10px"}});
+  aeToggle.textContent=ae.open?"− Hide Paste & Extract":"✨ Paste & Extract with AI (fill fields automatically)";
+  aeToggle.addEventListener("click",function(){ae.open=!ae.open;render();});
+  card.appendChild(aeToggle);
+  if(ae.open){
+    var aeBox=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"10px",marginBottom:"14px"}});
+    var aeTa=el("textarea",{style:{width:"100%",minHeight:"90px",background:cl.surface,border:"1px solid "+cl.border,borderRadius:"8px",color:cl.white,fontSize:"11.5px",fontFamily:"'Inter',sans-serif",padding:"8px",boxSizing:"border-box",resize:"vertical"},placeholder:"Paste project text here — a brochure, developer page copy, or any description with the project details..."});
+    aeTa.value=ae.text;
+    aeTa.addEventListener("input",function(){ae.text=aeTa.value;});
+    aeBox.appendChild(aeTa);
+    if(ae.error)aeBox.appendChild(div({color:"#EF4444",fontSize:"10.5px",marginTop:"6px"},ae.error));
+    var aeBtn=el("button",{style:{marginTop:"8px",padding:"8px 14px",borderRadius:"8px",border:"none",background:"linear-gradient(135deg,#C9A84C,#D4A843)",color:"#070B14",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+    aeBtn.textContent=ae.loading?"Extracting…":"Extract & Fill Fields";
+    aeBtn.disabled=ae.loading;
+    aeBtn.addEventListener("click",function(){_offplanRunAIExtract();});
+    aeBox.appendChild(aeBtn);
+    aeBox.appendChild(div({color:cl.sub,fontSize:"9.5px",fontStyle:"italic",marginTop:"6px",lineHeight:"1.5"},"Fields below get pre-filled — always review before submitting, the AI only extracts what's explicitly in the text."));
+    card.appendChild(aeBox);
+  }
+
   var grid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}});
   function field(label,key,placeholder,type){
     var w=el("div",{});

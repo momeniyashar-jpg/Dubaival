@@ -480,6 +480,79 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-17 (session 14, follow-up — Off-Plan Projects: "Paste & Extract"
+  AI ingestion, 3rd data-connection path)**: Direct continuation of the
+  Bayut import work above. User confirmed building the 3rd data-source
+  option discussed earlier (developer sites / Tamani, via AI-extraction —
+  not automated scraping), then asked a real business question first:
+  whether developers could grant direct site/feed access for always-fresh
+  data. Answered directly (not a coding task): yes, in 3 realistic forms —
+  (1) a structured feed (XML/CSV/API) the way Bayut/PropertyFinder already
+  require from agencies, (2) a dedicated B2B partner API some larger
+  developers offer, (3) simplest for now — someone from the developer's team
+  submits directly via the app. Flagged this as a business-development task
+  (outreach/negotiation) outside what this session can build — but noted the
+  "Paste & Extract" tool being built doubles as the exact ingestion
+  mechanism for whatever a developer ends up sending (a PDF brochure, a raw
+  feed dump, an email) once such a relationship exists.
+  - **Why "paste text", not "give me a URL and I'll scrape it"**: many
+    developer sites (Emaar, Damac, Sobha, etc.) are JS-rendered SPAs — a
+    plain server-side `fetch()` from a Vercel function gets back an empty
+    shell, not the real content. A URL-fetch feature would silently fail
+    most of the time. Pasting the already-visible text (copied from the
+    developer page, a Tamani listing, or a forwarded brochure) sidesteps
+    this entirely and is more reliable, matching the same reasoning that
+    also applies to Bayut's own JS-heavy pages.
+  - **`js/offplan.js`**: new shared `_offplanAIExtract(text)` — sends the
+    pasted text to the same Groq AI already used throughout this app
+    (`askAI()`, no new API/cost), with a system prompt that explicitly
+    forbids inventing any figure not present in the text (matches this
+    project's accuracy directive, same honesty stance as the Bayut import's
+    defensive parsing) and requests strict JSON matching the project/
+    unit-type schema. `_offplanExtractJSON()` parses the AI's reply (handles
+    both a ` ```json ` fence and a bare `{...}` block, same pattern already
+    used by `extractPostJSON()`/chat.js's `extractJSON()` elsewhere in this
+    codebase). Extracted unit types are converted back through the existing
+    `_formatUnitPricingForEdit()` into the same shorthand string the manual
+    entry field already uses — one shared format, no second parser needed
+    on the write side. A null/unparseable AI response returns a clear
+    `{error:...}` rather than throwing, and is surfaced to whichever caller
+    invoked it.
+  - **Public Submit form** (`_renderOffplanSubmitForm`): new
+    `OFFPLAN_STATE.aiExtract` state + a "✨ Paste & Extract with AI" toggle
+    revealing a textarea + "Extract & Fill Fields" button; a successful
+    extraction pre-fills name/developer/area/stage/dates/payment-plan/
+    unit-pricing directly into the same form fields the user would
+    otherwise type by hand, appends any extracted `notes` to the existing
+    notes field (never overwrites), and closes the extraction panel —
+    the user still reviews everything before hitting Submit for Review
+    (nothing auto-submits).
+  - **Admin Quick Add** (`renderAdmin()` in `js/app.js`): identical toggle/
+    textarea/button UI ahead of the Quick Add form, wired to a new
+    `_adminRunAIExtractOffplan()` that calls the exact same shared
+    `_offplanAIExtract()` (cross-file call, safe for the same reason the
+    Bayut-import code already established — every `<script defer>` finishes
+    loading before any click handler runs) and fills `ADMIN_OFFPLAN_STATE
+    .quickAdd` instead of the public form's state — one extraction function,
+    two consuming forms, zero duplicated prompt/parsing logic.
+  - Verified: `node -c` on both touched files plus a custom string/comment-
+    aware brace-balance checker (same tool built for the Bayut-import fix
+    above, re-run clean); a Node vm-sandbox test (5 cases) mocking `askAI` —
+    a clean ` ```json ` -fenced response extracts and formats correctly, a
+    bare-JSON response with prose prefix and mostly-null fields degrades
+    gracefully (empty string instead of null, default `project_stage`,
+    correctly omits a size range that wasn't given), a genuinely
+    unparseable AI reply returns a clean error instead of throwing, empty
+    input text short-circuits before ever calling the AI, and a thrown
+    network error from `askAI` is caught and surfaced as a normal error
+    state; and 2 real-browser Playwright passes — the public Off-Plan tab's
+    Submit form (mocked `/api/proxy-groq` response) confirming the textarea
+    appears, extraction correctly pre-fills all form fields including the
+    formatted unit-pricing shorthand, and the panel auto-closes on success;
+    and the Admin Dashboard's Quick Add form (same mocked response)
+    confirming the identical fields populate into `ADMIN_OFFPLAN_STATE
+    .quickAdd` — zero non-network console errors in either pass.
+
 - **2026-07-17 (session 14, follow-up — Off-Plan Projects: Bayut "New
   Projects" import, reduces manual typing per user's explicit ask)**: User
   asked directly what could be done to connect real data without forcing

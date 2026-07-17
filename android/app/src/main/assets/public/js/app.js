@@ -1456,7 +1456,27 @@ var ADMIN_OFFPLAN_STATE={loading:false,loaded:false,pending:[],error:null,
   quickAdd:{name:"",developer:"",area:"",projectStage:"prelaunch",eoiOpenDate:"",launchDate:"",expectedHandover:"",paymentPlan:"",unitPricing:"",source:"admin",sourceUrl:"",notes:""},
   devForm:{developer:"",tier:"",projectsTracked:"",avgGrowthHandover:"",avgGrowth5yr:"",notes:""},
   rejectingId:null,rejectReason:"",
-  bayutImport:{area:"",loading:false,error:null,results:[]}};
+  bayutImport:{area:"",loading:false,error:null,results:[]},
+  aiExtract:{open:false,text:"",loading:false,error:null}};
+
+// Admin-side "Paste & Extract" — same shared _offplanAIExtract() from
+// js/offplan.js (developer sites/Tamani/any pasted text), just populating
+// the Admin Quick Add form instead of the public submit form.
+async function _adminRunAIExtractOffplan(){
+  var ae=ADMIN_OFFPLAN_STATE.aiExtract;
+  if(typeof _offplanAIExtract!=="function"){ae.error="Extraction helper not loaded yet — try again in a moment.";render();return;}
+  ae.error=null;ae.loading=true;render();
+  var result=await _offplanAIExtract(ae.text);
+  ae.loading=false;
+  if(result.error){ae.error=result.error;render();return;}
+  var qa=ADMIN_OFFPLAN_STATE.quickAdd;
+  ["name","developer","area","projectStage","eoiOpenDate","launchDate","expectedHandover","paymentPlan","unitPricing"].forEach(function(k){
+    if(result[k])qa[k]=result[k];
+  });
+  if(result.notes)qa.notes=(qa.notes?qa.notes+" — ":"")+result.notes;
+  ae.open=false;ae.text="";
+  render();
+}
 
 // ── Bayut "New Projects" import (added 2026-07-17) ───────────────────────────
 // Removes the manual-typing burden for name/developer/area/handover-date by
@@ -1879,6 +1899,30 @@ function renderAdmin(){
       row.appendChild(btnRow);
       opCard.appendChild(row);
     });
+
+    // Paste & Extract — same shared _offplanAIExtract() (js/offplan.js) used
+    // on the public submit form, for developer-site/Tamani/any pasted text
+    // that can't be safely auto-scraped (JS-rendered pages, no stable API).
+    var ae=ADMIN_OFFPLAN_STATE.aiExtract;
+    var aeToggle=el("button",{style:{width:"100%",padding:"8px",borderRadius:"8px",border:"1px dashed "+cl.border,background:"transparent",color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",marginTop:"16px",marginBottom:"8px"}});
+    aeToggle.textContent=ae.open?"− Hide Paste & Extract":"✨ Paste & Extract with AI (developer site / Tamani / any text)";
+    aeToggle.onclick=function(){ae.open=!ae.open;render();};
+    opCard.appendChild(aeToggle);
+    if(ae.open){
+      var aeBox=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"10px",marginBottom:"12px"}});
+      var aeTa=el("textarea",{style:{width:"100%",minHeight:"80px",background:cl.surface,border:"1px solid "+cl.border,borderRadius:"8px",color:cl.white,fontSize:"11.5px",fontFamily:"'Inter',sans-serif",padding:"8px",boxSizing:"border-box",resize:"vertical"},placeholder:"Paste project text (developer brochure, Tamani page, project description)..."});
+      aeTa.value=ae.text;
+      aeTa.addEventListener("input",function(){ae.text=aeTa.value;});
+      aeBox.appendChild(aeTa);
+      if(ae.error)aeBox.appendChild(div({color:"#EF4444",fontSize:"10.5px",marginTop:"6px"},ae.error));
+      var aeBtn=el("button",{style:{marginTop:"8px",padding:"7px 12px",borderRadius:"8px",border:"none",background:"linear-gradient(135deg,#C9A84C,#D4A843)",color:"#070B14",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+      aeBtn.textContent=ae.loading?"Extracting...":"Extract & Fill Quick Add";
+      aeBtn.disabled=ae.loading;
+      aeBtn.onclick=function(){_adminRunAIExtractOffplan();};
+      aeBox.appendChild(aeBtn);
+      aeBox.appendChild(div({color:cl.sub,fontSize:"9.5px",fontStyle:"italic",marginTop:"6px",lineHeight:"1.5"},"Fills the Quick Add form below — always review before publishing, the AI only extracts what's explicitly in the pasted text."));
+      opCard.appendChild(aeBox);
+    }
 
     // Quick-add: publish a project directly (admin is the trusted curator,
     // so their own additions skip the review queue).
