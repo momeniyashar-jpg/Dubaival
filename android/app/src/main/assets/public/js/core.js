@@ -433,7 +433,15 @@ window.addEventListener("popstate",function(e){
 });
 (function(){
   var stateObj={section:currentSection,sub:currentSubTab};
-  var hash="#"+currentSection+(currentSubTab?"/"+currentSubTab:"");
+  // Only default the hash to Home when the page loaded with none at all —
+  // unconditionally rewriting it here (as this used to do) silently clobbered
+  // any real deep link already in the URL, e.g. "#admin", before app.js's own
+  // hash check (window.location.hash==="#admin", in its render() function)
+  // ever got a chance to see the original value. Found 2026-07-17: this is
+  // why the hidden Admin route has been unreachable by direct URL navigation
+  // since this replaceState call was added (2026-07-07) — every fresh visit
+  // to /#admin was silently rewritten to /#Home before the admin check ran.
+  var hash=window.location.hash||("#"+currentSection+(currentSubTab?"/"+currentSubTab:""));
   history.replaceState(stateObj,"",hash);
 })();
 // -- Live Geopolitical Adjustment ---------------------------------------------

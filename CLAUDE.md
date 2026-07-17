@@ -461,6 +461,46 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-17 (session 14, CRITICAL — hidden `#admin` route unreachable by
+  direct URL since 2026-07-07)**: User reported they could not find/reach
+  the Admin dashboard at all after being given the `dubaival.com/#admin`
+  URL + password. Investigated instead of assuming user error, and found a
+  real, 10-day-old regression.
+  - **Root cause**: `js/app.js`'s `render()` has a one-time check,
+    `if(!window._adminHashChecked&&window.location.hash==="#admin"){...}`
+    (line ~2463), that's supposed to route a fresh page load of `#admin`
+    straight to the Admin dashboard. But `js/core.js` (which always
+    executes BEFORE `app.js`, since deferred `<script>` tags run in
+    document order) has a small top-level IIFE that runs at module-load
+    time — added 2026-07-07 to guarantee `history.state` is populated on
+    the very first page load (fixing an unrelated back-button edge case) —
+    that unconditionally called
+    `history.replaceState(stateObj,"",  "#"+currentSection+...)` using
+    `currentSection`/`currentSubTab`'s hardcoded module-level DEFAULTS
+    (`"Home"`/`""`), since nothing has parsed the real URL yet at that
+    point. This silently rewrote the browser's URL from `#admin` to
+    `#Home` via `replaceState` before `app.js` even loaded — so by the time
+    `render()` finally ran (deliberately deferred to `DOMContentLoaded` per
+    the 2026-07-12 script-`defer` performance fix) and checked
+    `window.location.hash==="#admin"`, the hash had already been clobbered
+    to `#Home` and the condition was always false. This is the ONLY
+    hash-based deep link anywhere in the app (confirmed via a full grep for
+    `location.hash` across every `js/*.js` file) — so this one regression
+    made the hidden Admin route completely unreachable by direct URL for
+    10 days straight, with no other route affected (everything else is
+    driven by in-app `pushState`/`popstate`, not the initial URL).
+  - **Fix**: the IIFE now only defaults the hash to `#Home` when the page
+    loads with NO hash at all (`window.location.hash||("#"+currentSection+...)`)
+    — preserving whatever hash was actually in the URL (like `#admin`)
+    instead of unconditionally overwriting it, while still guaranteeing
+    `history.state` is non-null on first load for the original back-button
+    fix this IIFE was added for.
+  - Verified: a Playwright test doing a genuinely FRESH navigation
+    (`page.goto('.../index.html#admin')`, not an in-app click) — confirmed
+    `window.location.hash` stays `"#admin"` after load and the rendered
+    page shows the real "◆ DUBAIVAL ADMIN" password screen, not Home.
+    `node -c js/core.js`.
+
 - **2026-07-17 (session 14, follow-up — global sub-tab pill bar lightened)**:
   Direct continuation of the spacing feedback above — user also asked
   whether the top sub-tab row's large/bold text ("Deal Board / AI Agents /
