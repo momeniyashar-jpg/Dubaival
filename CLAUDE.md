@@ -318,6 +318,7 @@ Code is now split across `js/*.js` files. To find anything, grep across `js/`:
 | `area_benchmarks` | (inside `api/refresh-market-data.js` workflow, already deployed) | Live PSF + rent data per area, refreshed daily by cron; also carries `rent_active_count`/`rent_avg_days_listed` (session 11n, requires manual execution — see Outstanding items) |
 | `price_history` | (inside `api/refresh-market-data.js` workflow, already deployed) | Historical PSF per area per day — also the ground truth for the forecast-accuracy audit below |
 | `rental_listings_seen` | `supabase-rental-liquidity-schema.sql` | Service-role-only tracking of individual for-rent listing first/last-seen dates — derivation input for the weekly rental-velocity job, never read by the client (requires manual execution, see Outstanding items) |
+| (new columns on `social_inbox`/`chiefs_clients`/`social_credentials`) | `supabase-meta-conversion-schema.sql` | AI Chief of Staff → Meta Ads conversion feedback loop: `ad_referral` jsonb (Click-to-WhatsApp `ctwa_clid` attribution, captured at webhook-receive time and carried through to a saved client) plus per-agent `meta_pixel_id`/`meta_capi_token` credentials (requires manual execution, see Outstanding items) |
 
 **SQL migration files executed in Supabase** (confirmed 2026-06-18): the original 5 above. `supabase-knowledge-base-schema.sql` (the RAG table) requires manual execution — see Outstanding items.
 
@@ -539,6 +540,102 @@ features continue working exactly as before. Zero breakage.
 - `theme-color` meta tag added (`#070B14`)
 
 ## Recent work log (most recent first)
+
+- **2026-07-17 (session 14, AI Chief of Staff — Meta Ads conversion
+  feedback loop, "report real leads back to Meta")**: User shared 4
+  competitor ads (LogixContact — generic dev shop, irrelevant; **YCloud** —
+  a Meta Official BSP Partner that sends WhatsApp conversion outcomes back
+  to Meta via Conversions API to make ad targeting smarter; Wazzup —
+  WhatsApp-to-CRM sync, same problem AI Chief of Staff already solves;
+  Qmize — a cheaper WhatsApp-marketing alternative, mostly confirming real
+  market demand for this category) and asked whether the YCloud idea
+  specifically should be built into DubaiVal. Confirmed via `AskUserQuestion`
+  before writing code: (1) this should NOT be wired into the RAG knowledge
+  base — RAG grounds AI TEXT GENERATION with retrievable domain facts;
+  a conversion event is a structured analytics/attribution signal with
+  nothing to semantically retrieve, so forcing it through RAG would be the
+  wrong tool for the job (user agreed); (2) "real conversion," for this
+  business, means the moment a new record is saved to the **Client Memory
+  Bank** — the same definition of a qualified lead this whole tab already
+  centers on (user agreed). Built directly into AI Chief of Staff per the
+  user's explicit direction, since the users of this tab are exactly who
+  YCloud targets — individual agents and companies connecting their own
+  phone/CRM to run better-targeted ad campaigns.
+  - **The real technical mechanism**: when someone clicks "Send Message" on
+    a Facebook/Instagram ad, WhatsApp's own incoming-webhook payload
+    includes a `referral` object (`ctwa_clid` — the specific token Meta's
+    Conversions API needs to attribute a later conversion back to that
+    exact ad). This was always present in the raw webhook payload (already
+    stored as `raw_payload` text, `api/inbox.js` `handleWhatsAppWebhook`)
+    but never extracted or acted on. Now captured into a new
+    `social_inbox.ad_referral` jsonb column at webhook-receive time, carried
+    through Inbox → AI Chief Co-pilot (`chiefsCopilotAnalyze()` gained a 5th
+    `adReferral` param, sourced from the real inbox row's `ad_referral` in
+    `js/inbox.js`) → `chiefsCopilotSaveClient()`/`chiefsSaveClient()`
+    (`chiefs_clients.ad_referral`, new column) → and finally, the moment a
+    genuinely NEW client record is saved with a real `ctwa_clid` present,
+    fire-and-forget-reports the conversion to Meta.
+  - **New server action**: `api/inbox.js` `handleMetaConversion()`
+    (`action=meta-conversion`, extended into this existing file, not a new
+    one — the project is already at Vercel Hobby's 12-function ceiling).
+    Resolves the caller's real signed-in identity, reads the agent's OWN
+    Meta Ads Pixel ID + Conversions API token from `social_credentials`
+    (per-agent, matching how every other platform credential in this
+    project already works), hashes the client's phone (SHA-256, digits-only
+    normalized — Meta requires PII hashed before it ever leaves the caller's
+    server) and POSTs a `Lead` event to `https://graph.facebook.com/v19.0/
+    {pixel_id}/events` with `action_source:"business_messaging"`,
+    `messaging_channel:"whatsapp"`, and the real `ctwa_clid` for
+    attribution. Fails completely soft everywhere (no ad attribution, no
+    Pixel connected, a rejected Graph API call) — this is a pure background
+    analytics signal and must never block or interrupt the agent's actual
+    client-save flow.
+  - **New Social Setup fields** (`js/chat.js` `showSocialSetup()`, alongside
+    the existing WhatsApp Business fields — same per-agent
+    `social_credentials` table, so this needed zero new sync/push/pull
+    plumbing): "Meta Ads Pixel ID" and "Meta Conversions API Access Token."
+  - **New 4th Automation Settings toggle** (`js/chiefs.js`,
+    `CHIEFS_AUTOMATION.autoReportConversions`, default `true` — matches the
+    directive's "automatic by default" standing rule): "Report ad
+    conversions to Meta," shown on the Dashboard's "⚡ AUTOMATION" card with
+    a live Connected/Not-connected status line reading the local Pixel/token
+    presence.
+  - **New migration**: `supabase-meta-conversion-schema.sql` (requires
+    manual execution) — `social_inbox.ad_referral jsonb`,
+    `chiefs_clients.ad_referral jsonb`, `social_credentials.meta_pixel_id
+    text`, `social_credentials.meta_capi_token text`.
+  - Verified: a mocked-fetch Node test harness against the real
+    `api/inbox.js` `handleMetaConversion()` handler (5 cases) — no
+    `ctwa_clid` short-circuits with zero network calls, an invalid access
+    token 401s, a signed-in agent with no Pixel connected gets a clear
+    `ok:false` reason (never an error), a fully-connected agent gets a real
+    Graph API call to the correct Pixel URL with the correct
+    `event_name`/`action_source`/`messaging_channel`/`ctwa_clid`/correctly
+    SHA-256-hashed-and-normalized phone number, and a Graph API rejection
+    degrades to `ok:false` (not a thrown error, still HTTP 200 to the
+    caller); a second Node vm-sandbox test (3 cases) confirming
+    `chiefsSaveClient()` correctly fires the conversion report only when
+    BOTH a real `ad_referral.ctwa_clid` is present AND the toggle is on, and
+    correctly stays silent when either condition is false; `node -c` on all
+    4 touched files; and a real-browser Playwright pass confirming the 4th
+    toggle renders on the Dashboard with the correct default (on) state and
+    persists correctly on click — zero console errors.
+  - **Manual steps required before this is live**: (1) run
+    `supabase-meta-conversion-schema.sql` in Supabase SQL Editor; (2) an
+    agent/company that wants this must connect their own Meta Ads Pixel ID
+    + generate a Conversions API access token (Meta Events Manager →
+    Settings → Conversions API → Generate Access Token) and paste both into
+    Social Setup — same one-time setup pattern as the WhatsApp Business API
+    connection. Until both are done, the toggle is visible and on by
+    default but silently no-ops (real client saves still work exactly as
+    before; no conversion is reported, no error shown).
+  - **Not built this session, explicitly out of scope for now**: reporting
+    any OTHER event as a "conversion" (e.g., a pipeline deal reaching
+    Offer/Closing, or an actual closed deal) — the user confirmed "new
+    Client Memory Bank record" as the definition to build first; a
+    deal-stage-based signal was discussed as the alternative and could be
+    added later as a second, separate event type if the user wants a
+    stronger (later-funnel) signal in addition to this one.
 
 - **2026-07-17 (session 14, AI Chief of Staff — Automation Settings shipped,
   implementing the standing directive above)**: User asked for a full
@@ -5348,6 +5445,25 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🟡 AI Chief of Staff → Meta Ads conversion feedback loop — needs manual
+  SQL + per-agent Meta setup** (added 2026-07-17, session 14): run
+  `supabase-meta-conversion-schema.sql` in Supabase SQL Editor. Then, for
+  any agent/company who wants ad-conversion reporting to actually work:
+  connect their Meta Ads Pixel ID + generate a Conversions API access token
+  (Meta Events Manager → Settings → Conversions API → Generate Access
+  Token) and paste both into Social Setup. Until both are done, the
+  Dashboard's "Report ad conversions to Meta" toggle is visible and on by
+  default but silently no-ops — real Client Memory Bank saves are
+  completely unaffected either way. **Use this**: the whole point of this
+  feature per the user's explicit direction was so agents/companies
+  connecting AI Chief of Staff (personal phone or company CRM) get better-
+  targeted ad campaigns over time — flag this to any user asking about ad
+  performance/ROI, and remind them Social Setup is where the Pixel/token
+  connection happens. See the "Meta Ads conversion feedback loop" work-log
+  entry above for the full design (built after 4 competitor products the
+  user shared, most directly inspired by YCloud's WhatsApp→Meta CAPI
+  pattern).
 
 - **🔴 CRITICAL, NOT YET LIVE — Admin password rotation needs manual SQL
   execution NOW** (added 2026-07-17, session 14): run

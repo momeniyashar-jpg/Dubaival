@@ -513,6 +513,10 @@ async function handleWhatsAppWebhook(req, res) {
             message_text: text.slice(0, 2000), status: aiReply ? "replied" : "new",
             ai_reply: aiReply || null, replied_at: aiReply ? new Date().toISOString() : null,
             raw_payload: JSON.stringify(msg),
+            // Present only when this conversation started from a Click-to-
+            // WhatsApp ad — carries the ctwa_clid the Conversions API needs
+            // to attribute a later conversion back to that specific ad.
+            ad_referral: msg.referral || null,
           };
           try {
             var insResp = await shared.supabaseRequest("/social_inbox", {
@@ -583,6 +587,72 @@ async function handleWhatsAppSend(req, res) {
   } catch (e) {
     console.error("whatsapp-send error:", e.message);
     return res.status(500).json({ error: e.message });
+  }
+}
+
+// ── ACTION: meta-conversion ──────────────────────────────────────────────────
+// Reports a real conversion (a new Client Memory Bank record saved from a
+// Click-to-WhatsApp ad conversation) back to Meta's Conversions API, so ad
+// targeting/optimization gets the actual outcome — not just "someone
+// clicked," but "this became a real lead." Same idea as competitor products
+// like YCloud, built directly into AI Chief of Staff per the user's
+// explicit direction, since this tab is the one place a "new client saved"
+// event is genuinely known.
+//
+// Fails soft everywhere (never blocks the caller's own client-save flow):
+// no ctwa_clid, no configured Pixel/token, or a failed Graph API call all
+// just return ok:false with a reason, never a thrown error.
+async function handleMetaConversion(req, res) {
+  if (rateLimitExceeded(req, res, 60000, 30)) return;
+  try {
+    var body = req.body || {};
+    var ctwaClid = body.ctwa_clid;
+    if (!ctwaClid) return res.status(200).json({ ok: false, reason: "no ad attribution on this contact" });
+
+    var userId = await _resolveUserId(body.access_token);
+    if (!userId) return res.status(401).json({ ok: false, reason: "not signed in" });
+
+    var credsResp = await shared.supabaseRequest(
+      "/social_credentials?user_id=eq." + encodeURIComponent(userId) + "&select=meta_pixel_id,meta_capi_token",
+      { method: "GET" }
+    );
+    var credsRows = credsResp.ok ? await credsResp.json() : [];
+    var creds = credsRows[0];
+    if (!creds || !creds.meta_pixel_id || !creds.meta_capi_token) {
+      return res.status(200).json({ ok: false, reason: "Meta Ads Pixel not connected — set it up in Social Setup" });
+    }
+
+    var crypto = require("crypto");
+    var userData = { ctwa_clid: String(ctwaClid) };
+    if (body.phone) {
+      // Meta requires PII hashed before it ever leaves our server — digits
+      // only (country code included, no leading +), then SHA-256.
+      var normalizedPhone = String(body.phone).replace(/\D/g, "");
+      if (normalizedPhone) userData.ph = [crypto.createHash("sha256").update(normalizedPhone).digest("hex")];
+    }
+
+    var eventBody = {
+      data: [{
+        event_name: body.event_name || "Lead",
+        event_time: Math.floor(Date.now() / 1000),
+        action_source: "business_messaging",
+        messaging_channel: "whatsapp",
+        user_data: userData,
+      }],
+    };
+    var capiResp = await fetch(
+      "https://graph.facebook.com/v19.0/" + encodeURIComponent(creds.meta_pixel_id) + "/events?access_token=" + encodeURIComponent(creds.meta_capi_token),
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(eventBody) }
+    );
+    if (!capiResp.ok) {
+      var errText = await capiResp.text().catch(function () { return ""; });
+      console.error("meta-conversion CAPI error:", capiResp.status, errText);
+      return res.status(200).json({ ok: false, reason: "Meta rejected the event" });
+    }
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error("meta-conversion error:", e.message);
+    return res.status(200).json({ ok: false, reason: e.message });
   }
 }
 
@@ -817,5 +887,6 @@ module.exports = async function handler(req, res) {
   if (action === "oauth-google") return handleOauthGoogle(req, res);
   if (action === "email-inbound") return handleEmailInbound(req, res);
   if (action === "whatsapp-send") return handleWhatsAppSend(req, res);
+  if (action === "meta-conversion") return handleMetaConversion(req, res);
   return handleReply(req, res); // default POST action
 };

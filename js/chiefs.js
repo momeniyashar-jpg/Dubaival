@@ -16,7 +16,7 @@ var CHIEFS_STATE = {
     purpose: "sale", prop_type: "apartment", beds_wanted: "2 BR", areas_wanted: [],
     area_input: "", min_price: "", max_price: "", min_size: "", max_size: "",
     view_pref: "", furnished_pref: "", timeline: "flexible", notes: "", status: "active",
-    source: "manual", raw_conversation: "" },
+    source: "manual", raw_conversation: "", ad_referral: null },
   scanner: { open: false, text: "", parsing: false, result: null, error: null, source: "whatsapp", transcribing: false, transcribeError: null },
   pipeForm: { open: false, editing: null, client_name: "", property_desc: "", stage: "lead",
     deal_value: "", next_action: "", next_action_date: "", notes: "" },
@@ -35,7 +35,7 @@ var CHIEFS_STATE = {
 // agent opts INTO a human checkpoint, not the other way around. Persisted
 // locally per-browser for now (see CLAUDE.md for the cross-device/Supabase
 // follow-up note).
-var CHIEFS_AUTOMATION_DEFAULTS = { autoDraft: true, autoSend: true, autoSaveExtracted: true };
+var CHIEFS_AUTOMATION_DEFAULTS = { autoDraft: true, autoSend: true, autoSaveExtracted: true, autoReportConversions: true };
 var CHIEFS_AUTOMATION = (function() {
   try {
     var saved = JSON.parse(localStorage.getItem("dv_chiefs_automation") || "null");
@@ -235,6 +235,7 @@ async function chiefsSaveClient() {
     view_pref: f.view_pref||null, furnished_pref: f.furnished_pref||null,
     timeline: f.timeline||"flexible", notes: f.notes||null, status: f.status||"active",
     source: f.source||"manual", raw_conversation: f.raw_conversation||null,
+    ad_referral: f.ad_referral||null,
     updated_at: new Date().toISOString() };
   try {
     var url = SUPABASE_URL + "/rest/v1/chiefs_clients";
@@ -248,11 +249,21 @@ async function chiefsSaveClient() {
     CHIEFS_STATE.cliForm = { open:false, editing:null, client_name:"", client_phone:"", client_email:"",
       purpose:"sale", prop_type:"apartment", beds_wanted:"2 BR", areas_wanted:[], area_input:"",
       min_price:"", max_price:"", min_size:"", max_size:"", view_pref:"", furnished_pref:"",
-      timeline:"flexible", notes:"", status:"active", source:"manual", raw_conversation:"" };
+      timeline:"flexible", notes:"", status:"active", source:"manual", raw_conversation:"", ad_referral:null };
     CHIEFS_STATE.loaded.clients = false;
     await chiefsLoadClients();
     if (wasNew) {
       _chiefsAutoMatch("client");
+      // Report the conversion back to Meta — a new Client Memory Bank
+      // record IS the "real conversion" event this business cares about,
+      // per the user's explicit direction (2026-07-17). Only fires when
+      // this contact's conversation actually started from a Click-to-
+      // WhatsApp ad (ad_referral.ctwa_clid present) and the agent hasn't
+      // turned this off in Automation Settings. Fire-and-forget, fails
+      // completely soft — never blocks the client save either way.
+      if (CHIEFS_AUTOMATION.autoReportConversions && row.ad_referral && row.ad_referral.ctwa_clid) {
+        _chiefsReportConversion(row);
+      }
       // Async: generate Gemini embedding and store — fails soft, never blocks UI
       if (savedId) {
         (function(id, txt) {
@@ -787,7 +798,12 @@ function _renderChiefsAutomationSettings() {
     CHIEFS_AUTOMATION.autoSend, function(v){ CHIEFS_AUTOMATION.autoSend=v; _chiefsSaveAutomation(); render(); }));
   card.appendChild(_chToggleRow("Auto-save extracted client info",
     "Scanned WhatsApp chats and transcribed calls save straight to your Client Memory Bank. Turn off to review the extracted details first.",
-    CHIEFS_AUTOMATION.autoSaveExtracted, function(v){ CHIEFS_AUTOMATION.autoSaveExtracted=v; _chiefsSaveAutomation(); render(); }, true));
+    CHIEFS_AUTOMATION.autoSaveExtracted, function(v){ CHIEFS_AUTOMATION.autoSaveExtracted=v; _chiefsSaveAutomation(); render(); }));
+  var pixelConnected = !!(localStorage.getItem("dv_meta_pixel_id") && localStorage.getItem("dv_meta_capi_token"));
+  card.appendChild(_chToggleRow("Report ad conversions to Meta",
+    (pixelConnected ? "Connected. " : "Not connected — set up your Meta Ads Pixel in Social Setup to use this. ") +
+    "When a client from a Facebook/Instagram ad conversation gets saved to your Client Memory Bank, tells Meta it was a real lead — so your ads get smarter over time.",
+    CHIEFS_AUTOMATION.autoReportConversions, function(v){ CHIEFS_AUTOMATION.autoReportConversions=v; _chiefsSaveAutomation(); render(); }, true));
   return card;
 }
 
@@ -1961,7 +1977,7 @@ function renderChiefsDocGenOverlay() {
 
 // ── CO-PILOT ─────────────────────────────────────────────────────────────────
 var CHIEFS_COPILOT = {
-  open: false, text: "", source: "", senderName: "", senderContact: "",
+  open: false, text: "", source: "", senderName: "", senderContact: "", adReferral: null,
   analyzing: false, needs: null, matches: [], draft: null, drafting: false,
   error: null, saving: false, sent: false
 };
@@ -1982,13 +1998,37 @@ async function _chiefsRawWhatsAppSend(phone, text) {
   } catch (e) { return false; }
 }
 
-async function chiefsCopilotAnalyze(text, source, senderName, senderContact) {
+// Reports a real Client Memory Bank conversion back to Meta's Conversions
+// API, so ad targeting learns from actual outcomes, not just clicks — see
+// api/inbox.js handleMetaConversion() for the server-side half. Requires
+// the agent's own Meta Ads Pixel ID + Conversions API token (Social Setup)
+// — silently no-ops (server returns ok:false with a reason) if not
+// connected yet, never surfaced as an error to the agent since this is a
+// pure background analytics signal, not something the client-save flow
+// should ever be blocked or bothered by.
+async function _chiefsReportConversion(client) {
+  try {
+    var accessToken = localStorage.getItem("dv_access_token");
+    await fetch("/api/inbox?action=meta-conversion", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        access_token: accessToken,
+        ctwa_clid: client.ad_referral && client.ad_referral.ctwa_clid,
+        phone: client.client_phone || null,
+        event_name: "Lead"
+      })
+    });
+  } catch (e) {}
+}
+
+async function chiefsCopilotAnalyze(text, source, senderName, senderContact, adReferral) {
   if (!text || !text.trim()) return;
   CHIEFS_COPILOT.open = true;
   CHIEFS_COPILOT.text = text;
   CHIEFS_COPILOT.source = source || "message";
   CHIEFS_COPILOT.senderName = senderName || "Prospect";
   CHIEFS_COPILOT.senderContact = senderContact || "";
+  CHIEFS_COPILOT.adReferral = adReferral || null;
   CHIEFS_COPILOT.analyzing = true;
   CHIEFS_COPILOT.needs = null;
   CHIEFS_COPILOT.matches = [];
@@ -2157,7 +2197,10 @@ function chiefsCopilotSaveClient() {
     beds_wanted: n.beds || "", areas_wanted: (n.areas || []).join(", "),
     min_price: n.min_price || "", max_price: n.max_price || "",
     furnished_pref: n.furnished || "", timeline: "flexible",
-    notes: "Captured from " + CHIEFS_COPILOT.source + ". " + (n.summary || ""), source: "whatsapp"
+    notes: "Captured from " + CHIEFS_COPILOT.source + ". " + (n.summary || ""), source: "whatsapp",
+    // Carries the Click-to-WhatsApp ad referral through to chiefsSaveClient(),
+    // which reports the conversion back to Meta when this is present.
+    ad_referral: CHIEFS_COPILOT.adReferral || null
   };
   CHIEFS_STATE.view = "clients";
   CHIEFS_COPILOT.open = false;

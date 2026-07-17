@@ -909,6 +909,8 @@ function _syncCredsToServer(){
       whatsapp_token:localStorage.getItem("dv_whatsapp_token")||null,
       whatsapp_phone_id:localStorage.getItem("dv_whatsapp_phone_id")||null,
       whatsapp_waba_id:localStorage.getItem("dv_whatsapp_waba_id")||null,
+      meta_pixel_id:localStorage.getItem("dv_meta_pixel_id")||null,
+      meta_capi_token:localStorage.getItem("dv_meta_capi_token")||null,
       updated_at:new Date().toISOString()
     };
     fetch(SUPABASE_URL+"/rest/v1/social_credentials?user_id=eq."+encodeURIComponent(userId),{
@@ -939,11 +941,11 @@ async function _syncCredsFromServer(){
     var COLS=["ig_token","ig_id","fb_id","linkedin_token","linkedin_urn",
       "twitter_consumer_key","twitter_consumer_secret","twitter_access_token","twitter_access_secret",
       "youtube_refresh","youtube_client_id","youtube_client_secret","pexels_key","tiktok_token",
-      "whatsapp_token","whatsapp_phone_id","whatsapp_waba_id"];
+      "whatsapp_token","whatsapp_phone_id","whatsapp_waba_id","meta_pixel_id","meta_capi_token"];
     var LKEYS=["dv_ig_token","dv_ig_id","dv_fb_id","dv_linkedin_token","dv_linkedin_urn",
       "dv_twitter_consumer_key","dv_twitter_consumer_secret","dv_twitter_access_token","dv_twitter_access_secret",
       "dv_youtube_refresh","dv_youtube_client_id","dv_youtube_client_secret","dv_pexels_key","dv_tiktok_token",
-      "dv_whatsapp_token","dv_whatsapp_phone_id","dv_whatsapp_waba_id"];
+      "dv_whatsapp_token","dv_whatsapp_phone_id","dv_whatsapp_waba_id","dv_meta_pixel_id","dv_meta_capi_token"];
     // Try user-specific first, then 'default' as legacy fallback
     var tries=userId==="default"?["default"]:[userId,"default"];
     for(var i=0;i<tries.length;i++){
@@ -8469,6 +8471,8 @@ function showSocialSetup(){
     {key:"dv_whatsapp_token",label:"WhatsApp Permanent Access Token",ph:"From Meta App Dashboard → WhatsApp → API Setup"},
     {key:"dv_whatsapp_phone_id",label:"WhatsApp Phone Number ID",ph:"e.g. 109876543212345"},
     {key:"dv_whatsapp_waba_id",label:"WhatsApp Business Account ID (optional)",ph:"e.g. 123456789012345"},
+    {key:"dv_meta_pixel_id",label:"Meta Ads Pixel ID (for AI Chief of Staff ad tracking)",ph:"e.g. 987654321098765"},
+    {key:"dv_meta_capi_token",label:"Meta Conversions API Access Token",ph:"From Meta Events Manager → Settings → Conversions API"},
     {key:"dv_unsplash_key",label:"Unsplash API Key (best quality)",ph:"Free at unsplash.com/developers"},
     {key:"dv_pexels_key",label:"Pexels API Key",ph:"Free at pexels.com/api"},
     {key:"dv_gemini_key",label:"Gemini API Key (AI image gen)",ph:"Free at aistudio.google.com/apikey"},
@@ -8852,7 +8856,7 @@ function renderMediaStudio(mode){
     "wrench","Social Setup","Platform accounts",
     function(){showSocialSetup();},
     function(){if(confirm("Disconnect all social accounts?")){
-      ["dv_ig_token","dv_ig_id","dv_fb_id","dv_linkedin_token","dv_linkedin_urn","dv_youtube_token","dv_youtube_refresh","dv_youtube_client_id","dv_youtube_client_secret","dv_twitter_consumer_key","dv_twitter_consumer_secret","dv_twitter_access_token","dv_twitter_access_secret","dv_tiktok_token","dv_whatsapp_number","dv_whatsapp_token","dv_whatsapp_phone_id","dv_whatsapp_waba_id"].forEach(function(k){localStorage.removeItem(k);});
+      ["dv_ig_token","dv_ig_id","dv_fb_id","dv_linkedin_token","dv_linkedin_urn","dv_youtube_token","dv_youtube_refresh","dv_youtube_client_id","dv_youtube_client_secret","dv_twitter_consumer_key","dv_twitter_consumer_secret","dv_twitter_access_token","dv_twitter_access_secret","dv_tiktok_token","dv_whatsapp_number","dv_whatsapp_token","dv_whatsapp_phone_id","dv_whatsapp_waba_id","dv_meta_pixel_id","dv_meta_capi_token"].forEach(function(k){localStorage.removeItem(k);});
       render();
     }},
     function(){showSocialSetup();}

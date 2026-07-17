@@ -422,7 +422,11 @@ function _renderItem(item) {
         var msgText = isEmail ? ((d.body_text||"")||d.subject||"") : (d.message_text||"");
         var senderName = isEmail ? (d.from_name||d.from_email||"") : (d.sender_name||d.sender_id||"");
         var senderContact = isEmail ? (d.from_email||"") : (d.sender_id||"");
-        chiefsCopilotAnalyze(msgText, isEmail?"email":(d.platform||"social"), senderName, senderContact);
+        // Carries the Click-to-WhatsApp ad referral (if this conversation
+        // started from a Facebook/Instagram ad) through to the Co-pilot, so
+        // saving this contact as a client can report the conversion back
+        // to Meta — see chiefsCopilotSaveClient()/chiefsSaveClient().
+        chiefsCopilotAnalyze(msgText, isEmail?"email":(d.platform||"social"), senderName, senderContact, d.ad_referral||null);
       });
       body.appendChild(cpBtn);
     }
