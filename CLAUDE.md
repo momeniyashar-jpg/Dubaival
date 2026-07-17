@@ -163,11 +163,16 @@ The app was split from a single 1.1MB `index-6.html` into modular files:
   registry, composite Investment Score.
 - **`js/deals.js`** — Deal Network, `renderDeals()`, `renderDealForm()`,
   `renderAgentHub()`, `renderAdminDashboard()`, media, inquiries, referrals.
-- **`js/offplan.js`** — Off-Plan Projects tab (added 2026-07-17),
-  `renderOffPlan()`, `computeOffPlanForecast()` (launch→handover→+5yr price
-  forecast, blends `AREAS[].g` real growth data with each developer's own
-  track record when one exists). Data lives in Supabase
-  (`offplan_projects`/`developer_track_record` —
+- **`js/offplan.js`** — Off-Plan Projects tab (added 2026-07-17, schema
+  revised same day — see work log), `renderOffPlan()`,
+  `computeOffPlanForecast(area,launchDate,expectedHandover,launchPSF,
+  devRecord)` (launch→handover→+5yr price forecast per unit type, blends
+  `AREAS[].g` real growth data with each developer's own track record when
+  one exists), `_offplanProjectForecasts()` (computes one forecast per unit
+  type on a project), `_parseUnitPricing()` (parses the
+  "UnitType:PSF:SizeMin-SizeMax" comma-separated shorthand used by both the
+  public submit form and the Admin Quick Add form). Data lives in Supabase
+  (`offplan_projects`/`offplan_unit_types`/`developer_track_record` —
   `supabase-offplan-schema.sql`, requires manual execution), not a static
   JS file. Admin review queue (pending submissions, quick-add, developer
   track record editor) lives in `renderAdmin()` in `js/app.js`, not in this
@@ -246,7 +251,8 @@ Code is now split across `js/*.js` files. To find anything, grep across `js/`:
 | `price_watches` | `supabase-price-alerts-schema.sql` | Price alert subscriptions |
 | `ofm_reports` | `supabase-ofm-trust-safety.sql` | In-chat abuse/scam reports on OFM matches — admin-reviewed via `admin_pending_reports`/`admin_resolve_report` RPCs (requires manual execution, see Outstanding items) |
 | `market_config` | (pre-existing) | Macro yield/growth adjustment knobs |
-| `offplan_projects` | `supabase-offplan-schema.sql` | Off-Plan Projects tab — tracked launches (name/developer/area/launch+handover dates/PSF), `status` pending/published/rejected, admin-reviewed via `admin_pending_offplan_projects`/`admin_review_offplan_project`/`admin_add_offplan_project` RPCs (requires manual execution, see Outstanding items) |
+| `offplan_projects` | `supabase-offplan-schema.sql` | Off-Plan Projects tab — tracked launches (name/developer/area/`project_stage` prelaunch-launched-under_construction-handed_over/`eoi_open_date`/launch+handover dates/`payment_plan`), `review_status` pending/published/rejected, admin-reviewed via `admin_pending_offplan_projects`/`admin_review_offplan_project`/`admin_add_offplan_project` RPCs (requires manual execution, see Outstanding items) |
+| `offplan_unit_types` | `supabase-offplan-schema.sql` | Per-unit-type pricing for an Off-Plan project (unit_type/launch_psf/size_min/size_max) — one row per unit type since a studio and a villa in the same masterplan price completely differently; FK to `offplan_projects`, RLS gated on parent's `review_status='published'` |
 | `developer_track_record` | `supabase-offplan-schema.sql` | Per-developer historical price-growth performance, feeds `computeOffPlanForecast()` in `js/offplan.js`; admin-only write via `admin_upsert_developer_track_record` RPC |
 | `knowledge_base` | `supabase-knowledge-base-schema.sql` + `supabase-knowledge-base-recency-fix.sql` + `supabase-forecast-accuracy-schema.sql` | RAG vector store — 768-dim embeddings (Jina or Gemini) of live news, daily market snapshots, and weekly forecast-accuracy audits (see below). Recency-weighted retrieval. Live since 2026-07-11 (see Outstanding items). |
 | `area_benchmarks` | (inside `api/refresh-market-data.js` workflow, already deployed) | Live PSF + rent data per area, refreshed daily by cron; also carries `rent_active_count`/`rent_avg_days_listed` (session 11n, requires manual execution — see Outstanding items) |
@@ -473,6 +479,102 @@ features continue working exactly as before. Zero breakage.
 - `theme-color` meta tag added (`#070B14`)
 
 ## Recent work log (most recent first)
+
+- **2026-07-17 (session 14, follow-up — Off-Plan Projects schema revised to
+  match how Dubai launches actually work, before the SQL was ever run)**:
+  Direct continuation of the Off-Plan Projects build below — before running
+  `supabase-offplan-schema.sql` for the first time, the user explained (as
+  real domain expertise) the actual off-plan launch process: developers open
+  registration weeks before launch (area/design/community/unit-count details
+  shared, no firm pricing yet), then launch day sells at real per-unit
+  pricing set individually by the developer for each unit/townhouse/villa.
+  User asked for a small web search on how this actually works and my
+  judgment on how the tab should be structured, then — after 3 concrete
+  gaps were found — gave broad authorization to fix everything now, since
+  the SQL hadn't been run yet (cheapest possible time to change the schema):
+  "هنوز SQL رو اجرا نکردم / هر چیزی که نیاز هست و باعث بهبود در روند میشه رو
+  انجام بده" (I haven't run the SQL yet — do whatever improves the process).
+  - **Research confirmed 3 real gaps in the first version**: (1) no field
+    for the actual project lifecycle (Pre-Launch/EOI → Launched → Under
+    Construction → Handed Over) — the first schema only had launch/handover
+    dates, no way to record where a project currently sits between them;
+    (2) no payment plan field, despite being one of the biggest real
+    decision factors for an off-plan buyer (10/70/20, 60/40, 1% monthly,
+    post-handover plans are all materially different commitments); (3) most
+    importantly, pricing is set PER UNIT TYPE by the developer — a studio, a
+    townhouse, and a villa in the same masterplan can have completely
+    different PSF — but the first schema had one flat `launch_psf`/
+    `unit_types text[]`/`size_min`/`size_max` per PROJECT, unable to
+    represent this at all.
+  - **`supabase-offplan-schema.sql` rewritten** (still not yet executed,
+    zero production impact from this revision): `offplan_projects` gained
+    `project_stage` (checked enum: prelaunch/launched/under_construction/
+    handed_over, default prelaunch) and `eoi_open_date`/`payment_plan`
+    (both nullable — real data won't always have these). Its old review
+    workflow column was renamed `status`→`review_status` to avoid colliding
+    with the new lifecycle `project_stage` field (both are legitimately
+    "status-shaped" but mean different things). New `offplan_unit_types`
+    table (project_id FK `on delete cascade`, unit_type, launch_psf, size_min,
+    size_max) replaces the old flat per-project pricing fields entirely —
+    RLS gated on the parent project being published, same pattern as every
+    other public-read policy in this file. `submit_offplan_project()` and
+    `admin_add_offplan_project()` both now accept a `p_unit_types jsonb`
+    array and loop-insert one `offplan_unit_types` row per entry;
+    `admin_pending_offplan_projects()` aggregates each project's unit types
+    back into a `jsonb_agg(jsonb_build_object(...))` column so the admin
+    queue can show the full picture in one RPC call.
+  - **`js/offplan.js` rebuilt to match**: `computeOffPlanForecast()`
+    signature changed from `(project,devRecord)` to
+    `(area,launchDate,expectedHandover,launchPSF,devRecord)` — decoupled
+    from a single project object entirely, since a forecast is now computed
+    once PER UNIT TYPE, not once per project. New
+    `_offplanProjectForecasts(p,devRecord)` computes one forecast per real
+    unit type on a project (falls back to a synthetic "General" entry only
+    if a project genuinely has none, and never renders it if there's no
+    real PSF behind it — no fabricated forecast). New
+    `_parseUnitPricing(str)` — a compact "UnitType:LaunchPSF:SizeMin-SizeMax"
+    comma-separated shorthand (e.g. "Studio:1500:400-550, 1BR:1650:750-900")
+    used by both the public submit form and the Admin Quick Add form — the
+    pragmatic MVP input for per-unit-type pricing without building a full
+    dynamic add/remove-row form. `offplanLoad()` now fetches
+    `review_status=eq.published` (not the old `status`) and embeds each
+    project's unit types via PostgREST's relationship syntax
+    (`select=*,unit_types:offplan_unit_types(...)`) in the same request — no
+    second round-trip needed. `_renderOffplanCard()` now renders one
+    Launch/Handover/+5yr price block PER UNIT TYPE within a project, plus new
+    stage/payment-plan/EOI-date badges and meta text.
+  - **`js/app.js` Admin Dashboard updated to match**: `ADMIN_OFFPLAN_STATE
+    .quickAdd` gained `projectStage`/`eoiOpenDate`/`paymentPlan`/
+    `unitPricing` (replacing the old flat `launchPSF`/`sizeMin`/`sizeMax`/
+    `unitTypes`); `_adminQuickAddOffplan()` now validates and parses unit
+    pricing via the same shared `_parseUnitPricing()` from `js/offplan.js`
+    (safe to call across files since all `<script defer>` tags finish
+    loading before any render/click handler ever runs) and sends the new RPC
+    param shape; the Quick Add form grid gained a Project Stage dropdown, EOI
+    Open Date field, and Payment Plan field, plus the same unit-pricing
+    shorthand input; the pending-submissions list now shows each project's
+    real stage label, payment plan, and a compact per-unit-type PSF summary
+    (e.g. "Studio @1400, 1BR @1500") instead of a single flat PSF.
+  - Verified: `node -c` on both touched files; a Node vm-sandbox test (7
+    cases) — forecast computation with/without developer track record
+    (confirmed the two differ and `hasDevData` flips correctly), the
+    shorthand parser correctly extracts unit type/PSF/size-range and
+    silently drops malformed entries without throwing, a multi-unit-type
+    project produces one correctly-differentiated forecast per unit type,
+    a project with zero real unit pricing produces an empty (not fabricated)
+    forecast array, and an unknown area still falls back gracefully; and 3
+    real-browser Playwright passes — the public Off-Plan tab rendering a
+    mocked multi-unit-type published project (stage badge, EOI/payment-plan
+    meta text, and 2 separate correctly-priced unit-type price blocks all
+    confirmed via screenshot, numbers matching the Node test exactly), the
+    submit form showing all 4 new fields (confirmed case-insensitively,
+    since the visible on-screen text is uppercase via this app's existing
+    `textTransform:"uppercase"` label styling — a known case-sensitivity
+    quirk in `innerText`-based checks, not a rendering bug), and the Admin
+    Dashboard's pending-submissions queue + Quick Add form both rendering
+    the new fields and correct per-unit-type summary against a mocked
+    `admin_pending_offplan_projects` response — zero non-network console
+    errors in any pass.
 
 - **2026-07-17 (session 14, new feature — Off-Plan Projects tab)**: User
   asked for a section where off-plan projects from different developers can
@@ -4586,22 +4688,28 @@ These files contain critical business logic and data:
 ## Outstanding / open items
 
 - **🟡 Off-Plan Projects — needs manual SQL + real data sourcing** (added
-  2026-07-17, session 14): run `supabase-offplan-schema.sql` in Supabase SQL
-  Editor (requires `supabase-admin-security-fix.sql` already applied, which
-  it is — reuses `_admin_password_ok()`). Until it's run, the tab shows a
-  graceful "Off-Plan data isn't available yet" message instead of an error.
-  Once it's run, the tab is fully functional but the database starts
+  2026-07-17, session 14; schema revised same session before the SQL was
+  ever run — see the "schema revised to match how Dubai launches actually
+  work" work-log entry above): run `supabase-offplan-schema.sql` in Supabase
+  SQL Editor (requires `supabase-admin-security-fix.sql` already applied,
+  which it is — reuses `_admin_password_ok()`). Until it's run, the tab
+  shows a graceful "Off-Plan data isn't available yet" message instead of an
+  error. Once it's run, the tab is fully functional but the database starts
   completely EMPTY (deliberately — no fabricated project/developer data was
-  seeded, per this project's own accuracy directive). Next step, to be
-  worked out with the user: how to actually source real off-plan project
-  data (Property Finder/Bayut API — likely extendable from the existing
-  `api/proxy-rapidapi.js` integration — plus Tamani Properties and developer
-  websites, none of which this session had live network access to
-  investigate) and real developer track-record figures (avg growth
-  launch→handover / handover→+5yr per developer, entered via the new
-  "Developer Track Record" editor in the Admin Dashboard). See the
-  2026-07-17 "Off-Plan Projects tab" work-log entry above for the full
-  design and scoping conversation.
+  seeded, per this project's own accuracy directive). Pricing is now modeled
+  per unit type (`offplan_unit_types`, one row per Studio/1BR/Townhouse/
+  Villa/etc. within a project) rather than one flat PSF per project, and
+  projects carry a real lifecycle stage (`project_stage`) and
+  `payment_plan` field. Next step, to be worked out with the user: how to
+  actually source real off-plan project data (Property Finder/Bayut API —
+  likely extendable from the existing `api/proxy-rapidapi.js` integration —
+  plus Tamani Properties and developer websites, none of which this session
+  had live network access to investigate) and real developer track-record
+  figures (avg growth launch→handover / handover→+5yr per developer,
+  entered via the "Developer Track Record" editor in the Admin Dashboard).
+  See the 2026-07-17 "Off-Plan Projects tab" and its schema-revision
+  follow-up work-log entries above for the full design and scoping
+  conversation.
 
 - **🔴 CRITICAL, NOT YET LIVE — Inbox feature (email/Instagram/Facebook/
   WhatsApp) has never stored a single message, needs manual SQL execution

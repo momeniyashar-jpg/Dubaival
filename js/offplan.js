@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
-// --- OFF-PLAN PROJECTS (added 2026-07-17) ------------------------------------
+// --- OFF-PLAN PROJECTS (added 2026-07-17, schema revised same day) -----------
 // User's own framing: a place to find off-plan projects from different
 // developers, with a price-growth forecast from launch->handover and
 // handover->+5yr, based on (1) the area's own real growth data (AREAS[].g,
@@ -8,17 +8,39 @@
 // been entered (never fabricated — stays neutral/area-only until real
 // developer performance data exists, see Outstanding items in CLAUDE.md).
 //
-// Data lives in Supabase (offplan_projects / developer_track_record —
-// supabase-offplan-schema.sql, requires manual execution), NOT a static JS
-// file — unlike the residential building DB, this is a living, admin-curated
-// + user-submitted dataset that needs CRUD and a review queue, not a
-// recalibrated-periodically reference table.
+// Schema revised after a research pass into how Dubai off-plan launches
+// actually work (see supabase-offplan-schema.sql header): pricing is set PER
+// UNIT TYPE by the developer (a studio and a villa in the same masterplan
+// price completely differently), so each project can carry multiple unit
+// types (offplan_unit_types), each with its own forecast. Projects also now
+// carry a real lifecycle stage (Pre-Launch/EOI -> Launched -> Under
+// Construction -> Handed Over) and a payment plan (10/70/20, 60/40, etc.) —
+// one of the biggest real decision factors for an off-plan buyer.
+//
+// Data lives in Supabase (offplan_projects / offplan_unit_types /
+// developer_track_record — supabase-offplan-schema.sql, requires manual
+// execution), NOT a static JS file — unlike the residential building DB,
+// this is a living, admin-curated + user-submitted dataset that needs CRUD
+// and a review queue, not a recalibrated-periodically reference table.
 //
 // Ownership model (user-confirmed hybrid): any signed-in user can submit a
-// project (lands as 'pending', invisible publicly); admin adds directly as
-// already-published, or approves/rejects submissions from the Admin
-// Dashboard (js/app.js renderAdmin() — same "queued, then admin-verified"
-// pattern already used for OFM listing document verification).
+// project (lands as 'pending' review_status, invisible publicly); admin adds
+// directly as already-published, or approves/rejects submissions from the
+// Admin Dashboard (js/app.js renderAdmin() — same "queued, then
+// admin-verified" pattern already used for OFM listing document verification).
+
+var OFFPLAN_STAGE_LABELS = {
+  prelaunch: "Pre-Launch / EOI",
+  launched: "Launched",
+  under_construction: "Under Construction",
+  handed_over: "Handed Over"
+};
+var OFFPLAN_STAGE_COLORS = {
+  prelaunch: "#F59E0B",
+  launched: "#3B82F6",
+  under_construction: "#8B5CF6",
+  handed_over: "#10B981"
+};
 
 var OFFPLAN_STATE = {
   loading: false,
@@ -33,7 +55,7 @@ var OFFPLAN_STATE = {
   submitting: false,
   submitError: "",
   submitOk: false,
-  form: { name:"", developer:"", area:"", launchDate:"", expectedHandover:"", launchPSF:"", sizeMin:"", sizeMax:"", unitTypes:"", source:"", sourceUrl:"", notes:"" }
+  form: { name:"", developer:"", area:"", projectStage:"prelaunch", eoiOpenDate:"", launchDate:"", expectedHandover:"", paymentPlan:"", unitPricing:"", source:"", sourceUrl:"", notes:"" }
 };
 
 function _offplanH(){
@@ -41,12 +63,40 @@ function _offplanH(){
   return {"apikey":SUPABASE_KEY,"Authorization":"Bearer "+token,"Content-Type":"application/json"};
 }
 
+// Compact shorthand parser for "UnitType:PSF:SizeMin-SizeMax" comma-separated
+// entries (e.g. "Studio:1500:400-550, 1BR:1650:750-900") — the pragmatic MVP
+// input for per-unit-type pricing without a dynamic add/remove-row form.
+function _parseUnitPricing(str){
+  if(!str)return[];
+  return str.split(",").map(function(chunk){
+    var parts=chunk.split(":").map(function(s){return s.trim();});
+    if(parts.length<2||!parts[0]||!parts[1])return null;
+    var launchPsf=parseFloat(parts[1]);
+    if(!launchPsf||launchPsf<=0)return null;
+    var sizeMin=null,sizeMax=null;
+    if(parts[2]){
+      var sizeParts=parts[2].split("-").map(function(s){return s.trim();});
+      sizeMin=parseInt(sizeParts[0],10)||null;
+      sizeMax=sizeParts[1]?(parseInt(sizeParts[1],10)||null):sizeMin;
+    }
+    return{unit_type:parts[0],launch_psf:launchPsf,size_min:sizeMin,size_max:sizeMax};
+  }).filter(Boolean);
+}
+
+function _formatUnitPricingForEdit(unitTypes){
+  if(!unitTypes||!unitTypes.length)return"";
+  return unitTypes.map(function(u){
+    var sizePart=(u.size_min&&u.size_max)?(":"+u.size_min+"-"+u.size_max):"";
+    return u.unit_type+":"+u.launch_psf+sizePart;
+  }).join(", ");
+}
+
 async function offplanLoad(){
   if(OFFPLAN_STATE.loading||OFFPLAN_STATE.loaded)return;
   OFFPLAN_STATE.loading=true;
   try{
     var [pRes,dRes]=await Promise.all([
-      fetch(SUPABASE_URL+"/rest/v1/offplan_projects?status=eq.published&order=created_at.desc&limit=300",{headers:_offplanH()}),
+      fetch(SUPABASE_URL+"/rest/v1/offplan_projects?select=*,unit_types:offplan_unit_types(unit_type,launch_psf,size_min,size_max)&review_status=eq.published&order=created_at.desc&limit=300",{headers:_offplanH()}),
       fetch(SUPABASE_URL+"/rest/v1/developer_track_record?select=*&limit=500",{headers:_offplanH()})
     ]);
     OFFPLAN_STATE.projects=pRes.ok?await pRes.json():[];
@@ -64,12 +114,14 @@ async function offplanLoad(){
 // ── PREDICTION ENGINE ─────────────────────────────────────────────────────
 // Reuses the same trusted AREAS[].g growth data every other feature in this
 // app already relies on (Analyzer, Portfolio projections, Market Cycle) —
-// no new/separate growth model invented for off-plan specifically.
-function computeOffPlanForecast(project,devRecord){
-  var aData=(typeof AREAS!=="undefined"&&AREAS[project.area])||{g:[10,18,28]};
+// no new/separate growth model invented for off-plan specifically. Computed
+// PER UNIT TYPE (each unit type has its own launchPSF) since a studio and a
+// villa in the same masterplan price completely differently.
+function computeOffPlanForecast(area,launchDate,expectedHandover,launchPSF,devRecord){
+  var aData=(typeof AREAS!=="undefined"&&AREAS[area])||{g:[10,18,28]};
   var g=aData.g||[10,18,28];
-  var launch=new Date(project.launch_date);
-  var handover=new Date(project.expected_handover);
+  var launch=new Date(launchDate);
+  var handover=new Date(expectedHandover);
   var monthsToHandover=Math.max(1,(handover.getFullYear()-launch.getFullYear())*12+(handover.getMonth()-launch.getMonth()));
   var yearsToHandover=monthsToHandover/12;
   // Annualize the 1-3yr cumulative growth figure as the construction-period proxy
@@ -83,14 +135,14 @@ function computeOffPlanForecast(project,devRecord){
     // — damped so a handful of past projects can't swing the number wildly.
     growthToHandover=growthToHandover*0.7+devImplied*0.3;
   }
-  var projectedHandoverPSF=Math.round(project.launch_psf*(1+growthToHandover));
+  var projectedHandoverPSF=Math.round(launchPSF*(1+growthToHandover));
   var growth5yr=(g[2]||28)/100;
   var hasDev5yrData=!!(devRecord&&devRecord.avg_growth_handover_to_5yr!=null);
   if(hasDev5yrData)growth5yr=growth5yr*0.7+(devRecord.avg_growth_handover_to_5yr/100)*0.3;
   var projected5yrPSF=Math.round(projectedHandoverPSF*(1+growth5yr));
   var confidence=hasDevHandoverData?"Medium — area growth + developer track record":"Indicative — area growth only, no developer history yet";
   return{
-    launchPSF:project.launch_psf,
+    launchPSF:launchPSF,
     projectedHandoverPSF:projectedHandoverPSF,
     projected5yrPSF:projected5yrPSF,
     growthToHandoverPct:Math.round(growthToHandover*1000)/10,
@@ -99,6 +151,25 @@ function computeOffPlanForecast(project,devRecord){
     confidence:confidence,
     hasDevData:hasDevHandoverData
   };
+}
+
+// Computes a forecast for every unit type on a project (falls back to a
+// single synthetic "General" unit type if none were entered, so an older or
+// incomplete row never renders empty).
+function _offplanProjectForecasts(p,devRecord){
+  var units=(p.unit_types&&p.unit_types.length)?p.unit_types:[{unit_type:"General",launch_psf:null,size_min:p.size_min,size_max:p.size_max}];
+  return units.filter(function(u){return u.launch_psf;}).map(function(u){
+    var fc=computeOffPlanForecast(p.area,p.launch_date,p.expected_handover,u.launch_psf,devRecord);
+    fc.unitType=u.unit_type;
+    fc.sizeMin=u.size_min;
+    fc.sizeMax=u.size_max;
+    return fc;
+  });
+}
+
+function _offplanAvgGrowth(forecasts){
+  if(!forecasts.length)return 0;
+  return forecasts.reduce(function(s,f){return s+f.growthToHandoverPct;},0)/forecasts.length;
 }
 
 function _offplanFmtDate(d){
@@ -111,8 +182,13 @@ function _offplanFmtDate(d){
 async function offplanSubmit(){
   var cl=C();
   var f=OFFPLAN_STATE.form;
-  if(!f.name||!f.developer||!f.area||!f.launchDate||!f.expectedHandover||!f.launchPSF){
-    OFFPLAN_STATE.submitError="Please fill in project name, developer, area, launch date, handover date, and launch PSF.";
+  var unitTypesArr=_parseUnitPricing(f.unitPricing);
+  if(!f.name||!f.developer||!f.area||!f.launchDate||!f.expectedHandover){
+    OFFPLAN_STATE.submitError="Please fill in project name, developer, area, launch date, and handover date.";
+    render();return;
+  }
+  if(unitTypesArr.length===0){
+    OFFPLAN_STATE.submitError="Please add at least one unit type with pricing, e.g. Studio:1500:400-550";
     render();return;
   }
   if(typeof DV_AUTH==="undefined"||!DV_AUTH.user){
@@ -120,23 +196,22 @@ async function offplanSubmit(){
   }
   OFFPLAN_STATE.submitting=true;OFFPLAN_STATE.submitError="";render();
   try{
-    var unitTypesArr=(f.unitTypes||"").split(",").map(function(s){return s.trim();}).filter(Boolean);
     var r=await fetch(SUPABASE_URL+"/rest/v1/rpc/submit_offplan_project",{
       method:"POST",headers:_offplanH(),
       body:JSON.stringify({
         p_name:f.name,p_developer:f.developer,p_area:f.area,
+        p_project_stage:f.projectStage||"prelaunch",
+        p_eoi_open_date:f.eoiOpenDate||null,
         p_launch_date:f.launchDate,p_expected_handover:f.expectedHandover,
-        p_launch_psf:parseFloat(f.launchPSF)||0,
+        p_payment_plan:f.paymentPlan||null,
         p_unit_types:unitTypesArr,
-        p_size_min:f.sizeMin?parseInt(f.sizeMin):null,
-        p_size_max:f.sizeMax?parseInt(f.sizeMax):null,
         p_source:f.source||"agent-submission",p_source_url:f.sourceUrl||null,
         p_notes:f.notes||null,p_submitted_by:DV_AUTH.user.email
       })
     });
     if(r.ok){
       OFFPLAN_STATE.submitOk=true;
-      OFFPLAN_STATE.form={name:"",developer:"",area:"",launchDate:"",expectedHandover:"",launchPSF:"",sizeMin:"",sizeMax:"",unitTypes:"",source:"",sourceUrl:"",notes:""};
+      OFFPLAN_STATE.form={name:"",developer:"",area:"",projectStage:"prelaunch",eoiOpenDate:"",launchDate:"",expectedHandover:"",paymentPlan:"",unitPricing:"",source:"",sourceUrl:"",notes:""};
     }else{
       OFFPLAN_STATE.submitError="Could not submit — please try again.";
     }
@@ -151,7 +226,7 @@ function renderOffPlan(){
 
   var hero=el("div",{style:{marginBottom:"20px"}});
   hero.appendChild(div({fontSize:"20px",fontWeight:"700",color:"#F0F2F5",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Off-Plan Projects"));
-  hero.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6"},"Track off-plan launches across developers with a price forecast from launch → handover → 5 years after, based on real area growth data and each developer's own track record."));
+  hero.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6"},"Track off-plan launches across developers with a price forecast from launch → handover → 5 years after, per unit type, based on real area growth data and each developer's own track record."));
   wrap.appendChild(hero);
 
   // Filters
@@ -190,10 +265,11 @@ function renderOffPlan(){
     return true;
   }).map(function(p){
     var dev=OFFPLAN_STATE.devRecords[p.developer]||null;
-    return{p:p,fc:computeOffPlanForecast(p,dev)};
+    var fcs=_offplanProjectForecasts(p,dev);
+    return{p:p,fcs:fcs,avgGrowth:_offplanAvgGrowth(fcs)};
   });
   if(OFFPLAN_STATE.sort==="handover")filtered.sort(function(a,b){return new Date(a.p.expected_handover)-new Date(b.p.expected_handover);});
-  else if(OFFPLAN_STATE.sort==="growth")filtered.sort(function(a,b){return b.fc.growthToHandoverPct-a.fc.growthToHandoverPct;});
+  else if(OFFPLAN_STATE.sort==="growth")filtered.sort(function(a,b){return b.avgGrowth-a.avgGrowth;});
   else filtered.sort(function(a,b){return new Date(b.p.created_at)-new Date(a.p.created_at);});
 
   if(filtered.length===0){
@@ -206,7 +282,7 @@ function renderOffPlan(){
   }
 
   filtered.forEach(function(item){
-    wrap.appendChild(_renderOffplanCard(cl,item.p,item.fc));
+    wrap.appendChild(_renderOffplanCard(cl,item.p,item.fcs));
   });
 
   return wrap;
@@ -233,14 +309,25 @@ function _renderOffplanSubmitForm(cl){
   var areaNames=(typeof AREAS!=="undefined")?Object.keys(AREAS).sort():[];
   areaW.appendChild(mkAuto(I(),areaNames,f.area,function(v){f.area=v;},"Search area…"));
   grid.appendChild(areaW);
-  grid.appendChild(field("Launch PSF (AED/sqft)","launchPSF","e.g. 1800","number"));
+  var stageW=el("div",{});stageW.appendChild(lbl("Project Stage"));
+  var stageKeys=Object.keys(OFFPLAN_STAGE_LABELS);
+  var stageLabelList=stageKeys.map(function(k){return OFFPLAN_STAGE_LABELS[k];});
+  stageW.appendChild(mkSelect(I(),stageLabelList,OFFPLAN_STAGE_LABELS[f.projectStage]||stageLabelList[0],function(v){
+    var found=stageKeys.find(function(k){return OFFPLAN_STAGE_LABELS[k]===v;});
+    f.projectStage=found||"prelaunch";
+  }));
+  grid.appendChild(stageW);
+  grid.appendChild(field("EOI Open Date (optional)","eoiOpenDate","","date"));
   grid.appendChild(field("Launch Date","launchDate","","date"));
   grid.appendChild(field("Expected Handover","expectedHandover","","date"));
-  grid.appendChild(field("Size Min (sqft)","sizeMin","e.g. 450","number"));
-  grid.appendChild(field("Size Max (sqft)","sizeMax","e.g. 1400","number"));
-  grid.appendChild(field("Unit Types (comma-separated)","unitTypes","Studio, 1BR, 2BR"));
-  grid.appendChild(field("Source","source","propertyfinder / bayut / tamani / developer-site"));
+  grid.appendChild(field("Payment Plan","paymentPlan","e.g. 10/70/20, 60/40, Post-Handover 3yr"));
   card.appendChild(grid);
+  var pricingW=el("div",{style:{marginTop:"8px"}});
+  pricingW.appendChild(lbl("Unit Types & Pricing"));
+  pricingW.appendChild(inp(I(),"Studio:1500:400-550, 1BR:1650:750-900, 2BR:1600:1100-1400","text",f.unitPricing,function(v){f.unitPricing=v;}));
+  pricingW.appendChild(div({color:cl.sub,fontSize:"10px",marginTop:"4px",lineHeight:"1.5"},"Format: UnitType:LaunchPSF:SizeMin-SizeMax — one per unit type, comma-separated. Size range is optional."));
+  card.appendChild(pricingW);
+  card.appendChild(el("div",{style:{marginTop:"8px"}},[field("Source","source","propertyfinder / bayut / tamani / developer-site")]));
   card.appendChild(el("div",{style:{marginTop:"8px"}},[field("Source URL (optional)","sourceUrl","https://...")]));
   card.appendChild(el("div",{style:{marginTop:"8px"}},[field("Notes (optional)","notes","Anything else worth noting")]));
   if(OFFPLAN_STATE.submitError)card.appendChild(div({color:"#EF4444",fontSize:"11px",marginTop:"8px"},OFFPLAN_STATE.submitError));
@@ -251,42 +338,53 @@ function _renderOffplanSubmitForm(cl){
   return card;
 }
 
-function _renderOffplanCard(cl,p,fc){
+function _renderOffplanCard(cl,p,fcs){
   var card=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginBottom:"12px"}});
-  var topRow=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"10px"}});
+  var topRow=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"10px",gap:"8px"}});
   var left=el("div",{});
   left.appendChild(div({color:"#E8EDF5",fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},p.name));
   left.appendChild(div({color:cl.sub,fontSize:"11.5px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},p.developer+" · "+p.area));
   topRow.appendChild(left);
-  var handBadge=div({background:"rgba(59,130,246,0.1)",border:"1px solid rgba(59,130,246,0.25)",borderRadius:"8px",padding:"4px 10px",fontSize:"10px",fontWeight:"700",color:"#3B82F6",fontFamily:"'Space Grotesk',monospace",whiteSpace:"nowrap"},"Handover "+_offplanFmtDate(p.expected_handover));
-  topRow.appendChild(handBadge);
+  var badgeCol=el("div",{style:{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:"4px"}});
+  var stageColor=OFFPLAN_STAGE_COLORS[p.project_stage]||cl.sub;
+  badgeCol.appendChild(div({background:hexAlpha(stageColor,0.12),border:"1px solid "+hexAlpha(stageColor,0.3),borderRadius:"8px",padding:"3px 9px",fontSize:"9.5px",fontWeight:"700",color:stageColor,fontFamily:"'Space Grotesk',monospace",whiteSpace:"nowrap"},OFFPLAN_STAGE_LABELS[p.project_stage]||"Pre-Launch / EOI"));
+  badgeCol.appendChild(div({background:"rgba(59,130,246,0.1)",border:"1px solid rgba(59,130,246,0.25)",borderRadius:"8px",padding:"3px 9px",fontSize:"9.5px",fontWeight:"700",color:"#3B82F6",fontFamily:"'Space Grotesk',monospace",whiteSpace:"nowrap"},"Handover "+_offplanFmtDate(p.expected_handover)));
+  topRow.appendChild(badgeCol);
   card.appendChild(topRow);
 
   var metaRow=el("div",{style:{display:"flex",gap:"10px",flexWrap:"wrap",marginBottom:"12px",fontSize:"10.5px",color:cl.sub,fontFamily:"'Space Grotesk',monospace"}});
   metaRow.appendChild(span({},"Launched "+_offplanFmtDate(p.launch_date)));
-  if(p.size_min&&p.size_max)metaRow.appendChild(span({},"· "+p.size_min+"–"+p.size_max+" sqft"));
-  if(p.unit_types&&p.unit_types.length)metaRow.appendChild(span({},"· "+p.unit_types.join("/")));
+  if(p.eoi_open_date)metaRow.appendChild(span({},"· EOI opened "+_offplanFmtDate(p.eoi_open_date)));
+  if(p.payment_plan)metaRow.appendChild(span({},"· Payment Plan: "+p.payment_plan));
   card.appendChild(metaRow);
 
-  var priceRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"10px"}});
-  [
-    {l:"Launch PSF",v:"AED "+Math.round(fc.launchPSF).toLocaleString(),c:cl.subHi},
-    {l:"At Handover ("+fc.yearsToHandover+"y)",v:"AED "+fc.projectedHandoverPSF.toLocaleString(),c:"#10B981",sub:(fc.growthToHandoverPct>=0?"+":"")+fc.growthToHandoverPct+"%"},
-    {l:"+5yr Post-Handover",v:"AED "+fc.projected5yrPSF.toLocaleString(),c:"#D4AF37",sub:(fc.growth5yrPct>=0?"+":"")+fc.growth5yrPct+"%"}
-  ].forEach(function(s){
-    var cell=el("div",{style:{background:cl.raised,borderRadius:"8px",padding:"8px 10px",minWidth:"0"}});
-    cell.appendChild(div({color:cl.sub,fontSize:"7.5px",letterSpacing:"0.08em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},s.l));
-    cell.appendChild(div({color:s.c,fontSize:"12.5px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},s.v));
-    if(s.sub)cell.appendChild(div({color:s.c,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace",marginTop:"1px"},s.sub));
-    priceRow.appendChild(cell);
-  });
-  card.appendChild(priceRow);
-
-  var confBadge=div({color:fc.hasDevData?"#10B981":cl.sub,fontSize:"9.5px",fontFamily:"'Inter',sans-serif",fontStyle:"italic"},fc.confidence);
-  card.appendChild(confBadge);
+  if(!fcs.length){
+    card.appendChild(div({color:cl.sub,fontSize:"11px",fontStyle:"italic",padding:"8px 0"},"No unit pricing on file yet for this project."));
+  }else{
+    fcs.forEach(function(fc){
+      var unitBlock=el("div",{style:{marginBottom:"10px"}});
+      var unitLabel=fc.unitType+((fc.sizeMin&&fc.sizeMax)?(" · "+fc.sizeMin+"–"+fc.sizeMax+" sqft"):"");
+      unitBlock.appendChild(div({color:"#E8EDF5",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},unitLabel));
+      var priceRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px"}});
+      [
+        {l:"Launch PSF",v:"AED "+Math.round(fc.launchPSF).toLocaleString(),c:cl.subHi},
+        {l:"At Handover ("+fc.yearsToHandover+"y)",v:"AED "+fc.projectedHandoverPSF.toLocaleString(),c:"#10B981",sub:(fc.growthToHandoverPct>=0?"+":"")+fc.growthToHandoverPct+"%"},
+        {l:"+5yr Post-Handover",v:"AED "+fc.projected5yrPSF.toLocaleString(),c:"#D4AF37",sub:(fc.growth5yrPct>=0?"+":"")+fc.growth5yrPct+"%"}
+      ].forEach(function(s){
+        var cell=el("div",{style:{background:cl.raised,borderRadius:"8px",padding:"8px 10px",minWidth:"0"}});
+        cell.appendChild(div({color:cl.sub,fontSize:"7.5px",letterSpacing:"0.08em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},s.l));
+        cell.appendChild(div({color:s.c,fontSize:"12.5px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},s.v));
+        if(s.sub)cell.appendChild(div({color:s.c,fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace",marginTop:"1px"},s.sub));
+        priceRow.appendChild(cell);
+      });
+      unitBlock.appendChild(priceRow);
+      card.appendChild(unitBlock);
+    });
+    card.appendChild(div({color:fcs[0].hasDevData?"#10B981":cl.sub,fontSize:"9.5px",fontFamily:"'Inter',sans-serif",fontStyle:"italic",marginBottom:"4px"},fcs[0].confidence));
+  }
 
   if(p.source_url){
-    var srcLink=el("a",{href:p.source_url,target:"_blank",rel:"noopener",style:{display:"inline-block",marginTop:"8px",color:cl.gold,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",textDecoration:"none"}});
+    var srcLink=el("a",{href:p.source_url,target:"_blank",rel:"noopener",style:{display:"inline-block",marginTop:"4px",color:cl.gold,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",textDecoration:"none"}});
     srcLink.textContent="Source →";
     card.appendChild(srcLink);
   }

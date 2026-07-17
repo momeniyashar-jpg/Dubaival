@@ -1453,7 +1453,7 @@ async function _fetchAdminEventReports(){
 // verification — pending submissions from js/offplan.js's public submit
 // form are invisible until approved/rejected here.
 var ADMIN_OFFPLAN_STATE={loading:false,loaded:false,pending:[],error:null,
-  quickAdd:{name:"",developer:"",area:"",launchDate:"",expectedHandover:"",launchPSF:"",sizeMin:"",sizeMax:"",unitTypes:"",source:"admin",sourceUrl:"",notes:""},
+  quickAdd:{name:"",developer:"",area:"",projectStage:"prelaunch",eoiOpenDate:"",launchDate:"",expectedHandover:"",paymentPlan:"",unitPricing:"",source:"admin",sourceUrl:"",notes:""},
   devForm:{developer:"",tier:"",projectsTracked:"",avgGrowthHandover:"",avgGrowth5yr:"",notes:""},
   rejectingId:null,rejectReason:""};
 async function _fetchAdminOffplanPending(){
@@ -1483,22 +1483,26 @@ async function _adminReviewOffplanProject(id,approve,reason){
 async function _adminQuickAddOffplan(){
   if(!window._adminPw)return;
   var f=ADMIN_OFFPLAN_STATE.quickAdd;
-  if(!f.name||!f.developer||!f.area||!f.launchDate||!f.expectedHandover||!f.launchPSF){
-    ADMIN_OFFPLAN_STATE.error="Fill in project name, developer, area, both dates, and launch PSF.";render();return;
+  var unitTypesArr=(typeof _parseUnitPricing==="function")?_parseUnitPricing(f.unitPricing):[];
+  if(!f.name||!f.developer||!f.area||!f.launchDate||!f.expectedHandover){
+    ADMIN_OFFPLAN_STATE.error="Fill in project name, developer, area, and both dates.";render();return;
+  }
+  if(!unitTypesArr.length){
+    ADMIN_OFFPLAN_STATE.error="Add at least one unit type with pricing, e.g. Studio:1500:400-550";render();return;
   }
   try{
-    var unitTypesArr=(f.unitTypes||"").split(",").map(function(s){return s.trim();}).filter(Boolean);
     var r=await fetch(SUPABASE_URL+"/rest/v1/rpc/admin_add_offplan_project",{
       method:"POST",headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
       body:JSON.stringify({
         p_admin_password:window._adminPw,p_name:f.name,p_developer:f.developer,p_area:f.area,
-        p_launch_date:f.launchDate,p_expected_handover:f.expectedHandover,p_launch_psf:parseFloat(f.launchPSF)||0,
-        p_unit_types:unitTypesArr,p_size_min:f.sizeMin?parseInt(f.sizeMin):null,p_size_max:f.sizeMax?parseInt(f.sizeMax):null,
+        p_project_stage:f.projectStage||"prelaunch",p_eoi_open_date:f.eoiOpenDate||null,
+        p_launch_date:f.launchDate,p_expected_handover:f.expectedHandover,p_payment_plan:f.paymentPlan||null,
+        p_unit_types:unitTypesArr,
         p_source:f.source||"admin",p_source_url:f.sourceUrl||null,p_notes:f.notes||null
       })
     });
     if(r.ok){
-      ADMIN_OFFPLAN_STATE.quickAdd={name:"",developer:"",area:"",launchDate:"",expectedHandover:"",launchPSF:"",sizeMin:"",sizeMax:"",unitTypes:"",source:"admin",sourceUrl:"",notes:""};
+      ADMIN_OFFPLAN_STATE.quickAdd={name:"",developer:"",area:"",projectStage:"prelaunch",eoiOpenDate:"",launchDate:"",expectedHandover:"",paymentPlan:"",unitPricing:"",source:"admin",sourceUrl:"",notes:""};
       ADMIN_OFFPLAN_STATE.error=null;
     }else{ADMIN_OFFPLAN_STATE.error="Could not add project — check the fields and try again.";}
   }catch(e){ADMIN_OFFPLAN_STATE.error="Network error adding project.";}
@@ -1762,7 +1766,10 @@ function renderAdmin(){
     ADMIN_OFFPLAN_STATE.pending.forEach(function(proj){
       var row=el("div",{style:{padding:"10px 0",borderBottom:"1px solid "+cl.border}});
       row.appendChild(div({color:cl.white,fontSize:"12.5px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},proj.name+" — "+proj.developer));
-      row.appendChild(div({color:cl.sub,fontSize:"10.5px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},proj.area+" · Launch PSF "+proj.launch_psf+" · submitted by "+(proj.submitted_by||"—")));
+      var unitSummary=(proj.unit_types&&proj.unit_types.length)?proj.unit_types.map(function(u){return u.unit_type+" @"+u.launch_psf;}).join(", "):"no unit pricing";
+      var stageLabel=(typeof OFFPLAN_STAGE_LABELS!=="undefined"&&OFFPLAN_STAGE_LABELS[proj.project_stage])||proj.project_stage||"—";
+      row.appendChild(div({color:cl.sub,fontSize:"10.5px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},proj.area+" · "+stageLabel+(proj.payment_plan?(" · "+proj.payment_plan):"")+" · submitted by "+(proj.submitted_by||"—")));
+      row.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},unitSummary));
       var btnRow=el("div",{style:{display:"flex",gap:"6px",marginTop:"8px"}});
       var apBtn=el("button",{style:{background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.3)",color:"#10B981",borderRadius:"6px",padding:"5px 12px",fontSize:"10.5px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
       apBtn.textContent="✓ Approve";
@@ -1795,14 +1802,20 @@ function renderAdmin(){
     qaGrid.appendChild(qaField("Developer","developer"));
     var qaAreaNames=(typeof AREAS!=="undefined")?Object.keys(AREAS).sort():[];
     qaGrid.appendChild(mkAuto(Object.assign({},I(),{fontSize:"11px",padding:"6px 8px"}),qaAreaNames,qa.area,function(v){qa.area=v;},"Area…"));
-    qaGrid.appendChild(qaField("Launch PSF","launchPSF","number"));
+    var qaStageKeys=(typeof OFFPLAN_STAGE_LABELS!=="undefined")?Object.keys(OFFPLAN_STAGE_LABELS):["prelaunch","launched","under_construction","handed_over"];
+    var qaStageLabels=(typeof OFFPLAN_STAGE_LABELS!=="undefined")?qaStageKeys.map(function(k){return OFFPLAN_STAGE_LABELS[k];}):qaStageKeys;
+    qaGrid.appendChild(mkSelect(Object.assign({},I(),{fontSize:"11px",padding:"6px 8px"}),qaStageLabels,(typeof OFFPLAN_STAGE_LABELS!=="undefined"?OFFPLAN_STAGE_LABELS[qa.projectStage]:qa.projectStage)||qaStageLabels[0],function(v){
+      var idx=qaStageLabels.indexOf(v);qa.projectStage=idx>=0?qaStageKeys[idx]:"prelaunch";
+    }));
+    qaGrid.appendChild(qaField("EOI open date (optional)","eoiOpenDate","date"));
     qaGrid.appendChild(qaField("Launch date","launchDate","date"));
     qaGrid.appendChild(qaField("Expected handover","expectedHandover","date"));
-    qaGrid.appendChild(qaField("Size min (sqft)","sizeMin","number"));
-    qaGrid.appendChild(qaField("Size max (sqft)","sizeMax","number"));
-    qaGrid.appendChild(qaField("Unit types (comma-sep)","unitTypes"));
+    qaGrid.appendChild(qaField("Payment plan (e.g. 10/70/20)","paymentPlan"));
     qaGrid.appendChild(qaField("Source URL","sourceUrl"));
     opCard.appendChild(qaGrid);
+    var qaPricingW=el("div",{style:{marginTop:"6px"}});
+    qaPricingW.appendChild(qaField("Unit types & pricing: Studio:1500:400-550, 1BR:1650:750-900","unitPricing"));
+    opCard.appendChild(qaPricingW);
     var qaBtn=el("button",{style:{width:"100%",marginTop:"8px",padding:"9px",background:"linear-gradient(135deg,#C9A84C,#D4A843)",border:"none",color:"#070B14",borderRadius:"8px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
     qaBtn.textContent="+ Add & Publish";
     qaBtn.onclick=_adminQuickAddOffplan;
