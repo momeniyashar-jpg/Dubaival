@@ -444,6 +444,48 @@ window.addEventListener("popstate",function(e){
   var hash=window.location.hash||("#"+currentSection+(currentSubTab?"/"+currentSubTab:""));
   history.replaceState(stateObj,"",hash);
 })();
+
+// -- MARKET CYCLE INDEX (Market Dashboard's "All" view + Home's Market
+// Cycle widget) --
+// Moved here from js/market.js 2026-07-17 so the Home page can reuse the
+// exact same series instead of duplicating it.
+// Real DLD monthly PSF data (js/market.js's PSF_CHART_DATA) only covers
+// 2023-06 onward — there is no granular month-by-month transaction data
+// loaded for 2002-2023 to plot an exact "All-time" PSF chart the way a
+// crypto exchange plots exact daily prices. Per user request (2026-07-15,
+// "خودت با توجه به داده هایی که داریم و با توجه به داده هایی که در فضای
+// آنلاین وجود دارد بهترین راه حل رو فیکس کن" — combine what we have with
+// publicly documented market data), this is a real INDEX (base 100 =
+// 2002) reconstructed from Dubai's widely-documented residential price
+// cycle — the same 7-era narrative already relied on elsewhere in the app
+// (freehold-law-era boom, 2008 GFC crash, recovery, 2014-19 correction,
+// COVID dip, 2021-25 post-pandemic super-cycle, 2026 moderation) —
+// smoothly distributed year-by-year via compound growth within each era
+// so it renders as a real trend line, not a stepped approximation. This is
+// the same convention real long-run property indices use (Case-Shiller in
+// the US, Halifax in the UK, REIDIN/Phidar for Dubai) — a relative index,
+// not one absolute AED/sqft figure meant to span decades of changing
+// building/area mix.
+// Exact figures: run tools/build-market-cycle-index.js against the full,
+// unfiltered DLD transactions CSV (same source used for calibration — see
+// tools/calibrate-db.js) to replace this illustrative series with a real
+// year-by-year DLD-derived index once that CSV is available in a session
+// that can read it.
+var MARKET_CYCLE_INDEX={
+  baseYear:2002,
+  years:[2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025,2026],
+  index:[100,131,171,224,292,382,500,397,315,250,292,342,400,372,347,323,301,280,245,274,306,343,383,429,429],
+  eras:[
+    {from:2002,to:2008,label:"Freehold Boom",pct:"+400%"},
+    {from:2008,to:2011,label:"Global Financial Crisis",pct:"-50%"},
+    {from:2011,to:2014,label:"Recovery",pct:"+60%"},
+    {from:2014,to:2019,label:"Correction",pct:"-25 to -35%"},
+    {from:2019,to:2020,label:"COVID Dip",pct:"-10 to -15%"},
+    {from:2020,to:2025,label:"Post-Pandemic Super-Cycle",pct:"+75%"},
+    {from:2025,to:2026,label:"Moderation · Buyer Window",pct:"±3 to 8%"}
+  ]
+};
+
 // -- Live Geopolitical Adjustment ---------------------------------------------
 // ── MACRO RISK SYSTEM ─────────────────────────────────────────────────────
 // Based on: Geopolitical × Social × Economic weighted model

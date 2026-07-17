@@ -214,17 +214,44 @@ function renderMarket(){
     // Row 2: 2 charts side by side
     var r2=el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'14px'}});
 
+    // Both histograms below were purely decorative until 2026-07-17 (no
+    // click handler on either bar set at all — a real, user-reported "big
+    // and useless" complaint) — each bar now jumps into the Advanced Market
+    // Screener (Find tab) pre-filtered to that exact bucket and runs the
+    // search automatically, turning a static distribution into a real
+    // discovery shortcut ("show me the buildings behind this bar").
+    function _dvGoScreenerWithFilter(filters){
+      if(!window.FIND_STATE)window.FIND_STATE={area:"",building:"",beds:"2 BR",maxPrice:"",minYield:"",type:"Apartment",query:"",results:[],loading:false,searched:false,sort:"score",
+        sf:{area:"",grade:"",minYield:"",maxPSF:"",minPSF:"",minGrowth:"",maxDOM:"",minTurnover:"",type:"Apartment",beds:"Any",sort:"yield",showResults:false,results:[],allResults:[],page:0,mapView:false}
+      };
+      var sf=window.FIND_STATE.sf;
+      sf.minPSF="";sf.maxPSF="";sf.minYield="";sf.minGrowth="";sf.maxDOM="";sf.minTurnover="";
+      Object.keys(filters).forEach(function(k){sf[k]=filters[k]||"";});
+      sf.showResults=false;
+      setSection("Market","Find");
+      setTimeout(function(){
+        var b=document.getElementById("dvScreenerDiscoverBtn");
+        if(b)b.click();
+      },60);
+    }
+
     // PSF Distribution histogram
     var psfBins=[0,0,0,0,0];var psfLabels=['<1K','1-1.5K','1.5-2K','2-3K','3K+'];
+    var psfRanges=[{minPSF:"",maxPSF:1000},{minPSF:1000,maxPSF:1500},{minPSF:1500,maxPSF:2000},{minPSF:2000,maxPSF:3000},{minPSF:3000,maxPSF:""}];
     aKeys.forEach(function(k){var p=AREAS[k].psf||0;if(p<1000)psfBins[0]++;else if(p<1500)psfBins[1]++;else if(p<2000)psfBins[2]++;else if(p<3000)psfBins[3]++;else psfBins[4]++;});
     var psfMax=Math.max.apply(null,psfBins)||1;
     var psfCard=el('div',{style:{background:cl.surface,border:'1px solid '+cl.border,borderRadius:'10px',padding:'10px'}});
     psfCard.appendChild(div({color:cl.sub,fontSize:'10px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'8px',textAlign:'center'},'PSF Distribution'));
+    psfCard.appendChild(div({color:hexAlpha(cl.gold,0.5),fontSize:'8px',fontFamily:"'Inter',sans-serif",marginBottom:'6px',textAlign:'center'},'Tap a bar to browse those buildings'));
     var psfChart=el('div',{style:{display:'flex',alignItems:'flex-end',gap:'3px',height:'80px'}});
     psfBins.forEach(function(b,i){
-      var col=el('div',{style:{flex:'1',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-end',height:'100%'}});
-      col.appendChild(el('div',{style:{width:'100%',height:Math.max(3,b/psfMax*100)+'%',background:'linear-gradient(180deg,'+cl.gold+','+hexAlpha(cl.gold,0.3)+')',borderRadius:'3px 3px 0 0',transition:'height 0.5s'}}));
+      var col=el('div',{style:{flex:'1',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-end',height:'100%',cursor:'pointer'}});
+      var barEl=el('div',{style:{width:'100%',height:Math.max(3,b/psfMax*100)+'%',background:'linear-gradient(180deg,'+cl.gold+','+hexAlpha(cl.gold,0.3)+')',borderRadius:'3px 3px 0 0',transition:'height 0.5s, opacity 0.15s'}});
+      col.appendChild(barEl);
       col.appendChild(span({color:cl.sub,fontSize:'9px',fontFamily:"'Space Grotesk',monospace",marginTop:'2px'},psfLabels[i]));
+      col.addEventListener('mouseenter',function(){barEl.style.opacity='0.65';});
+      col.addEventListener('mouseleave',function(){barEl.style.opacity='1';});
+      col.addEventListener('click',function(){_dvGoScreenerWithFilter(psfRanges[i]);});
       psfChart.appendChild(col);
     });
     psfCard.appendChild(psfChart);
@@ -232,15 +259,21 @@ function renderMarket(){
 
     // Yield Distribution histogram
     var yBins=[0,0,0,0,0];var yLabels=['<5%','5-6','6-7','7-8','8%+'];
+    var yieldMins=[0,5,6,7,8];
     aKeys.forEach(function(k){var a=AREAS[k];if(!a.y)return;var y=(a.y[0]+a.y[1])/2;if(y<5)yBins[0]++;else if(y<6)yBins[1]++;else if(y<7)yBins[2]++;else if(y<8)yBins[3]++;else yBins[4]++;});
     var yMax=Math.max.apply(null,yBins)||1;
     var yCard=el('div',{style:{background:cl.surface,border:'1px solid '+cl.border,borderRadius:'10px',padding:'10px'}});
     yCard.appendChild(div({color:cl.sub,fontSize:'10px',letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:"'Space Grotesk',monospace",marginBottom:'8px',textAlign:'center'},'Yield Distribution'));
+    yCard.appendChild(div({color:hexAlpha('#22C55E',0.6),fontSize:'8px',fontFamily:"'Inter',sans-serif",marginBottom:'6px',textAlign:'center'},'Tap a bar to browse those buildings'));
     var yChart=el('div',{style:{display:'flex',alignItems:'flex-end',gap:'3px',height:'80px'}});
     yBins.forEach(function(b,i){
-      var col=el('div',{style:{flex:'1',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-end',height:'100%'}});
-      col.appendChild(el('div',{style:{width:'100%',height:Math.max(3,b/yMax*100)+'%',background:'linear-gradient(180deg,#22C55E,'+hexAlpha('#22C55E',0.3)+')',borderRadius:'3px 3px 0 0',transition:'height 0.5s'}}));
+      var col=el('div',{style:{flex:'1',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-end',height:'100%',cursor:'pointer'}});
+      var barEl=el('div',{style:{width:'100%',height:Math.max(3,b/yMax*100)+'%',background:'linear-gradient(180deg,#22C55E,'+hexAlpha('#22C55E',0.3)+')',borderRadius:'3px 3px 0 0',transition:'height 0.5s, opacity 0.15s'}});
+      col.appendChild(barEl);
       col.appendChild(span({color:cl.sub,fontSize:'9px',fontFamily:"'Space Grotesk',monospace",marginTop:'2px'},yLabels[i]));
+      col.addEventListener('mouseenter',function(){barEl.style.opacity='0.65';});
+      col.addEventListener('mouseleave',function(){barEl.style.opacity='1';});
+      col.addEventListener('click',function(){_dvGoScreenerWithFilter({minYield:yieldMins[i]});});
       yChart.appendChild(col);
     });
     yCard.appendChild(yChart);
@@ -471,43 +504,11 @@ function renderMarket(){
     statsGrid,
   ]));
 
-  // -- MARKET CYCLE INDEX (for the chart's "All" view) --
-  // Real DLD monthly PSF data (PSF_CHART_DATA below) only covers 2023-06
-  // onward — there is no granular month-by-month transaction data loaded
-  // for 2002-2023 to plot an exact "All-time" PSF chart the way a crypto
-  // exchange plots exact daily prices. Per user request (2026-07-15,
-  // "خودت با توجه به داده هایی که داریم و با توجه به داده هایی که در فضای
-  // آنلاین وجود دارد بهترین راه حل رو فیکس کن" — combine what we have with
-  // publicly documented market data), this is a real INDEX (base 100 =
-  // 2002) reconstructed from Dubai's widely-documented residential price
-  // cycle — the same 7-era narrative already relied on elsewhere in this
-  // file (freehold-law-era boom, 2008 GFC crash, recovery, 2014-19
-  // correction, COVID dip, 2021-25 post-pandemic super-cycle, 2026
-  // moderation) — smoothly distributed year-by-year via compound growth
-  // within each era so it renders as a real trend line, not a stepped
-  // approximation. This is the same convention real long-run property
-  // indices use (Case-Shiller in the US, Halifax in the UK, REIDIN/Phidar
-  // for Dubai) — a relative index, not one absolute AED/sqft figure
-  // meant to span decades of changing building/area mix.
-  // Exact figures: run tools/build-market-cycle-index.js against the full,
-  // unfiltered DLD transactions CSV (same source used for calibration —
-  // see tools/calibrate-db.js) to replace this illustrative series with a
-  // real year-by-year DLD-derived index once that CSV is available in a
-  // session that can read it.
-  var MARKET_CYCLE_INDEX={
-    baseYear:2002,
-    years:[2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025,2026],
-    index:[100,131,171,224,292,382,500,397,315,250,292,342,400,372,347,323,301,280,245,274,306,343,383,429,429],
-    eras:[
-      {from:2002,to:2008,label:"Freehold Boom",pct:"+400%"},
-      {from:2008,to:2011,label:"Global Financial Crisis",pct:"-50%"},
-      {from:2011,to:2014,label:"Recovery",pct:"+60%"},
-      {from:2014,to:2019,label:"Correction",pct:"-25 to -35%"},
-      {from:2019,to:2020,label:"COVID Dip",pct:"-10 to -15%"},
-      {from:2020,to:2025,label:"Post-Pandemic Super-Cycle",pct:"+75%"},
-      {from:2025,to:2026,label:"Moderation · Buyer Window",pct:"±3 to 8%"}
-    ]
-  };
+  // MARKET_CYCLE_INDEX (2002-present illustrative index for the chart's
+  // "All" view) now lives in js/core.js as a shared global — moved
+  // 2026-07-17 so the Home page's Market Cycle widget can reuse the exact
+  // same series instead of duplicating it. See the full derivation comment
+  // there.
 
   // -- PSF TREND CHART --
   var PSF_CHART_DATA={"Downtown Dubai":{"labels":["2023-06","2023-07","2023-08","2023-09","2023-10","2023-11","2023-12","2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"],"data":[2276,2286,2585,2432,2635,2725,2730,2782,2522,2553,2620,2473,2670,2489,2773,2790,2628,2713,2633,2716,2729,2715,2807,2801,2562,2698,2976,2737,3622,3771,3212,2965,2794,2773,2765,2567],"counts":[1648,1160,1244,1412,1724,2508,1436,1392,1236,1356,960,1340,992,1040,1764,1376,1504,1340,1172,1224,1264,1220,1244,1264,892,964,852,848,1560,1772,1220,872,844,536,488,363]},"Dubai Marina":{"labels":["2023-06","2023-07","2023-08","2023-09","2023-10","2023-11","2023-12","2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"],"data":[3593,2978,3296,2907,3700,1860,3425,2181,2445,2384,2113,2280,2122,1923,1968,2048,2117,2351,2537,2539,2615,3284,3106,2862,2518,2648,2398,2324,2319,2330,2717,2296,2751,2432,2295,2225],"counts":[3908,2424,3004,2464,2824,1968,2808,1680,1872,2436,1860,3028,2080,2260,2516,2212,2732,2904,3036,2480,3308,3836,3516,2748,1988,2208,1528,1556,1592,1584,1572,1156,1652,900,960,520]},"Palm Jumeirah":{"labels":["2023-06","2023-07","2023-08","2023-09","2023-10","2023-11","2023-12","2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"],"data":[2627,3123,2984,3424,2504,2500,3133,2740,2231,2669,2554,2665,2330,2383,2936,2357,2577,2633,2771,2962,2635,2766,2980,2684,2586,3535,3009,3384,3335,3984,3312,3586,3715,4770,3124,3516],"counts":[644,540,524,548,488,504,532,420,312,428,444,616,480,452,356,364,528,412,440,384,356,440,532,380,384,400,260,440,540,496,484,380,504,380,260,177]},"Business Bay":{"labels":["2023-06","2023-07","2023-08","2023-09","2023-10","2023-11","2023-12","2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"],"data":[1707,1996,2555,2404,2023,2123,2209,2242,2179,2357,2334,2395,2526,2414,2466,2299,2430,2313,2291,2323,2275,2422,2309,2291,2497,2471,2651,2707,2476,2548,2600,2746,2477,2568,2490,2234],"counts":[1508,1900,4168,3548,2300,3104,3484,3728,2848,3024,2508,3848,4236,4236,2324,2472,3772,2676,5108,2484,2944,3888,4064,3404,3184,5044,6028,5352,3928,3412,3836,3028,2164,1648,1384,731]},"Dubai Hills":{"labels":["2023-06","2023-07","2023-08","2023-09","2023-10","2023-11","2023-12","2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"],"data":[1890,1912,1900,1985,2010,2066,2118,2140,2140,2066,2169,2262,2176,2390,2162,2324,2431,2258,2224,2280,2392,2395,2475,2422,2426,2557,2415,2300,2293,2487,2468,2490,2325,2415,2337,2324],"counts":[2104,1184,988,1708,1948,1732,2924,2072,1364,872,1748,4160,1468,4836,724,3376,3660,1848,1724,1260,1772,1624,1944,1624,1312,1824,1836,1288,1200,1280,1152,1288,1344,836,596,281]},"Dubai Creek Harbour":{"labels":["2023-06","2023-07","2023-08","2023-09","2023-10","2023-11","2023-12","2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"],"data":[2060,2177,2154,2157,2052,2072,2089,2161,2231,2197,2224,2248,2390,2466,2664,2617,2502,2295,2363,2281,2288,2270,2361,2422,2465,2409,2366,2553,2483,2573,2516,2616,2458,2395,2673,2516],"counts":[1940,1932,1220,1272,668,652,512,660,1428,996,876,1008,1356,2832,1736,2364,1272,680,952,628,932,572,1008,2036,1580,1376,1216,1672,1056,2212,980,2404,1644,716,2412,468]},"JVC":{"labels":["2023-06","2023-07","2023-08","2023-09","2023-10","2023-11","2023-12","2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"],"data":[1326,1401,1365,1268,1360,1410,1550,1473,1554,1617,1698,1451,1536,1620,1537,1541,1691,1624,1684,1738,1656,1688,1833,1851,1920,1758,1851,1858,1865,1832,1885,1906,2010,2053,1838,2048],"counts":[312,276,268,232,280,276,204,212,204,240,240,364,260,300,316,276,300,260,232,252,280,256,252,336,256,256,168,252,260,260,188,204,256,172,100,92]},"JLT":{"labels":["2023-06","2023-07","2023-08","2023-09","2023-10","2023-11","2023-12","2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"],"data":[2069,2087,2005,1793,1589,1340,1596,1743,1695,1446,1352,1608,1492,1873,2286,2125,2186,1950,2040,2077,1957,2014,2412,2222,2232,2031,2095,2075,2206,2345,2115,1905,1664,1759,2496,1864],"counts":[2224,2316,1728,1588,1172,1072,1156,1412,1336,1096,732,1300,1036,1468,1920,1920,2048,1564,1308,1424,1352,1320,1712,1532,1148,1052,1232,960,1176,1360,1028,776,716,512,632,374]},"MBR City":{"labels":["2023-06","2023-07","2023-08","2023-09","2023-10","2023-11","2023-12","2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"],"data":[1617,1839,1850,1853,1778,1800,1986,1887,1782,1692,1728,1821,1793,2003,2001,2162,2113,1939,2092,1972,1953,1986,2132,2074,1977,2075,2097,2066,2064,2070,2118,2076,2095,2053,2082,2046],"counts":[2348,3448,3500,6220,6696,2272,1792,1708,1876,2992,1500,4740,3756,1676,2020,2152,2132,1224,1656,932,928,1012,1400,1224,976,1008,828,992,1084,944,968,872,1088,620,572,737]},"DAMAC Hills":{"labels":["2023-06","2023-07","2023-08","2023-09","2023-10","2023-11","2023-12","2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"],"data":[596,676,646,804,748,686,718,770,733,1597,1650,1628,1531,517,975,1692,1690,1017,1587,1617,1665,967,915,1556,1676,1531,913,1605,1657,1481,1081,1364,1598,1837,1881,1725],"counts":[144,104,128,164,112,192,104,96,140,944,1072,1300,672,708,268,1360,1456,504,544,528,476,196,276,556,748,448,180,508,600,324,288,344,368,920,2376,705]},"Meydan":{"labels":["2023-06","2023-07","2023-08","2023-09","2023-10","2023-11","2023-12","2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"],"data":[852,766,1054,992,806,810,718,808,798,806,869,806,851,836,1113,1845,1885,1750,1875,1780,1875,1880,1845,1930,1950,1950,1945,1910,1769,1930,1918,1793,1669,1755,1700,1212],"counts":[300,292,344,524,188,144,116,80,96,204,144,272,264,196,396,1232,3292,1620,768,484,1160,1700,1116,2332,2936,2596,2048,2420,2592,2548,1472,764,1692,1528,844,356]},"Dubai South":{"labels":["2023-06","2023-07","2023-08","2023-09","2023-10","2023-11","2023-12","2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"],"data":[801,834,1019,926,802,1191,1245,1523,998,1184,1184,1147,1193,1247,1196,1383,1539,1490,1625,1954,1489,1863,1584,1593,1802,1685,1393,1391,1368,1465,1554,1474,1500,1547,1631,1645],"counts":[432,676,1748,856,456,2284,1012,1208,716,1696,788,1476,1772,2672,3360,4100,4820,1872,3472,3648,3018,3664,3452,2836,2380,2744,2956,3680,2740,3508,4016,3416,3724,4072,4569,2987]},"City Walk":{"labels":["2023-06","2023-07","2023-08","2023-09","2023-10","2023-11","2023-12","2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"],"data":[2098,2303,2647,2738,2355,2440,2219,3179,3080,2382,2634,2675,2713,2595,2980,2920,2150,2576,2570,2585,2902,2869,3220,3283,3025,3099,3223,3122,3212,3013,3173,3204,3368,3122,2998,3254],"counts":[508,380,504,508,440,344,236,728,512,324,400,1104,392,356,1384,440,748,168,176,268,364,460,1512,1352,832,580,660,652,796,328,472,496,1084,520,720,230]},"Jumeirah":{"labels":["2023-06","2023-07","2023-08","2023-09","2023-10","2023-11","2023-12","2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12","2025-01","2025-02","2025-03","2025-04","2025-05","2025-06","2025-07","2025-08","2025-09","2025-10","2025-11","2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"],"data":[2648,2470,2535,2608,2647,2618,2792,2641,2632,2653,2431,2695,2770,2736,2909,2669,2642,2739,2818,2638,2710,2808,2881,2700,2841,2769,2667,2693,2887,3091,3280,2768,3116,2952,2585,2875],"counts":[876,256,152,296,140,180,304,652,284,128,96,184,500,340,172,140,156,120,128,100,84,120,128,164,152,80,52,80,116,176,124,828,148,76,44,54]}};  

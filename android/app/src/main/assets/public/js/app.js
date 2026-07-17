@@ -168,7 +168,7 @@ function renderFind(){
   var sfSort=div({});sfSort.appendChild(lbl("Sort By"));sfSort.appendChild(mkSelect(Object.assign({},S(),{fontSize:"11px",padding:"7px 8px"}),["Highest Yield","Lowest PSF","Highest Growth","Best Liquidity","Best Turnover","Fastest to Rent (Area)","Best Rental Demand"],{yield:"Highest Yield",psfAsc:"Lowest PSF",growth:"Highest Growth",liquidity:"Best Liquidity",turnover:"Best Turnover",rentSpeed:"Fastest to Rent (Area)",demand:"Best Rental Demand"}[sf.sort]||"Highest Yield",function(v){sf.sort={"Highest Yield":"yield","Lowest PSF":"psfAsc","Highest Growth":"growth","Best Liquidity":"liquidity","Best Turnover":"turnover","Fastest to Rent (Area)":"rentSpeed","Best Rental Demand":"demand"}[v]||"yield";}));sfG3.appendChild(sfSort);
   sfCard.appendChild(sfG3);
 
-  sfCard.appendChild(btn({width:"100%",padding:"11px",borderRadius:"10px",border:"none",background:"linear-gradient(135deg,#C9A84C,#D4A843)",color:"#fff",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em"},"DISCOVER PROPERTIES ◆",function(){
+  var _discoverBtn=btn({width:"100%",padding:"11px",borderRadius:"10px",border:"none",background:"linear-gradient(135deg,#C9A84C,#D4A843)",color:"#fff",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em"},"DISCOVER PROPERTIES ◆",function(){
     var results=[];
     var minY=parseFloat(sf.minYield)||0;
     var minG=parseFloat(sf.minGrowth)||0;
@@ -244,7 +244,12 @@ function renderFind(){
     sf.allResults=results;sf.results=results.slice(0,50);sf.page=0;
     sf.showResults=true;
     render();
-  }));
+  });
+  // Stable id so the Market Dashboard's PSF/Yield distribution bars (2026-07-17)
+  // can navigate here and auto-run this exact search instead of duplicating
+  // its filtering logic.
+  _discoverBtn.id="dvScreenerDiscoverBtn";
+  sfCard.appendChild(_discoverBtn);
   wrap.appendChild(sfCard);
 
   // Smart Discovery Results
@@ -2096,36 +2101,74 @@ function renderHome(){
   momWrap.appendChild(renderMarketMoments(cl));
   wrap.appendChild(momWrap);
 
-  // ── ④ EXPLORE ────────────────────────────────────────────────────
-  var expWrap=el('div',{className:'dv-fu dv-fu-4',style:{padding:'24px 16px 0'}});
-  expWrap.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'14px'},'Explore Platform'));
-  var expScroll=el('div',{style:{display:'flex',gap:'10px',overflowX:'auto',paddingBottom:'8px',scrollSnapType:'x mandatory',WebkitOverflowScrolling:'touch'}});
-  expScroll.style.cssText+=';-ms-overflow-style:none;scrollbar-width:none';
-  [{icon:'handshake',title:'Deal Board',desc:'Off-market & agent network',c:'#00C896',sec:'Network',sub:'Deals'},
-   {icon:'users',title:'AI Chief',desc:'Your agent workspace',c:'#8B5CF6',sec:'Network',sub:'Chiefs'},
-   {icon:'map',title:'Map View',desc:'Interactive area map',c:'#10B981',sec:'Market',sub:'Map'},
-   {icon:'layout-dashboard',title:'Workspace',desc:'Custom dashboard builder',c:'#D4A843',sec:'More',sub:'Workspace'},
-   {icon:'user-check',title:'AI Advisor',desc:'Personalized picks',c:'#F59E0B',sec:'Market',sub:'Advisor'},
-   {icon:'newspaper',title:'News',desc:'Latest market news',c:'#3B82F6',sec:'Market',sub:'News'}
-  ].forEach(function(f){
-    var fc=el('div',{style:{
-      background:'rgba(255,255,255,0.03)',backdropFilter:'blur(16px)',WebkitBackdropFilter:'blur(16px)',
-      borderRadius:'18px',padding:'16px',minWidth:'148px',maxWidth:'148px',flexShrink:'0',cursor:'pointer',
-      border:'1px solid rgba(255,255,255,0.07)',transition:'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
-      scrollSnapAlign:'start'
-    }});
-    var fcIc=el('div',{style:{width:'42px',height:'42px',borderRadius:'13px',background:f.c+'15',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:'12px',transition:'transform 0.2s ease',boxShadow:'0 2px 12px '+f.c+'18'}});
-    fcIc.innerHTML='<i data-lucide="'+f.icon+'" style="width:20px;height:20px;color:'+f.c+'"></i>';
-    fc.appendChild(fcIc);
-    fc.appendChild(div({fontSize:'13px',fontWeight:'700',color:'#E8EDF5',fontFamily:"'Inter',sans-serif",marginBottom:'4px',lineHeight:'1.2'},f.title));
-    fc.appendChild(div({fontSize:'11px',color:'#6B7A9E',fontFamily:"'Inter',sans-serif",lineHeight:'1.3'},f.desc));
-    fc.addEventListener('click',function(){setSection(f.sec,f.sub);});
-    fc.addEventListener('mouseenter',function(){fc.style.background='rgba(255,255,255,0.07)';fc.style.borderColor='rgba(255,255,255,0.14)';fc.style.transform='translateY(-4px)';fcIc.style.transform='scale(1.08)';});
-    fc.addEventListener('mouseleave',function(){fc.style.background='rgba(255,255,255,0.03)';fc.style.borderColor='rgba(255,255,255,0.07)';fc.style.transform='translateY(0)';fcIc.style.transform='scale(1)';});
-    expScroll.appendChild(fc);
-  });
-  expWrap.appendChild(wrapHScroll(expScroll));
-  wrap.appendChild(expWrap);
+  // ── ④ MARKET CYCLE ───────────────────────────────────────────────
+  // Replaces the old "Explore Platform" shortcut-tile row (2026-07-17): those
+  // 6 tiles just deep-linked to destinations already one tap away in the
+  // persistent nav (sidebar/bottom tabs) — the lowest-unique-value section on
+  // Home, with no live/real data of its own. A compact view of the same
+  // Market Cycle Index chart already built for the Market Dashboard's "All"
+  // view (js/market.js, now sourced from the shared `MARKET_CYCLE_INDEX`
+  // global in js/core.js — no duplicated dataset) gives Home real visual
+  // life instead: a colored trend line showing Dubai's actual 2002-present
+  // boom/bust history, exactly what was asked for ("جذابیت بصری").
+  var mcWrap=el('div',{className:'dv-fu dv-fu-4',style:{padding:'24px 16px 0'}});
+  mcWrap.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'14px'},'Dubai Market Cycle'));
+
+  var mcYears=MARKET_CYCLE_INDEX.years,mcVals=MARKET_CYCLE_INDEX.index;
+  var mcFirst=mcVals[0],mcLast=mcVals[mcVals.length-1];
+  var mcUp=mcLast>=mcFirst;
+  var mcChangePct=Math.round((mcLast-mcFirst)/mcFirst*100);
+  var mcMin=Math.min.apply(null,mcVals),mcMax=Math.max.apply(null,mcVals);
+  var mcColor=mcUp?'#10B981':'#EF4444';
+
+  var mcCard=el('div',{style:{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.08)',borderRadius:'18px',padding:'18px',cursor:'pointer'}});
+  var mcStatsRow=el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'14px'}});
+  var mcStatsL=el('div',{});
+  mcStatsL.appendChild(div({fontSize:'10px',color:'rgba(255,255,255,0.45)',fontFamily:"'Inter',sans-serif",letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:'4px'},'Index since '+MARKET_CYCLE_INDEX.baseYear));
+  mcStatsL.appendChild(div({fontSize:'26px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'JetBrains Mono',monospace"},String(mcLast)));
+  mcStatsRow.appendChild(mcStatsL);
+  mcStatsRow.appendChild(div({background:mcUp?'rgba(16,185,129,0.12)':'rgba(239,68,68,0.12)',border:'1px solid '+(mcUp?'rgba(16,185,129,0.3)':'rgba(239,68,68,0.3)'),borderRadius:'8px',padding:'5px 12px',fontSize:'12px',fontWeight:'700',color:mcColor,fontFamily:"'Space Grotesk',sans-serif",whiteSpace:'nowrap'},(mcUp?'+':'')+mcChangePct+'% since '+MARKET_CYCLE_INDEX.baseYear));
+  mcCard.appendChild(mcStatsRow);
+
+  var mcW=600,mcH=90,mcPadL=4,mcPadR=4,mcPadT=6,mcPadB=6;
+  var mcPlotW=mcW-mcPadL-mcPadR,mcPlotH=mcH-mcPadT-mcPadB;
+  var mcYMin=mcMin*0.95,mcYMax=mcMax*1.05;
+  var mcN=mcVals.length;
+  function mcX(i){return mcPadL+i/(mcN-1)*mcPlotW;}
+  function mcY(v){return mcPadT+mcPlotH-(v-mcYMin)/(mcYMax-mcYMin)*mcPlotH;}
+  var mcPath='M'+mcX(0)+','+mcY(mcVals[0]);
+  for(var _mi=1;_mi<mcN;_mi++){
+    var mx0=mcX(_mi-1),my0=mcY(mcVals[_mi-1]),mx1=mcX(_mi),my1=mcY(mcVals[_mi]);
+    var mcx=(mx0+mx1)/2;
+    mcPath+=' C'+mcx+','+my0+' '+mcx+','+my1+' '+mx1+','+my1;
+  }
+  var mcFillD=mcPath+' L'+mcX(mcN-1)+','+(mcPadT+mcPlotH)+' L'+mcPadL+','+(mcPadT+mcPlotH)+' Z';
+  var mcSvgHTML='<svg viewBox="0 0 '+mcW+' '+mcH+'" style="width:100%;height:auto;display:block;">'+
+    '<defs><linearGradient id="mcHomeGrd" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="'+mcColor+'" stop-opacity="0.25"/><stop offset="100%" stop-color="'+mcColor+'" stop-opacity="0"/></linearGradient></defs>'+
+    '<path d="'+mcFillD+'" fill="url(#mcHomeGrd)"/>'+
+    '<path d="'+mcPath+'" fill="none" stroke="'+mcColor+'" stroke-width="2.5" stroke-linecap="round"/>'+
+    '</svg>';
+  var mcSvgWrap=el('div',{style:{marginBottom:'10px'}});
+  mcSvgWrap.innerHTML=mcSvgHTML;
+  mcCard.appendChild(mcSvgWrap);
+
+  mcCard.appendChild(div({fontSize:'11px',color:'#6B7A9E',fontFamily:"'Inter',sans-serif",marginBottom:'16px',lineHeight:'1.5'},MARKET_CYCLE_INDEX.baseYear+'–Present · Freehold boom, 2008 crash, recovery, post-pandemic super-cycle'));
+
+  var mcBtn=el('button',{style:{width:'100%',padding:'12px',background:'rgba(255,255,255,0.05)',color:'#E8EDF5',border:'1px solid rgba(255,255,255,0.14)',borderRadius:'12px',fontSize:'12px',fontWeight:'700',fontFamily:"'Space Grotesk',sans-serif",cursor:'pointer',letterSpacing:'0.03em',transition:'all 0.2s ease'}});
+  mcBtn.textContent='VIEW FULL MARKET CYCLE →';
+  mcBtn.addEventListener('mouseenter',function(){mcBtn.style.background='rgba(255,255,255,0.09)';mcBtn.style.borderColor='rgba(255,255,255,0.24)';});
+  mcBtn.addEventListener('mouseleave',function(){mcBtn.style.background='rgba(255,255,255,0.05)';mcBtn.style.borderColor='rgba(255,255,255,0.14)';});
+  function _goToMarketCycle(){
+    window.CHART_STATE=window.CHART_STATE&&typeof window.CHART_STATE==='object'?window.CHART_STATE:{area:'Downtown Dubai'};
+    window.CHART_STATE.view='All';
+    setSection('Market','Dashboard');
+  }
+  mcBtn.addEventListener('click',_goToMarketCycle);
+  mcCard.appendChild(mcBtn);
+  mcCard.addEventListener('click',function(e){if(e.target!==mcBtn)_goToMarketCycle();});
+
+  mcWrap.appendChild(mcCard);
+  wrap.appendChild(mcWrap);
 
   // ── ⑤ PORTFOLIO ──────────────────────────────────────────────────
   var pAssets=[];

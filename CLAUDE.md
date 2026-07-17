@@ -461,6 +461,74 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-17 (session 14, follow-up — Market Dashboard's PSF/Yield
+  histograms made clickable)**: Direct follow-up to the Home redesign above
+  — user flagged the "PSF Distribution"/"Yield Distribution" bar charts on
+  Market Dashboard (`renderMarket()`, `js/market.js`) as "خیلی بزرگ و بدرد
+  نخور" (very big/heavy and useless) with no real function. Confirmed by
+  reading the code: neither histogram had a single click handler on any bar
+  — purely decorative, despite being a real distribution of the actual
+  9,226-building/347-area dataset.
+  - **Fix**: every bar in both histograms is now clickable — clicking a PSF
+    bucket (`<1K`/`1-1.5K`/`1.5-2K`/`2-3K`/`3K+`) or a Yield bucket
+    (`<5%`/`5-6`/`6-7`/`7-8`/`8%+`) navigates to Market → Find (the Advanced
+    Market Screener), pre-fills `FIND_STATE.sf.minPSF`/`.maxPSF` (or
+    `.minYield` for the yield bars) to match exactly that bucket, and
+    auto-runs the search — turning a static "here's the shape of the market"
+    chart into a real "show me the buildings behind this bar" shortcut, with
+    zero duplicated filtering logic (it drives the screener's own existing
+    "DISCOVER PROPERTIES" button via a new stable `id="dvScreenerDiscoverBtn"`
+    rather than reimplementing the building-matching logic a second time).
+    Added a small "Tap a bar to browse those buildings" hint under each
+    chart title, plus a hover-opacity cue on each bar, so the new
+    interactivity is discoverable.
+  - Verified: `node -c` on both touched files; a Playwright test clicking
+    the real "2-3K" PSF bar end-to-end — confirmed it navigated to
+    Market/Find, set `sf.minPSF=2000`/`sf.maxPSF=3000`, and populated
+    `sf.results` with real buildings correctly inside that PSF range (e.g.
+    "Bluewaters Bay - Building 9" at PSF 2508) — zero non-network console
+    errors.
+
+- **2026-07-17 (session 14, Home page redesign — Market Cycle widget
+  replaces "Explore Platform")**: User asked, after noticing the Market
+  Dashboard's "All"-view market-cycle chart (2026-07-15 session, showing
+  Dubai's 2002-present boom/bust history), whether adding something similar
+  to the Home tab would make it more visually engaging, and whether it
+  should replace an existing Home section or just be appended. Reviewed all
+  6 of Home's current sections (Hero, AI Search, Top Opportunities, Explore
+  Platform, Portfolio, Recent Activity) and recommended replacing "Explore
+  Platform" specifically — confirmed by the user.
+  - **Why Explore Platform**: it was just 6 shortcut tiles (Deal Board, AI
+    Chief, Map, Workspace, Advisor, News) that deep-link to destinations
+    already one tap away in the persistent sidebar/bottom-tab nav — the
+    lowest-unique-value section on the page, with no live/real data of its
+    own, unlike every other section.
+  - **Fix**: moved `MARKET_CYCLE_INDEX` (the 2002-present illustrative
+    index) from being a local `var` re-declared on every `renderMarket()`
+    call (`js/market.js`) to a single shared global in `js/core.js` (loads
+    before both `market.js` and `app.js`) — avoids duplicating the dataset
+    a second time for Home's own widget. `renderHome()`'s old "④ EXPLORE"
+    section (`js/app.js`) is now "④ MARKET CYCLE": a compact card with the
+    current index value, a "+329% since 2002"-style badge, a smoothed SVG
+    trend line (green/red depending on overall direction, same curve-drawing
+    technique as the Dashboard's chart, just condensed), and a "VIEW FULL
+    MARKET CYCLE →" button/card-click that pre-sets
+    `window.CHART_STATE.view="All"` before navigating to Market Dashboard,
+    landing directly on the same full chart instead of the default 1-year
+    view.
+  - Verified: `node -c` on all 3 touched files; a Playwright test confirming
+    the widget renders with real computed values (index 429, +329% since
+    2002) at full opacity once its fade-in animation completes, and that
+    clicking "VIEW FULL MARKET CYCLE" correctly navigates to Market/Dashboard
+    with `CHART_STATE.view` set to `"All"` — zero non-network console
+    errors. Note: an early screenshot pass appeared to show the section
+    "missing" — turned out to be the same `dv-fu`/`dv-fu-N` CSS fade-up
+    animation used by every Home section (opacity 0 until its delay+duration
+    elapses, ~0.8s total) simply not having finished yet at the moment that
+    particular screenshot was captured, not a real rendering bug — confirmed
+    by re-checking computed `opacity` after the animation's own timing
+    window had genuinely passed.
+
 - **2026-07-17 (session 14, CRITICAL — hidden `#admin` route unreachable by
   direct URL since 2026-07-07)**: User reported they could not find/reach
   the Admin dashboard at all after being given the `dubaival.com/#admin`
