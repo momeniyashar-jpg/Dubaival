@@ -2881,13 +2881,26 @@ function renderHome(){
   wrap.appendChild(mcWrap);
 
   // ── ⑥ PORTFOLIO ──────────────────────────────────────────────────
-  var pAssets=[];
-  try{pAssets=JSON.parse(localStorage.getItem('dubaival_portfolio')||'[]');}catch(e){}
+  // Fixed 2026-07-18 (portfolio manager audit): this summary always read
+  // a.price/a.rent, fields that never actually exist on a stored asset
+  // (the real field is purchasePrice, and rent is only ever a computed
+  // metric, never persisted) — so this card always showed AED 0.00M
+  // regardless of what the user had actually added. Now uses the same
+  // computeAssetMetrics() the Assets tab itself uses (js/portfolio.js,
+  // safe to call cross-file since every module script has finished loading
+  // by the time render() runs), summed over ACTIVE (non-Sold) assets only.
+  var pAssetsRaw=[];
+  try{pAssetsRaw=JSON.parse(localStorage.getItem('dubaival_portfolio')||'[]');}catch(e){}
+  var pAssets=pAssetsRaw.filter(function(a){return a.status!=='Sold';});
   var pfWrap=el('div',{style:{padding:'24px 16px 0'}});
   pfWrap.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'14px'},'Your Portfolio'));
   if(pAssets.length>0){
     var tV=0,tR=0;
-    pAssets.forEach(function(a){tV+=(parseFloat(a.price)||0);tR+=(parseFloat(a.rent)||0);});
+    pAssets.forEach(function(a){
+      var m=typeof computeAssetMetrics==='function'?computeAssetMetrics(a):null;
+      tV+=m?m.currentValue:0;
+      tR+=m?m.rent:0;
+    });
     var yld2=tV>0&&tR>0?((tR/tV)*100).toFixed(1):null;
     var pfCard2=el('div',{style:{
       background:'linear-gradient(135deg,rgba(212,175,55,0.10) 0%,rgba(212,175,55,0.03) 50%,rgba(10,15,30,0) 100%)',

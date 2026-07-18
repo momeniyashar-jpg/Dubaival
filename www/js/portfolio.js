@@ -1020,9 +1020,21 @@ function computeAssetMetrics(asset){
   var size=parseInt(asset.size)||0;
   var currentValue=adjPSF*size;
   var purchasePrice=parseInt(asset.purchasePrice)||0;
-  var roi=purchasePrice>0?((currentValue-purchasePrice)/purchasePrice*100):0;
+  // Real cost basis (added 2026-07-18) — agency/DLD/renovation costs actually
+  // paid, not just the raw purchase price, so ROI/P&L reflect true cash in.
+  var extraCosts=parseFloat(asset.extraCosts)||0;
+  var costBasis=purchasePrice+extraCosts;
+  var roi=costBasis>0?((currentValue-costBasis)/costBasis*100):0;
   var bn={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5}[asset.beds]!=null?{"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5}[asset.beds]:2;
-  var rent=isV?(bn<=2?aData.rv2||130000:bn<=3?aData.rv3||180000:bn<=4?aData.rv4||240000:bn<=5?aData.rv5||350000:bn<=6?aData.rv6||500000:aData.rv7||650000):bn===0?(aData.rStudio||(aData.r1||65000)*0.65):bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
+  var estRent=isV?(bn<=2?aData.rv2||130000:bn<=3?aData.rv3||180000:bn<=4?aData.rv4||240000:bn<=5?aData.rv5||350000:bn<=6?aData.rv6||500000:aData.rv7||650000):bn===0?(aData.rStudio||(aData.r1||65000)*0.65):bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
+  // Real rent, when the user has entered what they actually collect (added
+  // 2026-07-18) — used for every yield/return figure below instead of the
+  // area-model estimate, since a portfolio manager should report on the
+  // owner's real cash flow whenever it's known. estRent/rentIsActual are
+  // still exposed so the UI and the Rent Optimization alert can show both.
+  var hasActualRent=asset.actualRent!==undefined&&asset.actualRent!==null&&String(asset.actualRent).trim()!=="";
+  var rent=hasActualRent?(parseFloat(asset.actualRent)||0):estRent;
+  var rentIsActual=hasActualRent&&rent>0;
   var sc=(parseFloat(asset.serviceCharge)||(bData&&bData.sc)||aData.sc||15)*size;
   var grossYield=currentValue>0?(rent/currentValue*100):0;
   var netYield=currentValue>0?((rent-sc)/currentValue*100):0;
@@ -1031,7 +1043,13 @@ function computeAssetMetrics(asset){
   var now=new Date();
   var holdingMonths=Math.max(1,Math.round((now-purchaseDate)/(30.44*24*60*60*1000)));
   var holdingYears=holdingMonths/12;
-  var annualizedROI=holdingYears>0&&purchasePrice>0?(Math.pow(currentValue/purchasePrice,1/holdingYears)-1)*100:roi;
+  var annualizedROI=holdingYears>0&&costBasis>0?(Math.pow(currentValue/costBasis,1/holdingYears)-1)*100:roi;
+  // Real leverage position (added 2026-07-18) — asset.mortgage is now a real,
+  // user-entered field (previously referenced by the Equity Release alert
+  // below but never actually settable anywhere, so releasable equity was
+  // always computed as if the property had zero debt).
+  var mortgage=parseFloat(asset.mortgage)||0;
+  var netEquity=currentValue-mortgage;
   var prRatio=grossYield>0?(100/grossYield):20;
   var investSignal=prRatio<15?"Undervalued":prRatio<20?"Fair Value":prRatio<25?"Elevated":"Overheated";
   var totalReturn=netYield+(gr[1]||9)/3;
@@ -1061,7 +1079,7 @@ function computeAssetMetrics(asset){
   var camMarketDepth=camPsfDev<=0.5?90:camPsfDev<=1.0?72:camPsfDev<=1.5?50:camPsfDev<=2.5?30:15;
   var camMosScore=Math.min(95,Math.max(5,Math.round(camPriceGap*0.50+camTimeDecay*0.20+camMarketDepth*0.30)));
   var camMosTier=camMosScore>=80?"Deep Value":camMosScore>=65?"Value Buy":camMosScore>=50?"Fair Entry":camMosScore>=35?"Thin Margin":"Speculative";
-  return{currentPSF:adjPSF,currentValue:currentValue,purchasePrice:purchasePrice,roi:roi,rent:rent,sc:sc,grossYield:grossYield,netYield:netYield,holdingMonths:holdingMonths,annualizedROI:annualizedROI,g0:gr[0],g1:gr[1],g2:gr[2],inDB:!!bData,grade:bData?bData.g:"N/A",areaYield:aData.y||[5,7],investSignal:investSignal,totalReturn:totalReturn,domEst:domEst,txVol:txVol,liqScore:liqScore,liqLabel:liqLabel,turnoverRate:turnoverRate,turnoverLabel:turnoverLabel,bldgUnits:bldgUnits,bldgAnnualTx:bldgAnnualTx,mosScore:camMosScore,mosTier:camMosTier};
+  return{currentPSF:adjPSF,currentValue:currentValue,purchasePrice:purchasePrice,extraCosts:extraCosts,costBasis:costBasis,roi:roi,rent:rent,estRent:estRent,rentIsActual:rentIsActual,mortgage:mortgage,netEquity:netEquity,sc:sc,grossYield:grossYield,netYield:netYield,holdingMonths:holdingMonths,annualizedROI:annualizedROI,g0:gr[0],g1:gr[1],g2:gr[2],inDB:!!bData,grade:bData?bData.g:"N/A",areaYield:aData.y||[5,7],investSignal:investSignal,totalReturn:totalReturn,domEst:domEst,txVol:txVol,liqScore:liqScore,liqLabel:liqLabel,turnoverRate:turnoverRate,turnoverLabel:turnoverLabel,bldgUnits:bldgUnits,bldgAnnualTx:bldgAnnualTx,mosScore:camMosScore,mosTier:camMosTier};
 }
 function computePortfolioHealth(metrics,totalValue){
 if(!metrics.length)return null;
@@ -1141,7 +1159,14 @@ function renderPortfolio(mode){
     }
   }
 
-  var metrics=ps.assets.map(function(a){return Object.assign({},a,{m:computeAssetMetrics(a)});});
+  // Sold/exit tracking (added 2026-07-18 portfolio audit) — a property
+  // marked Sold is no longer part of the active portfolio (it shouldn't
+  // count toward Total Value/Yield/Health/Projections), but its record and
+  // realized gain are kept, not deleted, so real transaction history isn't
+  // lost the moment "Remove Asset" would have been the only option.
+  var activeAssets=ps.assets.filter(function(a){return a.status!=="Sold";});
+  var soldAssets=ps.assets.filter(function(a){return a.status==="Sold";});
+  var metrics=activeAssets.map(function(a){return Object.assign({},a,{m:computeAssetMetrics(a)});});
   var totalValue=metrics.reduce(function(s,a){return s+a.m.currentValue;},0);
   var totalPurchase=metrics.reduce(function(s,a){return s+a.m.purchasePrice;},0);
   var totalROI=totalPurchase>0?((totalValue-totalPurchase)/totalPurchase*100):0;
@@ -1149,13 +1174,15 @@ function renderPortfolio(mode){
   var totalSC=metrics.reduce(function(s,a){return s+a.m.sc;},0);
   var avgGrossYield=totalValue>0?(totalRent/totalValue*100):0;
   var avgNetYield=totalValue>0?((totalRent-totalSC)/totalValue*100):0;
+  var totalMortgage=metrics.reduce(function(s,a){return s+a.m.mortgage;},0);
+  var totalEquity=totalValue-totalMortgage;
 
   // Throttled to once per signed-in user per day internally — safe to call
   // on every render regardless of which sub-tab is showing.
   _capturePortfolioSnapshot(totalValue,totalPurchase,totalROI,avgGrossYield,avgNetYield,metrics.length);
 
   // Portfolio Overview (show on assets tab only)
-  if(ps.assets.length>0&&mode==="assets"){
+  if(activeAssets.length>0&&mode==="assets"){
     var sumCard=div({background:cl.surface,backdropFilter:cl.blur,WebkitBackdropFilter:cl.blur,border:"1px solid "+cl.border,borderRadius:"14px",padding:"24px",marginBottom:"14px",position:"relative",overflow:"hidden",boxShadow:cl.glassShadow});
     sumCard.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",height:"2px",background:"linear-gradient(90deg,transparent,"+cl.gold+","+cl.gold+",transparent)",animation:"shimmer 3s ease infinite"}));
     sumCard.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"14px"},"◆ Portfolio Overview"));
@@ -1173,15 +1200,35 @@ function renderPortfolio(mode){
 
     var g2=div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:"10px",marginBottom:"12px"});
     var pnl=totalValue-totalPurchase;
-    var avgSus=Math.round(metrics.reduce(function(s,a){var bd=DB[(a.building||"").toLowerCase()]||null;var ad=AREAS[a.area]||{psf:1800,sc:15};return s+computeSustainabilityScore(a.building||"",a.area||"",bd,ad).score;},0)/Math.max(1,metrics.length));
+    // Fixed 2026-07-18: exact-key DB lookup meant free-typed building names
+    // (this form has no dropdown for building) almost never resolved to a
+    // real building match, silently falling back to the area-wide average —
+    // same class of bug already fixed for Find/Deal Scoring in session 11m.
+    // lookupBuilding() is the same fuzzy matcher computeAssetMetrics() itself
+    // already uses via computeAdjustedPSF(), so this now agrees with it.
+    var avgSus=Math.round(metrics.reduce(function(s,a){var bd=lookupBuilding(a.building||"",a.area||"");var ad=AREAS[a.area]||{psf:1800,sc:15};return s+computeSustainabilityScore(a.building||"",a.area||"",bd,ad).score;},0)/Math.max(1,metrics.length));
     var avgSusC=avgSus>=75?"#10B981":avgSus>=50?"#EAB308":avgSus>=35?"#F97316":"#EF4444";
-    [{l:"Assets",v:String(ps.assets.length),c:cl.white},{l:"Annual Rent",v:"AED "+totalRent.toLocaleString(),c:cl.white},{l:"Unrealized P&L",v:(pnl>=0?"+":"")+"AED "+pnl.toLocaleString(),c:pnl>=0?cl.green:cl.red},{l:"Sustainability",v:avgSus+"/100",c:avgSusC}].forEach(function(item){
+    [{l:"Assets",v:String(activeAssets.length),c:cl.white},{l:"Annual Rent",v:"AED "+totalRent.toLocaleString(),c:cl.white},{l:"Unrealized P&L",v:(pnl>=0?"+":"")+"AED "+pnl.toLocaleString(),c:pnl>=0?cl.green:cl.red},{l:"Sustainability",v:avgSus+"/100",c:avgSusC}].forEach(function(item){
       var box=div({background:cl.raised,borderRadius:"10px",padding:"10px 12px"});
       box.appendChild(lbl(item.l));
       box.appendChild(span({color:item.c,fontSize:"13px",fontWeight:"700",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'",display:"block"},item.v));
       g2.appendChild(box);
     });
     sumCard.appendChild(g2);
+
+    // Leverage/Equity row — only shown once at least one asset has a
+    // mortgage balance entered, so an unleveraged (cash-buyer) portfolio
+    // isn't cluttered with a "0 mortgage" row (added 2026-07-18).
+    if(totalMortgage>0){
+      var g2b=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"});
+      [{l:"Net Equity",v:"AED "+totalEquity.toLocaleString(),c:cl.gold},{l:"Outstanding Mortgage",v:"AED "+totalMortgage.toLocaleString(),c:cl.subHi}].forEach(function(item){
+        var box=div({background:cl.raised,borderRadius:"10px",padding:"10px 12px"});
+        box.appendChild(lbl(item.l));
+        box.appendChild(span({color:item.c,fontSize:"13px",fontWeight:"700",fontFamily:"'JetBrains Mono',monospace",fontFeatureSettings:"'tnum'",display:"block"},item.v));
+        g2b.appendChild(box);
+      });
+      sumCard.appendChild(g2b);
+    }
 
     // Area Allocation bar
     var areaDist={};
@@ -1307,18 +1354,26 @@ function renderPortfolio(mode){
           });
         }
 
-        // 2) Rent Optimization Alert
-        var bn={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5}[a.beds]!=null?{"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5}[a.beds]:2;
+        // 2) Rent Optimization Alert — rewritten 2026-07-18. Previously
+        // compared the model-estimated rent against itself (recomputed the
+        // exact same benchmark locally and called it "actualRent"), so the
+        // alert could never actually catch under-renting — it was always
+        // ~100%. Now uses the real actual-rent field (a.m.rentIsActual) when
+        // the user has entered one, and stays honest (no alert, or a
+        // clearly-labeled call-to-action) when it hasn't.
         var isV=a.type==="Villa"||a.type==="Townhouse";
-        var benchRent=isV?(bn<=2?aData.rv2||130000:bn<=3?aData.rv3||180000:bn<=4?aData.rv4||240000:bn<=5?aData.rv5||350000:bn<=6?aData.rv6||500000:aData.rv7||650000):bn===0?(aData.rStudio||(aData.r1||65000)*0.65):bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
-        var actualRent=a.m.rent||0;
-        if(benchRent>0&&actualRent>0){
-          var rentRatio=actualRent/benchRent*100;
+        var benchRent=a.m.estRent||0;
+        if(a.m.rentIsActual&&benchRent>0){
+          var rentRatio=a.m.rent/benchRent*100;
           if(rentRatio<90){
-            alerts.push({type:"warn",icon:"",title:"Rent Optimization",text:"You may be under-renting by "+Math.round(100-rentRatio)+"% — benchmark: AED "+benchRent.toLocaleString()+"/yr vs current estimate AED "+actualRent.toLocaleString()+"/yr",pct:Math.round(rentRatio)});
+            alerts.push({type:"warn",icon:"",title:"Rent Optimization",text:"You may be under-renting by "+Math.round(100-rentRatio)+"% — area benchmark: AED "+benchRent.toLocaleString()+"/yr vs your actual AED "+a.m.rent.toLocaleString()+"/yr",pct:Math.round(rentRatio)});
+          }else if(rentRatio>115){
+            alerts.push({type:"good",icon:"",title:"Rent Optimization",text:"Your actual rent is "+Math.round(rentRatio)+"% of area benchmark — above-market, well optimized",pct:Math.min(100,Math.round(rentRatio))});
           }else{
-            alerts.push({type:"good",icon:"",title:"Rent Optimization",text:"Rent is at "+Math.round(rentRatio)+"% of area benchmark — well optimized",pct:Math.min(100,Math.round(rentRatio))});
+            alerts.push({type:"good",icon:"",title:"Rent Optimization",text:"Your actual rent is at "+Math.round(rentRatio)+"% of area benchmark — well optimized",pct:Math.min(100,Math.round(rentRatio))});
           }
+        }else if(benchRent>0){
+          alerts.push({type:"neutral",icon:"",title:"Rent Optimization",text:"Add your actual annual rent on this property (Edit → Actual Annual Rent) to compare it against the area benchmark of AED "+benchRent.toLocaleString()+"/yr — right now this figure is a market estimate, not your real income.",pct:-1});
         }
 
         // 3) Optimal Exit Window
@@ -1332,31 +1387,39 @@ function renderPortfolio(mode){
         var exitType=bestTR>=12?"good":bestTR>=8?"neutral":"warn";
         alerts.push({type:exitType,icon:"",title:"Optimal Exit Window",text:"Best exit: "+bestWindow+" (total return "+bestTR.toFixed(1)+"%/yr) — 1yr: "+tr1.toFixed(1)+"% · 3yr: "+tr3.toFixed(1)+"% · 5yr: "+tr5.toFixed(1)+"%",pct:-1});
 
-        // 4) Equity Release Calculator
+        // 4) Equity Release Calculator — fixed 2026-07-18: a.mortgage was
+        // referenced here since this alert was first built, but no form
+        // field ever set it, so releasable equity was always computed as if
+        // the property carried zero debt. Now reads the real, user-entered
+        // mortgage balance (a.m.mortgage, computeAssetMetrics()).
         if(pp>0&&cv>pp){
           var equity75=Math.round(cv*0.75);
-          var mortgage=parseInt(a.mortgage)||0;
-          var releasable=equity75-mortgage;
+          var releasable=equity75-a.m.mortgage;
           if(releasable>0){
-            alerts.push({type:"good",icon:"",title:"Equity Release",text:"Releasable equity: AED "+releasable.toLocaleString()+" (at 75% LTV). Property grew +"+(a.m.roi>=0?a.m.roi.toFixed(0):0)+"% since purchase.",pct:-1});
+            alerts.push({type:"good",icon:"",title:"Equity Release",text:"Releasable equity: AED "+releasable.toLocaleString()+" (at 75% LTV"+(a.m.mortgage>0?", net of your AED "+a.m.mortgage.toLocaleString()+" mortgage":" — no mortgage on file")+"). Property grew +"+(a.m.roi>=0?a.m.roi.toFixed(0):0)+"% since purchase.",pct:-1});
           }else{
-            alerts.push({type:"neutral",icon:"",title:"Equity Release",text:"No releasable equity yet — current LTV headroom insufficient. Keep holding for appreciation.",pct:-1});
+            alerts.push({type:"neutral",icon:"",title:"Equity Release",text:"No releasable equity yet"+(a.m.mortgage>0?" — outstanding mortgage (AED "+a.m.mortgage.toLocaleString()+") exceeds 75% LTV headroom":" — current LTV headroom insufficient")+". Keep holding for appreciation.",pct:-1});
           }
         }else if(pp>0){
           alerts.push({type:"neutral",icon:"",title:"Equity Release",text:"Property has not appreciated beyond purchase price yet. Equity release not recommended.",pct:-1});
         }
 
-        // 5) Airbnb vs Long-term Rent Comparison (Phase 2)
+        // 5) Airbnb vs Long-term Rent Comparison (Phase 2) — uses a.m.rent
+        // (actual when the user entered one, else the area estimate), same
+        // as every other rent-based alert here now that the standalone
+        // "actualRent" local var (a mislabeled duplicate of the estimate,
+        // see the Rent Optimization fix above) has been removed.
         var strInfo=STR_DATA[a.area];
-        if(strInfo&&actualRent>0){
+        var ltrRent=a.m.rent||0;
+        if(strInfo&&ltrRent>0){
           var strAnnual=Math.round(strInfo.nightly*365*strInfo.occ*0.80);
-          var strDiff=Math.round((strAnnual-actualRent)/actualRent*100);
+          var strDiff=Math.round((strAnnual-ltrRent)/ltrRent*100);
           if(strDiff>30){
-            alerts.push({type:"good",icon:"",title:"Airbnb Opportunity",text:"Short-term rental could increase income by "+strDiff+"% — STR estimate: AED "+strAnnual.toLocaleString()+"/yr ("+strInfo.nightly+" AED/night × "+Math.round(strInfo.occ*100)+"% occ × 80% net) vs long-term: AED "+actualRent.toLocaleString()+"/yr",pct:-1});
+            alerts.push({type:"good",icon:"",title:"Airbnb Opportunity",text:"Short-term rental could increase income by "+strDiff+"% — STR estimate: AED "+strAnnual.toLocaleString()+"/yr ("+strInfo.nightly+" AED/night × "+Math.round(strInfo.occ*100)+"% occ × 80% net) vs long-term: AED "+ltrRent.toLocaleString()+"/yr",pct:-1});
           }else if(strDiff>0){
-            alerts.push({type:"neutral",icon:"",title:"Airbnb vs Long-term",text:"STR premium only "+strDiff+"% — marginal after management hassle. Long-term rental is optimal. STR: AED "+strAnnual.toLocaleString()+"/yr vs LTR: AED "+actualRent.toLocaleString()+"/yr",pct:-1});
+            alerts.push({type:"neutral",icon:"",title:"Airbnb vs Long-term",text:"STR premium only "+strDiff+"% — marginal after management hassle. Long-term rental is optimal. STR: AED "+strAnnual.toLocaleString()+"/yr vs LTR: AED "+ltrRent.toLocaleString()+"/yr",pct:-1});
           }else{
-            alerts.push({type:"neutral",icon:"",title:"Long-term Optimal",text:"Long-term rental is optimal for "+a.area+". STR estimate: AED "+strAnnual.toLocaleString()+"/yr vs LTR: AED "+actualRent.toLocaleString()+"/yr",pct:-1});
+            alerts.push({type:"neutral",icon:"",title:"Long-term Optimal",text:"Long-term rental is optimal for "+a.area+". STR estimate: AED "+strAnnual.toLocaleString()+"/yr vs LTR: AED "+ltrRent.toLocaleString()+"/yr",pct:-1});
           }
         }else if(strInfo){
           var strEst=Math.round(strInfo.nightly*365*strInfo.occ*0.80);
@@ -1365,7 +1428,7 @@ function renderPortfolio(mode){
 
         // 6) Renovation ROI Estimator (Phase 2)
         var sz=parseFloat(a.size)||parseFloat(a.buaSize)||0;
-        var bGrade=(function(){var bd=DB[(a.building||"").toLowerCase()];return bd?bd.g:"B";})();
+        var bGrade=(function(){var bd=lookupBuilding(a.building||"",a.area||"");return bd?bd.g:"B";})();
         if(sz>0&&cv>0){
           var gradeMulti=bGrade==="C"?1.3:bGrade==="B"?1.15:bGrade==="B+"?1.05:bGrade==="A-"?0.9:bGrade==="A"||bGrade==="A+"||bGrade==="Ultra"?0.7:1;
           var levels=[
@@ -1640,7 +1703,7 @@ function renderPortfolio(mode){
       var details=div({marginTop:"14px",borderTop:"1px solid "+cl.border,paddingTop:"14px"});
       details.addEventListener("click",function(e){e.stopPropagation();});
       var dGrid=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"});
-      [{l:"Purchase Price",v:"AED "+a.m.purchasePrice.toLocaleString(),s:"PSF "+(parseInt(a.size)>0?Math.round(a.m.purchasePrice/parseInt(a.size)).toLocaleString():"—"),c:cl.white},{l:"Current Value",v:"AED "+a.m.currentValue.toLocaleString(),s:"PSF "+a.m.currentPSF.toLocaleString(),c:cl.gold},{l:"Annual Rent (Est.)",v:"AED "+a.m.rent.toLocaleString(),s:null,c:cl.white},{l:"Service Charge",v:"AED "+Math.round(a.m.sc).toLocaleString()+"/yr",s:null,c:cl.white},{l:"Gross Yield",v:a.m.grossYield.toFixed(1)+"%",s:null,c:cl.green},{l:"Net Yield",v:a.m.netYield.toFixed(1)+"%",s:null,c:cl.green}].forEach(function(item){
+      [{l:"Purchase Price",v:"AED "+a.m.purchasePrice.toLocaleString(),s:a.m.extraCosts>0?"+AED "+a.m.extraCosts.toLocaleString()+" costs = AED "+a.m.costBasis.toLocaleString()+" basis":"PSF "+(parseInt(a.size)>0?Math.round(a.m.purchasePrice/parseInt(a.size)).toLocaleString():"—"),c:cl.white},{l:"Current Value",v:"AED "+a.m.currentValue.toLocaleString(),s:"PSF "+a.m.currentPSF.toLocaleString(),c:cl.gold},{l:"Annual Rent ("+(a.m.rentIsActual?"Actual":"Est.")+")",v:"AED "+a.m.rent.toLocaleString(),s:null,c:cl.white},{l:"Service Charge",v:"AED "+Math.round(a.m.sc).toLocaleString()+"/yr",s:null,c:cl.white},{l:"Gross Yield",v:a.m.grossYield.toFixed(1)+"%",s:null,c:cl.green},{l:"Net Yield",v:a.m.netYield.toFixed(1)+"%",s:null,c:cl.green}].forEach(function(item){
         var box=div({background:cl.raised,borderRadius:"8px",padding:"10px 12px"});
         box.appendChild(lbl(item.l));
         box.appendChild(span({color:item.c,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},item.v));
@@ -1648,6 +1711,29 @@ function renderPortfolio(mode){
         dGrid.appendChild(box);
       });
       details.appendChild(dGrid);
+
+      // Net Equity — only shown once a mortgage balance is on file, same
+      // "don't clutter unleveraged portfolios" reasoning as the Overview
+      // row above (added 2026-07-18).
+      if(a.m.mortgage>0){
+        var eqBox=div({background:cl.raised,borderRadius:"8px",padding:"10px 12px",marginBottom:"12px",display:"flex",justifyContent:"space-between",alignItems:"center"});
+        var eqLeft=div({});eqLeft.appendChild(lbl("Net Equity"));eqLeft.appendChild(span({color:cl.gold,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",display:"block"},"AED "+a.m.netEquity.toLocaleString()));
+        eqBox.appendChild(eqLeft);
+        var eqRight=div({textAlign:"right"});eqRight.appendChild(lbl("Outstanding Mortgage"));eqRight.appendChild(span({color:cl.subHi,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},"AED "+a.m.mortgage.toLocaleString()));
+        eqBox.appendChild(eqRight);
+        details.appendChild(eqBox);
+      }
+
+      // Occupancy / Lease status (added 2026-07-18)
+      if(a.occupancy&&a.occupancy!=="Not Specified"){
+        var occRow=div({display:"flex",gap:"8px",alignItems:"center",marginBottom:"12px",flexWrap:"wrap"});
+        occRow.appendChild(pill(a.occupancy,a.occupancy==="Rented"?"green":a.occupancy==="Vacant"?"yellow":"gray"));
+        if(a.occupancy==="Rented"&&a.leaseEnd){
+          var daysToLeaseEnd=Math.round((new Date(a.leaseEnd)-new Date())/86400000);
+          if(daysToLeaseEnd>=0)occRow.appendChild(span({color:daysToLeaseEnd<=60?"#F59E0B":cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},daysToLeaseEnd<=60?"Lease ends in "+daysToLeaseEnd+"d — "+new Date(a.leaseEnd).toLocaleDateString():"Lease ends "+new Date(a.leaseEnd).toLocaleDateString()));
+        }
+        details.appendChild(occRow);
+      }
 
       // Growth Forecast
       var forecast=div({background:cl.raised,borderRadius:"8px",padding:"10px 12px",marginBottom:"12px"});
@@ -1669,7 +1755,7 @@ function renderPortfolio(mode){
       annLeft.appendChild(span({color:a.m.annualizedROI>=0?cl.green:cl.red,fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",display:"block"},(a.m.annualizedROI>=0?"+":"")+a.m.annualizedROI.toFixed(1)+"% p.a."));
       annBox.appendChild(annLeft);
       var annRight=div({textAlign:"right"});
-      var unrealized=a.m.currentValue-a.m.purchasePrice;
+      var unrealized=a.m.currentValue-a.m.costBasis;
       annRight.appendChild(lbl("Unrealized P&L"));
       annRight.appendChild(span({color:unrealized>=0?cl.green:cl.red,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},(unrealized>=0?"+":"")+"AED "+unrealized.toLocaleString()));
       annBox.appendChild(annRight);
@@ -1686,7 +1772,7 @@ function renderPortfolio(mode){
       details.appendChild(trBox);
 
       // Sustainability Score
-      var susBd=DB[(a.building||"").toLowerCase()]||null;
+      var susBd=lookupBuilding(a.building||"",a.area||"");
       var susAd=AREAS[a.area]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
       var susS=computeSustainabilityScore(a.building||"",a.area||"",susBd,susAd);
       var susC=susS.score>=75?"#10B981":susS.score>=50?"#EAB308":susS.score>=35?"#F97316":"#EF4444";
@@ -1707,14 +1793,77 @@ function renderPortfolio(mode){
       });
       details.appendChild(susRow);
 
-      details.appendChild(btn({background:cl.redBg,border:"1px solid "+cl.redBo,color:cl.red,padding:"8px 16px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",fontWeight:"600"},"Remove Asset",function(e){e.stopPropagation();ps.assets=ps.assets.filter(function(x){return x.id!==a.id;});try{localStorage.setItem("dubaival_portfolio",JSON.stringify(ps.assets));}catch(e){}portfolioChanged();if(ps.expandedId===a.id)ps.expandedId=null;ps.aiAnalysis="";render();}));
+      // Edit / Mark as Sold / Remove — added 2026-07-18 (previously only
+      // "Remove Asset" existed, so a typo in floor/size meant deleting and
+      // re-adding the whole property from scratch, and there was no way to
+      // record a real sale — only permanent deletion).
+      var actionsRow=div({display:"flex",gap:"8px",flexWrap:"wrap"});
+      actionsRow.appendChild(btn({background:cl.goldFaint,border:"1px solid "+cl.goldDim,color:cl.gold,padding:"8px 16px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",fontWeight:"600"},"Edit",function(e){
+        e.stopPropagation();
+        var realIdx=ps.assets.findIndex(function(x){return x.id===a.id;});
+        if(realIdx<0)return;
+        ps._new=Object.assign({},ps._new,ps.assets[realIdx]);
+        ps._editingId=a.id;ps.showAdd=true;ps.expandedId=null;render();
+      }));
+      actionsRow.appendChild(btn({background:"transparent",border:"1px solid "+cl.border,color:cl.subHi,padding:"8px 16px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",fontWeight:"600"},"Mark as Sold",function(e){
+        e.stopPropagation();
+        var salePriceStr=window.prompt("Sale price (AED)?","");
+        if(salePriceStr===null)return; // cancelled
+        var salePrice=parseFloat(String(salePriceStr).replace(/[^0-9.]/g,""));
+        if(!(salePrice>0)){alert("Enter a valid sale price to record this sale.");return;}
+        var saleDateStr=window.prompt("Sale date (YYYY-MM-DD)?",new Date().toISOString().slice(0,10));
+        if(saleDateStr===null)return; // cancelled
+        var realIdx=ps.assets.findIndex(function(x){return x.id===a.id;});
+        if(realIdx<0)return;
+        ps.assets[realIdx]=Object.assign({},ps.assets[realIdx],{status:"Sold",salePrice:salePrice,saleDate:saleDateStr||new Date().toISOString().slice(0,10)});
+        try{localStorage.setItem("dubaival_portfolio",JSON.stringify(ps.assets));}catch(e2){}portfolioChanged();
+        if(ps.expandedId===a.id)ps.expandedId=null;ps.aiAnalysis="";render();
+      }));
+      actionsRow.appendChild(btn({background:cl.redBg,border:"1px solid "+cl.redBo,color:cl.red,padding:"8px 16px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",fontWeight:"600"},"Remove Asset",function(e){e.stopPropagation();ps.assets=ps.assets.filter(function(x){return x.id!==a.id;});try{localStorage.setItem("dubaival_portfolio",JSON.stringify(ps.assets));}catch(e){}portfolioChanged();if(ps.expandedId===a.id)ps.expandedId=null;ps.aiAnalysis="";render();}));
+      details.appendChild(actionsRow);
       card.appendChild(details);
     }
     wrap.appendChild(card);
   });
 
-  // Empty state
-  if(ps.assets.length===0&&!ps.showAdd){
+  // Sold Properties — Realized Gains (added 2026-07-18). Kept separate from
+  // the active asset list/metrics above so a sale never inflates "Total
+  // Value"/yield figures for a property no longer held, while still
+  // preserving the transaction record instead of forcing outright deletion.
+  if(soldAssets.length>0&&mode==="assets"){
+    var soldWrap=div({marginTop:"6px",marginBottom:"14px"});
+    soldWrap.appendChild(span({color:cl.sub,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},"◆ Sold Properties — Realized Gains"));
+    soldAssets.forEach(function(a){
+      var realizedCostBasis=(parseFloat(a.purchasePrice)||0)+(parseFloat(a.extraCosts)||0);
+      var realizedPnl=(parseFloat(a.salePrice)||0)-realizedCostBasis;
+      var sCard=div({background:cl.raised,border:"1px solid "+cl.border,borderRadius:"12px",padding:"14px 16px",marginBottom:"8px",opacity:"0.85"});
+      var sRow=div({display:"flex",justifyContent:"space-between",alignItems:"flex-start"});
+      var sLeft=div({});
+      var sNameRow=div({display:"flex",alignItems:"center",gap:"8px"});
+      sNameRow.appendChild(span({color:cl.subHi,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},a.building||a.area||"Property"));
+      sNameRow.appendChild(pill("SOLD","gray"));
+      sLeft.appendChild(sNameRow);
+      sLeft.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace",display:"block",marginTop:"2px"},a.area+" · sold "+(a.saleDate||"—")));
+      sRow.appendChild(sLeft);
+      var sRight=div({textAlign:"right"});
+      sRight.appendChild(span({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},"AED "+(parseFloat(a.salePrice)||0).toLocaleString()));
+      sRight.appendChild(span({color:realizedPnl>=0?cl.green:cl.red,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},(realizedPnl>=0?"+":"")+"AED "+realizedPnl.toLocaleString()+" realized"));
+      sRow.appendChild(sRight);
+      sCard.appendChild(sRow);
+      var sRemove=btn({background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"5px 12px",borderRadius:"6px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginTop:"8px"},"Remove Record",function(){
+        ps.assets=ps.assets.filter(function(x){return x.id!==a.id;});
+        try{localStorage.setItem("dubaival_portfolio",JSON.stringify(ps.assets));}catch(e){}portfolioChanged();render();
+      });
+      sCard.appendChild(sRemove);
+      soldWrap.appendChild(sCard);
+    });
+    wrap.appendChild(soldWrap);
+  }
+
+  // Empty state (checks active holdings only — a portfolio with only sold
+  // properties still shows this, since there's nothing currently held; the
+  // sold history renders separately below regardless)
+  if(activeAssets.length===0&&!ps.showAdd){
     var empty=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"40px 20px",textAlign:"center",marginBottom:"14px"});
     empty.appendChild(span({fontSize:"32px",display:"block",marginBottom:"12px"},"◆"));
     empty.appendChild(span({color:cl.white,fontSize:"15px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"6px"},"Start Building Your Portfolio"));
@@ -1730,12 +1879,17 @@ function renderPortfolio(mode){
 
   // Add form
   if(ps.showAdd){
-    if(!ps._new)ps._new={building:"",area:"",type:"Apartment",beds:"2 BR",floor:"",view:"Not specified",size:"",purchasePrice:"",purchaseDate:"",furnished:"Unfurnished",serviceCharge:"",parking:"1"};
+    // Field set expanded 2026-07-18 (real portfolio-manager audit) — mortgage/
+    // actualRent/occupancy/leaseEnd/extraCosts/bathrooms are new; parking
+    // already existed in this default object but had no form input until now
+    // (see the fg4/fg5/fg6 blocks below).
+    if(!ps._new)ps._new={building:"",area:"",type:"Apartment",beds:"2 BR",floor:"",view:"Not specified",size:"",purchasePrice:"",purchaseDate:"",furnished:"Unfurnished",serviceCharge:"",parking:"1",bathrooms:"",mortgage:"",actualRent:"",occupancy:"Not Specified",leaseEnd:"",extraCosts:""};
     var n=ps._new;
+    var isEditing=!!ps._editingId;
     var formCard=div({background:cl.surface,border:"1px solid "+cl.goldDim,borderRadius:"14px",padding:"20px",marginBottom:"14px"});
     var formHeader=div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"});
-    formHeader.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ Add Property to Portfolio"));
-    formHeader.appendChild(el("button",{style:{background:"transparent",border:"none",color:cl.sub,cursor:"pointer",fontSize:"16px",padding:"4px 8px"},onclick:function(){ps.showAdd=false;render();}},"✕"));
+    formHeader.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},isEditing?"◆ Edit Property":"◆ Add Property to Portfolio"));
+    formHeader.appendChild(el("button",{style:{background:"transparent",border:"none",color:cl.sub,cursor:"pointer",fontSize:"16px",padding:"4px 8px"},onclick:function(){ps.showAdd=false;ps._editingId=null;render();}},"✕"));
     formCard.appendChild(formHeader);
 
     // AI Smart Bar for Portfolio
@@ -1798,24 +1952,60 @@ function renderPortfolio(mode){
     var scW=div({});scW.appendChild(lbl("Service Charge (AED/sqft)"));scW.appendChild(inp(I(),"Auto for known buildings","number",n.serviceCharge,function(v){n.serviceCharge=v;}));fg2.appendChild(scW);
     formCard.appendChild(fg2);
 
-    var fg3=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"16px"});
+    // Parking/Bathrooms — parking already fed computeAdjustedPSF()'s parking
+    // premium but had no way to be entered other than the AI Smart Bar;
+    // bathrooms is informational only (added 2026-07-18 portfolio audit).
+    var fg2b=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"});
+    var parkW=div({});parkW.appendChild(lbl("Parking Spaces"));parkW.appendChild(mkSelect(S(),["0","1","2","3","4+"],n.parking||"1",function(v){n.parking=v;}));fg2b.appendChild(parkW);
+    var bathW=div({});bathW.appendChild(lbl("Bathrooms"));bathW.appendChild(inp(I(),"e.g. 2","number",n.bathrooms,function(v){n.bathrooms=v;}));fg2b.appendChild(bathW);
+    formCard.appendChild(fg2b);
+
+    var fg3=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"});
     var ppW=div({});ppW.appendChild(lbl("Purchase Price (AED) *"));ppW.appendChild(inp(I(),"2,500,000","number",n.purchasePrice,function(v){n.purchasePrice=v;}));fg3.appendChild(ppW);
     var pdW=div({});pdW.appendChild(lbl("Purchase Date *"));
     var dateInp=el("input",{style:Object.assign({},I(),{colorScheme:"dark"}),type:"date"});dateInp.value=n.purchaseDate||"";dateInp.addEventListener("change",function(){n.purchaseDate=dateInp.value;});
     pdW.appendChild(dateInp);fg3.appendChild(pdW);
     formCard.appendChild(fg3);
 
+    // Real financial position — added 2026-07-18 portfolio audit. Without
+    // these, ROI/equity/rent figures were always model estimates with no
+    // connection to the user's actual leverage or actual rent collected;
+    // "Equity Release" (below in Health) already referenced asset.mortgage
+    // but no field ever set it, so releasable equity was always computed as
+    // if the property had zero debt.
+    var fg3b=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"});
+    var mortW=div({});mortW.appendChild(lbl("Outstanding Mortgage (AED) — optional"));mortW.appendChild(inp(I(),"e.g. 1,200,000","number",n.mortgage,function(v){n.mortgage=v;}));fg3b.appendChild(mortW);
+    var costW=div({});costW.appendChild(lbl("Other Costs Paid (AED) — optional"));costW.appendChild(inp(I(),"Agency fee, DLD fee, reno…","number",n.extraCosts,function(v){n.extraCosts=v;}));fg3b.appendChild(costW);
+    formCard.appendChild(fg3b);
+
+    var fg3c=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"});
+    var arW=div({});arW.appendChild(lbl("Actual Annual Rent (AED) — optional"));arW.appendChild(inp(I(),"Leave blank to use market estimate","number",n.actualRent,function(v){n.actualRent=v;}));fg3c.appendChild(arW);
+    var occW=div({});occW.appendChild(lbl("Occupancy"));occW.appendChild(mkSelect(S(),["Not Specified","Owner-Occupied","Rented","Vacant"],n.occupancy||"Not Specified",function(v){n.occupancy=v;render();}));fg3c.appendChild(occW);
+    formCard.appendChild(fg3c);
+
+    if(n.occupancy==="Rented"){
+      var leaseW=div({marginBottom:"16px"});leaseW.appendChild(lbl("Lease End Date — optional"));
+      var leaseInp=el("input",{style:Object.assign({},I(),{colorScheme:"dark"}),type:"date"});leaseInp.value=n.leaseEnd||"";leaseInp.addEventListener("change",function(){n.leaseEnd=leaseInp.value;});
+      leaseW.appendChild(leaseInp);formCard.appendChild(leaseW);
+    }
+
     var canAdd=n.area&&n.size&&n.purchasePrice&&n.purchaseDate;
     var btnRow=div({display:"flex",gap:"10px"});
-    btnRow.appendChild(btn({flex:"1",padding:"13px",borderRadius:"10px",border:"none",background:canAdd?"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")":cl.border,color:canAdd?"#070B14":cl.sub,fontSize:"13px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",opacity:canAdd?"1":"0.5"},"ADD TO PORTFOLIO",function(){
+    btnRow.appendChild(btn({flex:"1",padding:"13px",borderRadius:"10px",border:"none",background:canAdd?"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")":cl.border,color:canAdd?"#070B14":cl.sub,fontSize:"13px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",opacity:canAdd?"1":"0.5"},isEditing?"SAVE CHANGES":"ADD TO PORTFOLIO",function(){
       if(!canAdd)return;
-      var asset=Object.assign({},n,{id:Date.now().toString(36)});
-      ps.assets.push(asset);
+      if(isEditing){
+        var idx=ps.assets.findIndex(function(x){return x.id===ps._editingId;});
+        if(idx>=0)ps.assets[idx]=Object.assign({},ps.assets[idx],n);
+        ps._editingId=null;
+      }else{
+        var asset=Object.assign({},n,{id:Date.now().toString(36),status:"Active"});
+        ps.assets.push(asset);
+      }
       try{localStorage.setItem("dubaival_portfolio",JSON.stringify(ps.assets));}catch(e){}portfolioChanged();
-      ps._new={building:"",area:"",type:"Apartment",beds:"2 BR",floor:"",view:"Not specified",size:"",purchasePrice:"",purchaseDate:"",furnished:"Unfurnished",serviceCharge:"",parking:"1"};
+      ps._new={building:"",area:"",type:"Apartment",beds:"2 BR",floor:"",view:"Not specified",size:"",purchasePrice:"",purchaseDate:"",furnished:"Unfurnished",serviceCharge:"",parking:"1",bathrooms:"",mortgage:"",actualRent:"",occupancy:"Not Specified",leaseEnd:"",extraCosts:""};
       ps.showAdd=false;ps.aiAnalysis="";render();
     }));
-    btnRow.appendChild(btn({padding:"13px 20px",borderRadius:"10px",border:"1px solid "+cl.border,background:"transparent",color:cl.sub,fontSize:"13px",fontFamily:"'Space Grotesk',monospace"},"Cancel",function(){ps.showAdd=false;render();}));
+    btnRow.appendChild(btn({padding:"13px 20px",borderRadius:"10px",border:"1px solid "+cl.border,background:"transparent",color:cl.sub,fontSize:"13px",fontFamily:"'Space Grotesk',monospace"},"Cancel",function(){ps.showAdd=false;ps._editingId=null;render();}));
     formCard.appendChild(btnRow);
     wrap.appendChild(formCard);
   }
@@ -1824,7 +2014,7 @@ function renderPortfolio(mode){
   // decisive BUY/HOLD/SELL-per-asset CFA-style report is exactly the kind
   // of premium output that justifies a Pro subscription, same reasoning
   // already applied to the Analyzer's PDF export.
-  if(ps.assets.length>0){
+  if(activeAssets.length>0){
     var _pfIsPro=typeof isProUser!=="function"||isProUser();
     wrap.appendChild(btn({width:"100%",padding:"13px",borderRadius:"10px",border:"none",background:ps.aiLoading?cl.border:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",color:ps.aiLoading?cl.sub:"#070B14",fontSize:"13px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.06em",marginBottom:"10px",opacity:ps.aiLoading?"0.5":"1"},ps.aiLoading?"ANALYZING PORTFOLIO…":"AI PORTFOLIO ANALYSIS ◆"+(_pfIsPro?"":" (PRO)"),function(){
       if(ps.aiLoading)return;
@@ -1832,7 +2022,7 @@ function renderPortfolio(mode){
       ps.aiLoading=true;ps.aiAnalysis="";ps.aiErr="";render();
       var areaDist2={};metrics.forEach(function(a){areaDist2[a.area]=(areaDist2[a.area]||0)+a.m.currentValue;});
       var areaEntries2=Object.entries(areaDist2).sort(function(a,b){return b[1]-a[1];});
-      var summary=metrics.map(function(a){return"- "+(a.building||"Unknown")+" in "+a.area+": "+a.beds+", "+parseInt(a.size).toLocaleString()+" sqft, bought AED "+a.m.purchasePrice.toLocaleString()+" ("+a.purchaseDate+"), now AED "+a.m.currentValue.toLocaleString()+" (ROI "+a.m.roi.toFixed(1)+"%), gross yield "+a.m.grossYield.toFixed(1)+"%, net "+a.m.netYield.toFixed(1)+"%, grade: "+a.m.grade+", signal: "+a.m.investSignal+", total return: "+a.m.totalReturn.toFixed(1)+"%";}).join("\n");
+      var summary=metrics.map(function(a){return"- "+(a.building||"Unknown")+" in "+a.area+": "+a.beds+", "+parseInt(a.size).toLocaleString()+" sqft, bought AED "+a.m.purchasePrice.toLocaleString()+" ("+a.purchaseDate+"), now AED "+a.m.currentValue.toLocaleString()+" (ROI "+a.m.roi.toFixed(1)+"%), gross yield "+a.m.grossYield.toFixed(1)+"%, net "+a.m.netYield.toFixed(1)+"%, grade: "+a.m.grade+", signal: "+a.m.investSignal+", total return: "+a.m.totalReturn.toFixed(1)+"%"+(a.m.mortgage>0?", mortgage AED "+a.m.mortgage.toLocaleString()+" (net equity AED "+a.m.netEquity.toLocaleString()+")":"")+(a.m.rentIsActual?", rent is ACTUAL (not estimated)":"");}).join("\n");
       var prompt="My Dubai real estate portfolio ("+_currentMonthYear()+"):\n"+summary+"\n\nTotal value: AED "+totalValue.toLocaleString()+" | Total ROI: "+totalROI.toFixed(1)+"%\nAvg gross yield: "+avgGrossYield.toFixed(1)+"% | Avg net yield: "+avgNetYield.toFixed(1)+"%\nAreas: "+areaEntries2.map(function(e){return e[0]+" ("+(e[1]/totalValue*100).toFixed(0)+"%)"}).join(", ")+"\n\nInvestment goals: Risk: "+ps.goals.risk+" | Horizon: "+ps.goals.horizon+" | Target: "+ps.goals.target+"\n\nFor EACH property give a signal: HOLD / SELL / BUY MORE with 1 sentence why.\nThen give 2-3 portfolio-level strategic recommendations.\nBe specific with AED numbers. Consider area growth forecasts and diversification.";
       askAI([{role:"user",content:prompt}],"You are DubAIVal Portfolio Advisor — senior wealth manager specializing in Dubai real estate portfolios. "+_currentMonthYear()+".\nYou manage AED 500M+ in property assets. You think like a CFA: IRR, cash-on-cash return, risk-adjusted yield, concentration risk, liquidity.\nAnalyze this portfolio:\n1. HEALTH CHECK: Overall diversification (area, type, grade), concentration risk, yield efficiency\n2. WINNERS & LOSERS: Which assets outperform/underperform area benchmarks? Use our DB PSF data.\n3. OPTIMIZATION: What to sell (overvalued vs area), what to buy (underweight sectors), rebalancing moves\n4. RISK ALERTS: Over-leveraged? Single-area exposure? Low liquidity assets? SC drag on yield?\n5. 3-YEAR OUTLOOK: Capital appreciation projection based on area growth data, total return forecast\nUse EXACT AED numbers from our 9,227-building database. Decisive BUY/HOLD/SELL signals per asset. Professional tone.","Dubai real estate market trends: "+areaEntries2.map(function(e){return e[0];}).join(", "),areaEntries2.map(function(e){return e[0];})).then(function(text){ps.aiAnalysis=text;ps.aiLoading=false;render();}).catch(function(e){ps.aiErr=e.message;ps.aiLoading=false;render();});
     }));
@@ -1854,8 +2044,8 @@ function renderPortfolio(mode){
   }
   } // end assets section
 
-  // Empty state for Health/Projections when no assets
-  if(mode!=="assets"&&ps.assets.length===0){
+  // Empty state for Health/Projections when no active assets
+  if(mode!=="assets"&&activeAssets.length===0){
     var emptyCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"40px 20px",textAlign:"center",marginBottom:"14px"});
     emptyCard.innerHTML='<i data-lucide="'+(mode==="health"?"heart-pulse":"trending-up")+'" style="width:48px;height:48px;color:'+cl.gold+';margin:0 auto 16px;display:block"></i>';
     emptyCard.appendChild(div({color:cl.white,fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},mode==="health"?"Portfolio Health Dashboard":"Projections & What-If"));

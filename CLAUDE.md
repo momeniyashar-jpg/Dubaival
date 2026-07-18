@@ -656,6 +656,115 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, Portfolio Manager audit — 9 real
+  gaps found and fixed)**: Direct follow-up to the Personal Advisor rebuild
+  below — user asked for a full review of Portfolio → My Assets: "آیا ورودی
+  های این بخش کافیه و... یک پورتفولیو منیجر واقعی است؟" (are this section's
+  inputs sufficient, and is it a genuine portfolio manager?). Answered
+  directly: no — it was a very good VALUATION TRACKER (every asset
+  re-valued live via the same engine as the Analyzer) but not a real
+  portfolio MANAGER, because it never captured the user's actual financial
+  position — only model estimates. Found and reported 9 concrete gaps;
+  user's explicit instruction: "همرو به ترتیب اصلاح کن" (fix all of them,
+  in order). All 9 fixed in `js/portfolio.js` (+ 1 in `js/app.js`):
+  1. **Mortgage field added, closing a real dead-reference bug**: the
+     "Equity Release" opportunity alert has referenced `a.mortgage` since it
+     was first built, but no form field ever set it — releasable equity was
+     always computed as if every property had zero debt. Added an
+     "Outstanding Mortgage (AED) — optional" field; `computeAssetMetrics()`
+     now returns real `mortgage`/`netEquity`, and both the per-asset panel
+     and the Portfolio Overview show a Net Equity / Outstanding Mortgage row
+     (only when leverage exists, so an all-cash portfolio stays uncluttered).
+  2. **Actual rent field added**: previously every yield/return figure used
+     a pure area-model rent estimate with no way to enter what the owner
+     actually collects — the "Annual Rent (Est.)" label was honest, but
+     there was no path to make it real. Added "Actual Annual Rent (AED) —
+     optional"; `computeAssetMetrics()` now uses it for gross/net yield when
+     present (`rentIsActual`), exposes the model estimate separately
+     (`estRent`) for comparison, and the per-asset label switches to
+     "Annual Rent (Actual)". The "Rent Optimization" alert was rewritten to
+     match — it previously recomputed the exact same benchmark locally and
+     compared it against itself (so it could never actually flag
+     under-renting); now it compares the real actual rent against the area
+     benchmark, or — if no actual rent is on file — shows a neutral
+     call-to-action to add one instead of a misleading always-100% result.
+  3. **Sold/Exit tracking added**: "Remove Asset" was previously the only
+     option, meaning a real sale had no way to be recorded — just deleted.
+     New "Mark as Sold" action (asset `status`/`salePrice`/`saleDate`) keeps
+     the record as history instead of erasing it. Active vs. sold assets
+     are now split at the top of `renderPortfolio()` (`activeAssets`/
+     `soldAssets`) — Portfolio Overview/Health/Projections/AI Analysis/the
+     Home-page summary all compute from `activeAssets` only, so a sold
+     property no longer inflates "Total Value" or yield figures for
+     something no longer held. A new "◆ Sold Properties — Realized Gains"
+     section lists each sale with its realized P&L (sale price − cost
+     basis) and a permanent-delete option for purging old records.
+  4. **Edit capability added**: previously Add/Remove only — a typo in
+     floor or size meant deleting and re-adding the whole property. New
+     "Edit" button pre-fills the Add Property form from the real stored
+     asset (`ps._editingId`) and the submit button becomes "SAVE CHANGES,"
+     updating the existing record in place instead of pushing a duplicate.
+  5. **Real, independent bug fixed — Home page portfolio summary was always
+     wrong**: `renderHome()` (`js/app.js`) read `a.price`/`a.rent` to build
+     the "Your Portfolio" card, but a stored asset has neither field (the
+     real field is `purchasePrice`, and rent was never persisted anywhere)
+     — so this card showed **AED 0.00M** for every user regardless of their
+     real portfolio. Fixed to call the same `computeAssetMetrics()` the
+     Assets tab itself uses (cross-file call, safe since it only runs after
+     every module script has loaded), summed over active (non-sold) assets.
+  6. **Sustainability Score exact-match bug fixed** (3 call sites): the
+     Portfolio Overview average, the per-asset expanded panel, and the
+     Renovation ROI grade lookup all used `DB[(a.building||"").toLowerCase()]`
+     — an EXACT key match against free-typed building names, so almost any
+     real building name (this form has no dropdown) silently fell back to
+     the area-wide average — the same bug class already fixed for Find/Deal
+     Scoring in session 11m, just never caught here. All 3 now use
+     `lookupBuilding()`, the same fuzzy matcher `computeAssetMetrics()`
+     itself already uses via `computeAdjustedPSF()` — so the Sustainability
+     Score now agrees with the rest of the asset's own numbers.
+  7. **Parking + Bathrooms inputs added**: `parking` already fed
+     `computeAdjustedPSF()`'s parking-space premium but had no manual input
+     (only ever set via the AI Smart Bar); added a real Parking Spaces
+     select + a Bathrooms number field (bathrooms is informational only,
+     doesn't affect valuation — added for completeness since the AI
+     field-mapper already expected it).
+  8. **Real acquisition costs added**: new "Other Costs Paid (AED) —
+     optional" field (agency fee, DLD fee, renovation, etc. actually paid)
+     now feeds a real `costBasis` (purchase price + extra costs) used for
+     both unrealized P&L and ROI — previously ROI/P&L used the raw purchase
+     price only, understating true cash invested for anyone who entered
+     real acquisition costs.
+  9. **Occupancy status + lease-end date added**: new Occupancy select
+     (Not Specified / Owner-Occupied / Rented / Vacant) shown as a pill on
+     the expanded panel; picking "Rented" reveals an optional Lease End
+     Date field, which shows a "Lease ends in Nd" warning (amber) once
+     within 60 days — closes the "when does this need renewing" gap that
+     had no representation anywhere before.
+  - Verified: `node -c` on both touched files; a real-browser Playwright
+    test driving the actual Add Property form end-to-end (leveraged, rented
+    asset with all 9 new fields) confirming every field round-trips
+    correctly through `computeAssetMetrics()` (mortgage/netEquity,
+    rentIsActual/rent picking the real value over the estimate, costBasis
+    = purchasePrice + extraCosts) and renders correctly in the live DOM
+    (Net Equity row, "Annual Rent (Actual)" label, lease-end warning); a
+    full Edit-flow test (click Edit → form pre-fills real stored values →
+    change floor → Save Changes → confirms exactly 1 asset still exists,
+    updated in place, not duplicated); a full Mark-as-Sold test (mocked
+    `window.prompt` for price/date → asset flips to `status:"Sold"` → the
+    Sold Properties section renders the realized gain → Portfolio Overview
+    correctly disappears since 0 active assets remain); a real bug caught
+    by this same test run before shipping — removing the old, mislabeled
+    `actualRent` local variable broke the separate "Airbnb vs Long-term"
+    alert section, which still referenced it, throwing a live
+    `ReferenceError` — fixed by pointing that section at `a.m.rent`
+    directly; a 500-building sweep through `computeAssetMetrics()` with a
+    real building per iteration confirming zero crashes; and a
+    backward-compatibility test feeding an OLD-SCHEMA asset (missing every
+    new field entirely, simulating a real user's pre-existing localStorage
+    data) confirming it still computes cleanly with sensible defaults
+    (mortgage 0, rentIsActual false, costBasis = purchasePrice) — zero
+    console errors throughout.
+
 - **2026-07-18 (session continuing 14, Personal Advisor rebuilt into a
   genuinely grounded, data-accurate advisory tool + Home page placement)**:
   Direct follow-up to the Track Record removal below, in the same
