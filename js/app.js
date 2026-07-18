@@ -206,7 +206,10 @@ function renderFind(){
       if(gr[1]<minG)return;
       var dom=aData.dom||60;
       if(dom>maxD)return;
-      var isV=VILLA_AREAS&&VILLA_AREAS.has&&VILLA_AREAS.has(bData.a);
+      // Per-building refinement (2026-07-18) — see isVillaBuilding() in
+      // js/valuation.js (mixed villa/apartment areas like Palm Jumeirah/
+      // Dubai Hills Estate).
+      var isV=typeof isVillaBuilding==="function"?isVillaBuilding(key,bData.a):(VILLA_AREAS&&VILLA_AREAS.has&&VILLA_AREAS.has(bData.a));
       if(sf.type==="Apartment"&&isV)return;
       if(sf.type==="Villa"&&!isV)return;
       var txVol=aData.txVol||100;
@@ -990,7 +993,7 @@ function renderFind(){
       if(queryLower.length>1&&!bldgFilter&&key.indexOf(queryLower)<0&&(val.a||"").toLowerCase().indexOf(queryLower)<0)return;
       if(areaMatch){
         var aData=AREAS[val.a];
-        var isV=VILLA_AREAS&&VILLA_AREAS.has&&VILLA_AREAS.has(val.a);
+        var isV=typeof isVillaBuilding==="function"?isVillaBuilding(key,val.a):(VILLA_AREAS&&VILLA_AREAS.has&&VILLA_AREAS.has(val.a));
         // Real rent (this building's grade + the area's actual rent benchmark
         // for this bed count) over a real building-PSF-derived price, instead
         // of the previous estPrice×flatAreaYield — that produced a "rent"
@@ -1164,7 +1167,7 @@ function renderAlerts(){
       if(found>=perAlertCap||matches.length>=totalCap)break;
       var key=dbEntries[i][0],d=dbEntries[i][1];
       if(seenAlertKeys[key])continue;
-      var isVillaBldg=typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(d.a);
+      var isVillaBldg=typeof isVillaBuilding==="function"?isVillaBuilding(key,d.a):(typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(d.a));
       var areaOk=!alert.area||alert.area==="Any"||d.a===alert.area;
       var typeOk=!alert.type||alert.type==="Any"||(isVillaFilter?isVillaBldg:!isVillaBldg);
       var psfOk=!alert.maxPSF||d.p<=alert.maxPSF;
@@ -1618,7 +1621,7 @@ function updateSearchSuggestions(query){
           analyzerState.f.propCategory="villa";if(!analyzerState.f.beds)analyzerState.f.beds="4 BR";
         } else {
           var n=r.name.toLowerCase();
-          var isVA=typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(r.area);
+          var isVA=typeof isVillaBuilding==="function"?isVillaBuilding(r.name,r.area):(typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(r.area));
           var isVK=typeof VILLA_KEYWORDS!=="undefined"&&VILLA_KEYWORDS.some(function(kw){return n.includes(kw);});
           analyzerState.f.propCategory=(isVA||isVK)?"villa":"apartment";
           if(analyzerState.f.propCategory==="villa"&&!analyzerState.f.beds)analyzerState.f.beds="4 BR";

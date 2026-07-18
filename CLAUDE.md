@@ -656,6 +656,78 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, per-building villa/apartment
+  refinement — closes the "mixed villa area" limitation flagged in the
+  Quick Check audit below)**: Direct follow-up, same conversation — the
+  Quick Check audit below flagged, but deliberately did NOT fix, that
+  `VILLA_AREAS` is area-level only and ~12 major "villa" areas are
+  genuinely mixed with real apartment towers. User's explicit instruction:
+  "اول محدودیت واقعی و عمیق تری که پیدا کردی و عمدا فیکس نکردی رو فیکس کن...
+  خودت فیکس کن" (fix that real, deeper limitation yourself first). Rather
+  than ship a guess because it was asked for, actually tested 2 candidate
+  per-building classifiers against the real 9,226-building database first —
+  both failed and were rejected on real evidence, not assumption:
+  1. **Generic apartment-tower keywords** ("tower"/"residences"/"views"/
+     "heights") — rejected because real villa/townhouse clusters
+     legitimately use these words too: "Golf Views" (Jumeirah Golf Estates)
+     and "Hills View" (Dubai Hills Estate) are real villa/townhouse
+     communities, and the villa cluster "Golf Place III" has DB entries
+     literally named "Golf Place III - Tower 1/2".
+  2. **A BLDG_UNITS (unit count) threshold** — rejected because real villa
+     clusters ("Sidra 1", "Golf Grove", "Palm Hills", "Majestic Vistas")
+     show BLDG_UNITS of 380-500, statistically indistinguishable from real
+     apartment towers in the same mixed area ("Executive Residences",
+     "Golf Suites" — also 300-500).
+  **The one signal that held up**: a full cross-check of all 2,195
+  buildings across the 12 known-mixed areas found ZERO buildings whose name
+  contains both "villa"/"townhouse" AND "apartment" — meaning a building's
+  own name literally stating "Apartment(s)" (with no "Villa"/"Townhouse"
+  word alongside it) is real, unambiguous, non-fabricated evidence, unlike
+  either rejected heuristic. This reclassifies exactly 43 buildings (e.g.
+  "Shoreline Apartments 1-16", "Marina Apartments 1-6", "Palm Jumeirah
+  Apartments" in Palm Jumeirah) from the area's villa default to apartment.
+  Deliberately narrow — it does NOT try to catch every apartment building in
+  a mixed area (most, like "Park Heights"/"Executive Residences", carry no
+  explicit type word) — closing that remaining gap needs a real per-building
+  type field verified through actual research, a `js/data-residential.js`
+  change owned by the research branch, not something safe to guess at from
+  this branch.
+  - **New shared function**: `isVillaBuilding(key,area)` (`js/valuation.js`)
+    — false immediately if the area isn't in `VILLA_AREAS`; inside a villa
+    area, false only if the key contains "apartment" with no "villa"/
+    "townhouse" word; true otherwise (the existing area-level default).
+  - **Wired into every call site that has a real building key available**
+    (9 sites across 3 files) — replacing a bare `VILLA_AREAS.has(area)`
+    check computed once per area/loop with a per-building check computed
+    per building: Smart Discovery's Property Type filter and Alerts' Deal
+    Alerts scanner (`js/app.js`), Find's `doDBSearch()` rent/yield calc
+    (`js/app.js`), the AI Smart Search suggestion picker's type-detection
+    (`js/app.js`, refines its existing `isVA` alongside the pre-existing,
+    untouched `VILLA_KEYWORDS`-based `isVK` signal), Quick Check's
+    `_qcRecommendBuildings()` core loop and both navigation handlers
+    (`js/market.js` — the isVilla computation moved from once-per-area to
+    once-per-building inside the loop), Compare's building-search Property
+    Type filter (`js/portfolio.js`), and Personal Advisor's
+    `_paPickRealBuilding()` (`js/portfolio.js` — previously matched every
+    building in an area to the same area-level flag, so a real apartment
+    building could have been picked as the "real building tip" for a villa
+    recommendation). Left unchanged, correctly, at 2 sites with no specific
+    building available: `computeAreaPriceRange()` (area-only aggregate
+    range) and the Analyzer's "Or browse by area" quick-select chips (a
+    whole-area chip, not one building).
+  - Verified via a real-browser Playwright test (5 checks): the 4 known
+    "Apartments"-named buildings in Palm Jumeirah now correctly resolve
+    `isVillaBuilding()`→false (previously true, area-level default); real
+    villa fronds/clusters in the same mixed area are unaffected (still
+    true); a pure-apartment area (Dubai Marina) and a pure-villa area (The
+    Springs, all 16 buildings) are both completely unaffected — no
+    regression; and Quick Check's own estimator now correctly gives
+    "Shoreline Apartments 1" an apartment-scale unit size (1,100 sqft)
+    instead of the villa-scale size it would have gotten from the area-level
+    flag alone. Re-ran the full Quick Check, Compare, and Alerts Playwright
+    suites plus the 25-tab navigation sweep — zero regressions, zero console
+    errors.
+
 - **2026-07-18 (session continuing 14, Quick Check audit — 4 real gaps
   found and fixed)**: Direct follow-up to the Compare audit below, same
   conversation — user asked for the identical audit-then-fix treatment on
@@ -735,8 +807,10 @@ features continue working exactly as before. Zero breakage.
      elsewhere in this same file (the Analyzer's own "Or browse by area"
      quick-select chips) — both handlers now correctly set `propCategory`
      to `"villa"` or `"apartment"` based on the searched area.
-  - **Investigated, deliberately NOT fixed — a real, deeper, disclosed
-    limitation**: `VILLA_AREAS` (`js/data-residential.js`) is an area-level
+  - **Investigated, NOT fixed in this pass — see the follow-up entry
+    directly above this one, same session, for the real per-building
+    refinement subsequently built at the user's explicit request**:
+    `VILLA_AREAS` (`js/data-residential.js`) is an area-level
     classification, but at least 12 major "villa" areas in that set are
     genuinely MIXED — e.g. Palm Jumeirah (381 buildings, many are pure
     apartment towers like "Shoreline Apartments"/"Oceana"), Dubai Hills

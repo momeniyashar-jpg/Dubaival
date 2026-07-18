@@ -897,6 +897,52 @@ function computeSmartRent(f,liveRentals){
 }
 
 var _BEDS_NUM_MAP={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5,"6 BR":6,"7 BR":7,"7+ BR":7};
+// Per-building refinement on top of the area-level VILLA_AREAS flag — added
+// 2026-07-18, at the user's explicit request, after the Quick Check audit
+// flagged that ~12 major "villa" areas (Palm Jumeirah, Dubai Hills Estate,
+// Meydan, MBR City, Sobha Hartland, Town Square, Al Furjan, Motor City,
+// Dubai South, Nad Al Sheba, Palm Jebel Ali, Dubai Islands) are genuinely
+// MIXED with real apartment towers, so every bulk building scan across the
+// app (Quick Check, Smart Discovery, Alerts, Compare) was misapplying villa
+// rent/size assumptions to real apartment buildings in those areas.
+//
+// Two candidate per-building classifiers were built and EMPIRICALLY TESTED
+// against the real 9,226-building database before this one was chosen —
+// both failed and were rejected, not just assumed to be risky:
+//   1. Generic apartment-tower keywords ("tower"/"residences"/"views"/
+//      "heights") — rejected because real villa/townhouse clusters
+//      legitimately use these words too (e.g. "Golf Views" in Jumeirah Golf
+//      Estates and "Hills View" in Dubai Hills Estate are villa/townhouse
+//      communities, and villa cluster "Golf Place III - Tower 1/2" contains
+//      the word "tower").
+//   2. A BLDG_UNITS (unit count) threshold — rejected because real villa
+//      clusters (e.g. "Sidra 1", "Golf Grove", "Palm Hills", "Majestic
+//      Vistas") show BLDG_UNITS of 380-500, statistically indistinguishable
+//      from real apartment towers in the same mixed area ("Executive
+//      Residences", "Golf Suites" — also 300-500).
+// The one signal that held up under a full cross-check of all 2,195
+// buildings across the 12 known-mixed areas (zero name conflicts) is the
+// building's OWN name literally stating its type — "Villa"/"Townhouse" is
+// real, unambiguous evidence of a villa/townhouse, and "Apartment(s)" with
+// no such word alongside it is real, unambiguous evidence of an apartment
+// building (e.g. "Shoreline Apartments 1-16", "Marina Apartments 1-6",
+// "Palm Jumeirah Apartments" in Palm Jumeirah). This intentionally does NOT
+// try to catch every apartment building in a mixed area — most (e.g. "Park
+// Heights", "Executive Residences") carry no explicit type word in their
+// name, so they keep the area-level default. Closing that remaining gap
+// needs a real per-building type field verified through actual research —
+// a js/data-residential.js change owned by the research branch, not
+// something safe to guess at here.
+function isVillaBuilding(key,area){
+  var isVillaArea=typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has&&VILLA_AREAS.has(area);
+  if(!isVillaArea)return false;
+  if(!key)return true;
+  var k=String(key).toLowerCase();
+  var hasApt=k.indexOf("apartment")>=0;
+  var hasVillaWord=k.indexOf("villa")>=0||k.indexOf("townhouse")>=0;
+  if(hasApt&&!hasVillaWord)return false;
+  return true;
+}
 // Rent premium/discount by building grade — branded/Ultra residences command
 // materially higher rent than their bare PSF alone would suggest (concierge,
 // hotel services, amenities), while lower grades rent for less. Single source

@@ -915,12 +915,16 @@ function computeAreaPriceRange(area, beds, mode) {
 function _qcRecommendBuildings(area,beds,mode,budget){
   var aData=AREAS[area]; if(!aData||!budget)return null;
   if(typeof estimateBuildingRentYield!=="function")return null;
-  var isVilla=typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(area);
   var gradeRank={Ultra:7,"A+":6,A:5,"A-":4,"B+":3,B:2,C:1};
   var candidates=[];
   for(var k in DB){
     if(DB[k].a!==area)continue;
     var bData=DB[k];
+    // Per-building refinement (2026-07-18) — see isVillaBuilding() in
+    // js/valuation.js for why this is now computed per building instead of
+    // once per area (mixed villa/apartment areas like Palm Jumeirah/Dubai
+    // Hills Estate).
+    var isVilla=(typeof isVillaBuilding==="function")?isVillaBuilding(k,area):(typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(area));
     var est=estimateBuildingRentYield(bData,aData,beds,isVilla,bData.p);
     if(!est)continue;
     var amount=mode==="rent"?est.estRent:est.estPrice;
@@ -974,9 +978,10 @@ function _renderQCBuildingPicks(qc, qs, cl){
       // regardless of the picked building's real type, so clicking a villa/
       // townhouse recommendation into the Full Analyzer silently switched it
       // to the apartment form (wrong fields, no villa premiums applied).
-      // Same VILLA_AREAS-derivation already used elsewhere in this file
-      // (the area quick-select chips below).
-      analyzerState.f.propCategory=(typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(qs.area))?"villa":"apartment";
+      // Uses the real per-building refinement (isVillaBuilding, since the
+      // exact building name is known here — more accurate than the area-only
+      // check for mixed villa/apartment areas).
+      analyzerState.f.propCategory=(typeof isVillaBuilding==="function"?isVillaBuilding(p.name,qs.area):(typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(qs.area)))?"villa":"apartment";
       analyzerState.f.txnType=qs.mode;
       setSection("Market","Analyzer");
     });
@@ -1045,7 +1050,7 @@ function _renderQCResult(qc, qs, cl){
     analyzerState.f.beds=qs.beds||"2 BR";
     // Same real-type fix as the building-pick cards above (2026-07-18,
     // Quick Check audit) — was hardcoded "apartment" regardless of area.
-    analyzerState.f.propCategory=(typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(qs.area))?"villa":"apartment";
+    analyzerState.f.propCategory=(typeof isVillaBuilding==="function"?isVillaBuilding(qs.building,qs.area):(typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(qs.area)))?"villa":"apartment";
     analyzerState.f.txnType=qs.mode;
     if(qs.price)analyzerState.f.price=qs.price;
     setSection("Market","Analyzer");

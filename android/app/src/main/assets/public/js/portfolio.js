@@ -92,8 +92,12 @@ function _cmpBuildingSearch(idx,currentVal,cl){
       if(matches.length>=8)return;
       if(!k.includes(q))return;
       var d=DB[k];
-      if(wantVilla&&!(typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(d.a)))return;
-      if(wantApt&&(typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(d.a)))return;
+      // Per-building refinement (2026-07-18) — see isVillaBuilding() in
+      // js/valuation.js (mixed villa/apartment areas like Palm Jumeirah/
+      // Dubai Hills Estate).
+      var _kIsVilla=typeof isVillaBuilding==="function"?isVillaBuilding(k,d.a):(typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(d.a));
+      if(wantVilla&&!_kIsVilla)return;
+      if(wantApt&&_kIsVilla)return;
       matches.push({k:k,d:d});
     });
     if(!matches.length){drop.style.display="none";return;}
@@ -317,7 +321,12 @@ function _paPickRealBuilding(areaName,isVilla){
   Object.entries(DB).forEach(function(e){
     var b=e[1];
     if(b.a!==areaName)return;
-    var villaMatch=typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has&&VILLA_AREAS.has(areaName)?true:false;
+    // Per-building refinement (2026-07-18) — see isVillaBuilding() in
+    // js/valuation.js (mixed villa/apartment areas like Palm Jumeirah/
+    // Dubai Hills Estate) — previously matched every building in the area
+    // to the same area-level flag, so a real apartment building could be
+    // picked as the "real building tip" for a villa recommendation.
+    var villaMatch=typeof isVillaBuilding==="function"?isVillaBuilding(e[0],areaName):(typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has&&VILLA_AREAS.has(areaName)?true:false);
     if(isVilla!==undefined&&villaMatch!==isVilla)return;
     var rank=gradeRank[b.g]||0;
     if(rank>bestRank){bestRank=rank;best={key:e[0],grade:b.g};}
