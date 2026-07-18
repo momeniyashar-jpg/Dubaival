@@ -656,6 +656,87 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, Personal Advisor rebuilt into a
+  genuinely grounded, data-accurate advisory tool + Home page placement)**:
+  Direct follow-up to the Track Record removal below, in the same
+  conversation — user asked to discuss Personal Advisor's own architecture
+  ("Advisor چطور ابزاری هست؟ معماری و مهندسی حضورش به چه شکل؟"). Investigation
+  found a real accuracy gap: `_paAdvise()` (`js/portfolio.js`) computed a
+  real, deterministic top-10 area shortlist (yield/growth/PSF-fit scoring,
+  weighted by goal+priority), but then let the AI **freely invent** the
+  `bestEntry` price range, the `buildingTip` (a specific building
+  recommendation), and the 3-year `scenario` percentages in its JSON reply —
+  exactly the AI Agents accuracy bug already fixed once before (session 11j,
+  `js/chat.js`), just never applied here. A `buildingTip` naming a
+  nonexistent or wrong-area building on the very first screen an undecided
+  visitor sees was a real, live risk to the platform's core credibility
+  promise (Directive #2). User's explicit final instruction: fix it into "a
+  smart tool and real Advisor" for people who don't know what they want,
+  add whatever extra inputs a real property manager would ask for, put it on
+  the Home page, and connect RAG (which turned out to already be wired in
+  via `askAI(..., groundQuery, groundAreas)` — confirmed, no work needed
+  there).
+  - **`js/portfolio.js` — `_paAdvise()` rewritten**: the AI's JSON contract
+    now explicitly forbids `bestEntry`/`buildingTip`/`scenario` ("those are
+    computed separately from verified data, not written by you"). After
+    parsing, a post-processing pass splices in the real values for every
+    returned area: `bestEntry` via the existing `computeAreaPriceRange()`
+    (`js/market.js`, the same grade-weighted hedonic range engine the
+    Analyzer itself uses); `scenario` via the same netYield+growth/3
+    total-return formula `computeValuation()` already uses, summed over a
+    real 3-year window from the area's own `y`/`g` bands (conservative =
+    yield only, base = yield + 3yr growth, optimistic = yield + the better
+    of 3yr/5yr-scaled growth); `buildingTip` is only kept if the AI's
+    suggested name resolves via the real `lookupBuilding()` AND the matched
+    building's own area equals the recommended area — otherwise it's
+    silently replaced by `_paPickRealBuilding()` (new helper — picks the
+    real, actually-in-DB, highest-grade building for that area, or `null`
+    if none exists, never a fabricated name). Verified via a Playwright test
+    that fed a deliberately fake building name ("Completely Made Up Tower
+    That Does Not Exist") through a mocked AI response — confirmed it never
+    reaches the rendered page, and a real building is substituted whenever
+    one exists for that area (confirmed `null` — not a fake fallback — when
+    an area genuinely has zero tracked buildings, e.g. some of the ultra-
+    granular DLD sub-community names).
+  - **3 new optional Step-3 inputs** (Timeline, Financing, Nationality —
+    `mkPillRow()` helper) — feed real UAE mortgage LTV rules (same
+    constants as `js/mortgage.js`: 70/80% max LTV expat/national under 5M,
+    65/75% at ≥5M) into a new `_paCashRequired()` helper, so when a user
+    picks "Need Mortgage," each recommended area now shows a real "Cash
+    Needed To Close" figure (down payment + 4% DLD fee + 2% agency + 0.25%
+    mortgage registration), not just an asking-price range. Timeline and
+    Nationality are passed to the AI as narrative context only (never
+    compute a hard number from them) so the profile/DNA/tagline prose can
+    reference them without inventing figures.
+  - **Existing portfolio integrated into scoring**: reads
+    `localStorage.getItem("dubaival_portfolio")` directly (not
+    `window.PORTFOLIO_STATE`, which is only populated once the user has
+    visited the Portfolio tab this session) — areas the user already owns
+    get a small diversification bonus for wealth-building goals (steered
+    toward NEW exposure, not away from an area they explicitly asked about),
+    and the AI prompt is told what's already owned so the profile narrative
+    can reference it.
+  - **Home page CTA added** (`renderHome()`, `js/app.js`): new "④ PERSONAL
+    ADVISOR CTA" section ("Not sure what you're looking for?") between Top
+    Opportunities and the Market Cycle widget — the one Home section aimed
+    at visitors who don't yet have a specific building/area in mind, unlike
+    every other Home section which assumes they do. Clicking it navigates
+    straight to Market → Advisor. Trailing sections renumbered (Market Cycle
+    ④→⑤, Portfolio ⑤→⑥, Recent Activity ⑥→⑦) to keep the code comments
+    accurate; `dv-fu-5` fade-up animation class (already defined in this
+    file's CSS, previously unused past `dv-fu-4`) now used for Market Cycle.
+  - Verified: `node -c` on all 3 touched files; a Playwright test driving
+    the complete wizard end-to-end (goal → priority → budget/beds → the 3
+    new pill rows, clicked as real buttons, not just state mutation →
+    mocked AI response) confirming `bestEntry`/`scenario`/`cashRequired` are
+    always the app's own computed values and never AI text, and the fake
+    AI-authored building name never appears anywhere in the rendered DOM; a
+    second Playwright test confirming the Home CTA renders, is clickable,
+    and navigates to Market/Advisor; a 9-tab smoke test (Dashboard/
+    Analyzer/QuickCheck/Index/Find/Advisor/News/Portfolio/Deals/Home)
+    confirming zero regressions from the renumbering edit — zero console
+    errors throughout.
+
 - **2026-07-18 (session continuing 14, Track Record tab removed pending
   real automation)**: User asked, bluntly, what the Track Record tab
   ("a tab with a few lines of numbers") actually does. Explained honestly:

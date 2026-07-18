@@ -2784,7 +2784,34 @@ function renderHome(){
   momWrap.appendChild(renderMarketMoments(cl));
   wrap.appendChild(momWrap);
 
-  // ── ④ MARKET CYCLE ───────────────────────────────────────────────
+  // ── ④ PERSONAL ADVISOR CTA ───────────────────────────────────────
+  // Added 2026-07-18, per the site owner's direct question: "isn't this
+  // tool's place missing on the home page?" Personal Advisor was previously
+  // reachable only via Market → Advisor, a sub-tab a first-time or
+  // undecided visitor (someone who doesn't yet know which area/building to
+  // even search for — exactly who Home's other sections don't serve, since
+  // they all assume the visitor already has a specific property or area in
+  // mind) had no reason to discover on their own.
+  var advWrap=el('div',{className:'dv-fu dv-fu-4',style:{padding:'24px 16px 0'}});
+  var advCard=el('div',{style:{background:'linear-gradient(135deg,rgba(212,175,55,0.10) 0%,rgba(139,92,246,0.05) 100%)',border:'1px solid rgba(212,175,55,0.22)',borderRadius:'18px',padding:'22px',cursor:'pointer',display:'flex',alignItems:'center',gap:'16px'}});
+  var advIcon=el('div',{style:{width:'52px',height:'52px',flexShrink:'0',display:'flex',alignItems:'center',justifyContent:'center',borderRadius:'14px',background:'rgba(212,175,55,0.14)'}});
+  advIcon.innerHTML='<i data-lucide="compass" style="width:26px;height:26px;color:#D4AF37"></i>';
+  advCard.appendChild(advIcon);
+  var advBody=el('div',{style:{flex:'1',minWidth:'0'}});
+  advBody.appendChild(div({fontSize:'9px',color:'#D4A843',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'5px'},'AI Personal Advisor'));
+  advBody.appendChild(div({fontSize:'16px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",marginBottom:'5px',lineHeight:'1.3'},"Not sure what you're looking for?"));
+  advBody.appendChild(div({fontSize:'12px',color:'#9BA8C8',fontFamily:"'Inter',sans-serif",lineHeight:'1.6'},'Answer 5 quick questions — get a data-backed area, building, and 3-year plan matched to your budget and goals.'));
+  advCard.appendChild(advBody);
+  var advArrow=el('div',{style:{color:'#D4AF37',flexShrink:'0'},innerHTML:'<i data-lucide="arrow-right" style="width:20px;height:20px"></i>'});
+  advCard.appendChild(advArrow);
+  advCard.addEventListener('click',function(){setSection('Market','Advisor');});
+  advWrap.appendChild(advCard);
+  wrap.appendChild(advWrap);
+
+  // ── ⑤ MARKET CYCLE ───────────────────────────────────────────────
+  // (Section numbers renumbered 2026-07-18 to make room for ④ Personal
+  // Advisor CTA above — Market Cycle was ④, now ⑤; Portfolio was ⑤, now ⑥;
+  // Recent Activity was ⑥, now ⑦.)
   // Replaces the old "Explore Platform" shortcut-tile row (2026-07-17): those
   // 6 tiles just deep-linked to destinations already one tap away in the
   // persistent nav (sidebar/bottom tabs) — the lowest-unique-value section on
@@ -2794,7 +2821,7 @@ function renderHome(){
   // global in js/core.js — no duplicated dataset) gives Home real visual
   // life instead: a colored trend line showing Dubai's actual 2002-present
   // boom/bust history, exactly what was asked for ("جذابیت بصری").
-  var mcWrap=el('div',{className:'dv-fu dv-fu-4',style:{padding:'24px 16px 0'}});
+  var mcWrap=el('div',{className:'dv-fu dv-fu-5',style:{padding:'24px 16px 0'}});
   mcWrap.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'14px'},'Dubai Market Cycle'));
 
   var mcYears=MARKET_CYCLE_INDEX.years,mcVals=MARKET_CYCLE_INDEX.index;
@@ -2853,7 +2880,7 @@ function renderHome(){
   mcWrap.appendChild(mcCard);
   wrap.appendChild(mcWrap);
 
-  // ── ⑤ PORTFOLIO ──────────────────────────────────────────────────
+  // ── ⑥ PORTFOLIO ──────────────────────────────────────────────────
   var pAssets=[];
   try{pAssets=JSON.parse(localStorage.getItem('dubaival_portfolio')||'[]');}catch(e){}
   var pfWrap=el('div',{style:{padding:'24px 16px 0'}});
@@ -2905,7 +2932,7 @@ function renderHome(){
   }
   wrap.appendChild(pfWrap);
 
-  // ── ⑥ RECENT ACTIVITY ────────────────────────────────────────────
+  // ── ⑦ RECENT ACTIVITY ────────────────────────────────────────────
   var recent=[];
   try{recent=JSON.parse(localStorage.getItem('dubaival_recent')||'[]');}catch(e){}
   if(recent.length>0){

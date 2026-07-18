@@ -1224,7 +1224,7 @@ var analyzerState={
   val:null,rentalVal:null,comVal:null,landVal:null,aiText:"",aiTextSeller:"",liveData:null,err:"",reportMode:"personal",reportFor:"buyer",smartRent:null
 };
 var compareState={items:[{type:"area",value:""},{type:"area",value:""}],budget:"",purpose:"Investment",propType:"All",loading:false,result:"",err:""};
-var personalState={step:0,goal:"",priority:"",timeline:"",budget:2000000,beds:"2 BR",prefAreas:[],work:"",loading:false,result:null,error:""};
+var personalState={step:0,goal:"",priority:"",timeline:"",financing:"",nationality:"",budget:2000000,beds:"2 BR",prefAreas:[],work:"",loading:false,result:null,error:""};
 var chatState={msgs:[{role:"assistant",text:"DubAIVal Intelligence.\n\nBuilding-level knowledge · "+_currentMonthYear()+" data · Confidence scoring.\n\nAsk me about any building, deal, or strategy."}],input:"",loading:false,agentId:"general",agentMsgs:{}};
 
 // URL param auto-fill for shared valuations

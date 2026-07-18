@@ -206,15 +206,52 @@ function renderCompare(){
 // --- PERSONAL TAB ------------------------------------------------------------
 // Re-init if state shape is from old version (no step property)
 if(typeof personalState!=="undefined"&&!("step" in personalState)){
-  personalState={step:0,goal:"",priority:"",timeline:"",budget:2000000,beds:"2 BR",prefAreas:[],work:"",loading:false,result:null,error:""};
+  personalState={step:0,goal:"",priority:"",timeline:"",financing:"",nationality:"",budget:2000000,beds:"2 BR",prefAreas:[],work:"",loading:false,result:null,error:""};
 }
 
+// Real UAE mortgage LTV rules (matches js/mortgage.js exactly — 4% flat DLD
+// fee, LTV tiers by nationality/price) reused here so a "Need Mortgage"
+// buyer sees a genuine cash-required estimate, not just an asking price.
+function _paCashRequired(price,nationality){
+  if(!price||price<=0)return null;
+  var isUAE=nationality==="UAE National";
+  var maxLTV=isUAE?(price>=5000000?70:80):(price>=5000000?65:75);
+  var minDP=100-maxLTV;
+  var dpAmt=Math.round(price*minDP/100);
+  var dldFee=Math.round(price*0.04);
+  var agencyFee=Math.round(price*0.02);
+  var mortgageFee=Math.round(price*0.0025);
+  return{minDP:minDP,total:dpAmt+dldFee+agencyFee+mortgageFee};
+}
+// Turns a lowercase DB key ("marina gate 1") into a display name.
+function _paTitleCase(key){
+  return String(key||"").split(" ").map(function(w){return w?w.charAt(0).toUpperCase()+w.slice(1):w;}).join(" ");
+}
+// Picks a REAL, currently-tracked building in the given area (highest grade
+// first) — used both as the deterministic fallback when the AI's own
+// buildingTip doesn't resolve to a real building, and to validate one that
+// claims to.
+function _paPickRealBuilding(areaName,isVilla){
+  var gradeRank={"Ultra":7,"A+":6,"A":5,"A-":4,"B+":3,"B":2,"C":1};
+  var best=null,bestRank=-1;
+  Object.entries(DB).forEach(function(e){
+    var b=e[1];
+    if(b.a!==areaName)return;
+    var villaMatch=typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has&&VILLA_AREAS.has(areaName)?true:false;
+    if(isVilla!==undefined&&villaMatch!==isVilla)return;
+    var rank=gradeRank[b.g]||0;
+    if(rank>bestRank){bestRank=rank;best={key:e[0],grade:b.g};}
+  });
+  if(!best)return null;
+  return{name:_paTitleCase(best.key),grade:best.grade};
+}
 function _paAdvise(){
   var p=personalState;
   p.loading=true;p.result=null;p.error="";p.step=6;render();
   var sqftMap={"Studio":600,"1 BR":900,"2 BR":1300,"3 BR":1900,"4 BR":2700,"5+ BR":4000};
   var sqft=sqftMap[p.beds]||1300;
   var maxPSF=p.budget/sqft;
+  var isVillaGoal=p.beds==="4 BR"||p.beds==="5+ BR";
   // Score weights by goal + priority
   var wY=0.4,wG=0.35,wP=0.25;
   if(p.goal==="Build Wealth"){
@@ -228,9 +265,24 @@ function _paAdvise(){
     wY=0.62;wG=0.22;wP=0.16;
   }
   function aYld(a){return a.y?((a.y[0]+a.y[1])/2):0;}
+  function aG1(a){return a.g?a.g[0]:0;}
   function aG3(a){return a.g?a.g[1]:0;}
+  function aG5(a){return a.g?a.g[2]:0;}
   var prefSet={};
   (p.prefAreas||[]).forEach(function(a){prefSet[a]=true;});
+  // Real, already-owned exposure (added 2026-07-18) — read directly from
+  // localStorage rather than window.PORTFOLIO_STATE, since that object is
+  // only populated once the user has actually visited the Portfolio tab in
+  // this session; the raw storage key is the same source of truth either
+  // way. A genuine advisor accounts for what the client ALREADY owns rather
+  // than treating every session as a cold start — areas not yet owned get
+  // a modest diversification bonus for wealth-building goals.
+  var ownedAreas={};
+  try{
+    var _paAssets=JSON.parse(localStorage.getItem("dubaival_portfolio"))||[];
+    _paAssets.forEach(function(a){if(a&&a.area)ownedAreas[a.area]=(ownedAreas[a.area]||0)+1;});
+  }catch(e){}
+  var hasPortfolio=Object.keys(ownedAreas).length>0;
   var entries=Object.entries(AREAS).filter(function(e){
     var a=e[1];return a.psf>0&&a.y&&a.g&&(a.psf<=maxPSF*1.4||prefSet[e[0]]);
   });
@@ -240,20 +292,69 @@ function _paAdvise(){
     var gScore=Math.min(aG3(a)/30,1);
     var pScore=1-Math.min(Math.max(a.psf,0)/Math.max(maxPSF,1),1);
     var bonus=prefSet[e[0]]?0.25:0;
-    return{name:e[0],psf:a.psf,yld:aYld(a),g3:aG3(a),sc:a.sc||15,dom:a.dom||90,score:wY*yScore+wG*gScore+wP*pScore+bonus};
+    // Diversification nudge — only meaningful for wealth-building goals;
+    // someone relocating to live in a specific area shouldn't be steered
+    // away from it just because they already own there.
+    if(p.goal==="Build Wealth"&&hasPortfolio&&!ownedAreas[e[0]])bonus+=0.08;
+    return{name:e[0],psf:a.psf,yld:aYld(a),g1:aG1(a),g3:aG3(a),g5:aG5(a),sc:a.sc||15,dom:a.dom||90,score:wY*yScore+wG*gScore+wP*pScore+bonus};
   }).sort(function(a,b){return b.score-a.score;}).slice(0,10);
   var areaData=scored.map(function(a,i){
     var canAfford=Math.floor(p.budget/a.psf);
-    return(i+1)+". "+a.name+": PSF AED "+a.psf+" | yield "+a.yld.toFixed(1)+"% | 3yr growth "+a.g3+"% | SC "+a.sc+" AED/sqft | DOM "+a.dom+"d | "+p.beds+" ≈ "+canAfford+" sqft";
+    return(i+1)+". "+a.name+": PSF AED "+a.psf+" | yield "+a.yld.toFixed(1)+"% | 3yr growth "+a.g3+"% | SC "+a.sc+" AED/sqft | DOM "+a.dom+"d | "+p.beds+" ≈ "+canAfford+" sqft"+(ownedAreas[a.name]?" | [You already own "+ownedAreas[a.name]+" here]":"");
   }).join("\n");
   var budStr="AED "+(p.budget||0).toLocaleString();
-  var userPrompt="MY PROFILE:\nBudget: "+budStr+" | Goal: "+p.goal+" | Style/Household: "+p.priority+" | Beds: "+p.beds+(p.work?" | Works at: "+p.work:"")+"\n"+(Object.keys(prefSet).length?"Interested in: "+Object.keys(prefSet).join(", ")+"\n":"")+"\nTOP 10 BUDGET-MATCHING DUBAI AREAS (ranked for this profile):\n"+areaData+'\n\nRespond ONLY with valid JSON — no markdown, no extra text, JSON.parse()-ready:\n{"profile":{"type":"<2-4 word investor archetype>","dna":"<2 sentences describing this buyer persona>","tagline":"<one punchy memorable line>"},"areas":[{"rank":1,"name":"<area name from list above>","thesis":"<2-3 sentence case for this area matching this profile>","whyNow":"<1 sentence time-sensitive trigger — '+_currentMonthYear()+'>","bestEntry":"<AED range for '+p.beds+' here>","redFlag":"<1 key downside risk>","goldenVisa":<true if budget>=2000000 else false>,"buildingTip":"<1 specific building or cluster to target>","scenario":{"conservative":"<0% price growth scenario — AED/yr rental or % return>","base":"<realistic 3yr total return %>","optimistic":"<bull case 3yr total return %>"}},{"rank":2,...},{"rank":3,...}],"timing":"<2 sentence market timing assessment '+_currentMonthYear()+'>","nextStep":"<1 specific concrete actionable next step>"}';
+  var extraCtx=[];
+  if(p.timeline)extraCtx.push("Timeline: "+p.timeline);
+  if(p.financing)extraCtx.push("Financing: "+p.financing);
+  if(p.nationality)extraCtx.push("Nationality/residency: "+p.nationality);
+  if(hasPortfolio)extraCtx.push("Already owns property in: "+Object.keys(ownedAreas).join(", "));
+  var userPrompt="MY PROFILE:\nBudget: "+budStr+" | Goal: "+p.goal+" | Style/Household: "+p.priority+" | Beds: "+p.beds+(p.work?" | Works at: "+p.work:"")+(extraCtx.length?"\n"+extraCtx.join(" | "):"")+"\n"+(Object.keys(prefSet).length?"Interested in: "+Object.keys(prefSet).join(", ")+"\n":"")+"\nTOP 10 BUDGET-MATCHING DUBAI AREAS (ranked for this profile):\n"+areaData+'\n\nRespond ONLY with valid JSON — no markdown, no extra text, JSON.parse()-ready:\n{"profile":{"type":"<2-4 word investor archetype>","dna":"<2 sentences describing this buyer persona, referencing their timeline/financing/existing portfolio if given>","tagline":"<one punchy memorable line>"},"areas":[{"rank":1,"name":"<area name from list above>","thesis":"<2-3 sentence case for this area matching this profile>","whyNow":"<1 sentence time-sensitive trigger — '+_currentMonthYear()+'>","redFlag":"<1 key downside risk>","goldenVisa":<true if budget>=2000000 else false>},{"rank":2,...},{"rank":3,...}],"timing":"<2 sentence market timing assessment '+_currentMonthYear()+'>","nextStep":"<1 specific concrete actionable next step>"}\n\nDo NOT include bestEntry, buildingTip, or scenario fields — those are computed separately from verified data, not written by you.';
   var sysPrompt="You are DubAIVal — Dubai's premier AI property advisor with verified data on 9,227 buildings across 347 DLD-verified areas. "+_currentMonthYear()+".\nCRITICAL: Return ONLY valid JSON. No markdown code fences, no preamble, no explanation. Output must be directly parseable with JSON.parse().\nUse EXACT numbers from the area data provided in the prompt. Do not invent PSF, yield, or growth figures.\nSet goldenVisa:true if and only if budget >= AED 2,000,000.\nprofile.type examples: 'Yield-First Investor', 'Capital Growth Seeker', 'Lifestyle Relocator', 'Off-Plan Flipper', 'AirBnB Income Maximizer', 'Safe-Haven Allocator', 'Family Value Buyer'.";
   askAI([{role:"user",content:userPrompt}],sysPrompt,"Dubai "+p.goal+" "+budStr+" "+p.beds,scored.slice(0,5).map(function(a){return a.name;}))
   .then(function(txt){
     try{
       var c=txt.trim().replace(/^```json\s*/i,"").replace(/^```\s*/,"").replace(/```\s*$/,"").trim();
-      personalState.result=JSON.parse(c);
+      var parsed=JSON.parse(c);
+      // Splice in deterministic, verified figures for every recommended
+      // area — bestEntry/scenario/buildingTip are NEVER AI-authored numbers
+      // (added 2026-07-18, closing a real accuracy gap: the AI previously
+      // free-wrote these, risking a nonexistent building name or an
+      // unfounded return percentage on the exact screen a brand-new visitor
+      // uses to decide whether to trust this platform at all).
+      (parsed.areas||[]).forEach(function(area){
+        if(!area||!area.name)return;
+        var match=scored.find(function(s){return s.name.toLowerCase()===String(area.name).toLowerCase();});
+        if(!match)return;
+        var range=(typeof computeAreaPriceRange==="function")?computeAreaPriceRange(match.name,p.beds,"sale"):null;
+        area.bestEntry=range?("AED "+range.lo.toLocaleString()+" – "+range.hi.toLocaleString()):("~AED "+Math.round(match.psf*(sqftMap[p.beds]||1300)).toLocaleString());
+        // Same total-return formula already used by computeValuation()
+        // (netYield + growth/3, annualized) — here summed over a real
+        // 3-year window instead of one year, using the DB's own 1-3yr (g3)
+        // and 2-5yr (g5, scaled to a 3yr-equivalent) growth bands so
+        // "optimistic" is a genuinely different, longer-trend data point,
+        // not an arbitrary multiplier on "base".
+        var yrs3Yield=Math.round(match.yld*3);
+        area.scenario={
+          conservative:"+"+yrs3Yield+"% (yield only, no growth)",
+          base:"+"+Math.round(yrs3Yield+match.g3)+"% (yield + 3yr growth)",
+          optimistic:"+"+Math.round(yrs3Yield+Math.max(match.g3,match.g5*0.6))+"% (yield + upper growth trend)"
+        };
+        var isVillaArea=typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has&&VILLA_AREAS.has(match.name);
+        var aiTip=(area.buildingTip||"").trim();
+        var resolved=aiTip.length>3&&typeof lookupBuilding==="function"?lookupBuilding(aiTip,match.name):null;
+        if(resolved&&resolved.a===match.name){
+          area.buildingTip=aiTip+" ("+resolved.g+")";
+        }else{
+          var real=_paPickRealBuilding(match.name,isVillaArea);
+          area.buildingTip=real?(real.name+" ("+real.grade+")"):null;
+        }
+        if(p.financing==="Need Mortgage"&&range){
+          var midPrice=(range.lo+range.hi)/2;
+          var cash=_paCashRequired(midPrice,p.nationality);
+          if(cash)area.cashRequired="~AED "+cash.total.toLocaleString()+" cash ("+cash.minDP+"% down + fees)";
+        }
+      });
+      personalState.result=parsed;
     }catch(e){
       personalState.error="Parse error: "+e.message.substring(0,100);
     }
@@ -430,6 +531,30 @@ function renderPersonal(){
     });
     bedsCard.appendChild(bedsRow);
     wrap.appendChild(bedsCard);
+
+    // Real-advisor inputs (added 2026-07-18) — timeline shapes urgency
+    // framing; financing + nationality feed the actual UAE mortgage LTV
+    // rules already used in js/mortgage.js (nationality changes the real
+    // max loan-to-value and minimum down payment), so the report can show
+    // a genuine cash-required estimate, not just an asking-price range.
+    // All 3 are optional, same as Beds above.
+    function mkPillRow(title,options,curVal,onPick){
+      var card=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"14px 16px",marginBottom:"10px"});
+      card.appendChild(div({color:cl.subHi,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"9px"},title));
+      var row=div({display:"flex",flexWrap:"wrap",gap:"7px"});
+      options.forEach(function(o){
+        var isSel=curVal===o;
+        var pb=el("button",{style:{padding:"7px 13px",borderRadius:"18px",border:"1px solid "+(isSel?"#D4AF37":"rgba(255,255,255,0.1)"),background:isSel?"rgba(212,175,55,0.12)":"transparent",color:isSel?"#D4AF37":"#8899AA",fontSize:"11.5px",fontWeight:"600",fontFamily:"'Inter',sans-serif",cursor:"pointer"},onclick:function(){onPick(o);render();}});
+        pb.textContent=o;
+        row.appendChild(pb);
+      });
+      card.appendChild(row);
+      return card;
+    }
+    wrap.appendChild(mkPillRow("TIMELINE — OPTIONAL",["Just Browsing","Next 3-6 Months","Ready Now"],p.timeline,function(v){personalState.timeline=v;}));
+    wrap.appendChild(mkPillRow("FINANCING — OPTIONAL",["Cash Buyer","Need Mortgage"],p.financing,function(v){personalState.financing=v;}));
+    wrap.appendChild(mkPillRow("NATIONALITY — OPTIONAL",["UAE National","Expat / Foreign National"],p.nationality,function(v){personalState.nationality=v;}));
+
     if(p.budget&&p.beds){
       var sqftMap2={"Studio":600,"1 BR":900,"2 BR":1300,"3 BR":1900,"4 BR":2700,"5+ BR":4000};
       var sqft2=sqftMap2[p.beds]||1300;
@@ -534,7 +659,7 @@ function renderPersonal(){
       var btnRow2=div({display:"flex",gap:"10px",flexWrap:"wrap"});
       var tryBtn=el("button",{style:{background:"rgba(16,185,129,0.12)",border:"1px solid rgba(16,185,129,0.3)",color:"#10B981",padding:"10px 20px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){personalState.error="";_paAdvise();}});
       tryBtn.textContent="Try Again";
-      var rb=el("button",{style:{background:"rgba(212,175,55,0.12)",border:"1px solid rgba(212,175,55,0.3)",color:cl.gold,padding:"10px 20px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){personalState={step:0,goal:"",priority:"",timeline:"",budget:2000000,beds:"2 BR",prefAreas:[],work:"",loading:false,result:null,error:""};render();}});
+      var rb=el("button",{style:{background:"rgba(212,175,55,0.12)",border:"1px solid rgba(212,175,55,0.3)",color:cl.gold,padding:"10px 20px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){personalState={step:0,goal:"",priority:"",timeline:"",financing:"",nationality:"",budget:2000000,beds:"2 BR",prefAreas:[],work:"",loading:false,result:null,error:""};render();}});
       rb.textContent="Start Over";
       btnRow2.appendChild(tryBtn);btnRow2.appendChild(rb);
       ec.appendChild(btnRow2);
@@ -587,6 +712,15 @@ function renderPersonal(){
       if(area.bestEntry)mg.appendChild(mCell("Best Entry",area.bestEntry,"#D4AF37"));
       if(area.buildingTip)mg.appendChild(mCell("Focus On",area.buildingTip,"#60A5FA"));
       if(mg.children.length)ac.appendChild(mg);
+      // Cash required — only present when the buyer said "Need Mortgage" in
+      // Step 3, computed from the real UAE LTV rules (js/mortgage.js), never
+      // AI-authored (added 2026-07-18).
+      if(area.cashRequired){
+        var crRow=div({background:"rgba(96,165,250,0.06)",border:"1px solid rgba(96,165,250,0.18)",borderRadius:"8px",padding:"10px 11px",marginBottom:"12px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"8px"});
+        crRow.appendChild(span({color:"#60A5FA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.04em"},"CASH NEEDED TO CLOSE"));
+        crRow.appendChild(span({color:"#FFFFFF",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},area.cashRequired));
+        ac.appendChild(crRow);
+      }
       // 3-year scenario
       if(area.scenario){
         var sc=div({background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:"10px",padding:"12px 14px",marginBottom:"12px"});
@@ -640,7 +774,7 @@ function renderPersonal(){
 
     // — Actions
     var actR=div({display:"flex",gap:"10px",marginBottom:"16px"});
-    var srBtn=el("button",{style:{flex:"1",padding:"12px",borderRadius:"10px",border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:cl.sub,fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){personalState={step:0,goal:"",priority:"",timeline:"",budget:2000000,beds:"2 BR",prefAreas:[],work:"",loading:false,result:null,error:""};render();}});
+    var srBtn=el("button",{style:{flex:"1",padding:"12px",borderRadius:"10px",border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:cl.sub,fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){personalState={step:0,goal:"",priority:"",timeline:"",financing:"",nationality:"",budget:2000000,beds:"2 BR",prefAreas:[],work:"",loading:false,result:null,error:""};render();}});
     srBtn.textContent="Start Over";
     actR.appendChild(srBtn);
     var waBtn=el("button",{style:{flex:"1",padding:"12px",borderRadius:"10px",border:"1px solid rgba(37,211,102,0.3)",background:"rgba(37,211,102,0.08)",color:"#25D366",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:function(){
