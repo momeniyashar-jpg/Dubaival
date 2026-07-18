@@ -16,12 +16,23 @@ var SOCIAL_STATE={
   reviewForm:{rating:0,comment:""},reviewSubmitting:false,reviewSubmitError:null,
   // Profile
   myProfile:null,profileLoading:false,
+  // "Have we auto-fetched this profile id's own data at least once" — see
+  // the guard in renderSocial()'s auto-fetch block for why this can't just
+  // check profileLoading (that flag resets after every fetch cycle, which
+  // used to cause an infinite fetch loop for as long as My Profile stayed open).
+  myProfileAutoFetchedFor:null,
   regForm:{name:"",phone:"",rera:"",bio:"",areas:[],specialties:[],photo:null},
   myVideos:[],myVideosLoading:false,
   videoForm:{url:"",title:"",description:"",area:"",category:"walkthrough",propertyType:"",tags:""},
   videoFormOpen:false,videoPosting:false,editingVideoId:null,
   // Following
-  followedAreas:[],followedAgents:[]
+  followedAreas:[],followedAgents:[],
+  // Direct id-keyed lookup for the Following tab's "Agents I Follow" cards —
+  // see _fetchFollowedAgentProfiles() for why this can't just reuse
+  // agentList (that's only ever populated by visiting Agent Profiles, and
+  // even then only holds the current sort's top 100, not necessarily every
+  // agent the user actually follows).
+  followedAgentProfilesMap:null
 };
 
 // localStorage restore
@@ -270,6 +281,14 @@ async function _updateProfile(){
   render();
 }
 
+// editingVideoId/the "Edit Video" form title existed in state and the UI
+// label before this fix, but nothing ever SET editingVideoId to a real id
+// (no Edit button existed anywhere on a posted video), and even if it had
+// been set, this function always POSTed a brand-new row regardless — a
+// user with a typo in a title/description/tag had no way to fix it short
+// of deleting the video outright (losing its views/likes/history) and
+// re-posting from scratch. Now branches on editingVideoId to PATCH the
+// existing row instead of inserting a duplicate.
 async function _postVideo(){
   if(SOCIAL_STATE.videoPosting)return;
   var f=SOCIAL_STATE.videoForm;
@@ -280,22 +299,26 @@ async function _postVideo(){
   SOCIAL_STATE.videoPosting=true;render();
   var thumb=getVideoThumbnail(f.url);
   var tags=f.tags?f.tags.split(",").map(function(t){return t.trim();}).filter(Boolean):null;
-  var row={agent_id:pid,title:f.title.trim(),description:f.description.trim()||null,
+  var editId=SOCIAL_STATE.editingVideoId;
+  var row={title:f.title.trim(),description:f.description.trim()||null,
     video_url:f.url.trim(),thumbnail:thumb,area:f.area,category:f.category,
     property_type:f.propertyType||null,tags:tags&&tags.length?tags:null};
+  if(!editId)row.agent_id=pid;
   try{
-    var resp=await fetch(SUPABASE_URL+"/rest/v1/agent_videos",{method:"POST",
+    var resp=await fetch(SUPABASE_URL+"/rest/v1/agent_videos"+(editId?"?id=eq."+editId:""),
+      {method:editId?"PATCH":"POST",
       headers:Object.assign({},_socialHeaders(true),{"Prefer":"return=representation"}),
       body:JSON.stringify(row)});
-    if(!resp.ok){alert("Post failed ("+resp.status+")");SOCIAL_STATE.videoPosting=false;render();return;}
+    if(!resp.ok){alert((editId?"Update":"Post")+" failed ("+resp.status+")");SOCIAL_STATE.videoPosting=false;render();return;}
     // video_count is now kept in sync by a real DB trigger (trg_agent_videos_count,
     // supabase-social-fixes-schema.sql) instead of a client-computed PATCH —
     // avoids the race condition a read-then-write pattern has under concurrent posts.
-    _fetchMyProfile();
+    // (Editing an existing video doesn't change the count either way.)
+    if(!editId)_fetchMyProfile();
     SOCIAL_STATE.videoForm={url:"",title:"",description:"",area:"",category:"walkthrough",propertyType:"",tags:""};
     SOCIAL_STATE.videoFormOpen=false;SOCIAL_STATE.editingVideoId=null;
     _fetchMyVideos();
-  }catch(e){alert("Post error: "+e.message);}
+  }catch(e){alert((editId?"Update":"Post")+" error: "+e.message);}
   SOCIAL_STATE.videoPosting=false;render();
 }
 
@@ -384,6 +407,30 @@ async function _fetchAgentVideos(agentId){
   try{
     var resp=await fetch(SUPABASE_URL+"/rest/v1/agent_videos?agent_id=eq."+agentId+"&select=*&order=created_at.desc&limit=50",{headers:_socialHeaders()});
     if(resp.ok)SOCIAL_STATE.viewAgentVideos=await resp.json();
+  }catch(e){}
+  render();
+}
+
+// The Following tab's "Agents I Follow" cards used to look up each followed
+// agent purely from SOCIAL_STATE.agentList — but that array is only ever
+// populated by visiting the separate Agent Profiles tab, and even then only
+// holds whatever the current sort's top 100 happens to include. A user who
+// followed an agent (e.g. from a video's modal) and then went straight to
+// Following without ever opening Agent Profiles saw every followed agent
+// render as a bare "Agent #<id>" placeholder with no name/photo/video count
+// — real, followed data that was simply never fetched, not missing.
+// Fetches exactly the followed ids directly instead of depending on that
+// unrelated list.
+async function _fetchFollowedAgentProfiles(){
+  var ids=SOCIAL_STATE.followedAgents;
+  if(!ids.length){SOCIAL_STATE.followedAgentProfilesMap={};return;}
+  try{
+    var resp=await fetch(SUPABASE_URL+"/rest/v1/agent_profiles?id=in.("+ids.join(",")+")&select=id,name,photo,video_count",{headers:_socialHeaders()});
+    if(resp.ok){
+      var data=await resp.json();
+      var map={};data.forEach(function(a){map[a.id]=a;});
+      SOCIAL_STATE.followedAgentProfilesMap=map;
+    }
   }catch(e){}
   render();
 }
@@ -1320,7 +1367,7 @@ function _renderMyProfile(wrap,cl){
       background:"linear-gradient(135deg,"+cl.gold+","+cl.goldDim+")",color:"#070B14",fontSize:"13px",
       fontWeight:"800",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",
       opacity:SOCIAL_STATE.videoPosting?"0.5":"1"}});
-    postVBtn.textContent=SOCIAL_STATE.videoPosting?"Posting...":"Post Video";
+    postVBtn.textContent=SOCIAL_STATE.videoPosting?(SOCIAL_STATE.editingVideoId?"Saving...":"Posting..."):(SOCIAL_STATE.editingVideoId?"Save Changes":"Post Video");
     postVBtn.addEventListener("click",function(){_postVideo();});
     vfCard.appendChild(postVBtn);
     wrap.appendChild(vfCard);
@@ -1354,6 +1401,19 @@ function _renderMyProfile(wrap,cl){
     infoCol.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginTop:"3px"},
       v.area+" · "+formatViews(v.views)+" views · "+formatViews(v.likes)+" likes · "+_socialTimeAgo(v.created_at)));
     row.appendChild(infoCol);
+    var editBtn=el("button",{style:{padding:"6px 10px",borderRadius:"6px",fontSize:"10px",
+      fontFamily:"'Space Grotesk',monospace",cursor:"pointer",background:"transparent",color:cl.sub,
+      border:"1px solid "+cl.border,flexShrink:"0"}});
+    editBtn.textContent="Edit";
+    (function(video){editBtn.addEventListener("click",function(){
+      SOCIAL_STATE.videoForm={url:video.video_url||"",title:video.title||"",description:video.description||"",
+        area:video.area||"",category:video.category||"walkthrough",propertyType:video.property_type||"",
+        tags:(video.tags||[]).join(", ")};
+      SOCIAL_STATE.editingVideoId=video.id;
+      SOCIAL_STATE.videoFormOpen=true;
+      render();
+    });})(v);
+    row.appendChild(editBtn);
     var delBtn=el("button",{style:{padding:"6px 10px",borderRadius:"6px",fontSize:"10px",
       fontFamily:"'Space Grotesk',monospace",cursor:"pointer",background:hexAlpha(cl.red,0.1),color:cl.red,
       border:"1px solid "+hexAlpha(cl.red,0.3),flexShrink:"0"}});
@@ -1429,10 +1489,21 @@ function _renderFollowing(wrap,cl){
       SOCIAL_STATE.followedAgents.length+" agents followed")
   ]));
 
+  if(SOCIAL_STATE.followedAgents.length&&SOCIAL_STATE.followedAgentProfilesMap===null){
+    wrap.appendChild(_socialSpinner(cl));
+    return wrap;
+  }
   if(SOCIAL_STATE.followedAgents.length){
     var agentCards=div({display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:"10px"});
     var knownAgents={};
     SOCIAL_STATE.agentList.forEach(function(a){knownAgents[a.id]=a;});
+    // Merge in the dedicated followed-agents fetch (_fetchFollowedAgentProfiles) —
+    // agentList alone only covers whoever's visited Agent Profiles and only its
+    // current sort's top 100, so a followed agent outside that set would
+    // otherwise render as a bare "Agent #<id>" placeholder despite real data
+    // existing for them.
+    var fMap=SOCIAL_STATE.followedAgentProfilesMap||{};
+    Object.keys(fMap).forEach(function(id){if(!knownAgents[id])knownAgents[id]=fMap[id];});
     SOCIAL_STATE.followedAgents.forEach(function(agentId){
       var ag=knownAgents[agentId];
       var card=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"10px",padding:"12px",
@@ -1532,7 +1603,20 @@ function renderSocial(){
   if(SOCIAL_STATE.tab==="explore"&&!SOCIAL_STATE.videos.length&&!SOCIAL_STATE.videosLoading&&!SOCIAL_STATE.videosFetched){
     setTimeout(function(){_fetchSocialVideos(true);},0);
   }
-  if(SOCIAL_STATE.tab==="profile"&&SOCIAL_STATE.myProfile&&SOCIAL_STATE.myProfile.id&&!SOCIAL_STATE.profileLoading){
+  // Real, confirmed bug fixed here: this used to be guarded only by
+  // "!SOCIAL_STATE.profileLoading" — but _fetchMyProfile()/_fetchMyVideos()
+  // both flip that flag back to false at the end of their own cycle (and
+  // both call render() themselves), so the very re-render they trigger hits
+  // this exact check again, sees profileLoading is false once more, and
+  // reschedules ANOTHER fetch cycle — forever, for as long as the user
+  // stays on My Profile. Confirmed via a real-browser test: 140 GET
+  // requests to agent_videos/agent_profiles fired in under 2 seconds with
+  // no user interaction at all. Every other auto-fetch guard in this same
+  // block correctly uses "have I already fetched this once" semantics
+  // (videosFetched, agentReviewsFetchedFor, followedAgentProfilesMap) — this
+  // one now matches that pattern instead of an in-flight-only check.
+  if(SOCIAL_STATE.tab==="profile"&&SOCIAL_STATE.myProfile&&SOCIAL_STATE.myProfile.id&&SOCIAL_STATE.myProfileAutoFetchedFor!==SOCIAL_STATE.myProfile.id){
+    SOCIAL_STATE.myProfileAutoFetchedFor=SOCIAL_STATE.myProfile.id;
     setTimeout(function(){_fetchMyProfile();_fetchMyVideos();},0);
   }
   if(SOCIAL_STATE.expandedVideo&&SOCIAL_STATE.agentReviewsFetchedFor!==SOCIAL_STATE.expandedVideo.agent_id&&!SOCIAL_STATE.agentReviewsLoading){
@@ -1540,6 +1624,10 @@ function renderSocial(){
   }
   if(SOCIAL_STATE.tab==="agents"&&SOCIAL_STATE.viewAgent&&SOCIAL_STATE.agentReviewsFetchedFor!==SOCIAL_STATE.viewAgent.id&&!SOCIAL_STATE.agentReviewsLoading){
     setTimeout(function(){_fetchAgentReviews(SOCIAL_STATE.viewAgent.id);},0);
+  }
+  if(SOCIAL_STATE.tab==="following"&&SOCIAL_STATE.followedAgentProfilesMap===null&&!SOCIAL_STATE._ffapFetching){
+    SOCIAL_STATE._ffapFetching=true;
+    setTimeout(function(){_fetchFollowedAgentProfiles().then(function(){SOCIAL_STATE._ffapFetching=false;});},0);
   }
 
   return wrap;

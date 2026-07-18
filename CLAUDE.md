@@ -656,6 +656,97 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, PropTech Video Platform audit — a
+  real infinite fetch loop hammering Supabase, plus a half-built Edit Video
+  feature and a Following-tab data gap, all found and fixed)**: Direct
+  follow-up, same conversation — user asked for the same audit-then-fix
+  treatment on the Video Platform: "همین بررسی رو برای video platform انجام
+  بده". Read the complete file (`js/social.js`, 1547 lines) end to end —
+  state, all API functions, the shared agent-review widget, video card/
+  modal, and all 4 sub-tabs (Explore/Agents/My Profile/Following). Found and
+  fixed 3 real issues, the first far more serious than initially apparent:
+  1. **A genuine infinite fetch loop on the "My Profile" tab — confirmed
+     via a real-browser test firing 140 GET requests to
+     `agent_videos`/`agent_profiles` in under 2 seconds with zero user
+     interaction.** `renderSocial()`'s bottom "Auto-fetch on first render"
+     block had `if(SOCIAL_STATE.tab==="profile"&&...&&!SOCIAL_STATE
+     .profileLoading){setTimeout(function(){_fetchMyProfile();
+     _fetchMyVideos();},0);}` — but both of those functions flip
+     `profileLoading`/`myVideosLoading` back to `false` at the end of their
+     own cycle AND call `render()` themselves, so the very re-render they
+     trigger hits this exact same check again, sees the flag is false once
+     more, and reschedules another fetch cycle. Every OTHER auto-fetch guard
+     in this same block correctly uses "have I already fetched this once"
+     semantics (`videosFetched`, `agentReviewsFetchedFor`, the new
+     `followedAgentProfilesMap` below) — this was the only one using an
+     in-flight-only check, which is structurally insufficient once the
+     thing you're guarding also re-triggers the render that re-evaluates the
+     guard. In production against the real Supabase backend, this meant any
+     signed-in agent sitting on their own My Profile tab would have silently
+     hammered the database with unbounded concurrent requests for as long as
+     the tab stayed open — a real cost/quota/rate-limit risk, and a likely
+     source of visible UI flicker (`myVideosLoading` toggling true/false
+     continuously). **Fix**: new `SOCIAL_STATE.myProfileAutoFetchedFor` (an
+     id, mirroring the exact "fetched-for-id" idiom `agentReviewsFetchedFor`
+     already uses elsewhere in this same file) — the auto-fetch now only
+     fires once per profile id, matching every sibling guard in the block.
+     The tab bar's own explicit "profile" click handler (unconditional,
+     fires once per click — already correct, bounded by how often a human
+     can click) is unaffected.
+  2. **A half-built "Edit Video" feature — real, but findable only by
+     tracing state, since nothing crashed and no error ever surfaced**:
+     `SOCIAL_STATE.editingVideoId` existed, the video-post form's own title
+     already conditionally read "Edit Video" vs "Post New Video" based on
+     it, and both the Cancel button and a successful post reset it to
+     `null` — but nothing ANYWHERE in the file ever SET it to a real video
+     id (confirmed via a full-file grep), and the "My Videos" list had only
+     a "Delete" button, no "Edit" at all. Worse, even if something had set
+     it, `_postVideo()` always POSTed a brand-new row regardless — a user
+     with a typo in a title/description/tag had no way to fix it short of
+     deleting the video outright (losing its real views/likes/history) and
+     re-posting from scratch. **Fix**: added a real "Edit" button next to
+     "Delete" on each My Videos row — pre-fills `videoForm` from the video's
+     own real fields (including re-joining its `tags` array back into the
+     comma-separated string the form expects) and opens the form with
+     `editingVideoId` set; `_postVideo()` now branches on `editingVideoId`
+     to PATCH the existing row (`?id=eq.<id>`, no `agent_id` in the body —
+     ownership never changes on an edit) instead of inserting a duplicate;
+     the submit button's label now correctly reads "Save Changes"/"Saving..."
+     when editing vs. "Post Video"/"Posting..." when creating new.
+  3. **Following tab's "Agents I Follow" cards silently degraded to bare
+     "Agent #&lt;id&gt;" placeholders** whenever a user went straight to
+     Following without ever having visited the separate Agent Profiles tab
+     first (which is the ONLY thing that ever populated `SOCIAL_STATE
+     .agentList`, the sole source `knownAgents` was built from) — real,
+     already-followed agent data (name/photo/video count) that was simply
+     never fetched, not missing. Even after visiting Agent Profiles, a
+     followed agent outside that tab's current sort's top-100 would still
+     show the placeholder. **Fix**: new `_fetchFollowedAgentProfiles()` —
+     fetches exactly the followed ids directly (`agent_profiles?id=in.(...)`),
+     stored in a new `SOCIAL_STATE.followedAgentProfilesMap` (id-keyed,
+     `null` until first fetched — the correct one-time-per-tab-visit guard,
+     unlike the loop above), merged into `knownAgents` alongside whatever
+     `agentList` already has. A small loading spinner shows while this
+     resolves so a followed agent's card never flashes the placeholder text
+     first.
+  - Verified: `node -c js/social.js`; a real-browser Playwright test with a
+    request-counting mock confirming the fix brings the request count for
+    a My Profile visit down from the pre-fix 140 GETs/2s to a stable,
+    bounded 2-3 total (re-run 10 times over 2 seconds post-fix, count never
+    grows — genuinely fixed, not just slowed down); a second test driving
+    the real Edit flow end-to-end (click Edit on a mocked video → confirmed
+    the form pre-fills the exact original title/area/tags → change the
+    title → click the now-correctly-labeled "Save Changes" → confirmed a
+    real `PATCH .../agent_videos?id=eq.501` fires with no `agent_id` in the
+    body and zero duplicate POSTs, and `editingVideoId` resets to null
+    after); a third test seeding a followed agent with an empty `agentList`
+    (simulating "never visited Agent Profiles") confirming the real agent
+    name renders after the dedicated fetch resolves, never the "Agent #42"
+    placeholder; and a 13-tab regression sweep (Home, Market Dashboard/
+    Analyzer/QuickCheck, Portfolio, Deal Board, AI Agents, all 4 Social
+    Media Manager sub-tabs, Workspace, About) confirming zero collateral
+    console errors from any of these 3 fixes — zero errors throughout.
+
 - **2026-07-18 (session continuing 14, Media Studio audit — inline
   outreach chat was silently sending to the wrong AI agent)**: Direct
   follow-up, same conversation — user asked for the same audit-then-fix
