@@ -656,6 +656,74 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, Map audit — 2 real gaps found and
+  fixed, one of them a whole silently-dead feature)**: Direct follow-up,
+  same conversation — user asked for the same audit-then-fix treatment on
+  the Map tab: "همین بررسی رو برای Map انجام بده". Read the full file
+  (`js/map.js`, ~930 lines) end to end. Found the most significant "silently
+  dead since it was built" bug in this whole string of sessions this week:
+  1. **Metro/tram station markers have NEVER actually been plotted on the
+     map, ever, for the Location metric — since this feature was first
+     built.** `renderMap()`'s Location-metric block checks
+     `if (window.METRO_STATIONS) { METRO_STATIONS.forEach(...) }` (and the
+     identical pattern for `TRAM_STATIONS`) before creating any markers —
+     but `METRO_STATIONS`/`TRAM_STATIONS` are declared with `const`, not
+     `var`, at the top level of `js/data-residential.js`. A top-level
+     `const`/`let` in a classic (non-module) `<script>` tag never becomes a
+     property of `window` — only `var` does. So `window.METRO_STATIONS` has
+     always evaluated to `undefined`, and the real metro/tram marker-
+     plotting code inside that `if` block has never once executed, in any
+     session, on any deploy — a fully dead feature masquerading as working
+     code, only discoverable by actually checking `typeof
+     window.METRO_STATIONS` at runtime (confirmed live: `"undefined"`, vs.
+     the bare identifier `METRO_STATIONS` which is a real, populated
+     object). The exact same broken check also gated the legend's own
+     "Metro / Tram" row (`_dvRenderLegend`) — so the legend and the (absent)
+     markers were at least CONSISTENTLY both missing, not contradicting each
+     other, but the whole "see metro/tram stations on the Location map"
+     promise has silently never worked. **Fix**: all 3 occurrences now check
+     the bare `typeof METRO_STATIONS!=="undefined"` / `typeof
+     TRAM_STATIONS!=="undefined"` directly instead of the `window.`-
+     prefixed form — matching how every other top-level `const` in this
+     codebase (`AREAS`, `DB`, `VILLA_AREAS`) is already referenced elsewhere
+     in this exact file. The legend's Metro/Tram row check was also given an
+     explicit `_dvMapState.metric === "location"` guard at the same time,
+     since that's the only metric these markers are ever plotted for.
+  2. **Building panel hardcoded `isVilla=false` for every building clicked
+     on the map, regardless of area** — `_dvBuildingInfoHtml()` called
+     `estimateBldgUnits(name, bData, false)` unconditionally, so a genuine
+     villa/townhouse cluster clicked in a pure-villa area (e.g. The Springs)
+     got an apartment-scale fallback unit-count estimate whenever it lacked
+     a real `BLDG_UNITS` entry (confirmed the two fallback branches
+     genuinely differ — 250 vs. 350 for the same building on a real test
+     case). The panel's "Typical unit sizes" disclaimer text was also always
+     apartment-phrased ("~750–1,600 sqft (1BR–3BR) in most Dubai towers"),
+     nonsensical for a real villa/townhouse. **Fix**: `_dvBuildingInfoHtml()`
+     now computes the real per-building type via the same `isVillaBuilding()`
+     refinement already wired into every other bulk building-scan consumer
+     this session (Quick Check/Smart Discovery/Alerts/Compare/Personal
+     Advisor), passes it into `estimateBldgUnits()`, and shows a
+     villa-specific size disclaimer ("~1,900–4,800+ sqft (2BR–5BR)") when
+     the clicked building is genuinely a villa/townhouse.
+  - Verified via a real-browser Playwright test (5 checks) plus a direct
+    diagnostic confirming the exact root cause (`typeof
+    window.METRO_STATIONS` → `"undefined"` vs. bare `METRO_STATIONS` →
+    `"object"`, live in the actual app): a villa building panel now shows
+    villa-scale unit-size text, an apartment building panel still shows the
+    original apartment-scale text; a real villa-area building lacking
+    `BLDG_UNITS` coverage now gets a genuinely different (correct) fallback
+    unit estimate than before; the metric legend's Metro/Tram row correctly
+    disappears for non-Location metrics and correctly still appears for
+    Location — zero console errors. Re-ran the full existing test suite
+    from this session (Quick Check, Analyzer end-to-end, 25-tab navigation
+    sweep) — zero regressions. **Not independently verified**: actually
+    seeing the metro/tram markers render on a live Google Maps canvas — this
+    sandbox has no outbound network access to Google's Maps API (same
+    documented limitation as every other Map-tab session this week); the
+    underlying JS logic bug (the `window.X` vs. bare `X` mismatch) is
+    conclusively proven and fixed regardless, and this is the exact
+    mechanism that would make the real markers finally appear once deployed.
+
 - **2026-07-18 (session continuing 14, Analyzer core-formula audit — 3 real
   root-level issues found and fixed, extreme caution per Directive #2)**:
   Direct follow-up, same conversation — user asked for the same

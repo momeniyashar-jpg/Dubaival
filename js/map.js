@@ -387,7 +387,16 @@ function _dvBuildingInfoHtml(name, bData, aData, areaName) {
   var display = _dvTitleCase(name);
   var grade = bData.g || "—";
   var gradeColor = _DV_GRADE_COLOR[bData.g] || "#8899AA";
-  var units = (typeof estimateBldgUnits === "function") ? estimateBldgUnits(name, bData, false) : null;
+  // Real per-building type check (2026-07-18, Map audit) — this used to
+  // hardcode isVilla=false for every building clicked here, regardless of
+  // area, silently giving a genuine villa/townhouse cluster in a pure-villa
+  // area (e.g. The Springs) an apartment-scale fallback unit-count estimate
+  // whenever it had no real BLDG_UNITS entry. Reuses the same
+  // isVillaBuilding() refinement already wired into every other bulk
+  // building-scan consumer this session (Quick Check/Smart Discovery/
+  // Alerts/Compare/Personal Advisor).
+  var isVilla = (typeof isVillaBuilding === "function") ? isVillaBuilding(name, areaName) : (typeof VILLA_AREAS !== "undefined" && VILLA_AREAS.has(areaName));
+  var units = (typeof estimateBldgUnits === "function") ? estimateBldgUnits(name, bData, isVilla) : null;
   var yieldEst = (typeof estimateBuildingYield === "function") ? estimateBuildingYield(bData, aData, bData.p) : null;
   var rentVel = (typeof getRentalVelocity === "function") ? getRentalVelocity(areaName) : null;
   var demand = (typeof estimateRentalDemandScore === "function") ? estimateRentalDemandScore(bData, aData, bData.p, units, rentVel, areaName) : null;
@@ -401,7 +410,11 @@ function _dvBuildingInfoHtml(name, bData, aData, areaName) {
     + (yieldEst ? _dvStatBox("Est. Gross Yield", yieldEst.gross.toFixed(1) + "%", "#10B981") : "")
     + (units ? _dvStatBox("Est. Units", units.toLocaleString(), "#3B82F6") : "")
     + '</div>'
-    + '<div style="color:#6B7A9E;font-size:10px;margin-bottom:12px;">Typical unit sizes run ~750–1,600 sqft (1BR–3BR) in most Dubai towers — exact unit mix varies by building.</div>';
+    + '<div style="color:#6B7A9E;font-size:10px;margin-bottom:12px;">'
+    + (isVilla
+      ? "Typical villa/townhouse sizes run ~1,900–4,800+ sqft (2BR–5BR) in this community — exact size varies by unit."
+      : "Typical unit sizes run ~750–1,600 sqft (1BR–3BR) in most Dubai towers — exact unit mix varies by building.")
+    + '</div>';
 
   if (demand) {
     var dColor = demand.score >= 60 ? "#10B981" : demand.score >= 40 ? "#F0A030" : "#F04060";
@@ -740,7 +753,22 @@ function _dvRenderLegend(gmap, cfg, vMin, vMax) {
     legDiv.appendChild(qualRow);
   }
 
-  if (window.METRO_STATIONS || window.TRAM_STATIONS) {
+  // Fixed 2026-07-18 (Map audit) — two real, stacked bugs here. (1)
+  // METRO_STATIONS/TRAM_STATIONS are declared with `const` at the top level
+  // of js/data-residential.js, not `var` — a top-level `const`/`let` in a
+  // classic (non-module) <script> never becomes a `window` property, unlike
+  // `var`. So `window.METRO_STATIONS` has always been `undefined`, meaning
+  // this legend row never showed for ANY metric, including Location — not
+  // "always shown regardless of metric" as first suspected. (2) The exact
+  // same `window.X` mistake in renderMap() below (the actual marker-
+  // plotting code, `if (window.METRO_STATIONS){METRO_STATIONS.forEach...}`)
+  // meant the real metro/tram station markers have never been plotted on
+  // the map either, even when Location is selected — a real feature that
+  // has been silently dead since it was built. Both fixed together: check
+  // the bare identifiers directly (matching how every other top-level const
+  // in this codebase — AREAS, DB, VILLA_AREAS — is already referenced
+  // elsewhere), guarded with `typeof` since these are optional in principle.
+  if (_dvMapState.metric === "location" && (typeof METRO_STATIONS !== "undefined" || typeof TRAM_STATIONS !== "undefined")) {
     var metroLegend = document.createElement("div");
     metroLegend.style.cssText = "display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid #1C2540;";
     metroLegend.innerHTML = '<div style="width:8px;height:8px;border-radius:50%;background:#818CF8;flex-shrink:0;"></div><span style="color:#8899AA;font-size:9px;font-family:\'Space Grotesk\',monospace;">Metro / Tram</span>';
@@ -888,7 +916,13 @@ function renderMap() {
       });
 
       if (_dvMapState.metric === "location") {
-        if (window.METRO_STATIONS) {
+        // Fixed 2026-07-18 (Map audit) — window.METRO_STATIONS/
+        // window.TRAM_STATIONS were always undefined (see the matching note
+        // in _dvRenderLegend above — these are `const`, not `var`, so they
+        // never attach to `window`), meaning these real metro/tram station
+        // markers have never actually been plotted on the map for the
+        // Location metric since this feature was built.
+        if (typeof METRO_STATIONS !== "undefined") {
           METRO_STATIONS.forEach(function(s) {
             var mk = new google.maps.Marker({
               map: gmap,
@@ -903,7 +937,7 @@ function renderMap() {
             _dvMapState.overlays.push(mk);
           });
         }
-        if (window.TRAM_STATIONS) {
+        if (typeof TRAM_STATIONS !== "undefined") {
           TRAM_STATIONS.forEach(function(s) {
             var mk = new google.maps.Marker({
               map: gmap,
