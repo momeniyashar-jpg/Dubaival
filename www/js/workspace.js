@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- MY WORKSPACE TAB ---------------------------------------------------------
 var WS_STATE={widgets:[],mode:"dashboard",reportMode:"visual",reportSections:[],reportLang:"en",reportColor:"gold",reportTitle:"",reportLogo:null,templates:[],voiceActive:false,voiceText:"",parsed:false,
-  reportArea:"",reportClientName:"",reportPrice:"",
+  reportArea:"",reportClientName:"",reportPrice:"",reportNationality:"expat",
   agent:{name:"",phone:"",company:"",rera:""}};
 try{var _ws=localStorage.getItem("dv_workspace");if(_ws){var d=JSON.parse(_ws);WS_STATE.widgets=d.widgets||[];}}catch(e){}
 try{var _rt=localStorage.getItem("dv_report_templates");if(_rt)WS_STATE.templates=JSON.parse(_rt);}catch(e){}
@@ -191,11 +191,18 @@ function getMiniWidget(wid,cl){
     w.appendChild(div({color:cl.text,fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"AED "+Math.round(sumP/cnt).toLocaleString()+" avg PSF"));
     w.appendChild(div({color:"#22C55E",fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},(sumY/cnt).toFixed(1)+"% avg yield"));
     w.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif"},cnt+" areas · "+Object.keys(DB).length+" buildings"));
-  }else if(wid==="deals"){
-    var dc=DEAL_STATE.deals.length;var hc=DEAL_STATE.deals.filter(function(d){return d.urgency==="hot";}).length;
-    w.appendChild(div({color:cl.text,fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},dc+" active deals"));
-    if(hc)w.appendChild(div({color:"#F97316",fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},hc+" hot deals"));
-  }else if(wid==="notifications"){
+  }
+  // "deals" (Deal Network) mini-widget removed 2026-07-18: it read
+  // DEAL_STATE.deals.length, but DEAL_STATE is a backward-compat shell now
+  // that Deal Board is the OFM blind-matching system — that field was never
+  // declared, so adding "Deal Network" to a custom Workspace Dashboard
+  // crashed the entire app the moment this function ran (a genuine,
+  // confirmed, easily-reachable bug, found while auditing Reports).
+  // OFM listings are deliberately not publicly countable (privacy-by-design
+  // blind matching), so there's no honest "N active deals" stat to show
+  // here anymore — falls through to the generic "Click to open →" catch-all
+  // below instead of showing fabricated/broken data.
+  else if(wid==="notifications"){
     var uc=getUnreadCount();
     w.appendChild(div({color:uc>0?cl.gold:cl.sub,fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},uc+" unread"));
   }else if(wid==="favareas"){
@@ -232,11 +239,22 @@ function renderReportBuilder(wrap,cl){
   // deal, not a random data dump.
   var subjCard=div({marginBottom:"14px"});
   subjCard.appendChild(span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"8px"},"Report Subject"));
+  // Falls back to the loaded Analyzer valuation's own area, same non-
+  // mutating pattern the price field below already uses — previously only
+  // price did this, so a user who'd just run the Analyzer and came
+  // straight here saw their price pre-filled but NOT their area, meaning
+  // Area Statistics/Comparison/Investment/Sustainability either fell back
+  // to generic market-wide data or a stale area left over from a
+  // completely different report, while the Valuation Summary section
+  // above them correctly showed the real property — an internally
+  // inconsistent report about "your property" that didn't actually
+  // reflect its own area.
+  var effReportArea=WS_STATE.reportArea||(analyzerState&&analyzerState.f&&analyzerState.f.area)||"";
   var areaSel=el("select",{style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"9px 12px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"8px"}});
   areaSel.appendChild(el("option",{value:""},"Select area (for stats, comparison, investment & mortgage sections)"));
   Object.keys(AREAS).sort().forEach(function(a){
     var opt=el("option",{value:a},a);
-    if(a===WS_STATE.reportArea)opt.selected=true;
+    if(a===effReportArea)opt.selected=true;
     areaSel.appendChild(opt);
   });
   areaSel.addEventListener("change",function(){WS_STATE.reportArea=this.value;render();});
@@ -254,6 +272,19 @@ function renderReportBuilder(wrap,cl){
   priceInp.addEventListener("input",function(){WS_STATE.reportPrice=this.value;});
   subjRow.appendChild(priceInp);
   subjCard.appendChild(subjRow);
+
+  // Buyer nationality — feeds the Mortgage Estimate section's LTV/down-
+  // payment calc below (see the comment at that section: this used to
+  // always assume expat LTV tiers regardless of who the buyer actually is,
+  // which understates a real UAE national buyer's borrowing power).
+  var natRow=div({display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px"});
+  natRow.appendChild(span({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},"Buyer:"));
+  [{l:"Expat",v:"expat"},{l:"UAE National",v:"uae"}].forEach(function(nt){
+    var active=WS_STATE.reportNationality===nt.v;
+    natRow.appendChild(el("button",{style:{padding:"5px 12px",borderRadius:"6px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",border:"1px solid "+(active?cl.gold:cl.border),background:active?hexAlpha(cl.gold,0.12):"transparent",color:active?cl.gold:cl.sub},
+      onclick:function(){WS_STATE.reportNationality=nt.v;render();}},nt.l));
+  });
+  subjCard.appendChild(natRow);
 
   if(typeof analyzerState!=="undefined"&&analyzerState.val){
     subjCard.appendChild(div({background:hexAlpha("#22C55E",0.08),border:"1px solid "+hexAlpha("#22C55E",0.25),borderRadius:"8px",padding:"8px 10px",color:"#22C55E",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"},
@@ -310,8 +341,14 @@ function renderReportBuilder(wrap,cl){
     parseBtn.addEventListener("click",function(){
       var txt=(window._wsTextInp||WS_STATE.voiceText||"").toLowerCase();
       var secs=[];
+      // 4 different synonym keywords ("market"/"comparison"/"neighborhood"/
+      // "neighbourhood") all map to the same "marketcmp" section — a
+      // completely natural phrase like "market comparison report" (matching
+      // this very field's own placeholder style) matched 2+ of them at
+      // once, pushing "marketcmp" onto secs more than once and rendering
+      // that whole section TWICE in the generated report. Deduped below.
       var kwMap={valuation:"valuation",area:"areastats",market:"marketcmp",comparison:"marketcmp",neighborhood:"marketcmp",neighbourhood:"marketcmp",investment:"investment",mortgage:"mortgage",sustainability:"sustainability"};
-      Object.keys(kwMap).forEach(function(kw){if(txt.indexOf(kw)!==-1)secs.push(kwMap[kw]);});
+      Object.keys(kwMap).forEach(function(kw){if(txt.indexOf(kw)!==-1&&secs.indexOf(kwMap[kw])===-1)secs.push(kwMap[kw]);});
       if(secs.length===0)secs=["valuation"];
       WS_STATE.reportSections=secs;
       if(txt.indexOf("arabic")!==-1||txt.indexOf("عربي")!==-1||txt.indexOf("عربية")!==-1)WS_STATE.reportLang="ar";else WS_STATE.reportLang="en";
@@ -458,6 +495,7 @@ function generateReport(){
   var reportPrice=parseFloat(WS_STATE.reportPrice)||(analyzerState&&analyzerState.f&&parseFloat(analyzerState.f.price))||0;
 
   var w=window.open("","_blank");
+  if(!w){alert("Please allow pop-ups for this site to generate the report.");return;}
   var h='<!DOCTYPE html><html dir="'+(isAr?"rtl":"ltr")+'" lang="'+(isAr?"ar":"en")+'"><head><meta charset="UTF-8"><title>'+title+'</title>';
   h+='<style>*{box-sizing:border-box}body{font-family:'+(isAr?"'Cairo',":"")+"Arial,sans-serif;max-width:800px;margin:0 auto;padding:30px;color:#333;background:#fff}";
   h+="h1{color:"+accent+";font-size:24px;margin-bottom:4px}";
@@ -484,7 +522,7 @@ function generateReport(){
     var sec=WS_REPORT_SECTIONS.find(function(s){return s.id===sid;});
     if(!sec)return;
     h+="<h2>"+sec.label+"</h2>";
-    var area=WS_STATE.reportArea;
+    var area=WS_STATE.reportArea||(analyzerState&&analyzerState.f&&analyzerState.f.area)||"";
     var aData=area?AREAS[area]:null;
 
     if(sid==="valuation"){
@@ -550,7 +588,13 @@ function generateReport(){
     }else if(sid==="mortgage"){
       if(reportPrice>0){
         var dp=20,rate=4.49,tenureYrs=25;
-        var maxLTV=reportPrice>=5000000?65:75;
+        // Must match js/mortgage.js's own maxLTV formula exactly (real
+        // UAE-national tiers are higher than expat tiers at every price
+        // band) — this used to hardcode the expat-only tiers regardless of
+        // buyer, so a real UAE national's down payment/monthly payment came
+        // out wrong (overstated) any time the default 20% fell below the
+        // correct minimum for their actual, higher LTV cap.
+        var maxLTV=WS_STATE.reportNationality==="uae"?(reportPrice>=5000000?70:80):(reportPrice>=5000000?65:75);
         var minDP=100-maxLTV;
         if(dp<minDP)dp=minDP;
         var dpAmt=Math.round(reportPrice*dp/100);
@@ -571,7 +615,7 @@ function generateReport(){
         h+="<tr><td>Mortgage Registration (0.25%)</td><td>AED "+mortgageFee.toLocaleString()+"</td></tr>";
         h+='<tr><td><strong>Total Upfront Cost</strong></td><td><strong>AED '+totalUpfront.toLocaleString()+"</strong></td></tr>";
         h+="</table></div>";
-        h+="<p style='color:#999;font-size:10px'>Assumptions: "+tenureYrs+"-year fixed rate at "+rate+"%, "+dp+"% down payment (expat buyer). Actual rates vary by bank and buyer profile.</p>";
+        h+="<p style='color:#999;font-size:10px'>Assumptions: "+tenureYrs+"-year fixed rate at "+rate+"%, "+dp+"% down payment ("+(WS_STATE.reportNationality==="uae"?"UAE national":"expat")+" buyer). Actual rates vary by bank and buyer profile.</p>";
       }else{
         h+='<p style="color:#999">Enter a property price above to include a mortgage estimate.</p>';
       }

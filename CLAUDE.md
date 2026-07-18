@@ -674,6 +674,112 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, Reports (Custom Report Builder)
+  audit — 4 real bugs found and fixed, including a report generator that
+  could silently double up a section and a hard crash in a related
+  Workspace Dashboard widget)**: Direct follow-up, same conversation — user
+  asked for the same audit-then-fix treatment on Reports. Read the full
+  `js/workspace.js` file end to end (`renderWorkspace()`/`getMiniWidget()`,
+  the "My Workspace" dashboard mode this file also owns, plus
+  `renderReportBuilder()`/`generateReport()`, the actual Reports tab). Found
+  and fixed 4 real issues:
+  1. **The Smart Text/Voice parser could silently render the same report
+     section TWICE.** Four different synonym keywords ("market"/
+     "comparison"/"neighborhood"/"neighbourhood") all map to the same
+     `"marketcmp"` section id, and the parser pushed a match for every
+     keyword found with no dedup — so a completely natural phrase like
+     "market comparison report" (matching this very field's own placeholder
+     text style, "valuation + market + portfolio") matched both "market"
+     and "comparison" and pushed `"marketcmp"` onto the sections array
+     twice. `generateReport()`'s section loop has no dedup either, so the
+     generated report rendered the whole "Area & Neighborhood Comparison"
+     section twice in a row — a real, easily-reproducible defect in a
+     feature meant to produce a polished, client-ready document. **Fix**:
+     the keyword-matching loop now checks `secs.indexOf(kwMap[kw])===-1`
+     before pushing, so each section id can only be added once regardless
+     of how many synonym keywords matched it.
+  2. **The Report Subject "area" never auto-synced with an already-loaded
+     Analyzer valuation, unlike price, which did** — `priceInp`'s displayed
+     value already fell back to `analyzerState.f.price` when
+     `WS_STATE.reportPrice` was empty (and `generateReport()`'s own
+     `reportPrice` computation independently re-checked the same fallback),
+     but the area `<select>` had no equivalent fallback anywhere, and
+     `generateReport()`'s `var area=WS_STATE.reportArea;` read the raw
+     field with no fallback either. So a user who'd just run the Analyzer
+     for a specific building and came straight to Reports saw their price
+     pre-filled but NOT their area — meaning Area Statistics/Comparison/
+     Investment/Sustainability either fell back to generic market-wide top-
+     movers or a stale area left over from an unrelated previous report,
+     while the Valuation Summary section right above them correctly showed
+     the real property — an internally inconsistent report about "your
+     property" that didn't actually reflect its own area. **Fix**: mirrored
+     the exact same non-mutating fallback pattern price already uses — both
+     the area `<select>`'s displayed default and `generateReport()`'s own
+     `area` variable now fall back to `analyzerState.f.area` whenever
+     `WS_STATE.reportArea` is empty, without ever silently overwriting the
+     user's own explicit choice if they've made one.
+  3. **The Mortgage Estimate section's own duplicated LTV/down-payment
+     formula always assumed an expat buyer, regardless of who the buyer
+     actually is** — `js/mortgage.js`'s real, dedicated Mortgage Calculator
+     already correctly differentiates UAE nationals (70%/80% max LTV by
+     price tier) from expats (65%/75%), fixed in an earlier session — but
+     this Report Builder's own separate reimplementation of the same
+     formula hardcoded the expat-only tiers (`reportPrice>=5000000?65:75`)
+     unconditionally, with no nationality input anywhere in the Report
+     Subject fields. For a real UAE national buyer at or above AED 5M, this
+     understated their true 70% borrowing power and overstated their
+     required down payment by 5 percentage points (confirmed with real
+     numbers: a 6M property showed a 35%/AED 2.1M down payment instead of
+     the correct 30%/AED 1.8M) — the same class of duplicated-formula-drift
+     risk already found and fixed once this session in the Analyzer's rent
+     ladder. **Fix**: added a "Buyer: Expat / UAE National" toggle to the
+     Report Subject fields (new `WS_STATE.reportNationality`, default
+     `"expat"`, matching `js/mortgage.js`'s own default), and corrected the
+     duplicated formula to match `js/mortgage.js`'s exactly, keyed off this
+     new field — the disclaimer footer text now also correctly says "UAE
+     national buyer" instead of always saying "expat buyer".
+  4. **A real, separate, easily-reachable crash found while reading the
+     adjacent Workspace Dashboard code this same file also owns**:
+     `getMiniWidget()`'s `"deals"` (Deal Network) mini-widget branch read
+     `DEAL_STATE.deals.length` completely unguarded — but `DEAL_STATE` is a
+     documented backward-compat shell now that Deal Board is the OFM
+     blind-matching system, and `.deals` was never actually declared on
+     it. Confirmed via a real-browser test: adding "Deal Network" to a
+     custom Workspace Dashboard (a completely ordinary action, right there
+     in the tool picker) threw an uncaught `TypeError` and broke the app's
+     entire render, not just that one widget. Since OFM listings are
+     deliberately not publicly countable at all (privacy-by-design blind
+     matching — there's no honest "N active deals" figure to show anymore,
+     unlike the old pre-OFM Deal Board this widget was originally built
+     for), the fix removes the crash-prone branch entirely rather than
+     patching in a fabricated/misleading number — it now falls through to
+     the same generic "Click to open →" catch-all every other
+     not-specially-handled widget already uses, with a comment explaining
+     why for a future session.
+  - Also, defensively: `generateReport()`'s `window.open("","_blank")` had
+    no null-check — if a browser/extension ever blocks this popup, `w` would
+    be `null` and the very next line (`w.document.write(...)`) would throw
+    instead of failing gracefully. Added a check that shows a clear "please
+    allow pop-ups" alert and returns instead of crashing.
+  - Verified: `node -c js/workspace.js`; a real-browser Playwright test
+    confirming the exact reproduction case ("market comparison and
+    investment projection please") now yields `["marketcmp","investment"]`
+    with zero duplicates; confirming the area select correctly auto-selects
+    a loaded Analyzer's real area (Business Bay) and the generated report's
+    Area Statistics table correctly leads with that starred area instead of
+    the generic top-movers fallback, even though `WS_STATE.reportArea`
+    itself was never touched; confirming a UAE national buyer at AED 6M
+    gets the correct AED 1,800,000 (30%) down payment in the generated
+    report while an expat buyer at the same price still correctly gets AED
+    2,100,000 (35%); confirming `window.open()` returning `null` shows the
+    new alert instead of throwing; and a second test confirming adding
+    "Deal Network" to a custom Workspace Dashboard no longer crashes and
+    correctly falls through to the generic fallback text — zero console
+    errors throughout. A 14-tab regression sweep (Home, Market Dashboard/
+    Analyzer/QuickCheck, Portfolio, Deal Board, AI Agents, AI Chief of
+    Staff, all 3 SocialMedia sub-tabs, Workspace, Reports, About) confirmed
+    zero collateral regressions from any of these 4 fixes.
+
 - **2026-07-18 (session continuing 14, AI Agents audit — one real input-loss
   bug found and fixed, extensive prompt/grounding logic confirmed already
   correct from prior sessions)**: Direct follow-up, same conversation, after
@@ -8185,7 +8291,7 @@ has free tier so companies can test easily).
 | Video Platform | ✅ Complete | — |
 | AI Assistant (SocialChat) | ✅ Complete → **removed 2026-07-18** (confirmed 100% duplicate of Network → AI Agents, see the "Removed sub-tabs" note near the top of this file) | Low |
 | Workspace | ✅ Complete | Low |
-| Reports | ⚠️ Partial (only documented gap is LOW-severity: voice input on Firefox/mobile) | Medium |
+| Reports | ✅ Complete — **4 real bugs found and fixed 2026-07-18** (duplicate-section generation, area not auto-syncing with a loaded valuation, mortgage LTV ignoring buyer nationality, a crash in the adjacent Workspace Dashboard's Deal Network widget); remaining documented gap is LOW-severity: voice input on Firefox/mobile | Medium |
 | About | ✅ Complete | Low |
 
 ---
