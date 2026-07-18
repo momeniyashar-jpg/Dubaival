@@ -646,6 +646,14 @@ features continue working exactly as before. Zero breakage.
   Dubai cinematic golden hour" (keeps the same landscape-orientation,
   most-liked-result selection logic from the earlier quality fix). Home
   hero and Market Index banner queries unchanged.
+  - **Same-session follow-up**: user reviewed the deployed result and noted
+    the resolved photo was a low, oblique aerial angle (only the "trunk"/
+    spine visible) rather than the iconic full top-down shot where the
+    whole palm-tree island shape (trunk + fronds + surrounding crescent) is
+    recognizable — a fair, correct call for a mascot/mission-page hero.
+    Bumped the cache key again (`v3`→`v4`) and sharpened the query to
+    "Palm Jumeirah top down drone view full island shape aerial" to bias
+    the search toward that iconic bird's-eye composition.
 
 - **2026-07-18 (session continuing 14, follow-up — hero photos existed but
   were invisible, real overlay bug)**: Direct follow-up to the two entries
