@@ -5,11 +5,30 @@ function renderAbout(){
   var wrap=div({maxWidth:"820px",margin:"0 auto",padding:"30px 20px",fontFamily:"'Space Grotesk',monospace"});
 
   // Hero / Mission
-  var hero=div({textAlign:"center",marginBottom:"40px"});
-  hero.appendChild(el("img",{src:"logo.png?v=20260715",alt:"DubAIVal",style:{width:"64px",height:"64px",borderRadius:"14px",margin:"0 auto 16px",display:"block",objectFit:"contain"}}));
-  hero.appendChild(el("div",{style:{color:cl.sub,fontSize:"11px",fontWeight:"600",letterSpacing:"0.08em",textTransform:"uppercase",margin:"0 0 10px"}},"DubAIVal — short for Dubai AI Valuation"));
-  hero.appendChild(el("h1",{style:{color:cl.gold,fontSize:"22px",fontWeight:"700",margin:"0 0 8px",letterSpacing:"0.04em"}},t("abt_mission")));
-  hero.appendChild(el("p",{style:{color:cl.sub,fontSize:"13px",lineHeight:"1.7",maxWidth:"560px",margin:"0 auto"}},"DubAIVal is an independent AI valuation platform built to bring data-driven clarity to one of the world’s most dynamic property markets."));
+  var hero=div({textAlign:"center",marginBottom:"40px",position:"relative",overflow:"hidden",
+    borderRadius:"20px",padding:"32px 20px",border:"1px solid rgba(212,175,55,0.15)"});
+  // Real Dubai architecture photo behind the mission text, dark-tinted so
+  // the text on top stays fully readable — same graceful no-op pattern as
+  // the Home hero (js/app.js): stays on the plain background if unavailable.
+  var abtHeroPhoto=el("div",{style:{
+    position:"absolute",inset:"0",backgroundSize:"cover",backgroundPosition:"center 40%",
+    opacity:"0",transition:"opacity 1.4s ease",zIndex:"0"
+  }});
+  hero.appendChild(abtHeroPhoto);
+  var abtHeroOverlay=el("div",{style:{
+    position:"absolute",inset:"0",zIndex:"0",
+    background:"linear-gradient(160deg,rgba(7,11,20,0.90) 0%,rgba(10,14,26,0.94) 100%)"
+  }});
+  hero.appendChild(abtHeroOverlay);
+  _dvGetStockPhoto("about_hero_v1","Dubai Marina skyline architecture waterfront").then(function(url){
+    if(url){abtHeroPhoto.style.backgroundImage='url("'+url+'")';abtHeroPhoto.style.opacity="1";}
+  });
+  var abtHeroContent=div({position:"relative",zIndex:"1"});
+  hero.appendChild(abtHeroContent);
+  abtHeroContent.appendChild(el("img",{src:"logo.png?v=20260715",alt:"DubAIVal",style:{width:"64px",height:"64px",borderRadius:"14px",margin:"0 auto 16px",display:"block",objectFit:"contain"}}));
+  abtHeroContent.appendChild(el("div",{style:{color:cl.sub,fontSize:"11px",fontWeight:"600",letterSpacing:"0.08em",textTransform:"uppercase",margin:"0 0 10px"}},"DubAIVal — short for Dubai AI Valuation"));
+  abtHeroContent.appendChild(el("h1",{style:{color:cl.gold,fontSize:"22px",fontWeight:"700",margin:"0 0 8px",letterSpacing:"0.04em"}},t("abt_mission")));
+  abtHeroContent.appendChild(el("p",{style:{color:cl.sub,fontSize:"13px",lineHeight:"1.7",maxWidth:"560px",margin:"0 auto"}},"DubAIVal is an independent AI valuation platform built to bring data-driven clarity to one of the world’s most dynamic property markets."));
   wrap.appendChild(hero);
 
   // ── Mascot showcase ──────────────────────────────────────────────────────────

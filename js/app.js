@@ -2383,6 +2383,24 @@ function renderHome(){
     background:'linear-gradient(160deg,#0C1220 0%,#070B14 45%,#0A0D18 100%)'
   }});
 
+  // Real Dubai skyline photo, faded in behind the gradient once fetched —
+  // a dark-tinted overlay on top keeps the existing text fully readable.
+  // Gracefully no-ops (stays on the plain gradient) if the photo APIs
+  // aren't configured/reachable.
+  var heroPhoto=el('div',{style:{
+    position:'absolute',inset:'0',backgroundSize:'cover',backgroundPosition:'center 30%',
+    opacity:'0',transition:'opacity 1.4s ease'
+  }});
+  hero.appendChild(heroPhoto);
+  var heroPhotoOverlay=el('div',{style:{
+    position:'absolute',inset:'0',
+    background:'linear-gradient(160deg,rgba(12,18,32,0.90) 0%,rgba(7,11,20,0.94) 45%,rgba(10,13,24,0.92) 100%)'
+  }});
+  hero.appendChild(heroPhotoOverlay);
+  _dvGetStockPhoto('home_hero_v1','Dubai skyline Burj Khalifa sunset skyscrapers').then(function(url){
+    if(url){heroPhoto.style.backgroundImage='url("'+url+'")';heroPhoto.style.opacity='1';}
+  });
+
   // Glow orbs
   [
     {w:'280px',h:'280px',top:'-80px',right:'-60px',bg:'radial-gradient(circle,rgba(212,175,55,0.13) 0%,transparent 65%)'},

@@ -988,6 +988,30 @@ try{
 // instances across the app — see the 2026-07-12 work log for the full list).
 function _currentMonthYear(){return new Date().toLocaleDateString("en-US",{month:"long",year:"numeric"});}
 
+// Shared cached stock-photo helper — real Dubai photos for hero/banner
+// sections, sourced from the platform-level Unsplash/Pexels proxy (no user
+// key involved, see api/proxy-groq.js provider switch + searchUnsplash()/
+// searchPexels() in js/chat.js). Cached in localStorage for 30 days per
+// cacheKey so a given hero section only makes one live API call per visitor
+// per month, not on every page load. Resolves to null (never throws) if
+// both providers are unavailable/unconfigured — every call site must treat
+// null as "no photo, keep the existing gradient/solid background."
+var _DV_STOCK_PHOTO_TTL_MS=30*24*60*60*1000;
+async function _dvGetStockPhoto(cacheKey,query){
+  try{
+    var raw=localStorage.getItem('dv_stockphoto_'+cacheKey);
+    if(raw){
+      var cached=JSON.parse(raw);
+      if(cached&&cached.url&&(Date.now()-cached.ts)<_DV_STOCK_PHOTO_TTL_MS)return cached.url;
+    }
+  }catch(e){}
+  var url=null;
+  try{if(typeof searchUnsplash==='function')url=await searchUnsplash(query);}catch(e){}
+  if(!url){try{if(typeof searchPexels==='function')url=await searchPexels(query);}catch(e){}}
+  if(url){try{localStorage.setItem('dv_stockphoto_'+cacheKey,JSON.stringify({url:url,ts:Date.now()}));}catch(e){}}
+  return url;
+}
+
 function getDubaiRealEstateBrain(){
   var areaSummary="";
   try{

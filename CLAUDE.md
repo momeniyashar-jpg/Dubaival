@@ -638,6 +638,59 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, first real photos added to the site)**:
+  User pointed out the site had zero real images anywhere ("میگم ما اصلا تو
+  سایت تصویر نداریم") right after finishing a batch of pending SQL
+  migrations, and asked for a recommendation on how many/where to add
+  quality images. Scoped to a small, deliberately conservative set — "a few
+  quality images" (چندتا), not a per-area/per-card gallery — to stay within
+  free-tier rate limits (Unsplash/Pexels) and avoid scope creep.
+  - **New shared helper**: `_dvGetStockPhoto(cacheKey, query)` in
+    `js/core.js` — reuses the EXISTING platform-level `searchUnsplash()`/
+    `searchPexels()` functions (`js/chat.js`, built the previous session for
+    the zero-touch-onboarding shared-key migration — no new API surface, no
+    per-user key). Caches the resolved URL in `localStorage` for 30 days per
+    `cacheKey`, so a given hero section only makes one live API call per
+    visitor per month, not on every page load (protects the shared
+    Unsplash/Pexels rate limit). Resolves to `null` (never throws) if both
+    providers are unavailable — every call site treats `null` as "keep the
+    existing gradient/solid background," so this can never break a page.
+    Safe to call from any file despite `core.js` loading before `chat.js`
+    in `index.html`'s script order, since all module scripts are `defer`red
+    and this helper is only ever invoked later, inside a render function
+    that runs after every deferred script has already executed and defined
+    its globals (same cross-file-call safety already established elsewhere
+    in this codebase).
+  - **3 placements, each a real photo faded in behind a dark gradient
+    overlay so existing text stays fully readable** (never a raw, unfiltered
+    photo that could clash with content on top):
+    1. **Home hero** (`js/app.js` `renderHome()`) — "Dubai skyline Burj
+       Khalifa sunset skyscrapers".
+    2. **About page hero** (`js/about.js` `renderAbout()`) — "Dubai Marina
+       skyline architecture waterfront". The hero block gained
+       `position:relative`/`overflow:hidden`/rounded corners/a border to
+       actually hold a background photo (previously just plain centered
+       text with no container); the logo/subtitle/heading/mission text were
+       moved into a new `abtHeroContent` wrapper (`zIndex:1`) sitting above
+       the photo+overlay layers.
+    3. **Market Index banner** (`js/marketindex.js` `renderMarketIndex()`)
+       — "Dubai Business Bay towers aerial real estate". The existing
+       header (title/date/LIVE badge) was wrapped in a new `bannerWrap`
+       container holding the photo+overlay behind it — the header's own
+       content and styling are otherwise unchanged.
+  - Verified: `node -c` on all 4 touched files; a real-browser Playwright
+    test with a mocked `/api/proxy-groq?provider=unsplash` response (so the
+    wiring could be verified end-to-end without a real API key in this
+    sandbox) — confirmed all 3 photo layers correctly resolve the mocked
+    URL into their `backgroundImage` and fade to `opacity:1`, and that the
+    Market Index header's own text still renders correctly on top — zero
+    console errors.
+  - **Nothing else needed to go live**: this reuses the exact same
+    `UNSPLASH_ACCESS_KEY`/`PEXELS_API_KEY` env vars + `/api/proxy-groq`
+    proxy the user already configured in Vercel for the previous session's
+    Social Media Manager work — no new setup, no new cost beyond what's
+    already provisioned.
+
 - **2026-07-17 (session 14, directive #4 category 1 shipped — Gemini/
   Unsplash/Pexels/ElevenLabs moved fully to a platform-shared server proxy,
   Profile Panel consolidation)**: Direct continuation of the Gemini-gap

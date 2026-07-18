@@ -6,8 +6,24 @@ function renderMarketIndex(){
   var now=new Date();
   var dateStr=now.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
 
-  // Premium header
-  var header=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'24px',paddingBottom:'16px',borderBottom:'1px solid rgba(255,255,255,0.06)'}});
+  // Premium header — sits on a real Dubai real-estate banner photo (dark
+  // tinted so text stays fully readable), same graceful no-op pattern as
+  // the Home/About heroes: falls back to the plain background if the photo
+  // APIs are unavailable/unconfigured.
+  var bannerWrap=el('div',{style:{position:'relative',overflow:'hidden',borderRadius:'16px',
+    marginBottom:'24px',padding:'20px 18px 16px',border:'1px solid rgba(255,255,255,0.06)'}});
+  var miBannerPhoto=el('div',{style:{position:'absolute',inset:'0',backgroundSize:'cover',
+    backgroundPosition:'center 45%',opacity:'0',transition:'opacity 1.4s ease',zIndex:'0'}});
+  bannerWrap.appendChild(miBannerPhoto);
+  var miBannerOverlay=el('div',{style:{position:'absolute',inset:'0',zIndex:'0',
+    background:'linear-gradient(100deg,rgba(7,11,20,0.92) 0%,rgba(10,14,26,0.80) 60%,rgba(10,14,26,0.90) 100%)'}});
+  bannerWrap.appendChild(miBannerOverlay);
+  _dvGetStockPhoto('marketindex_banner_v1','Dubai Business Bay towers aerial real estate').then(function(url){
+    if(url){miBannerPhoto.style.backgroundImage='url("'+url+'")';miBannerPhoto.style.opacity='1';}
+  });
+  wrap.appendChild(bannerWrap);
+
+  var header=el('div',{style:{position:'relative',zIndex:'1',display:'flex',alignItems:'center',justifyContent:'space-between'}});
   var _hL=el('div',{});
   _hL.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'4px'},'Market Rankings'));
   _hL.appendChild(div({fontSize:'22px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},'Market Index'));
@@ -18,7 +34,7 @@ function renderMarketIndex(){
   _hBadge.appendChild(_hDot);
   _hBadge.appendChild(span({fontSize:'10px',color:'#D4A843',fontFamily:"'Space Grotesk',sans-serif",fontWeight:'700',letterSpacing:'0.08em'},'LIVE'));
   header.appendChild(_hBadge);
-  wrap.appendChild(header);
+  bannerWrap.appendChild(header);
 
   // Intentionally NOT rendering a "download full market data" button here —
   // owner decision (reaffirmed 2026-07-12): users should only be able to
