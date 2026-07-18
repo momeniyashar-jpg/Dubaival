@@ -656,6 +656,87 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, Analyzer core-formula audit — 3 real
+  root-level issues found and fixed, extreme caution per Directive #2)**:
+  Direct follow-up, same conversation — user asked for the same
+  audit-then-fix treatment on the Analyzer itself ("بخش Analyze مهمترین بخش
+  سایت است... اما امکان دارد حتی همین فرمول هم در ریشه ایرادهایی داشته
+  باشد"), explicitly asking for an investigation-only pass FIRST given how
+  much calibration work this engine represents, before approving any fix.
+  Read `computeAdjustedPSF()`/`computeValuation()`/`computeSmartRent()`/
+  `computeRentalValuation()` (`js/valuation.js`) end to end without changing
+  anything, reported 3 findings, then — after explicit user approval
+  ("هر سه را به ترتیب فیکس کن") — fixed all 3, each verified with a
+  before/after numeric diff (via `load_engine.js`, the existing sandboxed
+  Node harness that loads the real data+valuation files) rather than just
+  `node -c`, given the stakes:
+  1. **"Overpriced" price shown to the user contradicted the verdict that
+     triggers it** — the FAIR/OVER verdict split was a flat `askPSF<=
+     adjPSF*1.07` for every area, while the "Overpriced" price displayed in
+     the Price Ladder (`overpricedAt`, js/market.js line ~2250) used the
+     area-sensitivity-aware `overCeil` (1.08–1.14 depending on area risk
+     tier) — clearly meant to drive this same split when that
+     area-sensitivity system was added, but never wired in. Confirmed with
+     real numbers across a 50-case sample: 7 cases showed a genuine
+     contradiction (e.g. Business Bay, price AED 3,047,640, verdict="OVER",
+     but the ladder's own "Overpriced" row showed AED 3,131,520 — a HIGHER
+     number than what the user was told they overpaid). **Fix**: the FAIR/
+     OVER split now uses `overCeil` directly instead of the flat 1.07, so
+     OVER starts exactly at the same price shown as "Overpriced" — zero
+     possible contradiction going forward.
+  2. **Villa/townhouse rental comparison table always omitted the 2BR row**
+     — `computeRentalValuation()`'s `estRent` correctly prices a 2BR villa/
+     townhouse off `aData.rv2` (via `_baseAreaRent`'s bn≤2 bucket), but the
+     "Area rental benchmarks" comparison table shown to the user started at
+     "3 BR" (`if(aData.rv3)...`), never including the one benchmark row that
+     actually matches a 2BR search. Fixed by adding the missing
+     `if(aData.rv2)areaRents.push({beds:"2 BR",rent:aData.rv2});` row.
+  3. **The area-rent ladder formula (Studio→7BR, apartment vs villa bands)
+     was duplicated in 3 separate places** — the single correct shared
+     helper `_baseAreaRent()`, plus a hand-copied inline duplicate inside
+     `computeValuation()`, plus a THIRD hand-copied duplicate inside
+     `computeSmartRent()`. All 3 happened to be byte-identical at the time
+     of this audit (verified via a 96-case Studio→5+BR × apartment/villa ×
+     8-area before/after diff — zero differences), so this wasn't a live
+     bug today — but it's exactly the kind of latent drift risk already
+     proven real this same session (`computeAreaPriceRange`'s own
+     partially-villa-aware rent table, found and fixed in the Quick Check
+     audit above): any future rent-band correction applied to only one or
+     two of the three copies would silently pull Analyzer's own sale
+     valuation and rent-deal-checker out of sync with the rest of the app.
+     **Fix**: consolidated both duplicates onto the single `_baseAreaRent()`
+     call. This surfaced a real, separate, previously-hidden bug as a side
+     effect: `computeSmartRent()`'s own local bed-count map stopped at
+     `"5+ BR":5` (no 6BR/7BR keys) — even though the Analyzer's own villa
+     bedroom dropdown (`js/market.js`) genuinely offers "6 BR"/"7+ BR" as
+     selectable options — so a real 6-7BR villa's "Smart Rent Check" was
+     silently falling back to the much smaller 2BR (`rv2`) rent band,
+     understating a large villa's true achievable rent by a wide margin.
+     Confirmed fixed: a 6BR Al Barari villa now correctly returns the real
+     `rv6` band (520,000) instead of silently defaulting to `rv2`.
+  - **Reassurance also reported to the user**: the Analyzer's own villa-vs-
+    apartment determination (`f.propCategory==="villa"`) is driven entirely
+    by the user's own explicit form selection, never an automatic
+    area-level guess — so the "mixed villa area" limitation found and
+    partially closed in the Quick Check/Compare/Alerts audits above (this
+    same session) does not affect the core Analyzer valuation formula at
+    all.
+  - Verified: `node -c`; a 50-case before/after diff for fix 1 (7 previously-
+    contradictory cases correctly flipped verdict from OVER→FAIR with
+    `suggestedOffer` recalculated to match, zero contradictions remaining,
+    every OTHER field — fairPrice/distressPrice/confScore/adjPSF — byte-
+    identical across all 50 cases, confirming the fix is fully surgical); a
+    direct check confirming a 2BR villa's `areaRents` now includes the
+    matching `rv2` row; a 192-case (96 sale + 96 rent) before/after diff for
+    fix 3 showing zero differences for every bed count already reachable
+    before the fix, plus an explicit 6BR/7BR check confirming the newly-
+    fixed large-villa rent band; a real-browser Playwright test driving the
+    actual Analyzer UI end-to-end for both an apartment (sale, Price Ladder
+    rendering with no contradiction) and a villa (rent, 2BR comparison row
+    present) — zero console errors; and a re-run of every test suite built
+    this session (Quick Check, Compare, Alerts, per-building villa
+    refinement, 25-tab navigation sweep) — zero regressions anywhere.
+
 - **2026-07-18 (session continuing 14, per-building villa/apartment
   refinement — closes the "mixed villa area" limitation flagged in the
   Quick Check audit below)**: Direct follow-up, same conversation — the

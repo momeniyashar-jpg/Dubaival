@@ -700,7 +700,16 @@ function computeValuation(f,buildingVal,liveData){
   let verdict,suggestedOffer;
   if(askPSF<=adjPSF*(distressFloor+0.05)){verdict="DISTRESS";suggestedOffer=null;}
   else if(askPSF<=adjPSF*(goodFloor+0.04)){verdict="GOOD";suggestedOffer=null;}
-  else if(askPSF<=adjPSF*1.07){verdict="FAIR";suggestedOffer=Math.round(fairPrice*0.97);}
+  // FAIR/OVER split fixed 2026-07-18 (Analyzer core-formula audit): this used
+  // to be a flat 1.07 for every area, while the "Overpriced" price shown in
+  // the Price Ladder just below (overpricedAt, above) used the area-sensitive
+  // overCeil (1.08–1.14) — so in most areas a property could be verdict="OVER"
+  // while its own price was still LOWER than the "Overpriced" reference price
+  // displayed for that same result, a real, user-visible contradiction.
+  // overCeil was clearly meant to drive this split too when the area-
+  // sensitivity system was added — it just never got wired in here. Now the
+  // two agree exactly: OVER starts precisely at overpricedAt.
+  else if(askPSF<=adjPSF*overCeil){verdict="FAIR";suggestedOffer=Math.round(fairPrice*0.97);}
   else{verdict="OVER";suggestedOffer=fairPrice;}
   const baseConf=[0,95,85,72,58][dataLayer]||58;
   const inputPenalty=(!f.floor&&!isVilla?-4:0)+(f.view==="Not specified"?-2:0)+(!f.serviceCharge?-1:0);
@@ -725,9 +734,16 @@ function computeValuation(f,buildingVal,liveData){
   const confTier=confScore>=90?{label:"Very High",range:"±3–5%",spread:0.04,c:"green"}:confScore>=80?{label:"High",range:"±5–8%",spread:0.07,c:"green"}:confScore>=68?{label:"Medium",range:"±8–12%",spread:0.11,c:"yellow"}:confScore>=55?{label:"Low",range:"±12–18%",spread:0.15,c:"yellow"}:{label:"Indicative",range:"±18–25%",spread:0.22,c:"red"};
   const priceLow=Math.round(fairPrice*(1-confTier.spread));
   const priceHigh=Math.round(fairPrice*(1+confTier.spread));
-  const bnMap={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5,"6 BR":6,"7 BR":7,"7+ BR":7};
-  const bn=bnMap[f.beds]!=null?bnMap[f.beds]:2;
-  let rent=isVilla?(bn<=2?aData.rv2||130000:bn<=3?aData.rv3||180000:bn<=4?aData.rv4||240000:bn<=5?aData.rv5||350000:bn<=6?aData.rv6||500000:aData.rv7||650000):bn===0?(aData.rStudio||(aData.r1||65000)*0.65):bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
+  // Consolidated onto the single shared _baseAreaRent() (2026-07-18, Analyzer
+  // core-formula audit) — this used to be a second, hand-duplicated copy of
+  // the exact same area-rent ladder (a 3rd copy also existed in
+  // computeSmartRent, below). All 3 happened to be byte-identical at the
+  // time of this fix, so this is a pure consolidation with no output change
+  // — but a future rent-band correction applied to only one or two copies
+  // (as almost happened with computeAreaPriceRange in the Quick Check audit,
+  // same session) could otherwise have silently drifted Analyzer's own sale
+  // valuation away from the rest of the app.
+  let rent=_baseAreaRent(aData,f.beds,isVilla);
   if(bData&&bData.g){var _isBranded=bData.df===1;var _grm=bData.g==="Ultra"?(_isBranded?1.80:1.50):bData.g==="A+"?(_isBranded?1.35:1.15):bData.g==="A"?1.10:bData.g==="A-"?1.0:bData.g==="B+"?0.92:bData.g==="B"?0.85:bData.g==="C"?0.78:1.0;if(_grm!==1.0)rent=Math.round(rent*_grm);}
   var _furnRentM=f.furnished==="Furnished"?1.17:f.furnished==="Semi-Furnished"?1.09:1.0;
   rent=Math.round(rent*_furnRentM);
@@ -812,12 +828,18 @@ function computeSmartRent(f,liveRentals){
   var aData=AREAS[f.area]||null;
   if(!aData)return null;
   var isVilla=f.propCategory==="villa";
-  var bnMap={"Studio":0,"1 BR":1,"2 BR":2,"3 BR":3,"4 BR":4,"5 BR":5,"5+ BR":5};
-  var bn=bnMap[f.beds]!=null?bnMap[f.beds]:2;
   var price=parseFloat(String(f.price||"").replace(/[^0-9.]/g,""))||0;
   var size=parseFloat(String(f.size||f.buaSize||"").replace(/,/g,""))||0;
   // --- Layer 1: Hedonic static estimate ---
-  var staticRent=isVilla?(bn<=2?aData.rv2||130000:bn<=3?aData.rv3||180000:bn<=4?aData.rv4||240000:bn<=5?aData.rv5||350000:bn<=6?aData.rv6||500000:aData.rv7||650000):bn===0?(aData.rStudio||(aData.r1||65000)*0.65):bn===1?aData.r1||65000:bn===2?aData.r2||100000:bn===3?aData.r3||150000:(aData.r3||150000)*1.4;
+  // Consolidated onto _baseAreaRent() (2026-07-18, Analyzer core-formula
+  // audit) — see the matching note in computeValuation() above. This also
+  // fixes a real, separate, latent bug: the old local bnMap here stopped at
+  // "5+ BR":5 (no 6/7 BR keys), so a genuine 6BR/7BR villa search — a real,
+  // selectable option in the Analyzer's own villa beds dropdown
+  // (js/market.js) — silently fell back to bn=2 (the 2BR rv2 rent band),
+  // understating a large villa's achievable rent by a wide margin.
+  // _baseAreaRent's _BEDS_NUM_MAP correctly maps 6 BR/7 BR/7+ BR to 6/7.
+  var staticRent=_baseAreaRent(aData,f.beds,isVilla);
   if(bData&&bData.g){var _grm=bData.g==="Ultra"?1.80:bData.g==="A+"?1.35:bData.g==="A"?1.10:bData.g==="A-"?1.0:bData.g==="B+"?0.92:bData.g==="B"?0.85:bData.g==="C"?0.78:1.0;if(_grm!==1.0)staticRent=Math.round(staticRent*_grm);}
   var _fM=f.furnished==="Furnished"?1.17:f.furnished==="Semi-Furnished"?1.09:1.0;
   staticRent=Math.round(staticRent*_fM);
@@ -1189,6 +1211,12 @@ function computeRentalValuation(f){
     if(aData.r3)areaRents.push({beds:"3 BR",rent:aData.r3});
     if(aData.r3)areaRents.push({beds:"4 BR+",rent:Math.round(aData.r3*1.4)});
   }else{
+    // "2 BR" row added 2026-07-18 (Analyzer core-formula audit) — estRent
+    // above already prices a 2BR villa/townhouse off aData.rv2 (via
+    // _baseAreaRent's bn<=2 bucket), but this comparison table previously
+    // started at "3 BR", so a user renting a 2BR villa/townhouse never saw
+    // the one benchmark row that actually matches their own search.
+    if(aData.rv2)areaRents.push({beds:"2 BR",rent:aData.rv2});
     if(aData.rv3)areaRents.push({beds:"3 BR",rent:aData.rv3});
     if(aData.rv4)areaRents.push({beds:"4 BR",rent:aData.rv4});
     if(aData.rv5)areaRents.push({beds:"5 BR",rent:aData.rv5});
