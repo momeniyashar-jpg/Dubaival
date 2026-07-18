@@ -2394,7 +2394,7 @@ function renderHome(){
   hero.appendChild(heroPhoto);
   var heroPhotoOverlay=el('div',{style:{
     position:'absolute',inset:'0',
-    background:'linear-gradient(160deg,rgba(12,18,32,0.90) 0%,rgba(7,11,20,0.94) 45%,rgba(10,13,24,0.92) 100%)'
+    background:'linear-gradient(160deg,rgba(12,18,32,0.42) 0%,rgba(7,11,20,0.55) 45%,rgba(10,13,24,0.50) 100%)'
   }});
   hero.appendChild(heroPhotoOverlay);
   _dvGetStockPhoto('home_hero_v2','Dubai skyline Burj Khalifa sunset cinematic aerial golden hour').then(function(url){
@@ -2439,7 +2439,7 @@ function renderHome(){
   hl.appendChild(div({
     fontSize:'clamp(32px,7vw,52px)',fontWeight:'800',
     fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.03em',lineHeight:'1.05',
-    color:'#FFFFFF'
+    color:'#FFFFFF',textShadow:'0 2px 16px rgba(0,0,0,0.65)'
   },'Dubai Real Estate,'));
   // Gold gradient word
   var hl2=el('div',{style:{
@@ -2447,15 +2447,16 @@ function renderHome(){
     fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.03em',lineHeight:'1.05',
     background:'linear-gradient(90deg,#F0D060,#D4A843,#B8860B,#D4A843,#F0D060)',
     backgroundSize:'200% auto',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',
-    backgroundClip:'text',animation:'dvGoldShimmer 4s linear infinite'
+    backgroundClip:'text',animation:'dvGoldShimmer 4s linear infinite',
+    filter:'drop-shadow(0 2px 16px rgba(0,0,0,0.65))'
   }});
   hl2.textContent='Reimagined.';
   hl.appendChild(hl2);
   heroInner.appendChild(hl);
 
   heroInner.appendChild(div({
-    fontSize:'14px',color:'#6B7A9E',fontFamily:"'Inter',sans-serif",
-    lineHeight:'1.6',marginBottom:'24px',maxWidth:'380px'
+    fontSize:'14px',color:'#9BA8C8',fontFamily:"'Inter',sans-serif",
+    lineHeight:'1.6',marginBottom:'24px',maxWidth:'380px',textShadow:'0 1px 8px rgba(0,0,0,0.7)'
   },'AI-powered valuations, market intelligence & portfolio management for the world\'s most dynamic real estate market.'));
 
   // CTA buttons row

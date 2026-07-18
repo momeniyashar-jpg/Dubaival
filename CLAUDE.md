@@ -638,6 +638,39 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, follow-up — hero photos existed but
+  were invisible, real overlay bug)**: Direct follow-up to the two entries
+  below, same session. User shared a phone-camera photo of the live
+  deployed site showing the Home hero still just plain dark, no visible
+  photo at all — investigated instead of assuming the deploy hadn't landed.
+  A second screenshot (DevTools Console) confirmed `core.js?v=20260718b`
+  (the latest pushed version) WAS loaded and no error mentioned Unsplash/
+  Pexels/proxy-groq anywhere — ruling out both "not deployed" and "API key
+  missing." Root cause: the dark overlay drawn on top of each hero photo
+  (`js/app.js`/`js/about.js`/`js/marketindex.js`, added so text would stay
+  readable) was 90–94% opaque — heavy enough to make almost any photo
+  underneath indistinguishable from a plain dark gradient. The faint warm/
+  brownish tint visible in the user's screenshot (vs. the pure navy-black of
+  the very first, pre-photo version) was actually the real photo, just
+  crushed almost to invisibility.
+  - **Fix**: reduced all 3 overlays from ~0.80–0.94 opacity down to
+    ~0.42–0.58, so the photo is now genuinely visible rather than a barely-
+    there tint. To keep text fully readable at the new, much lighter overlay
+    level, added `textShadow`/`filter:drop-shadow(...)` to every text
+    element sitting on top of a hero photo (headline, gold-gradient word,
+    description, badges, logo) across all 3 placements, and lightened a few
+    muted-gray body-text colors (`#6B7A9E`→`#9BA8C8`/`#C8D2E8`) that were
+    originally tuned for a near-opaque dark background, not a lighter,
+    photo-backed one.
+  - Verified: `node -c` on all 3 touched files; re-ran the existing mocked-
+    fetch Playwright checks (still pass — photo wiring/orientation/quality-
+    ranking logic untouched, only the overlay/text styling changed); and a
+    new visual-regression Playwright pass rendering a synthetic gradient-
+    skyline SVG data URI as the "photo" (sidesteps this sandbox having no
+    outbound access to a real photo host) and screenshotting all 3
+    placements — confirmed the photo is now clearly visible behind the text
+    in all 3, and every text element remains fully legible against it.
+
 - **2026-07-18 (session continuing 14, follow-up — hero photo QUALITY fixed,
   not just presence)**: Direct follow-up to the entry below, same session —
   user came back after the first pass with a pointed correction: "عکس های

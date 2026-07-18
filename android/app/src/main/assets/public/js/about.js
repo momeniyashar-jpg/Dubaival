@@ -17,7 +17,7 @@ function renderAbout(){
   hero.appendChild(abtHeroPhoto);
   var abtHeroOverlay=el("div",{style:{
     position:"absolute",inset:"0",zIndex:"0",
-    background:"linear-gradient(160deg,rgba(7,11,20,0.90) 0%,rgba(10,14,26,0.94) 100%)"
+    background:"linear-gradient(160deg,rgba(7,11,20,0.45) 0%,rgba(10,14,26,0.58) 100%)"
   }});
   hero.appendChild(abtHeroOverlay);
   _dvGetStockPhoto("about_hero_v2","Dubai Marina skyline blue hour luxury waterfront cinematic").then(function(url){
@@ -25,10 +25,10 @@ function renderAbout(){
   });
   var abtHeroContent=div({position:"relative",zIndex:"1"});
   hero.appendChild(abtHeroContent);
-  abtHeroContent.appendChild(el("img",{src:"logo.png?v=20260715",alt:"DubAIVal",style:{width:"64px",height:"64px",borderRadius:"14px",margin:"0 auto 16px",display:"block",objectFit:"contain"}}));
-  abtHeroContent.appendChild(el("div",{style:{color:cl.sub,fontSize:"11px",fontWeight:"600",letterSpacing:"0.08em",textTransform:"uppercase",margin:"0 0 10px"}},"DubAIVal — short for Dubai AI Valuation"));
-  abtHeroContent.appendChild(el("h1",{style:{color:cl.gold,fontSize:"22px",fontWeight:"700",margin:"0 0 8px",letterSpacing:"0.04em"}},t("abt_mission")));
-  abtHeroContent.appendChild(el("p",{style:{color:cl.sub,fontSize:"13px",lineHeight:"1.7",maxWidth:"560px",margin:"0 auto"}},"DubAIVal is an independent AI valuation platform built to bring data-driven clarity to one of the world’s most dynamic property markets."));
+  abtHeroContent.appendChild(el("img",{src:"logo.png?v=20260715",alt:"DubAIVal",style:{width:"64px",height:"64px",borderRadius:"14px",margin:"0 auto 16px",display:"block",objectFit:"contain",filter:"drop-shadow(0 2px 10px rgba(0,0,0,0.6))"}}));
+  abtHeroContent.appendChild(el("div",{style:{color:"#C8D2E8",fontSize:"11px",fontWeight:"600",letterSpacing:"0.08em",textTransform:"uppercase",margin:"0 0 10px",textShadow:"0 1px 8px rgba(0,0,0,0.7)"}},"DubAIVal — short for Dubai AI Valuation"));
+  abtHeroContent.appendChild(el("h1",{style:{color:cl.gold,fontSize:"22px",fontWeight:"700",margin:"0 0 8px",letterSpacing:"0.04em",textShadow:"0 2px 14px rgba(0,0,0,0.75)"}},t("abt_mission")));
+  abtHeroContent.appendChild(el("p",{style:{color:"#C8D2E8",fontSize:"13px",lineHeight:"1.7",maxWidth:"560px",margin:"0 auto",textShadow:"0 1px 8px rgba(0,0,0,0.7)"}},"DubAIVal is an independent AI valuation platform built to bring data-driven clarity to one of the world’s most dynamic property markets."));
   wrap.appendChild(hero);
 
   // ── Mascot showcase ──────────────────────────────────────────────────────────

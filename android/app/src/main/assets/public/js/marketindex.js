@@ -16,7 +16,7 @@ function renderMarketIndex(){
     backgroundPosition:'center 45%',opacity:'0',transition:'opacity 1.4s ease',zIndex:'0'}});
   bannerWrap.appendChild(miBannerPhoto);
   var miBannerOverlay=el('div',{style:{position:'absolute',inset:'0',zIndex:'0',
-    background:'linear-gradient(100deg,rgba(7,11,20,0.92) 0%,rgba(10,14,26,0.80) 60%,rgba(10,14,26,0.90) 100%)'}});
+    background:'linear-gradient(100deg,rgba(7,11,20,0.52) 0%,rgba(10,14,26,0.42) 60%,rgba(10,14,26,0.52) 100%)'}});
   bannerWrap.appendChild(miBannerOverlay);
   _dvGetStockPhoto('marketindex_banner_v2','Dubai Business Bay skyscrapers aerial drone photography cinematic').then(function(url){
     if(url){miBannerPhoto.style.backgroundImage='url("'+url+'")';miBannerPhoto.style.opacity='1';}
@@ -25,9 +25,9 @@ function renderMarketIndex(){
 
   var header=el('div',{style:{position:'relative',zIndex:'1',display:'flex',alignItems:'center',justifyContent:'space-between'}});
   var _hL=el('div',{});
-  _hL.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'4px'},'Market Rankings'));
-  _hL.appendChild(div({fontSize:'22px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},'Market Index'));
-  _hL.appendChild(div({fontSize:'12px',color:'#6B7A9E',fontFamily:"'Inter',sans-serif",marginTop:'4px'},'by DubAIVal · '+dateStr));
+  _hL.appendChild(div({fontSize:'10px',color:'#C8D2E8',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'4px',textShadow:'0 1px 8px rgba(0,0,0,0.7)'},'Market Rankings'));
+  _hL.appendChild(div({fontSize:'22px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1',textShadow:'0 2px 14px rgba(0,0,0,0.75)'},'Market Index'));
+  _hL.appendChild(div({fontSize:'12px',color:'#C8D2E8',fontFamily:"'Inter',sans-serif",marginTop:'4px',textShadow:'0 1px 8px rgba(0,0,0,0.7)'},'by DubAIVal · '+dateStr));
   header.appendChild(_hL);
   var _hBadge=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:'rgba(212,168,67,0.08)',border:'1px solid rgba(212,168,67,0.20)',borderRadius:'20px',padding:'5px 11px',flexShrink:'0'}});
   var _hDot=el('div',{style:{width:'6px',height:'6px',borderRadius:'50%',background:'#D4A843',animation:'dvPulse 2s ease infinite'}});
