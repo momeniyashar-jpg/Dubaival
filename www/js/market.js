@@ -716,6 +716,27 @@ function renderMarket(){
   return wrap;
 }
 
+// Kept but no longer routed to anywhere (removed from the Market sub-tab bar
+// 2026-07-18 — see NAV_SECTIONS in js/core.js). The user's own framing: this
+// backtest (estimate vs. real DLD sale price) is fundamentally a trust/
+// credibility instrument, not a task tool someone returns to repeatedly —
+// its real home is a summarized version INSIDE the Analyzer result, at the
+// exact moment a user is deciding whether to trust that specific estimate.
+// It also has 2 honest weaknesses as currently built, per that discussion:
+// (1) the CASE_STUDIES list below is a static, hand-picked sample from 2025,
+// never refreshed — not a genuinely ongoing "track record"; (2) hand-picked
+// (not random) means it's vulnerable to the same "why should I trust a
+// curated sample" critique it's meant to resolve. The user's explicit
+// instruction: do NOT surface this anywhere (tab or Analyzer) again until
+// it's rebuilt on a real, automated, continuously-accumulating, unbiased
+// sample of ACTUAL closed transactions — which needs a reliable ongoing
+// transaction-data feed the project doesn't have yet (RapidAPI Bayut/PF
+// transaction endpoints have had repeated field-shape issues across this
+// project's history; the official DLD Dubai Pulse open-data API was
+// explored but never integrated). Once that exists, reuse the exact
+// CASE_STUDIES-scoring logic below (computeValuation() vs. real sold price)
+// against the new live-accumulated sample instead, and surface the
+// resulting stat inside renderAnalyzerResult(), not as its own tab.
 function renderTrackRecord(){
   const cl=C();
   const wrap=div({padding:"12px",maxWidth:"960px",margin:"0 auto",width:"100%",boxSizing:"border-box"});

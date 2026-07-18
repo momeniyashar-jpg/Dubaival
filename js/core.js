@@ -372,7 +372,6 @@ var NAV_SECTIONS=[
     {id:"Dashboard",label:"Dashboard"},
     {id:"Analyzer",label:"Analyzer"},
     {id:"QuickCheck",label:"Quick Check"},
-    {id:"TrackRecord",label:"Track Record"},
     {id:"Index",label:"Market Index"},
     {id:"Compare",label:"Compare"},
     {id:"Find",label:"Find"},

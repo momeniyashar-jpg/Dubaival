@@ -3419,7 +3419,10 @@ function render(preserveScroll){
   } else if(currentSection==="Market"){
     if(currentSubTab==="Dashboard")content.appendChild(renderMarket());
     else if(currentSubTab==="QuickCheck")content.appendChild(renderQuickCheck());
-    else if(currentSubTab==="TrackRecord")content.appendChild(renderTrackRecord());
+    // Track Record tab removed 2026-07-18 (see js/market.js renderTrackRecord()
+    // for why) — its backtest stat is reserved for a future spot INSIDE the
+    // Analyzer result once it's a real, automated, unbiased sample, not a
+    // hand-picked static one.
     else if(currentSubTab==="Analyzer")content.appendChild(renderAnalyzer());
     else if(currentSubTab==="Index")content.appendChild(renderMarketIndex());
     else if(currentSubTab==="Compare")content.appendChild(renderCompare());

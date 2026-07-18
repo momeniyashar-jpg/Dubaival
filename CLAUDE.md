@@ -12,7 +12,8 @@ or move any tab/sub-tab without the user explicitly asking for it. Any change to
 `NAV_SECTIONS` in `js/core.js` or the routing block in `js/app.js` **must** be
 accompanied by an update to this table. Treat this as the single source of truth.
 
-### Complete Tab Map (locked 2026-07-04)
+### Complete Tab Map (locked 2026-07-04, TrackRecord removed 2026-07-18 —
+see the dated note directly below the table)
 
 | Section (id) | Sub-tab (id) | Label shown | Render function | File |
 |---|---|---|---|---|
@@ -20,7 +21,6 @@ accompanied by an update to this table. Treat this as the single source of truth
 | **Market** | Dashboard | Dashboard | `renderMarket()` | `js/market.js` |
 | | Analyzer | Analyzer | `renderAnalyzer()` | `js/market.js` |
 | | QuickCheck | Quick Check | `renderQuickCheck()` | `js/market.js` |
-| | TrackRecord | Track Record | `renderTrackRecord()` | `js/market.js` |
 | | Index | Market Index | `renderMarketIndex()` | `js/marketindex.js` |
 | | Compare | Compare | `renderCompare()` | `js/portfolio.js` |
 | | Find | Find | `renderFind()` | `js/app.js` |
@@ -45,6 +45,24 @@ accompanied by an update to this table. Treat this as the single source of truth
 
 ### Hidden routes (not in nav, accessible via hash only)
 - `#admin` → `renderAdmin()` in `js/app.js` (password protected)
+
+### Removed sub-tabs (kept here so a future session doesn't re-add them
+blindly, matching the spirit of rule 5 below for removals too)
+- **Market → TrackRecord** (removed 2026-07-18, user-approved, after a
+  direct product discussion) — `renderTrackRecord()` (`js/market.js`) still
+  exists (unreferenced by any route) since its scoring logic is meant to be
+  reused later, but is not currently reachable anywhere. Full reasoning and
+  the plan for what replaces it are in the 2026-07-18 work-log entry and in
+  a comment directly above `renderTrackRecord()` in `js/market.js` — in
+  short: the feature is fundamentally a one-time trust/credibility backtest
+  ("our model checked against N real sales"), not a task tool, and its
+  current sample (18 case studies) is static and hand-picked, which
+  undercuts the very credibility it's meant to build. User's explicit
+  instruction: do not show this anywhere (tab or elsewhere) again until it's
+  rebuilt on a real, automated, continuously-growing, unbiased sample of
+  actual closed transactions — see Outstanding items below for what that
+  requires. Once that exists, it belongs inside the Analyzer result, not as
+  its own tab.
 
 ### Rules for future sessions
 1. **DO NOT** add a new top-level section without user approval.
@@ -637,6 +655,44 @@ features continue working exactly as before. Zero breakage.
 - `theme-color` meta tag added (`#070B14`)
 
 ## Recent work log (most recent first)
+
+- **2026-07-18 (session continuing 14, Track Record tab removed pending
+  real automation)**: User asked, bluntly, what the Track Record tab
+  ("a tab with a few lines of numbers") actually does. Explained honestly:
+  it backtests the valuation model against 18 hand-picked real 2025 DLD
+  sales (median error / % within ±10%/±20%), a legitimate trust-building
+  concept — but weak in its CURRENT form (static, never refreshed, and
+  hand-picked rather than a random/unbiased sample, which undercuts the
+  very credibility it's meant to build) and poorly placed (an isolated tab
+  most users never find, when the moment it actually matters is while
+  someone's deciding whether to trust a specific Analyzer result). User
+  asked what full automation would require, and — sharper — whether even a
+  perfectly automated version would be a genuinely useful TOOL or just
+  "proof we show to others." Answered directly: even automated, this
+  remains fundamentally a one-time credibility instrument (like a fund's
+  published track record) — nobody returns to it repeatedly the way they
+  do Analyzer/Portfolio, so automating it makes the credibility claim more
+  honest, not more "useful" in the task sense. User's decision: bring it
+  into the Analyzer eventually, but show NOTHING (neither the tab nor
+  anything inside Analyzer) until it's genuinely automated on a real,
+  unbiased, continuously-growing transaction sample.
+  - **Fix, this session**: removed `{id:"TrackRecord",...}` from
+    `NAV_SECTIONS` (`js/core.js`) and its routing branch in `js/app.js`'s
+    `render()`. `renderTrackRecord()` itself (`js/market.js`) is left in
+    place, unreferenced, with a new comment explaining exactly why it's
+    dormant and what replaces it later (see the new "Removed sub-tabs"
+    note directly under the frozen nav table above) — its CASE_STUDIES-
+    scoring logic (`computeValuation()` vs. real sold price) is exactly
+    what a future automated version should reuse against a real
+    accumulating sample, not something to rewrite from scratch.
+  - Verified: `node -c` on all 3 touched files; a Playwright test
+    confirming `NAV_SECTIONS` no longer lists `TrackRecord`, no "Track
+    Record" pill renders in the Market sub-tab bar, and the neighboring
+    Analyzer/Quick Check tabs still route and render correctly (no
+    collateral routing regression) — zero console errors. Re-ran every
+    other test built this session (hero photos, Arabic-toggle removal,
+    News header/banner change, Find live-listings merge) — zero
+    regressions.
 
 - **2026-07-18 (session continuing 14, small follow-up — Live Listings now
   checks PropertyFinder too, not just Bayut)**: User asked directly why the
@@ -6224,6 +6280,30 @@ These files contain critical business logic and data:
 
 ## Outstanding / open items
 
+- **🟡 Track Record — removed from nav 2026-07-18, needs a real automated
+  transaction feed before it comes back** (see the same-dated work-log
+  entry above for the full product discussion). To rebuild it properly:
+  (1) a reliable, ongoing source of REAL, RANDOMLY-sampled (not hand-
+  picked) CLOSED sale transactions with building/area/beds/size/price/date
+  — the project doesn't have a solid one today; RapidAPI Bayut/PropertyFinder
+  transaction-shaped endpoints have had repeated field-shape/parser issues
+  across this project's history (see the 2026-07-15 "Bayut import" and
+  earlier PropertyFinder-parser entries), and the official DLD Dubai Pulse
+  open-data API was considered but never integrated; (2) a weekly (or
+  similar) cron, modeled on the existing `forecast-accuracy` job in
+  `api/refresh-market-data.js`, that scores `computeValuation()` against
+  each newly-closed transaction using ONLY the benchmark data that existed
+  before that sale (to avoid hindsight bias) and appends the result to a
+  new, append-only Supabase table — never overwritten, growing indefinitely;
+  (3) once real accumulated volume exists, surface a summarized stat
+  ("checked against N real sales, median error X%") inside
+  `renderAnalyzerResult()` (`js/market.js`) — NOT as its own tab — reusing
+  the exact scoring approach already written in `renderTrackRecord()`
+  (same file, currently dormant/unreferenced, kept specifically for this
+  reuse). Do not re-add the Market → TrackRecord tab or resurface the
+  current static/hand-picked case-study list anywhere in the meantime —
+  that was the user's explicit instruction.
+
 - **🔴 Directive #4 category 2 (Meta OAuth automation) — BLOCKED, not a
   code problem: the business has no real UAE trade license yet, so Meta
   Business Verification cannot be completed** (found 2026-07-18, session
@@ -6920,7 +7000,6 @@ has free tier so companies can test easily).
 | Market Dashboard | ✅ Complete | Low |
 | Analyzer | ✅ Complete | — |
 | QuickCheck | ✅ Complete | Low |
-| TrackRecord | ✅ Complete | Low |
 | Market Index | ⚠️ Partial | Low |
 | Compare | ✅ Complete | — |
 | Find | 🟡 Likely fixed, needs live confirm (see note below) | **High** |
@@ -6991,7 +7070,6 @@ has free tier so companies can test easily).
   گم شده بود). دکمه bulk export («Download Full Market Data») کاملاً از DOM
   حذف شد (نه فقط مخفی) تا سشن بعدی اشتباهی «تمیزش» نکنه؛ سه export دیگه
   (Analyzer, Portfolio, Area Comparison) که scoped به کار خود کاربرن دست‌نخورده موندن.
-- **TrackRecord**: case studies hardcoded، لینک‌های Bayut/PropertyFinder ممکن است stale شوند
 - **Reports**: Voice input در Firefox و برخی mobile browsers کار نمی‌کند بدون fallback
 
 ---
