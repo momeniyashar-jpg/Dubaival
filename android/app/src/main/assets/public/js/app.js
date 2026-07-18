@@ -1056,8 +1056,12 @@ function renderAlerts(){
   const formWrap=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginBottom:"14px"}});
   formWrap.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"New Alert"));
 
-  if(!window.ALERT_FORM)window.ALERT_FORM={area:"",maxPSF:"",minYield:"",type:"Apartment"};
+  // "beds" added 2026-07-18 (Alerts audit) — needed to make the Min Yield
+  // filter dimensionally meaningful (see the yield-formula fix below); this
+  // form previously had no bed-count input at all.
+  if(!window.ALERT_FORM)window.ALERT_FORM={area:"",maxPSF:"",minYield:"",type:"Apartment",beds:"2 BR"};
   var AF=window.ALERT_FORM;
+  if(!AF.beds)AF.beds="2 BR";
 
   // Row 1: Area + Type
   const r1=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"8px"}});
@@ -1071,8 +1075,12 @@ function renderAlerts(){
   r1.appendChild(tBox);
   formWrap.appendChild(r1);
 
-  // Row 2: Max PSF + Min Yield
-  const r2=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"10px"}});
+  // Row 2: Beds + Max PSF
+  const r2=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"8px"}});
+  const bBox=el("div",{});
+  bBox.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Beds (for yield calc)"));
+  bBox.appendChild(mkSelect({width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"8px 10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",outline:"none"},["Studio","1 BR","2 BR","3 BR","4 BR","5+ BR"],AF.beds,function(v){AF.beds=v;}));
+  r2.appendChild(bBox);
   const pBox=el("div",{});
   pBox.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Max PSF (AED)"));
   const pInp=el("input",{type:"number",placeholder:"e.g. 2000",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"8px 10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
@@ -1080,22 +1088,24 @@ function renderAlerts(){
   pInp.addEventListener("input",function(){AF.maxPSF=this.value;});
   pBox.appendChild(pInp);
   r2.appendChild(pBox);
-  const yBox=el("div",{});
-  yBox.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Min Yield %"));
+  formWrap.appendChild(r2);
+
+  // Row 3: Min Yield
+  const r3=el("div",{style:{marginBottom:"10px"}});
+  r3.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},"Min Yield %"));
   const yInp=el("input",{type:"number",placeholder:"e.g. 7",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"8px 10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
   yInp.value=AF.minYield||"";
   yInp.addEventListener("input",function(){AF.minYield=this.value;});
-  yBox.appendChild(yInp);
-  r2.appendChild(yBox);
-  formWrap.appendChild(r2);
+  r3.appendChild(yInp);
+  formWrap.appendChild(r3);
 
   const addBtn=el("button",{style:{width:"100%",padding:"11px",borderRadius:"8px",border:"none",background:"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#08090C",fontSize:"13px",fontWeight:"700",fontFamily:"'Inter',sans-serif",cursor:"pointer"}});
   addBtn.textContent="+ Add Alert";
   addBtn.addEventListener("click",function(){
-    var a={id:Date.now(),area:AF.area||"Any",type:AF.type||"Any",maxPSF:parseInt(AF.maxPSF)||null,minYield:parseFloat(AF.minYield)||null,created:new Date().toLocaleDateString("en-GB")};
+    var a={id:Date.now(),area:AF.area||"Any",type:AF.type||"Any",beds:AF.beds||"2 BR",maxPSF:parseInt(AF.maxPSF)||null,minYield:parseFloat(AF.minYield)||null,created:new Date().toLocaleDateString("en-GB")};
     alerts.push(a);
     try{localStorage.setItem("dv_alerts",JSON.stringify(alerts));}catch(e){}
-    window.ALERT_FORM={area:"",maxPSF:"",minYield:"",type:"Apartment"};
+    window.ALERT_FORM={area:"",maxPSF:"",minYield:"",type:"Apartment",beds:"2 BR"};
     render();
   });
   formWrap.appendChild(addBtn);
@@ -1110,6 +1120,7 @@ function renderAlerts(){
       const info=el("div",{style:{flex:"1"}});
       info.appendChild(div({color:cl.white,fontSize:"13px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},alert.area+" - "+alert.type));
       var criteria=[];
+      if(alert.beds)criteria.push(alert.beds);
       if(alert.maxPSF)criteria.push("Max PSF AED "+alert.maxPSF.toLocaleString());
       if(alert.minYield)criteria.push("Min "+alert.minYield+"% yield");
       info.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},criteria.join(" / ")||"Any match"));
@@ -1123,20 +1134,48 @@ function renderAlerts(){
     wrap.appendChild(listWrap);
   }
 
-  // Scan DB for matches
+  // Scan DB for matches — rewritten 2026-07-18 (Alerts audit), 3 real bugs:
+  // (1) yield was computed as rent/(PSF*1000) — PSF is AED per sqft, not a
+  // total price, so "PSF*1000" was a dimensionally meaningless denominator
+  // that happened to only coincidentally land near a plausible % by
+  // implicitly assuming exactly a 1000 sqft unit, and it always used the
+  // 2BR rent figure regardless of the alert's own type/beds. Now reuses
+  // estimateBuildingRentYield() (js/valuation.js, session 11m) — the same
+  // real, bed/type-aware building-level yield estimator Find/Smart
+  // Discovery already use — fed this DB entry directly as its own bData
+  // (it already has the {p,sc,g,a} shape that function expects).
+  // (2) the "Type" (Apartment/Villa) filter was captured in the alert
+  // object but never actually checked anywhere in the matching logic —
+  // picking "Villa" returned apartments too. Now checked via the same
+  // VILLA_AREAS-membership convention used everywhere else in this app to
+  // infer a building's type (DB entries have no direct type field).
+  // (3) a single global 12-match cap meant a 2nd alert could show ZERO
+  // results if the 1st alert alone already filled the cap (Array.some()
+  // short-circuits per building on whichever alert matches first). Now
+  // scans per-alert with its own cap, then merges/dedupes by building key.
+  var dbEntries=Object.entries(DB);
+  var seenAlertKeys={};
   var matches=[];
-  Object.entries(DB).forEach(function(entry){
-    if(matches.length>=12)return;
-    var key=entry[0],d=entry[1];
-    var matched=alerts.some(function(alert){
+  var perAlertCap=8,totalCap=24;
+  alerts.forEach(function(alert){
+    var isVillaFilter=alert.type==="Villa";
+    var found=0;
+    for(var i=0;i<dbEntries.length;i++){
+      if(found>=perAlertCap||matches.length>=totalCap)break;
+      var key=dbEntries[i][0],d=dbEntries[i][1];
+      if(seenAlertKeys[key])continue;
+      var isVillaBldg=typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(d.a);
       var areaOk=!alert.area||alert.area==="Any"||d.a===alert.area;
+      var typeOk=!alert.type||alert.type==="Any"||(isVillaFilter?isVillaBldg:!isVillaBldg);
       var psfOk=!alert.maxPSF||d.p<=alert.maxPSF;
-      var aData=AREAS[d.a];
-      var yld=aData&&aData.r2?(aData.r2/(d.p*1000)*100):null;
-      var yldOk=!alert.minYield||!yld||(yld>=alert.minYield);
-      return areaOk&&psfOk&&yldOk;
-    });
-    if(matched)matches.push({key:key,d:d});
+      var yr=(alert.minYield&&typeof estimateBuildingRentYield==="function")?estimateBuildingRentYield(d,AREAS[d.a],alert.beds||"2 BR",isVillaBldg,d.p):null;
+      var yldOk=!alert.minYield||!yr||(yr.gross>=alert.minYield);
+      if(areaOk&&typeOk&&psfOk&&yldOk){
+        seenAlertKeys[key]=true;
+        matches.push({key:key,d:d});
+        found++;
+      }
+    }
   });
 
   if(alerts.length>0){
@@ -1187,10 +1226,35 @@ function renderAlerts(){
     var pwAreaSel=mkSelect({width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"8px 10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",outline:"none",marginBottom:"8px"},["Select area…"].concat(Object.keys(AREAS)),PW.target||"Select area…",function(v){PW.target=v==="Select area…"?"":v;});
     pwCard.appendChild(pwAreaSel);
   }else{
-    var pwBldgInp=el("input",{type:"text",placeholder:"Building name…",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"8px 10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"8px"}});
+    var pwBldgInp=el("input",{type:"text",placeholder:"Building name…",style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"8px 10px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"6px"}});
     pwBldgInp.value=PW.target||"";
-    pwBldgInp.addEventListener("input",function(){PW.target=this.value;});
+    // Live building-recognition badge — added 2026-07-18 (Alerts audit).
+    // Previously a mistyped building name saved to the server with zero
+    // feedback: api/price-alerts.js accepts any targetName with no
+    // existence check, sends a confirmation email promising "we'll email
+    // you when pricing moves," and the daily cron would then silently find
+    // nothing to compare against forever — a real, invisible dead-end.
+    // Updates a dedicated small DOM node directly (not a full render()) so
+    // it responds on every keystroke without re-running the Deal Alerts
+    // DB scan above on each character typed.
+    var pwBldgBadge=div({fontSize:"10.5px",fontFamily:"'Inter',sans-serif",marginBottom:"8px",minHeight:"14px"});
+    function _pwUpdateBldgBadge(){
+      var v=(pwBldgInp.value||"").trim();
+      pwBldgBadge.innerHTML="";
+      if(v.length<3)return;
+      var b=typeof lookupBuilding==="function"?lookupBuilding(v,null):null;
+      if(b&&b.a){
+        pwBldgBadge.style.color="#10B981";
+        pwBldgBadge.textContent="✓ Recognized in "+b.a;
+      }else{
+        pwBldgBadge.style.color="#F59E0B";
+        pwBldgBadge.textContent="⚠ Not in our database — we'll still watch live listings, but double-check the spelling";
+      }
+    }
+    pwBldgInp.addEventListener("input",function(){PW.target=this.value;_pwUpdateBldgBadge();});
     pwCard.appendChild(pwBldgInp);
+    _pwUpdateBldgBadge();
+    pwCard.appendChild(pwBldgBadge);
   }
 
   // Email input

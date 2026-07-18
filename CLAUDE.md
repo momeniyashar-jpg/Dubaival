@@ -656,6 +656,74 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, Portfolio Alerts audit — 5 real
+  gaps found and fixed)**: Direct follow-up to the Health/Projections audit
+  below, same conversation — user asked to review `renderAlerts()`
+  (`js/app.js`, the Portfolio → Alerts sub-tab: client-side "Deal Alerts" DB
+  scanner + server-backed "Email Price Watch") with the same audit-then-fix
+  treatment: "Alerts رو به همین ترتیب بررسی کن". Found the most serious bug
+  yet in this string of Portfolio audits:
+  1. **Yield filter was dimensionally broken** — `var yld=aData&&aData.r2?
+     (aData.r2/(d.p*1000)*100):null;` divided an annual rent estimate by
+     `PSF × 1000`, treating a per-sqft price as if it were a total price
+     (PSF isn't a price — multiplying it by an arbitrary constant doesn't
+     produce one). It also always used the 2BR rent figure (`r2`)
+     regardless of what the alert's own criteria implied, and the form had
+     no bed-count input at all to make that meaningful. Fixed by adding a
+     "Beds (for yield calc)" selector to the alert form and reusing
+     `estimateBuildingRentYield()` (`js/valuation.js`, the same real,
+     bed/type-aware building-level yield estimator already built in
+     session 11m for Find/Smart Discovery) — fed each DB entry directly as
+     its own `bData` (it already has the `{p,sc,g,a}` shape that function
+     expects, no new lookup needed).
+  2. **The "Type" (Apartment/Villa) filter was captured in the alert object
+     but never once checked in the matching logic** — picking "Villa"
+     silently returned apartment buildings too. Fixed via the same
+     `VILLA_AREAS`-membership convention already used everywhere else in
+     this app to infer a building's type (DB entries carry no direct type
+     field, only through area classification).
+  3. **A single global 12-match cap could zero out a second alert's
+     results entirely** — `Array.some()` short-circuits per building on
+     whichever alert matches first, so if alert #1 alone already had 12+
+     matches, alert #2 would never get to show any. Rewrote the scan to
+     run per-alert with its own cap (8), merging/deduping by building key
+     up to a combined display cap (24) — verified two alerts (one broad,
+     one narrow) both get real, non-zero representation.
+  4. **Email Price Watch's "Building" field accepted anything with zero
+     validation** — confirmed in `api/price-alerts.js`: a mistyped building
+     name saves fine, gets a confirmation email promising "we'll email you
+     when pricing moves," and the daily cron then has nothing real to
+     compare against forever — a silent, invisible dead end with no
+     feedback anywhere. Added a live recognition badge (green "✓ Recognized
+     in {area}" via `lookupBuilding()`, or an amber "not in our database —
+     double-check spelling" warning) that updates on every keystroke via a
+     small dedicated DOM node updated directly (not a full `render()`, to
+     avoid re-running the 9,227-entry Deal Alerts DB scan on every
+     character typed) — matches the same "✓ Verified" badge pattern
+     already established in the Assets tab's Add Property form.
+  5. **Considered, not fixed**: a background "new match" notification for
+     Deal Alerts (mirroring Health's rent-optimization notification
+     pattern) was considered and rejected — Deal Alerts scans a static,
+     session-local `DB` object that doesn't change between visits, so the
+     set of matches for saved criteria is already fully known and shown the
+     instant an alert is added; a "notify on new match" mechanism would add
+     real complexity for a signal that has no actual variability to
+     surface, unlike Email Price Watch's genuinely time-varying live-market
+     cron. Flagged here rather than silently building something with no
+     real value.
+  - Verified: `node -c`; a real-browser Playwright test confirming the new
+    Beds selector renders, `estimateBuildingRentYield()` produces a sane
+    2-15% yield range for a real Dubai Marina building (vs. the old
+    formula's arbitrary output), a Villa-type alert's simulated matches are
+    ALL genuinely villa-area buildings (0 apartment leakage), two
+    simultaneously-active alerts (one narrow Villa/3BR, one broad Any/
+    Apartment) both receive non-zero match counts confirming the fairness
+    fix, the live building-recognition badge correctly shows green for a
+    real building ("Marina Gate 1") and amber for a fabricated one, and
+    Remove/empty-state/Any-type-with-yield-only edge cases all render
+    without throwing; a 7-tab smoke sweep confirming zero regressions
+    elsewhere — zero console errors throughout.
+
 - **2026-07-18 (session continuing 14, Portfolio Health + Projections
   audit — 8 real gaps found and fixed)**: Direct follow-up to the Assets
   tab audit below, in the same conversation — user asked for the same
