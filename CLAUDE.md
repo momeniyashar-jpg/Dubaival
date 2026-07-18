@@ -638,6 +638,15 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, small follow-up — About hero photo
+  swapped to Palm Jumeirah)**: User asked for the About page hero photo
+  specifically to be Palm Jumeirah rather than the Dubai Marina query it
+  started with. `js/about.js` — bumped `_dvGetStockPhoto` cache key
+  `about_hero_v2`→`v3` and changed the query to "Palm Jumeirah aerial view
+  Dubai cinematic golden hour" (keeps the same landscape-orientation,
+  most-liked-result selection logic from the earlier quality fix). Home
+  hero and Market Index banner queries unchanged.
+
 - **2026-07-18 (session continuing 14, follow-up — hero photos existed but
   were invisible, real overlay bug)**: Direct follow-up to the two entries
   below, same session. User shared a phone-camera photo of the live
