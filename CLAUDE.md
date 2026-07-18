@@ -638,6 +638,36 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, News header shortcut removed +
+  News page got a hero photo)**: User asked to remove the "News" icon
+  button from the top global header (a `newspaper` icon with a red
+  new-article dot, `js/app.js`, distinct from the actual Market → News
+  sub-tab per the frozen-nav table — this only removed the header
+  shortcut, not the tab itself), framing News as a low-update-frequency
+  tab that doesn't need a dedicated always-visible header icon. Asked, in
+  the same message, to first add a photo inside the News page itself so
+  it doesn't look bare/plain for anyone who still visits it via Market →
+  News.
+  - **`js/news.js`**: added a hero banner (query "Dubai skyline
+    construction cranes development cinematic") at the top of
+    `renderNews()`, same `_dvGetStockPhoto()`-cached, dark-overlay-with-
+    text-shadow pattern already established for Home/About/Market Index —
+    the title row and description paragraph now sit inside the new
+    `newsBannerWrap` on top of the photo+overlay layers.
+  - **`js/app.js`**: removed the header's `newsBtn` (the `newspaper`-icon
+    shortcut + its new-article red dot) entirely — `renderNotifBell()`
+    (unrelated, unaffected) is now the only icon in that header slot.
+    Confirmed via grep that the dot's underlying `dv_news_last_visit`
+    tracking is still used independently inside `js/news.js` itself
+    (unread-article bookkeeping for the page's own filter counts), so
+    nothing was left dangling.
+  - Verified: `node -c` on both touched files; a real-browser Playwright
+    pass with a mocked Unsplash response — confirmed the header icon
+    button is gone, the News page's banner photo resolves and fades in
+    correctly, and Market → News is still fully reachable via the normal
+    sub-tab bar with its title/content rendering correctly on top of the
+    photo — zero console errors.
+
 - **2026-07-18 (session continuing 14, Arabic toggle hidden — real, honest
   bug)**: User reported switching to Arabic doesn't actually translate the
   site — text stays English, only the reading direction flips. Investigated

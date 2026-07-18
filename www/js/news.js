@@ -574,9 +574,32 @@ function renderNews() {
   var cl = C();
   var wrap = div({ maxWidth: "800px", margin: "0 auto", padding: "24px 16px 80px", fontFamily: "'Space Grotesk',monospace" });
 
+  // ─ Header — sits on a real Dubai construction/skyline photo, same
+  // graceful cached-photo pattern as the Home/About/Market Index heroes
+  // (js/core.js _dvGetStockPhoto) so this page doesn't feel bare/plain to
+  // anyone who does visit it.
+  var newsBannerWrap = el("div", { style: {
+    position: "relative", overflow: "hidden", borderRadius: "16px",
+    marginBottom: "14px", padding: "18px 16px 14px", border: "1px solid rgba(255,255,255,0.06)"
+  }});
+  var newsBannerPhoto = el("div", { style: {
+    position: "absolute", inset: "0", backgroundSize: "cover", backgroundPosition: "center 40%",
+    opacity: "0", transition: "opacity 1.4s ease", zIndex: "0"
+  }});
+  newsBannerWrap.appendChild(newsBannerPhoto);
+  var newsBannerOverlay = el("div", { style: {
+    position: "absolute", inset: "0", zIndex: "0",
+    background: "linear-gradient(100deg,rgba(7,11,20,0.52) 0%,rgba(10,14,26,0.42) 60%,rgba(10,14,26,0.52) 100%)"
+  }});
+  newsBannerWrap.appendChild(newsBannerOverlay);
+  _dvGetStockPhoto("news_banner_v1", "Dubai skyline construction cranes development cinematic").then(function(url) {
+    if (url) { newsBannerPhoto.style.backgroundImage = 'url("' + url + '")'; newsBannerPhoto.style.opacity = "1"; }
+  });
+  wrap.appendChild(newsBannerWrap);
+
   // ─ Header ─
-  var titleRow = div({ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", marginBottom: "6px", flexWrap: "wrap" });
-  titleRow.appendChild(el("h1", { style: { color: cl.white, fontSize: "20px", fontWeight: "700", margin: "0" } }, "Dubai Real Estate News"));
+  var titleRow = div({ position: "relative", zIndex: "1", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", marginBottom: "6px", flexWrap: "wrap" });
+  titleRow.appendChild(el("h1", { style: { color: cl.white, fontSize: "20px", fontWeight: "700", margin: "0", textShadow: "0 2px 14px rgba(0,0,0,0.75)" } }, "Dubai Real Estate News"));
   var refreshBtn = el("button", {
     style: {
       background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.2)",
@@ -590,10 +613,10 @@ function renderNews() {
   refreshBtn.addEventListener("mouseenter", function() { refreshBtn.style.background = "rgba(212,175,55,0.15)"; });
   refreshBtn.addEventListener("mouseleave", function() { refreshBtn.style.background = "rgba(212,175,55,0.08)"; });
   titleRow.appendChild(refreshBtn);
-  wrap.appendChild(titleRow);
+  newsBannerWrap.appendChild(titleRow);
 
-  wrap.appendChild(el("p", {
-    style: { color: cl.sub, fontSize: "12px", margin: "0 0 8px", lineHeight: "1.6" }
+  newsBannerWrap.appendChild(el("p", {
+    style: { position: "relative", zIndex: "1", color: "#C8D2E8", fontSize: "12px", margin: "0", lineHeight: "1.6", textShadow: "0 1px 8px rgba(0,0,0,0.7)" }
   }, "Live market news from Gulf News, Arabian Business, Khaleej Times, Google News and more. Auto-refreshes every minute."));
 
   _newsStatusEl = div({ minHeight: "18px", marginBottom: "14px" });
