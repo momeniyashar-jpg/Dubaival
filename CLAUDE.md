@@ -8558,7 +8558,7 @@ has free tier so companies can test easily).
 | Market Dashboard | ✅ Complete | Low |
 | Analyzer | ✅ Complete | — |
 | QuickCheck | ✅ Complete | Low |
-| Market Index | ⚠️ Partial | Low |
+| Market Index | ✅ Complete — **the tab's own "click any area for valuation" promise silently failed on a stale analyzerState.stage, plus a mislabeled Sustainability metric, both fixed 2026-07-18** | Low |
 | Compare | ✅ Complete | — |
 | Find | 🟡 Likely fixed, needs live confirm (see note below) | **High** |
 | Map | ✅ Complete | Low |
