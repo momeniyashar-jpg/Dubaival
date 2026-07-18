@@ -7716,6 +7716,13 @@ async function showAvatarVideoGen(avatarId){
       selectedMethod=mt.id;
       methodCards.forEach(function(c,i){c.style.background="#0D1117";c.style.borderColor="#2A3040";});
       mc.style.background="linear-gradient(135deg,"+mt.color+"22,"+mt.color+"11)";mc.style.borderColor=mt.color;
+      // Fixed 2026-07-18 (Avatar Studio audit) — heygenAvatarSection was
+      // created with display:"none" and never toggled anywhere, so a user
+      // selecting the HeyGen engine had no way to see the "HeyGen Avatar ID"
+      // input or "Load My HeyGen Avatars" button at all — Generate would
+      // then fail with "Select a HeyGen avatar first (click Load Avatars)",
+      // an instruction pointing at a button the user could never see.
+      heygenAvatarSection.style.display=selectedMethod==="heygen"?"block":"none";
     };
     var topRow=div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"4px"});
     topRow.appendChild(el("span",{style:{color:mt.color,fontSize:"12px",fontWeight:"800",fontFamily:"monospace"}},mt.icon+" "+mt.name));
@@ -7729,7 +7736,7 @@ async function showAvatarVideoGen(avatarId){
 
   card.appendChild(el("div",{style:{color:"#10B981",fontSize:"9px",fontFamily:"monospace",marginBottom:"10px",padding:"6px 8px",background:"#10B98115",borderRadius:"6px",border:"1px solid #10B98133"}},"Showing engines currently active on this account — just click Generate."));
 
-  var heygenAvatarSection=div({display:"none",marginBottom:"10px"});
+  var heygenAvatarSection=div({display:selectedMethod==="heygen"?"block":"none",marginBottom:"10px"});
   var heygenAvatarId=localStorage.getItem("dv_heygen_avatar")||"";
   heygenAvatarSection.appendChild(el("label",{style:{color:"#10B981",fontSize:"10px",fontFamily:"monospace",display:"block",marginBottom:"3px"}},"HeyGen Avatar ID"));
   var heygenAvatarInp=el("input",{style:{width:"100%",background:"#0D1117",border:"1px solid #2A3040",borderRadius:"6px",padding:"6px 8px",color:"#E0E0E0",fontSize:"10px",fontFamily:"monospace",boxSizing:"border-box",marginBottom:"4px"},placeholder:"Avatar ID from HeyGen dashboard or click Load Avatars",value:heygenAvatarId});
@@ -8004,7 +8011,14 @@ function showAvatarAutoPilot(avatarId){
   var resultArea=div({});card.appendChild(resultArea);
 
   var launchBtn=el("button",{style:{width:"100%",marginTop:"8px",background:"linear-gradient(135deg,#3B82F6,#8B5CF6)",color:"#FFF",border:"none",borderRadius:"10px",padding:"14px",fontSize:"13px",fontWeight:"800",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"},onclick:async function(){
-    var days=parseInt(daysInp.value)||7;
+    // Clamped 2026-07-18 (Avatar Studio audit) — this free-text field had no
+    // upper bound at all; a mistyped or oversized value (e.g. "9999") would
+    // silently queue thousands of sequential askAI() calls with no
+    // confirmation, matching neither this feature's own "Generate for how
+    // many days?" intent nor the app's own 30-day ceiling used everywhere
+    // else for bulk generation (the dedicated Batch Generator).
+    var days=Math.max(1,Math.min(30,parseInt(daysInp.value)||7));
+    daysInp.value=String(days);
     var freq=parseInt(freqSelect.value)||1;
     var totalPosts=days*freq;
     launchBtn.textContent="Generating "+totalPosts+" posts as "+av.name+"...";launchBtn.disabled=true;
@@ -8048,7 +8062,7 @@ function showAvatarAutoPilot(avatarId){
 
     resultArea.innerHTML="";
     var successCard=div({background:"#10B98122",border:"1px solid #10B981",borderRadius:"12px",padding:"16px",textAlign:"center"});
-    successCard.appendChild(el("div",{style:{fontSize:"36px",marginBottom:"8px"}},""));
+    successCard.appendChild(el("div",{style:{fontSize:"36px",marginBottom:"8px"}},"🎉"));
     successCard.appendChild(el("div",{style:{color:"#10B981",fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"}},"Auto-Pilot Complete!"));
     successCard.appendChild(el("div",{style:{color:"#E0E0E0",fontSize:"12px",fontFamily:"monospace",marginTop:"6px"}},generated+" posts generated and scheduled for "+days+" days"));
     successCard.appendChild(el("div",{style:{color:"#8899AA",fontSize:"10px",fontFamily:"monospace",marginTop:"4px"}},"Posts will auto-publish via client engine + server cron (24/7)"));
@@ -8122,7 +8136,7 @@ function showAvatarBatchGen(avatarId){
 
     resultArea.innerHTML="";
     var done=div({background:"#10B98122",border:"1px solid #10B981",borderRadius:"12px",padding:"20px",textAlign:"center"});
-    done.appendChild(el("div",{style:{fontSize:"48px",marginBottom:"8px"}},""));
+    done.appendChild(el("div",{style:{fontSize:"48px",marginBottom:"8px"}},"🎉"));
     done.appendChild(el("div",{style:{color:"#10B981",fontSize:"16px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"}},"30 Days Scheduled!"));
     done.appendChild(el("div",{style:{color:"#E0E0E0",fontSize:"12px",fontFamily:"monospace",marginTop:"6px"}},generated+" posts as "+av.name+" ready for auto-publishing"));
     done.appendChild(el("div",{style:{color:"#3B82F6",fontSize:"10px",fontFamily:"monospace",marginTop:"6px"}},"Click 'Sync to Cloud' in Auto-Post Log for 24/7 server-side publishing"));

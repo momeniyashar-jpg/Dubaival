@@ -656,6 +656,55 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, Avatar Studio audit — 3 real gaps
+  found and fixed, one of them a whole engine unusable)**: Direct follow-up,
+  same conversation — user asked for the same audit-then-fix treatment on
+  Avatar Studio: "این بررسی رو برای Avatar Studio انجام بده". Read
+  `showAvatarStudio()`/`showAvatarBuilder()`/`showAvatarContentGen()`/
+  `showAvatarVideoGen()`/`showAvatarAutoPilot()`/`showAvatarBatchGen()`
+  (`js/chat.js`) end to end. Found:
+  1. **HeyGen video generation was completely unusable — the input needed
+     to use it was never shown to the user.** `showAvatarVideoGen()`
+     creates `heygenAvatarSection` (the "HeyGen Avatar ID" input + "Load My
+     HeyGen Avatars" button) with `display:"none"`, and nothing anywhere in
+     the function ever set it back to visible — not on initial render, not
+     when the user clicked the HeyGen engine card. So even after correctly
+     selecting HeyGen as the video engine, a user had no way to see or use
+     the exact input the "Generate" button's own error message told them to
+     use ("Select a HeyGen avatar first (click Load Avatars)" — pointing at
+     a button that was never rendered visible). **Fix**: the method-card
+     click handler now toggles `heygenAvatarSection.style.display` based on
+     whether HeyGen is the selected engine, and the section's initial
+     display state is set correctly too (matching whatever engine is
+     actually selected by default, not hardcoded `"none"`).
+  2. **Two "success" cards showed a blank gap instead of a celebratory
+     emoji** — both `showAvatarAutoPilot()`'s "Auto-Pilot Complete!" card and
+     `showAvatarBatchGen()`'s "30 Days Scheduled!" card built a 36-48px
+     emoji-sized `<div>` with an empty string (`""`) as its only content —
+     a visible blank rectangle where an emoji clearly belonged (matching
+     the font-size convention this codebase's other completion states use).
+     Filled both with "🎉", the same emoji this exact file already uses for
+     an equivalent "generation complete" moment elsewhere (Video Editor's
+     own "Done! 🎉" status text).
+  3. **Auto-Pilot's "Generate for how many days?" field had no upper
+     bound** — a free-text input defaulting to "7" with zero validation; a
+     mistyped or oversized value (e.g. "9999") would silently queue
+     thousands of sequential `askAI()` calls with no confirmation, far
+     beyond what any part of this feature or the app's own dedicated
+     30-day Batch Generator ever intends. Clamped to 1-30 (matching the
+     app's own established 30-day bulk-generation ceiling), with the input
+     field itself corrected to show the clamped value.
+  - Verified via a real-browser Playwright test (5 checks): clicking the
+    HeyGen engine card now correctly makes the "HeyGen Avatar ID" section
+    visible (previously always `display:none` regardless of selection); a
+    days value of "9999" is immediately clamped to "30" the moment Launch
+    is clicked (confirmed by reading the input's own value right after the
+    click, before the generation loop even starts); and a full mocked
+    Auto-Pilot run completes and shows the 🎉 emoji in its success card
+    (previously blank) — zero console errors. Re-ran the full existing test
+    suite from this session (Quick Check, Analyzer, Map, 25-tab navigation
+    sweep) — zero regressions.
+
 - **2026-07-18 (session continuing 14, Map audit — 2 real gaps found and
   fixed, one of them a whole silently-dead feature)**: Direct follow-up,
   same conversation — user asked for the same audit-then-fix treatment on
