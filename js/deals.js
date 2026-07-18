@@ -297,20 +297,43 @@ async function _ofmLoadListingDetail(listingId,lt){
 }
 
 // ── CRUD: Match Actions ────────────────────────────────────────────────────────
+// All 3 below previously had no try/catch and no error alert at all — unlike
+// reviewListingDoc()/resolveReport()/updateVideoStatus() further down this
+// same file, which already correctly alert on failure. Two real, confirmed
+// consequences: (1) every call site (My Listings' inline Accept/Decline,
+// Match View's Accept/Decline/stage-advance buttons) got ZERO feedback when
+// the underlying RPC returned a non-2xx response — a seller clicking Accept
+// on a bad request would see nothing happen, with no idea why; (2) if the
+// underlying fetch() itself threw (a genuine network error, not just a bad
+// response — very plausible on mobile), the exception propagated uncaught
+// into the caller's disabled-button dance, permanently freezing the button
+// in its "Approving…"/"Declining…"/"Updating…" state with no way to recover
+// short of a full page reload. Wrapping in try/catch (matching the pattern
+// _ofmUploadMedia already used) and alerting on both failure paths fixes
+// every call site at once, since they all funnel through these 3 functions.
 async function _ofmApproveMatch(matchId){
-  var r=await _ofmRpc("ofm_update_match",{p_match_id:matchId,p_token:_ofmLt(),
-    p_updates:{stage:"lister_approved",lister_seen:true}});
-  return r.ok;
+  try{
+    var r=await _ofmRpc("ofm_update_match",{p_match_id:matchId,p_token:_ofmLt(),
+      p_updates:{stage:"lister_approved",lister_seen:true}});
+    if(!r.ok)alert("Could not accept this match — please try again.");
+    return r.ok;
+  }catch(e){alert("Network error — could not accept this match. Please try again.");return false;}
 }
 async function _ofmRejectMatch(matchId,note){
-  var r=await _ofmRpc("ofm_update_match",{p_match_id:matchId,p_token:_ofmLt(),
-    p_updates:{stage:"rejected",rejected_by:"lister",rejection_note:note||null}});
-  return r.ok;
+  try{
+    var r=await _ofmRpc("ofm_update_match",{p_match_id:matchId,p_token:_ofmLt(),
+      p_updates:{stage:"rejected",rejected_by:"lister",rejection_note:note||null}});
+    if(!r.ok)alert("Could not decline this match — please try again.");
+    return r.ok;
+  }catch(e){alert("Network error — could not decline this match. Please try again.");return false;}
 }
 async function _ofmAdvanceStage(matchId,newStage,extra){
-  var r=await _ofmRpc("ofm_update_match",{p_match_id:matchId,p_token:_ofmLt(),
-    p_updates:Object.assign({stage:newStage},extra||{})});
-  return r.ok;
+  try{
+    var r=await _ofmRpc("ofm_update_match",{p_match_id:matchId,p_token:_ofmLt(),
+      p_updates:Object.assign({stage:newStage},extra||{})});
+    if(!r.ok)alert("Could not update the match stage — please try again.");
+    return r.ok;
+  }catch(e){alert("Network error — could not update the match stage. Please try again.");return false;}
 }
 
 // ── Reports (safety net — reviewed by admin, see admin_pending_reports) ────────
@@ -340,11 +363,19 @@ function _ofmOpenReportPrompt(match,role,token,cl){
 // ── CRUD: Messages ─────────────────────────────────────────────────────────────
 // Insert stays a direct table POST — RLS now verifies sender_token matches
 // the claimed sender_role's token on the match (see lockdown migration).
+// Same real bug as the 3 match-action functions above: no try/catch meant a
+// genuine network error during send left the chat's Send button/input
+// permanently disabled (the caller's re-enable code never ran after an
+// uncaught throw), and a plain failed response gave the sender zero
+// indication their message never went through.
 async function _ofmSendMsg(matchId,role,text,token){
-  var r=await fetch(SUPABASE_URL+"/rest/v1/ofm_messages",
-    {method:"POST",headers:_ofmH(),
-     body:JSON.stringify({match_id:matchId,sender_role:role,sender_token:token,body:text.trim()})});
-  return r.ok;
+  try{
+    var r=await fetch(SUPABASE_URL+"/rest/v1/ofm_messages",
+      {method:"POST",headers:_ofmH(),
+       body:JSON.stringify({match_id:matchId,sender_role:role,sender_token:token,body:text.trim()})});
+    if(!r.ok)alert("Could not send your message — please try again.");
+    return r.ok;
+  }catch(e){alert("Network error — your message was not sent. Please try again.");return false;}
 }
 async function _ofmLoadMsgs(matchId,token){
   var r=await _ofmRpc("ofm_get_messages",{p_match_id:matchId,p_token:token});
@@ -1669,9 +1700,17 @@ function _ofmMatchView(wrap,cl){
         var files=Array.from(this.files||[]);
         uploadBtn.textContent="Uploading "+files.length+" photo(s)…";
         uploadBtn.disabled=true;
+        // Previously discarded _ofmUploadMedia's own return value entirely —
+        // a photo failing to upload (network blip, oversized file) was
+        // completely silent; the seller would believe every photo was
+        // shared when one might genuinely be missing, with no way to tell
+        // which one short of counting thumbnails in the viewer afterward.
+        var failCount=0;
         for(var i=0;i<files.length;i++){
-          await _ofmUploadMedia(m.id,_ofmLt(),files[i]);
+          var okUp=await _ofmUploadMedia(m.id,_ofmLt(),files[i]);
+          if(!okUp)failCount++;
         }
+        if(failCount>0)alert(failCount+" of "+files.length+" photo(s) failed to upload — please try uploading "+(failCount>1?"them":"it")+" again.");
         if(stage==="chat_active"){await _ofmAdvanceStage(m.id,"media_shared");m.stage="media_shared";}
         uploadBtn.innerHTML='<i data-lucide="camera" style="width:13px;height:13px;vertical-align:middle;margin-right:6px"></i>Upload More Photos';
         uploadBtn.disabled=false;

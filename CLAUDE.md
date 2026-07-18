@@ -674,6 +674,92 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, Deal Board / OFM audit — buttons
+  could freeze permanently on a network hiccup, plus a flagged-not-fixed
+  villa bed-count granularity gap)**: Direct continuation, same
+  conversation — right after the Off-Plan pass above, the user asked for
+  the same treatment on Deal Board: "بعد از off plan همین بررسی رو برای
+  deal board هم انجام بده". Read `js/deals.js` (2,491 lines — the full
+  OFM blind-matching system: matching engine, Post Listing/Post Request
+  forms, My Listings/My Requests, the 9-stage Match View pipeline with
+  chat/media, Agent Hub, and the Admin Dashboard's referral/video/document/
+  report-review sections) end to end, cross-checking every RPC against
+  `supabase-ofm-rls-lockdown.sql`/`supabase-ofm-trust-safety.sql`. Found and
+  fixed the most impactful bug of this whole string of same-day audits:
+  1. **Every core match-pipeline action — Accept/Decline a match, advance
+     the pipeline stage, send a chat message — could freeze its own button
+     PERMANENTLY on a genuine network error, with no way to recover short
+     of a full page reload.** `_ofmApproveMatch()`/`_ofmRejectMatch()`/
+     `_ofmAdvanceStage()`/`_ofmSendMsg()` had NO try/catch at all — unlike
+     `reviewListingDoc()`/`resolveReport()`/`updateVideoStatus()` further
+     down this exact same file, which already correctly wrap their fetch
+     calls and alert on failure. Every UI call site (My Listings' inline
+     Accept/Decline, the Match View's Accept/Decline/stage-advance/Send
+     buttons) follows the same pattern: disable the button, show "Approving…"/
+     "Updating…"/etc., await the action, then re-enable on completion — but
+     if the underlying `fetch()` itself REJECTED (a real network failure,
+     very plausible on mobile, not just a bad HTTP response) rather than
+     resolving, the `await` threw an uncaught exception and the
+     re-enable-the-button code after it simply never ran, leaving the
+     button stuck in its disabled "Approving…" state forever. Confirmed via
+     a real Playwright test that aborted the network request mid-click on
+     a real "Accept Match" button — before the fix, the button stayed
+     disabled/stuck; after, it correctly recovers to its normal clickable
+     state. A plain non-2xx response (not a network abort) also produced
+     zero visible feedback in every one of these 4 functions — a seller
+     clicking Accept on a bad request saw nothing happen at all, with no
+     indication why. **Fix**: wrapped all 4 functions in try/catch
+     (matching the established pattern from `_ofmUploadMedia`, which
+     already had this right) and added a real, visible `alert()` on both
+     failure paths (bad response AND thrown network error) — since every
+     call site across the file funnels through these 4 shared functions,
+     this one fix closes the gap everywhere it appears, not just in one
+     screen.
+  2. **The photo-upload loop discarded every individual upload's success/
+     failure entirely** — `_ofmUploadMedia()` itself already correctly
+     returns `false` on failure (network error or bad response), but the
+     multi-file upload loop in the Match View never checked it:
+     `for(...){await _ofmUploadMedia(...);}` — if photo 2 of 3 failed to
+     upload, the loop just moved on to photo 3 with zero indication
+     anything went wrong; the seller would believe all 3 photos were
+     shared with the buyer when one was genuinely missing, discoverable
+     only by manually counting thumbnails in the viewer afterward. **Fix**:
+     the loop now tracks failures and shows a real "N of M photo(s) failed
+     to upload — please try uploading them again" alert when any occur.
+  - **Investigated, deliberately NOT fixed — flagged for the user's own
+    product judgment**: both the Post Listing and Post Request forms use
+    one shared "Bedrooms" dropdown (`Studio/1BR/2BR/3BR/4BR/5BR+/Villa`)
+    where "Villa" is a single flat bucket with no actual bed-count
+    captured — unlike the Analyzer's own villa bedroom dropdown elsewhere
+    in this app (`js/market.js`, real `3BR/4BR/5BR/6BR/7+BR` options for
+    villas). Since `_ofmScoreMatch()`'s 25-point bed-match component
+    requires an EXACT string match (`listing.beds===req.beds`), every
+    villa/townhouse listing scores a full, meaningless "exact bed match"
+    against every villa/townhouse REQUEST regardless of actual bedroom
+    count — a 7-bedroom mansion and a search for a compact 3-bedroom
+    townhouse both just read "Villa" and match at full score. This is a
+    real matching-quality gap specifically affecting Dubai's villa/
+    townhouse segment (this app's own established `VILLA_AREAS` concept),
+    but deliberately NOT changed here: `beds` is a free-text field already
+    holding live production data (existing "Villa"-labeled listings/
+    requests), and introducing new granular villa options would silently
+    stop matching those existing rows against anything newly submitted
+    with the new vocabulary — a real, live-data compatibility risk that
+    needs the user's own call on migration approach (e.g. whether to
+    backfill/relabel existing rows), not a unilateral schema-adjacent
+    change to a system with real matches already in flight.
+  - Verified: `node -c js/deals.js`; a mocked-fetch Playwright test (5
+    cases) confirming all 4 match-action functions now correctly return
+    `false` and show a real alert (never throw) for both a bad HTTP
+    response and a genuine aborted network request, and confirming the
+    media-upload loop correctly counts 3 simulated failures out of 3
+    attempts; a second, real-UI Playwright test driving an actual
+    rendered "Accept Match" button through a network-abort scenario,
+    confirming the button correctly recovers to its normal clickable
+    state afterward instead of freezing (the exact bug this fix
+    addresses); and a 13-tab regression sweep confirming zero collateral
+    console errors.
+
 - **2026-07-18 (session continuing 14, Off-Plan Projects audit — a silent
   admin-action failure and a missing Notes field, plus a flagged-not-fixed
   growth-formula ambiguity)**: Direct continuation, same conversation —
