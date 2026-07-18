@@ -840,17 +840,35 @@ function computeAreaPriceRange(area, beds, mode) {
     "4 BR":  { entry:[1900,2700],mid:[2700,3700], premium:[3700,6500] },
     "5+ BR": { entry:[3200,4800],mid:[4800,6500], premium:[6500,11000]}
   };
+  // Villa/townhouse size ladder (added 2026-07-18, Quick Check audit) — a
+  // real Dubai villa/townhouse runs materially larger than an apartment at
+  // the same bed count (private garden/garage/multi-floor layout); using the
+  // apartment table above for a villa area understated real building prices.
+  // Bucketed from 2BR up only — a Studio/1BR "villa" DB hit is almost always
+  // a mixed-area apartment building misclassified by the area-level
+  // VILLA_AREAS flag (see the CLAUDE.md work-log note on mixed villa/
+  // apartment areas), so those keep the apartment table instead of guessing
+  // a villa size that likely doesn't apply.
+  var SQFT_VILLA={
+    "2 BR":  { entry:[1300,1700], mid:[1700,2100], premium:[2100,2800] },
+    "3 BR":  { entry:[1900,2400], mid:[2400,2900], premium:[2900,3800] },
+    "4 BR":  { entry:[2800,3600], mid:[3600,4400], premium:[4400,5800] },
+    "5+ BR": { entry:[4200,5500], mid:[5500,7000], premium:[7000,10000]}
+  };
   var GTIER={"C":"entry","B":"entry","B+":"mid","A-":"mid","A":"premium","A+":"premium","Ultra":"premium"};
-  var sqDef=SQFT[beds]||SQFT["2 BR"];
+  var isVilla=typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(area);
+  var sqDef=(isVilla&&SQFT_VILLA[beds])||SQFT[beds]||SQFT["2 BR"];
   var aData=AREAS[area]; if(!aData)return null;
 
   if(mode==="rent"){
-    var rentByBeds={
-      "Studio":(aData.r1||80000)*0.55,"1 BR":aData.r1||80000,
-      "2 BR":aData.r2||130000,"3 BR":aData.r3||200000,
-      "4 BR":aData.rv4||(aData.r3||200000)*1.6,"5+ BR":aData.rv5||(aData.r3||200000)*2.2
-    };
-    var base=rentByBeds[beds]||aData.r2||100000;
+    // Delegates to the single, already-established _baseAreaRent() helper
+    // (js/valuation.js) instead of a second, locally-duplicated rent table —
+    // fixed 2026-07-18 (Quick Check audit): the previous local table only
+    // switched to villa rent bands (rv4/rv5) for 4BR/5+BR, silently using
+    // the apartment r1/r2/r3 bands for Studio/1BR/2BR/3BR even in a genuine,
+    // pure-villa area (e.g. The Springs, Al Barari, Arabian Ranches) —
+    // materially understating what a real 2-3BR villa/townhouse rents for.
+    var base=(typeof _baseAreaRent==="function"?_baseAreaRent(aData,beds,isVilla):null)||aData.r2||100000;
     function r5k(n){return Math.round(n/5000)*5000;}
     return{lo:r5k(base*0.78),hi:r5k(base*1.45),
       entryRange:[r5k(base*0.78),r5k(base*0.95)],
@@ -951,7 +969,14 @@ function _renderQCBuildingPicks(qc, qs, cl){
     card.addEventListener("click",function(){
       analyzerState.f.area=qs.area;
       analyzerState.f.building=p.name.replace(/\b\w/g,function(c){return c.toUpperCase();});
-      analyzerState.f.beds=qs.beds||"2 BR";analyzerState.f.propCategory="apartment";
+      analyzerState.f.beds=qs.beds||"2 BR";
+      // Fixed 2026-07-18 (Quick Check audit) — this always forced "apartment"
+      // regardless of the picked building's real type, so clicking a villa/
+      // townhouse recommendation into the Full Analyzer silently switched it
+      // to the apartment form (wrong fields, no villa premiums applied).
+      // Same VILLA_AREAS-derivation already used elsewhere in this file
+      // (the area quick-select chips below).
+      analyzerState.f.propCategory=(typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(qs.area))?"villa":"apartment";
       analyzerState.f.txnType=qs.mode;
       setSection("Market","Analyzer");
     });
@@ -1017,7 +1042,10 @@ function _renderQCResult(qc, qs, cl){
   fullBtn.textContent="Full Analyzer — exact valuation for your unit →";
   fullBtn.addEventListener("click",function(){
     analyzerState.f.area=qs.area;analyzerState.f.building=qs.building||"";
-    analyzerState.f.beds=qs.beds||"2 BR";analyzerState.f.propCategory="apartment";
+    analyzerState.f.beds=qs.beds||"2 BR";
+    // Same real-type fix as the building-pick cards above (2026-07-18,
+    // Quick Check audit) — was hardcoded "apartment" regardless of area.
+    analyzerState.f.propCategory=(typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(qs.area))?"villa":"apartment";
     analyzerState.f.txnType=qs.mode;
     if(qs.price)analyzerState.f.price=qs.price;
     setSection("Market","Analyzer");

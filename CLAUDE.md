@@ -656,6 +656,129 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, Quick Check audit — 4 real gaps
+  found and fixed)**: Direct follow-up to the Compare audit below, same
+  conversation — user asked for the identical audit-then-fix treatment on
+  Quick Check: "quick check رو به همین ترتیب بررسی کن". Read
+  `_qcRecommendBuildings()`/`_renderQuickCheckWidget()`/`_renderQCResult()`/
+  `computeAreaPriceRange()` in `js/market.js` plus the shared bulk-scan
+  estimators (`estimateBuildingRentYield()`/`_baseAreaRent()`,
+  `js/valuation.js`) this tool depends on. Central theme: Quick Check's
+  entire promise since its 2026-07-14 redesign is "given my budget, which
+  REAL buildings can I buy/rent into" for apartment, villa, AND townhouse —
+  but the underlying bulk-scan math silently used apartment-only size/rent
+  assumptions even when the user was searching a genuine villa area, and 2
+  navigation handlers hardcoded the wrong property type outright. Found and
+  fixed 4 real gaps:
+  1. **Villa building-recommendation prices/rents used apartment-scale unit
+     sizes** — `estimateBuildingRentYield()` (the exact function powering
+     Quick Check's headline "Buildings you can buy/rent" cards) picked a
+     unit size from the flat `TYPICAL_UNIT_SIZE` ladder (Studio 500 sqft up
+     to 5+BR 3,000 sqft) for EVERY building regardless of `isVilla` — but a
+     real Dubai villa/townhouse runs materially larger than an apartment at
+     the same bed count (a 3BR townhouse commonly runs 2,000-2,800 sqft vs
+     ~1,600 sqft for a 3BR apartment; a 4-5BR villa often runs
+     3,000-5,500+ sqft). Since `estPrice = psf × size`, this systematically
+     UNDERSTATED real villa building prices/rents — a villa building could be
+     shown as "within budget" or "Top pick" when its real market price for
+     that bed count would actually exceed the user's stated budget, directly
+     undermining the tool's "100% correct, real market result" promise for
+     villa/townhouse searches specifically. **Fix**: new
+     `TYPICAL_VILLA_UNIT_SIZE` ladder (2:1900/3:2400/4:3400/5:4800/6:6500/
+     7:8500 sqft — reasonable, widely-known Dubai villa/townhouse size
+     conventions, the same class of established domain fact this engine
+     already relies on elsewhere, e.g. floor/view premiums, DLD fee %, LTV
+     brackets — not fabricated precision), used whenever `isVilla` is true
+     and a size is defined for that bed count; falls back to the apartment
+     ladder for Studio/1BR (a "villa" hit at that bed count in a
+     mixed-area — see item 4 below — is almost always a misclassified
+     apartment building, so guessing a villa size there would likely be
+     wrong instead of right). This is a shared estimator also used by Smart
+     Discovery and Alerts, so the fix improves those consumers too for any
+     genuinely villa-only area, not just Quick Check.
+  2. **`computeAreaPriceRange()`'s RENT-mode range card only used villa rent
+     bands for 4BR/5+BR, silently apartment-banded for everything smaller**
+     — its local `rentByBeds` table switched to `aData.rv4`/`aData.rv5`
+     (villa rent bands) only at 4BR and 5+BR, but used `aData.r1/r2/r3`
+     (apartment rent bands) for Studio/1BR/2BR/3BR regardless of area type —
+     inconsistent with the already-correct, already-established
+     `_baseAreaRent()` helper elsewhere in this same codebase, which
+     branches by `isVilla` across the FULL bed range. Verified the real-world
+     scale of this bug directly against live `AREAS` data: "The Springs"
+     (a genuine, 100%-villa area) has `rv2:130000` vs `r2:65000` — a 2x
+     understatement for anyone Quick-Checking a 2BR villa/townhouse rent
+     there. **Fix**: `computeAreaPriceRange()`'s rent branch now calls the
+     shared `_baseAreaRent(aData,beds,isVilla)` directly instead of
+     maintaining a second, partially-villa-aware, drifting copy of the same
+     ladder — single source of truth, and it also gains that helper's
+     already-correct Studio-specific downscale for free. This function is
+     also called by Personal Advisor's `bestEntry` calculation
+     (`js/portfolio.js`), so the fix benefits that flow too.
+  3. **Sale-mode range card's SQFT sizing table had the same apartment-only
+     gap** — the entry/mid/premium sqft brackets used to size a building's
+     PSF into a price range were apartment-scale for every bed count,
+     regardless of area type. Added a parallel `SQFT_VILLA` bracket table
+     (same reasoning/sourcing as item 1), selected whenever `isVilla` is
+     true and the bed count has a defined bracket (2BR+; Studio/1BR fall
+     back to the apartment table for the same mixed-area reason as item 1).
+  4. **Two navigation handlers hardcoded `propCategory="apartment"`
+     unconditionally** — both the per-building "pick" cards' click handler
+     and the "Full Analyzer — exact valuation for your unit →" CTA button
+     always forced `analyzerState.f.propCategory="apartment"` before
+     navigating into the full Analyzer, regardless of whether the actual
+     area/building searched was a villa. A user Quick-Checking a villa area,
+     then clicking through to the "exact valuation" Analyzer for their
+     specific unit, silently landed on the APARTMENT form (wrong fields, no
+     private-pool/single-row/corner-villa premiums available) — undermining
+     the exact CTA promising "your unit"'s real valuation. Fixed using the
+     identical `VILLA_AREAS`-derivation convention already established
+     elsewhere in this same file (the Analyzer's own "Or browse by area"
+     quick-select chips) — both handlers now correctly set `propCategory`
+     to `"villa"` or `"apartment"` based on the searched area.
+  - **Investigated, deliberately NOT fixed — a real, deeper, disclosed
+    limitation**: `VILLA_AREAS` (`js/data-residential.js`) is an area-level
+    classification, but at least 12 major "villa" areas in that set are
+    genuinely MIXED — e.g. Palm Jumeirah (381 buildings, many are pure
+    apartment towers like "Shoreline Apartments"/"Oceana"), Dubai Hills
+    Estate (310 buildings, many are apartment towers like "Park Heights
+    III"/"Executive Residences"), Meydan, MBR City, Sobha Hartland, Town
+    Square, Al Furjan, Motor City, Dubai South, Nad Al Sheba, Palm Jebel
+    Ali, Dubai Islands — confirmed via a direct DB scan (samples like
+    "azizi riviera 13"/"ellington house 3"/"sobha orbis tower a" are clearly
+    apartment towers, all tagged `isVilla:true` purely from area membership).
+    This means every bulk building scan across the WHOLE app (Quick Check,
+    Smart Discovery, Alerts, Compare) still misapplies villa rent/size
+    assumptions to real apartment buildings within these specific mixed
+    areas. Considered a name-pattern heuristic (tower/residences/apartments
+    keyword matching) to reclassify per-building, but rejected it —
+    per the same anti-fabrication principle already established this
+    session (Compare audit's `_cmpResolveCluster()`, Personal Advisor's
+    `_paPickRealBuilding()`): a wrong-but-plausible per-building guess would
+    be a worse failure mode than the current, disclosed, area-level
+    approximation. A real fix needs actual per-building type data, which is
+    a `js/data-residential.js` change outside this branch's remit (owned by
+    the research branch) — flagged here explicitly as a known, cross-
+    cutting limitation for a future session/the research branch to close,
+    not something Quick Check's own code can safely patch around alone.
+  - Verified via a real-browser Playwright test (7 checks, 2 files): The
+    Springs 2BR rent range now correctly anchors to the real villa `rv2`
+    band (130,000) instead of the old apartment `r2` band (65,000) — a
+    confirmed 2x fix; Dubai Marina (apartment area) rent range unaffected,
+    still anchors to `r2` — no regression; a villa-flagged building
+    estimate now uses a real, bigger villa-scale unit size (2,400 sqft) than
+    the apartment assumption (1,600 sqft) for the same 3BR bed count;
+    clicking a villa-area building-pick card now correctly navigates to the
+    Analyzer with `propCategory:"villa"` (was always "apartment" before);
+    an apartment-area building-pick card still correctly sets
+    `propCategory:"apartment"` — no regression; the sale-mode range card
+    computes correctly for a villa area with real entry/mid/premium
+    brackets; and the "Full Analyzer" CTA button (the 2nd hardcoded site)
+    also now correctly sets `propCategory:"villa"` for a villa area — zero
+    console errors. Re-ran the existing Alerts and Compare Playwright test
+    suites (both call the same shared `estimateBuildingRentYield()`/
+    `computeAreaPriceRange()` functions) plus a 25-tab navigation regression
+    sweep — zero collateral regressions from these shared-function changes.
+
 - **2026-07-18 (session continuing 14, Compare tab audit — 5 real gaps
   found and fixed)**: Direct follow-up to the Alerts audit below, same
   conversation — user asked for the identical audit-then-fix treatment on

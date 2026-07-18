@@ -910,6 +910,20 @@ var GRADE_RENT_PREMIUM={"Ultra":1.80,"A+":1.35,"A":1.10,"A-":1.0,"B+":0.92,"B":0
 // extended for larger units. Only used where a real size isn't user-entered
 // (bulk building scans), never overrides an actual size when one is known.
 var TYPICAL_UNIT_SIZE={0:500,1:750,2:1100,3:1600,4:2200,5:3000,6:4200,7:5500};
+// Villa/townhouse units run materially larger than an apartment with the
+// same bed count (private garden/garage/multiple floors) — a real Dubai
+// 3BR townhouse commonly runs 2,000-2,800 sqft (vs ~1,600 sqft for a 3BR
+// apartment), and a 4-5BR villa often runs 3,000-5,500+ sqft. Added
+// 2026-07-18 (Quick Check audit) — TYPICAL_UNIT_SIZE above was silently
+// reused for villa-area buildings too, systematically UNDERSTATING real
+// villa building prices/rents (estPrice=psf×size) in every bulk building
+// scan that passes isVilla=true (Quick Check's building recommender,
+// Smart Discovery, Alerts). No entry below bn=2 — Studio/1BR "villa" hits
+// are almost always a mixed-area apartment building misclassified by the
+// area-level VILLA_AREAS flag (see the CLAUDE.md work-log note on mixed
+// villa/apartment areas), so those fall back to TYPICAL_UNIT_SIZE instead
+// of guessing a villa size that wouldn't apply anyway.
+var TYPICAL_VILLA_UNIT_SIZE={2:1900,3:2400,4:3400,5:4800,6:6500,7:8500};
 // Area rent benchmark for a given bed count/type, before any grade/furnished/
 // view/floor adjustment — the base rung of computeRentalValuation's ladder,
 // pulled out so bulk building scans can reuse the exact same area rent figures
@@ -948,7 +962,8 @@ function estimateBuildingYield(bData,aData,psf){
 // real rent benchmark, just an assumed flat area yield times the price).
 function estimateBuildingRentYield(bData,aData,beds,isVilla,psf){
   if(!aData||!psf||psf<=0)return null;
-  var size=TYPICAL_UNIT_SIZE[_BEDS_NUM_MAP[beds]!=null?_BEDS_NUM_MAP[beds]:2]||1100;
+  var _bn=_BEDS_NUM_MAP[beds]!=null?_BEDS_NUM_MAP[beds]:2;
+  var size=(isVilla&&TYPICAL_VILLA_UNIT_SIZE[_bn])||TYPICAL_UNIT_SIZE[_bn]||1100;
   var gradeRentP=(bData&&bData.g&&GRADE_RENT_PREMIUM[bData.g])||1.0;
   var estRent=Math.round(_baseAreaRent(aData,beds,isVilla)*gradeRentP);
   var estPrice=Math.round(psf*size);
