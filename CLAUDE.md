@@ -638,6 +638,31 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, small follow-up — Live Listings now
+  checks PropertyFinder too, not just Bayut)**: User asked directly why the
+  new "Live Listings in Top Matches" section (see entry below) only
+  searched Bayut when the main live-search elsewhere in Find already
+  queries both Bayut and PropertyFinder in parallel. Fair catch — it was a
+  scope/time tradeoff during the initial build, not a technical limitation.
+  Extended `_fetchLiveListingsForBuilding()` (`js/app.js`) to fetch both
+  providers in parallel per building (same `Promise.allSettled` pattern
+  `doSearch()` already uses), reusing PropertyFinder's existing defensive
+  multi-shape response parsing (`getPFLocationId()`, the same
+  several-possible-field-names handling already established for the main
+  search). Each source's listing is independently confirmed against the
+  building's own name before being kept, and both are scored via the same
+  `_dealScoreBand()` using the building's already-known metrics. Total
+  bounded to 4 combined results per building; live-search calls bounded to
+  5 buildings × 2 providers = 10 per Discover click (still small, rate-
+  limit-safe).
+  - Verified: `node -c`; extended the Playwright test to mock BOTH
+    `properties/list` (Bayut) and `search-sale` (PropertyFinder) — confirmed
+    a real, confirmed listing from EACH source now renders (with correct
+    source badges), the empty-building note still works for buildings with
+    neither, and the overpricing score-cap fix from the entry below applies
+    correctly to both sources — zero regressions on the rest of the
+    session's test suite (hero photos, Arabic-toggle removal, News change).
+
 - **2026-07-18 (session continuing 14, Find — connected the Advanced
   Market Screener to real, purchasable inventory)**: User raised a sharp,
   correct product critique after being asked to spot-check "Live Market

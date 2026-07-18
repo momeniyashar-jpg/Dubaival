@@ -855,62 +855,98 @@ function renderFind(){
   // previously the Screener returned a ranked list of BUILDINGS with no link
   // to whether anything is actually for sale in them, a dead end for anyone
   // using Find to locate an actual unit, not just research an area). Fetches
-  // live Bayut listings scoped to one specific building (using its own
+  // live Bayut AND PropertyFinder listings (in parallel, same pattern as
+  // doSearch() above) scoped to one specific building, using its own
   // already-computed metrics — psf/yield/growth3/dom/sc/grade — as the Deal
   // Score benchmark directly, since the Screener already resolved exactly
   // which building this is, more reliable than re-deriving via a second
-  // fuzzy title match). Returns at most 4 listings; a listing is only kept
-  // if the raw Bayut result's own title/location text actually mentions this
-  // building's name — a location-ID match can be community-wide, not
-  // guaranteed building-specific, so the honest fallback below matters.
+  // fuzzy title match. Returns at most 4 listings combined; a listing is
+  // only kept if the raw result's own title/location text actually mentions
+  // this building's name — a location-ID match can be community-wide, not
+  // guaranteed building-specific, so the confirmation filter matters.
   async function _fetchLiveListingsForBuilding(bd){
-    try{
-      var locId=await getUAELocationId(bd.name+" "+bd.area);
-      if(!locId)locId=await getUAELocationId(bd.area);
-      if(!locId)return{listings:[],buildingConfirmed:false};
-      var params=new URLSearchParams({locationExternalIDs:locId,purpose:"for-sale",hitsPerPage:"25",page:"0"});
-      var r;
-      if(UAE_RE_KEY){r=await fetch("https://"+UAE_RE_HOST+"/properties/list?"+params,{headers:{"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":UAE_RE_HOST}});}
-      else{r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=properties/list&"+params);}
-      if(!r.ok)return{listings:[],buildingConfirmed:false};
-      var d=await r.json();
-      var hits=d.hits||[];
-      var nameLower=bd.name.toLowerCase();
-      var confirmed=hits.filter(function(p){
-        var locText=((p.title||"")+" "+((p.location||[]).map(function(l){return l.name;}).join(" "))).toLowerCase();
-        return locText.indexOf(nameLower)>=0;
-      });
-      var mapped=confirmed.filter(function(p){return p.price&&p.area;}).map(function(p){
-        var psf=p.area>0?Math.round(p.price/p.area):0;
-        var imgUrl="";
-        if(p.coverPhoto){imgUrl=typeof p.coverPhoto==="string"?p.coverPhoto:(p.coverPhoto.url||p.coverPhoto.thumb||"");}
-        if(!imgUrl&&p.photos&&p.photos.length>0){var ph0=p.photos[0];imgUrl=typeof ph0==="string"?ph0:(ph0.url||ph0.thumb||"");}
-        if(!imgUrl)imgUrl=p.thumbnail||p.image||"";
-        var psfRatio=bd.psf>0?psf/bd.psf:1;
-        return{
-          title:p.title||bd.name,
-          area:bd.area,
-          price:p.price||0,
-          size:p.area||0,
-          psf:psf,
-          beds:p.rooms||0,
-          baths:p.baths||0,
-          furnished:p.furnishingStatus||"",
-          permit:p.permitNumber||"",
-          agentName:(p.agency&&p.agency.name)||"",
-          agencyName:(p.agency&&p.agency.name)||"",
-          photo:imgUrl,
-          listingUrl:p.externalURL||"https://www.bayut.com",
-          listingSource:"Bayut",
-          source:"Bayut",
-          dealScore:_dealScoreBand(psfRatio,bd.yield||0,bd.growth3||0,bd.dom||60,bd.sc||15,bd.grade),
-          grade:bd.grade,
-          benchPSF:Math.round(bd.psf),
-          benchIsBuilding:true
-        };
-      }).filter(function(p){return p.psf>200&&p.psf<20000;}).slice(0,4);
-      return{listings:mapped,buildingConfirmed:true};
-    }catch(e){return{listings:[],buildingConfirmed:false};}
+    var nameLower=bd.name.toLowerCase();
+    var scoreListing=function(psf){return _dealScoreBand(bd.psf>0?psf/bd.psf:1,bd.yield||0,bd.growth3||0,bd.dom||60,bd.sc||15,bd.grade);};
+
+    var bayutP=async function(){
+      try{
+        var locId=await getUAELocationId(bd.name+" "+bd.area);
+        if(!locId)locId=await getUAELocationId(bd.area);
+        if(!locId)return[];
+        var params=new URLSearchParams({locationExternalIDs:locId,purpose:"for-sale",hitsPerPage:"25",page:"0"});
+        var r;
+        if(UAE_RE_KEY){r=await fetch("https://"+UAE_RE_HOST+"/properties/list?"+params,{headers:{"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":UAE_RE_HOST}});}
+        else{r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=properties/list&"+params);}
+        if(!r.ok)return[];
+        var d=await r.json();
+        var hits=d.hits||[];
+        var confirmed=hits.filter(function(p){
+          var locText=((p.title||"")+" "+((p.location||[]).map(function(l){return l.name;}).join(" "))).toLowerCase();
+          return locText.indexOf(nameLower)>=0;
+        });
+        return confirmed.filter(function(p){return p.price&&p.area;}).map(function(p){
+          var psf=p.area>0?Math.round(p.price/p.area):0;
+          var imgUrl="";
+          if(p.coverPhoto){imgUrl=typeof p.coverPhoto==="string"?p.coverPhoto:(p.coverPhoto.url||p.coverPhoto.thumb||"");}
+          if(!imgUrl&&p.photos&&p.photos.length>0){var ph0=p.photos[0];imgUrl=typeof ph0==="string"?ph0:(ph0.url||ph0.thumb||"");}
+          if(!imgUrl)imgUrl=p.thumbnail||p.image||"";
+          return{
+            title:p.title||bd.name,area:bd.area,price:p.price||0,size:p.area||0,psf:psf,
+            beds:p.rooms||0,baths:p.baths||0,furnished:p.furnishingStatus||"",permit:p.permitNumber||"",
+            agentName:(p.agency&&p.agency.name)||"",agencyName:(p.agency&&p.agency.name)||"",
+            photo:imgUrl,listingUrl:p.externalURL||"https://www.bayut.com",
+            listingSource:"Bayut",source:"Bayut",
+            dealScore:scoreListing(psf),grade:bd.grade,benchPSF:Math.round(bd.psf),benchIsBuilding:true
+          };
+        }).filter(function(p){return p.psf>200&&p.psf<20000;});
+      }catch(e){return[];}
+    };
+
+    var pfP=async function(){
+      try{
+        var pfLocId=await getPFLocationId(bd.name+" "+bd.area+" Dubai");
+        if(!pfLocId)return[];
+        var params=new URLSearchParams({location_id:String(pfLocId),page:"1"});
+        var r;
+        if(UAE_RE_KEY){r=await fetch("https://"+PF_HOST+"/search-sale?"+params,{headers:{"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":PF_HOST}});}
+        else{r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=search-sale&source=pf&"+params);}
+        if(!r.ok)return[];
+        var d=await r.json();
+        var rawPF=Array.isArray(d.data)?d.data:(d.data&&Array.isArray(d.data.data)?d.data.data:(d.data&&Array.isArray(d.data.properties)?d.data.properties:(d.hits||d.properties||d.results||[])));
+        var items=Array.isArray(rawPF)?rawPF:[];
+        var confirmed=items.filter(function(p){
+          var locText=((p.title||"")+" "+(p.location_name||"")+" "+(p.community_name||"")).toLowerCase();
+          return locText.indexOf(nameLower)>=0;
+        });
+        return confirmed.filter(function(p){
+          var price=p.price&&typeof p.price==="object"?p.price.value:p.price;
+          var size=typeof p.size==="number"?p.size:(typeof p.area==="number"?p.area:(typeof p.sqft==="number"?p.sqft:0));
+          return price&&size>0&&price>0;
+        }).map(function(p){
+          var price=p.price&&typeof p.price==="object"?p.price.value:p.price;
+          var size=typeof p.size==="number"?p.size:(typeof p.area==="number"?p.area:(typeof p.sqft==="number"?p.sqft:0));
+          var imgUrl=p.cover_photo||"";
+          if(!imgUrl){var imgs=p.images||p.photos||[];if(Array.isArray(imgs)&&imgs.length>0){imgUrl=typeof imgs[0]==="string"?imgs[0]:(imgs[0].url||imgs[0].src||imgs[0].thumb||"");}}
+          if(!imgUrl)imgUrl=p.thumbnail||p.image||p.photo||"";
+          var psf=size>0?Math.round(price/size):0;
+          return{
+            title:p.title||bd.name,area:bd.area,price:price,size:size,psf:psf,
+            beds:p.bedrooms||p.rooms||p.beds||0,baths:p.bathrooms||p.baths||0,
+            furnished:p.furnishing||p.furnished||"",permit:"",
+            agentName:p.agent_name||"",agencyName:p.agency_name||"",
+            photo:imgUrl,listingUrl:p.url||p.link||p.property_url||"https://www.propertyfinder.ae",
+            listingSource:"PropertyFinder",source:"PropertyFinder",
+            dealScore:scoreListing(psf),grade:bd.grade,benchPSF:Math.round(bd.psf),benchIsBuilding:true
+          };
+        }).filter(function(p){return p.psf>200&&p.psf<20000;});
+      }catch(e){return[];}
+    };
+
+    var results=await Promise.allSettled([bayutP(),pfP()]);
+    var bayutResults=results[0].status==="fulfilled"?results[0].value:[];
+    var pfResults=results[1].status==="fulfilled"?results[1].value:[];
+    var combined=bayutResults.concat(pfResults).slice(0,4);
+    return{listings:combined,buildingConfirmed:combined.length>0};
   }
 
   // Sequential (not parallel) — respects the shared RapidAPI rate limit and
