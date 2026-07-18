@@ -674,6 +674,88 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, Market Index audit — the tab's own
+  central promise, "click any area for valuation," silently failed on an
+  ordinary leftover state, plus a mislabeled comparison metric)**: Direct
+  continuation, same conversation — right after the Workspace Dashboard
+  pass above, the user asked for the identical treatment on Market Index:
+  "همین بررسی رو برای Market index هم انجام بده". Read `renderMarketIndex()`
+  end to end (`js/marketindex.js`). Found and fixed the most impactful bug
+  yet in this string of same-day audits, plus 2 smaller correctness issues:
+  1. **Every single "click an area for its valuation" link in this tab
+     silently failed to deliver whenever `analyzerState.stage` wasn't
+     already 0 — a completely ordinary, common condition, not an edge
+     case.** This tab's own copy explicitly promises this ("All 347 areas
+     sorted by PSF — click any area for valuation" / "Click any area for
+     full valuation"), and 3 separate click paths all did the exact same
+     incomplete thing: the ranking-table row click, the Favorite Areas card
+     click, and the Price Heatmap row click all set
+     `analyzerState.f.area=name` and navigated to Market/Analyzer — but
+     never touched `analyzerState.stage`. `renderAnalyzer()` (`js/market.js`)
+     only shows the FORM at `stage===0`; at `stage===2` (left over from
+     ANY earlier valuation run this session, on any building, anywhere —
+     not a rare state) it instead shows the STORED OLD RESULT
+     (`if(analyzerState.stage===2&&analyzerState.val)return
+     renderAnalyzerResult(wrap);`), completely ignoring the area that was
+     just set. Confirmed via a real Playwright test that seeded a stale
+     `stage=2`+fake old result, clicked each of the 3 link types, and
+     observed the OLD result would have kept showing with zero visible
+     indication the click did anything — before the fix. **Fix**: new
+     shared `_idxGoToArea(name)` helper — sets the area AND resets
+     `analyzerState.stage=0` before navigating, used by all 3 click sites
+     (previously 3 separate, incomplete inline handlers). The one
+     deliberately-NOT-touched link — each ranking table's generic "Get
+     detailed valuation →" button at the bottom — doesn't claim to be
+     area-specific in its own copy (unlike every row above it, which
+     explicitly is), so it was left as a plain, unscoped navigation.
+  2. **The "Sustainability" row in Advanced Area Comparison showed only
+     ONE input (25% weight) of the real Sustainability Score used
+     everywhere else in the app, mislabeled as the whole thing.** It read
+     `GREEN_AREAS[n]` directly — but `GREEN_AREAS` is just the
+     green/community component INSIDE `computeSustainabilityScore()`
+     (`js/core.js`), which is actually a weighted composite of building
+     grade/age (30%) + service charge efficiency (25%) + green/community
+     (25%) + liquidity/DOM (20%). A user comparing areas here saw a
+     "Sustainability: 90/100" figure that would disagree with the real
+     Sustainability Score they'd see moments later running an actual
+     valuation in that same area (e.g. Business Bay: 50 raw green score
+     here vs. 65 real composite) — and the exact same raw, partial figure
+     was also fed into the AI comparison prompt as "sustainability," so the
+     AI's own narrative inherited the same mislabeling. **Fix**: both the
+     table row and the AI-prompt summary now call the real
+     `computeSustainabilityScore(null,areaName,null,AREAS[areaName],null)`
+     — no specific building being compared here, so building-grade/SC
+     inputs fall back to the function's own neutral defaults, but green
+     score and liquidity are real, giving a genuinely comparable,
+     consistent figure instead of one isolated component standing in for
+     the whole thing.
+  3. **Minor staleness/hygiene, fixed alongside the above**: the AI
+     comparison system prompt still said "9,227 buildings" — stale by
+     exactly 1 since the 2026-07-13 session removed a confirmed-bogus
+     duplicate building entry elsewhere, bringing the real count to 9,226;
+     corrected to match. Also swapped a stray, undocumented magic number
+     (500 sqft) in the "Best Rental Value Areas" internal sort key
+     (`rentPsfRatio`, never displayed to the user) for this app's one real,
+     established canonical 1BR unit size (750 sqft,
+     `TYPICAL_UNIT_SIZE[1]`, `js/valuation.js`) — a uniform scalar swap
+     like this doesn't change today's ranking (every area scales by the
+     same factor), but closes the same class of duplicated-constant drift
+     risk this project has caught and fixed several times before.
+  - Verified: `node -c js/marketindex.js`; a real-browser Playwright test
+    seeding a stale `analyzerState.stage=2` with a fake old result, then
+    clicking a real ranking-table row, a real Favorite Areas card, and a
+    real Price Heatmap row — confirmed all 3 now correctly reset stage to
+    0 and land on the real Analyzer FORM with the clicked area set (all 3
+    would have silently shown the stale old result before the fix); a
+    direct call confirming `computeSustainabilityScore(null,...)` no
+    longer throws and returns a genuinely different, real composite score
+    (65) vs. the old raw green-only figure (50) for Business Bay; and a
+    mocked-`askAI` Playwright pass confirming the AI Verdict system prompt
+    now correctly reads "9,226 buildings" and the request body embeds the
+    real composite sustainability figure — zero non-network console errors,
+    and a 13-tab regression sweep confirming zero collateral damage
+    elsewhere.
+
 - **2026-07-18 (session continuing 14, Workspace Dashboard audit — 6 real
   gaps found and fixed, same depth as the Reports pass)**: Direct
   continuation, same conversation — right after the deeper Reports pass

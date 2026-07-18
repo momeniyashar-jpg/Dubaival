@@ -1,5 +1,20 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- MARKET INDEX TAB ---------------------------------------------------------
+// Every "click an area to get its valuation" link in this tab (ranking
+// table rows, Favorite Areas cards, the Price Heatmap) only ever set
+// analyzerState.f.area before navigating — but renderAnalyzer() shows the
+// FORM only at analyzerState.stage===0; at stage 2 (an entirely ordinary
+// state to be in, left over from any earlier valuation this session) it
+// shows the STALE stored result instead, completely ignoring the area that
+// was just set. This tab's whole promise is "click any area for full
+// valuation" (its own copy, verbatim) — silently failing to deliver that
+// on a very common leftover state was a real, confirmed, pervasive bug
+// found across all 3 click paths in this file, not an edge case.
+function _idxGoToArea(name){
+  analyzerState.f.area=name;
+  analyzerState.stage=0;
+  setSection("Market","Analyzer");
+}
 function renderMarketIndex(){
   var cl=C();
   var wrap=el("div",{style:{padding:"16px",maxWidth:"820px",margin:"0 auto",fontFamily:"'Space Grotesk',monospace"}});
@@ -112,7 +127,7 @@ function renderMarketIndex(){
       var row=div({display:"grid",gridTemplateColumns:columns.map(function(c){return c.w||"1fr";}).join(" "),gap:"6px",padding:"8px 10px",background:i%2===0?"transparent":cl.raised,borderRadius:"6px",cursor:"pointer",transition:"all 0.15s ease"});
       row.addEventListener("mouseenter",function(){this.style.background="rgba(212,175,55,0.06)";this.style.transform="translateX(4px)";});
       row.addEventListener("mouseleave",function(){this.style.background=i%2===0?"transparent":cl.raised;this.style.transform="";});
-      row.addEventListener("click",function(){analyzerState.f.area=d.name;setSection("Market","Analyzer");});
+      row.addEventListener("click",function(){_idxGoToArea(d.name);});
       columns.forEach(function(c){
         var val=c.render(d,i);
         var s=span({color:c.color?c.color(d):cl.text,fontSize:"11.5px",fontFamily:c.mono?"'Space Grotesk',monospace":"'Inter',sans-serif",fontWeight:c.bold?"700":"400",textAlign:c.align||"left"});
@@ -176,7 +191,14 @@ function renderMarketIndex(){
   ]));
 
   // Top 10 Best Rental Value (highest rent-to-price ratio)
-  var byRentValue=areaData.filter(function(a){return a.r1>0&&a.psf>0;}).map(function(a){a.rentPsfRatio=a.r1/(a.psf*500)*100;return a;}).sort(function(a,b){return b.rentPsfRatio-a.rentPsfRatio;}).slice(0,10);
+  // rentPsfRatio is a sort key only (never displayed) — 750 sqft matches
+  // this app's single canonical 1BR unit size (TYPICAL_UNIT_SIZE[1],
+  // js/valuation.js, used everywhere else a bed count needs to become a
+  // notional unit size). The uniform-scalar swap from a stray 500 doesn't
+  // change today's ranking (every area is scaled by the same factor), but
+  // it removes a silently-drifted magic number matching the same
+  // duplicated-constant risk class already fixed elsewhere in this app.
+  var byRentValue=areaData.filter(function(a){return a.r1>0&&a.psf>0;}).map(function(a){a.rentPsfRatio=a.r1/(a.psf*750)*100;return a;}).sort(function(a,b){return b.rentPsfRatio-a.rentPsfRatio;}).slice(0,10);
   wrap.appendChild(mkTable("◆ Best Rental Value Areas","Highest rent relative to property price",[].concat(byRentValue),[
     rankCol,nameCol,
     {label:"Yield",w:"0.7fr",mono:true,bold:true,align:"right",color:function(){return"#10B981";},render:function(d){return d.yield.toFixed(1)+"%";}},
@@ -272,7 +294,16 @@ function renderMarketIndex(){
       {l:"Growth 5yr",fn:function(d){return(d.g||[3,9,16])[2]||0;},fmt:function(v){return(v>=0?"+":"")+v+"%";},hi:true},
       {l:"Days on Market",fn:function(d){return d.dom||0;},fmt:function(v){return v?v+"d":"—";},hi:false},
       {l:"Tx Volume",fn:function(d){return d.txVol||0;},fmt:function(v){return v?v.toLocaleString()+"/yr":"—";},hi:true},
-      {l:"Sustainability",fn:function(d,n){return GREEN_AREAS[n]||50;},fmt:function(v){return v+"/100";},hi:true},
+      // GREEN_AREAS[n] alone is just ONE input (25% weight) into the real
+      // Sustainability Score shown everywhere else in the app (Analyzer,
+      // Reports, Portfolio — computeSustainabilityScore(), js/core.js) —
+      // it also blends building grade/age (30%), service charge efficiency
+      // (25%), and liquidity/DOM (20%). Showing the raw green score alone,
+      // mislabeled "Sustainability," would disagree with the real score a
+      // user sees the moment they run an actual valuation in that area.
+      // Calling the same function with no specific building (neutral
+      // grade/SC defaults) gives a genuinely comparable, consistent figure.
+      {l:"Sustainability",fn:function(d,n){return computeSustainabilityScore(null,n,null,d,null).score;},fmt:function(v){return v+"/100";},hi:true},
       {l:"Buildings in DB",fn:function(d,n){return bldgCounts[n]||0;},fmt:function(v){return v.toLocaleString();},hi:true}
     ];
 
@@ -335,9 +366,9 @@ function renderMarketIndex(){
       aiBtn.textContent=cmp.aiLoading?"Analyzing…":"Get AI Verdict";
       if(!cmp.aiLoading)aiBtn.addEventListener("click",function(){
         cmp.aiLoading=true;render();
-        var summary=activeAreas.map(function(n){var d=AREAS[n]||{};var y=d.y||[5,7];var g=d.g||[3,9,16];return n+": PSF "+d.psf+", SC "+d.sc+", yield "+(y[0]+y[1])/2+"%, 1yr growth "+g[0]+"%, 3yr "+g[1]+"%, DOM "+(d.dom||"?")+"d, txVol "+(d.txVol||"?")+" , buildings "+bldgCounts[n]+", sustainability "+(GREEN_AREAS[n]||50);}).join(". ");
+        var summary=activeAreas.map(function(n){var d=AREAS[n]||{};var y=d.y||[5,7];var g=d.g||[3,9,16];return n+": PSF "+d.psf+", SC "+d.sc+", yield "+(y[0]+y[1])/2+"%, 1yr growth "+g[0]+"%, 3yr "+g[1]+"%, DOM "+(d.dom||"?")+"d, txVol "+(d.txVol||"?")+" , buildings "+bldgCounts[n]+", sustainability "+(computeSustainabilityScore(null,n,null,d,null).score);}).join(". ");
         askAI([{role:"user",content:"Compare these Dubai areas for a real estate buyer:\n"+summary+"\n\nProvide: 1) For Investment: which is best and why (yield, growth, liquidity), 2) For Living: which is best and why (community, SC, grade), 3) Value Pick: which offers best value. Be specific with numbers. 3-4 sentences each."}],
-          "You are DubAIVal AI — Dubai's leading property intelligence platform with 9,227 buildings and 347 areas in our DLD-verified database. "+_currentMonthYear()+" market expert.\nYou are a RICS-certified property analyst comparing areas for sophisticated investors.\nFor each comparison dimension: cite the EXACT numbers provided, calculate differences, and give a clear winner.\nConsider hidden factors: SC drag on net yield, DOM as exit risk, transaction volume as liquidity proxy, sustainability as future premium.\nBe decisive — rank areas and declare winners. Use specific AED figures and percentages.",
+          "You are DubAIVal AI — Dubai's leading property intelligence platform with 9,226 buildings and 347 areas in our DLD-verified database. "+_currentMonthYear()+" market expert.\nYou are a RICS-certified property analyst comparing areas for sophisticated investors.\nFor each comparison dimension: cite the EXACT numbers provided, calculate differences, and give a clear winner.\nConsider hidden factors: SC drag on net yield, DOM as exit risk, transaction volume as liquidity proxy, sustainability as future premium.\nBe decisive — rank areas and declare winners. Use specific AED figures and percentages.",
           "Dubai real estate market comparison: "+activeAreas.join(", "),
           activeAreas
         ).then(function(r){cmp.aiVerdict=r;cmp.aiLoading=false;render();}).catch(function(e){cmp.aiLoading=false;cmp.aiVerdict="Error: "+e.message;render();});
@@ -383,7 +414,7 @@ function renderMarketIndex(){
       var a=AREAS[aName];if(!a)return;
       var y=a.y||[5,7];var g=a.g||[3,9,16];
       var fc=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"10px",padding:"10px",cursor:"pointer"}});
-      fc.addEventListener("click",function(){analyzerState.f.area=aName;setSection("Market","Analyzer");});
+      fc.addEventListener("click",function(){_idxGoToArea(aName);});
       fc.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"4px"},[
         span({color:cl.subHi,fontSize:"11px",fontWeight:"700",fontFamily:"'Inter',sans-serif"},aName.length>16?aName.substring(0,16)+"…":aName),
         span({color:cl.gold,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+(a.psf||0).toLocaleString())]));
@@ -435,7 +466,7 @@ function renderMarketIndex(){
     starBtn.textContent=isFavArea(d.name)?"★":"☆";
     (function(name){starBtn.addEventListener("click",function(e){e.stopPropagation();toggleFavArea(name);render();});})(d.name);
     row.appendChild(starBtn);
-    row.addEventListener("click",function(){analyzerState.f.area=d.name;setSection("Market","Analyzer");});
+    row.addEventListener("click",function(){_idxGoToArea(d.name);});
     row.appendChild(span({color:cl.text,fontSize:"11px",fontFamily:"'Inter',sans-serif",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},d.name));
     var barWrap=div({height:"6px",borderRadius:"3px",background:cl.border,overflow:"hidden"});
     barWrap.appendChild(div({height:"100%",width:barW+"%",borderRadius:"3px",background:barColor,transition:"width 0.3s ease"}));
