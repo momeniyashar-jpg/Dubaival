@@ -674,6 +674,79 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, Off-Plan Projects audit — a silent
+  admin-action failure and a missing Notes field, plus a flagged-not-fixed
+  growth-formula ambiguity)**: Direct continuation, same conversation —
+  right after the Market Index pass above, the user asked for the same
+  treatment on Off-Plan: "همین بررسی را در مورد off plan انجام بده". Read
+  `js/offplan.js` (public tab + prediction engine) and the Admin review/
+  Quick Add/Bayut-import/Developer Track Record machinery in `js/app.js`
+  end to end, plus cross-checked every RPC signature against
+  `supabase-offplan-schema.sql` (all matched correctly — no
+  parameter-naming drift found there). Found and fixed 2 real bugs:
+  1. **The single most consequential action in this whole admin section —
+     Approve/Reject a pending submission — silently did nothing on
+     failure, with zero indication to the admin.** `_adminReviewOffplanProject()`
+     never checked the RPC's response at all (`await fetch(...)` with the
+     result discarded), unlike every sibling function in this exact file
+     (`_adminQuickAddOffplan`, `_adminSaveDeveloperTrackRecord`,
+     `_fetchAdminOffplanPending`), which all correctly check `r.ok` and
+     surface an error. A wrong admin password or a failed RPC call meant
+     clicking Approve/Reject just re-fetched the (unchanged) pending list
+     with no error shown — the admin would have no way to tell the
+     project hadn't actually been reviewed. **Fix**: added the missing
+     `r.ok` check and a real error message — but a naive version that
+     unconditionally called `_fetchAdminOffplanPending()` afterward turned
+     out to immediately wipe the new error message before the admin could
+     ever see it, since that function resets `.error=null` the instant it
+     starts; caught this via a real Playwright test asserting the error
+     text actually appears in the rendered DOM (not just that the state
+     variable was set for an instant) before shipping — the pending list
+     now only re-fetches on a CONFIRMED success, leaving a failure's error
+     message visible until the next action.
+  2. **The Admin Quick Add form was missing a Notes field entirely, despite
+     `ADMIN_OFFPLAN_STATE.quickAdd.notes` being a real state field already
+     sent to the publish RPC, and — more importantly — a field the
+     "Paste & Extract with AI" button can silently POPULATE from pasted
+     text with zero UI to review it.** The reassurance shown directly above
+     Quick Add ("always review before publishing, the AI only extracts
+     what's explicitly in the pasted text") was untrue for this one field
+     specifically — an admin had no way to see, edit, or clear whatever
+     note text the AI extraction had just written in before hitting
+     "Add & Publish." **Fix**: added the missing "Notes (optional)" input,
+     matching the public Submit form (`js/offplan.js`), which already had
+     one correctly.
+  - **Investigated, deliberately NOT fixed — flagged for the user's own
+    domain judgment, not silently changed**: `computeOffPlanForecast()`'s
+    growth math treats `AREAS[].g[1]` as an INCREMENTAL years-1-to-3 growth
+    window (divides by 2 to "annualize" it) and `g[2]` as a flat "5 years
+    post-handover" rate applied on top of whatever growth already occurred
+    reaching handover — but a cross-check of how this exact `g[]` array is
+    used elsewhere in the app found genuinely inconsistent conventions
+    across different files: `js/chat.js`'s own area-growth chart labels
+    `g[0]/g[1]/g[2]` directly as "1Y"/"3Y"/"5Y" (implying CUMULATIVE growth
+    from TODAY over 3 horizons), while `js/workspace.js`'s own Area
+    Comparison section (fixed just yesterday in this same session) labels
+    them "Growth (0-1yr)"/"Growth (1-3yr)" (implying INCREMENTAL windows) —
+    a genuine, pre-existing ambiguity spanning multiple past sessions'
+    work, not something unique to Off-Plan. Resolving this correctly needs
+    the user's own domain judgment about what this field was originally
+    intended to mean (the same "extreme caution, confirm before touching
+    core growth math" posture already established for the Analyzer engine
+    itself, per this file's Directive #2) — not a unilateral guess in an
+    Off-Plan-scoped audit that could silently regress other, already-
+    shipped features relying on the same field. Flagging here explicitly
+    rather than either fixing blindly or ignoring it.
+  - Verified: `node -c` on both touched files; a real-browser Playwright
+    test confirming the public Off-Plan tab still renders its graceful
+    pre-migration message correctly; a mocked-RPC test confirming a FAILED
+    Approve now shows a real, visible "Could not approve — check the admin
+    password and try again." message in the rendered DOM (previously
+    silently swallowed), confirming a SUBSEQUENT successful Approve
+    correctly clears that error and refreshes the pending list to empty,
+    and confirming the Admin Quick Add form now has a real Notes input; and
+    a 13-tab regression sweep confirming zero collateral console errors.
+
 - **2026-07-18 (session continuing 14, Market Index audit — the tab's own
   central promise, "click any area for valuation," silently failed on an
   ordinary leftover state, plus a mislabeled comparison metric)**: Direct

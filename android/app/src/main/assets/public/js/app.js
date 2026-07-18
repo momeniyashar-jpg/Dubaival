@@ -1902,14 +1902,29 @@ async function _fetchAdminOffplanPending(){
 }
 async function _adminReviewOffplanProject(id,approve,reason){
   if(!window._adminPw)return;
+  // This is arguably the single most consequential action in this whole
+  // section (it's what actually makes a submission go live publicly), but
+  // unlike every sibling function here (_adminQuickAddOffplan,
+  // _adminSaveDeveloperTrackRecord) it never checked the response at all —
+  // a wrong admin password or a failed RPC call silently did nothing, with
+  // the pending list re-fetching unchanged and zero indication to the admin
+  // that Approve/Reject didn't actually take effect. Only refetches the
+  // pending list on a CONFIRMED success — _fetchAdminOffplanPending() itself
+  // resets .error=null the instant it starts, so calling it unconditionally
+  // (the old behavior) would have wiped this function's own error message
+  // before the admin ever saw it.
+  var ok=false;
   try{
-    await fetch(SUPABASE_URL+"/rest/v1/rpc/admin_review_offplan_project",{
+    var r=await fetch(SUPABASE_URL+"/rest/v1/rpc/admin_review_offplan_project",{
       method:"POST",headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
       body:JSON.stringify({p_admin_password:window._adminPw,p_project_id:id,p_approve:approve,p_rejection_reason:reason||null})
     });
-  }catch(e){}
+    ok=r.ok;
+    if(!ok){ADMIN_OFFPLAN_STATE.error="Could not "+(approve?"approve":"reject")+" — check the admin password and try again.";render();}
+  }catch(e){ADMIN_OFFPLAN_STATE.error="Network error "+(approve?"approving":"rejecting")+" the project.";render();}
   ADMIN_OFFPLAN_STATE.rejectingId=null;ADMIN_OFFPLAN_STATE.rejectReason="";
-  _fetchAdminOffplanPending();
+  if(ok)_fetchAdminOffplanPending();
+  else render();
 }
 async function _adminQuickAddOffplan(){
   if(!window._adminPw)return;
@@ -2303,6 +2318,14 @@ function renderAdmin(){
     var qaPricingW=el("div",{style:{marginTop:"6px"}});
     qaPricingW.appendChild(qaField("Unit types & pricing: Studio:1500:400-550, 1BR:1650:750-900","unitPricing"));
     opCard.appendChild(qaPricingW);
+    // Notes had a real state field, was sent to the RPC, and could even be
+    // silently filled by "Paste & Extract with AI" above — but had no input
+    // here at all, so an admin had zero visibility into what note text (if
+    // any, including AI-extracted text) was about to be published, directly
+    // undermining the "always review before publishing" line shown above.
+    var qaNotesW=el("div",{style:{marginTop:"6px"}});
+    qaNotesW.appendChild(qaField("Notes (optional)","notes"));
+    opCard.appendChild(qaNotesW);
     var qaBtn=el("button",{style:{width:"100%",marginTop:"8px",padding:"9px",background:"linear-gradient(135deg,#C9A84C,#D4A843)",border:"none",color:"#070B14",borderRadius:"8px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
     qaBtn.textContent="+ Add & Publish";
     qaBtn.onclick=_adminQuickAddOffplan;
