@@ -8562,7 +8562,13 @@ async function sendChat(text,forceAgentId){
   var aid=forceAgentId||chatState.agentId;
   var t=text||chatState.input.trim();
   if(!t||chatState.loading)return;
-  chatState.input="";
+  // Only clear the input box when it's actually what we just sent — a
+  // suggestion-chip click passes its own `text` and never touched the box,
+  // so clearing chatState.input unconditionally here used to silently wipe
+  // out a real question the user had already started typing (visible
+  // whenever suggestions are showing, i.e. right after the greeting) the
+  // moment they clicked a suggestion instead of pressing Enter.
+  if(!text)chatState.input="";
   var msgs=getAgentMsgs(aid);
   msgs.push({role:"user",text:t});
   chatState.loading=true;render(true);

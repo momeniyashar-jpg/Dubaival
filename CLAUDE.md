@@ -674,6 +674,70 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, AI Agents audit — one real input-loss
+  bug found and fixed, extensive prompt/grounding logic confirmed already
+  correct from prior sessions)**: Direct follow-up, same conversation, after
+  removing the duplicate "AI Assistant" tab (see the entry directly below)
+  — user asked for the same audit-then-fix treatment on Network → AI Agents
+  itself. Read the full `AI_AGENTS` array (all 8 agents' system prompts:
+  general/valuation/negotiation/marketing/investor/legal/leadcapture/
+  outreach), `_agentVerifiedContext()`/`_agentClosingStyle()`/
+  `getDubaiRealEstateBrain()`/`getBrandPrompt()`, `renderChat()`, `sendChat()`,
+  `getAgentMsgs()`, `extractPostJSON()`, and `formatAIResponse()`
+  (`js/api.js`) end to end. Most of what a fresh read would flag here
+  (grounding real building/area data into the 4 agents that promise
+  precise numbers, the honesty/precision-ask framing, the ENGAGEMENT closing
+  style, the dynamic `_currentMonthYear()` date) was already built and fixed
+  in prior sessions (2026-07-13/2026-07-12, documented further down this
+  log) — confirmed still correct and unregressed rather than re-doing that
+  work. Found one new, real, confirmed bug:
+  1. **A suggestion-chip click could silently wipe out a real question the
+     user had already started typing.** `sendChat(text,forceAgentId)`
+     unconditionally ran `chatState.input="";` regardless of whether `text`
+     was actually the box's own contents — a suggestion chip's `onclick`
+     passes its OWN fixed string as `text` (`sendChat(s,effAgentId)`), never
+     touching the input box at all. So if a user started typing their own
+     custom question (suggestions are only shown right after the greeting,
+     `msgs.length<=1` — exactly when a first-time user is most likely to be
+     composing their real question) and then clicked a suggestion chip
+     instead of finishing/sending their own draft, the draft vanished with
+     no trace. Confirmed via a real-browser test before fixing: typing a
+     custom message, clicking an unrelated suggestion, and reading
+     `chatState.input` back afterward — the draft was gone even though it
+     was never sent or referenced anywhere. **Fix**: `chatState.input=""`
+     now only runs `if(!text)` — i.e. only when we actually just consumed
+     what was in the box, matching intended behavior exactly; a suggestion
+     click no longer touches the box's contents at all.
+  - **Investigated, judged not worth changing**: `chatState.loading` is a
+    single global flag (not per-agent), so a reply in flight for one agent
+    blocks sending on every other agent too until it resolves — a real,
+    minor friction point (typically a few seconds), not a correctness bug
+    (verified the eventual reply always lands in the CORRECT agent's history
+    regardless of any mid-flight agent switch, since `sendChat()` captures
+    its own `aid`/`msgs` reference before the `await`) — a proper fix would
+    need per-agent loading state threaded through the agent-selector bar's
+    disabled/spinner styling too, a bigger change for a narrow inconvenience,
+    so left as-is. Also confirmed `AI_AGENTS[].nameAr` (an Arabic name on
+    every agent) is genuinely dead — never read anywhere in `renderChat()` —
+    but this is consistent with, not separate from, the already-documented
+    2026-07-18 decision to hide the Arabic language toggle entirely rather
+    than ship a half-translated UI (see that entry further down this log);
+    not a fresh bug, just inert data left over from the same shelved
+    translation effort.
+  - Verified: `node -c js/chat.js`; a real-browser Playwright test
+    confirming a real half-typed draft survives an unrelated suggestion-chip
+    click (previously wiped), that the suggestion itself still sends
+    correctly, and that a normal typed-and-sent message still clears the
+    box exactly as before (no regression to the common path); and a second
+    sweep confirming all 8 agents switch and render correctly, and that
+    Media Studio's embedded outreach chat (which shares this exact
+    `sendChat()`/`effAgentId` code path, fixed earlier this same
+    conversation) still sends and stores messages correctly — zero real
+    console errors in either pass (one filtered artifact: the test's own
+    over-broad Groq mock also intercepted the unrelated market-intelligence
+    background fetch, which expects a different JSON shape — a test-harness
+    limitation already documented elsewhere in this file, not a product bug).
+
 - **2026-07-18 (session continuing 14, "AI Assistant" removed from Social —
   confirmed 100% duplicate of Network → AI Agents, before starting the AI
   Agents audit)**: Direct follow-up, same conversation — before asking for
