@@ -5877,6 +5877,45 @@ These files contain critical business logic and data:
 
 ## Outstanding / open items
 
+- **🔴 Directive #4 category 2 (Meta OAuth automation) — BLOCKED, not a
+  code problem: the business has no real UAE trade license yet, so Meta
+  Business Verification cannot be completed** (found 2026-07-18, session
+  continuing from 14). User attempted Meta Business Verification tonight
+  (business.facebook.com Business Info → legal name "DubAIVal" already set,
+  address + phone completed, but the verification wizard's "Select your
+  business type" step requires uploading a real registration document —
+  Trade License, Certificate of Incorporation, etc. — and the user confirmed
+  no such document exists yet: "هنوز ثبت نکردم" (haven't registered yet).
+  **This is a hard, external, non-technical blocker** — no amount of code
+  or Meta Dashboard configuration can substitute for a real registered
+  business entity. Without Business Verification, Meta only allows
+  sensitive permissions (`whatsapp_business_management`,
+  `whatsapp_business_messaging`, `ads_management`) in **Development Mode**
+  — usable only by the app's own admins/testers, never by arbitrary real
+  end users — so the WhatsApp Embedded Signup / Facebook Login for Business
+  Pixel-auto-discovery flows described in directive #4's main text cannot
+  go live for real agents until this is resolved.
+  - **User's decision tonight**: pause this work entirely rather than
+    register a business under time pressure. Explicitly chose to set this
+    aside and work on other parts of the site instead — this is NOT
+    something for a future session to silently retry; wait for the user to
+    confirm a real UAE trade license exists (commonly obtained via a Dubai
+    free zone — IFZA, Meydan Free Zone, SHAMS, RAKEZ, and similar all offer
+    relatively fast e-commerce/media/tech licenses, mentioned to the user
+    as one option, not a specific recommendation) before resuming Meta
+    Business Verification or any OAuth "Connect X" build-out.
+  - **What's already done and does NOT need to be repeated**: Business
+    Portfolio "Dubai AI Valuation" exists (created Jun 25, 2026, per its own
+    Business History), Legal business name/Address/Business phone/Website
+    are all filled in correctly on business.facebook.com Business Info,
+    Two-Factor Authentication backup admin is already added. The ONLY
+    missing piece is the actual verification document upload, which needs a
+    real registered entity first.
+  - **Everything else built tonight (category 1 — shared platform keys,
+    Profile Panel consolidation) is unaffected and already live** — this
+    blocker is scoped ONLY to category 2 (per-agent WhatsApp Business/Meta
+    Pixel/other-platform OAuth automation).
+
 - **🟡 Directive #4 — category 1 (shared platform keys) SHIPPED same night;
   category 2 (per-agent OAuth) still needs tomorrow's Meta App Review.** See
   the "directive #4 category 1 shipped" work-log entry above for full
