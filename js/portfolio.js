@@ -4,6 +4,29 @@
 // shared across every AI prompt in the app that references "the current
 // month" instead of a hardcoded, ever-staling literal like "June 2026".
 
+// Resolve a "Community" (CLUSTERS key) name to its real AREAS entry — fixed
+// 2026-07-18 (Compare audit): a direct exact `AREAS[v]` lookup silently
+// returned `{}` (all-zero PSF/yield/growth) for 53 of the 124 CLUSTERS keys
+// (~43%), most of them pure casing/formatting variants of a real AREAS key
+// (e.g. "DAMAC HILLS 2" vs "DAMAC Hills 2", "TOWN SQUARE" vs "Town Square")
+// or already-mapped DLD sub-community aliases — meaning comparing many
+// popular villa communities silently showed "PSF: AED 0 / Yield: 0-0%" as
+// if it were real data. Tries an exact match, then a case-insensitive
+// match, then the existing DLD_AREA_MAP alias table (js/data-residential.js)
+// — deliberately does NOT fall back to a fuzzy/substring guess beyond that,
+// since a wrong-but-plausible area match would be worse than honestly
+// reporting no data (same principle as `_paPickRealBuilding()` in the
+// Personal Advisor rebuild returning null rather than a fabricated pick).
+function _cmpResolveCluster(v){
+  if(AREAS[v])return v;
+  var lower=v.toLowerCase().trim();
+  var found=Object.keys(AREAS).find(function(k){return k.toLowerCase().trim()===lower;});
+  if(found)return found;
+  var resolved=typeof resolveDLDArea==="function"?resolveDLDArea(v):v;
+  if(resolved!==v&&AREAS[resolved])return resolved;
+  return null;
+}
+
 // Helper: get comparison data for any item type
 function _cmpItemData(item){
   var t=item.type,v=item.value;
@@ -13,13 +36,21 @@ function _cmpItemData(item){
     return{label:v,type:"Area",psf:a.psf||0,yLow:a.y?a.y[0]:0,yHigh:a.y?a.y[1]:0,g1:a.g?a.g[0]:0,g3:a.g?a.g[1]:0,sc:a.sc||15,dom:a.dom||90,txVol:a.txVol||0,grade:"—"};
   }
   if(t==="cluster"){
-    var a=AREAS[v]||{};
+    var realArea=_cmpResolveCluster(v);
+    if(!realArea)return null;
+    var a=AREAS[realArea]||{};
     var clusterList=typeof CLUSTERS!=="undefined"?CLUSTERS[v]:null;
-    return{label:v,type:"Community",psf:a.psf||0,yLow:a.y?a.y[0]:0,yHigh:a.y?a.y[1]:0,g1:a.g?a.g[0]:0,g3:a.g?a.g[1]:0,sc:a.sc||15,dom:a.dom||90,txVol:a.txVol||0,grade:"Villa/TH Community",extra:clusterList?"("+clusterList.length+" sub-clusters)":""};
+    return{label:v,type:"Community",psf:a.psf||0,yLow:a.y?a.y[0]:0,yHigh:a.y?a.y[1]:0,g1:a.g?a.g[0]:0,g3:a.g?a.g[1]:0,sc:a.sc||15,dom:a.dom||90,txVol:a.txVol||0,grade:"Villa/TH Community",extra:clusterList?"("+clusterList.length+" sub-clusters)":"",area:realArea};
   }
   if(t==="building"){
-    var bKey=v.toLowerCase();
-    var b=typeof DB!=="undefined"?DB[bKey]:null;
+    // Fixed 2026-07-18 (Compare audit): was an exact-key `DB[v.toLowerCase()]`
+    // lookup — the same recurring bug class already fixed elsewhere this
+    // session (Assets tab CSV export, Sustainability Score) — so a
+    // free-typed building name with any minor variation silently showed
+    // "(no data)" even when a real, fuzzy-matchable entry existed.
+    // lookupBuilding() is the same matcher the rest of the app already
+    // trusts for this exact purpose.
+    var b=typeof lookupBuilding==="function"?lookupBuilding(v,null):(typeof DB!=="undefined"?DB[v.toLowerCase()]:null);
     if(!b)return null;
     var aData=AREAS[b.a]||{};
     // Real building-adjusted yield (scaled from the area band by this
@@ -44,8 +75,27 @@ function _cmpBuildingSearch(idx,currentVal,cl){
     compareState.items[idx].value=this.value;
     while(drop.firstChild)drop.removeChild(drop.firstChild);
     if(q.length<2){drop.style.display="none";return;}
+    // Property Type filter — fixed 2026-07-18 (Compare audit): this field
+    // was captured and sent to the AI as plain text ("Property type: Villa")
+    // but never actually filtered anything, so the building search still
+    // freely suggested apartment towers even with "Villa" selected. Now
+    // narrows suggestions by the same VILLA_AREAS-membership convention the
+    // rest of the app already uses to infer a building's type (DB entries
+    // carry no direct type field). Left unfiltered for "All"/Townhouse/
+    // Penthouse — VILLA_AREAS only cleanly distinguishes villa-vs-not, and a
+    // Townhouse/Penthouse can genuinely live in either kind of area.
+    var pt=compareState.propType;
+    var wantVilla=pt==="Villa";
+    var wantApt=pt==="Apartment";
     var matches=[];
-    Object.keys(DB).forEach(function(k){if(k.includes(q)&&matches.length<8)matches.push({k:k,d:DB[k]});});
+    Object.keys(DB).forEach(function(k){
+      if(matches.length>=8)return;
+      if(!k.includes(q))return;
+      var d=DB[k];
+      if(wantVilla&&!(typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(d.a)))return;
+      if(wantApt&&(typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(d.a)))return;
+      matches.push({k:k,d:d});
+    });
     if(!matches.length){drop.style.display="none";return;}
     matches.forEach(function(m){
       var row=el("div",{style:{padding:"8px 12px",cursor:"pointer",fontSize:"12px",color:"#E0E0E0",fontFamily:"'Inter',sans-serif",borderBottom:"1px solid #2A3040"}});
@@ -125,12 +175,27 @@ function renderCompare(){
   var cmpBtn=el("button",{style:{width:"100%",background:"rgba(212,175,55,0.15)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",color:cl.gold,border:"1px solid rgba(212,175,55,0.3)",padding:"13px",borderRadius:"10px",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"},onclick:async function(){
     var filled=s.items.filter(function(it){return it.value&&it.value!=="Select area…"&&it.value!=="Select community…";});
     if(filled.length<2){compareState.err="Please select at least 2 items to compare.";render();return;}
+    // Duplicate-item guard (added 2026-07-18 Compare audit) — comparing the
+    // exact same area/community/building against itself twice produced a
+    // real AI call for a meaningless comparison with no warning at all.
+    var seenPairs={};
+    var hasDup=filled.some(function(it){var k=it.type+"|"+it.value.toLowerCase().trim();if(seenPairs[k])return true;seenPairs[k]=true;return false;});
+    if(hasDup){compareState.err="You've selected the same item twice — pick different areas/communities/buildings to compare.";render();return;}
     compareState.err="";compareState.loading=true;compareState.result="";render();
     try{
       var cmpAreas=[];
+      var noDataCount=0;
       var lines=filled.map(function(it,i){
         var d=_cmpItemData(it);
-        if(!d)return(i+1)+". "+it.value+" — (no data)";
+        // Fixed 2026-07-18 (Compare audit): the old "(no data)" line gave the
+        // AI zero guidance on what to do with an unresolved item — nothing in
+        // the system prompt forbade it from filling the gap with a plausible-
+        // sounding invented PSF/yield from its own general knowledge, exactly
+        // the "AI freely invents numbers" accuracy risk already fixed
+        // elsewhere this session (AI Agents, Personal Advisor). The explicit
+        // "NO VERIFIED DATA" wording here is paired with a hard instruction
+        // in the system prompt below never to invent figures for such a line.
+        if(!d){noDataCount++;return(i+1)+". "+it.value+" — NO VERIFIED DATA (not found in our 9,227-building / 347-area database)";}
         if(d.area&&cmpAreas.indexOf(d.area)===-1)cmpAreas.push(d.area);
         var base=(i+1)+". "+d.label+" ("+d.type+(d.area?" — in "+d.area:"")+")";
         var stats=" | PSF: AED "+(d.psf||"N/A");
@@ -141,9 +206,9 @@ function renderCompare(){
         if(d.extra)stats+=" "+d.extra;
         return base+stats;
       }).join("\n");
-      var prompt="Compare these options for a Dubai buyer — "+_currentMonthYear()+":\n\n"+lines+"\n\nBudget: "+(s.budget?"AED "+parseInt(s.budget).toLocaleString():"not specified")+" | Purpose: "+s.purpose+" | Property type: "+(s.propType||"All")+"\n\nFor each option: assess Value (PSF vs quality), Income (net yield), Growth (3yr), Liquidity & Risk.\nGive a DECISIVE ranked verdict: which is #1, #2, etc. for this buyer and why. Specific AED numbers only. No fluff.";
+      var prompt="Compare these options for a Dubai buyer — "+_currentMonthYear()+":\n\n"+lines+"\n\nBudget: "+(s.budget?"AED "+parseInt(s.budget).toLocaleString():"not specified")+" | Purpose: "+s.purpose+" | Property type: "+(s.propType||"All")+"\n\nFor each option: assess Value (PSF vs quality), Income (net yield), Growth (3yr), Liquidity & Risk.\nGive a DECISIVE ranked verdict: which is #1, #2, etc. for this buyer and why. Specific AED numbers only. No fluff."+(noDataCount>0?"\n\nIMPORTANT: "+noDataCount+" item(s) above are marked NO VERIFIED DATA — for those items ONLY, state plainly that we have no verified data and you cannot rank them on hard numbers (a directional/qualitative note is fine); do NOT invent a PSF, yield, or growth figure for them.":"");
       var groundQ="Dubai real estate comparison: "+filled.map(function(it){return it.value;}).join(" vs ");
-      var text=await askAI([{role:"user",content:prompt}],"You are DubAIVal AI — Dubai's top property intelligence platform with 9,227 buildings and 347 DLD-verified areas. "+_currentMonthYear()+" expert.\nRank each option clearly. Use EXACT PSF, yield, growth data. Cite specific AED numbers. 1 section per option (3 sentences), then a final RANKING table.",groundQ,cmpAreas);
+      var text=await askAI([{role:"user",content:prompt}],"You are DubAIVal AI — Dubai's top property intelligence platform with 9,227 buildings and 347 DLD-verified areas. "+_currentMonthYear()+" expert.\nRank each option clearly. Use EXACT PSF, yield, growth data from what's given above — never invent a number for an item marked NO VERIFIED DATA. Cite specific AED numbers. 1 section per option (3 sentences), then a final RANKING table.",groundQ,cmpAreas);
       compareState.result=text;
     }catch(e){compareState.result="Error: "+e.message;}
     compareState.loading=false;render();
@@ -157,9 +222,23 @@ function renderCompare(){
     var resCard=div({background:cl.surface,border:"1px solid "+cl.goldDim,borderRadius:"14px",padding:"20px"});
     resCard.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"◆ "+filledItems.map(function(it){return it.value;}).join(" vs ")));
     var resText=div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.9",fontFamily:"'Inter',sans-serif",whiteSpace:"pre-wrap"});resText.textContent=s.result;resCard.appendChild(resText);wrap.appendChild(resCard);
-    // Map — show area/cluster items only
+    // Map — fixed 2026-07-18 (Compare audit): previously excluded EVERY
+    // building-type item outright (`it.type!=="building"`), so comparing
+    // specific buildings across different areas — the user's actual stated
+    // core use case for this tab — lost the entire location/drive-time
+    // dimension. Buildings don't have their own tracked lat/lng, but their
+    // AREA does, so each item now resolves a `coordKey` (its own value for
+    // Area, the resolved real area for Community/Building via the same
+    // `_cmpResolveCluster()`/`lookupBuilding()` used above) while keeping
+    // the item's own name as the display label.
     var MAP_COLORS=["#60A5FA","#34D399","#FBBF24","#F87171","#A78BFA","#FB923C","#2DD4BF","#E879F9","#4ADE80","#F472B6"];
-    var mappableItems=filledItems.filter(function(it){return it.type!=="building"&&typeof AREA_COORDS!=="undefined"&&AREA_COORDS[it.value];});
+    var mappableItems=filledItems.map(function(it){
+      var coordKey=null;
+      if(it.type==="area")coordKey=it.value;
+      else if(it.type==="cluster")coordKey=_cmpResolveCluster(it.value);
+      else if(it.type==="building"){var b=typeof lookupBuilding==="function"?lookupBuilding(it.value,null):null;coordKey=b?b.a:null;}
+      return{it:it,coordKey:coordKey};
+    }).filter(function(x){return x.coordKey&&typeof AREA_COORDS!=="undefined"&&AREA_COORDS[x.coordKey];});
     if(mappableItems.length>0){
       var mapCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginTop:"12px"});
       mapCard.appendChild(span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},"◆ Location Map & Drive Times"));
@@ -167,33 +246,34 @@ function renderCompare(){
       mapCard.appendChild(el("div",{style:{width:"100%",height:"220px",borderRadius:"10px",overflow:"hidden",marginBottom:"14px"},id:cmpMapId}));
       var cols=Math.min(mappableItems.length,3);
       var dtGrid2=div({display:"grid",gridTemplateColumns:"repeat("+cols+",1fr)",gap:"8px"});
-      mappableItems.forEach(function(it,mi){
+      mappableItems.forEach(function(mi2,mi){
+        var it=mi2.it,coordKey=mi2.coordKey;
         var dtId="dv-cmp-dt"+mi+Date.now();
         var clr=MAP_COLORS[mi%MAP_COLORS.length];
         dtGrid2.appendChild(div({id:dtId},[span({color:clr,fontSize:"9px",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},it.value),span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Loading…")]));
-        setTimeout(function(itCopy,dtIdCopy,clrCopy){
-          fetch("/api/proxy-maps?action=distances&lat="+AREA_COORDS[itCopy.value][0]+"&lng="+AREA_COORDS[itCopy.value][1]).then(function(rr){return rr.json();}).then(function(data){
+        setTimeout(function(itCopy,dtIdCopy,clrCopy,coordKeyCopy){
+          fetch("/api/proxy-maps?action=distances&lat="+AREA_COORDS[coordKeyCopy][0]+"&lng="+AREA_COORDS[coordKeyCopy][1]).then(function(rr){return rr.json();}).then(function(data){
             var el2=document.getElementById(dtIdCopy);if(!el2)return;
             while(el2.firstChild)el2.removeChild(el2.firstChild);
             el2.appendChild(span({color:clrCopy,fontSize:"9px",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},itCopy.value));
             (data.rows||[]).forEach(function(row){el2.appendChild(div({display:"flex",justifyContent:"space-between",marginBottom:"3px"},[span({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif"},row.label),span({color:cl.subHi,fontSize:"9px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},row.duration)]));});
           }).catch(function(){});
-        },100,it,dtId,clr);
+        },100,it,dtId,clr,coordKey);
       });
       mapCard.appendChild(dtGrid2);wrap.appendChild(mapCard);
       setTimeout(function(){
         var c2=document.getElementById(cmpMapId);if(!c2||typeof _dvGmapLoad!=="function")return;
         _dvGmapLoad(function(){
           var c3=document.getElementById(cmpMapId);if(!c3)return;
-          var coords=mappableItems.map(function(it){return AREA_COORDS[it.value];});
+          var coords=mappableItems.map(function(x){return AREA_COORDS[x.coordKey];});
           var cLat=coords.reduce(function(s,c){return s+c[0];},0)/coords.length;
           var cLng=coords.reduce(function(s,c){return s+c[1];},0)/coords.length;
           var gm=new google.maps.Map(c3,{center:{lat:cLat,lng:cLng},zoom:11,styles:typeof _GMAP_DARK_STYLES!=="undefined"?_GMAP_DARK_STYLES:[],zoomControl:true,mapTypeControl:false,streetViewControl:false,fullscreenControl:false,gestureHandling:"greedy"});
           var bnds=new google.maps.LatLngBounds();
-          mappableItems.forEach(function(it,mi){
-            var coord=AREA_COORDS[it.value];var clr=MAP_COLORS[mi%MAP_COLORS.length];
+          mappableItems.forEach(function(x,mi){
+            var coord=AREA_COORDS[x.coordKey];var clr=MAP_COLORS[mi%MAP_COLORS.length];
             bnds.extend({lat:coord[0],lng:coord[1]});
-            new google.maps.Marker({map:gm,position:{lat:coord[0],lng:coord[1]},title:it.value,icon:{path:google.maps.SymbolPath.CIRCLE,scale:10,fillColor:clr,fillOpacity:1,strokeColor:"#fff",strokeWeight:2},label:{text:String(mi+1),color:"#fff",fontSize:"10px",fontWeight:"700"}});
+            new google.maps.Marker({map:gm,position:{lat:coord[0],lng:coord[1]},title:x.it.value,icon:{path:google.maps.SymbolPath.CIRCLE,scale:10,fillColor:clr,fillOpacity:1,strokeColor:"#fff",strokeWeight:2},label:{text:String(mi+1),color:"#fff",fontSize:"10px",fontWeight:"700"}});
           });
           if(mappableItems.length>1)gm.fitBounds(bnds,40);
         });

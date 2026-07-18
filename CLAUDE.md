@@ -656,6 +656,109 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, Compare tab audit — 5 real gaps
+  found and fixed)**: Direct follow-up to the Alerts audit below, same
+  conversation — user asked for the identical audit-then-fix treatment on
+  Compare (Market → Compare, `renderCompare()`/`_cmpItemData()`/
+  `_cmpBuildingSearch()` in `js/portfolio.js`): are the inputs sufficient to
+  compare multiple properties across different buildings/areas — apartment,
+  villa, AND townhouse — and is the result complete/flawless as the tool's
+  name promises? Found the most serious data-accuracy bug in this whole
+  string of Portfolio audits:
+  1. **Silent, unlabeled zero-data bug affecting 53 of 124 Community options
+     — the single biggest finding**: the "Community" dropdown is populated
+     from `Object.keys(CLUSTERS)` (`js/data-residential.js`, 124 villa/
+     townhouse master-community names), but `_cmpItemData()`'s cluster branch
+     did a bare `AREAS[v]||{}` lookup with no fallback at all. A direct
+     cross-check found 53 of those 124 names (~43%) have no EXACT-cased match
+     in `AREAS` — casing/formatting drift between the two data files (e.g.
+     `CLUSTERS` has `"DAMAC Hills 2"` while `AREAS` uses different casing, or
+     the two disagree in punctuation/spacing) — so picking any of these 53
+     communities silently produced an all-zero `{}` object: PSF 0, yield 0,
+     growth 0, DOM 0. That empty object was then handed straight to the AI as
+     if it were real data for a side-by-side investment comparison — a direct
+     violation of this file's own Directive #2 (max 3% deviation, every
+     Analyzer/comparison number must be accurate), and arguably worse than a
+     visible error since the user would see confident-looking AI commentary
+     built on literal zeros with no indication anything was wrong.
+     **Fix**: new `_cmpResolveCluster(v)` helper — tries the exact key first,
+     then a case-insensitive match against real `AREAS` keys, then falls back
+     to the existing `resolveDLDArea()` alias table (already used elsewhere
+     in the app for DLD sub-community name normalization) — resolving 11 of
+     the 53 previously-broken names to real data (8 via case-insensitive
+     match, 3 via the alias table). The remaining ~42 genuinely have no
+     tracked benchmark at all; for these, `_cmpItemData()` now returns `null`
+     (an honest "no data" signal) instead of a fabricated `{}` — consistent
+     with the same anti-fabrication principle already established this
+     session for Personal Advisor's `_paPickRealBuilding()`. Deliberately did
+     NOT attempt fuzzy/substring matching for these remaining 42, since a
+     wrong-but-plausible area match would be a worse failure mode than an
+     honest gap. (Editing `CLUSTERS`/`AREAS` themselves to close the
+     remaining gap is out of scope for this branch — those files are owned
+     exclusively by the research branch per the two-branch workflow rule.)
+  2. **Building comparison used exact-match lookup, not the app's own fuzzy
+     matcher**: the building branch of `_cmpItemData()` did `DB[v.toLowerCase()]`
+     directly — the same class of bug already fixed elsewhere in this
+     project (`scoreDealQuality()`, session 2026-07-18 Find audit) — meaning
+     a building typed with slightly different spacing/punctuation than its
+     exact DB key silently produced the same all-zero result as case (1).
+     Fixed by routing through the existing, already-hardened
+     `lookupBuilding(name,areaHint)` (fuzzy substring/word matching) instead.
+  3. **Property Type selector was decorative only**: the "Property Type"
+     field (All/Apartment/Villa/Townhouse/Penthouse) was captured into
+     `compareState.propType` and passed to the AI as plain text context, but
+     never actually filtered anything — selecting "Villa" still let the
+     building-search autocomplete suggest apartment towers with zero
+     narrowing, so a user trying to compare "villas across different areas"
+     (the user's own stated use case) had no real way to keep results to
+     villas only. Fixed: `_cmpBuildingSearch()`'s suggestion filter now
+     checks `VILLA_AREAS.has(d.a)` (the same convention this whole app
+     already uses to infer a DB entry's type, since entries carry no direct
+     type field) — Villa narrows to villa-area buildings only, Apartment
+     excludes them, All/Townhouse/Penthouse stay unfiltered since
+     `VILLA_AREAS` only cleanly distinguishes villa-vs-not and a Townhouse/
+     Penthouse can genuinely exist in either kind of area.
+  4. **No duplicate-item guard**: comparing the exact same area/community/
+     building against itself twice (e.g. two "Dubai Marina" rows) produced a
+     real, paid AI call for a comparison with no actual second side — no
+     warning shown at all. Fixed with a real pairwise dedup check
+     (type+value, case-insensitive) before the AI call fires, showing a clear
+     inline error instead.
+  5. **Map/Drive-Times section silently dropped every building-type
+     comparison item** — arguably the most relevant gap given the user's own
+     framing ("مقایسه چندین ملک در ساختمانها و مناطق مختلف" — comparing
+     properties across different BUILDINGS and areas): the section's
+     `mappableItems` filter was `it.type!=="building"` — i.e. it explicitly
+     EXCLUDED every building selection from ever appearing on the map/
+     drive-times comparison, only ever plotting area/community items. A user
+     comparing two specific buildings got zero map/commute context at all,
+     the one comparison dimension most useful for a real buy-decision.
+     Fixed: `mappableItems` is now derived by resolving each filled item to
+     its real map-coordinate key first — `it.value` for area, the new
+     `_cmpResolveCluster(it.value)` for cluster, `lookupBuilding(it.value,
+     null).a` (the matched building's own area) for building — then keeping
+     only items whose resolved key actually exists in `AREA_COORDS`. All 3
+     downstream consumers (the drive-time stat boxes, the async fetch, and
+     the Google Maps marker placement) updated to use the resolved
+     coordinate key instead of the raw item value.
+  - Verified via a real-browser Playwright test (12 checks): the
+    case-mismatched "DAMAC HILLS 2" cluster now resolves to real, non-zero
+    PSF data (was previously silently zero); a genuinely untracked community
+    ("The World") correctly returns `null`, not fake zeros; building lookup
+    resolves a real DB key; the duplicate-item guard correctly blocks two
+    identical selections with a clear inline message; the Villa Property Type
+    filter correctly narrows building-search suggestions to villa-area
+    buildings only, and Apartment correctly excludes them (18 suggestions
+    each, verified against `VILLA_AREAS` membership); a building-type item
+    now resolves a real map coordinate key (previously always excluded); a
+    full mocked-AI end-to-end run confirmed the prompt sent to the API
+    includes the literal "NO VERIFIED DATA" label for an unresolvable item
+    plus an explicit "do NOT invent"/"never invent" instruction, and the
+    comparison result renders correctly in the UI — zero console errors. A
+    25-tab navigation regression sweep (every Market/Portfolio/Network/
+    SocialMedia/More sub-tab plus Home) confirmed zero collateral console
+    errors from these changes elsewhere in the app.
+
 - **2026-07-18 (session continuing 14, Portfolio Alerts audit — 5 real
   gaps found and fixed)**: Direct follow-up to the Health/Projections audit
   below, same conversation — user asked to review `renderAlerts()`
