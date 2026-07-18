@@ -638,6 +638,15 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, further follow-up — Palm Jumeirah
+  query sharpened to Atlantis The Palm)**: The top-down query still
+  resolved to a plain-water/generic aerial shot rather than a recognizable
+  Palm Jumeirah shot. User asked specifically for Atlantis The Palm to be
+  in frame — the single most recognizable landmark on the island, more
+  identifiable in a photo than the palm-tree shape alone. Bumped
+  `about_hero_v4`→`v5`, query now "Palm Jumeirah Atlantis The Palm hotel
+  aerial drone view".
+
 - **2026-07-18 (session continuing 14, small follow-up — About hero photo
   swapped to Palm Jumeirah)**: User asked for the About page hero photo
   specifically to be Palm Jumeirah rather than the Dubai Marina query it

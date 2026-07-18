@@ -20,7 +20,7 @@ function renderAbout(){
     background:"linear-gradient(160deg,rgba(7,11,20,0.45) 0%,rgba(10,14,26,0.58) 100%)"
   }});
   hero.appendChild(abtHeroOverlay);
-  _dvGetStockPhoto("about_hero_v4","Palm Jumeirah top down drone view full island shape aerial").then(function(url){
+  _dvGetStockPhoto("about_hero_v5","Palm Jumeirah Atlantis The Palm hotel aerial drone view").then(function(url){
     if(url){abtHeroPhoto.style.backgroundImage='url("'+url+'")';abtHeroPhoto.style.opacity="1";}
   });
   var abtHeroContent=div({position:"relative",zIndex:"1"});
