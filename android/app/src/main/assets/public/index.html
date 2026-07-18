@@ -7,7 +7,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
 <title>DubAIVal (Beta) — AI Property Valuation Dubai | DLD-Verified</title>
 <meta name="description" content="AI-powered property valuation for Dubai — residential, commercial &amp; land. DLD-verified data, 11,500+ properties, Cascade AVM engine. PSF analysis, deal verdicts, portfolio management &amp; PDF reports."/>
 <meta name="keywords" content="Dubai property valuation, AVM Dubai, real estate valuation Dubai, DLD data, PSF Dubai, property price Dubai 2026, Dubai real estate AI, commercial property valuation Dubai, land valuation Dubai, office valuation Dubai, retail space Dubai, warehouse valuation UAE, plot valuation Dubai, Dubai PropTech"/>
@@ -230,6 +230,83 @@ html,body,#app{max-width:100%!important;overflow-x:hidden!important;width:100%!i
 *{box-sizing:border-box}
 
 </style>
+<style id="cap-native-css">
+/* --- Capacitor Native App Overrides --- */
+
+/* Global box-sizing + prevent horizontal overflow */
+*,*::before,*::after{box-sizing:border-box!important}
+html{height:auto!important;overflow-x:hidden!important;max-width:100%!important}
+body{height:auto!important;min-height:100vh!important;
+  overflow-y:auto!important;overflow-x:hidden!important;max-width:100%!important;
+  overscroll-behavior-x:none!important;overscroll-behavior-y:auto!important;
+  -webkit-overflow-scrolling:touch!important;
+  -webkit-text-size-adjust:100%!important;
+  padding-top:0!important;
+  padding-bottom:0!important;
+}
+
+/* Prevent drag but allow scroll — do NOT block touch-callout globally */
+img,a{-webkit-user-drag:none}
+
+/* App container: allow content to flow and scroll */
+#app{overflow-y:visible!important;overflow-x:hidden!important;
+  max-width:100%!important;min-height:100vh!important;height:auto!important}
+
+/* Layout: let content grow beyond viewport — body scrolls, but NEVER horizontally */
+.dv-layout{min-height:100vh!important;overflow-y:visible!important;overflow-x:hidden!important;height:auto!important;max-width:100%!important;width:100%!important}
+.dv-main{min-height:auto!important;height:auto!important;
+  overflow-y:visible!important;overflow-x:hidden!important;max-width:100%!important;width:100%!important;
+  padding-bottom:env(safe-area-inset-bottom)!important}
+
+/* Content div: disable internal scroll container, let body scroll */
+.dv-content{overflow-y:visible!important;overflow-x:hidden!important;flex:none!important;height:auto!important;
+  min-height:auto!important;-webkit-overflow-scrolling:auto!important;max-width:100%!important;width:100%!important}
+
+/* Flex/grid children: allow shrinking below content size */
+.dv-layout>*,.dv-main>*{min-width:0!important;max-width:100%!important}
+/* Hero card decorations: clip within parent */
+.dv-hero-cards-container,.dv-hero-grid{overflow:hidden!important}
+/* Allow horizontal scroll in sub-tabs and scroll containers */
+.dv-subtabs{overflow-x:auto!important;max-width:100%!important}
+[style*="overflow-x: auto"],[style*="overflow-x:auto"],[style*="overflowX"]{overflow-x:auto!important}
+
+/* Bottom tabs: account for safe area on notch phones */
+.dv-bottom-tabs{
+  bottom:calc(8px + env(safe-area-inset-bottom))!important;
+  height:64px!important;
+}
+/* Extra padding on main when bottom tabs are visible (mobile) */
+@media(max-width:768px){
+  .dv-main{padding-bottom:calc(88px + env(safe-area-inset-bottom))!important}
+}
+
+/* Keyboard open: prevent layout jump */
+body.keyboard-open .dv-bottom-tabs{display:none!important}
+body.keyboard-open .dv-main{padding-bottom:0!important}
+
+/* Fixed elements: respect safe areas */
+.dv-sidebar{top:env(safe-area-inset-top)!important}
+
+/* Smooth momentum scrolling for all scrollable areas */
+[style*="overflow"],[style*="overflow-y"],[style*="overflow-x"],
+.dv-subtabs{-webkit-overflow-scrolling:touch!important}
+
+/* Prevent text selection on nav elements (app feel) */
+.dv-sidebar-item,.dv-pill,.dv-bottom-tab,button{
+  -webkit-user-select:none!important;user-select:none!important}
+
+/* Tap highlight */
+a,button,.dv-sidebar-item,.dv-pill,.dv-bottom-tab,.dv-tool-btn{
+  -webkit-tap-highlight-color:rgba(212,175,55,0.15)!important}
+
+/* Force multi-column grids to wrap on narrow screens */
+@media(max-width:500px){
+  .dv-subtabs{grid-template-columns:unset!important}
+}
+
+/* Status bar space (Android with overlay) */
+.dv-native-statusbar-pad{height:env(safe-area-inset-top);background:#070B14;position:fixed;top:0;left:0;right:0;z-index:9999}
+</style>
 </head>
 <body>
 <!-- Google Analytics -->
@@ -272,7 +349,7 @@ if('serviceWorker' in navigator){
 <script defer src="js/chat.js?v=20260718d"></script>
 <script defer src="js/social.js?v=20260718a"></script>
 <script defer src="js/about.js?v=20260718f"></script>
-<script defer src="js/workspace.js?v=20260718a"></script>
+<script defer src="js/workspace.js?v=20260718b"></script>
 <script defer src="js/marketindex.js?v=20260718c"></script>
 <script defer src="js/news.js?v=20260718a"></script>
 <script defer src="js/chiefs.js?v=20260717b"></script>

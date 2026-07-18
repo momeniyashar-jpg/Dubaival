@@ -674,6 +674,93 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, Reports — second, deeper pass:
+  security/completeness/architecture audit per explicit user follow-up
+  question)**: Direct continuation, same conversation — after the first
+  4-bug Reports pass below, the user asked a sharper, more specific
+  question: "بخش reports هم مطابق با تمام بررسی های امروز بررسی کن و ببین
+  واقعا ورودی ها تمام و کمال و کامل هستند... آیا درست و واقعی کار می‌کنند
+  ویا نیاز به دستورات جدید برای کار کردن طبق نام، معماری و مهندسی این تب
+  دارند" — not just "find more bugs," but specifically: are the INPUTS
+  genuinely complete, and does the tool actually work according to its own
+  NAME/architecture/engineering. Found and fixed 4 more real issues:
+  1. **Real, exploitable XSS in every generated report — the most serious
+     finding**: `generateReport()` builds an HTML string and writes it
+     directly via `w.document.write(h)` into a freshly-opened print window
+     — but every free-text field an agent or their client can influence
+     (the report's own custom Title, the agent's own Name/Company/Phone/
+     RERA number, the Client Name, and the `<title>` HTML tag itself) was
+     interpolated completely unescaped. Any of these fields containing a
+     real HTML/script payload — plausible for Company name, RERA number, or
+     a custom report Title, all free-typed with zero sanitization anywhere
+     upstream — would execute as live HTML/JS the moment the report window
+     opens, not just render as inert text. Confirmed via a real-browser test
+     seeding `<script>`/`<img onerror>`/`<svg onload>` payloads into these
+     exact fields and capturing the real HTML `generateReport()` produced
+     (via a `window.open` stub) — the payloads appeared as literal, live
+     tags in the captured HTML before the fix. **Fix**: added a shared
+     `_wsEsc(s)` helper (standard `&`/`<`/`>`/`"`/`'` entity escaping) and
+     applied it everywhere a user-controlled string is interpolated into the
+     report's HTML: the `<title>` tag, the on-page `<h1>` title, the
+     agent's name/company/phone/RERA line, the Client Name line, the
+     Property line's building name (both the existing
+     `analyzerState.f.building` value and the new Building Name field
+     below), and the new Property line added in this same pass. A dedicated
+     Playwright test seeding all 4 payload types into all 4 vulnerable
+     fields, capturing the real generated HTML, and asserting the raw tags
+     never appear unescaped (only their `&lt;`/`&gt;`-escaped forms do)
+     caught a 2nd instance of the same bug mid-fix — the `<title>` tag in
+     `<head>` used a separate, still-unescaped `title` variable reference
+     that the first pass had missed (only the `<h1>` copy had been fixed) —
+     found and corrected before shipping, not left in.
+  2. **No Building Name input existed anywhere in Report Subject** — the
+     ONLY way a generated report could ever reference a specific building
+     (for the Sustainability Score section's `lookupBuilding()` call, or
+     just naming the property in the header) was if the user happened to
+     have already run a full Analyzer valuation THIS SESSION on another
+     tab first — a "Custom Report Builder" that can't independently name a
+     building isn't living up to its own name/architecture. **Fix**: added
+     a real "Building Name (optional)" input to Report Subject (new
+     `WS_STATE.reportBuilding`), using the same non-mutating
+     analyzerState-fallback pattern already established for area/price;
+     wired into the Sustainability section's `bData`/
+     `computeSustainabilityScore()` call (previously hardcoded to
+     `analyzerState.f.building` only) and displayed in the report's own
+     header as a new "Property: Building Name, Area" line.
+  3. **"Investment Scenario" — the section's own name promises a real
+     Dubai real-estate INVESTMENT case, but only ever showed capital
+     appreciation, never yield** — a glaring architecture/name mismatch for
+     a market where rental yield is usually the larger, more decision-
+     relevant component of total return, especially since the exact area
+     yield band (`aData.y`) this section needed was ALREADY loaded in scope
+     one section earlier ("marketcmp"'s own "Gross Yield" row uses the
+     identical field) — the data was sitting right there, unused. **Fix**:
+     added real "Cumulative Rental Income" and "Est. Total Return" columns
+     to the 1/3/5-year table, computed from the area's own real yield band
+     compounded over the actual holding period — no new inputs needed, uses
+     data the function already had.
+  4. **Repeatable-workflow gap**: an agent generating reports for MULTIPLE
+     different clients/properties in one sitting had no way to clear the
+     per-report subject fields (area/client/price/building/nationality)
+     between reports without manually re-touching each one, while
+     genuinely-persistent settings (agent's own details, section selection,
+     language/color/title/logo) correctly carried over. Added a "↺ New
+     Report" button next to the Report Subject header that resets only the
+     5 subject fields, leaving every persistent setting untouched.
+  - Verified: `node -c js/workspace.js`; a real-browser Playwright test (via
+    a `window.open` stub capturing the real generated HTML) confirming all
+    4 XSS payload types are correctly escaped in all vulnerable fields with
+    zero raw tags surviving and zero script execution (`window.__xss*`
+    flags never fired), confirming the Investment Scenario table now
+    includes real, correctly-computed Cumulative Rental Income/Est. Total
+    Return columns, confirming the Building Name input correctly falls back
+    to a loaded Analyzer valuation's building when empty, and confirming
+    "↺ New Report" clears exactly the 5 subject fields while leaving the
+    agent's saved details and section selection untouched; and a 13-tab
+    regression sweep (Home, Market Dashboard/Analyzer/QuickCheck, Portfolio
+    ×3, Deal Board, AI Agents, AI Chief of Staff, Workspace, Reports, About)
+    confirming zero collateral console errors from any of these 4 fixes.
+
 - **2026-07-18 (session continuing 14, Reports (Custom Report Builder)
   audit — 4 real bugs found and fixed, including a report generator that
   could silently double up a section and a hard crash in a related

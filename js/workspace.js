@@ -1,8 +1,16 @@
 // Copyright (c) 2026 Mohammad Akbar Momenian. All Rights Reserved. See LICENSE.
 // --- MY WORKSPACE TAB ---------------------------------------------------------
 var WS_STATE={widgets:[],mode:"dashboard",reportMode:"visual",reportSections:[],reportLang:"en",reportColor:"gold",reportTitle:"",reportLogo:null,templates:[],voiceActive:false,voiceText:"",parsed:false,
-  reportArea:"",reportClientName:"",reportPrice:"",reportNationality:"expat",
+  reportArea:"",reportClientName:"",reportPrice:"",reportNationality:"expat",reportBuilding:"",
   agent:{name:"",phone:"",company:"",rera:""}};
+// The generated report is written via window.document.write(rawHtml) — any
+// free-text field (client name, agent name/company/RERA, custom title,
+// building name) interpolated in unescaped would execute as real HTML/JS in
+// that print window the moment it's opened. Used on every user-typed string
+// before it goes into generateReport()'s HTML string.
+function _wsEsc(s){
+  return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
 try{var _ws=localStorage.getItem("dv_workspace");if(_ws){var d=JSON.parse(_ws);WS_STATE.widgets=d.widgets||[];}}catch(e){}
 try{var _rt=localStorage.getItem("dv_report_templates");if(_rt)WS_STATE.templates=JSON.parse(_rt);}catch(e){}
 try{var _ap=localStorage.getItem("dv_agent_profile");if(_ap)WS_STATE.agent=Object.assign(WS_STATE.agent,JSON.parse(_ap));}catch(e){}
@@ -238,7 +246,23 @@ function renderReportBuilder(wrap,cl){
   // makes the output look like a report an agent prepared for a specific
   // deal, not a random data dump.
   var subjCard=div({marginBottom:"14px"});
-  subjCard.appendChild(span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"8px"},"Report Subject"));
+  var subjHdr=div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"});
+  subjHdr.appendChild(span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Report Subject"));
+  // Repeatable-workflow gap: an agent generating reports for MULTIPLE
+  // different clients/properties in one sitting had no way to clear the
+  // per-report subject fields (area/client/price/building/nationality)
+  // without manually re-touching each one — everything else (agent's own
+  // details, section selection, language/color/title/logo) correctly stays
+  // put across reports since those genuinely don't change per-client, but
+  // the subject fields DO and previously lingered from the last report.
+  var newReportBtn=el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"3px 10px",borderRadius:"6px",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+  newReportBtn.textContent="↺ New Report";
+  newReportBtn.addEventListener("click",function(){
+    WS_STATE.reportArea="";WS_STATE.reportClientName="";WS_STATE.reportPrice="";WS_STATE.reportBuilding="";WS_STATE.reportNationality="expat";
+    render();
+  });
+  subjHdr.appendChild(newReportBtn);
+  subjCard.appendChild(subjHdr);
   // Falls back to the loaded Analyzer valuation's own area, same non-
   // mutating pattern the price field below already uses — previously only
   // price did this, so a user who'd just run the Analyzer and came
@@ -266,12 +290,27 @@ function renderReportBuilder(wrap,cl){
   clientInp.value=WS_STATE.reportClientName||"";
   clientInp.addEventListener("input",function(){WS_STATE.reportClientName=this.value;});
   subjRow.appendChild(clientInp);
-  var priceInp=el("input",{type:"number",placeholder:"Property price AED (for mortgage/investment)",
+  // Falls back to a loaded Analyzer valuation's building, same non-mutating
+  // pattern as area/price — previously the ONLY way a report could
+  // reference a specific building at all (for the Sustainability Score
+  // lookup, or just showing the property name in the header) was if the
+  // user had already run a full Analyzer valuation this session. A
+  // "Custom Report Builder" that can't name a building unless another tab
+  // happened to be used first isn't living up to its own name — this makes
+  // building-specific reports possible standalone.
+  var effReportBuilding=WS_STATE.reportBuilding||(analyzerState&&analyzerState.f&&analyzerState.f.building)||"";
+  var buildingInp=el("input",{type:"text",placeholder:"Building name (optional)",
     style:{background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"9px 12px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box"}});
+  buildingInp.value=effReportBuilding;
+  buildingInp.addEventListener("input",function(){WS_STATE.reportBuilding=this.value;});
+  subjRow.appendChild(buildingInp);
+  subjCard.appendChild(subjRow);
+
+  var priceInp=el("input",{type:"number",placeholder:"Property price AED (for mortgage/investment)",
+    style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"9px 12px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"8px"}});
   priceInp.value=WS_STATE.reportPrice||(analyzerState&&analyzerState.f&&analyzerState.f.price)||"";
   priceInp.addEventListener("input",function(){WS_STATE.reportPrice=this.value;});
-  subjRow.appendChild(priceInp);
-  subjCard.appendChild(subjRow);
+  subjCard.appendChild(priceInp);
 
   // Buyer nationality — feeds the Mortgage Estimate section's LTV/down-
   // payment calc below (see the comment at that section: this used to
@@ -496,7 +535,7 @@ function generateReport(){
 
   var w=window.open("","_blank");
   if(!w){alert("Please allow pop-ups for this site to generate the report.");return;}
-  var h='<!DOCTYPE html><html dir="'+(isAr?"rtl":"ltr")+'" lang="'+(isAr?"ar":"en")+'"><head><meta charset="UTF-8"><title>'+title+'</title>';
+  var h='<!DOCTYPE html><html dir="'+(isAr?"rtl":"ltr")+'" lang="'+(isAr?"ar":"en")+'"><head><meta charset="UTF-8"><title>'+_wsEsc(title)+'</title>';
   h+='<style>*{box-sizing:border-box}body{font-family:'+(isAr?"'Cairo',":"")+"Arial,sans-serif;max-width:800px;margin:0 auto;padding:30px;color:#333;background:#fff}";
   h+="h1{color:"+accent+";font-size:24px;margin-bottom:4px}";
   h+="h2{color:"+accent+";font-size:18px;margin-top:24px;border-bottom:2px solid "+accent+";padding-bottom:6px}";
@@ -509,12 +548,14 @@ function generateReport(){
   // Header — agent's own branding leads, DubAIVal is a footer credit only
   h+='<div class="hdr">';
   if(WS_STATE.reportLogo)h+='<img src="'+WS_STATE.reportLogo+'" style="max-height:50px;margin-bottom:10px;display:block" />';
-  h+="<h1>"+title+"</h1>";
-  var agentLine=[agent.name,agent.company].filter(Boolean).join(" · ");
-  var agentLine2=[agent.phone,agent.rera?"RERA "+agent.rera:""].filter(Boolean).join(" · ");
+  h+="<h1>"+_wsEsc(title)+"</h1>";
+  var agentLine=[agent.name,agent.company].filter(Boolean).map(_wsEsc).join(" · ");
+  var agentLine2=[agent.phone,agent.rera?"RERA "+agent.rera:""].filter(Boolean).map(_wsEsc).join(" · ");
   if(agentLine)h+='<p style="font-size:13px;font-weight:bold;margin:4px 0">'+agentLine+"</p>";
   if(agentLine2)h+='<p style="font-size:12px;color:#555;margin:2px 0">'+agentLine2+"</p>";
-  if(WS_STATE.reportClientName)h+='<p style="font-size:12px;color:#555;margin:8px 0 0">Prepared for: <strong>'+WS_STATE.reportClientName+"</strong></p>";
+  if(WS_STATE.reportClientName)h+='<p style="font-size:12px;color:#555;margin:8px 0 0">Prepared for: <strong>'+_wsEsc(WS_STATE.reportClientName)+"</strong></p>";
+  var effReportBuildingHdr=WS_STATE.reportBuilding||(analyzerState&&analyzerState.f&&analyzerState.f.building)||"";
+  if(effReportBuildingHdr)h+='<p style="font-size:12px;color:#555;margin:2px 0">Property: <strong>'+_wsEsc(effReportBuildingHdr)+(WS_STATE.reportArea?", "+_wsEsc(WS_STATE.reportArea):"")+"</strong></p>";
   h+='<p style="color:#999;font-size:10px;margin-top:4px">'+new Date().toLocaleDateString()+"</p>";
   h+="</div>";
 
@@ -529,7 +570,7 @@ function generateReport(){
       if(analyzerState&&analyzerState.val){
         var v=analyzerState.val;var f=analyzerState.f;
         h+='<div class="card"><table>';
-        h+="<tr><td>Property</td><td>"+(f.building||"")+" "+f.area+"</td></tr>";
+        h+="<tr><td>Property</td><td>"+_wsEsc(f.building||"")+" "+_wsEsc(f.area)+"</td></tr>";
         h+="<tr><td>Size</td><td>"+(f.size||f.buaSize||"N/A")+" sqft</td></tr>";
         h+="<tr><td>Asking Price</td><td>AED "+(parseInt(f.price)||0).toLocaleString()+"</td></tr>";
         h+='<tr><td>Fair Price</td><td class="accent"><strong>AED '+v.fairPrice.toLocaleString()+"</strong></td></tr>";
@@ -576,12 +617,23 @@ function generateReport(){
     }else if(sid==="investment"){
       if(area&&aData&&reportPrice>0){
         var g=aData.g||[10,18,28];
-        h+='<table><tr><th>Horizon</th><th>Projected Value</th><th>Est. Growth</th></tr>';
+        // "Investment Scenario" in Dubai real estate is a yield-driven case,
+        // not just capital appreciation — the area's own rental yield band
+        // (aData.y, the exact same field the "marketcmp" section above
+        // already displays as "Gross Yield") was already loaded but never
+        // used here, so this section previously only told half the
+        // investment story. Adds real cumulative rental income + a combined
+        // total-return figure, using no new inputs.
+        var invY=aData.y||[5,7];
+        var midYield=(invY[0]+invY[1])/2;
+        h+='<table><tr><th>Horizon</th><th>Projected Value</th><th>Est. Growth</th><th>Cumulative Rental Income</th><th>Est. Total Return</th></tr>';
         [[1,g[0]],[3,g[1]],[5,g[2]]].forEach(function(yr){
           var futureVal=Math.round(reportPrice*(1+(yr[1]||0)/100));
-          h+="<tr><td>"+yr[0]+" year"+(yr[0]>1?"s":"")+"</td><td class=\"accent\"><strong>AED "+futureVal.toLocaleString()+"</strong></td><td>"+(yr[1]>=0?"+":"")+yr[1]+"%</td></tr>";
+          var cumRentalIncome=Math.round(reportPrice*(midYield/100)*yr[0]);
+          var totalReturn=(yr[1]||0)+midYield*yr[0];
+          h+="<tr><td>"+yr[0]+" year"+(yr[0]>1?"s":"")+"</td><td class=\"accent\"><strong>AED "+futureVal.toLocaleString()+"</strong></td><td>"+(yr[1]>=0?"+":"")+yr[1]+"%</td><td>AED "+cumRentalIncome.toLocaleString()+"</td><td class=\"accent\"><strong>+"+totalReturn.toFixed(1)+"%</strong></td></tr>";
         });
-        h+="</table><p style='color:#999;font-size:10px'>Based on "+area+" historical growth trends. Estimates only, not a guarantee of future performance.</p>";
+        h+="</table><p style='color:#999;font-size:10px'>Based on "+_wsEsc(area)+"'s historical growth ("+g.join("/")+"%) and area-average gross rental yield ("+midYield.toFixed(1)+"%). Estimates only, not a guarantee of future performance; rental income shown before service charges, management fees, or vacancy.</p>";
       }else{
         h+='<p style="color:#999">Select a Report Subject area and enter a property price above to include a growth projection.</p>';
       }
@@ -621,8 +673,9 @@ function generateReport(){
       }
     }else if(sid==="sustainability"){
       if(area&&aData){
-        var bData=(analyzerState&&analyzerState.f&&analyzerState.f.building)?lookupBuilding(analyzerState.f.building,area):null;
-        var ss=computeSustainabilityScore((analyzerState&&analyzerState.f&&analyzerState.f.building)||"",area,bData,aData,analyzerState&&analyzerState.f&&analyzerState.f.serviceCharge);
+        var effBuildingSS=WS_STATE.reportBuilding||(analyzerState&&analyzerState.f&&analyzerState.f.building)||"";
+        var bData=effBuildingSS?lookupBuilding(effBuildingSS,area):null;
+        var ss=computeSustainabilityScore(effBuildingSS,area,bData,aData,analyzerState&&analyzerState.f&&analyzerState.f.serviceCharge);
         h+='<div class="card"><span class="metric">Score: <strong class="accent">'+ss.score+"/100</strong></span>";
         h+='<span class="metric">Tier: <strong>'+ss.tier+"</strong></span></div>";
         h+="<table><tr><th>Factor</th><th>Score</th></tr>";
