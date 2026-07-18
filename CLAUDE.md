@@ -656,6 +656,96 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, Portfolio Health + Projections
+  audit — 8 real gaps found and fixed)**: Direct follow-up to the Assets
+  tab audit below, in the same conversation — user asked for the same
+  audit-then-fix treatment on Health and Projections: "حالا health و
+  projection رو بررسی کن، دقیقا با همین روش، بطور کامل جهت فیکس و ارتقاء
+  دادن". Read `computePortfolioHealth()`, the Opportunity Alerts loop, the
+  Future Projection Simulator, and the What-If Swap Simulator in full.
+  Central theme: the previous session's audit added real financial fields
+  (mortgage, occupancy, actual rent) to assets, but Health/Projections were
+  never updated to actually USE any of them — same "added the input, never
+  wired the downstream consumer" pattern as before. Fixed in `js/portfolio.js`:
+  1. **Adjacent bug found while reading the surrounding code**: the
+     Assets tab's "Export Portfolio (CSV)" button called
+     `computeSustainabilityScore(a.building,a.area,null,...)` — a hardcoded
+     `null` for `bData`, meaning the EXPORTED sustainability column was
+     always the area-wide average, worse even than the exact-match bug
+     already fixed elsewhere in this file (which at least attempted a
+     lookup). Fixed to use `lookupBuilding()`, same as everywhere else.
+  2. **`computePortfolioHealth()` rewritten to value-weight every
+     component** — previously a plain `reduce/length` average, so one
+     AED 20M asset and nine AED 200K ones counted equally toward the
+     portfolio's yield/ROI/liquidity/turnover/margin-of-safety scores, even
+     though ~95%+ of real capital sits in the large one. New `wAvg()`
+     helper weights each asset's contribution by its own
+     `currentValue/totalValue` share. Verified with a synthetic portfolio
+     (one huge low-yield asset + 5 tiny high-yield ones) — the weighted
+     yield (4.5%) came out far below the old-style plain average (13.7%),
+     correctly reflecting where the capital actually is.
+  3. **Leverage risk folded into the Risk-Return score** — the composite
+     Health Score had zero awareness of debt even after mortgage became a
+     real field; a 100%-leveraged and an all-cash portfolio at the same
+     nominal yield scored identically, understating the leveraged one's
+     real risk (rate exposure, refinancing risk, margin calls). New
+     portfolio-wide `avgLTV` (`totalMortgage/totalValue`) subtracts a
+     penalty (0/5/10/18 at 50/65/80%+ LTV) from the Risk-Return score, and
+     the health `insight` text calls out high leverage by name when it's
+     the binding constraint. `health.avgLTV` is now also part of the
+     returned object. Verified: two otherwise-identical single-asset
+     portfolios (one with a mortgage, one without) — the leveraged one
+     scored a lower Risk-Return (61) than the all-cash one (71).
+  4. **Type diversification changed from a binary flag to real HHI
+     concentration math** — previously just `hasBoth` (Apartment present
+     AND Villa/Townhouse present → flat 88, else flat 55), completely blind
+     to a 95/5 lopsided split scoring the same as a genuine 50/50 one, and
+     unable to reward 3+ distinct types at all. Now uses the exact same
+     Herfindahl-Hirschman concentration formula already used for AREA
+     diversification, applied across every distinct `type` actually present.
+  5. **"Vacant Property" alert added** — the `occupancy` field added last
+     session had no downstream consumer at all; a property marked Vacant
+     produced zero signal anywhere. New Opportunity Alert flags it with the
+     area's estimated lost rent.
+  6. **"Lease Expiring Soon" alert added** — the lease-end date was only
+     ever a passive pill on the collapsed Assets card; Opportunity Alerts
+     (the tab whose whole purpose is actionable "something needs attention"
+     signals) had nothing. New alert fires within 60 days of `leaseEnd`.
+  7. **Future Projection Simulator now shows Projected Net Equity, not just
+     gross value** — a leveraged investor's actual wealth grows faster in
+     percentage terms than the underlying asset (the entire point of using
+     a mortgage), but the simulator only ever projected gross asset value.
+     Added a disclosed "Net Equity" line per year (projected value minus
+     today's outstanding mortgage — conservatively assumes the balance
+     stays flat, since no amortization schedule is collected from the user;
+     a footnote says so explicitly), shown only when leverage exists.
+  8. **What-If Swap Simulator now deducts the seller's real outstanding
+     mortgage from Sale Proceeds (Net)** — previously subtracted only the
+     4% DLD + 2% agent transaction fees, never the loan balance the seller
+     must actually pay off at closing, materially overstating "Buy Power"
+     for any leveraged asset being swapped. Floored at 0 (an underwater
+     sale correctly can't yield negative reinvestable cash) and the "Sale
+     Proceeds (Net)" card now discloses the mortgage-payoff deduction by
+     name when it applies.
+  - Verified: `node -c`; a real-browser Playwright test seeding a mixed
+    portfolio (one large ~68%-LTV leveraged asset, several small unleveraged
+    ones, one Vacant, one Rented with a lease ending in 30 days) confirming
+    both new alerts render, `computePortfolioHealth()`'s `avgLTV` field
+    computes correctly, and the leverage penalty measurably lowers the
+    Risk-Return score vs. an identical all-cash comparison; a dedicated
+    value-weighting test proving the yield score is dominated by the large
+    asset's real share of capital, not asset count; a full What-If Swap
+    simulation selling the leveraged asset confirming the exact expected
+    net-proceeds figure (transaction fees + mortgage payoff both deducted,
+    floored at 0 for the underwater case) appears correctly in the rendered
+    UI; a backward-compatibility test feeding OLD-SCHEMA assets (no
+    mortgage/occupancy fields at all, simulating pre-existing user data)
+    confirming `computePortfolioHealth()` still computes cleanly with
+    `avgLTV:0`; a single-asset edge-case test (both area and type
+    concentration degenerate to n=1) confirming no crash; and a 7-tab smoke
+    test confirming zero regressions elsewhere — zero console errors
+    throughout.
+
 - **2026-07-18 (session continuing 14, Portfolio Manager audit — 9 real
   gaps found and fixed)**: Direct follow-up to the Personal Advisor rebuild
   below — user asked for a full review of Portfolio → My Assets: "آیا ورودی

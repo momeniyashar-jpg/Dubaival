@@ -1083,23 +1083,55 @@ function computeAssetMetrics(asset){
 }
 function computePortfolioHealth(metrics,totalValue){
 if(!metrics.length)return null;
-var ad={},td={apt:0,villa:0};
-metrics.forEach(function(a){ad[a.area]=(ad[a.area]||0)+a.m.currentValue;var isV=a.type==="Villa"||a.type==="Townhouse";if(isV)td.villa+=a.m.currentValue;else td.apt+=a.m.currentValue;});
+// Value-weighted, not asset-count-averaged (fixed 2026-07-18 Health audit):
+// a portfolio composite score built from a plain per-asset average treats a
+// single AED 20M holding the same as one of nine AED 200K ones — wrong for
+// a health score meant to represent where the ACTUAL capital sits. Every
+// per-asset average below is now weighted by that asset's own currentValue
+// share of totalValue (falls back to equal weighting only in the
+// zero-value edge case, which can't really occur once metrics.length>0).
+function wAvg(fn){
+  if(totalValue<=0)return metrics.reduce(function(s,a){return s+fn(a);},0)/metrics.length;
+  return metrics.reduce(function(s,a){return s+fn(a)*(a.m.currentValue/totalValue);},0);
+}
+var ad={},td={};
+metrics.forEach(function(a){ad[a.area]=(ad[a.area]||0)+a.m.currentValue;var t=a.type||"Apartment";td[t]=(td[t]||0)+a.m.currentValue;});
 var hhi=0;Object.values(ad).forEach(function(v){var s=v/totalValue;hhi+=s*s;});
 var nA=Object.keys(ad).length;var minH=nA>1?1/nA:1;var hhNorm=1>minH?(1-hhi)/(1-minH):0;
 var areaSc=10+hhNorm*85;
-var hasBoth=td.apt>0&&td.villa>0;var typeSc=hasBoth?88:55;
+// Type diversification — was a crude binary "has both apartment and villa"
+// check (55 or 88, nothing in between); now uses the same HHI concentration
+// math as area diversification above, across every distinct property type
+// actually present (Apartment/Villa/Townhouse/Penthouse), so 2 types with a
+// lopsided 95/5 split scores lower than a genuine 50/50 split, and 3+ types
+// scores higher than either — matching how real diversification works
+// (fixed 2026-07-18).
+var nT=Object.keys(td).length;
+var hhiT=0;Object.values(td).forEach(function(v){var s=v/totalValue;hhiT+=s*s;});
+var minHT=nT>1?1/nT:1;var hhNormT=1>minHT?(1-hhiT)/(1-minHT):0;
+var typeSc=nT>1?Math.round(20+hhNormT*70):40;
+var hasBoth=nT>1;
 var divSc=Math.round(areaSc*0.7+typeSc*0.3);
-var avgLiq=metrics.reduce(function(s,a){return s+a.m.liqScore;},0)/metrics.length;
-var avgTO=metrics.reduce(function(s,a){return s+a.m.turnoverRate;},0)/metrics.length;
+var avgLiq=wAvg(function(a){return a.m.liqScore;});
+var avgTO=wAvg(function(a){return a.m.turnoverRate;});
 var toB=avgTO>=8?15:avgTO>=4?10:avgTO>=2?5:0;
 var liqSc=Math.min(95,Math.round(avgLiq*0.8+toB+10));
-var avgNY=metrics.reduce(function(s,a){return s+a.m.netYield;},0)/metrics.length;
-var avgMoS=metrics.reduce(function(s,a){return s+a.m.mosScore;},0)/metrics.length;
+var avgNY=wAvg(function(a){return a.m.netYield;});
+var avgMoS=wAvg(function(a){return a.m.mosScore;});
 var ySc=avgNY>=7?92:avgNY>=5.5?80:avgNY>=4?65:avgNY>=2.5?45:25;
-var rrSc=Math.round(ySc*0.6+avgMoS*0.4);
-var avgROI=metrics.reduce(function(s,a){return s+a.m.roi;},0)/metrics.length;
-var avgTR=metrics.reduce(function(s,a){return s+a.m.totalReturn;},0)/metrics.length;
+// Leverage risk (added 2026-07-18) — folded into Risk-Return, not a new 5th
+// pillar, since leverage is precisely a risk-adjustment on returns, not a
+// separate concern like diversification/liquidity/growth. Uses the real
+// mortgage data added this session — previously the health score had zero
+// awareness of debt, so a heavily-leveraged portfolio scored identically
+// to an all-cash one at the same nominal yield, despite carrying
+// materially more real risk (margin calls, rate exposure, refinancing risk).
+var totalMortgage=metrics.reduce(function(s,a){return s+(a.m.mortgage||0);},0);
+var avgLTV=totalValue>0?totalMortgage/totalValue:0;
+var ltvPenalty=avgLTV>=0.80?18:avgLTV>=0.65?10:avgLTV>=0.50?5:0;
+var rrSc=Math.max(10,Math.round(ySc*0.6+avgMoS*0.4)-ltvPenalty);
+var avgROI=wAvg(function(a){return a.m.roi;});
+var avgTR=wAvg(function(a){return a.m.totalReturn;});
 var roiSc=avgROI>=30?95:avgROI>=15?82:avgROI>=5?68:avgROI>=0?50:avgROI>=-10?30:15;
 var trSc=avgTR>=10?90:avgTR>=7?75:avgTR>=5?60:avgTR>=3?40:20;
 var grSc=Math.round(roiSc*0.5+trSc*0.5);
@@ -1109,11 +1141,11 @@ var tier=score>=85?"Excellent":score>=70?"Strong":score>=55?"Moderate":score>=40
 var weakest="div";var wVal=divSc;
 if(liqSc<wVal){weakest="liq";wVal=liqSc;}if(rrSc<wVal){weakest="rr";wVal=rrSc;}if(grSc<wVal){weakest="gr";wVal=grSc;}
 var insight="";
-if(weakest==="div"){if(nA<2)insight="Consider diversifying across multiple areas to reduce concentration risk";else if(!hasBoth)insight="Adding "+(td.villa?"apartments":"villas/townhouses")+" would improve type diversification";else insight="Strong diversification — maintain balance across areas and types";}
+if(weakest==="div"){if(nA<2)insight="Consider diversifying across multiple areas to reduce concentration risk";else if(!hasBoth)insight="Adding a different property type (villa, townhouse, etc.) would improve type diversification";else insight="Strong diversification — maintain balance across areas and types";}
 else if(weakest==="liq")insight="Some assets are in low-liquidity markets — monitor exit timing carefully";
-else if(weakest==="rr")insight="Risk-adjusted returns could improve — look for higher-yield or better-value entries";
+else if(weakest==="rr"){if(ltvPenalty>=10)insight="High portfolio leverage (avg LTV ~"+Math.round(avgLTV*100)+"%) is dragging down risk-adjusted returns — consider paying down debt or diversifying financing";else insight="Risk-adjusted returns could improve — look for higher-yield or better-value entries";}
 else insight="Growth outlook is your weakest dimension — consider areas with stronger appreciation trends";
-return{score:score,tier:tier,div:divSc,liq:liqSc,rr:rrSc,gr:grSc,insight:insight,nAreas:nA,hasBoth:hasBoth};
+return{score:score,tier:tier,div:divSc,liq:liqSc,rr:rrSc,gr:grSc,insight:insight,nAreas:nA,hasBoth:hasBoth,avgLTV:avgLTV};
 }
 function renderPortfolio(mode){
   mode=mode||"assets";
@@ -1255,7 +1287,13 @@ function renderPortfolio(mode){
     wrap.appendChild(el("div",{style:{marginBottom:"14px",display:"flex",gap:"8px",flexWrap:"wrap"}},[
       csvExportBtn("Export Portfolio (CSV)",cl,function(){
         var hdrs=["building","area","type","beds","size_sqft","purchase_price","purchase_date","current_value","roi_pct","gross_yield","net_yield","growth_1y","sustainability_score"];
-        var rows=metrics.map(function(a){var ss=typeof computeSustainabilityScore==="function"?computeSustainabilityScore(a.building,a.area,null,AREAS[a.area]):null;
+        // Fixed 2026-07-18 (Health/Projections audit) — this passed a hardcoded
+        // null for bData, meaning the exported Sustainability Score was ALWAYS
+        // the area-wide average, regardless of the real building, even worse
+        // than the exact-match bug already fixed elsewhere in this file (which
+        // at least attempted a real lookup). Now uses lookupBuilding(), the
+        // same fuzzy matcher used everywhere else in this file.
+        var rows=metrics.map(function(a){var bd=lookupBuilding(a.building||"",a.area||"");var ss=typeof computeSustainabilityScore==="function"?computeSustainabilityScore(a.building,a.area,bd,AREAS[a.area]):null;
           return[a.building||"",a.area,a.type||"Apartment",a.beds,a.size,a.purchasePrice||a.m.purchasePrice,a.purchaseDate||"",a.m.currentValue,a.m.roi.toFixed(1),a.m.grossYield.toFixed(1),a.m.netYield.toFixed(1),(AREAS[a.area]&&AREAS[a.area].g?AREAS[a.area].g[0]:0),ss?ss.score:""];});
         exportCSV("DubAIVal_Portfolio_"+csvDate()+".csv",hdrs,rows);
       }),
@@ -1333,6 +1371,26 @@ function renderPortfolio(mode){
         var aData=AREAS[a.area]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
         var gr=aData.g||[3,9,16];
         var alerts=[];
+
+        // 0a) Vacant Property Alert (added 2026-07-18) — the Occupancy
+        // field added this session had nowhere that actually acted on it;
+        // a Vacant unit is real lost income sitting in the portfolio with
+        // no signal anywhere pointing it out.
+        if(a.occupancy==="Vacant"){
+          alerts.push({type:"warn",icon:"",title:"Vacant Property",text:"This property is marked Vacant — you may be missing ~AED "+Math.round(a.m.estRent).toLocaleString()+"/yr in rental income (area estimate). List it or check in with your management.",pct:-1});
+        }
+
+        // 0b) Lease Expiring Soon (added 2026-07-18) — the same lease-end
+        // date already shown as a passive pill on the collapsed Assets
+        // card gets surfaced here too as an actual actionable alert, since
+        // Opportunity Alerts is exactly where a portfolio manager should
+        // put "something needs your attention soon."
+        if(a.occupancy==="Rented"&&a.leaseEnd){
+          var daysToLease=Math.round((new Date(a.leaseEnd)-new Date())/86400000);
+          if(daysToLease>=0&&daysToLease<=60){
+            alerts.push({type:"warn",icon:"",title:"Lease Expiring Soon",text:"Lease ends in "+daysToLease+" day"+(daysToLease===1?"":"s")+" ("+new Date(a.leaseEnd).toLocaleDateString()+") — start renewal or re-listing discussions now.",pct:-1});
+          }
+        }
 
         // 1) DLD Fee Recovery Timer
         var pp=a.m.purchasePrice||0;
@@ -1541,6 +1599,16 @@ function renderPortfolio(mode){
       var projROI=totalPurchase>0?((projVal-totalPurchase)/totalPurchase*100):0;
       var projYield=projVal>0?(projRent/projVal*100):0;
       var valChange=projVal-totalValue;
+      // Projected Net Equity (added 2026-07-18 Projections audit) — this
+      // simulator previously showed only gross projected asset value, with
+      // zero awareness of mortgage debt, even though leverage is exactly
+      // what makes a real investor's EQUITY grow faster in percentage terms
+      // than the underlying asset — the whole point of using a mortgage.
+      // Conservatively assumes the mortgage balance itself stays flat over
+      // the projection window (no amortization schedule is collected from
+      // the user, so this is the safe, disclosed simplification rather than
+      // guessing a paydown rate) — shown only when leverage exists.
+      var projEquity=projVal-totalMortgage;
       var pBox=div({background:cl.raised,borderRadius:"10px",padding:"12px 10px",textAlign:"center"});
       pBox.appendChild(span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:"8px"},yr+" Year"));
       pBox.appendChild(span({color:cl.gold,fontSize:"15px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",display:"block",lineHeight:"1.2"},"AED"));
@@ -1549,9 +1617,16 @@ function renderPortfolio(mode){
       var chColor=valChange>=0?cl.green:cl.red;
       pBox.appendChild(span({color:chColor,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},(valChange>=0?"+":"")+"AED "+Math.round(valChange/1000).toLocaleString()+"K"));
       pBox.appendChild(span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",display:"block",marginTop:"2px"},"ROI "+(projROI>=0?"+":"")+projROI.toFixed(0)+"% · Yield "+projYield.toFixed(1)+"%"));
+      if(totalMortgage>0){
+        pBox.appendChild(div({height:"1px",background:cl.border,margin:"6px 0"}));
+        pBox.appendChild(span({color:"#818CF8",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",display:"block"},"Net Equity: AED "+Math.round(projEquity/1000).toLocaleString()+"K"));
+      }
       projGrid.appendChild(pBox);
     });
     projCard.appendChild(projGrid);
+    if(totalMortgage>0){
+      projCard.appendChild(div({color:cl.sub,fontSize:"9.5px",fontFamily:"'Inter',sans-serif",marginBottom:"14px",lineHeight:"1.5"},"Net Equity assumes your current outstanding mortgage (AED "+totalMortgage.toLocaleString()+") stays unchanged over the projection window — it doesn't model a specific amortization schedule."));
+    }
     var projInsight="";
     if(gAdj<=-10)projInsight="Stress scenario: significant market correction. Focus on cash flow and avoid leverage.";
     else if(gAdj<0)projInsight="Cautious outlook: moderate pullback expected. High-yield assets outperform in this scenario.";
@@ -1616,7 +1691,14 @@ function renderPortfolio(mode){
         var saleProceeds=sellAsset.m.currentValue;
         var dldFee=Math.round(saleProceeds*0.04);
         var agentFee=Math.round(saleProceeds*0.02);
-        var netProceeds=saleProceeds-dldFee-agentFee;
+        // Fixed 2026-07-18 (Projections audit) — this previously deducted
+        // only the transaction fees, never the seller's own outstanding
+        // mortgage balance (a real field added this same session), so
+        // "Sale Proceeds (Net)"/"Buy Power" was materially overstated for
+        // any leveraged asset — the seller must pay off the loan at
+        // closing before anything is left to reinvest.
+        var sellMortgage=sellAsset.m.mortgage||0;
+        var netProceeds=Math.max(0,saleProceeds-dldFee-agentFee-sellMortgage);
         var buyAreaData=AREAS[sw.buyArea]||{psf:1800,sc:15,y:[5,7],g:[3,9,16]};
         var buyPSF=buyAreaData.psf;
         var buyIsV=sw.buyType==="Villa"||sw.buyType==="Townhouse";
@@ -1636,7 +1718,7 @@ function renderPortfolio(mode){
         var resCard=div({background:cl.raised,borderRadius:"10px",padding:"14px"});
         resCard.appendChild(span({color:"#818CF8",fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"12px"},"SWAP ANALYSIS"));
         var resG=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"});
-        [{l:"Sale Proceeds (Net)",v:"AED "+Math.round(netProceeds/1000).toLocaleString()+"K",s:"After 4% DLD + 2% agent",c:cl.white},
+        [{l:"Sale Proceeds (Net)",v:"AED "+Math.round(netProceeds/1000).toLocaleString()+"K",s:sellMortgage>0?"After 4% DLD + 2% agent + AED "+Math.round(sellMortgage/1000).toLocaleString()+"K mortgage payoff":"After 4% DLD + 2% agent",c:cl.white},
          {l:"Buy Power in "+sw.buyArea,v:buySize.toLocaleString()+" sqft",s:"At PSF "+buyPSF.toLocaleString(),c:cl.gold},
          {l:"Current Net Cash Flow",v:"AED "+Math.round(sellRent-sellAsset.m.sc).toLocaleString()+"/yr",s:sellAsset.building||sellAsset.area,c:cl.white},
          {l:"New Net Cash Flow",v:"AED "+Math.round(buyRent-buySC).toLocaleString()+"/yr",s:sw.buyArea+" "+sw.buyBeds,c:cashFlowDiff>=0?cl.green:cl.red}
