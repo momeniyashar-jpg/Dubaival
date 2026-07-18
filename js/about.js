@@ -20,7 +20,7 @@ function renderAbout(){
     background:"linear-gradient(160deg,rgba(7,11,20,0.90) 0%,rgba(10,14,26,0.94) 100%)"
   }});
   hero.appendChild(abtHeroOverlay);
-  _dvGetStockPhoto("about_hero_v1","Dubai Marina skyline architecture waterfront").then(function(url){
+  _dvGetStockPhoto("about_hero_v2","Dubai Marina skyline blue hour luxury waterfront cinematic").then(function(url){
     if(url){abtHeroPhoto.style.backgroundImage='url("'+url+'")';abtHeroPhoto.style.opacity="1";}
   });
   var abtHeroContent=div({position:"relative",zIndex:"1"});

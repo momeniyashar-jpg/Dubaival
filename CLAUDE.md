@@ -638,6 +638,63 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, follow-up — hero photo QUALITY fixed,
+  not just presence)**: Direct follow-up to the entry below, same session —
+  user came back after the first pass with a pointed correction: "عکس های
+  فوق العاده استثنایی استفاده کنیا" (use truly exceptional photos). Root-
+  caused why the first pass could plausibly under-deliver on quality: the
+  underlying `searchUnsplash()`/`searchPexels()` helpers reused from
+  `js/chat.js` were built for SQUARE social-media post images and forced
+  `orientation=squarish`/`orientation=square` server-side
+  (`api/proxy-groq.js`, hardcoded, no client override existed) — a wide hero
+  banner rendered with `backgroundSize:cover` against a square source photo
+  loses most of its actual composition to cropping, and picked randomly
+  among the top 3 results rather than favoring the best one.
+  - **`api/proxy-groq.js`**: both `handleUnsplashSearch`/`handlePexelsSearch`
+    now accept an optional `orientation` in the request body, validated
+    against a small allowlist (`landscape`/`portrait`/`squarish` for
+    Unsplash, `landscape`/`portrait`/`square` for Pexels — an invalid value
+    falls back to the original default rather than being passed through raw).
+    Defaults are UNCHANGED (`squarish`/`square`) when the field is absent, so
+    every existing social-media-post caller in `js/chat.js` (which never
+    sends this field) behaves identically to before — zero regression risk.
+  - **`js/core.js`**: replaced `_dvGetStockPhoto()`'s reuse of the shared
+    square/random-pick `searchUnsplash()`/`searchPexels()` with a new,
+    purpose-built `_dvSearchHeroPhoto(query)` — requests `orientation:
+    "landscape"` and a larger candidate pool (`per_page:10`, not 5), then
+    picks the single MOST-LIKED Unsplash result (Unsplash's search response
+    includes a real `likes` count per photo) rather than a random pick among
+    the top 3 — the closest available proxy for "exceptional" from a live
+    search API, and deterministic rather than lucky. Falls through to Pexels
+    (which has no public like-count signal, so takes its first/most-relevant
+    result) only if Unsplash returns nothing. Prefers each result's
+    highest-resolution URL (Unsplash `urls.full` over `regular`; Pexels
+    `src.original` over `large2x`/`large`).
+  - **Cache keys bumped** (`home_hero_v1`→`v2`, `about_hero_v1`→`v2`,
+    `marketindex_banner_v1`→`v2` — `js/app.js`/`js/about.js`/
+    `js/marketindex.js`) so any visitor who already cached a squarish photo
+    from the first pass gets a fresh landscape fetch instead of serving the
+    old cached one for its remaining ~30-day TTL. Search queries themselves
+    also sharpened toward more evocative, premium-feeling results ("cinematic
+    aerial golden hour" / "blue hour luxury waterfront cinematic" / "aerial
+    drone photography cinematic") rather than plain, generic terms.
+  - Verified: `node -c` on all 5 touched files; a mocked-fetch Node test
+    harness against the real `api/proxy-groq.js` handler (6 cases) —
+    confirmed both providers still default to their original
+    squarish/square orientation when the field is omitted (zero regression
+    for existing social-post callers), correctly pass through
+    `orientation:"landscape"` when supplied, correctly reject/fall back to
+    the safe default on an invalid/malicious orientation value rather than
+    injecting it raw into the upstream URL, and the Groq default (no
+    `provider` param) code path is completely unaffected; and a real-browser
+    Playwright test with a mocked multi-result Unsplash response (3 photos
+    with different `likes` counts) confirming the Home hero photo genuinely
+    resolves to the highest-`likes` result (not the first or a random one)
+    and that the request correctly carries `orientation:"landscape"` +
+    `per_page:10` — zero console errors.
+  - **Nothing new needed to go live**: same `UNSPLASH_ACCESS_KEY`/
+    `PEXELS_API_KEY` env vars already configured, no new setup.
+
 - **2026-07-18 (session continuing 14, first real photos added to the site)**:
   User pointed out the site had zero real images anywhere ("میگم ما اصلا تو
   سایت تصویر نداریم") right after finishing a batch of pending SQL

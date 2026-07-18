@@ -38,10 +38,17 @@ async function handleUnsplashSearch(req, res) {
   if (!key) return res.status(500).json({ error: "UNSPLASH_ACCESS_KEY not configured" });
   var query = (req.body && req.body.query) || "";
   var perPage = Math.min((req.body && req.body.per_page) || 1, 10);
+  // Defaults to "squarish" — unchanged for every existing caller (social
+  // media post images, js/chat.js searchUnsplash()/searchUnsplashMulti())
+  // which never send this field. Hero/banner sections (js/core.js
+  // _dvGetStockPhoto()) pass "landscape" instead, since a square crop of a
+  // skyline shot loses most of its composition when stretched wide.
+  var orientationAllowed = ["landscape", "portrait", "squarish"];
+  var orientation = orientationAllowed.indexOf(req.body && req.body.orientation) !== -1 ? req.body.orientation : "squarish";
   if (!query) return res.status(400).json({ error: "Missing query" });
   try {
     var upstream = await fetch(
-      "https://api.unsplash.com/search/photos?query=" + encodeURIComponent(query) + "&per_page=" + perPage + "&orientation=squarish",
+      "https://api.unsplash.com/search/photos?query=" + encodeURIComponent(query) + "&per_page=" + perPage + "&orientation=" + orientation,
       { headers: { Authorization: "Client-ID " + key } }
     );
     var data = await upstream.json();
@@ -57,10 +64,14 @@ async function handlePexelsSearch(req, res) {
   if (!key) return res.status(500).json({ error: "PEXELS_API_KEY not configured" });
   var query = (req.body && req.body.query) || "";
   var perPage = Math.min((req.body && req.body.per_page) || 1, 10);
+  // Same orientation override as handleUnsplashSearch above — defaults to
+  // "square" (unchanged for existing social-post callers).
+  var orientationAllowed = ["landscape", "portrait", "square"];
+  var orientation = orientationAllowed.indexOf(req.body && req.body.orientation) !== -1 ? req.body.orientation : "square";
   if (!query) return res.status(400).json({ error: "Missing query" });
   try {
     var upstream = await fetch(
-      "https://api.pexels.com/v1/search?query=" + encodeURIComponent(query) + "&per_page=" + perPage + "&orientation=square",
+      "https://api.pexels.com/v1/search?query=" + encodeURIComponent(query) + "&per_page=" + perPage + "&orientation=" + orientation,
       { headers: { Authorization: key } }
     );
     var data = await upstream.json();

@@ -2397,7 +2397,7 @@ function renderHome(){
     background:'linear-gradient(160deg,rgba(12,18,32,0.90) 0%,rgba(7,11,20,0.94) 45%,rgba(10,13,24,0.92) 100%)'
   }});
   hero.appendChild(heroPhotoOverlay);
-  _dvGetStockPhoto('home_hero_v1','Dubai skyline Burj Khalifa sunset skyscrapers').then(function(url){
+  _dvGetStockPhoto('home_hero_v2','Dubai skyline Burj Khalifa sunset cinematic aerial golden hour').then(function(url){
     if(url){heroPhoto.style.backgroundImage='url("'+url+'")';heroPhoto.style.opacity='1';}
   });
 

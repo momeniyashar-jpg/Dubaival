@@ -18,7 +18,7 @@ function renderMarketIndex(){
   var miBannerOverlay=el('div',{style:{position:'absolute',inset:'0',zIndex:'0',
     background:'linear-gradient(100deg,rgba(7,11,20,0.92) 0%,rgba(10,14,26,0.80) 60%,rgba(10,14,26,0.90) 100%)'}});
   bannerWrap.appendChild(miBannerOverlay);
-  _dvGetStockPhoto('marketindex_banner_v1','Dubai Business Bay towers aerial real estate').then(function(url){
+  _dvGetStockPhoto('marketindex_banner_v2','Dubai Business Bay skyscrapers aerial drone photography cinematic').then(function(url){
     if(url){miBannerPhoto.style.backgroundImage='url("'+url+'")';miBannerPhoto.style.opacity='1';}
   });
   wrap.appendChild(bannerWrap);

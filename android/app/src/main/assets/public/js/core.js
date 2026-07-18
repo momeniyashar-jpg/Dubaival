@@ -990,13 +990,41 @@ function _currentMonthYear(){return new Date().toLocaleDateString("en-US",{month
 
 // Shared cached stock-photo helper — real Dubai photos for hero/banner
 // sections, sourced from the platform-level Unsplash/Pexels proxy (no user
-// key involved, see api/proxy-groq.js provider switch + searchUnsplash()/
-// searchPexels() in js/chat.js). Cached in localStorage for 30 days per
-// cacheKey so a given hero section only makes one live API call per visitor
-// per month, not on every page load. Resolves to null (never throws) if
-// both providers are unavailable/unconfigured — every call site must treat
-// null as "no photo, keep the existing gradient/solid background."
+// key involved, see api/proxy-groq.js provider switch). Cached in
+// localStorage for 30 days per cacheKey so a given hero section only makes
+// one live API call per visitor per month, not on every page load. Resolves
+// to null (never throws) if both providers are unavailable/unconfigured —
+// every call site must treat null as "no photo, keep the existing
+// gradient/solid background."
+//
+// Deliberately does NOT reuse js/chat.js's searchUnsplash()/searchPexels()
+// (built for square social-media post images, picking randomly among the
+// top 3 results) — a hero banner needs a wide, deliberately best-of-pool
+// shot, not a random square crop. _dvSearchHeroPhoto() below requests a
+// landscape orientation and a larger candidate pool (10, not 5), then picks
+// the single most-liked Unsplash result (Unsplash's search response
+// includes a real `likes` count per photo) as the closest available proxy
+// for "exceptional," rather than a random pick.
 var _DV_STOCK_PHOTO_TTL_MS=30*24*60*60*1000;
+async function _dvSearchHeroPhoto(query){
+  try{
+    var r=await fetch("/api/proxy-groq?provider=unsplash",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query:query,per_page:10,orientation:"landscape"})});
+    var d=await r.json();
+    if(d.results&&d.results.length>0){
+      var best=d.results.slice().sort(function(a,b){return (b.likes||0)-(a.likes||0);})[0];
+      if(best&&best.urls)return best.urls.full||best.urls.regular;
+    }
+  }catch(e){}
+  try{
+    var r2=await fetch("/api/proxy-groq?provider=pexels",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query:query,per_page:10,orientation:"landscape"})});
+    var d2=await r2.json();
+    if(d2.photos&&d2.photos.length>0){
+      var best2=d2.photos[0];
+      if(best2&&best2.src)return best2.src.original||best2.src.large2x||best2.src.large;
+    }
+  }catch(e){}
+  return null;
+}
 async function _dvGetStockPhoto(cacheKey,query){
   try{
     var raw=localStorage.getItem('dv_stockphoto_'+cacheKey);
@@ -1005,9 +1033,7 @@ async function _dvGetStockPhoto(cacheKey,query){
       if(cached&&cached.url&&(Date.now()-cached.ts)<_DV_STOCK_PHOTO_TTL_MS)return cached.url;
     }
   }catch(e){}
-  var url=null;
-  try{if(typeof searchUnsplash==='function')url=await searchUnsplash(query);}catch(e){}
-  if(!url){try{if(typeof searchPexels==='function')url=await searchPexels(query);}catch(e){}}
+  var url=await _dvSearchHeroPhoto(query);
   if(url){try{localStorage.setItem('dv_stockphoto_'+cacheKey,JSON.stringify({url:url,ts:Date.now()}));}catch(e){}}
   return url;
 }
