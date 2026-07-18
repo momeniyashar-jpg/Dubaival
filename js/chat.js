@@ -8519,7 +8519,7 @@ function renderChat(opts){
     else{bubble.style.whiteSpace="pre-wrap";bubble.textContent=m.text;}
     row.appendChild(bubble);msgsDiv.appendChild(row);
   });
-  if(chatState.loading){
+  if(chatState.loadingAgentId===effAgentId){
     var row2=div({display:"flex",gap:"8px",alignItems:"center"});
     var av2=div({width:"28px",height:"28px",borderRadius:"50%",overflow:"hidden",filter:"drop-shadow(0 0 4px rgba(212,175,55,0.3))"});
     av2.innerHTML=getValSVG(28,false);row2.appendChild(av2);
@@ -8561,7 +8561,16 @@ function renderChat(opts){
 async function sendChat(text,forceAgentId){
   var aid=forceAgentId||chatState.agentId;
   var t=text||chatState.input.trim();
-  if(!t||chatState.loading)return;
+  // Blocks only a second send to THIS SAME agent while its own reply is
+  // still in flight — previously chatState.loading was a single boolean
+  // shared by every agent, so waiting on ONE agent's reply silently
+  // blocked sending to every OTHER agent too (switch tabs, type a
+  // completely unrelated question to a different specialist, still
+  // couldn't send until the first one finished). Since sendChat() already
+  // captures its own `aid`/`msgs` reference before the `await` below, a
+  // reply always lands in the correct agent's history regardless of
+  // whatever the user does with other agents while waiting.
+  if(!t||chatState.loadingAgentId===aid)return;
   // Only clear the input box when it's actually what we just sent — a
   // suggestion-chip click passes its own `text` and never touched the box,
   // so clearing chatState.input unconditionally here used to silently wipe
@@ -8571,7 +8580,7 @@ async function sendChat(text,forceAgentId){
   if(!text)chatState.input="";
   var msgs=getAgentMsgs(aid);
   msgs.push({role:"user",text:t});
-  chatState.loading=true;render(true);
+  chatState.loadingAgentId=aid;render(true);
   try{
     var agent=AI_AGENTS.find(function(a){return a.id===aid;})||AI_AGENTS[0];
     var history=msgs.slice(-10).map(function(m){return{role:m.role==="assistant"?"assistant":"user",content:m.text};});
@@ -8587,7 +8596,8 @@ async function sendChat(text,forceAgentId){
     var reply=await askAI(history,sys,t);
     msgs.push({role:"assistant",text:reply});
   }catch(e){msgs.push({role:"assistant",text:"Error: "+e.message});}
-  chatState.loading=false;render(true);
+  if(chatState.loadingAgentId===aid)chatState.loadingAgentId=null;
+  render(true);
 }
 
 // --- MEDIA STUDIO (clean user-facing view — AI tools run silently in background) ---

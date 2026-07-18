@@ -690,7 +690,9 @@ features continue working exactly as before. Zero breakage.
   style, the dynamic `_currentMonthYear()` date) was already built and fixed
   in prior sessions (2026-07-13/2026-07-12, documented further down this
   log) — confirmed still correct and unregressed rather than re-doing that
-  work. Found one new, real, confirmed bug:
+  work. Found one new, real, confirmed bug, plus a second one initially
+  filed as "not worth fixing" that the user pushed back on and was right to
+  — see item 2 below:
   1. **A suggestion-chip click could silently wipe out a real question the
      user had already started typing.** `sendChat(text,forceAgentId)`
      unconditionally ran `chatState.input="";` regardless of whether `text`
@@ -708,35 +710,55 @@ features continue working exactly as before. Zero breakage.
      now only runs `if(!text)` — i.e. only when we actually just consumed
      what was in the box, matching intended behavior exactly; a suggestion
      click no longer touches the box's contents at all.
-  - **Investigated, judged not worth changing**: `chatState.loading` is a
-    single global flag (not per-agent), so a reply in flight for one agent
-    blocks sending on every other agent too until it resolves — a real,
-    minor friction point (typically a few seconds), not a correctness bug
-    (verified the eventual reply always lands in the CORRECT agent's history
-    regardless of any mid-flight agent switch, since `sendChat()` captures
-    its own `aid`/`msgs` reference before the `await`) — a proper fix would
-    need per-agent loading state threaded through the agent-selector bar's
-    disabled/spinner styling too, a bigger change for a narrow inconvenience,
-    so left as-is. Also confirmed `AI_AGENTS[].nameAr` (an Arabic name on
-    every agent) is genuinely dead — never read anywhere in `renderChat()` —
-    but this is consistent with, not separate from, the already-documented
-    2026-07-18 decision to hide the Arabic language toggle entirely rather
-    than ship a half-translated UI (see that entry further down this log);
-    not a fresh bug, just inert data left over from the same shelved
-    translation effort.
-  - Verified: `node -c js/chat.js`; a real-browser Playwright test
-    confirming a real half-typed draft survives an unrelated suggestion-chip
-    click (previously wiped), that the suggestion itself still sends
-    correctly, and that a normal typed-and-sent message still clears the
-    box exactly as before (no regression to the common path); and a second
-    sweep confirming all 8 agents switch and render correctly, and that
-    Media Studio's embedded outreach chat (which shares this exact
-    `sendChat()`/`effAgentId` code path, fixed earlier this same
+  2. **A reply in flight for one agent silently blocked sending to every
+     OTHER agent too, not just that one.** `chatState.loading` was a single
+     global boolean rather than tracked per-agent, and `sendChat()`'s guard
+     (`if(!t||chatState.loading)return;`) read it directly — so waiting on,
+     say, the Valuation Agent's reply meant the Negotiation Coach's own send
+     button silently no-op'd if clicked in the meantime, even though nothing
+     about that agent's own conversation was actually busy. Initially flagged
+     this as "real but not worth the change" (correctness was never at risk —
+     `sendChat()` already captures its own `aid`/`msgs` reference before the
+     `await`, so a reply always lands in the right agent's history regardless
+     of what the user does elsewhere meanwhile) — but on reflection, for a
+     product whose whole pitch is 8 *simultaneously usable* specialists, a
+     user being unable to even START a message to a second agent while a
+     first one is still thinking is a real, avoidable limitation, not
+     negligible friction. **Fix**: `chatState.loading` (boolean) replaced with
+     `chatState.loadingAgentId` (the specific agent id currently generating a
+     reply, or `null`) — `sendChat()`'s guard now only blocks a second send to
+     THAT SAME agent (`chatState.loadingAgentId===aid`), and the "thinking"
+     bounce-dots indicator in `renderChat()` now only shows when the
+     currently-VIEWED agent (`effAgentId`) is the one actually loading, not
+     whichever agent happens to be mid-request elsewhere.
+  - **Investigated, confirmed genuinely inert, left alone**:
+    `AI_AGENTS[].nameAr` (an Arabic name on every agent) is never read
+    anywhere in `renderChat()` — but this is consistent with, not separate
+    from, the already-documented 2026-07-18 decision to hide the Arabic
+    language toggle entirely rather than ship a half-translated UI (see that
+    entry further down this log); not a fresh bug, just inert data left over
+    from the same shelved translation effort.
+  - Verified: `node -c` on both touched files; a real-browser Playwright
+    test confirming a real half-typed draft survives an unrelated
+    suggestion-chip click (previously wiped), that the suggestion itself
+    still sends correctly, and that a normal typed-and-sent message still
+    clears the box exactly as before (no regression to the common path); a
+    second, slow-resolving-mock test proving the per-agent loading fix
+    directly — while the General agent's reply is deliberately held pending,
+    switching to the Negotiation Coach and sending a NEW message succeeds
+    immediately (previously would have silently no-op'd), a SECOND message
+    to that same Negotiation Coach while ITS OWN reply is still pending IS
+    correctly blocked, and once both pending replies are released each lands
+    in its own correct agent's history with `loadingAgentId` cleared back to
+    `null`; and a third sweep confirming all 8 agents switch and render
+    correctly, and that Media Studio's embedded outreach chat (which shares
+    this exact `sendChat()`/`effAgentId` code path, fixed earlier this same
     conversation) still sends and stores messages correctly — zero real
-    console errors in either pass (one filtered artifact: the test's own
-    over-broad Groq mock also intercepted the unrelated market-intelligence
-    background fetch, which expects a different JSON shape — a test-harness
-    limitation already documented elsewhere in this file, not a product bug).
+    console errors across all passes (one filtered artifact: an earlier
+    test's over-broad Groq mock also intercepted the unrelated
+    market-intelligence background fetch, which expects a different JSON
+    shape — a test-harness limitation already documented elsewhere in this
+    file, not a product bug).
 
 - **2026-07-18 (session continuing 14, "AI Assistant" removed from Social —
   confirmed 100% duplicate of Network → AI Agents, before starting the AI

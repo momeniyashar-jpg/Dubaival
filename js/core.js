@@ -1224,7 +1224,11 @@ var analyzerState={
 };
 var compareState={items:[{type:"area",value:""},{type:"area",value:""}],budget:"",purpose:"Investment",propType:"All",loading:false,result:"",err:""};
 var personalState={step:0,goal:"",priority:"",timeline:"",financing:"",nationality:"",budget:2000000,beds:"2 BR",prefAreas:[],work:"",loading:false,result:null,error:""};
-var chatState={msgs:[{role:"assistant",text:"DubAIVal Intelligence.\n\nBuilding-level knowledge · "+_currentMonthYear()+" data · Confidence scoring.\n\nAsk me about any building, deal, or strategy."}],input:"",loading:false,agentId:"general",agentMsgs:{}};
+// loadingAgentId (not a plain boolean) tracks WHICH agent currently has a
+// reply in flight, null when none does — lets sendChat() block re-sending
+// to that one specific agent without blocking every other agent's chat too
+// (see the 2026-07-18 AI Agents audit work-log entry for why this mattered).
+var chatState={msgs:[{role:"assistant",text:"DubAIVal Intelligence.\n\nBuilding-level knowledge · "+_currentMonthYear()+" data · Confidence scoring.\n\nAsk me about any building, deal, or strategy."}],input:"",loadingAgentId:null,agentId:"general",agentMsgs:{}};
 
 // URL param auto-fill for shared valuations
 (function(){
