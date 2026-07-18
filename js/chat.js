@@ -8411,6 +8411,17 @@ function getAgentMsgs(agentId){
 // --- CHAT TAB ----------------------------------------------------------------
 function renderChat(opts){
   var _inline=opts&&opts.inlineAgent;
+  // The agent this render/send cycle actually operates on. Previously every
+  // read below used the global chatState.agentId directly, so an inline
+  // embed (e.g. Media Studio's "chat with your agent" box) had no way to
+  // pin itself to a specific agent (e.g. "outreach") without mutating that
+  // global — which the one real caller did via a temporary
+  // set-then-restore, a real bug: sendChat() reads chatState.agentId at
+  // CALL time (when the user actually hits Enter/Send), by which point the
+  // temporary override had already been restored, so every embedded-chat
+  // message was silently sent/stored under the wrong agent. Using _inline
+  // here instead means the inline embed never needs to touch global state.
+  var effAgentId=_inline||chatState.agentId;
   var cl=C();
   var wrap=div({display:"flex",flexDirection:"column",height:_inline?"480px":"calc(100vh - 130px)",padding:"0 20px",maxWidth:"800px",margin:"0 auto",width:"100%"});
 
@@ -8447,7 +8458,7 @@ function renderChat(opts){
   // behind the icon and a faint gradient wash across the header band so this
   // reads as "you're now talking to the Valuation specialist" rather than a
   // plain text label, matching the redesigned selector above.
-  var activeAgent=AI_AGENTS.find(function(a){return a.id===chatState.agentId;})||AI_AGENTS[0];
+  var activeAgent=AI_AGENTS.find(function(a){return a.id===effAgentId;})||AI_AGENTS[0];
   var hdr=div({display:"flex",alignItems:"center",gap:"12px",padding:"14px 16px",borderRadius:"14px",background:"linear-gradient(135deg,"+hexAlpha(activeAgent.color,0.12)+",transparent)",border:"1px solid "+hexAlpha(activeAgent.color,0.22),marginTop:_inline?"0":"4px",marginBottom:"18px",flexShrink:"0"});
   var iconCircle=div({width:"42px",height:"42px",borderRadius:"12px",background:hexAlpha(activeAgent.color,0.18),border:"1px solid "+hexAlpha(activeAgent.color,0.35),boxShadow:"0 0 16px "+hexAlpha(activeAgent.color,0.35),display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"});
   iconCircle.innerHTML='<i data-lucide="'+activeAgent.icon+'" style="width:22px;height:22px;color:'+activeAgent.color+'"></i>';
@@ -8463,13 +8474,13 @@ function renderChat(opts){
     fontFamily:"'Space Grotesk',monospace",cursor:"pointer",whiteSpace:"nowrap",
     display:"flex",alignItems:"center",gap:"4px",transition:"all 0.2s",flexShrink:"0"
   },onclick:function(){
-    chatState.agentMsgs[chatState.agentId]=null;
+    chatState.agentMsgs[effAgentId]=null;
     render(true);
   }});
   newChatBtn.textContent="New";
   hdr.appendChild(newChatBtn);
 
-  if(chatState.agentId==="outreach"){
+  if(effAgentId==="outreach"){
     var brandBtn=el("button",{style:{
       background:hexAlpha("#F97316",0.1),border:"1px solid "+hexAlpha("#F97316",0.3),
       color:"#F97316",padding:"6px 14px",borderRadius:"8px",fontSize:"11px",fontWeight:"600",
@@ -8483,7 +8494,7 @@ function renderChat(opts){
   wrap.appendChild(hdr);
 
   // Messages
-  var msgs=getAgentMsgs(chatState.agentId);
+  var msgs=getAgentMsgs(effAgentId);
   var msgsDiv=div({flex:"1",overflowY:"auto",display:"flex",flexDirection:"column",gap:"14px",paddingTop:"4px",paddingBottom:"16px",minHeight:"0"});
   msgs.forEach(function(m){
     var isA=m.role==="assistant";
@@ -8498,7 +8509,7 @@ function renderChat(opts){
       var displayText=m.text.replace(/```json\s*\{[\s\S]*?\}\s*```/g,"").replace(/\{"post"\s*:\s*\{"caption"\s*:[\s\S]*?"platform"\s*:\s*"[^"]*"\s*\}\s*\}/g,"").trim();
       var formatted=formatAIResponse(displayText,cl);
       if(formatted)bubble.appendChild(formatted);else{bubble.style.whiteSpace="pre-wrap";bubble.textContent=displayText;}
-      if(chatState.agentId==="outreach"){
+      if(effAgentId==="outreach"){
         var postData=extractPostJSON(m.text);
         if(postData){
           bubble.appendChild(buildPublishBar(postData,displayText,cl));
@@ -8522,7 +8533,7 @@ function renderChat(opts){
   if(msgs.length<=1){
     var suggs=div({display:"flex",flexDirection:"column",gap:"8px",marginBottom:"16px"});
     activeAgent.suggestions.forEach(function(s){
-      suggs.appendChild(el("button",{style:{background:hexAlpha(activeAgent.color,0.06),border:"1px solid "+hexAlpha(activeAgent.color,0.15),color:cl.sub,padding:"9px 14px",borderRadius:"10px",cursor:"pointer",fontSize:"12.5px",fontFamily:"'Inter',sans-serif",textAlign:"left"},onclick:function(){sendChat(s);}},s));
+      suggs.appendChild(el("button",{style:{background:hexAlpha(activeAgent.color,0.06),border:"1px solid "+hexAlpha(activeAgent.color,0.15),color:cl.sub,padding:"9px 14px",borderRadius:"10px",cursor:"pointer",fontSize:"12.5px",fontFamily:"'Inter',sans-serif",textAlign:"left"},onclick:function(){sendChat(s,effAgentId);}},s));
     });
     wrap.appendChild(suggs);
   }
@@ -8532,9 +8543,9 @@ function renderChat(opts){
   var chatInp=el("input",{style:{flex:"1",background:"transparent",border:"none",outline:"none",color:cl.white,fontSize:"13px",fontFamily:"'Inter',sans-serif",caretColor:activeAgent.color},placeholder:"Ask "+activeAgent.name+"…"});
   chatInp.value=chatState.input;
   chatInp.addEventListener("input",function(){chatState.input=chatInp.value;});
-  chatInp.addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat();}});
+  chatInp.addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat(undefined,effAgentId);}});
   inputRow.appendChild(chatInp);
-  var sendBtn=el("button",{style:{background:"linear-gradient(135deg,"+activeAgent.color+","+hexAlpha(activeAgent.color,0.6)+")",color:"#070B14",border:"none",width:"36px",height:"36px",borderRadius:"8px",cursor:"pointer",fontSize:"14px",fontWeight:"800"},onclick:function(){sendChat();}},"→");
+  var sendBtn=el("button",{style:{background:"linear-gradient(135deg,"+activeAgent.color+","+hexAlpha(activeAgent.color,0.6)+")",color:"#070B14",border:"none",width:"36px",height:"36px",borderRadius:"8px",cursor:"pointer",fontSize:"14px",fontWeight:"800"},onclick:function(){sendChat(undefined,effAgentId);}},"→");
   inputRow.appendChild(sendBtn);
   wrap.appendChild(inputRow);
 
@@ -8543,15 +8554,20 @@ function renderChat(opts){
 }
 
 // --- SEND CHAT (agent-aware) -------------------------------------------------
-async function sendChat(text){
+// forceAgentId lets an inline embed (e.g. Media Studio's outreach chat) pin
+// itself to a specific agent regardless of whatever chatState.agentId
+// currently holds — see the effAgentId comment in renderChat() above for why
+// reading the (mutable, shared) global here directly was a real bug.
+async function sendChat(text,forceAgentId){
+  var aid=forceAgentId||chatState.agentId;
   var t=text||chatState.input.trim();
   if(!t||chatState.loading)return;
   chatState.input="";
-  var msgs=getAgentMsgs(chatState.agentId);
+  var msgs=getAgentMsgs(aid);
   msgs.push({role:"user",text:t});
   chatState.loading=true;render(true);
   try{
-    var agent=AI_AGENTS.find(function(a){return a.id===chatState.agentId;})||AI_AGENTS[0];
+    var agent=AI_AGENTS.find(function(a){return a.id===aid;})||AI_AGENTS[0];
     var history=msgs.slice(-10).map(function(m){return{role:m.role==="assistant"?"assistant":"user",content:m.text};});
     var sys=agent.sys();
     // These 4 agents promise precise, database-backed numbers about a
@@ -8781,10 +8797,16 @@ function renderMediaStudio(mode){
   var smmSection=el("div",{style:{marginBottom:"20px"}});
   smmSection.appendChild(makeSectionHeader("OR CHAT WITH YOUR AGENT","#F97316"));
   var smmChatWrap=el("div",{style:{background:"rgba(249,115,22,0.025)",border:"1px solid rgba(249,115,22,0.16)",borderRadius:"14px",overflow:"hidden"}});
-  var prevAgentId=chatState.agentId;
-  chatState.agentId="outreach";
+  // renderChat's effAgentId (opts.inlineAgent) makes this fully self-contained
+  // now — no need to mutate/restore the global chatState.agentId around it
+  // (that used to be a real bug: sendChat() reads chatState.agentId at SEND
+  // time, by which point the temporary override below had already been put
+  // back, so every message typed here was silently attributed to whatever
+  // agent the user last had selected on the main AI Agents tab instead of
+  // "outreach" — wrong system prompt/persona, and the reply never got its
+  // JSON post-extraction/Publish bar since that also keyed off the same
+  // now-reverted global).
   smmChatWrap.appendChild(renderChat({inlineAgent:"outreach"}));
-  chatState.agentId=prevAgentId;
   smmSection.appendChild(smmChatWrap);
   wrap.appendChild(smmSection);
 

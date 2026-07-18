@@ -656,6 +656,91 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, Media Studio audit — inline
+  outreach chat was silently sending to the wrong AI agent)**: Direct
+  follow-up, same conversation — user asked for the same audit-then-fix
+  treatment on Media Studio: "این بررسی رو برای Media Studio هم انجام
+  بده". Read `renderMediaStudio(mode)` (`js/chat.js`, the shared entry point
+  for both Network → SocialMedia → Studio and → Avatar) end to end,
+  including its 3 UI helpers (`makeToolGrid`/`makeSectionHeader`/
+  `makeCollapsible`), the Setup/Branding+Social config cards, the CREATE
+  tool grid, the embedded "OR CHAT WITH YOUR AGENT" chat block, Analytics,
+  and the collapsible Advanced AI Tools grid — confirmed all ~25 tool-grid
+  entries route to real, existing functions (no dead/miswired links), and
+  confirmed `getBrandProfile()`/`getSocialCreds()` read the exact same
+  localStorage keys their own "Remove"/"Disconnect" buttons clear (no
+  clear/read key mismatch, unlike a bug class already fixed elsewhere this
+  session). Found one real, load-bearing bug in the embedded chat:
+  1. **Every message sent through Media Studio's inline "chat with your
+     agent" box was silently attributed to the WRONG AI agent** — a bug
+     that could misroute both the client-facing persona/system-prompt AND
+     the "outreach"-only JSON post-extraction/Publish-bar rendering to
+     whatever agent the user last had selected on the separate, main
+     Network → AI Agents tab (or the default "general" agent, if they'd
+     never visited that tab this session), instead of the intended
+     "outreach" (Social Media Manager) specialist. Root cause:
+     `renderMediaStudio()` rendered the embed via a temporary
+     set-then-restore of the GLOBAL `chatState.agentId`
+     (`chatState.agentId="outreach"; ...renderChat({inlineAgent:"outreach"})
+     ...; chatState.agentId=prevAgentId;`) — but `sendChat()` (the function
+     the embed's own Send button/Enter key actually calls) reads
+     `chatState.agentId` at CALL time, i.e. whenever the user actually
+     finishes typing and hits send, which is always AFTER the restore line
+     above had already run. So `getAgentMsgs(chatState.agentId)` pushed
+     the message into the WRONG agent's history entirely, `AI_AGENTS.find
+     (...===chatState.agentId)` picked the WRONG agent's system prompt for
+     the AI call, and the reply — since `renderChat()`'s own message-list
+     rendering ALSO keyed off the (still-wrong) global `chatState.agentId`
+     for its `==="outreach"` checks — would never trigger the JSON post-
+     extraction/"Publish" bar, and would never even appear in the embedded
+     chat on the next re-render (since that re-render's own temporary
+     "outreach" override reads `getAgentMsgs("outreach")`, which never
+     received the message). This is exactly the class of "global mutable
+     state read at a later, real user-triggered time" bug this session
+     found once already in the Map tab (`window.METRO_STATIONS`) — same
+     root cause shape (indirection through shared state instead of an
+     explicit, threaded parameter), different manifestation.
+  - **Fix, `js/chat.js`**: `renderChat(opts)` now derives a local
+    `effAgentId = _inline||chatState.agentId` once, and every internal read
+    that used to check the bare global directly (`activeAgent` lookup, the
+    "New" button's message-clear, the outreach-only brand button/JSON-
+    extraction checks, `getAgentMsgs()`) now uses `effAgentId` instead —
+    `_inline` is `opts.inlineAgent` ("outreach" for the Media Studio embed,
+    falsy for the normal, non-inline main-tab call), so this is
+    automatically correct for both callers with zero behavior change for
+    the main tab (`effAgentId` degrades to plain `chatState.agentId` when
+    `_inline` is falsy — the exact same value it always read). `sendChat()`
+    gained a 2nd optional `forceAgentId` parameter (`aid=forceAgentId||
+    chatState.agentId`, used everywhere inside the function instead of the
+    bare global) — the embed's own Send button/Enter-key/suggestion-chip
+    handlers (the only 3 call sites inside `renderChat()`) now pass
+    `sendChat(text, effAgentId)` explicitly, so the correct agent travels
+    with the actual user action instead of being inferred from
+    whatever the shared global happens to hold at that later moment.
+    `renderMediaStudio()`'s embed itself simplified to a single
+    `smmChatWrap.appendChild(renderChat({inlineAgent:"outreach"}));` call —
+    the temporary global mutate/restore dance is no longer needed at all,
+    removing the root cause rather than patching around it.
+  - Verified: `node -c js/chat.js`; a real-browser Playwright test that
+    signs in, sets the main tab's `chatState.agentId` to `"general"`
+    (simulating a user who'd previously used a different agent elsewhere),
+    renders Media Studio, and drives the embedded chat's real input+send
+    button exactly like a user click (mocked `/api/proxy-groq` returning a
+    reply with an embedded JSON post block) — confirmed the global
+    `chatState.agentId` is left completely untouched (`"general"`,
+    unmodified) by the embed, the sent message and its reply are correctly
+    stored under `"outreach"`'s own history (not leaked into `"general"`'s,
+    which is exactly what the bug would have done), the message and reply
+    are correctly visible on the next re-render of the embedded chat
+    (previously would have vanished, since the wrong history was being
+    read), and the outreach-only JSON-extraction "Publish" bar correctly
+    renders (previously would never have fired, since that check also
+    keyed off the same clobbered global) — zero console errors. A second
+    Playwright pass swept Studio/Avatar/SocialChat (AI Assistant) plus the
+    main Network → AI Agents tab (switching its own agent selection)
+    confirming zero regressions anywhere else this session's other fixes
+    touch — zero console errors throughout.
+
 - **2026-07-18 (session continuing 14, Avatar Studio audit — 3 real gaps
   found and fixed, one of them a whole engine unusable)**: Direct follow-up,
   same conversation — user asked for the same audit-then-fix treatment on
