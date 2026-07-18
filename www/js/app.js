@@ -243,7 +243,10 @@ function renderFind(){
     });
     sf.allResults=results;sf.results=results.slice(0,50);sf.page=0;
     sf.showResults=true;
+    sf.liveTop={};
+    sf._liveGen=(sf._liveGen||0)+1;
     render();
+    _fetchLiveTopMatches(sf.results.slice(0,5),sf._liveGen);
   });
   // Stable id so the Market Dashboard's PSF/Yield distribution bars (2026-07-17)
   // can navigate here and auto-run this exact search instead of duplicating
@@ -379,6 +382,37 @@ function renderFind(){
       },80);
     }
     wrap.appendChild(sfResCard);
+
+    // Live Listings in Top Matches — connects the ranked buildings above to
+    // real, purchasable inventory instead of leaving the Screener as a
+    // disconnected stats browse (2026-07-18, direct user request). Bounded
+    // to the first 5 results (rate-limit safe, see _fetchLiveTopMatches).
+    var _topKeys=sf.results.slice(0,5).map(function(r){return r.name;});
+    var _anyLiveChecked=_topKeys.some(function(k){return sf.liveTop&&sf.liveTop[k];});
+    if(_anyLiveChecked){
+      var liveCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px",marginBottom:"14px"});
+      liveCard.appendChild(span({color:"#D4A843",fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"4px"},"◆ Live Listings in Top Matches"));
+      liveCard.appendChild(span({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",display:"block",marginBottom:"14px"},"Real, currently-listed units in the top "+_topKeys.length+" buildings above that meet your criteria — not just their stats."));
+      var _stillLoading=false;
+      var _emptyBuildings=[];
+      _topKeys.forEach(function(k){
+        var entry=sf.liveTop&&sf.liveTop[k];
+        if(!entry)return;
+        if(entry.loading){_stillLoading=true;return;}
+        if(entry.listings&&entry.listings.length>0){
+          entry.listings.forEach(function(lst){liveCard.appendChild(_renderListingCard(lst));});
+        }else{
+          _emptyBuildings.push(k);
+        }
+      });
+      if(_stillLoading){
+        liveCard.appendChild(div({textAlign:"center",padding:"12px",color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Checking live listings…"));
+      }
+      if(_emptyBuildings.length>0){
+        liveCard.appendChild(div({background:cl.raised,borderRadius:"8px",padding:"10px 12px",color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6"},"No live listings currently in: "+_emptyBuildings.join(", ")+"."));
+      }
+      wrap.appendChild(liveCard);
+    }
   }else if(sf.showResults&&sf.results.length===0){
     wrap.appendChild(div({background:cl.raised,borderRadius:"10px",padding:"20px",textAlign:"center",marginBottom:"14px"},[
       span({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif"},"No buildings match your criteria. Try widening filters.")
@@ -402,115 +436,7 @@ function renderFind(){
     }
 
     FS.results.forEach(function(r,i){
-      var card=el("div",{style:{background:cl.raised,backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",borderRadius:"14px",padding:"14px",marginBottom:"10px",border:"1px solid "+cl.border,transition:"border-color 0.2s ease,transform 0.2s ease,box-shadow 0.2s ease",cursor:"pointer",boxShadow:"0 2px 16px rgba(0,0,0,0.15)"}});
-      card.addEventListener("mouseenter",function(){card.style.borderColor="rgba(212,175,55,0.3)";card.style.transform="translateY(-2px)";card.style.boxShadow="0 8px 30px rgba(0,0,0,0.3),0 0 16px rgba(212,175,55,0.04)";});
-      card.addEventListener("mouseleave",function(){card.style.borderColor=cl.border;card.style.transform="translateY(0)";card.style.boxShadow="0 2px 16px rgba(0,0,0,0.15)";});
-      
-      // Photo + Title row
-      var topRow=el("div",{style:{display:"flex",gap:"12px",marginBottom:"10px"}});
-      (function(){
-        var imgEl=el("img",{referrerpolicy:"no-referrer",crossorigin:"anonymous",style:{width:"80px",height:"60px",borderRadius:"8px",objectFit:"cover",flexShrink:"0"}});
-        var _ac3=typeof AREA_COORDS!=="undefined"&&AREA_COORDS[r.area]?AREA_COORDS[r.area]:null;
-        var mapFallback=_ac3?"/api/proxy-maps?action=staticmap&lat="+_ac3[0]+"&lng="+_ac3[1]+"&zoom=15&size=80x60":"";
-        if(r.photo){
-          imgEl.src=r.photo;
-          imgEl.onerror=function(){if(mapFallback){this.src=mapFallback;this.onerror=function(){this.style.display="none";};}else{this.style.display="none";}};
-          topRow.appendChild(imgEl);
-        }else if(mapFallback){
-          imgEl.loading="lazy";
-          imgEl.src=mapFallback;
-          imgEl.onerror=function(){this.style.display="none";};
-          topRow.appendChild(imgEl);
-        }
-      })();
-      var titleBlock=el("div",{style:{flex:"1",minWidth:"0"}});
-      var titleEl=el("div",{style:{color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Inter',sans-serif",marginBottom:"2px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}});
-      titleEl.textContent=r.title||r.name||"Property";
-      titleBlock.appendChild(titleEl);
-      titleBlock.appendChild(div({color:cl.gold,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+(r.price?(r.price/1e6).toFixed(2)+"M":"—")));
-      if(r.source){
-        var srcBadge2=el("span",{style:{background:r.source==="PropertyFinder"?"rgba(0,120,255,0.15)":"rgba(255,80,0,0.15)",border:"1px solid "+(r.source==="PropertyFinder"?"rgba(0,120,255,0.4)":"rgba(255,80,0,0.4)"),color:r.source==="PropertyFinder"?"#4da6ff":"#ff8040",padding:"1px 7px",borderRadius:"20px",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginLeft:"6px"}});
-        srcBadge2.textContent=r.source;
-        titleBlock.appendChild(srcBadge2);
-      }
-      titleBlock.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},(r.area||"")+(r.size?" · "+Math.round(r.size).toLocaleString()+" sqft":"")+(r.beds?" · "+r.beds+"BR":"")));
-      topRow.appendChild(titleBlock);
-      card.appendChild(topRow);
-      
-      // Deal Score + PSF + Permit row
-      var metaRow=el("div",{style:{display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"8px"}});
-      if(r.dealScore!==undefined){
-        var dsColor=r.dealScore>=75?"#22C55E":r.dealScore>=55?"#EAB308":"#EF4444";
-        var dsLabel=r.dealScore>=80?"Excellent":r.dealScore>=65?"Good":r.dealScore>=50?"Fair":"Below Avg";
-        metaRow.appendChild(el("span",{style:{background:hexAlpha(dsColor,0.12),border:"1px solid "+hexAlpha(dsColor,0.4),color:dsColor,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"}},r.dealScore+"/100 "+dsLabel));
-      }
-      if(r.grade){
-        metaRow.appendChild(el("span",{style:{background:cl.goldFaint,border:"1px solid "+cl.goldDim,color:cl.gold,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"Grade: "+r.grade));
-      }
-      if(r.psf)metaRow.appendChild(el("span",{style:{background:"rgba(201,168,76,0.1)",border:"1px solid "+cl.goldDim,color:cl.gold,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"PSF: AED "+r.psf.toLocaleString()));
-      if(r.permit)metaRow.appendChild(el("span",{style:{background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.4)",color:cl.green,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"Permit: "+r.permit));
-      if(r.furnished)metaRow.appendChild(el("span",{style:{background:cl.raised,border:"1px solid "+cl.border,color:cl.sub,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},r.furnished));
-      if(r.estYield)metaRow.appendChild(el("span",{style:{background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.4)",color:"#10B981",padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"Yield ~"+r.estYield+"%"));
-      if(r.growth)metaRow.appendChild(el("span",{style:{background:"rgba(59,130,246,0.1)",border:"1px solid rgba(59,130,246,0.4)",color:"#3B82F6",padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"+"+r.growth+"% 1yr"));
-      card.appendChild(metaRow);
-
-      // Agent info
-      if(r.agentName||r.agencyName){
-        var agentRow=el("div",{style:{display:"flex",alignItems:"center",gap:"8px",padding:"8px 10px",background:cl.surface,borderRadius:"8px",marginBottom:"8px"}});
-        var agentInfo=el("div",{style:{flex:"1"}});
-        agentInfo.appendChild(div({color:cl.white,fontSize:"11px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},r.agentName||r.agencyName));
-        if(r.agencyName&&r.agentName)agentInfo.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},r.agencyName));
-        agentRow.appendChild(agentInfo);
-        // WhatsApp button
-        if(r.agentWA||r.agentPhone){
-          var waBtn=el("a",{style:{background:"#25D366",color:"#fff",padding:"5px 10px",borderRadius:"6px",fontSize:"11px",fontWeight:"600",fontFamily:"'Inter',sans-serif",textDecoration:"none",flexShrink:"0"}});
-          waBtn.href="https://wa.me/"+(r.agentWA||r.agentPhone).replace(/[^0-9]/g,"");
-          waBtn.target="_blank";
-          waBtn.textContent="WhatsApp";
-          agentRow.appendChild(waBtn);
-        }
-        if(r.agentPhone&&!r.agentWA){
-          var callBtn=el("a",{style:{background:cl.raised,border:"1px solid "+cl.border,color:cl.sub,padding:"5px 10px",borderRadius:"6px",fontSize:"11px",fontFamily:"'Inter',sans-serif",textDecoration:"none",flexShrink:"0",marginLeft:"4px"}});
-          callBtn.href="tel:"+r.agentPhone;
-          callBtn.textContent="Call";
-          agentRow.appendChild(callBtn);
-        }
-        card.appendChild(agentRow);
-      }
-      
-      // Action buttons
-      var btnRow=el("div",{style:{display:"flex",gap:"8px"}});
-      
-      // PropertyFinder / Bayut link
-      if(r.listingUrl||r.bayutUrl||r.pfUrl){
-        var linkBtn=el("a",{style:{flex:"1",background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 10px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",textDecoration:"none",textAlign:"center"}});
-        linkBtn.href=r.listingUrl||r.bayutUrl||r.pfUrl||"#";
-        linkBtn.target="_blank";
-        linkBtn.textContent="View on "+(r.listingSource||r.source||(r.bayutUrl?"Bayut":"PropertyFinder"));
-        btnRow.appendChild(linkBtn);
-      }
-      
-      // Analyze button
-      var anaBtn=el("button",{style:{flex:"1",background:"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#08090C",border:"none",padding:"7px 10px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
-      anaBtn.textContent="Analyze Deal →";
-      anaBtn.addEventListener("click",function(){
-        var name=r.title||r.name||"";
-        var areaName=r.area||"";
-        analyzerState.f.building=name.toLowerCase();
-        analyzerState.f.area=areaName;
-        analyzerState.f.beds=r.beds===0?"Studio":r.beds?(r.beds+" BR"):(FS.beds||"2 BR");
-        analyzerState.f.size=r.size?String(Math.round(r.size)):"";
-        analyzerState.f.price=r.price?String(r.price):"";
-        analyzerState.f.furnished=r.furnished||"Unfurnished";
-        analyzerState.f.floor=r.floor?String(r.floor):"";
-        analyzerState.f.propCategory=(r.type&&(r.type.toLowerCase().includes("villa")||r.type.toLowerCase().includes("townhouse")))?"villa":"apartment";
-        analyzerState.stage=0;
-        setSection("Market","Analyzer");
-        window.scrollTo(0,0);
-      });
-      btnRow.appendChild(anaBtn);
-      card.appendChild(btnRow);
-      resWrap.appendChild(card);
+      resWrap.appendChild(_renderListingCard(r));
     });
     // Load More button
     if(FS.hasMore){
@@ -718,52 +644,292 @@ function renderFind(){
     render();
   }
 
+  // Shared deal-score band logic — used both by scoreDealQuality() (fuzzy-
+  // matches a listing to a building from its own title) and by
+  // _fetchLiveListingsForBuilding() below (already knows the exact building
+  // going in, from the Screener's own already-computed metrics), so both
+  // paths score against the identical thresholds rather than two drifting
+  // copies of the same magic numbers. Sentinel 0/999 inputs (no area data
+  // available) naturally fall through every band untouched, i.e. add zero
+  // bonus — matching the original "only bonus when we actually have area
+  // data" behavior without a separate branch.
+  function _dealScoreBand(psfRatio,avgYield,growth1yr,dom,sc,grade){
+    var score=50;
+    if(psfRatio<=0.85)score+=30;
+    else if(psfRatio<=0.95)score+=20;
+    else if(psfRatio<=1.05)score+=10;
+    else if(psfRatio<=1.15)score+=0;
+    else score-=10;
+    if(avgYield>=8)score+=25;
+    else if(avgYield>=7)score+=20;
+    else if(avgYield>=6)score+=15;
+    else if(avgYield>=5)score+=10;
+    if(growth1yr>=8)score+=15;
+    else if(growth1yr>=5)score+=10;
+    else if(growth1yr>=3)score+=5;
+    if(dom<=30)score+=10;
+    else if(dom<=45)score+=7;
+    else if(dom<=60)score+=4;
+    if(sc<=12)score+=10;
+    else if(sc<=18)score+=7;
+    else if(sc<=25)score+=4;
+    var gradeScore={"Ultra":10,"A+":8,"A":6,"A-":4,"B+":2,"B":0,"C":-5};
+    score+=(gradeScore[grade]||0);
+    // A severely overpriced ASKING price should never read as a good deal
+    // no matter how strong the underlying building/area otherwise scores —
+    // caught by a real test case (a listing 105% above its own building's
+    // calibrated PSF still summed to 99/100 "Excellent" before this cap,
+    // since the yield/growth/grade bonuses above describe the BUILDING,
+    // not THIS unit's asking price, and easily outweighed the -10 penalty
+    // on their own). Price quality caps the ceiling here instead of being
+    // purely additive.
+    if(psfRatio>1.30)score=Math.min(score,35);
+    else if(psfRatio>1.15)score=Math.min(score,55);
+    return Math.max(0,Math.min(100,score));
+  }
+
   function scoreDealQuality(listings){
     return listings.map(function(r){
       var areaKey=r.area||"";
       var aData=AREAS[areaKey]||null;
-      var score=50;
-      if(aData){
-        // PSF vs area benchmark (lower = better deal, max 30 pts)
-        var benchPSF=aData.psf||1800;
-        var psfRatio=r.psf/benchPSF;
-        if(psfRatio<=0.85)score+=30;
-        else if(psfRatio<=0.95)score+=20;
-        else if(psfRatio<=1.05)score+=10;
-        else if(psfRatio<=1.15)score+=0;
-        else score-=10;
-        // Yield (max 25 pts)
-        var avgY=aData.y?((aData.y[0]+aData.y[1])/2):5;
-        if(avgY>=8)score+=25;
-        else if(avgY>=7)score+=20;
-        else if(avgY>=6)score+=15;
-        else if(avgY>=5)score+=10;
-        // Growth (max 15 pts)
-        var gr1=aData.g?aData.g[0]:3;
-        if(gr1>=8)score+=15;
-        else if(gr1>=5)score+=10;
-        else if(gr1>=3)score+=5;
-        // Liquidity — low DOM (max 10 pts)
-        var dom=aData.dom||60;
-        if(dom<=30)score+=10;
-        else if(dom<=45)score+=7;
-        else if(dom<=60)score+=4;
-        // Service charge efficiency (max 10 pts)
-        var sc=aData.sc||15;
-        if(sc<=12)score+=10;
-        else if(sc<=18)score+=7;
-        else if(sc<=25)score+=4;
-      }
-      // Building grade bonus (max 10 pts)
-      var bData=DB[(r.title||"").toLowerCase()];
-      if(bData){
-        var gradeScore={"Ultra":10,"A+":8,"A":6,"A-":4,"B+":2,"B":0,"C":-5};
-        score+=(gradeScore[bData.g]||0);
-        r.grade=bData.g;
-      }
-      r.dealScore=Math.max(0,Math.min(100,score));
+      // Try to resolve which real building this listing is actually for —
+      // fuzzy-matched against our own calibrated database (lookupBuilding
+      // already does area-hinted substring/word matching, so a full listing
+      // title like "Luxury 2BR in Marina Gate 1, Dubai Marina" correctly
+      // resolves to the real "marina gate 1" DB entry). Previously this used
+      // an exact-match lookup keyed on the raw listing title, which almost
+      // never hit (a marketing title is never identical to a DB key), so the
+      // PSF-vs-benchmark score below always fell back to a flat AREA average
+      // — comparing an apartment's price against the whole area's average
+      // PSF instead of its own building's calibrated PSF, a much weaker
+      // signal (the exact building-vs-area-average gap already fixed for
+      // yield elsewhere in this app, 2026-07-13 session 11m).
+      var bData=(typeof lookupBuilding==="function")?lookupBuilding(r.title||"",areaKey):null;
+      var benchPSF=(bData&&bData.p)?bData.p:(aData?(aData.psf||1800):1800);
+      var psfRatio=r.psf/benchPSF;
+      var avgY=aData?(aData.y?((aData.y[0]+aData.y[1])/2):5):0;
+      var gr1=aData?(aData.g?aData.g[0]:3):0;
+      var dom=aData?(aData.dom||60):999;
+      var sc=aData?(aData.sc||15):999;
+      r.dealScore=_dealScoreBand(psfRatio,avgY,gr1,dom,sc,bData?bData.g:null);
+      if(bData)r.grade=bData.g;
+      r.benchPSF=Math.round(benchPSF);
+      r.benchIsBuilding=!!(bData&&bData.p);
       return r;
     });
+  }
+
+  // Shared live-listing card renderer — used both by the main "Ask in
+  // Natural Language"/Quick Filters live search results below, and by the
+  // Advanced Market Screener's "Live Listings in Top Matches" section
+  // (added 2026-07-18 to connect the Screener's investment-metric filtering
+  // to real, purchasable inventory instead of leaving it as a disconnected
+  // building-stats browse — see the sfCard/DISCOVER PROPERTIES section
+  // further down). Factored out of a single inline forEach so both call
+  // sites stay visually/behaviorally identical, not two drifting copies.
+  function _renderListingCard(r){
+    var card=el("div",{style:{background:cl.raised,backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",borderRadius:"14px",padding:"14px",marginBottom:"10px",border:"1px solid "+cl.border,transition:"border-color 0.2s ease,transform 0.2s ease,box-shadow 0.2s ease",cursor:"pointer",boxShadow:"0 2px 16px rgba(0,0,0,0.15)"}});
+    card.addEventListener("mouseenter",function(){card.style.borderColor="rgba(212,175,55,0.3)";card.style.transform="translateY(-2px)";card.style.boxShadow="0 8px 30px rgba(0,0,0,0.3),0 0 16px rgba(212,175,55,0.04)";});
+    card.addEventListener("mouseleave",function(){card.style.borderColor=cl.border;card.style.transform="translateY(0)";card.style.boxShadow="0 2px 16px rgba(0,0,0,0.15)";});
+
+    // Photo + Title row
+    var topRow=el("div",{style:{display:"flex",gap:"12px",marginBottom:"10px"}});
+    (function(){
+      var imgEl=el("img",{referrerpolicy:"no-referrer",crossorigin:"anonymous",style:{width:"80px",height:"60px",borderRadius:"8px",objectFit:"cover",flexShrink:"0"}});
+      var _ac3=typeof AREA_COORDS!=="undefined"&&AREA_COORDS[r.area]?AREA_COORDS[r.area]:null;
+      var mapFallback=_ac3?"/api/proxy-maps?action=staticmap&lat="+_ac3[0]+"&lng="+_ac3[1]+"&zoom=15&size=80x60":"";
+      if(r.photo){
+        imgEl.src=r.photo;
+        imgEl.onerror=function(){if(mapFallback){this.src=mapFallback;this.onerror=function(){this.style.display="none";};}else{this.style.display="none";}};
+        topRow.appendChild(imgEl);
+      }else if(mapFallback){
+        imgEl.loading="lazy";
+        imgEl.src=mapFallback;
+        imgEl.onerror=function(){this.style.display="none";};
+        topRow.appendChild(imgEl);
+      }
+    })();
+    var titleBlock=el("div",{style:{flex:"1",minWidth:"0"}});
+    var titleEl=el("div",{style:{color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Inter',sans-serif",marginBottom:"2px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}});
+    titleEl.textContent=r.title||r.name||"Property";
+    titleBlock.appendChild(titleEl);
+    titleBlock.appendChild(div({color:cl.gold,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+(r.price?(r.price/1e6).toFixed(2)+"M":"—")));
+    if(r.source){
+      var srcBadge2=el("span",{style:{background:r.source==="PropertyFinder"?"rgba(0,120,255,0.15)":"rgba(255,80,0,0.15)",border:"1px solid "+(r.source==="PropertyFinder"?"rgba(0,120,255,0.4)":"rgba(255,80,0,0.4)"),color:r.source==="PropertyFinder"?"#4da6ff":"#ff8040",padding:"1px 7px",borderRadius:"20px",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginLeft:"6px"}});
+      srcBadge2.textContent=r.source;
+      titleBlock.appendChild(srcBadge2);
+    }
+    titleBlock.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},(r.area||"")+(r.size?" · "+Math.round(r.size).toLocaleString()+" sqft":"")+(r.beds?" · "+r.beds+"BR":"")));
+    topRow.appendChild(titleBlock);
+    card.appendChild(topRow);
+
+    // Deal Score + PSF + Permit row
+    var metaRow=el("div",{style:{display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"6px"}});
+    if(r.dealScore!==undefined){
+      var dsColor=r.dealScore>=75?"#22C55E":r.dealScore>=55?"#EAB308":"#EF4444";
+      var dsLabel=r.dealScore>=80?"Excellent":r.dealScore>=65?"Good":r.dealScore>=50?"Fair":"Below Avg";
+      metaRow.appendChild(el("span",{style:{background:hexAlpha(dsColor,0.12),border:"1px solid "+hexAlpha(dsColor,0.4),color:dsColor,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"}},r.dealScore+"/100 "+dsLabel));
+    }
+    if(r.grade){
+      metaRow.appendChild(el("span",{style:{background:cl.goldFaint,border:"1px solid "+cl.goldDim,color:cl.gold,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"Grade: "+r.grade));
+    }
+    if(r.psf)metaRow.appendChild(el("span",{style:{background:"rgba(201,168,76,0.1)",border:"1px solid "+cl.goldDim,color:cl.gold,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"PSF: AED "+r.psf.toLocaleString()));
+    if(r.permit)metaRow.appendChild(el("span",{style:{background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.4)",color:cl.green,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"Permit: "+r.permit));
+    if(r.furnished)metaRow.appendChild(el("span",{style:{background:cl.raised,border:"1px solid "+cl.border,color:cl.sub,padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},r.furnished));
+    if(r.estYield)metaRow.appendChild(el("span",{style:{background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.4)",color:"#10B981",padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"Yield ~"+r.estYield+"%"));
+    if(r.growth)metaRow.appendChild(el("span",{style:{background:"rgba(59,130,246,0.1)",border:"1px solid rgba(59,130,246,0.4)",color:"#3B82F6",padding:"2px 8px",borderRadius:"20px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace"}},"+"+r.growth+"% 1yr"));
+    card.appendChild(metaRow);
+
+    // Deal Score transparency line — WHY this score, not just the number.
+    // Only shown when we actually have both sides of the comparison (a real
+    // asking PSF and a real benchmark) — never fabricated.
+    if(r.psf&&r.benchPSF){
+      var diffPct=Math.round(((r.psf-r.benchPSF)/r.benchPSF)*100);
+      var diffColor=diffPct<=-5?cl.green:diffPct>=10?cl.red:cl.sub;
+      var diffLabel=diffPct<=0?(Math.abs(diffPct)+"% below "):"+"+diffPct+"% above ";
+      var diffTarget=r.benchIsBuilding?"this building's calibrated PSF (AED "+r.benchPSF.toLocaleString()+")":"the "+(r.area||"area")+" average PSF (AED "+r.benchPSF.toLocaleString()+")";
+      card.appendChild(div({color:diffColor,fontSize:"10.5px",fontFamily:"'Inter',sans-serif",marginBottom:"8px",lineHeight:"1.5"},diffLabel+diffTarget));
+    }
+
+    // Agent info
+    if(r.agentName||r.agencyName){
+      var agentRow=el("div",{style:{display:"flex",alignItems:"center",gap:"8px",padding:"8px 10px",background:cl.surface,borderRadius:"8px",marginBottom:"8px"}});
+      var agentInfo=el("div",{style:{flex:"1"}});
+      agentInfo.appendChild(div({color:cl.white,fontSize:"11px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},r.agentName||r.agencyName));
+      if(r.agencyName&&r.agentName)agentInfo.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},r.agencyName));
+      agentRow.appendChild(agentInfo);
+      // WhatsApp button
+      if(r.agentWA||r.agentPhone){
+        var waBtn=el("a",{style:{background:"#25D366",color:"#fff",padding:"5px 10px",borderRadius:"6px",fontSize:"11px",fontWeight:"600",fontFamily:"'Inter',sans-serif",textDecoration:"none",flexShrink:"0"}});
+        waBtn.href="https://wa.me/"+(r.agentWA||r.agentPhone).replace(/[^0-9]/g,"");
+        waBtn.target="_blank";
+        waBtn.textContent="WhatsApp";
+        agentRow.appendChild(waBtn);
+      }
+      if(r.agentPhone&&!r.agentWA){
+        var callBtn=el("a",{style:{background:cl.raised,border:"1px solid "+cl.border,color:cl.sub,padding:"5px 10px",borderRadius:"6px",fontSize:"11px",fontFamily:"'Inter',sans-serif",textDecoration:"none",flexShrink:"0",marginLeft:"4px"}});
+        callBtn.href="tel:"+r.agentPhone;
+        callBtn.textContent="Call";
+        agentRow.appendChild(callBtn);
+      }
+      card.appendChild(agentRow);
+    }
+
+    // Action buttons
+    var btnRow=el("div",{style:{display:"flex",gap:"8px"}});
+
+    // PropertyFinder / Bayut link
+    if(r.listingUrl||r.bayutUrl||r.pfUrl){
+      var linkBtn=el("a",{style:{flex:"1",background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"7px 10px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",textDecoration:"none",textAlign:"center"}});
+      linkBtn.href=r.listingUrl||r.bayutUrl||r.pfUrl||"#";
+      linkBtn.target="_blank";
+      linkBtn.textContent="View on "+(r.listingSource||r.source||(r.bayutUrl?"Bayut":"PropertyFinder"));
+      btnRow.appendChild(linkBtn);
+    }
+
+    // Analyze button
+    var anaBtn=el("button",{style:{flex:"1",background:"linear-gradient(135deg,#C9A84C,#7A5E28)",color:"#08090C",border:"none",padding:"7px 10px",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+    anaBtn.textContent="Analyze Deal →";
+    anaBtn.addEventListener("click",function(){
+      var name=r.title||r.name||"";
+      var areaName=r.area||"";
+      analyzerState.f.building=name.toLowerCase();
+      analyzerState.f.area=areaName;
+      analyzerState.f.beds=r.beds===0?"Studio":r.beds?(r.beds+" BR"):(FS.beds||"2 BR");
+      analyzerState.f.size=r.size?String(Math.round(r.size)):"";
+      analyzerState.f.price=r.price?String(r.price):"";
+      analyzerState.f.furnished=r.furnished||"Unfurnished";
+      analyzerState.f.floor=r.floor?String(r.floor):"";
+      analyzerState.f.propCategory=(r.type&&(r.type.toLowerCase().includes("villa")||r.type.toLowerCase().includes("townhouse")))?"villa":"apartment";
+      analyzerState.stage=0;
+      setSection("Market","Analyzer");
+      window.scrollTo(0,0);
+    });
+    btnRow.appendChild(anaBtn);
+    card.appendChild(btnRow);
+    return card;
+  }
+
+  // Connects the Advanced Market Screener's investment-metric filtering to
+  // real, purchasable inventory (added 2026-07-18, per direct user request —
+  // previously the Screener returned a ranked list of BUILDINGS with no link
+  // to whether anything is actually for sale in them, a dead end for anyone
+  // using Find to locate an actual unit, not just research an area). Fetches
+  // live Bayut listings scoped to one specific building (using its own
+  // already-computed metrics — psf/yield/growth3/dom/sc/grade — as the Deal
+  // Score benchmark directly, since the Screener already resolved exactly
+  // which building this is, more reliable than re-deriving via a second
+  // fuzzy title match). Returns at most 4 listings; a listing is only kept
+  // if the raw Bayut result's own title/location text actually mentions this
+  // building's name — a location-ID match can be community-wide, not
+  // guaranteed building-specific, so the honest fallback below matters.
+  async function _fetchLiveListingsForBuilding(bd){
+    try{
+      var locId=await getUAELocationId(bd.name+" "+bd.area);
+      if(!locId)locId=await getUAELocationId(bd.area);
+      if(!locId)return{listings:[],buildingConfirmed:false};
+      var params=new URLSearchParams({locationExternalIDs:locId,purpose:"for-sale",hitsPerPage:"25",page:"0"});
+      var r;
+      if(UAE_RE_KEY){r=await fetch("https://"+UAE_RE_HOST+"/properties/list?"+params,{headers:{"x-rapidapi-key":UAE_RE_KEY,"x-rapidapi-host":UAE_RE_HOST}});}
+      else{r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=properties/list&"+params);}
+      if(!r.ok)return{listings:[],buildingConfirmed:false};
+      var d=await r.json();
+      var hits=d.hits||[];
+      var nameLower=bd.name.toLowerCase();
+      var confirmed=hits.filter(function(p){
+        var locText=((p.title||"")+" "+((p.location||[]).map(function(l){return l.name;}).join(" "))).toLowerCase();
+        return locText.indexOf(nameLower)>=0;
+      });
+      var mapped=confirmed.filter(function(p){return p.price&&p.area;}).map(function(p){
+        var psf=p.area>0?Math.round(p.price/p.area):0;
+        var imgUrl="";
+        if(p.coverPhoto){imgUrl=typeof p.coverPhoto==="string"?p.coverPhoto:(p.coverPhoto.url||p.coverPhoto.thumb||"");}
+        if(!imgUrl&&p.photos&&p.photos.length>0){var ph0=p.photos[0];imgUrl=typeof ph0==="string"?ph0:(ph0.url||ph0.thumb||"");}
+        if(!imgUrl)imgUrl=p.thumbnail||p.image||"";
+        var psfRatio=bd.psf>0?psf/bd.psf:1;
+        return{
+          title:p.title||bd.name,
+          area:bd.area,
+          price:p.price||0,
+          size:p.area||0,
+          psf:psf,
+          beds:p.rooms||0,
+          baths:p.baths||0,
+          furnished:p.furnishingStatus||"",
+          permit:p.permitNumber||"",
+          agentName:(p.agency&&p.agency.name)||"",
+          agencyName:(p.agency&&p.agency.name)||"",
+          photo:imgUrl,
+          listingUrl:p.externalURL||"https://www.bayut.com",
+          listingSource:"Bayut",
+          source:"Bayut",
+          dealScore:_dealScoreBand(psfRatio,bd.yield||0,bd.growth3||0,bd.dom||60,bd.sc||15,bd.grade),
+          grade:bd.grade,
+          benchPSF:Math.round(bd.psf),
+          benchIsBuilding:true
+        };
+      }).filter(function(p){return p.psf>200&&p.psf<20000;}).slice(0,4);
+      return{listings:mapped,buildingConfirmed:true};
+    }catch(e){return{listings:[],buildingConfirmed:false};}
+  }
+
+  // Sequential (not parallel) — respects the shared RapidAPI rate limit and
+  // bounds this to a small, fixed number of live calls per Discover click,
+  // rather than eagerly fetching for every qualifying building. A
+  // generation counter guards against a stale in-flight sequence (from an
+  // earlier Discover click) overwriting fresher results if the user
+  // re-runs the search before the first pass finishes.
+  async function _fetchLiveTopMatches(topBuildings,gen){
+    for(var i=0;i<topBuildings.length;i++){
+      if(sf._liveGen!==gen)return;
+      var bd=topBuildings[i];
+      sf.liveTop[bd.name]={loading:true,listings:[],checked:false};
+      render();
+      var res=await _fetchLiveListingsForBuilding(bd);
+      if(sf._liveGen!==gen)return;
+      sf.liveTop[bd.name]={loading:false,listings:res.listings,checked:true,confirmed:res.buildingConfirmed};
+      render();
+    }
   }
 
   function sortResults(){

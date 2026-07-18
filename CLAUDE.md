@@ -638,6 +638,97 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, Find — connected the Advanced
+  Market Screener to real, purchasable inventory)**: User raised a sharp,
+  correct product critique after being asked to spot-check "Live Market
+  Finder" (a flagged-but-unverified item): Find's live listing search (Ask
+  in Natural Language + Quick Filters) is trivially redundant with just
+  visiting Bayut/PropertyFinder directly, and the Advanced Market Screener
+  — while genuinely differentiated (screens the internal 9,226-building
+  calibrated database by real investment metrics no listing site
+  publishes) — returns a disconnected list of BUILDINGS with no link to
+  whether anything is actually for sale in them, which is useless to
+  someone using Find to locate an actual unit to buy, not do abstract
+  research (a job Market Index/Compare/Personal Advisor already cover).
+  Discussed the logic at length before writing code; user approved merging
+  the two mechanisms, and explicitly asked whether to go further — agreed
+  the merge alone is the right scope, resisting extra bells (inline
+  mortgage calc, competitor comparisons) as clutter without matching value.
+  - **Real, independent bug found and fixed along the way**: `scoreDealQuality()`
+    (the "Deal Score" already shown on every live listing card) tried a
+    building match via `DB[(r.title||"").toLowerCase()]` — an EXACT-match
+    lookup against a raw listing title like "Luxury 2BR Apartment For Sale
+    in Marina Gate 1" that can essentially never hit a DB key, so every
+    listing's PSF was silently being compared against the AREA-WIDE average
+    instead of its own building's calibrated PSF — the identical class of
+    bug already fixed for building-level yield elsewhere in this app
+    (2026-07-13, session 11m). Fixed by reusing the already-safety-hardened
+    `lookupBuilding(name,areaHint)` (fuzzy substring/word matching,
+    area-hinted to avoid false cross-area matches) instead — a full listing
+    title now correctly resolves to its real building. Extracted the
+    repeated score-band thresholds into a new shared `_dealScoreBand(psfRatio,
+    avgYield,growth1yr,dom,sc,grade)` helper used by both `scoreDealQuality()`
+    and the new per-building live-fetch below, so the two paths can't drift
+    apart on the same magic numbers.
+  - **Second bug found by the session's OWN test, before shipping**: an
+    initial version let a listing priced 105% above its own building's
+    calibrated PSF still sum to "99/100 Excellent," since the additive
+    yield/growth/dom/sc/grade bonuses (up to +62, describing the BUILDING)
+    easily outweighed the -10 PSF-ratio penalty (describing THIS unit's own
+    price). Fixed by capping the score ceiling when badly overpriced
+    (`psfRatio>1.30` → capped at 35, `>1.15` → capped at 55) — price quality
+    now gates the ceiling instead of being purely additive, so an
+    overpriced listing can never misleadingly read as a good deal no matter
+    how strong the underlying building/area is.
+  - **The merge itself**: on "DISCOVER PROPERTIES," after the Screener
+    computes and sorts qualifying buildings exactly as before (unchanged),
+    the top 5 results now get a SEQUENTIAL (rate-limit-safe, bounded — not
+    a batch fetch across all 50) live Bayut search scoped to each specific
+    building (`_fetchLiveListingsForBuilding()`, new). A raw hit is only
+    kept if its own title/location text actually mentions the building name
+    (a location-ID match can be community-wide, not building-specific) —
+    each confirmed listing's Deal Score is computed directly from that
+    building's OWN already-known metrics (psf/yield/growth3/dom/sc/grade —
+    the exact numbers the Screener already resolved and displayed), not a
+    second fuzzy re-derivation. Results render in a new "Live Listings in
+    Top Matches" section (`js/app.js` `renderFind()`) using the exact same
+    polished card component as the main search (photo, Deal Score, agent
+    contact/WhatsApp, "View on Bayut," "Analyze Deal →") — factored the
+    previously-inline card-building code into a shared `_renderListingCard(r)`
+    function so both call sites stay identical, not two drifting copies.
+    Every card also now shows a plain-language transparency line ("12%
+    below this building's calibrated PSF (AED 1,850)" / "+8% above the
+    Dubai Marina average PSF (AED 1,650)") so the Deal Score is never just
+    an unexplained number.
+  - **Honest empty-state, no fabricated notification promise**: a
+    qualifying building with zero live listings shows one compact line
+    ("No live listings currently in: Building A, Building B") rather than
+    either hiding the gap or promising a "get notified" hook — deliberately
+    NOT wired to the project's pre-existing Price Alert/`watch-subscribe`
+    infrastructure, since a repo-wide grep found zero client-side references
+    to it anywhere (`js/portfolio.js`'s own "Alerts" tab is a different,
+    in-app-computed "Opportunity Alerts" feature, not the same system) —
+    building a new promise on top of infrastructure that may not actually be
+    wired up live would risk shipping a broken-looking feature.
+  - Verified: `node -c`; a mocked-fetch Playwright pass driving the ACTUAL
+    Discover flow end-to-end (real DB data, mocked Bayut/auto-complete
+    responses) — confirmed the building list computes correctly, exactly 5
+    sequential live-search calls fire (bounded, not one per building in the
+    full 50-row list), a confirmed listing for the top building renders with
+    its Deal Score/PSF/transparency line, buildings with zero live listings
+    correctly join the one compact empty-state line, and — the test's own
+    real catch — before the scoring-cap fix, a deliberately 105%-overpriced
+    mocked listing scored "99/100 Excellent"; after the fix it no longer
+    does. Re-ran every other test built earlier this session (hero photos,
+    Arabic-toggle removal, News header/banner change) — zero regressions.
+  - **Not done this session, deliberately, per the user's own "don't add
+    more" call**: no inline mortgage/financing estimate on live-listing
+    cards, no "compare to similar alternatives" widget, no automated
+    price-alert subscription for empty-building cases — flagged as
+    plausible future additions if real usage shows a need, not built
+    speculatively now.
+
+
 - **2026-07-18 (session continuing 14, News header shortcut removed +
   News page got a hero photo)**: User asked to remove the "News" icon
   button from the top global header (a `newspaper` icon with a red
