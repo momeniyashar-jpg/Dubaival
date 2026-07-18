@@ -638,6 +638,38 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, Arabic toggle hidden — real, honest
+  bug)**: User reported switching to Arabic doesn't actually translate the
+  site — text stays English, only the reading direction flips. Investigated
+  and confirmed: `LANG` (`js/core.js`) only has ~60 translated keys (tab
+  labels, a handful of form labels), routed through `t()`; the vast majority
+  of the app's actual UI text across every tab is hardcoded English string
+  literals that never go through `t()` at all. So toggling to Arabic only
+  flipped `document.documentElement.dir` to RTL and translated a tiny
+  fraction of labels, leaving ~95% of real text in English — a confusing
+  half-translated state, exactly what the user saw. Asked directly whether a
+  full site-wide translation is worth doing now; user agreed it's not needed
+  yet (the target audience — investors/agents in Dubai real estate — works
+  in English day-to-day regardless) and asked to hide the toggle rather than
+  leave it half-broken.
+  - **Fix**: removed the sidebar "Arabic"/"English" toggle item entirely
+    (`js/app.js`, was the only UI trigger for `setLang()` anywhere in the
+    app — confirmed via a full-repo grep). `js/core.js`'s `dvLang` init now
+    always starts as `"en"` (previously read a possibly-stale `dv_lang` value
+    from `localStorage`) — so a returning user who had already switched to
+    Arabic in an earlier session is no longer stuck seeing the broken RTL
+    layout; they're returned to the normal LTR English layout. `LANG`/`t()`/
+    `setLang()` themselves are left completely in place, unused for now —
+    this is the reusable foundation for a real, complete Arabic translation
+    pass later (every hardcoded string routed through `t()` + a real `ar`
+    dictionary entry for each), not something removed or lost.
+  - Verified: `node -c` on both touched files; a real-browser Playwright
+    test seeding `localStorage.dv_lang="ar"` (simulating a returning user
+    stuck in the old broken state) before load — confirmed the page stays
+    LTR, `dvLang` resolves to `"en"`, and the Arabic/English toggle no
+    longer renders anywhere in the sidebar — zero console errors.
+
+
 - **2026-07-18 (session continuing 14, further follow-up — Palm Jumeirah
   query sharpened to Atlantis The Palm)**: The top-down query still
   resolved to a plain-water/generic aerial shot rather than a recognizable

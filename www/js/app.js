@@ -3105,17 +3105,10 @@ function render(preserveScroll){
   themeItem.addEventListener("click",function(){darkMode=!darkMode;try{localStorage.setItem("dv_dark",darkMode?"1":"0");}catch(e){}render();});
   sbControls.appendChild(themeItem);
 
-  var langItem=el("div",{});
-  langItem.className="dv-sidebar-item";
-  var langIcon=el("span",{style:{flexShrink:"0",width:"20px",height:"20px",display:"inline-flex",alignItems:"center",justifyContent:"center"}});
-  langIcon.innerHTML='<i data-lucide="globe"></i>';
-  langItem.appendChild(langIcon);
-  var langLabel=el("span",{});
-  langLabel.className="dv-sidebar-label";
-  langLabel.textContent=dvLang==="ar"?"English":dvLang==="fa"?"English":"Arabic";
-  langItem.appendChild(langLabel);
-  langItem.addEventListener("click",function(){setLang(dvLang==="en"?"ar":"en");});
-  sbControls.appendChild(langItem);
+  // Language toggle removed for now (2026-07-18) — see the comment on
+  // dvLang in js/core.js for why (only a small fraction of the app's UI
+  // text is actually translatable; the toggle only flipped RTL direction,
+  // leaving the rest of the page in English, a confusing half-broken state).
   sidebar.appendChild(sbControls);
 
   var collapseBtn=el("div",{});

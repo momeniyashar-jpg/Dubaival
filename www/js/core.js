@@ -5,8 +5,17 @@ function escHtml(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt
 function useThemeToggle(){return function(){darkMode=!darkMode;render();}}
 
 // --- i18n --------------------------------------------------------------------
+// Arabic is intentionally forced off for now (2026-07-18) — only ~60 of the
+// app's thousands of UI strings are actually routed through t()/LANG.ar, so
+// switching languages only flipped the page direction (RTL) while leaving
+// almost all real text in English, a confusing half-translated state. The
+// sidebar toggle that used to switch to it has been removed (js/app.js); this
+// also ignores any "ar" a returning user already had saved in localStorage
+// from before, so nobody stays stuck on the broken RTL layout. LANG/t()/
+// setLang() are left in place, unused for now — this is the reusable
+// foundation for a real, complete Arabic translation pass later, not a
+// removed feature.
 var dvLang="en";
-try{dvLang=localStorage.getItem("dv_lang")||"en";}catch(e){}
 var LANG={
 en:{
   // Tabs
