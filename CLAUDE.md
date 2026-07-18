@@ -674,6 +674,121 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, Workspace Dashboard audit — 6 real
+  gaps found and fixed, same depth as the Reports pass)**: Direct
+  continuation, same conversation — right after the deeper Reports pass
+  above, the user asked for the identical treatment on "My Workspace"'s own
+  dashboard mode: "همین بررسی رو برای workspace انجام بده". Read
+  `renderWorkspace()`/`getMiniWidget()`/`WS_TOOLS`/`WS_PRESETS` end to end
+  (`js/workspace.js`). Found and fixed 6 real issues, all in the tool
+  picker/mini-widget-dashboard machinery — the earlier Reports-pass fix
+  that removed the crash-prone "deals" mini-widget branch was already
+  verified clean here, so this pass focused on completeness/architecture
+  gaps rather than re-litigating that fix:
+  1. **Stale "348 areas" stat** — `WS_TOOLS`'s "Market Index" tool
+     description was the last place in the entire codebase still saying
+     "348 areas" (confirmed via a full-repo grep — every other reference,
+     including this exact area count elsewhere in this same file's own
+     history, already reads 347, corrected in an earlier session). Fixed to
+     347, and rewrote the description to describe what Market Index
+     actually shows (see finding 2) rather than a generic PSF/yield blurb.
+  2. **"Market Index" and "Live Dashboard" — two genuinely different
+     tools — rendered byte-identical mini-widget preview content.** Both
+     `wid==="market"` and `wid==="dashboard"` shared one `else if` branch
+     computing the exact same avg-PSF/avg-yield/area-count aggregate, so a
+     user who added BOTH tools to their custom dashboard saw two visually
+     indistinguishable cards. Live Dashboard's own tab (`renderMarket()`,
+     `js/market.js`) genuinely IS a plain-aggregate view (Buildings/Areas/
+     Avg PSF/Avg Yield/Growth stat cards), so its mini-widget keeping that
+     content is correct — but Market Index's own real value (confirmed by
+     reading `renderMarketIndex()`, `js/marketindex.js`) is its RANKING
+     tables (Highest Yield/Fastest Growing/Most Expensive Areas), a
+     fundamentally different framing that was never reflected here. **Fix**:
+     split into two real, distinct branches — `dashboard` keeps the
+     aggregate; `market` now computes and shows the actual #1 area by
+     yield (a genuine "top mover" teaser matching what the real tab
+     displays), computed directly from `AREAS` with no new dependency.
+  3. **"Opportunity Alerts" tool had zero real preview** — fell through to
+     the generic "Click to open →" catch-all despite real, already-
+     persisted alert criteria (`dv_alerts` in `localStorage`, the exact
+     data the Alerts tab itself reads) being trivially available. Added a
+     real "N alerts set" preview, same one-line-of-localStorage-reading
+     effort already used for the sibling `favareas`/`saved` widgets below.
+  4. **"Favorite Areas" and "Saved Searches" — real, working features with
+     real, already-persisted data and already-WRITTEN preview code in
+     `getMiniWidget()` (`DV_SAVED.favAreas`/`DV_SAVED.searches`,
+     `js/core.js`) — were never actually offered as pickable tools at
+     all.** `WS_TOOLS` (the array driving both the "Available Tools"
+     picker and which widgets can ever appear on the dashboard) never
+     listed `favareas`/`saved` as entries, making 2 fully-built,
+     fully-working `getMiniWidget()` branches permanently dead/unreachable
+     — confirmed via a full-repo grep that no other code path could ever
+     add these ids to `WS_STATE.widgets` either. This is exactly the
+     "are the inputs actually complete" gap the user's question was aimed
+     at: the plumbing existed, the tool to reach it simply didn't. **Fix**:
+     added both as real, selectable `WS_TOOLS` entries (with real icons —
+     star/history — and real navigation targets: Favorite Areas → Market
+     Index, where they're actually managed and starred; Saved Searches →
+     Analyzer, where they're actually loaded and reused).
+  5. **"Notifications" was the only mini-widget card with a real, live
+     stat (unread count) that did absolutely nothing when clicked** — every
+     other card either navigates somewhere real or (for anything not
+     special-cased) at least honestly shows "Click to open →"; this one
+     looked exactly as interactive as its neighbors but had
+     `tabMap.notifications=null`, so no click listener was ever attached at
+     all — a card that visually promises interactivity via a live stat but
+     silently does nothing on click is a real, if subtle, broken-affordance
+     bug. **Fix**: wired its click handler to `DV_NOTIF.showPanel=true;
+     render();` — the exact same toggle the header bell itself uses
+     (`renderNotifBell()`, `js/core.js`) — so clicking this card now
+     genuinely opens the real notification dropdown instead of doing
+     nothing.
+  6. **A real, found-while-fixing-#4 correctness bug**: the new "Saved
+     Searches" shortcut navigates to Market → Analyzer, but the "Recent &
+     Saved Searches" list there only renders `if(analyzerState.stage===0)`
+     (`js/market.js`) — a completely ordinary, common state for
+     `analyzerState` to NOT be in, since it's a persistent global that
+     stays at whatever stage (0=form/1=loading/2=result) the user last left
+     it in, possibly from a much earlier, unrelated Analyzer session. A
+     user who'd previously run any valuation and then came to Workspace
+     would click "Saved Searches" and silently land on a stale old result
+     screen instead of the searches list the card explicitly promised —
+     confirmed via a real Playwright test that set `analyzerState.stage=2`
+     before clicking the card and observed the list never appearing (bug
+     reproduced), then confirmed fixed. **Fix**: the "saved" card's click
+     handler now resets `analyzerState.stage=0` before navigating — scoped
+     ONLY to this one shortcut (the general "Valuation Analyzer" tool
+     deliberately still resumes whatever state was there, which is the
+     correct, existing, expected behavior everywhere else this tab is
+     reached — e.g. clicking a saved-search chip elsewhere intentionally
+     sets `stage=2` to show its result immediately).
+  - **Investigated, confirmed NOT a bug**: whether `window.PORTFOLIO_STATE`
+    (read by the "Portfolio Manager" mini-widget) suffers the same
+    "only populated after visiting that tab this session" gap already found
+    and fixed for Personal Advisor earlier this week — confirmed it does
+    NOT: `js/portfolio.js` initializes `window.PORTFOLIO_STATE` from real
+    `localStorage` data in a top-level `if(!window.PORTFOLIO_STATE){...}`
+    block that runs unconditionally the moment the script loads (not inside
+    a render function), so it's always populated with the user's real
+    portfolio from the very first page load regardless of navigation order.
+  - Verified: `node -c js/workspace.js`; a real-browser Playwright test
+    seeding real favorite areas/saved searches/alerts/an unread notification
+    and all 10 tools onto the dashboard — confirmed `WS_TOOLS` now has 10
+    entries with the "348"→"347" fix applied, confirmed the Market Index and
+    Live Dashboard mini-widgets now render genuinely different content
+    ("avg PSF" vs "#1 area" text both present, not just one repeated twice),
+    confirmed the Alerts/Favorite Areas/Saved Searches cards all show their
+    real counts, confirmed clicking the Notifications card actually flips
+    `DV_NOTIF.showPanel` to `true` (previously a no-op), and confirmed
+    clicking Saved Searches with a deliberately stale `analyzerState.stage=2`
+    correctly resets it to `0` and navigates to Market/Analyzer (previously
+    would have silently shown the stale old result instead); a second test
+    clicking through all 3 real presets (Investor/Agent/Buyer — Agent
+    includes "deals," the exact widget that crashed before the earlier
+    Reports-pass fix) confirmed all 3 render with zero errors; and a 13-tab
+    regression sweep confirming zero collateral console errors — zero
+    non-network errors throughout.
+
 - **2026-07-18 (session continuing 14, Reports — second, deeper pass:
   security/completeness/architecture audit per explicit user follow-up
   question)**: Direct continuation, same conversation — after the first

@@ -22,11 +22,18 @@ var WS_TOOLS=[
   {id:"portfolio",icon:"briefcase",label:"Portfolio Manager",desc:"Track assets, ROI & yield"},
   {id:"alerts",icon:"bell",label:"Opportunity Alerts",desc:"Hidden investment opportunities"},
   {id:"analyzer",icon:"search",label:"Valuation Analyzer",desc:"AI-powered valuation, yield & investment signal"},
-  {id:"market",icon:"trending-up",label:"Market Index",desc:"348 areas, PSF & yield data"},
+  {id:"market",icon:"trending-up",label:"Market Index",desc:"347 areas ranked by yield, growth & value"},
   {id:"dashboard",icon:"radio",label:"Live Dashboard",desc:"Real-time market stats"},
   {id:"mortgage",icon:"landmark",label:"Mortgage Calculator",desc:"Monthly payments & costs"},
   {id:"deals",icon:"handshake",label:"Deal Network",desc:"Agent-to-agent deals & agent directory"},
-  {id:"notifications",icon:"bell-ring",label:"Notifications",desc:"Activity alerts"}
+  {id:"notifications",icon:"bell-ring",label:"Notifications",desc:"Activity alerts"},
+  // "favareas"/"saved" added 2026-07-18 (Workspace Dashboard audit) — real,
+  // already-persisted data (DV_SAVED.favAreas/searches, js/core.js) and
+  // working preview code in getMiniWidget() below already existed for both,
+  // but neither was ever offered as a pickable tool here — a genuine
+  // input-completeness gap, not a design choice.
+  {id:"favareas",icon:"star",label:"Favorite Areas",desc:"Your starred areas at a glance"},
+  {id:"saved",icon:"history",label:"Saved Searches",desc:"Jump back into a past valuation"}
 ];
 
 var WS_PRESETS={
@@ -159,9 +166,30 @@ function renderWorkspace(){
       var miniContent=getMiniWidget(wid,cl);
       if(miniContent)card.appendChild(miniContent);
 
-      var tabMap={portfolio:["Portfolio","Assets"],alerts:["Portfolio","Alerts"],market:["Market","Index"],dashboard:["Market","Dashboard"],analyzer:["Market","Analyzer"],mortgage:["Market","Analyzer"],deals:["Network","Deals"],notifications:null};
+      var tabMap={portfolio:["Portfolio","Assets"],alerts:["Portfolio","Alerts"],market:["Market","Index"],dashboard:["Market","Dashboard"],analyzer:["Market","Analyzer"],mortgage:["Market","Analyzer"],deals:["Network","Deals"],notifications:null,favareas:["Market","Index"],saved:["Market","Analyzer"]};
       var targetNav=tabMap[wid];
-      if(targetNav)card.addEventListener("click",function(){setSection(targetNav[0],targetNav[1]);});
+      if(targetNav)card.addEventListener("click",function(){
+        // The "Saved Searches" card promises to show WS_STATE's saved
+        // searches list — but that list only renders when
+        // analyzerState.stage===0 (js/market.js). If the user had left the
+        // Analyzer mid-flow (e.g. stage 2, showing a result) before coming
+        // to Workspace, clicking this specific card would silently land on
+        // the stale result screen instead of the list it advertised. The
+        // generic "analyzer" tool intentionally leaves stage untouched
+        // (resuming whatever was there is the expected, existing behavior
+        // everywhere else this tab is reached) — only this dedicated
+        // shortcut needs the reset, so it's scoped to wid==="saved" alone.
+        if(wid==="saved")analyzerState.stage=0;
+        setSection(targetNav[0],targetNav[1]);
+      });
+      // "Notifications" showed a real unread count but was the only card
+      // with zero click behavior at all — every other card either navigates
+      // or (for cards not yet special-cased) at least shows "Click to open
+      // →" honestly. Wired to the same DV_NOTIF.showPanel toggle the header
+      // bell itself uses (js/core.js renderNotifBell()), so this card now
+      // genuinely opens the real notification dropdown instead of doing
+      // nothing.
+      else if(wid==="notifications")card.addEventListener("click",function(){DV_NOTIF.showPanel=true;render();});
       dashGrid.appendChild(card);
     });
     wrap.appendChild(dashGrid);
@@ -193,12 +221,33 @@ function getMiniWidget(wid,cl){
       w.appendChild(div({color:roi>=0?"#22C55E":"#EF4444",fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},(roi>=0?"+":"")+roi.toFixed(1)+"% ROI"));
       w.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif"},ps.assets.length+" assets"));
     }else w.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},"No assets yet"));
-  }else if(wid==="market"||wid==="dashboard"){
+  }else if(wid==="dashboard"){
     var aKeys=Object.keys(AREAS);var cnt=aKeys.length;var sumP=0,sumY=0;
     aKeys.forEach(function(k){var a=AREAS[k];sumP+=a.psf||0;if(a.y)sumY+=(a.y[0]+a.y[1])/2;});
     w.appendChild(div({color:cl.text,fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"AED "+Math.round(sumP/cnt).toLocaleString()+" avg PSF"));
     w.appendChild(div({color:"#22C55E",fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},(sumY/cnt).toFixed(1)+"% avg yield"));
     w.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif"},cnt+" areas · "+Object.keys(DB).length+" buildings"));
+  }else if(wid==="market"){
+    // Previously byte-identical to "dashboard" (both showed the exact same
+    // avg-PSF/avg-yield aggregate) despite being two genuinely different
+    // tools — Market Index's own real value is its RANKING tables (Highest
+    // Yield/Fastest Growing/Most Expensive), not a plain average already
+    // shown by Live Dashboard's own card. Surfaces the actual #1 area by
+    // yield instead, matching what this tab is actually for.
+    var _mKeys=Object.keys(AREAS);var topArea=null,topYield=-1;
+    _mKeys.forEach(function(k){var a=AREAS[k];if(!a||!a.y)return;var y=(a.y[0]+a.y[1])/2;if(y>topYield){topYield=y;topArea=k;}});
+    if(topArea){
+      w.appendChild(div({color:cl.text,fontSize:"13px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},topArea));
+      w.appendChild(div({color:"#22C55E",fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},topYield.toFixed(1)+"% yield · #1 area"));
+      w.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif"},_mKeys.length+" areas ranked"));
+    }else w.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},"Rankings unavailable"));
+  }else if(wid==="alerts"){
+    // Previously fell through to the generic "Click to open →" catch-all
+    // despite real, already-persisted alert criteria (dv_alerts) being
+    // trivially available — the same completeness gap as favareas/saved.
+    var _al=[];try{_al=JSON.parse(localStorage.getItem("dv_alerts")||"[]");}catch(e){}
+    w.appendChild(div({color:_al.length>0?cl.gold:cl.sub,fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},_al.length+" alert"+(_al.length!==1?"s":"")+" set"));
+    if(_al.length>0)w.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Inter',sans-serif"},"Scanning "+Object.keys(DB).length.toLocaleString()+" buildings"));
   }
   // "deals" (Deal Network) mini-widget removed 2026-07-18: it read
   // DEAL_STATE.deals.length, but DEAL_STATE is a backward-compat shell now
