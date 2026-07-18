@@ -12,8 +12,9 @@ or move any tab/sub-tab without the user explicitly asking for it. Any change to
 `NAV_SECTIONS` in `js/core.js` or the routing block in `js/app.js` **must** be
 accompanied by an update to this table. Treat this as the single source of truth.
 
-### Complete Tab Map (locked 2026-07-04, TrackRecord removed 2026-07-18 —
-see the dated note directly below the table)
+### Complete Tab Map (locked 2026-07-04, TrackRecord removed 2026-07-18,
+SocialChat/"AI Assistant" removed 2026-07-18 — see the dated notes
+directly below the table)
 
 | Section (id) | Sub-tab (id) | Label shown | Render function | File |
 |---|---|---|---|---|
@@ -38,7 +39,6 @@ see the dated note directly below the table)
 | **SocialMedia** | Studio | Media Studio | `renderMediaStudio("studio")` | `js/chat.js` |
 | | Avatar | Avatar Studio | `renderMediaStudio("avatar")` | `js/chat.js` |
 | | VideoPlatform | Video Platform | `renderSocial()` | `js/social.js` |
-| | SocialChat | AI Assistant | `renderChat()` | `js/chat.js` |
 | **More** | Workspace | Workspace | `renderWorkspace()` | `js/workspace.js` |
 | | Reports | Reports | `renderReportBuilder()` | `js/workspace.js` |
 | | About | About | `renderAbout()` | `js/about.js` |
@@ -63,6 +63,24 @@ blindly, matching the spirit of rule 5 below for removals too)
   actual closed transactions — see Outstanding items below for what that
   requires. Once that exists, it belongs inside the Analyzer result, not as
   its own tab.
+- **SocialMedia → SocialChat ("AI Assistant")** (removed 2026-07-18,
+  user-approved, found while starting the AI Agents audit) — the user
+  flagged before that audit even began that this tab looked identical to
+  Network → AI Agents and asked for a real check first: "پس از بررسی...در
+  صورت مشابه بودن این دو تب، AI assistant را از تب social حذف کن". Confirmed
+  with code, not a guess: `js/app.js`'s routing called
+  `content.appendChild(renderChat())` for BOTH `currentSubTab==="Chat"`
+  (Network) and `currentSubTab==="SocialChat"` (SocialMedia) — same
+  function, zero arguments, zero differentiation of any kind (no
+  `{inlineAgent:...}`, no different default agent, nothing) — a 100%
+  byte-identical duplicate, not merely similar. Removed the sub-tab from
+  `NAV_SECTIONS` (`js/core.js`) and its routing branch in `js/app.js`;
+  `TAB_TO_SECTION["SocialChat"]` (an old deep-link key) now redirects to
+  `["Network","Chat"]` instead of the removed destination, so a stale
+  bookmark/link still lands on the real, surviving AI Agents tab rather
+  than erroring or silently doing nothing. `renderChat()` itself
+  (`js/chat.js`) is untouched — still the single, correct implementation,
+  now reachable only via Network → AI Agents as originally intended.
 
 ### Rules for future sessions
 1. **DO NOT** add a new top-level section without user approval.
@@ -655,6 +673,48 @@ features continue working exactly as before. Zero breakage.
 - `theme-color` meta tag added (`#070B14`)
 
 ## Recent work log (most recent first)
+
+- **2026-07-18 (session continuing 14, "AI Assistant" removed from Social —
+  confirmed 100% duplicate of Network → AI Agents, before starting the AI
+  Agents audit)**: Direct follow-up, same conversation — before asking for
+  the AI Agents audit, the user flagged that SocialMedia → SocialChat ("AI
+  Assistant") looked like the same thing as Network → Chat ("AI Agents"),
+  and asked for a real check first, removing it only if confirmed:
+  "پس از بررسی... در صورت مشابه بودن این دو تب، AI assistant را از تب social
+  حذف کن". Confirmed with code, not a guess: `js/app.js`'s section routing
+  called the exact same `content.appendChild(renderChat())` — no arguments,
+  no `{inlineAgent:...}`, nothing — for both `currentSubTab==="Chat"`
+  (Network) and `currentSubTab==="SocialChat"` (SocialMedia). Since
+  `renderChat()` with no opts always resolves the active agent from the
+  single global `chatState.agentId` regardless of which nav path got you
+  there, the two tabs were byte-for-byte identical, not merely similar in
+  spirit — a genuine, 100% duplicate.
+  - **Fix, matching the frozen-nav removal protocol** (same 3 places kept in
+    sync as the 2026-07-18 TrackRecord removal above): removed
+    `{id:"SocialChat",label:"AI Assistant"}` from `NAV_SECTIONS`'s
+    SocialMedia `subs` (`js/core.js`); removed the
+    `else if(currentSubTab==="SocialChat")content.appendChild(renderChat());`
+    routing branch in `js/app.js` (a stale/forced `currentSubTab==="SocialChat"`
+    now gracefully falls through to the section's existing default-tab
+    fallback, Studio — same graceful-fallback pattern already proven for the
+    TrackRecord removal, verified via a direct test rather than assumed);
+    and `TAB_TO_SECTION["SocialChat"]` (an old deep-link key used by
+    `currentTab`-style legacy navigation) now redirects to
+    `["Network","Chat"]` instead of the removed destination, so any stale
+    bookmark/link lands on the real, surviving AI Agents tab rather than
+    erroring or silently doing nothing. `renderChat()` itself
+    (`js/chat.js`) needed zero changes — it was always the single correct
+    implementation, now reachable only via its originally-intended home,
+    Network → AI Agents.
+  - Verified: `node -c` on both touched files; a real-browser Playwright
+    test confirming `NAV_SECTIONS`'s SocialMedia subs no longer include
+    `SocialChat`, the Social tab bar no longer renders an "AI Assistant"
+    pill anywhere, `TAB_TO_SECTION["SocialChat"]` correctly resolves to
+    `["Network","Chat"]`, forcibly setting the old
+    `currentSubTab="SocialChat"` and re-rendering does NOT throw and
+    correctly falls through to a real rendered page (Studio) instead, and
+    Network → AI Agents (Chat) itself still renders fully and correctly
+    (agent selector bar, input box, all working) — zero console errors.
 
 - **2026-07-18 (session continuing 14, PropTech Video Platform audit — a
   real infinite fetch loop hammering Supabase, plus a half-built Edit Video
@@ -8037,7 +8097,7 @@ has free tier so companies can test easily).
 | Chiefs | ✅ Complete | — |
 | Studio / Avatar | ✅ Complete | — |
 | Video Platform | ✅ Complete | — |
-| AI Assistant (SocialChat) | ✅ Complete | Low |
+| AI Assistant (SocialChat) | ✅ Complete → **removed 2026-07-18** (confirmed 100% duplicate of Network → AI Agents, see the "Removed sub-tabs" note near the top of this file) | Low |
 | Workspace | ✅ Complete | Low |
 | Reports | ⚠️ Partial (only documented gap is LOW-severity: voice input on Firefox/mobile) | Medium |
 | About | ✅ Complete | Low |

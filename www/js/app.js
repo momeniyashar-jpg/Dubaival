@@ -2419,7 +2419,7 @@ var TAB_TO_SECTION={
   "Workspace":["More","Workspace"],"About":["More","About"],"Admin":["More","Admin"],
   "Reports":["More","Reports"],
   "SocialStudio":["SocialMedia","Studio"],"SocialAvatar":["SocialMedia","Avatar"],
-  "SocialVideo":["SocialMedia","VideoPlatform"],"SocialChat":["SocialMedia","SocialChat"],
+  "SocialVideo":["SocialMedia","VideoPlatform"],"SocialChat":["Network","Chat"],
   "MediaStudio":["SocialMedia","Studio"],"Social":["SocialMedia","VideoPlatform"]
 };
 
@@ -3554,7 +3554,6 @@ function render(preserveScroll){
     if(currentSubTab==="Studio"&&typeof renderMediaStudio==="function")content.appendChild(renderMediaStudio("studio"));
     else if(currentSubTab==="Avatar"&&typeof renderMediaStudio==="function")content.appendChild(renderMediaStudio("avatar"));
     else if(currentSubTab==="VideoPlatform")content.appendChild(renderSocial());
-    else if(currentSubTab==="SocialChat")content.appendChild(renderChat());
     else if(typeof renderMediaStudio==="function")content.appendChild(renderMediaStudio());
     else content.appendChild(renderChat());
   } else if(currentSection==="More"){

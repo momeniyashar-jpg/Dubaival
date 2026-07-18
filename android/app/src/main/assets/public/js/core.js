@@ -394,8 +394,7 @@ var NAV_SECTIONS=[
   {id:"SocialMedia",icon:"share-2",label:"Social",accentColor:"#EC4899",badgeKey:"autopost",subs:[
     {id:"Studio",label:"Media Studio"},
     {id:"Avatar",label:"Avatar Studio"},
-    {id:"VideoPlatform",label:"Video Platform"},
-    {id:"SocialChat",label:"AI Assistant"}
+    {id:"VideoPlatform",label:"Video Platform"}
   ]},
   {id:"More",icon:"settings",label:"More",subs:[
     {id:"Workspace",label:"Workspace"},
