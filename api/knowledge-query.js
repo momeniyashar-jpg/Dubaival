@@ -81,7 +81,12 @@ async function handleIngestResearch(req, res) {
     });
     if (!rows.length) return res.status(500).json({ error: "Embedding failed for every note" });
 
-    var resp = await shared.supabaseRequest("/knowledge_base", {
+    // on_conflict is required — without it PostgREST's merge-duplicates
+    // upsert targets the primary key (id, always fresh on insert), not the
+    // real unique(source_type, source_url) constraint — so re-injecting the
+    // same note title (the whole point of this stable slug, per the comment
+    // above) would throw an unhandled 23505 instead of updating in place.
+    var resp = await shared.supabaseRequest("/knowledge_base?on_conflict=source_type,source_url", {
       method: "POST",
       headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
       body: JSON.stringify(rows),
@@ -118,10 +123,38 @@ module.exports = async function handler(req, res) {
     var vec = await embeddings.embedText(query, "RETRIEVAL_QUERY");
     if (!vec) return res.status(200).json({ results: [] });
 
-    var rpcBody = {
-      query_embedding: vec,
-      match_count: Math.min(Math.max(parseInt(body.limit, 10) || 5, 1), 12),
-    };
+    var matchCount = Math.min(Math.max(parseInt(body.limit, 10) || 5, 1), 12);
+
+    // Multi-area grounding (e.g. Compare / Personal Advisor / Portfolio
+    // Analysis, each grounding against up to 5 areas at once): embed the
+    // query ONCE here and fan the same vector out across one
+    // match_knowledge() call per area, merging results server-side. Before
+    // this, the client (js/api.js fetchKnowledgeContext) made one full
+    // round-trip — including a fresh embedding call — PER AREA for a
+    // single grounded AI request, re-embedding the identical query text up
+    // to 5x for no benefit (the embedding never depends on the area
+    // filter).
+    var areasList = Array.isArray(body.areas) ? body.areas.filter(Boolean).slice(0, 5) : null;
+    if (areasList && areasList.length) {
+      var perAreaResults = await Promise.all(areasList.map(function (a) {
+        return shared.supabaseRequest("/rpc/match_knowledge", {
+          method: "POST",
+          body: JSON.stringify({ query_embedding: vec, match_count: matchCount, filter_area: String(a).slice(0, 80) }),
+        }).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; });
+      }));
+      var seen = {};
+      var merged = [];
+      perAreaResults.forEach(function (rows) {
+        (Array.isArray(rows) ? rows : []).forEach(function (row) {
+          if (seen[row.id]) return;
+          seen[row.id] = true;
+          merged.push(row);
+        });
+      });
+      return res.status(200).json({ results: merged.slice(0, 8) });
+    }
+
+    var rpcBody = { query_embedding: vec, match_count: matchCount };
     if (body.area) rpcBody.filter_area = String(body.area).slice(0, 80);
 
     var r = await shared.supabaseRequest("/rpc/match_knowledge", {

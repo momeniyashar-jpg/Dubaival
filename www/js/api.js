@@ -179,37 +179,30 @@ async function fetchLiveRentals(building,area,beds){
 // parallel so every named area actually contributes context instead of
 // relying on semantic luck across a multi-area query), or omitted for an
 // unfiltered global search.
-async function _fetchKnowledgeContextOne(query,area){
+// Pulls top semantically-relevant snippets from the growing RAG knowledge
+// base (live news + daily market snapshots) for a free-text query. Always
+// resolves (never throws) — returns "" if the knowledge base isn't
+// configured yet or the lookup fails, so callers can treat it as a pure
+// best-effort enrichment. `area` may be a single area name, an array of
+// area names (fetched via ONE request with `areas`, embedding the query
+// once server-side and fanning it out per area — previously this made one
+// full round-trip, including a fresh embedding call, PER AREA, re-embedding
+// the identical query text up to 5x for no benefit), or omitted for an
+// unfiltered global search.
+async function fetchKnowledgeContext(query,area){
+  var areas=Array.isArray(area)?area.filter(Boolean).slice(0,5):(area?[area]:[]);
+  var merged;
   try{
     var body={query:query};
-    if(area)body.area=area;
+    if(areas.length>1)body.areas=areas;
+    else if(areas.length===1)body.area=areas[0];
     var r=await fetch(API_BASE+"/knowledge-query",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify(body)
     });
-    if(!r.ok)return [];
-    var d=await r.json();
-    return d.results||[];
-  }catch(e){return [];}
-}
-async function fetchKnowledgeContext(query,area){
-  var areas=Array.isArray(area)?area.filter(Boolean):(area?[area]:[]);
-  var resultSets;
-  if(areas.length){
-    resultSets=await Promise.all(areas.slice(0,5).map(function(a){return _fetchKnowledgeContextOne(query,a);}));
-  }else{
-    resultSets=[await _fetchKnowledgeContextOne(query,null)];
-  }
-  var seen={};var merged=[];
-  resultSets.forEach(function(results){
-    results.forEach(function(x){
-      var key=x.source_url||(x.title+"|"+x.content);
-      if(seen[key])return;
-      seen[key]=true;
-      merged.push(x);
-    });
-  });
+    merged=r.ok?((await r.json()).results||[]):[];
+  }catch(e){merged=[];}
   if(!merged.length)return "";
   return merged.slice(0,8).map(function(x){return "- "+(x.title?x.title+": ":"")+x.content;}).join("\n");
 }

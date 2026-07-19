@@ -32,7 +32,12 @@ async function ingestToKB(articles) {
       });
     });
     if (!rows.length) return;
-    await kbShared.supabaseRequest("/knowledge_base", {
+    // on_conflict is required — without it PostgREST's merge-duplicates
+    // upsert defaults to the table's primary key (id, always fresh on
+    // insert), so the real dedup target (the separate unique(source_type,
+    // source_url) constraint) never actually gets used and a genuine
+    // duplicate throws an unhandled 23505 instead of upserting.
+    await kbShared.supabaseRequest("/knowledge_base?on_conflict=source_type,source_url", {
       method: "POST",
       headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
       body: JSON.stringify(rows)

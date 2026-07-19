@@ -674,6 +674,105 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-19 (session continuing 14, RAG Knowledge Base audit — a
+  confirmed-by-documented-PostgREST-behavior upsert bug undermining the
+  "gets smarter over time" promise, plus a real 5x redundant-embedding
+  inefficiency)**: User asked for the same review treatment on the RAG
+  system (`api/knowledge-query.js`, `api/proxy-news.js`,
+  `api/refresh-market-data.js`, `api/_lib/embeddings.js`, `js/api.js`'s
+  `askAI()`/`fetchKnowledgeContext()`, plus the SQL schema files and every
+  grounded call site). Cross-checked all ~19 real (non-comment) `askAI()`
+  call sites across the whole app — confirmed 16 are correctly grounded and
+  the remaining 3 (the reusable Smart Bar, Analyzer's AI Smart Search, and
+  Off-Plan's paste-and-extract parser) are legitimately ungrounded
+  structured-extraction tasks, not knowledge questions — matching what
+  earlier sessions already documented, no drift found there. Found and
+  fixed 2 real issues in the backend pipeline itself:
+  1. **A confirmed, high-confidence upsert bug undermining the whole
+     "re-injecting the same fact updates it in place" promise.** All 4
+     `knowledge_base` INSERT call sites (`proxy-news.js`'s news ingestion,
+     `refresh-market-data.js`'s market-snapshot AND forecast-accuracy
+     ingestion, `knowledge-query.js`'s admin research-note injection) send
+     `Prefer: resolution=merge-duplicates` but never include an
+     `on_conflict=` query parameter. Per PostgREST's documented upsert
+     behavior, without that parameter the ON CONFLICT target defaults to
+     the table's PRIMARY KEY — here, `id` (an auto-generated identity
+     column that's always fresh on insert and therefore never actually
+     conflicts) — while the table's REAL dedup key is a separate
+     `unique(source_type, source_url)` constraint
+     (`supabase-knowledge-base-schema.sql`) that was never being targeted
+     at all. This means a genuine duplicate (source_type, source_url) pair
+     — the exact scenario the Research Injection feature's own code comment
+     explicitly promises to handle ("re-injecting the same research note
+     updates it in place instead of accumulating duplicates") — would hit
+     that untargeted unique constraint as a real, unhandled 23505 violation
+     and fail the WHOLE batch insert, not just the duplicate row. For
+     `proxy-news.js` specifically this is worse than a one-off: its
+     in-memory duplicate-guard (`_ingestedLinks`) only survives within one
+     warm serverless instance, so a cold start re-processing even a single
+     previously-seen article would silently fail to ingest that entire
+     batch of otherwise-brand-new articles too (caught by the function's
+     own `catch(e){}`, so it would never surface as a visible error — just
+     a knowledge base quietly falling behind). **Fix**: added
+     `?on_conflict=source_type,source_url` to all 4 insert URLs — a
+     no-regret change either way (if PostgREST's default already handled
+     this correctly, explicitly naming the same columns changes nothing).
+  2. **A real, quantifiable inefficiency**: `fetchKnowledgeContext()`
+     (`js/api.js`), when grounding against multiple areas at once (the
+     Compare tab, Personal Advisor, Portfolio AI Analysis, and Area
+     Comparison in Market Index all do this routinely, passing up to 5
+     areas), made one FULL round-trip per area — including a completely
+     redundant fresh embedding call for the exact same query text each
+     time, since the embedding never actually depends on which area is
+     being filtered. A single grounded AI call across 5 areas was
+     therefore paying for 5x the embedding-API cost (Jina/Gemini) it
+     needed to. **Fix**: `api/knowledge-query.js` now accepts an optional
+     `areas` array (alongside the existing single `area` string, kept
+     unchanged for backward compatibility) — embeds the query ONCE
+     server-side, then fans that same vector out across one
+     `match_knowledge()` RPC call per area in parallel, merging and
+     deduping by row id before returning. `fetchKnowledgeContext()` was
+     simplified to a single request (removing the now-unnecessary
+     `_fetchKnowledgeContextOne` helper entirely) — down from up to 5
+     round-trips to exactly 1 for every multi-area grounded call.
+  - **Also checked and confirmed correct, no changes needed**: the
+    recency-weighted `match_knowledge()` RPC math (85% similarity / 15%
+    linear decay over 180 days) computes correctly; both `?action=
+    forecast-audit` and `?action=portfolio-digest` crons are correctly
+    registered in `vercel.json` and their ingestion/pruning functions are
+    genuinely wired into the reachable code path (not dead code, unlike
+    the "docs" pipeline-stage bug found in the prior AI Chief of Staff
+    audit); all 4 backend files correctly use `embeddings.hasProvider()`
+    rather than checking a specific env var, so a Jina-only setup isn't
+    silently treated as unconfigured (the exact bug already fixed once in
+    an earlier session — confirmed it hasn't regressed).
+  - **Investigated, deliberately not changed — genuinely inconsequential**:
+    the recency formula's `greatest(0, 1 - ...)` clamps the LOW end
+    (a very old row can't go negative) but has no matching `least(1, ...)`
+    on the high end, so a row whose `published_at` is somehow in the
+    future (server clock skew on an upstream RSS/GDELT feed, the only
+    plausible source — every other insert path uses the server's own
+    `new Date()`) would get a recency score slightly above 1. Not worth a
+    defensive clamp: this is purely a ranking WEIGHT with no crash/security
+    implication, the scenario is already extremely rare, and every other
+    insert path in this codebase can never trigger it.
+  - Verified: `node -c` on all 3 touched backend files; a mocked-fetch Node
+    test harness against the real `api/knowledge-query.js` handler
+    (7 checks) — single-area querying is completely unaffected (1 embed
+    call, 1 RPC call), multi-area querying now correctly makes exactly 1
+    embed call and fans out N RPC calls with correct id-based dedup
+    (verified with a shared row appearing across all areas plus one
+    area-specific row per area), and the research-note ingest path's real
+    INSERT request URL now includes `on_conflict=source_type,source_url`;
+    a source-scan confirming both `refresh-market-data.js` insert sites and
+    `proxy-news.js`'s insert site all carry the same fix; and a real-browser
+    Playwright test confirming `fetchKnowledgeContext()` now makes exactly
+    1 network request for a 3-area grounded call (previously would have
+    been 3), correctly falls back to the existing single-`area`/no-area
+    request shapes for backward compatibility, and correctly builds context
+    text from the merged response — plus a 12-tab regression sweep
+    confirming zero collateral console errors.
+
 - **2026-07-19 (session continuing 14, AI Chief of Staff audit — a critical
   silent data-corruption bug, a genuine crash bug, an unreachable pipeline
   stage, and a false "import from a URL" promise replaced with a real

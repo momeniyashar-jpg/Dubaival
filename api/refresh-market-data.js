@@ -172,7 +172,13 @@ async function ingestMarketSnapshotsToKnowledgeBase(facts) {
   });
   if (!rows.length) return 0;
 
-  var resp = await supabaseRequest("/knowledge_base", {
+  // on_conflict is required — without it PostgREST's merge-duplicates
+  // upsert targets the primary key (id, always fresh on insert) by
+  // default, not the real unique(source_type, source_url) constraint this
+  // table actually dedupes on, so a genuine duplicate (e.g. the same cron
+  // re-firing on the same day) would throw an unhandled 23505 instead of
+  // upserting — failing the whole batch insert, not just that one row.
+  var resp = await supabaseRequest("/knowledge_base?on_conflict=source_type,source_url", {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
     body: JSON.stringify(rows)
@@ -282,7 +288,7 @@ async function ingestForecastAuditFacts(facts) {
   });
   if (!rows.length) return 0;
 
-  var resp = await supabaseRequest("/knowledge_base", {
+  var resp = await supabaseRequest("/knowledge_base?on_conflict=source_type,source_url", {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
     body: JSON.stringify(rows)
