@@ -674,6 +674,114 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-19 (session continuing 14, AI Chief of Staff audit — a critical
+  silent data-corruption bug, a genuine crash bug, an unreachable pipeline
+  stage, and a false "import from a URL" promise replaced with a real
+  working feature)**: User asked for the identical review treatment on AI
+  Chief of Staff, explicitly restating the product vision: this tab should
+  be "یک دستیار فراتر از هوش مصنوعی... با ضریب هوشی و دقت چندبرابر یک
+  انسان" — an assistant beyond AI, an automatic human-like robot with
+  multiples of human accuracy. Read the full 2,435-line `js/chiefs.js`
+  end to end. Found and fixed 6 real issues, several severe:
+  1. **CRITICAL — silent data corruption in Property Inventory's Add
+     Listing form.** The form-building loop for Area/Building/Purpose/Type/
+     Bedrooms/Status attached ONE shared `"input"` listener to every field
+     assuming it was always the raw Building `<input>` (`f.building=this.
+     value`) — but native `<select>` elements (Purpose/Type/Bedrooms/
+     Status) also fire `input` events per the HTML spec, so picking ANY of
+     those 4 dropdowns silently overwrote `f.building` with THAT dropdown's
+     own value (e.g. selecting "villa" in Type set `f.building="villa"`)
+     while the visible Building text box kept showing the correct name —
+     the agent would see "Marina Gate 1" on screen but the app would
+     actually save "villa" as the building name, with zero visible error.
+     Confirmed live via a Playwright test: seeded "Marina Gate 1," changed
+     Type/Status/Purpose, and watched the real state variable corrupt to
+     whatever was last selected. **Fix**: the Building input now gets its
+     own dedicated element + listener (matching the `inp()` pattern already
+     used correctly everywhere else in this same file, e.g. Contact Name/
+     Phone), and the loop no longer attaches anything to the other fields
+     (their own `mkSelect()`/`mkAuto()` construction already wires their
+     own correct `onChange` internally — the blanket listener was 100%
+     redundant for them and actively harmful).
+  2. **A genuine crash, confirmed live** in the AI Chief Co-pilot's "Save to
+     Client Memory" button: `chiefsCopilotSaveClient()` built
+     `areas_wanted` via `(n.areas||[]).join(", ")` — a plain STRING — but
+     every other consumer of `cliForm.areas_wanted` (the tag-chip UI,
+     `chiefsSaveClient()`'s `.length` check, `chiefsEditClient()`) expects a
+     real ARRAY. The moment the AI successfully extracted at least one area
+     from an inbound message (a completely ordinary, common case, not an
+     edge case) and the agent clicked Save, the Client form's own render
+     threw `"f.areas_wanted.forEach is not a function"` and broke — one of
+     this tab's most core, frequently-used actions (saving a lead from an
+     inbound Instagram/Facebook/email/WhatsApp message) crashed exactly
+     when the AI had done its job well. **Fix**: built as a real array,
+     matching `chiefsScannerApply()`'s already-correct shape. Found and
+     fixed a second, related vocabulary-drift bug in the same flow while
+     verifying it: the Co-pilot's OWN AI-extraction system prompt asked for
+     bare digit beds ("1","2","3"...) while the Conversation Scanner's
+     separate extraction prompt (feeding the SAME client form) correctly
+     asks for the "N BR" format the form's own dropdown actually uses — so
+     a Co-pilot-extracted "2" silently mismatched every option and the
+     pre-filled Beds Wanted dropdown showed the wrong default instead of
+     what the AI actually found. Fixed at the root by aligning the Co-
+     pilot's prompt to the same "Studio/1 BR/2 BR/.../5+ BR" format (safe
+     for the existing `parseInt()`-based rule-scoring fallback either way),
+     plus the one downstream display line that assumed the old bare-digit
+     format.
+  3. **An unreachable pipeline stage**: "Docs" is a real, defined deal
+     stage (its own color in `_stageColor()`, its own grouped Kanban
+     section in the board) — but the "Move Stage" button row inside an
+     expanded deal card used a hand-duplicated, drifted copy of the stage
+     list that silently OMITTED "docs" — so once shipped, no deal could
+     ever be moved into (or out of) the Docs stage via the UI at all,
+     confirmed via a live test. **Fix**: that button row now reuses the
+     single real `STAGES` array directly instead of a second, driftable
+     copy.
+  4. **A confirmed vocabulary-drift bug**: the Client requirement form's
+     "Type" dropdown only offered apartment/villa/townhouse — missing
+     "penthouse," which the Inventory form's own Type dropdown DOES offer
+     — so a client wanting a penthouse specifically could never express
+     that preference, and could never earn `_scoreMatch()`'s type-match
+     bonus against a real penthouse listing. Fixed to match.
+  5. **Wired a real automation inconsistency into the standing per-process
+     toggle model this file itself documents as its own architecture
+     rule**: the Co-pilot's "Save to Client Memory" button ALWAYS required
+     opening the form for a second manual submit, regardless of the
+     `autoSaveExtracted` toggle — even though the Conversation Scanner's
+     own equivalent action already respects that exact toggle for the
+     identical "extracted → Client Memory Bank" step. Now genuinely
+     automation-first per the toggle: auto-saves straight to the Client
+     Memory Bank (with a toast) when the agent hasn't turned this off, only
+     falling back to the manual-review form when they have.
+  6. **A false, dead promise replaced with a real, working feature**: the
+     Property Inventory empty state said "Add your first pocket listing or
+     import from a URL" — no URL-import feature existed anywhere in this
+     file (confirmed via a full grep). Rather than just soften the wording,
+     built the missing capability using the same proven "Paste & Extract"
+     technique already shipped for client requirements: a new
+     "📋 Paste & Extract" button + `chiefsScanListing()` (Groq JSON
+     extraction of building/area/purpose/type/beds/price/size/floor/view/
+     furnished/contact from a pasted WhatsApp message, listing-site export,
+     or agent notes) + `chiefsListingScannerApply()` (pre-fills the real
+     Add Listing form for one manual review before saving — deliberately
+     review-first, not auto-save, since a wrong price/building silently
+     committed here would directly undermine this app's own valuation-
+     accuracy claims once matched and quoted to a client).
+  - Verified: `node -c js/chiefs.js`; a real-browser Playwright test suite
+    (7 cases) confirming the Building field survives Purpose/Type/Status
+    dropdown changes (previously corrupted to whatever was last selected),
+    the "Docs" Move Stage button is now present and clickable, the Client
+    Type dropdown now includes penthouse, `chiefsCopilotSaveClient()` no
+    longer throws and produces a real array for extracted areas plus the
+    correctly-formatted beds value in manual-review mode, the auto-save
+    path (mocked `chiefs_clients` POST) completes and closes the overlay
+    without opening the form, the false "import from a URL" text is gone
+    and the real "Paste & Extract" button renders in its place, and a
+    mocked-Groq end-to-end run of the new listing scanner correctly
+    extracts and pre-fills a real building/area/price into the actual
+    Inventory form; plus a 7-Chiefs-view + 10-other-tab regression sweep —
+    zero console errors throughout.
+
 - **2026-07-19 (session continuing 14, About page audit — 7 real stale-stat/
   false-claim bugs found and fixed, same review methodology as every prior
   tab audit this week)**: User asked for the identical treatment on About:

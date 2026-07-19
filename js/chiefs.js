@@ -18,6 +18,7 @@ var CHIEFS_STATE = {
     view_pref: "", furnished_pref: "", timeline: "flexible", notes: "", status: "active",
     source: "manual", raw_conversation: "", ad_referral: null },
   scanner: { open: false, text: "", parsing: false, result: null, error: null, source: "whatsapp", transcribing: false, transcribeError: null },
+  invScanner: { open: false, text: "", parsing: false, result: null, error: null },
   pipeForm: { open: false, editing: null, client_name: "", property_desc: "", stage: "lead",
     deal_value: "", next_action: "", next_action_date: "", notes: "" },
   matchDrafting: {}, busySave: false, autoMatchRunning: false,
@@ -382,6 +383,57 @@ function chiefsScannerApply() {
     source: CHIEFS_STATE.scanner.source || "whatsapp", raw_conversation:CHIEFS_STATE.scanner.text };
   CHIEFS_STATE.scanner = { open:false, text:"", parsing:false, result:null, error:null, source:"whatsapp", transcribing:false, transcribeError:null };
   CHIEFS_STATE.view = "clients"; render();
+}
+
+// ── LISTING SCANNER (Property Inventory) ─────────────────────────────────────
+// Real "Paste & Extract" for a pocket listing — closes a genuinely false
+// promise the empty-state text used to make ("...or import from a URL"),
+// which pointed at a feature that never existed anywhere in this file.
+// Reuses the exact same AI-extraction technique already proven for client
+// requirements (chiefsScanConversation) applied to a seller's own listing
+// text (a WhatsApp message, a Bayut/PF description, or agent notes) instead —
+// an agent no longer has to manually re-type every field into the form.
+async function chiefsScanListing() {
+  var text = CHIEFS_STATE.invScanner.text.trim();
+  if (!text) return;
+  CHIEFS_STATE.invScanner.parsing = true; CHIEFS_STATE.invScanner.result = null;
+  CHIEFS_STATE.invScanner.error = null; render();
+  try {
+    var groqBody = {
+      model: "llama-3.3-70b-versatile", max_tokens: 500,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: "You are a Dubai real estate CRM assistant. Extract pocket-listing details from a property description (WhatsApp text, a listing-site export, or agent notes) and respond with valid JSON only." },
+        { role: "user", content: "Extract listing details from this text:\n\n" + text.substring(0,4000) + "\n\nReturn JSON: {\"building\":\"string or null\",\"area\":\"string or null (Dubai area/community name)\",\"purpose\":\"sale|rent\",\"prop_type\":\"apartment|villa|townhouse|penthouse\",\"beds\":\"Studio|1 BR|2 BR|3 BR|4 BR|5+ BR\",\"price\":null,\"size_sqft\":null,\"floor_num\":\"string or null\",\"view_type\":\"string or null\",\"furnished\":\"Unfurnished|Semi-Furnished|Furnished\",\"contact_name\":\"string or null\",\"contact_phone\":\"string or null\",\"notes\":\"any other detail worth keeping, 1 sentence\",\"confidence\":85}" }
+      ]
+    };
+    var r = await callGroqRaw(groqBody);
+    if (!r.ok) throw new Error("AI error");
+    var d = await r.json();
+    var content = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content || "";
+    CHIEFS_STATE.invScanner.result = JSON.parse(content.trim());
+  } catch(e) {
+    CHIEFS_STATE.invScanner.error = e.message || "Failed to parse listing";
+  }
+  CHIEFS_STATE.invScanner.parsing = false; render();
+}
+
+// Prefills the real Inventory form for one manual review-and-submit — kept
+// review-first by design (unlike the client scanner's optional auto-save):
+// a wrong price/building silently saved here would directly undermine this
+// app's own valuation-accuracy claims once matched/quoted to a client.
+function chiefsListingScannerApply() {
+  var r = CHIEFS_STATE.invScanner.result;
+  if (!r) return;
+  CHIEFS_STATE.invForm = { open:true, editing:null, source:"pocket",
+    building: r.building||"", area: r.area||"", unit_no:"",
+    prop_type: r.prop_type||"apartment", beds: r.beds||"2 BR",
+    size_sqft: r.size_sqft?String(r.size_sqft):"", floor_num: r.floor_num||"",
+    view_type: r.view_type||"", furnished: r.furnished||"Unfurnished",
+    purpose: r.purpose||"sale", price: r.price?String(r.price):"", status:"available",
+    notes: r.notes||"", contact_name: r.contact_name||"", contact_phone: r.contact_phone||"" };
+  CHIEFS_STATE.invScanner = { open:false, text:"", parsing:false, result:null, error:null };
+  render();
 }
 
 // ── VOICE CALL TRANSCRIPTION ──────────────────────────────────────────────────
@@ -797,7 +849,7 @@ function _renderChiefsAutomationSettings() {
     "Sends the drafted message straight to the client's WhatsApp the moment it's ready. Turn off to review and approve each one first.",
     CHIEFS_AUTOMATION.autoSend, function(v){ CHIEFS_AUTOMATION.autoSend=v; _chiefsSaveAutomation(); render(); }));
   card.appendChild(_chToggleRow("Auto-save extracted client info",
-    "Scanned WhatsApp chats and transcribed calls save straight to your Client Memory Bank. Turn off to review the extracted details first.",
+    "Scanned WhatsApp chats, transcribed calls, and AI Co-pilot inbox replies all save straight to your Client Memory Bank. Turn off to review the extracted details first.",
     CHIEFS_AUTOMATION.autoSaveExtracted, function(v){ CHIEFS_AUTOMATION.autoSaveExtracted=v; _chiefsSaveAutomation(); render(); }));
   var pixelConnected = !!(localStorage.getItem("dv_meta_pixel_id") && localStorage.getItem("dv_meta_capi_token"));
   card.appendChild(_chToggleRow("Report ad conversions to Meta",
@@ -1201,18 +1253,62 @@ function _renderChiefsInventory() {
   var areaNames = Object.keys(typeof AREAS!=="undefined"?AREAS:{}).sort();
 
   // Header + add button
-  var hdr = el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"}});
+  var hdr = el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px",flexWrap:"wrap",gap:"8px"}});
   hdr.appendChild(div({color:cl.white,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"Property Inventory"));
-  if (!f.open) hdr.appendChild(_chBtn("+ Add Listing","#D4AF37",undefined,function(){CHIEFS_STATE.invForm.open=true;CHIEFS_STATE.invForm.editing=null;render();}));
+  var sc = CHIEFS_STATE.invScanner;
+  if (!f.open && !sc.open) {
+    var hdrBtns = el("div",{style:{display:"flex",gap:"6px"}});
+    hdrBtns.appendChild(_chBtn('<i data-lucide="bot" style="width:11px;height:11px"></i>Paste & Extract',"rgba(37,211,102,0.12)","#25D366",function(){CHIEFS_STATE.invScanner.open=true;render();},{border:"1px solid rgba(37,211,102,0.25)",fontSize:"11px"}));
+    hdrBtns.appendChild(_chBtn("+ Add Listing","#D4AF37",undefined,function(){CHIEFS_STATE.invForm.open=true;CHIEFS_STATE.invForm.editing=null;render();}));
+    hdr.appendChild(hdrBtns);
+  }
   wrap.appendChild(hdr);
+
+  // Paste & Extract — real AI-powered listing extraction (chiefsScanListing),
+  // replacing the old empty-state's false "...or import from a URL" promise
+  // (no such feature ever existed) with something that genuinely works: paste
+  // a WhatsApp message, a Bayut/PF description, or agent notes, and the form
+  // below pre-fills for one manual review before saving.
+  if (sc.open) {
+    var scCard = _chCard(null,{background:"rgba(37,211,102,0.06)",border:"1px solid rgba(37,211,102,0.2)"});
+    scCard.appendChild(div({color:"#25D366",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",letterSpacing:"0.1em"},"PASTE & EXTRACT LISTING"));
+    scCard.appendChild(div({color:cl.muted,fontSize:"11px",marginBottom:"10px",fontFamily:"'Inter',sans-serif",lineHeight:"1.5"},"Paste a WhatsApp message, a listing description, or agent notes — AI fills in the fields below for you to review."));
+    var scTa = el("textarea",{placeholder:"e.g. \"3BR in Marina Gate 1, Dubai Marina, 1500 sqft, asking 2.5M, sea view, semi-furnished, contact Ali 0501234567\"",style:Object.assign({},I(),{height:"100px",resize:"vertical",fontFamily:"'Inter',sans-serif",lineHeight:"1.5",marginBottom:"8px"})});
+    scTa.value = sc.text; scTa.addEventListener("input",function(){CHIEFS_STATE.invScanner.text=this.value;});
+    scCard.appendChild(scTa);
+    if (sc.error) scCard.appendChild(div({color:"#EF4444",fontSize:"11px",marginBottom:"8px"},sc.error));
+    if (sc.result) {
+      var r = sc.result;
+      var resCard = el("div",{style:{background:"rgba(37,211,102,0.08)",border:"1px solid rgba(37,211,102,0.2)",borderRadius:"8px",padding:"10px",marginBottom:"8px"}});
+      resCard.appendChild(div({color:"#25D366",fontSize:"10px",fontWeight:"700",letterSpacing:"0.1em",marginBottom:"6px"},"AI EXTRACTED LISTING"));
+      var lFields=[["Building",r.building],["Area",r.area],["Type",(r.beds||"")+" "+(r.prop_type||"")+" ("+(r.purpose||"sale")+")"],["Price",r.price?_fmtPrice(r.price):null],["Size",r.size_sqft?r.size_sqft+" sqft":null],["Notes",r.notes]];
+      lFields.forEach(function(pair){if(pair[1]&&pair[1].trim&&pair[1].trim()!=="()"){resCard.appendChild(div({color:cl.sub,fontSize:"11px",marginBottom:"2px"},"• "+pair[0]+": "+span({color:cl.white},pair[1]).textContent));}});
+      scCard.appendChild(resCard);
+    }
+    var scBtnRow = el("div",{style:{display:"flex",gap:"6px"}});
+    scBtnRow.appendChild(_chBtn("Cancel","rgba(255,255,255,0.06)","#8899AA",function(){CHIEFS_STATE.invScanner={open:false,text:"",parsing:false,result:null,error:null};render();},{border:"1px solid rgba(255,255,255,0.1)"}));
+    if (sc.result) scBtnRow.appendChild(_chBtn('<i data-lucide="check" style="width:12px;height:12px"></i>Use This Listing',"#10B981","#fff",function(){chiefsListingScannerApply();}));
+    else scBtnRow.appendChild(_chBtn(sc.parsing?"Analyzing...":'<i data-lucide="bot" style="width:12px;height:12px"></i>Extract Listing',"#25D366",undefined,function(){if(!sc.parsing)chiefsScanListing();}));
+    scCard.appendChild(scBtnRow); wrap.appendChild(scCard);
+  }
 
   // Inline form
   if (f.open) {
     var fm = _chCard(null,{background:"rgba(212,175,55,0.06)",border:"1px solid rgba(212,175,55,0.2)"});
     fm.appendChild(div({color:"#D4AF37",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px",letterSpacing:"0.1em"},f.editing?"EDIT LISTING":"NEW LISTING"));
     var g1 = el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"8px"}});
+    // Building gets its own dedicated input+listener (matching the inp()
+    // pattern used everywhere else in this file) — a shared loop-wide
+    // "input" listener here previously assumed pair[1] was always the raw
+    // Building <input>, but native <select> elements (Purpose/Type/Bedrooms/
+    // Status below) also fire "input" events, so picking ANY of those 4
+    // dropdowns silently overwrote f.building with that dropdown's own
+    // value (e.g. selecting "villa" in Type set f.building="villa") while
+    // the visible Building text box kept showing the correct name — a
+    // silent data-corruption bug that would save the wrong building name.
+    var buildingInp = inp(I(),"Building name","text",f.building||"",function(v){f.building=v;});
     [[lbl("Area *"),mkAuto(Object.assign({},I(),{marginBottom:"0"}),areaNames,f.area,function(v){f.area=v;},"Type area...")],
-     [lbl("Building"),el("input",{type:"text",placeholder:"Building name",style:I(),value:f.building||""})],
+     [lbl("Building"),buildingInp],
      [lbl("Purpose"),mkSelect(I(),["sale","rent"],f.purpose||"sale",function(v){f.purpose=v;})],
      [lbl("Type"),mkSelect(I(),["apartment","villa","townhouse","penthouse"],f.prop_type||"apartment",function(v){f.prop_type=v;})],
      [lbl("Bedrooms"),mkSelect(I(),["Studio","1 BR","2 BR","3 BR","4 BR","5+ BR"],f.beds||"2 BR",function(v){f.beds=v;})],
@@ -1221,7 +1317,7 @@ function _renderChiefsInventory() {
       var cell = el("div",{});
       if (pair[0]&&pair[0].tagName) { cell.appendChild(pair[0]); }
       else { cell.appendChild(pair[0]); }
-      if (pair[1]) { pair[1].addEventListener("input",function(){f.building=this.value;}); cell.appendChild(pair[1]); }
+      if (pair[1]) { cell.appendChild(pair[1]); }
       g1.appendChild(cell);
     });
     fm.appendChild(g1);
@@ -1262,8 +1358,8 @@ function _renderChiefsInventory() {
   }
 
   var inv = CHIEFS_STATE.inventory;
-  if (!inv.length && !f.open) {
-    wrap.appendChild(_chCard([div({color:cl.sub,fontSize:"12px",textAlign:"center",padding:"8px"},"No listings yet. Add your first pocket listing or import from a URL.")]));
+  if (!inv.length && !f.open && !sc.open) {
+    wrap.appendChild(_chCard([div({color:cl.sub,fontSize:"12px",textAlign:"center",padding:"8px"},"No listings yet. Add your first pocket listing, or paste a description above and let AI fill it in.")]));
     return wrap;
   }
 
@@ -1385,7 +1481,7 @@ function _renderChiefsClients() {
      [lbl("Phone")  ,["tel","+971...",function(v){f.client_phone=v;},f.client_phone]],
      [lbl("Email")  ,["email","email",function(v){f.client_email=v;},f.client_email]],
      [lbl("Purpose"),null,function(v){f.purpose=v;},["sale","rent"],f.purpose],
-     [lbl("Type"),null,function(v){f.prop_type=v;},["apartment","villa","townhouse"],f.prop_type],
+     [lbl("Type"),null,function(v){f.prop_type=v;},["apartment","villa","townhouse","penthouse"],f.prop_type],
      [lbl("Beds Wanted"),null,function(v){f.beds_wanted=v;},["Studio","1 BR","2 BR","3 BR","4 BR","5+ BR"],f.beds_wanted]
     ].forEach(function(row) {
       var cell = el("div",{}); cell.appendChild(row[0]);
@@ -1703,7 +1799,12 @@ function _renderChiefsPipeline() {
         // Stage mover
         var stgRow = el("div",{style:{marginTop:"10px"}}); stgRow.appendChild(div({color:cl.muted,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:"6px"},"Move Stage"));
         var stgBtns = el("div",{style:{display:"flex",flexWrap:"wrap",gap:"4px"}});
-        var activeStages = [{id:"lead",label:"Lead"},{id:"viewing",label:"Viewing"},{id:"offer",label:"Offer"},{id:"mou",label:"MOU"},{id:"closing",label:"Closing"},{id:"closed",label:"Closed"},{id:"lost",label:"Lost"}];
+        // Reuses the full STAGES list (single source of truth) — a
+        // previously hand-duplicated, drifted copy silently omitted "docs",
+        // making that stage a dead end no deal could ever be moved into or
+        // out of via this button row, despite it having its own color
+        // (_stageColor) and its own grouped section in the board above.
+        var activeStages = STAGES;
         activeStages.forEach(function(s) {
           var isActive = deal.stage===s.id;
           var b = el("button",{style:{background:isActive?_stageColor(s.id)+"33":"transparent",border:"1px solid "+(isActive?_stageColor(s.id)+"66":"rgba(255,255,255,0.1)"),color:isActive?_stageColor(s.id):cl.muted,borderRadius:"6px",padding:"3px 8px",fontSize:"10px",cursor:"pointer"}});
@@ -2055,7 +2156,7 @@ async function chiefsCopilotAnalyze(text, source, senderName, senderContact, adR
       response_format: { type: "json_object" },
       temperature: 0.1, max_tokens: 500,
       messages: [
-        { role: "system", content: "You are an expert Dubai real estate assistant. Extract property requirements from the message with high precision. Return JSON: purpose (\"sale\" or \"rent\"), prop_type (\"apartment\",\"villa\",\"townhouse\",\"penthouse\" or null), beds (\"Studio\",\"1\",\"2\",\"3\",\"4\",\"5\" or null), areas (array of Dubai area names — interpret context clues like 'near the beach'→JBR/Palm/Marina, 'family'→Arabian Ranches/Springs, 'investment'→Business Bay/JVC, max 5), max_price (number AED or null), min_price (number AED or null), furnished (\"Furnished\",\"Unfurnished\",\"Semi-Furnished\" or null), summary (1 precise sentence describing what the client wants)." },
+        { role: "system", content: "You are an expert Dubai real estate assistant. Extract property requirements from the message with high precision. Return JSON: purpose (\"sale\" or \"rent\"), prop_type (\"apartment\",\"villa\",\"townhouse\",\"penthouse\" or null), beds (\"Studio\",\"1 BR\",\"2 BR\",\"3 BR\",\"4 BR\",\"5+ BR\" or null — must match this exact format, not a bare number), areas (array of Dubai area names — interpret context clues like 'near the beach'→JBR/Palm/Marina, 'family'→Arabian Ranches/Springs, 'investment'→Business Bay/JVC, max 5), max_price (number AED or null), min_price (number AED or null), furnished (\"Furnished\",\"Unfurnished\",\"Semi-Furnished\" or null), summary (1 precise sentence describing what the client wants)." },
         { role: "user", content: "Message: " + text.substring(0, 2500) }
       ]
     });
@@ -2185,28 +2286,55 @@ async function chiefsCopilotDraft() {
   render();
 }
 
-function chiefsCopilotSaveClient() {
+// Fixed a real crash: areas_wanted used to be built via (n.areas||[]).join(", "),
+// producing a plain STRING — but every other consumer of cliForm.areas_wanted
+// (the tag UI, chiefsSaveClient's .length check, chiefsEditClient) expects a
+// real ARRAY. Confirmed live: clicking "Save to Client Memory" whenever the AI
+// had extracted at least one area threw "f.areas_wanted.forEach is not a
+// function" and broke the whole render. Now built as a real array, matching
+// chiefsScannerApply()/chiefsScannerAutoSave()'s already-correct shape.
+async function chiefsCopilotSaveClient() {
   if (!CHIEFS_COPILOT.needs) return;
   var n = CHIEFS_COPILOT.needs;
-  CHIEFS_STATE.cliForm = {
-    open: true, editing: null,
+  var row = {
+    open: false, editing: null,
     client_name: CHIEFS_COPILOT.senderName || "Unknown",
     client_phone: CHIEFS_COPILOT.senderContact && !CHIEFS_COPILOT.senderContact.includes("@") ? CHIEFS_COPILOT.senderContact : "",
     client_email: CHIEFS_COPILOT.senderContact && CHIEFS_COPILOT.senderContact.includes("@") ? CHIEFS_COPILOT.senderContact : "",
     purpose: n.purpose || "sale", prop_type: n.prop_type || "apartment",
-    beds_wanted: n.beds || "", areas_wanted: (n.areas || []).join(", "),
-    min_price: n.min_price || "", max_price: n.max_price || "",
-    furnished_pref: n.furnished || "", timeline: "flexible",
+    beds_wanted: n.beds || "", areas_wanted: Array.isArray(n.areas) ? n.areas.filter(function(a){return a;}) : [],
+    area_input: "", min_price: n.min_price || "", max_price: n.max_price || "",
+    min_size: "", max_size: "", view_pref: "", furnished_pref: n.furnished || "",
+    timeline: "flexible", status: "active",
     notes: "Captured from " + CHIEFS_COPILOT.source + ". " + (n.summary || ""), source: "whatsapp",
     // Carries the Click-to-WhatsApp ad referral through to chiefsSaveClient(),
     // which reports the conversion back to Meta when this is present.
     ad_referral: CHIEFS_COPILOT.adReferral || null
   };
-  CHIEFS_STATE.view = "clients";
+  var savedName = row.client_name;
+  var srcLabel = CHIEFS_COPILOT.source || "message";
   CHIEFS_COPILOT.open = false;
-  // Navigate to Chiefs sub-tab
-  if (window.APP_STATE) { window.APP_STATE.currentSection = "Network"; window.APP_STATE.currentSubTab = "Chiefs"; }
-  render();
+  // Per the standing per-process automation directive: auto-save straight to
+  // the Client Memory Bank when the agent hasn't turned this off (same
+  // autoSaveExtracted toggle the Conversation Scanner already respects) —
+  // this button previously ALWAYS required opening the form and a second
+  // manual submit, regardless of the toggle, an inconsistency with this
+  // file's own stated "every automatable process gets one toggle" rule.
+  if (CHIEFS_AUTOMATION.autoSaveExtracted) {
+    CHIEFS_STATE.cliForm = row;
+    await chiefsSaveClient();
+    _chiefsToast("🤖","Auto-saved: "+savedName,"Extracted from "+srcLabel+" and added to Client Memory Bank.",function(){
+      CHIEFS_STATE.view="clients";
+      if(window.APP_STATE){window.APP_STATE.currentSection="Network";window.APP_STATE.currentSubTab="Chiefs";}
+      render();
+    });
+  } else {
+    row.open = true;
+    CHIEFS_STATE.cliForm = row;
+    CHIEFS_STATE.view = "clients";
+    if (window.APP_STATE) { window.APP_STATE.currentSection = "Network"; window.APP_STATE.currentSubTab = "Chiefs"; }
+    render();
+  }
 }
 
 function renderChiefsCopilotOverlay() {
@@ -2263,7 +2391,7 @@ function renderChiefsCopilotOverlay() {
     var tags = el("div", { style: { display: "flex", flexWrap: "wrap", gap: "6px" } });
     var addTag = function(label, color) { if (!label) return; tags.appendChild(_chBadge(label, color)); };
     addTag(n.purpose === "rent" ? "For Rent" : "For Sale", n.purpose === "rent" ? "#8B5CF6" : "#D4AF37");
-    if (n.beds) addTag(n.beds === "Studio" ? "Studio" : n.beds + "BR", "#3B82F6");
+    if (n.beds) addTag(n.beds, "#3B82F6");
     if (n.prop_type) addTag(n.prop_type.charAt(0).toUpperCase() + n.prop_type.slice(1), "#6B7A9E");
     if (n.furnished) addTag(n.furnished, "#6B7A9E");
     if (n.max_price) addTag("≤ AED " + Number(n.max_price).toLocaleString(), "#10B981");
