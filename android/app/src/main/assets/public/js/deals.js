@@ -105,6 +105,39 @@ function _ofmAreaFromBuilding(building){
   return"";
 }
 
+// ── Bedrooms vocabulary ──────────────────────────────────────────────────────
+// Fixed 2026-07-18: the single flat "Villa" bucket carried no bed count at
+// all, unlike the Analyzer's own villa dropdown (js/market.js, real 3/4/5/
+// 6/7+ BR options) — so _ofmScoreMatch()'s 25-point bed-match component gave
+// a full, meaningless "exact match" between a 7-bedroom mansion and a search
+// for a compact 3-bedroom townhouse, since both just read "Villa". Now
+// carries a real bed count for villas/townhouses too, matching the
+// Analyzer's own convention — used by both Post Listing (Step 3) and Post
+// Request (Step 2), so the two forms can never drift apart on this list.
+var OFM_BEDS_OPTIONS=[
+  {l:"Studio",v:"Studio"},{l:"1 BR",v:"1 BR"},{l:"2 BR",v:"2 BR"},
+  {l:"3 BR",v:"3 BR"},{l:"4 BR",v:"4 BR"},{l:"5 BR+",v:"5 BR+"},
+  {l:"3 BR Villa/TH",v:"3 BR Villa"},{l:"4 BR Villa/TH",v:"4 BR Villa"},
+  {l:"5 BR Villa/TH",v:"5 BR Villa"},{l:"6 BR Villa/TH",v:"6 BR Villa"},
+  {l:"7+ BR Villa/TH",v:"7+ BR Villa"}
+];
+// Backward compatibility: real listings/requests already live in Supabase
+// with the OLD bare "Villa" value (no bed count) — a strict-equality beds
+// check would silently stop matching those existing rows against anything
+// newly submitted with the new granular vocabulary above. A legacy "Villa"
+// value is treated as a wildcard that matches ANY villa/townhouse bed count
+// (and vice versa) — this never REDUCES existing match quality (a plain
+// "Villa" already matched any other plain "Villa" at full score before this
+// fix), it only extends that same compatibility to the new, more specific
+// values so real matching never silently breaks during the transition.
+function _ofmIsVillaBeds(b){return b==="Villa"||/ Villa$/.test(b||"");}
+function _ofmBedsCompatible(a,b){
+  if(a===b)return true;
+  if(a==="Villa"&&_ofmIsVillaBeds(b))return true;
+  if(b==="Villa"&&_ofmIsVillaBeds(a))return true;
+  return false;
+}
+
 // ── Matching Engine ────────────────────────────────────────────────────────────
 // Hard rules: building match + beds match + price ≤ budget × 1.15 (15% tolerance)
 // Score: building(60) + beds(25) + price proximity(15) = max 100. Min 60 to create.
@@ -120,7 +153,7 @@ function _ofmScoreMatch(listing,req){
 
   var bedsScore=0;
   if(listing.beds&&req.beds){
-    if(listing.beds===req.beds)bedsScore=25;
+    if(_ofmBedsCompatible(listing.beds,req.beds))bedsScore=25;
     else return null;// beds mismatch — hard filter
   }
 
@@ -195,13 +228,26 @@ async function _ofmSubmitListing(f,listerToken){
   var price=parseInt(String(f.askingPrice||"").replace(/,/g,""))||0;
   var sqft=parseFloat(f.sizeSqft)||0;
   var area=f.area||_ofmAreaFromBuilding(f.building);
+  // Villa detection now derives from the real Bedrooms selection (see
+  // OFM_BEDS_OPTIONS above) instead of the never-actually-set f.propType
+  // field — no control anywhere in this form ever sets propType (it's only
+  // ever initialized to "apartment"), so a villa listing's auto-valuation
+  // has always silently used apartment-scale numbers regardless of what the
+  // user picked. computeValuation() expects a plain "N BR" string
+  // (js/valuation.js's own _BEDS_NUM_MAP has no "Villa"-suffixed keys), so
+  // the suffix is stripped before calling it; a legacy bare "Villa" (no bed
+  // count, from data submitted before this fix) falls back to "4 BR",
+  // matching this app's own established mid-range villa default
+  // (js/market.js's villa bedroom dropdown).
+  var isVillaListing=_ofmIsVillaBeds(f.beds);
+  var vBeds=f.beds==="Villa"?"4 BR":(f.beds||"").replace(/ Villa$/,"")||"2 BR";
   // Auto-valuation via DubAIVal engine
   var dv={};
   try{
     if(f.building&&sqft&&price&&f.purpose==="sale"){
       var vi={area:area,building:f.building,buaSize:String(sqft),price:String(price),
-        propCategory:(f.propType==="villa"||f.propType==="townhouse")?"villa":"apartment",
-        beds:f.beds||"2 BR",view:f.viewType||"Not specified",floor:f.floorNum||"",
+        propCategory:isVillaListing?"villa":"apartment",
+        beds:vBeds,view:f.viewType||"Not specified",floor:f.floorNum||"",
         furnished:f.furnished||"Unfurnished",parking:String(f.parking||1),serviceCharge:""};
       var v=computeValuation(vi,f.building,null);
       if(v){dv={dv_fair_price:v.fairPrice,dv_psf:v.adjPSF,dv_verdict:v.verdict,
@@ -212,7 +258,7 @@ async function _ofmSubmitListing(f,listerToken){
     lister_token:listerToken,lister_type:f.listerType,
     doc1_base64:f.doc1||null,doc2_base64:f.doc2||null,phone:f.phone,
     area:area,building:f.building,unit_number:f.unitNumber||null,
-    prop_type:f.propType||"apartment",beds:f.beds,baths:f.baths||null,
+    prop_type:isVillaListing?"villa":(f.propType||"apartment"),beds:f.beds,baths:f.baths||null,
     parking:parseInt(f.parking)||1,maid_room:!!f.maidRoom,
     study_room:!!f.studyRoom,storage_room:!!f.storageRoom,
     size_sqft:sqft||null,floor_num:f.floorNum||null,view_type:f.viewType||null,
@@ -843,10 +889,7 @@ function _ofmPostListing(wrap,cl){
     card.appendChild(r1);
 
     var r2=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"});
-    r2.appendChild(_ofmSel("Bedrooms *",[
-      {l:"Studio",v:"Studio"},{l:"1 BR",v:"1 BR"},{l:"2 BR",v:"2 BR"},
-      {l:"3 BR",v:"3 BR"},{l:"4 BR",v:"4 BR"},{l:"5 BR+",v:"5 BR+"},
-      {l:"Villa/TH",v:"Villa"}],f.beds,function(v){f.beds=v;}));
+    r2.appendChild(_ofmSel("Bedrooms *",OFM_BEDS_OPTIONS,f.beds,function(v){f.beds=v;}));
     r2.appendChild(_ofmSel("Bathrooms",[
       {l:"1",v:"1"},{l:"2",v:"2"},{l:"3",v:"3"},{l:"4",v:"4"},{l:"5+",v:"5+"}],
       f.baths,function(v){f.baths=v;}));
@@ -1075,10 +1118,7 @@ function _ofmPostRequest(wrap,cl){
       marginBottom:"10px",marginTop:"-6px"},"Area: "+f.area));
 
     var r1=div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"});
-    r1.appendChild(_ofmSel("Bedrooms *",[
-      {l:"Studio",v:"Studio"},{l:"1 BR",v:"1 BR"},{l:"2 BR",v:"2 BR"},
-      {l:"3 BR",v:"3 BR"},{l:"4 BR",v:"4 BR"},{l:"5 BR+",v:"5 BR+"},
-      {l:"Villa/TH",v:"Villa"}],f.beds,function(v){f.beds=v;}));
+    r1.appendChild(_ofmSel("Bedrooms *",OFM_BEDS_OPTIONS,f.beds,function(v){f.beds=v;}));
     r1.appendChild(_ofmSel("Purpose",[{l:"For Sale",v:"sale"},{l:"For Rent",v:"rent"}],
       f.purpose,function(v){f.purpose=v;}));
     card.appendChild(r1);

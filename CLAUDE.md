@@ -674,6 +674,74 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-18 (session continuing 14, Deal Board — villa bed-count
+  granularity fixed, with backward compatibility for live matching data)**:
+  Direct follow-up, same conversation — right after the Deal Board audit
+  below flagged (but deliberately did not fix) the villa/townhouse
+  bed-count gap, the user asked for it to be fixed properly, explicitly
+  requiring that matching itself must not break as a result: "مورد مربوط
+  به ویلا را فیکس کن و اگر مچینگ شکست، شکست مچینگ را هم فیکس کن... تا
+  اصول و رویه این بخش درست عمل کند".
+  1. **Real bed counts for villas/townhouses**: the single flat "Villa"
+     option in both Post Listing (Step 3) and Post Request (Step 2)'s
+     shared Bedrooms dropdown was replaced with 5 granular options —
+     "3/4/5/6/7+ BR Villa/TH" — matching the exact bed-count range the
+     Analyzer's own villa dropdown already uses (`js/market.js`). Both
+     forms now build this list from one new shared `OFM_BEDS_OPTIONS`
+     array so they can never drift apart on this vocabulary again.
+  2. **Matching made backward-compatible, not just "fixed forward"**: a
+     naive strict-equality change would have silently stopped ALL existing
+     "Villa"-labeled listings/requests already live in Supabase from ever
+     matching anything newly submitted with the new vocabulary — the exact
+     "matching breaks" risk the user explicitly asked to guard against.
+     New `_ofmBedsCompatible(a,b)` treats the legacy bare "Villa" value as
+     a wildcard matching ANY of the new granular villa bed counts (and vice
+     versa), while two DIFFERENT specific villa bed counts (e.g. "3 BR
+     Villa" vs "5 BR Villa") now correctly do NOT match — closing the real
+     bug (a 7-bedroom mansion no longer scores a meaningless "exact bed
+     match" against a search for a compact 3-bedroom townhouse) without
+     discarding a single existing match. `_ofmScoreMatch()` now calls this
+     helper instead of the old bare `===` check.
+  3. **A second, related bug found and fixed while wiring this in**: OFM
+     listings' AVM auto-valuation (`_ofmSubmitListing()`) has ALWAYS
+     computed every listing — including real villas — as an apartment,
+     since its `propCategory` check read `f.propType`, a field NO control
+     anywhere in this form ever actually sets (it only ever initializes to
+     `"apartment"` and is never touched again). This directly violates this
+     file's own Directive #2 (max 3% deviation) for every villa listing's
+     auto-valuation, understating its true value the same way the
+     already-fixed Quick Check villa-sizing bug did. **Fix**: villa
+     detection now derives from the real Bedrooms selection instead
+     (`_ofmIsVillaBeds(f.beds)`) for both the stored `prop_type` and the
+     `computeValuation()` call's `propCategory`. Since `computeValuation()`
+     expects a plain "N BR" string (`js/valuation.js`'s own `_BEDS_NUM_MAP`
+     has no "Villa"-suffixed keys), the suffix is stripped before that call
+     only (e.g. "4 BR Villa" → "4 BR" for the valuation engine, while the
+     full "4 BR Villa" string is still what's stored/matched on) — a legacy
+     bare "Villa" (no bed count) falls back to "4 BR", this app's own
+     established mid-range villa default. `js/valuation.js` itself was
+     deliberately NOT touched, keeping this fix entirely inside
+     `js/deals.js`.
+  - Verified: `node -c js/deals.js`; a Node/Playwright test (8 cases)
+    confirming `_ofmBedsCompatible()`'s exact/legacy-wildcard/real-mismatch
+    behavior for both apartments and villas; a direct `_ofmScoreMatch()`
+    test confirming a legacy "Villa" listing correctly matches a new
+    "4 BR Villa" request at full score (100), confirming two different
+    specific villa bed counts (3BR vs 5BR) correctly produce NO match
+    (`null` — the exact bug being fixed), confirming a villa still never
+    matches a plain apartment request, and confirming ordinary apartment-
+    to-apartment matching is completely unaffected; a mocked-
+    `computeValuation`/`fetch` test confirming `_ofmSubmitListing()` now
+    correctly passes `propCategory:"villa"`/`beds:"4 BR"` for both a new
+    granular villa selection and a legacy bare "Villa" value (previously
+    always `"apartment"` regardless), while a plain "3 BR" apartment
+    listing is completely unaffected; a real-browser Playwright test
+    confirming both the Post Listing and Post Request forms render all 5
+    new villa options correctly; and a re-run of the network-error-
+    recovery tests from the audit below (all still passing, zero
+    regressions) plus a 13-tab regression sweep — zero console errors
+    throughout.
+
 - **2026-07-18 (session continuing 14, Deal Board / OFM audit — buttons
   could freeze permanently on a network hiccup, plus a flagged-not-fixed
   villa bed-count granularity gap)**: Direct continuation, same
