@@ -23,6 +23,7 @@
 
 var shared = require("./_lib/shared");
 var { rateLimitExceeded } = require("./_lib/ratelimit");
+var { fetchKnowledgeContextServer } = require("./_lib/rag");
 
 var GRAPH_BASE = "https://graph.facebook.com/v25.0";
 var GROQ_KEY = process.env.GROQ_API_KEY;
@@ -92,19 +93,50 @@ function buildEmailHtml(reply, agentName) {
   ].join("");
 }
 
+// RAG-grounded system prompt base — shared by email + social replies so a
+// client hears from the SAME real-estate-specialist AI regardless of which
+// channel they wrote in, not a generic chatbot that "just answers to answer"
+// (the exact gap this was built to close — see CLAUDE.md work log).
+var REPLY_BASE_PERSONA =
+  "You are DubAIVal's real estate AI agent — a genuine Dubai property specialist, not a generic support bot. " +
+  "Ground every factual claim (prices, yields, growth, areas, regulations) in the verified knowledge provided below when it's relevant; " +
+  "if nothing relevant was provided, answer from general Dubai real estate expertise but never invent specific numbers you're not sure of. " +
+  "Speak with the tone, precision, and confidence of an experienced Dubai property consultant — never a flat, generic customer-service reply.";
+
+async function _groundedSystemPrompt(basePrompt, queryText) {
+  var sys = basePrompt;
+  try {
+    var context = await fetchKnowledgeContextServer(queryText);
+    if (context) {
+      sys =
+        sys +
+        "\n\nRelevant up-to-date Dubai real estate knowledge (from live news and daily market data — use only if genuinely helpful, ignore if irrelevant):\n" +
+        context;
+    }
+  } catch (e) {
+    // Grounding is best-effort — never block a reply on RAG failing.
+  }
+  return sys;
+}
+
 async function generateAIEmailReply(fromName, subject, bodyText) {
   if (!GROQ_KEY) return null;
   try {
+    var queryText = (subject || "") + " " + (bodyText || "").slice(0, 1500);
+    var sys = await _groundedSystemPrompt(
+      REPLY_BASE_PERSONA +
+        " Reply to client emails professionally and helpfully. Be warm, professional, concise (under 250 words). " +
+        "Reply in the same language as the client. Sign off as 'The DubAIVal Team | www.dubaival.com'. " +
+        "Do NOT include generic pleasantries like 'I hope this email finds you well'. Get straight to the point.",
+      queryText
+    );
     var r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + GROQ_KEY },
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
         messages: [
-          {
-            role: "system",
-            content: "You are DubAIVal, an expert Dubai real estate AI agent. Reply to client emails professionally and helpfully. Be warm, professional, concise (under 250 words). Reply in the same language as the client. Sign off as 'The DubAIVal Team | www.dubaival.com'. Do NOT include generic pleasantries like 'I hope this email finds you well'. Get straight to the point.",
-          },
+          { role: "system", content: sys },
           { role: "user", content: "From: " + (fromName || "Client") + "\nSubject: " + subject + "\n\n" + (bodyText || "").slice(0, 1500) },
         ],
         max_tokens: 350,
@@ -121,16 +153,20 @@ async function generateAIEmailReply(fromName, subject, bodyText) {
 async function generateAISocialReply(platform, eventType, senderName, messageText) {
   if (!GROQ_KEY) return null;
   try {
+    var sys = await _groundedSystemPrompt(
+      REPLY_BASE_PERSONA +
+        " Help clients with property valuations, investment advice, area comparisons, off-plan projects, rental yields, and Dubai property market questions. " +
+        "Be warm, professional, and concise. Reply in the same language as the user (Arabic, English, or Farsi). Keep replies under 200 words. " +
+        "Platform: " + platform + ", Type: " + eventType,
+      messageText
+    );
     var r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + GROQ_KEY },
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
         messages: [
-          {
-            role: "system",
-            content: "You are DubAIVal, an expert Dubai real estate AI agent. Help clients with property valuations, investment advice, area comparisons, off-plan projects, rental yields, and Dubai property market questions. Be warm, professional, and concise. Reply in the same language as the user (Arabic, English, or Farsi). Keep replies under 200 words. Platform: " + platform + ", Type: " + eventType,
-          },
+          { role: "system", content: sys },
           { role: "user", content: (senderName ? senderName + " says: " : "") + messageText },
         ],
         max_tokens: 300,
@@ -267,7 +303,7 @@ async function handleOauthGoogle(req, res) {
 // ── ACTION: meta-webhook ──────────────────────────────────────────────────────
 async function findUserByPage(pageId, igId) {
   try {
-    var query = "/social_credentials?select=user_id,ig_token,ig_id,fb_id";
+    var query = "/social_credentials?select=user_id,ig_token,ig_id,fb_id,auto_reply_instagram,auto_reply_facebook";
     query += igId ? "&or=(ig_id.eq." + igId + ",fb_id.eq." + pageId + ")" : "&fb_id=eq." + pageId;
     var resp = await shared.supabaseRequest(query, { method: "GET" });
     if (!resp.ok) return null;
@@ -276,6 +312,14 @@ async function findUserByPage(pageId, igId) {
   } catch (e) {
     return null;
   }
+}
+
+// A toggle column absent (pre-migration row) or explicitly null defaults to
+// enabled — matches this project's automation-first convention (CLAUDE.md
+// Directive #3: default leans toward automatic, agent must deliberately
+// switch a process to manual). Only an explicit `false` disables it.
+function _autoReplyOn(val) {
+  return val !== false;
 }
 
 async function replyInstagramDM(igId, recipientId, message, token) {
@@ -299,10 +343,26 @@ async function replyFacebookComment(commentId, message, token) {
     body: JSON.stringify({ message: message, access_token: token }),
   });
 }
+// Instagram Graph API replies to a comment via POST /{ig-comment-id}/replies
+// — a genuinely different endpoint shape from Facebook's /{comment-id}/comments,
+// not something replyFacebookComment() can be reused for.
+async function replyInstagramComment(commentId, message, token) {
+  if (!token || !commentId) return;
+  await fetch(GRAPH_BASE + "/" + commentId + "/replies", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: message, access_token: token }),
+  });
+}
 
-async function handleSocialEvent(userId, pageToken, igAccountId, platform, eventType, senderId, senderName, messageText, messageId, threadId, postId, rawPayload) {
+// autoReplyEnabled: the per-agent, per-platform toggle (auto_reply_instagram/
+// auto_reply_facebook on social_credentials, defaulted via _autoReplyOn()).
+// When false, the message is still logged to social_inbox (status "new") so
+// nothing is ever lost — it just isn't auto-answered, matching this file's
+// "manual" convention elsewhere: AI prepares nothing, a human replies from
+// the Inbox UI instead.
+async function handleSocialEvent(userId, pageToken, igAccountId, platform, eventType, senderId, senderName, messageText, messageId, threadId, postId, rawPayload, autoReplyEnabled) {
   if (!messageText || messageText.trim() === "") return;
-  var aiReply = await generateAISocialReply(platform, eventType, senderName, messageText);
+  var aiReply = autoReplyEnabled === false ? null : await generateAISocialReply(platform, eventType, senderName, messageText);
   var row = {
     user_id: userId || "default", platform: platform, event_type: eventType,
     sender_id: senderId, sender_name: senderName || null, thread_id: threadId || null,
@@ -320,6 +380,7 @@ async function handleSocialEvent(userId, pageToken, igAccountId, platform, event
   if (aiReply) {
     try {
       if (platform === "instagram" && eventType === "dm") await replyInstagramDM(igAccountId, senderId, aiReply, pageToken);
+      else if (platform === "instagram" && eventType === "comment") await replyInstagramComment(postId, aiReply, pageToken);
       else if (platform === "facebook" && eventType === "dm") await replyFacebookDM(senderId, aiReply, pageToken);
       else if (platform === "facebook" && eventType === "comment") await replyFacebookComment(postId, aiReply, pageToken);
     } catch (e) {}
@@ -347,7 +408,33 @@ async function handleMetaWebhook(req, res) {
             await handleSocialEvent(
               creds && creds.user_id, creds && creds.ig_token, creds && creds.ig_id,
               "instagram", "dm", String((msg.sender && msg.sender.id) || ""), null,
-              msg.message.text, msg.message.mid || null, (msg.sender && msg.sender.id) || null, null, msg
+              msg.message.text, msg.message.mid || null, (msg.sender && msg.sender.id) || null, null, msg,
+              _autoReplyOn(creds && creds.auto_reply_instagram)
+            );
+          }
+        }
+        // Instagram comments — a real, previously-missing gap: unlike
+        // Facebook below (which already handles both entry.messaging AND
+        // entry.changes/field=feed), Instagram DMs were the only event type
+        // ever processed here. Instagram's own webhook delivers comment
+        // events via field="comments" on the same entry.changes shape.
+        var igChanges = entry.changes || [];
+        for (var ic = 0; ic < igChanges.length; ic++) {
+          var igChange = igChanges[ic];
+          if (igChange.field === "comments" && igChange.value && igChange.value.text) {
+            var igVal = igChange.value;
+            // For Instagram, entry.id IS the IG-scoped account id (same
+            // convention the DM branch above relies on) — pass it as both
+            // args so the lookup checks ig_id (where these credentials are
+            // actually stored) rather than only the fb_id fallback column.
+            // igVal.media.id is the MEDIA the comment was posted on, not the
+            // connected account, and would never match ig_id/fb_id at all.
+            var igCommentCreds = await findUserByPage(pageId, pageId);
+            await handleSocialEvent(
+              igCommentCreds && igCommentCreds.user_id, igCommentCreds && igCommentCreds.ig_token, igCommentCreds && igCommentCreds.ig_id,
+              "instagram", "comment", String((igVal.from && igVal.from.id) || ""), (igVal.from && igVal.from.username) || null,
+              igVal.text, igVal.id || null, null, igVal.id || null, igVal,
+              _autoReplyOn(igCommentCreds && igCommentCreds.auto_reply_instagram)
             );
           }
         }
@@ -358,6 +445,7 @@ async function handleMetaWebhook(req, res) {
       for (var fi = 0; fi < fbEntries.length; fi++) {
         var fbEntry = fbEntries[fi], fbPageId = fbEntry.id;
         var fbCreds = await findUserByPage(fbPageId, null);
+        var fbAutoReply = _autoReplyOn(fbCreds && fbCreds.auto_reply_facebook);
         var fbMessaging = fbEntry.messaging || [];
         for (var fj = 0; fj < fbMessaging.length; fj++) {
           var fbMsg = fbMessaging[fj];
@@ -365,7 +453,8 @@ async function handleMetaWebhook(req, res) {
             await handleSocialEvent(
               fbCreds && fbCreds.user_id, fbCreds && fbCreds.ig_token, null,
               "facebook", "dm", String((fbMsg.sender && fbMsg.sender.id) || ""), null,
-              fbMsg.message.text, fbMsg.message.mid || null, (fbMsg.sender && fbMsg.sender.id) || null, null, fbMsg
+              fbMsg.message.text, fbMsg.message.mid || null, (fbMsg.sender && fbMsg.sender.id) || null, null, fbMsg,
+              fbAutoReply
             );
           }
         }
@@ -378,7 +467,8 @@ async function handleMetaWebhook(req, res) {
               await handleSocialEvent(
                 fbCreds && fbCreds.user_id, fbCreds && fbCreds.ig_token, null,
                 "facebook", "comment", String((val.from && val.from.id) || ""), (val.from && val.from.name) || null,
-                val.message, val.comment_id || val.post_id || null, null, val.comment_id || val.post_id || null, val
+                val.message, val.comment_id || val.post_id || null, null, val.comment_id || val.post_id || null, val,
+                fbAutoReply
               );
             }
           }
@@ -404,7 +494,7 @@ async function findCredsByWhatsAppPhoneId(phoneId) {
   try {
     var resp = await shared.supabaseRequest(
       "/social_credentials?whatsapp_phone_id=eq." + encodeURIComponent(phoneId) +
-      "&select=user_id,whatsapp_token,whatsapp_phone_id",
+      "&select=user_id,whatsapp_token,whatsapp_phone_id,auto_reply_whatsapp",
       { method: "GET" }
     );
     if (!resp.ok) return null;
@@ -485,6 +575,13 @@ async function handleWhatsAppWebhook(req, res) {
           var text = msg.text && msg.text.body;
           if (!text) continue; // images/voice/etc. not handled yet — logged nowhere, matches "text only" scope of the rest of this file
 
+          // Per-agent manual/automatic toggle — checked BEFORE the window
+          // gate below so a disabled toggle never spends a real credit on
+          // an AI reply that will just be discarded. When off, the message
+          // is still logged (status "new") for the agent to answer manually
+          // from the Inbox UI — matches this file's "manual" convention.
+          var whatsappAutoReplyOn = _autoReplyOn(creds && creds.auto_reply_whatsapp);
+
           // Window gate BEFORE spending anything on an AI reply — matches
           // Meta's real per-24h-conversation-window billing (not per
           // message): if this contact already has an active window today,
@@ -493,7 +590,7 @@ async function handleWhatsAppWebhook(req, res) {
           // no credit left to open a NEW window is still logged (status
           // "new") so it's never silently lost, it just doesn't get an
           // automatic reply.
-          var authUid = creds ? await _authUidForEmail(creds.user_id) : null;
+          var authUid = whatsappAutoReplyOn && creds ? await _authUidForEmail(creds.user_id) : null;
           var hadWindow = false, windowCreditConsumed = false;
           if (authUid) {
             var windowResp = await shared.supabaseRequest("/rpc/ensure_whatsapp_window", {
@@ -1132,15 +1229,34 @@ async function handleSendReplies(req, res) {
   }
   var deadline = Date.now() + 50000;
   try {
-    var resp = await shared.supabaseRequest("/email_inbox?status=eq.new&select=id,from_email,from_name,subject,body_text&order=received_at.asc&limit=50", { method: "GET" });
+    var resp = await shared.supabaseRequest("/email_inbox?status=eq.new&select=id,user_id,from_email,from_name,subject,body_text&order=received_at.asc&limit=50", { method: "GET" });
     if (!resp.ok) return res.status(500).json({ error: "Failed to fetch emails" });
     var emails = await resp.json();
     if (!emails.length) return res.status(200).json({ ok: true, sent: 0 });
 
-    var sent = 0, errors = 0;
+    // Per-agent manual/automatic toggle for email — this cron previously
+    // auto-replied to EVERY pending email across the whole platform with
+    // zero per-user scoping at all. A toggle absent/null (pre-migration, or
+    // an agent who never touched this setting) defaults to enabled, matching
+    // this project's automation-first convention; only an explicit `false`
+    // disables it, leaving the email for the agent to answer manually.
+    var userIds = emails.map(function (e) { return e.user_id; }).filter(Boolean);
+    var toggleMap = {};
+    if (userIds.length) {
+      try {
+        var uniqueIds = userIds.filter(function (v, i, a) { return a.indexOf(v) === i; });
+        var inList = uniqueIds.map(function (u) { return encodeURIComponent(u); }).join(",");
+        var credsResp = await shared.supabaseRequest("/social_credentials?user_id=in.(" + inList + ")&select=user_id,auto_reply_email", { method: "GET" });
+        var credsRows = credsResp.ok ? await credsResp.json() : [];
+        credsRows.forEach(function (r) { toggleMap[r.user_id] = r.auto_reply_email; });
+      } catch (e) {}
+    }
+
+    var sent = 0, errors = 0, skipped = 0;
     for (var i = 0; i < emails.length; i++) {
       if (Date.now() > deadline) break;
       var email = emails[i];
+      if (email.user_id && !_autoReplyOn(toggleMap[email.user_id])) { skipped++; continue; }
       try {
         var reply = await generateAIEmailReply(email.from_name, email.subject, email.body_text);
         if (!reply) { errors++; continue; }
@@ -1155,7 +1271,7 @@ async function handleSendReplies(req, res) {
         sent++;
       } catch (e) { errors++; }
     }
-    return res.status(200).json({ ok: true, sent: sent, errors: errors, total: emails.length });
+    return res.status(200).json({ ok: true, sent: sent, errors: errors, skipped: skipped, total: emails.length });
   } catch (e) {
     console.error("send-replies error:", e.message);
     return res.status(500).json({ error: e.message });

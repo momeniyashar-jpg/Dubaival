@@ -910,6 +910,14 @@ function _syncCredsToServer(){
       whatsapp_waba_id:localStorage.getItem("dv_whatsapp_waba_id")||null,
       meta_pixel_id:localStorage.getItem("dv_meta_pixel_id")||null,
       meta_capi_token:localStorage.getItem("dv_meta_capi_token")||null,
+      // Per-channel reply automation toggles (Profile → Reply Automation) —
+      // stored as "0" in localStorage to mean explicitly OFF; anything else
+      // (including unset) means ON, matching the server's own default-true
+      // convention (api/inbox.js _autoReplyOn()).
+      auto_reply_email:localStorage.getItem("dv_auto_reply_email")!=="0",
+      auto_reply_whatsapp:localStorage.getItem("dv_auto_reply_whatsapp")!=="0",
+      auto_reply_instagram:localStorage.getItem("dv_auto_reply_instagram")!=="0",
+      auto_reply_facebook:localStorage.getItem("dv_auto_reply_facebook")!=="0",
       updated_at:new Date().toISOString()
     };
     fetch(SUPABASE_URL+"/rest/v1/social_credentials?user_id=eq."+encodeURIComponent(userId),{
@@ -947,6 +955,7 @@ async function _syncCredsFromServer(){
       "dv_whatsapp_token","dv_whatsapp_phone_id","dv_whatsapp_waba_id","dv_meta_pixel_id","dv_meta_capi_token"];
     // Try user-specific first, then 'default' as legacy fallback
     var tries=userId==="default"?["default"]:[userId,"default"];
+    var TOGGLE_COLS=["auto_reply_email","auto_reply_whatsapp","auto_reply_instagram","auto_reply_facebook"];
     for(var i=0;i<tries.length;i++){
       var r=await fetch(SUPABASE_URL+"/rest/v1/social_credentials?user_id=eq."+encodeURIComponent(tries[i]),{
         headers:_socialCredHeaders()
@@ -955,6 +964,16 @@ async function _syncCredsFromServer(){
       if(rows&&rows.length>0){
         var row=rows[0];
         COLS.forEach(function(col,j){if(row[col])localStorage.setItem(LKEYS[j],row[col]);});
+        // Booleans need explicit handling — a plain `if(row[col])` (like the
+        // COLS loop above) would treat a real, deliberate `false` the same
+        // as "unset", silently losing an agent's own choice to disable a
+        // channel. Only an explicit false is stored (as "0"); true/null/
+        // undefined all resolve to "on" by omission, matching the server
+        // default.
+        TOGGLE_COLS.forEach(function(col){
+          if(row[col]===false)localStorage.setItem("dv_"+col,"0");
+          else localStorage.removeItem("dv_"+col);
+        });
         // If loaded from 'default', migrate to user-specific row
         if(tries[i]==="default"&&userId!=="default")_syncCredsToServer();
         break;

@@ -892,6 +892,137 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-19 (session continuing 14, Inbox auto-reply pipeline — RAG
+  grounding, a real per-channel manual/automatic toggle, and Instagram
+  comment handling, all closing gaps the user surfaced by asking a direct
+  question)**: User asked, specifically and pointedly, whether the existing
+  email/WhatsApp/Instagram-DM-and-comment/Facebook-comment-and-message
+  reply pipeline — which the user believed was already split into manual
+  and automatic modes — actually auto-replies using the REAL RAG-grounded,
+  real-estate-specialist AI (not plain Groq, not "an answer just to give an
+  answer" like Meta's own generic auto-reply bots). Investigated
+  `api/inbox.js` end to end rather than assuming, and reported 3 real,
+  confirmed gaps before touching any code; user approved all 3 with
+  "بله حتما با دقت و تمرکز بالا مواردی که گفتی رو درست کن" (fix them with
+  high precision and focus).
+  1. **No RAG grounding at all in this pipeline — confirmed, not assumed.**
+     `generateAIEmailReply()`/`generateAISocialReply()` (`api/inbox.js`)
+     called Groq directly with a generic hardcoded system prompt — zero
+     connection to the `knowledge_base` RAG system already grounding Chat
+     Agents/Compare/Personal Advisor/Portfolio Analysis/Market Index Area
+     Comparison. **Fix**: new `api/_lib/rag.js` —
+     `fetchKnowledgeContextServer(query, areas)`, a server-side port of
+     `js/api.js`'s `fetchKnowledgeContext()` (same embed → `match_knowledge`
+     RPC → `"- title: content"` formatting convention, capped at 8 results,
+     degrades to `""` on any failure so grounding is always best-effort,
+     never blocking). Both reply generators now build a query from the
+     inbound subject/message text, fetch real grounding context, and — when
+     found — append it to the system prompt using the exact same
+     "Relevant up-to-date Dubai real estate knowledge... ignore if
+     irrelevant" framing `askAI()` already uses client-side, plus a new
+     shared `REPLY_BASE_PERSONA` string explicitly instructing the model to
+     answer with "the tone, precision, and confidence of an experienced
+     Dubai property consultant — never a flat, generic customer-service
+     reply," directly addressing the user's own framing of the problem.
+  2. **No real manual/automatic toggle existed anywhere in this specific
+     pipeline — confirmed via a full read, not assumed either way.** The
+     ONLY automation toggle that existed anywhere in the app
+     (`CHIEFS_AUTOMATION`, `js/chiefs.js`) governs a completely different
+     system — the AI Chief of Staff Co-pilot's match-drafting flow — and
+     has no connection to this raw webhook-driven auto-reply pipeline at
+     all. **Fix**: 4 new boolean columns on `social_credentials`
+     (`auto_reply_email`/`auto_reply_whatsapp`/`auto_reply_instagram`/
+     `auto_reply_facebook`, new migration
+     `supabase-reply-automation-toggle-schema.sql`, all default `true` —
+     matches this project's established automation-first convention,
+     Directive #3), stored server-side (not `localStorage`) since these
+     have to be checked inside serverless webhook handlers with no browser
+     access. A new shared `_autoReplyOn(val)` helper (`api/inbox.js`) treats
+     any value other than an explicit `false` as enabled — a pre-migration
+     row (`null`/absent) defaults to on, matching every other automation
+     default in this app. Wired into all 3 real send paths:
+     `handleSocialEvent()` (Instagram/Facebook DM+comment — skips AI
+     generation entirely when off, but still logs the message to
+     `social_inbox` with `status:"new"` so it's never lost, exactly
+     matching this file's existing "manual" convention elsewhere — AI does
+     nothing, a human replies from the Inbox UI), `handleWhatsAppWebhook()`
+     (checked BEFORE the 24h-conversation-window/credit-consumption gate,
+     so a disabled channel never spends a real credit generating a reply
+     that would just be discarded), and — the most severe, independently
+     discovered gap while investigating this — `handleSendReplies()` (the
+     EMAIL cron), which previously had **zero per-user scoping of any kind**:
+     it queried every pending email across the ENTIRE platform and
+     auto-replied to all of them unconditionally, with no concept of
+     per-agent control at all, worse than the social/WhatsApp pipelines
+     which at least had per-user credential lookups. Fixed to select
+     `user_id` (confirmed this column already exists on `email_inbox` since
+     the 2026-07-16 `supabase-inbox-user-id-fix.sql` migration — not a new
+     schema gap), batch-look-up each distinct user's `auto_reply_email`
+     setting, and skip (leaving the row as `status:"new"` for manual reply)
+     for any user who explicitly disabled it — a legacy row with no
+     `user_id` at all (pre-2026-07-16 data) still processes automatically
+     by default, since it can't be attributed to any specific agent's
+     toggle either way.
+  3. **Instagram comments were never processed at all — confirmed via a
+     full read of `handleMetaWebhook()`, not assumed.** The Instagram
+     branch only ever read `entry.messaging` (DMs) — unlike the Facebook
+     branch immediately below it in the same function, which already
+     correctly handles both `entry.messaging` (DM) AND
+     `entry.changes`/`field:"feed"` (comment). A comment left on an agent's
+     Instagram post had no code path processing it at all. **Fix**: the
+     Instagram branch now also iterates `entry.changes`, and for
+     `field==="comments"` (Instagram's own webhook shape for comment
+     events, genuinely different from Facebook's `field:"feed"`) creates a
+     real `handleSocialEvent(..., "instagram", "comment", ...)` call. Added
+     a new `replyInstagramComment(commentId, message, token)` — Instagram's
+     Graph API replies to a comment via `POST /{ig-comment-id}/replies`, a
+     genuinely different endpoint shape from Facebook's
+     `POST /{comment-id}/comments`, so the existing `replyFacebookComment()`
+     could not be reused — wired into `handleSocialEvent()`'s existing
+     send-back if/else chain alongside the other 3 platform+eventType
+     combinations. A real, narrower bug caught and fixed while building
+     this: the comment lookup initially tried to resolve credentials via
+     the comment's own `media.id` (the post the comment was left on, not
+     the connected IG account) — corrected to reuse `entry.id` (the
+     IG-scoped account id, the same value the existing DM branch already
+     relies on for its own lookup), since `media.id` would never match the
+     `ig_id`/`fb_id` columns `findUserByPage()` actually queries against.
+  - **New client-side UI**: a "Reply Automation" section added to
+    `renderProfilePanel()` (`js/app.js`) — 4 toggle switches (reusing
+    `js/chiefs.js`'s existing `_chToggleRow()` component for visual
+    consistency with the Chiefs automation settings card), one per channel,
+    each syncing immediately to `social_credentials` via the existing
+    `_syncCredsToServer()`/`_syncCredsFromServer()` push/pull functions
+    (`js/chat.js`, extended with the 4 new boolean fields — booleans needed
+    dedicated handling distinct from the generic token-field loop, since a
+    real `false` value must be distinguished from "field not set," unlike
+    every other credential field in that same function which is a plain
+    opaque string).
+  - Verified: `node -c` on all 4 touched files; a mocked-fetch Node test
+    harness against the real `api/inbox.js` handler (14 cases) — confirmed
+    an Instagram DM reply now genuinely calls Jina embed + `match_knowledge`
+    before Groq and the resulting system prompt contains both the real
+    grounded knowledge-base content and the new specialist-persona
+    instruction; confirmed a real Instagram COMMENT event is now processed
+    end-to-end and correctly calls `POST .../comment_555/replies` (previously
+    unreachable code); confirmed toggling Instagram off makes zero Groq
+    calls, still logs the message as `status:"new"`, and never sends a
+    reply; confirmed Facebook DM auto-reply is completely unaffected by the
+    Instagram changes; confirmed WhatsApp toggle off skips the
+    `ensure_whatsapp_window` RPC entirely (never spends a credit on a
+    disabled channel); and confirmed the email cron now correctly skips an
+    agent with the toggle off, still auto-replies for one with it on, and
+    still processes a legacy null-`user_id` row by default — all 14 checks
+    passed. A real-browser Playwright test confirmed the new "Reply
+    Automation" section renders in Profile Panel with all 4 channels,
+    clicking the WhatsApp toggle correctly sets `localStorage.dv_auto_
+    reply_whatsapp="0"` and immediately fires a real sync call to
+    `social_credentials` with `auto_reply_whatsapp:false`. A 10-tab
+    regression sweep (Home, Market Dashboard/Analyzer, Portfolio Assets,
+    Deal Board, AI Agents, AI Chief of Staff, Social Media Studio,
+    Workspace, About) confirmed zero collateral console errors from any of
+    these changes.
+
 - **2026-07-19 (session continuing 14, AI Chief of Staff — real per-agent
   RLS lockdown closing the anonymous-fingerprint security gap flagged
   earlier the same session, plus sign-in requirement + claim-your-data
@@ -8942,6 +9073,22 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🟡 Reply Automation toggles — need manual SQL** (added 2026-07-19): run
+  `supabase-reply-automation-toggle-schema.sql` in Supabase SQL Editor. Adds
+  4 boolean columns (`auto_reply_email`/`auto_reply_whatsapp`/
+  `auto_reply_instagram`/`auto_reply_facebook`) to `social_credentials`. Until
+  it's run, every channel behaves exactly as before this session's fix
+  (defaults to auto-reply ON everywhere, matching the pre-migration-row
+  fallback the app code already handles gracefully) — flipping a toggle in
+  Profile → Reply Automation will silently no-op server-side (the sync call
+  succeeds since PostgREST just ignores unknown JSON keys on an upsert
+  without erroring, but the column won't exist to actually gate anything) until
+  this migration runs. No new env vars needed — reuses the existing
+  `GROQ_API_KEY`/`JINA_API_KEY`/`GEMINI_API_KEY`/Supabase service role key
+  already required for RAG + Groq. See the "Inbox auto-reply pipeline" work
+  log entry above for the full design (RAG grounding + the toggle itself +
+  the Instagram comment-handling fix, all shipped together).
 
 - **🔴 CRITICAL, NOT YET LIVE — AI Chief of Staff RLS lockdown needs manual
   SQL execution NOW** (added 2026-07-19): run
