@@ -684,10 +684,13 @@ babysits.
 **Isolated module** — its own state (`CHIEFS_STATE`), its own Supabase tables
 (`chiefs_inventory`/`chiefs_clients`/`chiefs_matches`/`chiefs_pipeline`,
 `supabase-chiefs-schema.sql`), no dependency on any other tab's code. RLS on
-those 4 tables is deliberately `anon, authenticated USING(true)` — an agent
-can use the ENTIRE tab with zero sign-in via a per-browser fingerprint
-(`_chiefsId()`) — see the AI Concierge security note below for what this
-means and why it hasn't been tightened.
+those 4 tables was originally `anon, authenticated USING(true)` (an agent
+could use the whole tab with zero sign-in via a per-browser fingerprint,
+`_chiefsId()`) — **hardened 2026-07-19 to real per-agent ownership**
+(`auth.uid()::text = agent_id`, a real signed-in account now required) after
+the public AI Concierge link below made the old blanket-access design a
+materially worse exposure. See "Security & real per-agent ownership" further
+down for the full fix.
 
 ### Dashboard (`_renderChiefsDashboard()`)
 - **Daily Briefing** — AI-narrated summary generated once per session from
@@ -804,19 +807,55 @@ Memory Bank, matching "your best sales agent doesn't sleep."
   `CHIEFS_STATE`** — those all resolve the CURRENT BROWSER's own agent via
   `_chiefsId()`, which on a stranger's phone would be a meaningless new
   fingerprint, not the real agent whose link they opened. Every Concierge
-  function takes the target `agentId` explicitly and talks to Supabase
-  directly, so it can never read or write the wrong agent's real workspace.
-- **Security note, investigated and flagged, not unilaterally changed**:
-  since `chiefs_*` RLS already allows anon `USING(true)` by original design
-  (so an agent can use Chiefs without signing in at all), ANY caller who
-  already knows or guesses an `agent_id` could already read/write that
-  agent's entire workspace via a direct Supabase REST call — a real,
-  pre-existing gap, not introduced by this feature. Publishing a shareable
-  public link that embeds an `agentId` makes that id somewhat more
-  discoverable than before. Tightening this to real per-agent ownership
-  would require rethinking the anonymous-fingerprint-agent model this whole
-  file is built on — a bigger, separate decision for the user, flagged here
-  rather than changed unilaterally mid-feature.
+  function takes the target `agentId` explicitly.
+- **Security — FIXED 2026-07-19** (see "Security & real per-agent ownership"
+  below): the visitor's own client-save no longer touches Supabase directly
+  at all — it goes through a validated, rate-limited, service-role server
+  endpoint (`api/chiefs-embed.js`, `action=concierge-save`), which is now the
+  only thing on the whole platform still allowed to write into another
+  agent's Client Memory Bank on their behalf.
+
+### Security & real per-agent ownership (hardened 2026-07-19)
+`chiefs_inventory`/`chiefs_clients`/`chiefs_matches`/`chiefs_pipeline` were
+originally built with `FOR ALL TO anon, authenticated USING (true)` so an
+agent could use the whole tab with zero sign-in (a per-browser localStorage
+fingerprint, `_chiefsId()`, stood in for a real identity). Building the
+public AI Concierge link above — which embeds an `agent_id` in a shareable
+URL — made that pre-existing gap materially worse: any caller who already
+knew or guessed an `agent_id` could read/write that agent's ENTIRE
+workspace (real client PII, pocket-listing prices, deal-pipeline/commission
+data) via a direct Supabase REST call using the public anon key. Closed
+properly, not just documented:
+- **`supabase-chiefs-security-lockdown.sql`** (requires manual execution,
+  see Outstanding items) replaces the blanket anon policy with real
+  per-row ownership (`auth.uid()::text = agent_id`, `authenticated` role
+  only) on all 4 tables — a signed-out visitor now gets zero access to any
+  of this data via direct REST, full stop. One narrow, deliberate
+  exception: a public `SELECT`-only policy on `chiefs_inventory`, scoped to
+  rows the agent has marked `available`/`pocket` (the same info a prospect
+  would see on any public listing anyway) — so the Concierge's read of a
+  target agent's live inventory still works instantly client-side, with no
+  server round-trip, while `chiefs_clients`/`chiefs_matches` get zero anon
+  access of any kind.
+- **AI Chief of Staff now requires a real signed-in account**
+  (`_renderChiefsSignInGate()`, same "Sign In Required" pattern already
+  used by Social Media Manager) — an anonymous fingerprint identity can no
+  longer write anything under the new RLS, so the whole tab is gated
+  before it even tries, rather than silently showing empty data. Existing
+  fingerprint-owned data is not orphaned: `claim_chiefs_workspace()` (same
+  SQL file, `SECURITY DEFINER`) lets a real account re-point its own past
+  anonymous data onto itself in one click, surfaced automatically via
+  `_renderChiefsClaimBanner()`/`_chiefsClaimWorkspace()` the first time a
+  local `dv_chiefs_fp` fingerprint is found with no prior claim recorded.
+- **Scope boundary, deliberately not expanded**: `_chiefsH()` (the header
+  helper behind every ordinary Chiefs read/write once signed in) still
+  reads `localStorage.dv_access_token` directly rather than routing through
+  `_chiefsValidToken()`'s refresh check — left as-is on purpose, since its
+  RLS now always resolves correctly either way (a stale token there simply
+  produces a real Supabase auth error, never a wrong-owner read/write), and
+  converting every one of its many call sites to `await` a refreshed token
+  is a separate, broader hardening task with real regression risk of its
+  own, out of scope for closing this specific vulnerability.
 
 ### Inbox — unified messaging (`CHIEFS_STATE.view==="inbox"` → `renderInbox()`, `js/inbox.js`)
 - Unified Email/Instagram/Facebook/WhatsApp inbox.
@@ -852,6 +891,134 @@ Memory Bank, matching "your best sales agent doesn't sleep."
   minutes-to-hours after the agent last actively touched the page).
 
 ## Recent work log (most recent first)
+
+- **2026-07-19 (session continuing 14, AI Chief of Staff — real per-agent
+  RLS lockdown closing the anonymous-fingerprint security gap flagged
+  earlier the same session, plus sign-in requirement + claim-your-data
+  migration flow)**: Direct follow-up to the "Security gap investigated and
+  explicitly flagged, not silently patched" finding from the Concierge/
+  Broadcast build earlier today — user asked for the gap to be FULLY closed,
+  with complete engineering oversight of every knock-on effect needed to
+  keep the tab working correctly, across every discipline relevant to
+  getting this right (security architecture, backend, RLS design, UX for
+  the sign-in requirement, and re-verifying every existing Chiefs feature
+  still functions).
+  1. **Root cause, restated precisely**: `chiefs_inventory`/`chiefs_clients`/
+     `chiefs_matches`/`chiefs_pipeline` RLS was `FOR ALL TO anon,
+     authenticated USING (true)` by original design — an agent could use the
+     whole tab with zero sign-in via a per-browser localStorage fingerprint
+     (`_chiefsId()`). This meant ANY caller who already knew or guessed an
+     `agent_id` could read/write that agent's ENTIRE workspace (real client
+     names/phones/emails/budgets, pocket-listing prices, deal-pipeline/
+     commission data) via a direct Supabase REST call using the public anon
+     key — and publishing a shareable public AI Concierge link
+     (`#concierge=<agentId>`) that embeds this id in a URL meant to be
+     posted publicly (Instagram bio, WhatsApp status) made that id
+     materially more discoverable than before.
+  2. **Real fix, not a workaround**: `supabase-chiefs-security-lockdown.sql`
+     (new migration, requires manual execution — see Outstanding items)
+     drops the blanket anon policies and replaces them with real per-row
+     ownership (`auth.uid()::text = agent_id`, `authenticated` role only)
+     on all 4 tables. One narrow, deliberate public exception: a `SELECT`-
+     only policy on `chiefs_inventory` restricted to `status in
+     ('available','pocket')` rows — the exact same information an agent
+     would show any prospect directly, not confidential data — so the
+     Concierge's read of a target agent's live inventory keeps working
+     instantly client-side with zero server round-trip, while
+     `chiefs_clients`/`chiefs_matches` (real PII/deal data) get zero anon
+     access of any kind, not even a narrow read.
+  3. **AI Chief of Staff now requires a real signed-in account** — a genuine
+     architectural consequence of fixing this correctly, not a cosmetic
+     change: an anonymous fingerprint identity can no longer write anything
+     under the new RLS, so continuing to let the whole tab render for a
+     signed-out visitor would just mean every save silently failing with no
+     explanation. `_renderChiefsSignInGate()` (`js/chiefs.js`) gates
+     `renderChiefs()` before any data-loading is even attempted, reusing the
+     exact same "Sign In Required" pattern and copy style already
+     established for Social Media Manager (`js/chat.js`
+     `renderMediaStudio()`) — deliberate consistency, not a new UX pattern
+     invented for this one tab.
+  4. **Existing anonymous-fingerprint data is not orphaned** — the whole
+     point of doing this carefully rather than just flipping a switch:
+     `claim_chiefs_workspace(p_fingerprint)` (same SQL file, `SECURITY
+     DEFINER`, validates the fingerprint format and requires a real
+     `auth.uid()`) re-points every row owned by that fingerprint onto the
+     newly-signed-in real account in one atomic call. `_chiefsClaimBannerState()`/
+     `_renderChiefsClaimBanner()`/`_chiefsClaimWorkspace()` surface this
+     automatically — a real signed-in agent who has a local
+     `dv_chiefs_fp` value with no prior recorded claim sees a "We found data
+     from a previous session on this device" banner with a one-click
+     "Claim it" button (and an equally real "Dismiss" that persists the
+     choice so it never nags again).
+  5. **The Concierge's own write path rearchitected, not just gated** — this
+     was the actual PUBLIC attack surface, and it needed a real fix, not
+     just a permission check: `_conciergeTryExtractAndSave()` no longer
+     touches `chiefs_clients`/`chiefs_matches` directly with the anon key at
+     all (that would now correctly fail under the new RLS regardless). It
+     now calls a single new server endpoint, `api/chiefs-embed.js`
+     `action=concierge-save` (extended into this existing file, not a new
+     one — the project is already at Vercel Hobby's 12-function ceiling) —
+     rate-limited (10/min/IP), validates every field server-side (agentId/
+     clientName required, at least a phone or email, all string lengths
+     capped), writes via the service-role key (the same privileged-write
+     pattern every other admin/system RPC in this project already uses),
+     computes real matches server-side against the TARGET agent's own
+     freshly-fetched inventory (a Node port of `_scoreMatch()` — never
+     trusts client-supplied listing data for scoring, since a malicious
+     visitor could otherwise fabricate a high-score "match" against an
+     invented listing), and embeds the new client for the agent's own later
+     semantic auto-match runs. This is now the ONLY thing on the entire
+     platform still allowed to write into another agent's Client Memory
+     Bank on their behalf — and unlike the old direct insert, every write
+     through it is validated first.
+  6. **Deliberate scope boundary, disclosed rather than silently expanded**:
+     `_chiefsH()` (the header helper behind every ordinary Chiefs read/write
+     once signed in) still reads `localStorage.dv_access_token` directly
+     instead of routing through the `_chiefsValidToken()` refresh check
+     built earlier this session for the 3 fire-and-forget/background call
+     sites — left as-is on purpose here, since the NEW RLS resolves
+     correctly either way (a stale token just produces a real Supabase auth
+     error, never a wrong-owner operation), and converting every one of its
+     many call sites (`chiefsLoadInventory`/`chiefsLoadClients`/
+     `chiefsLoadMatches`/`chiefsLoadPipeline`/every save/delete function) to
+     `await` a refreshed token is a separate, broader hardening task with
+     its own real regression risk — out of scope for closing this specific
+     vulnerability, flagged here rather than silently bundled in.
+  - Verified: `node -c` on both touched JS files; a mocked-`fetch` Node test
+    harness (9 cases) against the real `api/chiefs-embed.js` handler —
+    confirmed the pre-existing `embed` action is completely unaffected by
+    the new `action=` dispatcher (backward compatibility for every existing
+    caller that never sends this param), `concierge-save` correctly rejects
+    missing `agentId`/`clientName`/phone-and-email-both-absent with zero
+    Supabase calls made, a valid submission correctly inserts the client row
+    with the TARGET `agentId` (not any other identity) and phone digits
+    correctly normalized, computes real matches server-side against real
+    mocked inventory (a villa/JVC listing matches, an apartment/Marina
+    listing correctly does not — confirming the ported `_scoreMatch` logic
+    is faithful), and a failed Supabase insert surfaces a real error instead
+    of a false success; a real-browser Playwright test (5 checks) confirming
+    a signed-out visitor sees the real Sign-In-Required gate with ZERO
+    Chiefs data-load attempted, the gate's own "SIGN IN" button opens the
+    real auth modal, a signed-in session renders the full real tab
+    (including the Concierge Link card) with the gate gone, a genuine
+    pre-existing fingerprint correctly shows the claim banner and "Dismiss"
+    correctly hides it permanently, and clicking "Claim it" fires the real
+    `claim_chiefs_workspace` RPC and shows a success toast; a second
+    real-browser test confirming the Concierge's actual chat flow now calls
+    the new server endpoint with the correct payload (target agentId, real
+    AI-extracted name/phone) instead of any direct Supabase write, and the
+    UI correctly reflects the server's real response; a third confirming
+    Broadcast (audited/built earlier the same session) is still fully
+    functional once signed in — segment filtering, AI draft, and a real send
+    run all work identically to before this hardening pass; and a 20-view
+    regression sweep (12 top-level app sections + all 8 Chiefs internal
+    views) run BOTH signed-out (confirming only Chiefs shows a gate, nothing
+    else in the app was affected) and signed-in (confirming every Chiefs
+    view still renders correctly) — zero console errors throughout.
+  - **Manual step required before this is actually secure in production**:
+    run `supabase-chiefs-security-lockdown.sql` in Supabase SQL Editor. Until
+    it's run, the OLD permissive RLS remains live regardless of any
+    client-side fix shipped here — flagged prominently in Outstanding items.
 
 - **2026-07-19 (session continuing 14, AI Chief of Staff — Meta Ads
   conversion audit, 2 new features (Broadcast + AI Concierge) built AND
@@ -8775,6 +8942,23 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🔴 CRITICAL, NOT YET LIVE — AI Chief of Staff RLS lockdown needs manual
+  SQL execution NOW** (added 2026-07-19): run
+  `supabase-chiefs-security-lockdown.sql` in Supabase SQL Editor immediately.
+  Until this runs, the OLD, unrestricted `anon USING(true)` policies remain
+  live on `chiefs_inventory`/`chiefs_clients`/`chiefs_matches`/
+  `chiefs_pipeline` — meaning anyone who knows or guesses an `agent_id`
+  (now somewhat more discoverable via the public AI Concierge link,
+  `#concierge=<agentId>`) can still read/write an agent's entire workspace
+  via a direct Supabase REST call using the public anon key. The client-side
+  fixes (Sign-In-Required gate, the new server-side `concierge-save`
+  endpoint, the `claim_chiefs_workspace` migration flow) are all
+  deploy-ready, but do NOT close the hole by themselves — the old permissive
+  RLS would still accept a direct anon-key request from anyone else
+  regardless of what the client UI does. See the "Security & real per-agent
+  ownership" section above (under "AI Chief of Staff — Complete Feature
+  List") and the 2026-07-19 work-log entry for full details.
 
 - **🟡 Track Record — removed from nav 2026-07-18, needs a real automated
   transaction feed before it comes back** (see the same-dated work-log

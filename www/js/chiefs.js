@@ -7,7 +7,7 @@
 var CHIEFS_STATE = {
   view: "dashboard",
   inventory: [], clients: [], matches: [], pipeline: [],
-  loading: {}, loaded: {}, dbError: false,
+  loading: {}, loaded: {}, dbError: false, claiming: false,
   invForm: { open: false, editing: null, source: "pocket", building: "", area: "", unit_no: "",
     prop_type: "apartment", beds: "2 BR", size_sqft: "", floor_num: "", view_type: "",
     furnished: "Unfurnished", purpose: "sale", price: "", status: "available",
@@ -2560,26 +2560,45 @@ function renderChiefsCopilotOverlay() {
 // _chiefsId(). On a stranger's phone opening a shared concierge link, that
 // would silently be a brand-new, meaningless per-browser fingerprint, not
 // the real agent whose link they opened. Every function below takes the
-// target agentId explicitly and talks to Supabase directly with the plain
-// anon key (identical to how an anonymous, not-signed-in agent already uses
-// the rest of this file today), keeping this entire feature self-contained
-// so it can never clobber or read the wrong agent's real workspace state.
+// target agentId explicitly and never assumes it belongs to whoever is
+// running this browser, keeping this entire feature self-contained so it
+// can never clobber or read the wrong agent's real workspace state.
 //
-// SECURITY NOTE — investigated, flagged, deliberately NOT unilaterally
-// changed: chiefs_inventory/chiefs_clients/chiefs_matches RLS is `FOR ALL TO
-// anon, authenticated USING (true)` (supabase-chiefs-schema.sql's own
-// comment: "allow all via anon key — app filters by agent_id client-side"),
-// a deliberate original design choice so an agent can use the whole Chiefs
-// workspace with zero sign-in at all (see _chiefsId()'s localStorage-
-// fingerprint fallback above). That means ANY caller who already knows (or
-// guesses) an agent_id can already read or write that agent's ENTIRE
-// workspace via a direct Supabase REST call — a real, pre-existing gap, not
-// introduced by this feature. Publishing a shareable public link that
-// embeds an agentId makes that id somewhat more discoverable than before,
-// so this is worth calling out plainly — but tightening chiefs_* RLS to
-// real per-agent ownership would require rethinking the anonymous-
-// fingerprint-agent model this whole file is built on, a bigger, separate
-// decision for the user, not something to change unilaterally mid-feature.
+// SECURITY — FIXED 2026-07-19 (was: flagged, not yet fixed, in the initial
+// build earlier the same day). chiefs_inventory/chiefs_clients/chiefs_matches
+// RLS used to be `FOR ALL TO anon, authenticated USING (true)` — a
+// deliberate original design choice so an agent could use the whole Chiefs
+// workspace with zero sign-in (a localStorage fingerprint stood in for a
+// real identity) — meaning ANY caller who already knew or guessed an
+// agent_id could read/write that agent's ENTIRE workspace via a direct
+// Supabase REST call. Publishing this public Concierge link (which embeds
+// an agentId in a shareable URL) made that gap materially worse, so it was
+// closed properly rather than left as a known risk:
+//   1. supabase-chiefs-security-lockdown.sql replaces the blanket anon
+//      policy with real per-row ownership (`auth.uid()::text = agent_id`,
+//      authenticated only) on all 4 tables, plus one narrow exception — a
+//      public SELECT-only policy on chiefs_inventory restricted to rows the
+//      agent has marked available/pocket (the same info a prospect would
+//      see on any public listing anyway), so the Concierge's read of a
+//      target agent's live inventory below still works with zero server
+//      round-trip.
+//   2. AI Chief of Staff now REQUIRES a real signed-in account
+//      (_renderChiefsSignInGate() in renderChiefs()) — an anonymous
+//      fingerprint can no longer write anything under the new RLS, so
+//      pretending it still could would just silently fail every save.
+//      Existing fingerprint-owned data isn't orphaned: claim_chiefs_workspace()
+//      (same SQL file) lets a real account re-point its own past anonymous
+//      data onto itself in one click, surfaced automatically via
+//      _renderChiefsClaimBanner() the first time a fingerprint is found.
+//   3. The one remaining PUBLIC write in this whole tab — a Concierge
+//      visitor's own extracted lead — no longer touches Supabase directly
+//      with the anon key at all. It goes through a single validated,
+//      rate-limited, service-role server endpoint instead
+//      (api/chiefs-embed.js, action=concierge-save — see
+//      _conciergeTryExtractAndSave() below), which is now the ONLY thing on
+//      the whole platform still allowed to write into another agent's
+//      Client Memory Bank on their behalf, and only after validating the
+//      input server-side rather than trusting whatever the client claims.
 var CONCIERGE_STATE = {
   agentId: null, valid: false, listings: [], listingsLoaded: false,
   messages: [], input: "", sending: false, error: null,
@@ -2644,6 +2663,20 @@ async function conciergeSend() {
 // lightweight AI pass over the transcript so far checking whether we now
 // have enough (a name plus a phone or email) to create a real Client Memory
 // Bank record for the target agent. Fires at most once per visit.
+//
+// SECURITY (2026-07-19): this used to write directly to chiefs_clients/
+// chiefs_matches from the visitor's own browser using the plain Supabase
+// anon key — which only worked because those tables' RLS was, by original
+// design, a blanket "allow all" policy. Once that RLS was tightened to real
+// per-agent ownership (auth.uid()=agent_id — an anonymous visitor has no
+// such identity, by definition), those direct inserts would simply be
+// rejected. The extraction step (AI reading the transcript) still runs
+// client-side — nothing sensitive there — but the actual SAVE now goes
+// through a single validated, rate-limited, service-role server endpoint
+// (api/chiefs-embed.js action=concierge-save) instead, which is the only
+// thing on the whole platform still allowed to write into another agent's
+// Client Memory Bank on their behalf, and only after checking the input
+// itself (not blindly trusting whatever the client claims).
 async function _conciergeTryExtractAndSave() {
   if (CONCIERGE_STATE.savedClientId || !CONCIERGE_STATE.agentId) return;
   var transcript = CONCIERGE_STATE.messages.map(function(m){ return (m.role === "user" ? "Visitor: " : "Assistant: ") + m.content; }).join("\n");
@@ -2659,51 +2692,22 @@ async function _conciergeTryExtractAndSave() {
     var raw = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
     var n = raw ? JSON.parse(raw) : {};
     if (!n.name || (!n.phone && !n.email)) return; // not enough to act on yet — keep chatting normally
-    var row = {
-      agent_id: CONCIERGE_STATE.agentId, client_name: n.name,
-      client_phone: n.phone || null, client_email: n.email || null,
-      purpose: n.purpose || "sale", prop_type: n.prop_type || "apartment",
-      beds_wanted: n.beds || null, areas_wanted: Array.isArray(n.areas) ? n.areas.filter(Boolean) : null,
-      min_price: n.min_price || null, max_price: n.max_price || null,
-      timeline: "flexible", status: "active", source: "livechat",
-      raw_conversation: transcript.slice(0, 3000), notes: n.summary || null,
-      updated_at: new Date().toISOString()
-    };
-    var saveResp = await fetch(SUPABASE_URL + "/rest/v1/chiefs_clients", {
-      method: "POST",
-      headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY, "Content-Type": "application/json", Prefer: "return=representation" },
-      body: JSON.stringify(row)
+
+    var saveResp = await fetch("/api/chiefs-embed?action=concierge-save", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        agentId: CONCIERGE_STATE.agentId, clientName: n.name,
+        clientPhone: n.phone || null, clientEmail: n.email || null,
+        purpose: n.purpose || "sale", propType: n.prop_type || "apartment",
+        bedsWanted: n.beds || null, areasWanted: Array.isArray(n.areas) ? n.areas.filter(Boolean) : null,
+        minPrice: n.min_price || null, maxPrice: n.max_price || null,
+        rawConversation: transcript.slice(0, 3000), notes: n.summary || null
+      })
     });
-    if (!saveResp.ok) return;
-    var saved = await saveResp.json();
-    var savedRow = Array.isArray(saved) && saved[0];
-    if (!savedRow) return;
-    CONCIERGE_STATE.savedClientId = savedRow.id;
-    // Embed for the agent's OWN later semantic auto-match runs (same
-    // fire-and-forget pattern chiefsSaveClient() itself already uses).
-    _chiefsEmbedText(_chiefsClientText(row), "RETRIEVAL_QUERY").then(function(emb) {
-      if (!emb) return;
-      fetch(SUPABASE_URL + "/rest/v1/chiefs_clients?id=eq." + savedRow.id, {
-        method: "PATCH", headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY, "Content-Type": "application/json", Prefer: "return=minimal" },
-        body: JSON.stringify({ embedding: emb })
-      }).catch(function(){});
-    }).catch(function(){});
-    // Immediate rule-based matching against this agent's already-fetched
-    // inventory — reuses the exact same _scoreMatch() the real Chiefs
-    // workspace uses, targeted explicitly at CONCIERGE_STATE.agentId instead
-    // of whatever _chiefsId() would resolve to on this visitor's device.
-    var newMatches = [];
-    CONCIERGE_STATE.listings.forEach(function(listing) {
-      var ms = _scoreMatch(row, listing);
-      if (ms) newMatches.push({ agent_id: CONCIERGE_STATE.agentId, client_id: savedRow.id, inventory_id: listing.id, match_score: ms.score, match_reasons: ms.reasons, status: "new" });
-    });
-    if (newMatches.length) {
-      fetch(SUPABASE_URL + "/rest/v1/chiefs_matches", {
-        method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY, "Content-Type": "application/json", Prefer: "return=minimal" },
-        body: JSON.stringify(newMatches)
-      }).catch(function(){});
-      CONCIERGE_STATE.matchesFound = newMatches.length;
-    }
+    var saved = await saveResp.json().catch(function(){ return {}; });
+    if (!saveResp.ok || !saved || !saved.ok) return;
+    CONCIERGE_STATE.savedClientId = saved.clientId;
+    CONCIERGE_STATE.matchesFound = saved.matchesFound || 0;
     render();
   } catch (e) {} // never surface extraction failures to the visitor — the chat itself keeps working either way
 }
@@ -2966,7 +2970,82 @@ function _renderChiefsBroadcast() {
 }
 
 // ── MAIN RENDER ───────────────────────────────────────────────────────────────
+// Real per-agent ownership (supabase-chiefs-security-lockdown.sql, 2026-07-19)
+// requires a genuine signed-in Supabase identity — chiefs_inventory/
+// chiefs_clients/chiefs_matches/chiefs_pipeline RLS now checks
+// auth.uid()::text = agent_id, so an anonymous browser-fingerprint identity
+// (the old _chiefsId() fallback) can no longer read or write anything here.
+// This gate — same "Sign In Required" pattern already used by Social Media
+// Manager (js/chat.js renderMediaStudio()) — stops the whole tab from even
+// trying before a real account exists, rather than silently showing empty
+// data with no explanation.
+function _renderChiefsSignInGate() {
+  var cl = C();
+  var gate = el("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"55vh",gap:"18px",padding:"40px 20px",textAlign:"center"}});
+  gate.appendChild(div({fontSize:"36px"},"🔒"));
+  gate.appendChild(div({color:"#F0F2F5",fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"Sign In Required"));
+  gate.appendChild(div({color:"#8899AA",fontSize:"13px",fontFamily:"'Inter',sans-serif",maxWidth:"320px",lineHeight:"1.6"},"AI Chief of Staff manages real client data — a free account keeps your Inventory, Client Memory Bank, and deal pipeline yours alone, never accessible to anyone else."));
+  var signInBtn = el("button",{style:{background:"linear-gradient(135deg,#D4AF37,#A07D1C)",border:"none",borderRadius:"10px",padding:"12px 36px",color:"#070B14",fontWeight:"700",fontSize:"13px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",letterSpacing:"0.06em"}});
+  signInBtn.textContent = "SIGN IN";
+  signInBtn.addEventListener("click",function(){ if (typeof DV_AUTH!=="undefined"){ DV_AUTH.showModal=true; DV_AUTH.modalTab="signin"; render(); } });
+  gate.appendChild(signInBtn);
+  var regLink = el("button",{style:{background:"transparent",border:"none",color:"#8899AA",fontSize:"12px",fontFamily:"'Inter',sans-serif",cursor:"pointer",textDecoration:"underline"}});
+  regLink.textContent = "Don't have an account? Sign up — it's free";
+  regLink.addEventListener("click",function(){ if (typeof DV_AUTH!=="undefined"){ DV_AUTH.showModal=true; DV_AUTH.modalTab="signup"; render(); } });
+  gate.appendChild(regLink);
+  return gate;
+}
+
+// One-time offer, shown right after a genuine sign-in, to re-point any data
+// this exact browser created anonymously (before the RLS lockdown, via the
+// old localStorage-fingerprint identity) onto the now-real signed-in
+// account — so tightening security never silently orphans an agent's own
+// past work. Dismissible either way; never shown again once resolved.
+function _chiefsClaimBannerState() {
+  var fp = localStorage.getItem("dv_chiefs_fp");
+  if (!fp || localStorage.getItem("dv_chiefs_claim_" + fp)) return null;
+  return fp;
+}
+async function _chiefsClaimWorkspace(fp) {
+  CHIEFS_STATE.claiming = true; render();
+  try {
+    var token = await _chiefsValidToken();
+    var r = await fetch(SUPABASE_URL + "/rest/v1/rpc/claim_chiefs_workspace", {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + (token || SUPABASE_KEY), "Content-Type": "application/json" },
+      body: JSON.stringify({ p_fingerprint: fp }),
+    });
+    var data = await r.json().catch(function(){ return {}; });
+    if (r.ok && data && data.ok) {
+      localStorage.setItem("dv_chiefs_claim_" + fp, "1");
+      var total = (data.inventory||0) + (data.clients||0) + (data.matches||0) + (data.pipeline||0);
+      _chiefsToast("✅", "Workspace claimed", total > 0 ? "Restored " + total + " item(s) from your previous session." : "Nothing to restore — you're all set.");
+      CHIEFS_STATE.loaded = {}; CHIEFS_STATE.inventory=[]; CHIEFS_STATE.clients=[]; CHIEFS_STATE.matches=[]; CHIEFS_STATE.pipeline=[];
+    } else {
+      alert("Could not claim your previous data: " + ((data && data.error) || "unknown error"));
+    }
+  } catch (e) {
+    alert("Could not claim your previous data — please try again.");
+  }
+  CHIEFS_STATE.claiming = false; render();
+}
+function _renderChiefsClaimBanner(fp) {
+  var cl = C();
+  var card = el("div",{style:{background:"rgba(59,130,246,0.06)",border:"1px solid rgba(59,130,246,0.25)",borderRadius:"12px",padding:"12px 14px",margin:"14px",display:"flex",alignItems:"center",gap:"10px",flexWrap:"wrap"}});
+  var info = el("div",{style:{flex:"1",minWidth:"180px"}});
+  info.appendChild(div({color:"#3B82F6",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"We found data from a previous session on this device"));
+  info.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.4"},"Claim it to attach it to your account — listings, clients, matches, and pipeline deals you added before signing in."));
+  card.appendChild(info);
+  var btns = el("div",{style:{display:"flex",gap:"6px",flexShrink:"0"}});
+  btns.appendChild(_chBtn(CHIEFS_STATE.claiming?"Claiming...":"Claim it","#3B82F6","#fff",function(){ if(!CHIEFS_STATE.claiming) _chiefsClaimWorkspace(fp); }));
+  btns.appendChild(_chBtn("Dismiss","rgba(255,255,255,0.06)","#8899AA",function(){ localStorage.setItem("dv_chiefs_claim_"+fp,"1"); render(); },{border:"1px solid rgba(255,255,255,0.1)"}));
+  card.appendChild(btns);
+  return card;
+}
+
 function renderChiefs() {
+  if (typeof DV_AUTH === "undefined" || !DV_AUTH.user) return _renderChiefsSignInGate();
+
   // Init: load data if not yet loaded
   if (!CHIEFS_STATE.loaded.inventory && !CHIEFS_STATE.loading.inventory) chiefsLoadInventory();
   if (!CHIEFS_STATE.loaded.clients && !CHIEFS_STATE.loading.clients) chiefsLoadClients();
@@ -2996,6 +3075,9 @@ function renderChiefs() {
   _chiBadge.appendChild(span({fontSize:'9px',color:'#D4A843',fontFamily:"'Space Grotesk',sans-serif",fontWeight:'700',letterSpacing:'0.08em'},'AGENT'));
   _chiH.appendChild(_chiBadge);
   wrap.appendChild(_chiH);
+
+  var _claimFp = _chiefsClaimBannerState();
+  if (_claimFp) wrap.appendChild(_renderChiefsClaimBanner(_claimFp));
 
   // Internal view tabs
   var VIEWS = [
