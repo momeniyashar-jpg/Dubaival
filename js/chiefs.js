@@ -59,6 +59,21 @@ function _chiefsH() {
   var token = localStorage.getItem("dv_access_token") || SUPABASE_KEY;
   return { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + token, "Content-Type": "application/json" };
 }
+// Server endpoints this tab calls (whatsapp-send, meta-conversion, the Whisper
+// transcription proxy) all resolve a REAL signed-in user server-side and
+// reject an expired JWT outright — unlike _chiefsH() above, whose RLS policy
+// tolerates anon so a stale token there is harmless. Supabase access tokens
+// last ~1h; this tab's whole pitch is an always-on background assistant
+// (auto-drafting/auto-sending/auto-reporting minutes-to-hours after the agent
+// last actively touched the page), so reading the raw, possibly-expired
+// localStorage token directly — as every one of those 3 call sites used to —
+// meant a real, silent "failed because I forgot to refresh your token" defect
+// on the exact automation this tab is supposed to deliver on. getValidToken()
+// (js/auth.js, loaded before this file) refreshes it first when needed.
+async function _chiefsValidToken() {
+  try { return (typeof getValidToken === "function") ? await getValidToken() : localStorage.getItem("dv_access_token"); }
+  catch (e) { return localStorage.getItem("dv_access_token"); }
+}
 function _fmtPrice(n) { if (!n) return "—"; return "AED " + Number(n).toLocaleString(); }
 function _timeAgo(ts) {
   if (!ts) return "—";
@@ -361,11 +376,15 @@ async function chiefsScannerAutoSave() {
   var savedName = r.client_name || "New client";
   CHIEFS_STATE.scanner = { open:false, text:"", parsing:false, result:null, error:null, source:"whatsapp", transcribing:false, transcribeError:null };
   await chiefsSaveClient();
+  // Real, previously-mislabeled bug: this toast navigates to the Clients
+  // view but always showed a hardcoded "View Matches →" button (the
+  // default label, since no 5th arg was ever passed) — an agent clicking
+  // it expecting Matches landed on Clients instead. Now explicit.
   _chiefsToast("🤖","Auto-saved: "+savedName,"Extracted from "+srcLabel+" and added to Client Memory Bank.",function(){
     CHIEFS_STATE.view="clients";
     if(window.APP_STATE){window.APP_STATE.currentSection="Network";window.APP_STATE.currentSubTab="Chiefs";}
     render();
-  });
+  }, "View Clients →");
 }
 
 function chiefsScannerApply() {
@@ -465,7 +484,7 @@ async function chiefsTranscribeVoiceCall(file) {
   render();
   try {
     var b64 = await _chiefsFileToBase64(file);
-    var accessToken = localStorage.getItem("dv_access_token");
+    var accessToken = await _chiefsValidToken();
     var resp = await fetch("/api/proxy-video", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ engine: "whisper", action: "transcribe", access_token: accessToken, audio_base64: b64, mime_type: file.type || "audio/webm" })
@@ -655,10 +674,9 @@ async function chiefsDraftMessage(matchId) {
       // Automation: send immediately without waiting for a click, unless the
       // agent has turned "Auto-send matched messages" off in Automation
       // Settings — matches the standing per-process auto/approval directive.
-      if (CHIEFS_AUTOMATION.autoSend) {
-        var sent = await chiefsSendMatchMessage(matchId);
-        if (sent) _chiefsToast("🤖","Auto-sent to "+client.client_name,listing.area+(listing.building?" · "+listing.building:""));
-      }
+      // chiefsSendMatchMessage() itself now always surfaces a toast either
+      // way (see its own comment) — no separate feedback needed here.
+      if (CHIEFS_AUTOMATION.autoSend) await chiefsSendMatchMessage(matchId);
     }
   } catch(e) { alert("AI drafting failed: " + (e.message||"error")); }
   CHIEFS_STATE.matchDrafting[matchId] = false; render();
@@ -670,10 +688,29 @@ async function chiefsDraftMessage(matchId) {
 // clipboard + a wa.me deep-link (opens the agent's own WhatsApp app,
 // pre-filled) only when the agent hasn't connected WhatsApp Business API yet
 // or the client has no phone on file — never a hard failure.
+//
+// Fixed a real, confirmed silent-failure gap: this is called from BOTH a
+// direct agent click (chiefsApproveMatch) AND fully automatically with zero
+// user gesture at all (chiefsDraftMessage's auto-send branch, which fires
+// the instant _chiefsAutoMatch() drafts a message — no click in the chain
+// whatsoever). Previously, on a failed send (WhatsApp Business API not
+// connected, no credit left, or an expired access token — see
+// _chiefsValidToken() above), the ONLY recovery attempt was an immediate
+// window.open() call — but a popup opened from an async callback with no
+// real user gesture is silently blocked by every modern browser, and the
+// automatic caller showed literally nothing when `sent` was false (the old
+// code only ever toasted on success: `if (sent) _chiefsToast(...)`). An
+// agent relying on "AI Chief of Staff sends messages automatically" had no
+// way to discover a failed auto-send short of manually opening the Matches
+// tab and noticing a stuck "approved" (not "sent") status. Now this
+// function is the single source of truth for feedback — it always shows a
+// toast, and the toast's own click handler (a genuine user gesture) can
+// reliably reopen wa.me even if the earlier automatic attempt got blocked.
 async function chiefsSendMatchMessage(matchId) {
   var match = CHIEFS_STATE.matches.find(function(m){ return m.id===matchId; });
   if (!match || !match.draft_message) return false;
   var client = CHIEFS_STATE.clients.find(function(c){ return c.id===match.client_id; });
+  var listing = CHIEFS_STATE.inventory.find(function(l){ return l.id===match.inventory_id; });
   var sent = false;
   if (client && client.client_phone) {
     sent = await _chiefsRawWhatsAppSend(client.client_phone, match.draft_message);
@@ -685,10 +722,18 @@ async function chiefsSendMatchMessage(matchId) {
     var m = CHIEFS_STATE.matches.find(function(x){ return x.id===matchId; });
     if (m) m.status = sent?"sent":"approved";
   } catch(e) {}
+  var manualLink = null;
   if (!sent && client && client.client_phone) {
     try { await navigator.clipboard.writeText(match.draft_message); } catch(e) {}
-    var phone2 = client.client_phone.replace(/[^0-9+]/g,"");
-    window.open("https://wa.me/" + phone2 + "?text=" + encodeURIComponent(match.draft_message), "_blank", "noopener,noreferrer");
+    manualLink = "https://wa.me/" + client.client_phone.replace(/[^0-9+]/g,"") + "?text=" + encodeURIComponent(match.draft_message);
+    try { window.open(manualLink, "_blank", "noopener,noreferrer"); } catch(e) {}
+  }
+  if (client) {
+    if (sent) {
+      _chiefsToast("✅","Sent to "+client.client_name,listing?(listing.area+(listing.building?" · "+listing.building:"")+" · via WhatsApp Business API"):"via WhatsApp Business API");
+    } else if (manualLink) {
+      _chiefsToast("⚠️","Not sent automatically","Message copied for "+client.client_name+" — WhatsApp Business API isn't connected (or ran out of credit).", function(){ window.open(manualLink, "_blank", "noopener,noreferrer"); }, "Open WhatsApp →");
+    }
   }
   render();
   return sent;
@@ -696,12 +741,11 @@ async function chiefsSendMatchMessage(matchId) {
 
 // The single "one-click approval" action per the automation directive:
 // clicking Approve actually SENDS the message (real API), it doesn't just
-// copy it for the agent to paste elsewhere. Falls back gracefully (see
-// chiefsSendMatchMessage) if WhatsApp Business API isn't connected yet.
+// copy it for the agent to paste elsewhere. Feedback (success or the
+// needs-manual-follow-up case) is now handled uniformly inside
+// chiefsSendMatchMessage() itself — see its own comment.
 async function chiefsApproveMatch(matchId) {
-  var sent = await chiefsSendMatchMessage(matchId);
-  if (sent) _chiefsToast("✅","Message sent!","Delivered via WhatsApp Business API.");
-  else alert("Couldn't send automatically (connect WhatsApp Business API in Social Setup, or this client has no phone on file). Message copied — your WhatsApp app should have opened to send it manually.");
+  await chiefsSendMatchMessage(matchId);
 }
 
 // Manual override for an agent who deliberately wants to send from their own
@@ -859,7 +903,7 @@ function _renderChiefsAutomationSettings() {
   return card;
 }
 
-function _chiefsToast(icon, title, subtitle, onView) {
+function _chiefsToast(icon, title, subtitle, onView, viewLabel) {
   var ctr = document.getElementById("chiefs-toast-ctr");
   if (!ctr) {
     ctr = document.createElement("div");
@@ -891,7 +935,7 @@ function _chiefsToast(icon, title, subtitle, onView) {
   t.appendChild(row);
   // View button
   if (onView) {
-    var vb = document.createElement("div"); vb.style.cssText = "background:rgba(212,175,55,0.12);border:1px solid rgba(212,175,55,0.25);border-radius:6px;padding:5px 10px;color:#D4AF37;font-size:11px;font-weight:700;font-family:'Space Grotesk',monospace;margin-top:8px;display:inline-block;cursor:pointer"; vb.textContent = "View Matches →"; t.appendChild(vb);
+    var vb = document.createElement("div"); vb.style.cssText = "background:rgba(212,175,55,0.12);border:1px solid rgba(212,175,55,0.25);border-radius:6px;padding:5px 10px;color:#D4AF37;font-size:11px;font-weight:700;font-family:'Space Grotesk',monospace;margin-top:8px;display:inline-block;cursor:pointer"; vb.textContent = viewLabel || "View Matches →"; t.appendChild(vb);
     t.style.cursor = "pointer"; t.addEventListener("click", function(){ onView(); dismiss(); });
   }
   // Progress bar
@@ -981,6 +1025,16 @@ function _chiefsComputeSignals() {
     return (m.status === "new" || m.status === "draft_ready") && age !== null && age < 1;
   });
 
+  // New leads the AI Concierge (public livechat link) captured overnight —
+  // real proactive signal an agent should see first thing, matching the
+  // "feels like a hired assistant, not a tool you babysit" vision: the
+  // agent should learn a cold lead came in while they were asleep, not have
+  // to remember to go check the Clients tab for a "livechat" badge.
+  var newLivechatLeads = cli.filter(function(c) {
+    var age = _daysSince(c.created_at);
+    return c.source === "livechat" && age !== null && age < 1;
+  });
+
   var staleClients = cli.filter(function(c) {
     var age = _daysSince(c.updated_at || c.created_at);
     return c.status === "active" && age !== null && age >= 5;
@@ -999,7 +1053,7 @@ function _chiefsComputeSignals() {
     return l.status === "available" && age !== null && age >= 30;
   });
 
-  return { newMatches: newMatches, staleClients: staleClients, overdueActions: overdueActions,
+  return { newMatches: newMatches, newLivechatLeads: newLivechatLeads, staleClients: staleClients, overdueActions: overdueActions,
     todayActions: todayActions, stuckDeals: stuckDeals, agingListings: agingListings };
 }
 
@@ -1015,6 +1069,9 @@ function _chiefsSmartTodo(s) {
   s.todayActions.forEach(function(p) {
     items.push({ urgency: 2, color: "#F59E0B", title: p.client_name, sub: "Due today: " + p.next_action, badge: "Today", view: "pipeline" });
   });
+  s.newLivechatLeads.forEach(function(c) {
+    items.push({ urgency: 2, color: "#D4AF37", title: c.client_name, sub: "New lead via AI Concierge — reach out today", badge: "New", view: "clients" });
+  });
   s.stuckDeals.forEach(function(p) {
     items.push({ urgency: 3, color: "#8B5CF6", title: p.client_name, sub: "No update in " + _daysSince(p.updated_at || p.created_at) + "d · stage: " + p.stage, badge: null, view: "pipeline" });
   });
@@ -1029,7 +1086,7 @@ function _chiefsSmartTodo(s) {
 }
 
 function _chiefsSignalsHavePayload(s) {
-  return s.newMatches.length + s.staleClients.length + s.overdueActions.length +
+  return s.newMatches.length + s.newLivechatLeads.length + s.staleClients.length + s.overdueActions.length +
     s.todayActions.length + s.stuckDeals.length + s.agingListings.length > 0;
 }
 
@@ -1048,6 +1105,8 @@ async function _chiefsGenerateBriefing(force) {
   try {
     var facts = [];
     if (s.newMatches.length) facts.push(s.newMatches.length + " new client-listing match(es) found in the last 24h.");
+    if (s.newLivechatLeads.length) facts.push(s.newLivechatLeads.length + " new lead(s) came in via your AI Concierge link in the last 24h: " +
+      s.newLivechatLeads.map(function(c) { return c.client_name; }).join(", ") + ".");
     if (s.todayActions.length) facts.push(s.todayActions.length + " pipeline action(s) due TODAY: " +
       s.todayActions.map(function(p) { return p.client_name + " (" + p.next_action + ")"; }).join("; ") + ".");
     if (s.overdueActions.length) facts.push(s.overdueActions.length + " pipeline action(s) OVERDUE: " +
@@ -1123,6 +1182,7 @@ function _renderChiefsDashboard() {
   if (briefingCard) wrap.appendChild(briefingCard);
 
   wrap.appendChild(_renderChiefsAutomationSettings());
+  wrap.appendChild(_renderChiefsConciergeCard());
 
   // Stats row
   var inv = CHIEFS_STATE.inventory; var cli = CHIEFS_STATE.clients;
@@ -1564,6 +1624,7 @@ function _renderChiefsClients() {
     tRow.appendChild(_chBadge(item.timeline||"flexible",tlColor));
     if (item.status!=="active") tRow.appendChild(_chBadge(item.status,"#6B7A9E"));
     if (item.source==="whatsapp") tRow.appendChild(_chBadge("WhatsApp","#25D366"));
+    if (item.source==="livechat") tRow.appendChild(_chBadge("🔗 AI Concierge","#D4AF37"));
     left.appendChild(tRow);
     var sRow = el("div",{style:{display:"flex",gap:"8px",flexWrap:"wrap",alignItems:"center"}});
     if (item.beds_wanted) sRow.appendChild(span({color:cl.sub,fontSize:"11px"},item.beds_wanted+" "+item.prop_type));
@@ -2098,7 +2159,7 @@ var CHIEFS_COPILOT = {
 async function _chiefsRawWhatsAppSend(phone, text) {
   if (!phone || !text) return false;
   try {
-    var accessToken = localStorage.getItem("dv_access_token");
+    var accessToken = await _chiefsValidToken();
     var resp = await fetch("/api/inbox?action=whatsapp-send", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ access_token: accessToken, to: phone.replace(/\D/g,""), message: text })
@@ -2118,7 +2179,7 @@ async function _chiefsRawWhatsAppSend(phone, text) {
 // should ever be blocked or bothered by.
 async function _chiefsReportConversion(client) {
   try {
-    var accessToken = localStorage.getItem("dv_access_token");
+    var accessToken = await _chiefsValidToken();
     await fetch("/api/inbox?action=meta-conversion", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2336,7 +2397,7 @@ async function chiefsCopilotSaveClient() {
       CHIEFS_STATE.view="clients";
       if(window.APP_STATE){window.APP_STATE.currentSection="Network";window.APP_STATE.currentSubTab="Chiefs";}
       render();
-    });
+    }, "View Clients →");
   } else {
     row.open = true;
     CHIEFS_STATE.cliForm = row;
@@ -2486,6 +2547,424 @@ function renderChiefsCopilotOverlay() {
   return wrap;
 }
 
+// ── AI CONCIERGE — public, no-sign-in-required live chat widget ─────────────
+// Direct build-out of the 2 ideas discussed after reviewing respond.io's own
+// product ("Your best sales agent doesn't sleep"): (1) below — a live-chat
+// entry point that captures COLD leads (people who have never opened
+// DubAIVal, let alone signed in) straight into an agent's own Client Memory
+// Bank; (2) the BROADCAST section further down — message a whole segment of
+// EXISTING clients at once, instead of only one-to-one auto-matching.
+//
+// Deliberately NOT built on _chiefsAutoMatch()/chiefsSaveClient()/
+// CHIEFS_STATE — all of those resolve the CURRENT BROWSER's own agent via
+// _chiefsId(). On a stranger's phone opening a shared concierge link, that
+// would silently be a brand-new, meaningless per-browser fingerprint, not
+// the real agent whose link they opened. Every function below takes the
+// target agentId explicitly and talks to Supabase directly with the plain
+// anon key (identical to how an anonymous, not-signed-in agent already uses
+// the rest of this file today), keeping this entire feature self-contained
+// so it can never clobber or read the wrong agent's real workspace state.
+//
+// SECURITY NOTE — investigated, flagged, deliberately NOT unilaterally
+// changed: chiefs_inventory/chiefs_clients/chiefs_matches RLS is `FOR ALL TO
+// anon, authenticated USING (true)` (supabase-chiefs-schema.sql's own
+// comment: "allow all via anon key — app filters by agent_id client-side"),
+// a deliberate original design choice so an agent can use the whole Chiefs
+// workspace with zero sign-in at all (see _chiefsId()'s localStorage-
+// fingerprint fallback above). That means ANY caller who already knows (or
+// guesses) an agent_id can already read or write that agent's ENTIRE
+// workspace via a direct Supabase REST call — a real, pre-existing gap, not
+// introduced by this feature. Publishing a shareable public link that
+// embeds an agentId makes that id somewhat more discoverable than before,
+// so this is worth calling out plainly — but tightening chiefs_* RLS to
+// real per-agent ownership would require rethinking the anonymous-
+// fingerprint-agent model this whole file is built on, a bigger, separate
+// decision for the user, not something to change unilaterally mid-feature.
+var CONCIERGE_STATE = {
+  agentId: null, valid: false, listings: [], listingsLoaded: false,
+  messages: [], input: "", sending: false, error: null,
+  savedClientId: null, matchesFound: 0
+};
+
+function _conciergeLink(agentId) {
+  var base = (typeof window !== "undefined") ? (window.location.origin + window.location.pathname) : "";
+  return base + "#concierge=" + encodeURIComponent(agentId);
+}
+
+async function _conciergeInit(agentId) {
+  CONCIERGE_STATE.agentId = agentId || null;
+  CONCIERGE_STATE.valid = !!agentId;
+  CONCIERGE_STATE.messages = [{ role: "assistant", content: "Hi! I'm this agent's AI real estate assistant. Tell me what you're looking for — buying or renting, area, budget, bedrooms — and I'll try to match you against their current listings." }];
+  render();
+  if (!agentId) return;
+  try {
+    var r = await fetch(SUPABASE_URL + "/rest/v1/chiefs_inventory?agent_id=eq." + encodeURIComponent(agentId) +
+      "&status=in.(available,pocket)&select=id,area,building,prop_type,beds,price,purpose,size_sqft,view_type,furnished,dv_verdict&order=created_at.desc&limit=60",
+      { headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY } });
+    CONCIERGE_STATE.listings = r.ok ? await r.json() : [];
+  } catch (e) { CONCIERGE_STATE.listings = []; }
+  CONCIERGE_STATE.listingsLoaded = true;
+  render();
+}
+
+function _conciergeInventorySummary() {
+  var l = CONCIERGE_STATE.listings;
+  if (!l.length) return "This agent has no listings loaded yet — answer generally and focus on capturing what the visitor wants, don't invent specific properties.";
+  return l.slice(0, 25).map(function(x) {
+    return "- " + (x.beds ? x.beds + " " : "") + (x.prop_type || "property") + " for " + x.purpose + " in " + x.area +
+      (x.building ? " (" + x.building + ")" : "") + (x.price ? ", AED " + Number(x.price).toLocaleString() + (x.purpose === "rent" ? "/yr" : "") : "") +
+      (x.size_sqft ? ", " + x.size_sqft + " sqft" : "");
+  }).join("\n");
+}
+
+async function conciergeSend() {
+  var text = (CONCIERGE_STATE.input || "").trim();
+  if (!text || CONCIERGE_STATE.sending) return;
+  CONCIERGE_STATE.messages.push({ role: "user", content: text });
+  CONCIERGE_STATE.input = ""; CONCIERGE_STATE.sending = true; CONCIERGE_STATE.error = null;
+  render();
+  try {
+    var sys = "You are a friendly, professional real estate assistant working on behalf of a Dubai real estate agent. " +
+      "Here is this agent's current available inventory:\n" + _conciergeInventorySummary() +
+      "\n\nHelp the visitor find a match from the list above when relevant — never invent a listing that isn't on this list. " +
+      "Naturally ask for their name and a phone number or email once (not repeatedly) so the agent can follow up personally. " +
+      "Keep replies short (2-4 sentences), warm, and end with a clear next step or question. No markdown symbols.";
+    var history = CONCIERGE_STATE.messages.slice(-10).map(function(m){ return { role: m.role, content: m.content }; });
+    var reply = await askAI(history, sys);
+    CONCIERGE_STATE.messages.push({ role: "assistant", content: reply || "Sorry, could you say that again?" });
+  } catch (e) {
+    CONCIERGE_STATE.error = "Something went wrong — please try again.";
+  }
+  CONCIERGE_STATE.sending = false;
+  render();
+  _conciergeTryExtractAndSave();
+}
+
+// Runs after every exchange (fire-and-forget, never blocks the chat UI) — a
+// lightweight AI pass over the transcript so far checking whether we now
+// have enough (a name plus a phone or email) to create a real Client Memory
+// Bank record for the target agent. Fires at most once per visit.
+async function _conciergeTryExtractAndSave() {
+  if (CONCIERGE_STATE.savedClientId || !CONCIERGE_STATE.agentId) return;
+  var transcript = CONCIERGE_STATE.messages.map(function(m){ return (m.role === "user" ? "Visitor: " : "Assistant: ") + m.content; }).join("\n");
+  try {
+    var r = await callGroqRaw({
+      model: "llama-3.3-70b-versatile", response_format: { type: "json_object" }, temperature: 0.1, max_tokens: 400,
+      messages: [
+        { role: "system", content: "Extract from this real estate chat, ONLY if actually present: name (string or null), phone (digits only or null), email (or null), purpose (\"sale\" or \"rent\", default \"sale\"), prop_type (\"apartment\",\"villa\",\"townhouse\",\"penthouse\" or null), beds (\"Studio\",\"1 BR\",\"2 BR\",\"3 BR\",\"4 BR\",\"5+ BR\" or null), areas (array of Dubai area names, max 5), max_price (number or null), min_price (number or null), summary (1 sentence). Return strict JSON only, no prose." },
+        { role: "user", content: transcript.slice(0, 3000) }
+      ]
+    });
+    var data = await r.json();
+    var raw = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+    var n = raw ? JSON.parse(raw) : {};
+    if (!n.name || (!n.phone && !n.email)) return; // not enough to act on yet — keep chatting normally
+    var row = {
+      agent_id: CONCIERGE_STATE.agentId, client_name: n.name,
+      client_phone: n.phone || null, client_email: n.email || null,
+      purpose: n.purpose || "sale", prop_type: n.prop_type || "apartment",
+      beds_wanted: n.beds || null, areas_wanted: Array.isArray(n.areas) ? n.areas.filter(Boolean) : null,
+      min_price: n.min_price || null, max_price: n.max_price || null,
+      timeline: "flexible", status: "active", source: "livechat",
+      raw_conversation: transcript.slice(0, 3000), notes: n.summary || null,
+      updated_at: new Date().toISOString()
+    };
+    var saveResp = await fetch(SUPABASE_URL + "/rest/v1/chiefs_clients", {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY, "Content-Type": "application/json", Prefer: "return=representation" },
+      body: JSON.stringify(row)
+    });
+    if (!saveResp.ok) return;
+    var saved = await saveResp.json();
+    var savedRow = Array.isArray(saved) && saved[0];
+    if (!savedRow) return;
+    CONCIERGE_STATE.savedClientId = savedRow.id;
+    // Embed for the agent's OWN later semantic auto-match runs (same
+    // fire-and-forget pattern chiefsSaveClient() itself already uses).
+    _chiefsEmbedText(_chiefsClientText(row), "RETRIEVAL_QUERY").then(function(emb) {
+      if (!emb) return;
+      fetch(SUPABASE_URL + "/rest/v1/chiefs_clients?id=eq." + savedRow.id, {
+        method: "PATCH", headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY, "Content-Type": "application/json", Prefer: "return=minimal" },
+        body: JSON.stringify({ embedding: emb })
+      }).catch(function(){});
+    }).catch(function(){});
+    // Immediate rule-based matching against this agent's already-fetched
+    // inventory — reuses the exact same _scoreMatch() the real Chiefs
+    // workspace uses, targeted explicitly at CONCIERGE_STATE.agentId instead
+    // of whatever _chiefsId() would resolve to on this visitor's device.
+    var newMatches = [];
+    CONCIERGE_STATE.listings.forEach(function(listing) {
+      var ms = _scoreMatch(row, listing);
+      if (ms) newMatches.push({ agent_id: CONCIERGE_STATE.agentId, client_id: savedRow.id, inventory_id: listing.id, match_score: ms.score, match_reasons: ms.reasons, status: "new" });
+    });
+    if (newMatches.length) {
+      fetch(SUPABASE_URL + "/rest/v1/chiefs_matches", {
+        method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY, "Content-Type": "application/json", Prefer: "return=minimal" },
+        body: JSON.stringify(newMatches)
+      }).catch(function(){});
+      CONCIERGE_STATE.matchesFound = newMatches.length;
+    }
+    render();
+  } catch (e) {} // never surface extraction failures to the visitor — the chat itself keeps working either way
+}
+
+function renderConciergePage() {
+  var cl = C();
+  var page = el("div", { style: { minHeight: "100vh", background: cl.bg, display: "flex", flexDirection: "column" } });
+  if (!CONCIERGE_STATE.valid) {
+    var errWrap = el("div", { style: { flex: "1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", textAlign: "center" } });
+    errWrap.appendChild(div({ color: cl.white, fontSize: "16px", fontWeight: "700", fontFamily: "'Space Grotesk',monospace", marginBottom: "8px" }, "This chat link isn't valid"));
+    errWrap.appendChild(div({ color: cl.sub, fontSize: "13px", fontFamily: "'Inter',sans-serif" }, "Ask your agent for their correct DubAIVal concierge link."));
+    page.appendChild(errWrap);
+    return page;
+  }
+  var hdr = el("div", { style: { padding: "16px", borderBottom: "1px solid " + cl.border, display: "flex", alignItems: "center", gap: "10px", flexShrink: "0" } });
+  var hIcon = el("div", { style: { width: "38px", height: "38px", borderRadius: "10px", background: "rgba(212,175,55,0.15)", border: "1px solid rgba(212,175,55,0.35)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: "0" } });
+  hIcon.innerHTML = '<i data-lucide="bot" style="width:19px;height:19px;color:#D4AF37"></i>';
+  hdr.appendChild(hIcon);
+  var hInfo = el("div", { style: { flex: "1", minWidth: "0" } });
+  hInfo.appendChild(div({ color: "#D4AF37", fontSize: "14px", fontWeight: "700", fontFamily: "'Space Grotesk',monospace" }, "AI Real Estate Concierge"));
+  hInfo.appendChild(div({ color: cl.muted, fontSize: "11px", fontFamily: "'Inter',sans-serif" }, CONCIERGE_STATE.listingsLoaded ? (CONCIERGE_STATE.listings.length + " current listing" + (CONCIERGE_STATE.listings.length !== 1 ? "s" : "") + " available") : "Loading..."));
+  hdr.appendChild(hInfo);
+  page.appendChild(hdr);
+
+  var msgWrap = el("div", { style: { flex: "1", overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: "10px" } });
+  CONCIERGE_STATE.messages.forEach(function(m) {
+    var isUser = m.role === "user";
+    var bubble = el("div", { style: {
+      alignSelf: isUser ? "flex-end" : "flex-start", maxWidth: "80%",
+      background: isUser ? "rgba(212,175,55,0.15)" : cl.surface, border: "1px solid " + (isUser ? "rgba(212,175,55,0.3)" : cl.border),
+      borderRadius: "14px", padding: "10px 13px", color: cl.white, fontSize: "13px", lineHeight: "1.5", fontFamily: "'Inter',sans-serif", whiteSpace: "pre-wrap"
+    } });
+    bubble.textContent = m.content;
+    msgWrap.appendChild(bubble);
+  });
+  if (CONCIERGE_STATE.sending) {
+    var typing = el("div", { style: { alignSelf: "flex-start", color: cl.muted, fontSize: "12px", fontFamily: "'Inter',sans-serif", padding: "4px 8px" } });
+    typing.textContent = "Typing...";
+    msgWrap.appendChild(typing);
+  }
+  if (CONCIERGE_STATE.error) {
+    msgWrap.appendChild(div({ alignSelf: "center", color: "#EF4444", fontSize: "11.5px", fontFamily: "'Inter',sans-serif" }, CONCIERGE_STATE.error));
+  }
+  if (CONCIERGE_STATE.savedClientId) {
+    var savedNote = el("div", { style: { alignSelf: "center", background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)", borderRadius: "10px", padding: "8px 14px", color: "#10B981", fontSize: "11px", fontFamily: "'Inter',sans-serif", textAlign: "center" } });
+    savedNote.textContent = "✓ Your details were shared with the agent" + (CONCIERGE_STATE.matchesFound ? " — " + CONCIERGE_STATE.matchesFound + " matching listing" + (CONCIERGE_STATE.matchesFound > 1 ? "s" : "") + " found!" : " — they'll follow up soon.");
+    msgWrap.appendChild(savedNote);
+  }
+  page.appendChild(msgWrap);
+
+  var inRow = el("div", { style: { padding: "12px 16px", borderTop: "1px solid " + cl.border, display: "flex", gap: "8px", flexShrink: "0" } });
+  var inp = el("input", { style: { flex: "1", minWidth: "0", background: cl.surfaceSolid || "#0D1220", border: "1px solid " + cl.border, borderRadius: "10px", padding: "11px 14px", color: cl.white, fontSize: "13px", fontFamily: "'Inter',sans-serif", outline: "none", boxSizing: "border-box" } });
+  inp.type = "text"; inp.placeholder = "Type your message..."; inp.value = CONCIERGE_STATE.input;
+  inp.addEventListener("input", function(){ CONCIERGE_STATE.input = this.value; });
+  inp.addEventListener("keydown", function(e){ if (e.key === "Enter" && !CONCIERGE_STATE.sending) conciergeSend(); });
+  inRow.appendChild(inp);
+  var sendBtn = el("button", { style: { background: "#D4AF37", border: "none", borderRadius: "10px", padding: "0 18px", color: "#000", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "'Space Grotesk',monospace", flexShrink: "0" } });
+  sendBtn.textContent = "Send"; sendBtn.disabled = CONCIERGE_STATE.sending;
+  sendBtn.addEventListener("click", function(){ if (!CONCIERGE_STATE.sending) conciergeSend(); });
+  inRow.appendChild(sendBtn);
+  page.appendChild(inRow);
+
+  var foot = el("div", { style: { textAlign: "center", padding: "8px", fontSize: "10px", color: cl.muted, fontFamily: "'Inter',sans-serif", flexShrink: "0" } });
+  var footLink = el("a", { style: { color: cl.muted, textDecoration: "none" } });
+  footLink.href = "./"; footLink.textContent = "Powered by DubAIVal";
+  foot.appendChild(footLink);
+  page.appendChild(foot);
+
+  return page;
+}
+
+// Small card shown at the top of the agent's own Dashboard — the discovery
+// mechanism for the feature above. Without a visible "here's your link, copy
+// it" UI an agent would have no way to even find, let alone deploy, their
+// own concierge page.
+function _renderChiefsConciergeCard() {
+  var cl = C();
+  var card = el("div", { style: { background: cl.surface, border: "1px solid " + cl.border, borderRadius: "14px", padding: "14px 16px", marginBottom: "16px" } });
+  var hdr = el("div", { style: { display: "flex", alignItems: "center", gap: "7px", marginBottom: "6px" } });
+  hdr.appendChild(span({ fontSize: "14px" }, "🔗"));
+  hdr.appendChild(div({ color: cl.white, fontSize: "11px", fontWeight: "800", letterSpacing: "0.06em", fontFamily: "'Space Grotesk',monospace" }, "YOUR AI CONCIERGE LINK"));
+  card.appendChild(hdr);
+  card.appendChild(div({ color: cl.muted, fontSize: "10.5px", marginBottom: "10px", fontFamily: "'Inter',sans-serif", lineHeight: "1.4" }, "Share this anywhere — Instagram bio, WhatsApp status, business card. Anyone who opens it chats with an AI grounded in your own live listings; real leads save straight to your Client Memory Bank automatically, day or night."));
+  var link = _conciergeLink(_chiefsId());
+  var linkRow = el("div", { style: { display: "flex", gap: "8px", alignItems: "center" } });
+  var linkBox = el("input", { style: { flex: "1", minWidth: "0", background: "#070B14", border: "1px solid " + cl.border, borderRadius: "8px", padding: "9px 11px", color: cl.sub, fontSize: "11px", fontFamily: "monospace", boxSizing: "border-box" } });
+  linkBox.type = "text"; linkBox.value = link; linkBox.readOnly = true;
+  linkBox.addEventListener("click", function(){ this.select(); });
+  linkRow.appendChild(linkBox);
+  var copyBtn = el("button", { style: { background: "rgba(212,175,55,0.12)", border: "1px solid rgba(212,175,55,0.3)", color: "#D4AF37", borderRadius: "8px", padding: "9px 14px", fontSize: "11px", fontWeight: "700", cursor: "pointer", fontFamily: "'Space Grotesk',monospace", flexShrink: "0" } });
+  copyBtn.textContent = "Copy";
+  copyBtn.addEventListener("click", function() {
+    navigator.clipboard.writeText(link).then(function(){ copyBtn.textContent = "Copied!"; setTimeout(function(){ copyBtn.textContent = "Copy"; }, 2000); }).catch(function(){});
+  });
+  linkRow.appendChild(copyBtn);
+  card.appendChild(linkRow);
+  var leadsCount = CHIEFS_STATE.clients.filter(function(c){ return c.source === "livechat"; }).length;
+  if (leadsCount > 0) card.appendChild(div({ color: "#10B981", fontSize: "10.5px", marginTop: "8px", fontFamily: "'Inter',sans-serif" }, "✓ " + leadsCount + " lead" + (leadsCount > 1 ? "s" : "") + " captured via this link so far"));
+  return card;
+}
+
+// ── BROADCAST — message a whole segment of clients at once ──────────────────
+// The 2nd idea: Auto-Matching already handles ONE listing <-> ONE client at
+// a time; there was no way to say "tell everyone looking for a villa in JVC
+// about this new listing" in one action. Requires the real, connected
+// WhatsApp Business API — broadcasting via the same clipboard+wa.me fallback
+// used elsewhere in this file would mean popping open dozens of browser
+// tabs at once (which browsers block anyway), so that fallback is
+// deliberately NOT offered here; the UI says so plainly instead of silently
+// attempting something that can't actually work at this scale.
+var CHIEFS_BROADCAST = {
+  filterArea: "", filterPurpose: "any", filterType: "any",
+  listingId: "", message: "", drafting: false,
+  sending: false, progress: { done: 0, total: 0, sentCount: 0, failedCount: 0, noPhoneCount: 0 },
+  lastRun: (function() { try { return JSON.parse(localStorage.getItem("dv_chiefs_broadcast_last") || "null"); } catch (e) { return null; } })()
+};
+
+function _chiefsBroadcastSegment() {
+  var f = CHIEFS_BROADCAST;
+  return CHIEFS_STATE.clients.filter(function(c) {
+    if (c.status !== "active") return false;
+    if (f.filterPurpose !== "any" && c.purpose !== f.filterPurpose) return false;
+    if (f.filterType !== "any" && c.prop_type !== f.filterType) return false;
+    if (f.filterArea.trim()) {
+      var areas = Array.isArray(c.areas_wanted) ? c.areas_wanted : [];
+      var needle = f.filterArea.trim().toLowerCase();
+      if (!areas.some(function(a){ return a && a.toLowerCase().indexOf(needle) !== -1; })) return false;
+    }
+    return true;
+  });
+}
+
+async function chiefsBroadcastDraft() {
+  var f = CHIEFS_BROADCAST;
+  var listing = f.listingId ? CHIEFS_STATE.inventory.find(function(l){ return l.id === f.listingId; }) : null;
+  f.drafting = true; render();
+  try {
+    var context = listing
+      ? ("New listing to mention: " + (listing.beds||"") + " " + listing.prop_type + " in " + listing.area + (listing.building?" at "+listing.building:"") + ", AED " + Number(listing.price||0).toLocaleString() + (listing.purpose==="rent"?"/yr":"") + ".")
+      : ("A property matching their criteria" + (f.filterArea ? " in " + f.filterArea : "") + ".");
+    var prompt = "Write a short, warm WhatsApp broadcast message (2-3 sentences, no asterisks or markdown symbols) from a real estate agent to a group of clients who are all looking for " +
+      (f.filterType !== "any" ? f.filterType + "s" : "a property") + " for " + (f.filterPurpose !== "any" ? f.filterPurpose : "sale or rent") +
+      (f.filterArea ? " in " + f.filterArea : "") + ". " + context + " Start with {name} as a placeholder for the client's first name (it will be replaced per recipient). End with a clear call to action to reply for details or to book a viewing.";
+    var result = await askAI([{ role: "user", content: prompt }], "You are a professional Dubai real estate agent writing a broadcast WhatsApp message to multiple clients at once.");
+    f.message = (result || "").trim();
+  } catch (e) { alert("Drafting failed: " + (e.message || "error")); }
+  f.drafting = false; render();
+}
+
+async function chiefsBroadcastSend() {
+  var f = CHIEFS_BROADCAST;
+  var segment = _chiefsBroadcastSegment();
+  var withPhone = segment.filter(function(c){ return c.client_phone; });
+  var noPhone = segment.length - withPhone.length;
+  if (!f.message.trim()) { alert("Write or draft a message first."); return; }
+  if (!withPhone.length) { alert("No clients in this segment have a phone number on file."); return; }
+  if (!confirm("Send this message to " + withPhone.length + " client" + (withPhone.length > 1 ? "s" : "") + " via WhatsApp? This may use up to " + withPhone.length + " WhatsApp credits (fewer if some already have an open 24h window).")) return;
+  f.sending = true;
+  f.progress = { done: 0, total: withPhone.length, sentCount: 0, failedCount: 0, noPhoneCount: noPhone };
+  render();
+  for (var i = 0; i < withPhone.length; i++) {
+    var c = withPhone[i];
+    var personalized = f.message.replace(/\{name\}/gi, (c.client_name || "").split(" ")[0] || "there");
+    var ok = false;
+    try { ok = await _chiefsRawWhatsAppSend(c.client_phone, personalized); } catch (e) {}
+    f.progress.done++;
+    if (ok) f.progress.sentCount++; else f.progress.failedCount++;
+    render();
+    if (i < withPhone.length - 1) await new Promise(function(res){ setTimeout(res, 350); }); // gentle pacing — avoid hammering the send API
+  }
+  f.sending = false;
+  f.lastRun = { at: new Date().toISOString(), sentCount: f.progress.sentCount, failedCount: f.progress.failedCount, noPhoneCount: f.progress.noPhoneCount, total: withPhone.length };
+  try { localStorage.setItem("dv_chiefs_broadcast_last", JSON.stringify(f.lastRun)); } catch (e) {}
+  _chiefsToast(f.progress.failedCount ? "⚠️" : "✅", "Broadcast complete", f.progress.sentCount + " sent" + (f.progress.failedCount ? ", " + f.progress.failedCount + " failed" : "") + (noPhone ? ", " + noPhone + " skipped (no phone)" : ""));
+  render();
+}
+
+function _renderChiefsBroadcast() {
+  var cl = C();
+  var wrap = el("div", { style: { padding: "16px", maxWidth: "700px", margin: "0 auto" } });
+  var f = CHIEFS_BROADCAST;
+
+  wrap.appendChild(div({ color: cl.white, fontSize: "15px", fontWeight: "700", fontFamily: "'Space Grotesk',monospace", marginBottom: "4px" }, "📣 Broadcast to a Client Segment"));
+  wrap.appendChild(div({ color: cl.muted, fontSize: "11.5px", fontFamily: "'Inter',sans-serif", marginBottom: "16px", lineHeight: "1.5" }, "Message every active client matching a filter at once — e.g. everyone looking for a villa in JVC — instead of drafting one message per client."));
+
+  var waConnected = !!(localStorage.getItem("dv_whatsapp_token") && localStorage.getItem("dv_whatsapp_phone_id"));
+  if (!waConnected) {
+    var warn = el("div", { style: { background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "12px", padding: "12px 14px", marginBottom: "16px" } });
+    warn.appendChild(div({ color: "#EF4444", fontSize: "12px", fontWeight: "700", fontFamily: "'Space Grotesk',monospace", marginBottom: "4px" }, "WhatsApp Business API not connected"));
+    warn.appendChild(div({ color: cl.sub, fontSize: "11.5px", fontFamily: "'Inter',sans-serif", lineHeight: "1.5" }, "Broadcast needs a real, direct send to each client — connect it in Profile → WhatsApp Business API first. Individual matches can still use the copy/wa.me fallback from the Matches tab."));
+    wrap.appendChild(warn);
+  }
+
+  var filtGrid = el("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "12px" } });
+  var areaInp = el("input", { style: { background: cl.surfaceSolid || "#0D1220", border: "1px solid " + cl.border, borderRadius: "8px", padding: "9px 11px", color: cl.white, fontSize: "12px", fontFamily: "'Inter',sans-serif", gridColumn: "1 / -1", boxSizing: "border-box" } });
+  areaInp.type = "text"; areaInp.placeholder = "Area contains... (leave blank for all areas)"; areaInp.value = f.filterArea;
+  areaInp.addEventListener("input", function(){ f.filterArea = this.value; render(); });
+  filtGrid.appendChild(areaInp);
+  filtGrid.appendChild(mkSelect(I(), ["any","sale","rent"], f.filterPurpose, function(v){ f.filterPurpose = v; render(); }));
+  filtGrid.appendChild(mkSelect(I(), ["any","apartment","villa","townhouse","penthouse"], f.filterType, function(v){ f.filterType = v; render(); }));
+  wrap.appendChild(filtGrid);
+
+  var segment = _chiefsBroadcastSegment();
+  wrap.appendChild(div({ color: "#D4AF37", fontSize: "13px", fontWeight: "700", fontFamily: "'Space Grotesk',monospace", marginBottom: "14px" }, segment.length + " active client" + (segment.length !== 1 ? "s" : "") + " match this segment"));
+
+  if (CHIEFS_STATE.inventory.length) {
+    wrap.appendChild(div({ color: cl.sub, fontSize: "9px", fontWeight: "700", letterSpacing: "0.1em", marginBottom: "6px", fontFamily: "'Space Grotesk',monospace" }, "REFERENCE A LISTING (OPTIONAL)"));
+    var listSel = el("select", { style: { width: "100%", boxSizing: "border-box", background: cl.surfaceSolid || "#0D1220", border: "1px solid " + cl.border, borderRadius: "8px", padding: "9px 11px", color: cl.white, fontSize: "12px", fontFamily: "'Inter',sans-serif", marginBottom: "12px" } });
+    var noneOpt = el("option", {}); noneOpt.value = ""; noneOpt.textContent = "— none —"; listSel.appendChild(noneOpt);
+    CHIEFS_STATE.inventory.forEach(function(l) {
+      var o = el("option", {}); o.value = l.id;
+      o.textContent = (l.beds || "") + " " + l.prop_type + " · " + l.area + (l.building ? " · " + l.building : "") + " · " + _fmtPrice(l.price);
+      if (f.listingId === l.id) o.selected = true;
+      listSel.appendChild(o);
+    });
+    listSel.addEventListener("change", function(){ f.listingId = this.value; });
+    wrap.appendChild(listSel);
+  }
+
+  wrap.appendChild(div({ color: cl.sub, fontSize: "9px", fontWeight: "700", letterSpacing: "0.1em", marginBottom: "6px", fontFamily: "'Space Grotesk',monospace" }, "MESSAGE (USE {name} FOR FIRST NAME)"));
+  var ta = el("textarea", { style: { width: "100%", boxSizing: "border-box", background: cl.surfaceSolid || "#0D1220", border: "1px solid " + cl.border, borderRadius: "10px", padding: "12px", color: cl.white, fontSize: "13px", fontFamily: "'Inter',sans-serif", lineHeight: "1.6", resize: "vertical", minHeight: "100px", marginBottom: "10px" } });
+  ta.value = f.message;
+  ta.addEventListener("input", function(){ f.message = this.value; });
+  wrap.appendChild(ta);
+
+  var btnRow = el("div", { style: { display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" } });
+  btnRow.appendChild(_chBtn(f.drafting ? "Drafting..." : '<i data-lucide="sparkles" style="width:12px;height:12px"></i>AI Draft', "rgba(212,175,55,0.1)", "#D4AF37", function(){ if (!f.drafting) chiefsBroadcastDraft(); }, { border: "1px solid rgba(212,175,55,0.3)", fontSize: "12px" }));
+  var sendableCount = segment.filter(function(c){ return c.client_phone; }).length;
+  var sendBtn = _chBtn(f.sending ? "Sending " + f.progress.done + "/" + f.progress.total + "..." : '<i data-lucide="send" style="width:12px;height:12px"></i>Send to ' + sendableCount + " Clients",
+    waConnected ? "rgba(16,185,129,0.12)" : "rgba(255,255,255,0.05)", waConnected ? "#10B981" : cl.muted,
+    function(){ if (!f.sending && waConnected) chiefsBroadcastSend(); }, { border: "1px solid " + (waConnected ? "rgba(16,185,129,0.3)" : cl.border), fontSize: "12px" });
+  if (!waConnected) sendBtn.style.cursor = "not-allowed";
+  btnRow.appendChild(sendBtn);
+  wrap.appendChild(btnRow);
+
+  if (f.sending || f.progress.total > 0) {
+    var pct = f.progress.total ? Math.round((f.progress.done / f.progress.total) * 100) : 0;
+    var barWrap = el("div", { style: { background: cl.surface, borderRadius: "8px", height: "6px", overflow: "hidden", marginBottom: "8px" } });
+    var bar = el("div", { style: { background: "#10B981", height: "100%", width: pct + "%", transition: "width 0.3s" } });
+    barWrap.appendChild(bar); wrap.appendChild(barWrap);
+    wrap.appendChild(div({ color: cl.sub, fontSize: "11px", fontFamily: "'Inter',sans-serif", marginBottom: "16px" },
+      f.progress.sentCount + " sent · " + f.progress.failedCount + " failed" + (f.progress.noPhoneCount ? " · " + f.progress.noPhoneCount + " skipped (no phone)" : "")));
+  } else if (f.lastRun) {
+    wrap.appendChild(div({ color: cl.muted, fontSize: "10.5px", fontFamily: "'Inter',sans-serif", marginBottom: "16px" },
+      "Last broadcast " + _timeAgo(f.lastRun.at) + ": " + f.lastRun.sentCount + " sent, " + f.lastRun.failedCount + " failed" + (f.lastRun.noPhoneCount ? ", " + f.lastRun.noPhoneCount + " skipped" : "")));
+  }
+
+  if (segment.length) {
+    wrap.appendChild(div({ color: cl.sub, fontSize: "9px", fontWeight: "700", letterSpacing: "0.1em", marginBottom: "8px", fontFamily: "'Space Grotesk',monospace" }, "SEGMENT PREVIEW"));
+    segment.slice(0, 20).forEach(function(c) {
+      var row = el("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: cl.surface, border: "1px solid " + cl.border, borderRadius: "8px", marginBottom: "6px" } });
+      row.appendChild(div({ color: cl.white, fontSize: "12px", fontFamily: "'Inter',sans-serif" }, c.client_name));
+      row.appendChild(div({ color: c.client_phone ? cl.sub : "#EF4444", fontSize: "11px", fontFamily: "'Inter',sans-serif" }, c.client_phone || "No phone"));
+      wrap.appendChild(row);
+    });
+    if (segment.length > 20) wrap.appendChild(div({ color: cl.muted, fontSize: "10.5px", fontFamily: "'Inter',sans-serif" }, "+" + (segment.length - 20) + " more"));
+  }
+
+  return wrap;
+}
+
 // ── MAIN RENDER ───────────────────────────────────────────────────────────────
 function renderChiefs() {
   // Init: load data if not yet loaded
@@ -2526,6 +3005,7 @@ function renderChiefs() {
     {id:"matches",label:"Matches",icon:"link-2"},
     {id:"pipeline",label:"Pipeline",icon:"clipboard-list"},
     {id:"commission",label:"Commission",icon:"trending-up"},
+    {id:"broadcast",label:"Broadcast",icon:"megaphone"},
     {id:"inbox",label:"Inbox",icon:"inbox"}
   ];
   var tabBar = el("div",{style:{display:"flex",gap:"0",borderBottom:"1px solid "+cl.border,overflowX:"auto",flexShrink:"0",WebkitOverflowScrolling:"touch"}});
@@ -2566,6 +3046,7 @@ function renderChiefs() {
   else if (CHIEFS_STATE.view==="matches") content.appendChild(_renderChiefsMatches());
   else if (CHIEFS_STATE.view==="pipeline") content.appendChild(_renderChiefsPipeline());
   else if (CHIEFS_STATE.view==="commission") content.appendChild(_renderChiefsCommission());
+  else if (CHIEFS_STATE.view==="broadcast") content.appendChild(_renderChiefsBroadcast());
   else if (CHIEFS_STATE.view==="inbox" && typeof renderInbox==="function") content.appendChild(renderInbox());
   wrap.appendChild(content);
   return wrap;

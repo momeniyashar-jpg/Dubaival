@@ -3334,6 +3334,26 @@ function render(preserveScroll){
     return;
   }
 
+  // Standalone public route: #concierge=<agentId> — a full-page takeover
+  // with NO app shell (no sidebar/tabs/header) at all, since this link is
+  // meant to be shared with cold prospects who've never opened DubAIVal,
+  // not existing app users. See js/chiefs.js — CONCIERGE_STATE/
+  // _conciergeInit()/renderConciergePage() — for the implementation and the
+  // agent-facing "copy your link" card in the Chiefs Dashboard.
+  if(window.location.hash.indexOf("#concierge=")===0){
+    if(!window._conciergeInited){
+      window._conciergeInited=true;
+      var _cAgentId=decodeURIComponent(window.location.hash.slice("#concierge=".length));
+      if(typeof _conciergeInit==="function")_conciergeInit(_cAgentId);
+    }
+    var cApp=document.getElementById("app");
+    cApp.innerHTML="";
+    cApp.style.cssText="background:#070B14;min-height:100vh;color:#fff;";
+    if(typeof renderConciergePage==="function")cApp.appendChild(renderConciergePage());
+    if(typeof lucide!=="undefined")lucide.createIcons();
+    return;
+  }
+
   // Auth is optional — no gate, app loads freely
 
   document.documentElement.dir=isRTL()?"rtl":"ltr";

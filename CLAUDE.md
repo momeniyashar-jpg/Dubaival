@@ -672,7 +672,327 @@ features continue working exactly as before. Zero breakage.
 - `og:url` fixed to match
 - `theme-color` meta tag added (`#070B14`)
 
+## AI Chief of Staff — Complete Feature List (`renderChiefs()`, `js/chiefs.js`)
+
+Living reference — the single source of truth for exactly what this tab does.
+Update this list whenever a capability is added, removed, or materially
+changed, rather than leaving it to drift like a stale changelog. See CLAUDE.md
+Directive #3 (top of this file) for the standing product vision this tab is
+built against: an automation-first "hired assistant," not a tool the agent
+babysits.
+
+**Isolated module** — its own state (`CHIEFS_STATE`), its own Supabase tables
+(`chiefs_inventory`/`chiefs_clients`/`chiefs_matches`/`chiefs_pipeline`,
+`supabase-chiefs-schema.sql`), no dependency on any other tab's code. RLS on
+those 4 tables is deliberately `anon, authenticated USING(true)` — an agent
+can use the ENTIRE tab with zero sign-in via a per-browser fingerprint
+(`_chiefsId()`) — see the AI Concierge security note below for what this
+means and why it hasn't been tightened.
+
+### Dashboard (`_renderChiefsDashboard()`)
+- **Daily Briefing** — AI-narrated summary generated once per session from
+  real, already-computed signals only (never invents a fact) — new matches,
+  new AI Concierge leads, pipeline actions due/overdue, stale clients, stuck
+  deals, aging listings (`_chiefsGenerateBriefing()`/`_chiefsComputeSignals()`).
+- **⚡ Automation Settings** (`_renderChiefsAutomationSettings()`) — 4 toggles,
+  all default ON: Auto-draft messages for new matches, Auto-send matched
+  messages, Auto-save extracted client info, Report ad conversions to Meta.
+  Persisted per-browser in `localStorage.dv_chiefs_automation`.
+- **🔗 Your AI Concierge Link** (`_renderChiefsConciergeCard()`, added
+  2026-07-19) — the agent's own shareable public chat link, a live count of
+  leads captured via it, one-click copy.
+- Stats row (Listings / Active Clients / Pending Matches / Active Deals),
+  Quick Actions (+Add Listing, +Add Client, Scan Chat/Call, Run Auto-Match),
+  Pending Matches preview, and **Smart To-Do** — one priority-sorted list
+  merging overdue/today pipeline actions, new AI Concierge leads, stuck deals,
+  stale clients, and aging listings (`_chiefsSmartTodo()`).
+
+### Inventory — Property Inventory Bank (`_renderChiefsInventory()`)
+- Add/Edit/Delete pocket listings; every submission gets a real DubAIVal AVM
+  auto-valuation (`computeValuation()` — same engine as the Analyzer).
+- **📋 Paste & Extract** (`chiefsScanListing()`) — AI-extracts building/area/
+  price/etc. from a pasted WhatsApp message or listing-site export, pre-fills
+  the form for one manual review before saving (never auto-saves a listing —
+  a wrong price here would directly undermine the valuation-accuracy claim
+  once matched and quoted to a client).
+- **Competitor / Market Watch** (`_chiefsCompetitorCheck()`) — flags whether
+  a pocket listing's asking PSF is above/below the building's current
+  calibrated market PSF, with the real reasons why.
+
+### Clients — Client Memory Bank (`_renderChiefsClients()`)
+- Add/Edit/Delete client requirements (area/beds/budget/purpose/timeline).
+- **Conversation Scanner** (`chiefsScanConversation()`) — paste a WhatsApp/
+  email conversation, AI extracts structured requirements.
+- **Voice Call Transcription** (`chiefsTranscribeVoiceCall()`) — upload a
+  recorded call; real Whisper transcription (pay-per-use credit, shared pool
+  with the Video Editor's subtitle feature) auto-feeds the same scanner.
+- Both scanner paths respect the `autoSaveExtracted` toggle: auto-save
+  straight to Client Memory Bank, or open the form for one-click review.
+- Source badges on each client card: "WhatsApp" (from the scanner) and
+  "🔗 AI Concierge" (from the public livechat widget, added 2026-07-19).
+
+### Matches — Auto-Matching Engine (`_chiefsAutoMatch()`, `_scoreMatch()`)
+- Hybrid scoring: server-side semantic cosine similarity (Gemini/Jina
+  embeddings, `match_chiefs_inventory`/`auto_match_chiefs_semantic` RPCs) blended
+  65/35 with deterministic rule-based scoring (area/beds/budget/type).
+- **AI Message Drafter** (`chiefsDraftMessage()`) — auto-fires the instant a
+  fresh match is created, unless `autoDraft` is off.
+- **Real send** (`chiefsSendMatchMessage()`/`chiefsApproveMatch()`) — posts
+  directly to the connected WhatsApp Business API; auto-fires on draft unless
+  `autoSend` is off. Falls back to clipboard + a manual wa.me link ONLY when
+  the API isn't connected/out of credit/the token expired — and (fixed
+  2026-07-19) ALWAYS surfaces a toast either way, since a silent auto-send
+  failure with zero feedback directly undermines the "hired assistant, not a
+  tool you babysit" promise this whole tab is built on.
+
+### Pipeline — Deal Pipeline (`_renderChiefsPipeline()`)
+- 8 real stages (Lead → ... → Closing → Closed/Lost, including "Docs").
+  Add/Edit deals, track `next_action`/`next_action_date`.
+- **📄 Document Assistant** (`renderChiefsDocGenOverlay()`) — AI-drafts an
+  Offer Letter / MOU / Listing Agreement from the deal's real data, always
+  review-first (never auto-sent), with a persistent "draft/reference only,
+  not the official RERA form, not legal advice" disclaimer.
+
+### Commission Tracker (`_renderChiefsCommission()`)
+- Real stage-weighted commission projection (`CHIEFS_STAGE_WEIGHT`, e.g. lead
+  10% → closing 90% → closed 100%) instead of a flat sum across the whole
+  pipeline. Closed commission grouped by month; active deals ranked by
+  weighted contribution.
+
+### 📣 Broadcast — Segment Messaging (`_renderChiefsBroadcast()`, added 2026-07-19)
+Closes the "Auto-Matching only ever handles ONE listing ↔ ONE client at a
+time" gap — the direct answer to "tell everyone looking for a villa in JVC
+about this new listing" in one action, inspired by respond.io's broadcast-
+to-segment pattern.
+- Filter by area (substring)/purpose/property type against ALL active
+  clients (`_chiefsBroadcastSegment()`).
+- **AI Draft** (`chiefsBroadcastDraft()`) — optionally references a specific
+  pocket listing, writes a `{name}`-templated broadcast message.
+- **Real send** (`chiefsBroadcastSend()`) — sequential (350ms-paced, never
+  hammers the send API) real WhatsApp Business API sends to every client in
+  the segment who has a phone on file, with a live progress bar, a final
+  sent/failed/skipped-no-phone summary (toast + persisted
+  `localStorage.dv_chiefs_broadcast_last` so the last run's outcome survives
+  a tab switch). Deliberately does NOT offer the clipboard+wa.me fallback
+  used elsewhere in this file — popping open one browser tab per recipient
+  would be blocked by every modern browser at this scale, so the UI states
+  plainly that WhatsApp Business API must be connected first rather than
+  silently attempting something that can't work.
+
+### 🔗 AI Concierge — public, no-sign-in live chat (added 2026-07-19)
+The other half of the same respond.io-inspired pair: captures COLD leads
+(people who've never opened DubAIVal) straight into an agent's own Client
+Memory Bank, matching "your best sales agent doesn't sleep."
+- **Entry point**: a standalone, shareable link —
+  `https://www.dubaival.com/#concierge=<agentId>` — routed in `js/app.js`'s
+  `render()` as a full-page takeover with NO app shell (no sidebar/tabs/
+  header), since it's meant for prospects, not app users. The agent's own
+  copyable link lives in the Dashboard card above.
+- `_conciergeInit(agentId)` fetches that agent's own available inventory
+  (`chiefs_inventory?agent_id=eq.<id>&status=in.(available,pocket)`) so the
+  chat is grounded in real listings, never invented ones.
+- `conciergeSend()` — a real Groq `askAI()` conversation; after every
+  exchange, `_conciergeTryExtractAndSave()` runs a lightweight AI extraction
+  pass and, once a name plus a phone or email is present, saves a real
+  `chiefs_clients` row (`source:"livechat"`) for the TARGET agent and scores
+  it against that agent's already-fetched inventory via the same
+  `_scoreMatch()` the real Auto-Matching Engine uses, creating real
+  `chiefs_matches` rows.
+- Feeds into the Dashboard: new AI Concierge leads (last 24h) appear in both
+  the Daily Briefing's facts and the Smart To-Do list.
+- **Deliberately NOT built on `_chiefsAutoMatch()`/`chiefsSaveClient()`/
+  `CHIEFS_STATE`** — those all resolve the CURRENT BROWSER's own agent via
+  `_chiefsId()`, which on a stranger's phone would be a meaningless new
+  fingerprint, not the real agent whose link they opened. Every Concierge
+  function takes the target `agentId` explicitly and talks to Supabase
+  directly, so it can never read or write the wrong agent's real workspace.
+- **Security note, investigated and flagged, not unilaterally changed**:
+  since `chiefs_*` RLS already allows anon `USING(true)` by original design
+  (so an agent can use Chiefs without signing in at all), ANY caller who
+  already knows or guesses an `agent_id` could already read/write that
+  agent's entire workspace via a direct Supabase REST call — a real,
+  pre-existing gap, not introduced by this feature. Publishing a shareable
+  public link that embeds an `agentId` makes that id somewhat more
+  discoverable than before. Tightening this to real per-agent ownership
+  would require rethinking the anonymous-fingerprint-agent model this whole
+  file is built on — a bigger, separate decision for the user, flagged here
+  rather than changed unilaterally mid-feature.
+
+### Inbox — unified messaging (`CHIEFS_STATE.view==="inbox"` → `renderInbox()`, `js/inbox.js`)
+- Unified Email/Instagram/Facebook/WhatsApp inbox.
+- **AI Chief Co-pilot** (`chiefsCopilotAnalyze()`/`renderChiefsCopilotOverlay()`)
+  — "Analyze with Co-pilot" on any inbound message: extracts needs, matches
+  against pocket listings, drafts a reply, auto-sends for a real WhatsApp
+  phone contact (`autoSend` toggle), and a "Save to Client Memory" action.
+- **Meta Ads conversion feedback loop** (`_chiefsReportConversion()`, added
+  2026-07-17, audited/fixed 2026-07-19) — when a new Client Memory Bank
+  record traces back to a Click-to-WhatsApp ad (`ad_referral.ctwa_clid`
+  captured at webhook-receive time), reports a real `Lead` conversion event
+  to Meta's Conversions API (`api/inbox.js` `handleMetaConversion()`), so ad
+  targeting learns from actual outcomes, not just clicks. Gated by the
+  `autoReportConversions` toggle; requires the agent's own Meta Ads Pixel
+  ID + Conversions API token (Profile → Meta Ads Pixel).
+
+### Cross-cutting
+- **Toast notifications** (`_chiefsToast()`) — the tab's one shared feedback
+  mechanism for anything that happens automatically in the background (auto-
+  drafted/auto-sent messages, auto-saved clients, new matches, broadcast
+  results). Safe-area aware (`.dv-toast-safe-bottom`, fixed 2026-07-19 —
+  see the design/parity work-log entry below) so it never renders behind the
+  bottom tab bar on a real device.
+- **Semantic search** (`_chiefsEmbedText()`/`_chiefsSemanticRPC()`,
+  `/api/chiefs-embed`) — Gemini/Jina embeddings power the hybrid
+  Auto-Matching Engine and the Client Memory Bank's search.
+- **`_chiefsValidToken()`** (added 2026-07-19) — every server call that needs
+  a genuinely valid (non-expired) Supabase session (`whatsapp-send`,
+  `meta-conversion`, the Whisper transcription proxy) goes through this
+  instead of reading `localStorage.dv_access_token` raw — a real, previously
+  silent bug for exactly the always-on-in-the-background actions this tab is
+  built around (Supabase access tokens last ~1h; auto-send/auto-report fire
+  minutes-to-hours after the agent last actively touched the page).
+
 ## Recent work log (most recent first)
+
+- **2026-07-19 (session continuing 14, AI Chief of Staff — Meta Ads
+  conversion audit, 2 new features (Broadcast + AI Concierge) built AND
+  audited to production-ready, full feature list documented)**: Direct
+  follow-up to a respond.io product screenshot the user shared ("your best
+  sales agent doesn't sleep") — asked to build both ideas discussed (a
+  public live-chat lead-capture widget, and segment-wide broadcast
+  messaging) directly into AI Chief of Staff, first auditing the Meta Ads
+  conversion feedback loop built the day before with the same methodology
+  used on every other tab this week, then building both new features to be
+  genuinely usable tools (not mockups), auditing/testing THOSE immediately
+  after, wiring every Chiefs tool together wherever relevant, and finally
+  writing a complete, accurate feature list into CLAUDE.md (see the new
+  "AI Chief of Staff — Complete Feature List" reference section above the
+  work log) so the tab's real capabilities are documented in one place
+  going forward.
+  1. **Meta Ads conversion audit — 2 real bugs found and fixed**: (a) 3
+     fire-and-forget/background call sites (`_chiefsRawWhatsAppSend`,
+     `_chiefsReportConversion`, `chiefsTranscribeVoiceCall`) read
+     `localStorage.dv_access_token` raw instead of going through the
+     already-established `getValidToken()` (`js/auth.js`) refresh check —
+     harmless for the plain Supabase REST calls elsewhere in this file
+     (`_chiefsH()`'s RLS tolerates anon), but these 3 specifically call
+     server endpoints (`whatsapp-send`, `meta-conversion`, the Whisper
+     proxy) that reject an expired JWT outright. Supabase access tokens last
+     ~1h; this tab's whole pitch is a background assistant that auto-drafts/
+     auto-sends/auto-reports minutes-to-hours after the agent last actively
+     touched the page — meaning the ad-conversion report (and the auto-send
+     pipeline sharing the same bug) could silently fail after a normal
+     idle period, with the agent having no way to know their session had
+     quietly gone stale. New shared `_chiefsValidToken()` helper, wired into
+     all 3. (b) `chiefsSendMatchMessage()` — the function BOTH the fully
+     automatic auto-send path (`chiefsDraftMessage`, zero user gesture at
+     all) and the manual Approve click funnel through — only ever toasted
+     on SUCCESS (`if(sent)_chiefsToast(...)`); on failure (WhatsApp not
+     connected, credit exhausted, or the stale-token bug above), the
+     automatic path showed literally nothing, and the immediate
+     `window.open(wa.me/...)` fallback attempt — fired from an async
+     callback chain with no real user gesture in the automatic case — would
+     be silently blocked by any modern browser, leaving the agent with zero
+     indication anything needed their attention short of manually opening
+     Matches and noticing a stuck "approved" (not "sent") status. Rewrote
+     it to be the single source of truth for feedback either way: a real
+     "✅ Sent" toast on success, or a "⚠️ Not sent automatically" toast with
+     a click-driven "Open WhatsApp →" action (a genuine gesture, so it can
+     reliably re-open the link even if the earlier automatic attempt was
+     blocked) on failure — removed the now-redundant duplicate toast/alert
+     from `chiefsDraftMessage`'s automatic branch and `chiefsApproveMatch`.
+     Also fixed a smaller, related bug found while touching this: the
+     shared `_chiefsToast()` helper hardcoded its action button's label as
+     "View Matches →" even on the 2 client-auto-save toasts that actually
+     navigate to Clients, not Matches — added an optional 5th
+     `viewLabel` param (backward-compatible default), corrected both.
+  2. **📣 Broadcast built** (`_renderChiefsBroadcast()`, new "Broadcast" tab)
+     — the 2nd idea: filter ALL active clients by area (substring)/purpose/
+     property type, optionally reference a specific pocket listing, AI-draft
+     a `{name}`-templated message (`chiefsBroadcastDraft()`), then send it to
+     every matching client with a phone on file via the REAL, already-
+     connected WhatsApp Business API (`chiefsBroadcastSend()`) — sequential
+     with a 350ms pace (never hammers the send endpoint), live progress bar,
+     and a final sent/failed/skipped-no-phone summary persisted to
+     `localStorage` so the last run's outcome survives navigating away.
+     Deliberately does NOT offer the clipboard+wa.me fallback this file uses
+     elsewhere for 1:1 sends — popping open one browser tab per broadcast
+     recipient would be blocked by every modern browser at that scale, so
+     the UI states plainly that WhatsApp Business API must be connected
+     first (with a link to where) instead of silently attempting something
+     structurally incapable of working.
+  3. **🔗 AI Concierge built** — the 1st idea, a public, no-sign-in-required
+     live chat widget matching respond.io's own "best sales agent doesn't
+     sleep" pitch: a shareable per-agent link
+     (`https://www.dubaival.com/#concierge=<agentId>`, routed in `js/app.js`'s
+     `render()` as a full-page takeover with zero app shell — sidebar/tabs/
+     header — since it's meant for cold prospects, not existing app users),
+     grounded in that specific agent's own real, currently-available
+     inventory (never invents a listing). Every exchange runs a lightweight
+     AI extraction pass; once a name plus a phone or email is present, it
+     saves a real `chiefs_clients` row (`source:"livechat"`) for the TARGET
+     agent and immediately scores it against that agent's own inventory via
+     the exact same `_scoreMatch()` the real Auto-Matching Engine uses,
+     creating real match rows too. **Deliberately NOT built on
+     `_chiefsAutoMatch()`/`chiefsSaveClient()`/`CHIEFS_STATE`** — all of
+     those resolve the CURRENT BROWSER's own agent via `_chiefsId()`, which
+     on a random visitor's phone would be a brand-new, meaningless
+     fingerprint, not the real agent whose link they opened; every
+     Concierge function takes the target `agentId` explicitly instead,
+     keeping the whole feature unable to clobber the wrong agent's real
+     workspace. A new "🔗 Your AI Concierge Link" card on the Dashboard
+     (`_renderChiefsConciergeCard()`) is the agent's own discovery/copy
+     mechanism — one-click copy, plus a live count of leads captured via it.
+  4. **Security gap investigated and explicitly flagged, not silently
+     patched**: building a PUBLIC entry point into `chiefs_clients`/
+     `chiefs_inventory` surfaced that these tables' RLS is, by original
+     design, `FOR ALL TO anon, authenticated USING (true)` — "allow all via
+     anon key, app filters by agent_id client-side" (`supabase-chiefs-
+     schema.sql`'s own comment) — so an agent can use the ENTIRE Chiefs
+     workspace with zero sign-in via a per-browser fingerprint
+     (`_chiefsId()`'s `localStorage` fallback). That means ANY caller who
+     already knows or guesses an `agent_id` could ALREADY read/write that
+     agent's entire workspace via a direct Supabase REST call — a real,
+     PRE-EXISTING gap, not introduced by this session's work. Publishing a
+     shareable public link that embeds an `agentId` makes that id somewhat
+     more discoverable than before, which is worth the user's explicit
+     attention — but tightening this to real per-agent `auth.uid()`-based
+     RLS would require rethinking the anonymous-fingerprint-agent model
+     this entire file is built on (an agent can currently use every Chiefs
+     feature with zero sign-in at all), a bigger, separate decision than
+     this task's scope. Documented in both the new feature-list section
+     above and here rather than changed unilaterally mid-feature.
+  5. **Wired into the rest of the tab** (the explicit "connect wherever
+     relevant, verify nothing is broken/missing" ask): a client's Clients-
+     tab card now shows a "🔗 AI Concierge" source badge (matching the
+     existing "WhatsApp" badge convention for scanner-sourced clients) so an
+     agent can immediately see where a lead came from; new AI Concierge
+     leads from the last 24h now feed into BOTH the Daily Briefing's facts
+     (`_chiefsComputeSignals()`'s new `newLivechatLeads`) and the Smart
+     To-Do list ("New lead via AI Concierge — reach out today") — a cold
+     lead reaching out overnight now proactively surfaces the next morning
+     instead of requiring the agent to remember to go check Clients.
+  - Verified: `node -c js/chiefs.js` and `js/app.js`; 3 dedicated real-
+    browser Playwright test files covering the AI Concierge end-to-end
+    (mocked Supabase/Groq — confirmed the standalone page renders with no
+    app shell, a real conversation correctly auto-saves a new client for the
+    TARGET agent and scores a real match against mocked inventory, and a
+    genuinely fresh page load with an empty `#concierge=` hash shows the
+    honest "This chat link isn't valid" state — caught and fixed a same-
+    document-hash-navigation test artifact along the way, not a real app
+    bug), the Broadcast tool end-to-end (mocked `whatsapp-send` returning a
+    mix of success/failure — confirmed the segment filter correctly
+    includes/excludes clients by status/purpose/type/area, the rendered UI's
+    segment count and "Send to N Clients" button correctly count only
+    clients with a phone on file, and a real send run correctly tracks 1
+    sent/1 failed/1 skipped-no-phone and persists the summary), and the
+    Dashboard's new Concierge card + AI Draft button (confirmed the card
+    renders, correctly counts only `source:"livechat"` clients — not a
+    manually-added one in the same seed data — the copy button puts the
+    real link on the clipboard, and `chiefsBroadcastDraft()` returns a real
+    AI-drafted message with a genuine `{name}` placeholder); a 20-view
+    regression sweep (12 top-level app sections + all 8 Chiefs internal
+    views, including the new Broadcast tab) confirming zero collateral
+    console errors from any of this session's changes.
 
 - **2026-07-19 (session continuing 14, design/parity audit — site vs. native
   Android app confirmed byte-for-byte in sync, plus a real toast
