@@ -583,6 +583,10 @@ function showBrandingSetup(){
     overlay.remove();
     if(Object.keys(p).length>0){
       var toast=div({position:"fixed",bottom:"80px",left:"50%",transform:"translateX(-50%)",background:"#F97316",color:"#000",padding:"10px 20px",borderRadius:"10px",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",zIndex:10000,boxShadow:"0 4px 20px rgba(249,115,22,0.4)"});
+      // dv-toast-safe-bottom bumps this above the real safe-area inset in
+      // the native Android app (and on iPhone Safari) — see js/chiefs.js's
+      // identical toast for the full reasoning.
+      toast.className="dv-toast-safe-bottom";
       toast.textContent="Brand profile saved — AI will personalize all posts!";
       document.body.appendChild(toast);
       setTimeout(function(){toast.remove();},3000);

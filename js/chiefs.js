@@ -864,6 +864,15 @@ function _chiefsToast(icon, title, subtitle, onView) {
   if (!ctr) {
     ctr = document.createElement("div");
     ctr.id = "chiefs-toast-ctr";
+    // dv-toast-safe-bottom: on the native Android app, the plain bottom:80px
+    // below never accounts for env(safe-area-inset-bottom) — on any real
+    // device where that inset exceeds ~8px (the norm for modern gesture-nav
+    // Android, and iPhone Safari's home-indicator inset on the website too),
+    // the bottom tab bar's own safe-area-aware position grows taller and
+    // this toast's fixed offset no longer clears it, so the toast renders
+    // partially hidden behind the tab bar. The class below (see cap-native
+    // CSS overrides) bumps this up by the real inset when one exists.
+    ctr.className = "dv-toast-safe-bottom";
     ctr.style.cssText = "position:fixed;bottom:80px;right:16px;z-index:9995;display:flex;flex-direction:column-reverse;gap:8px;pointer-events:none;max-width:300px";
     document.body.appendChild(ctr);
   }

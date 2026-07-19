@@ -84,6 +84,15 @@ img,a{-webkit-user-drag:none}
   .dv-main{padding-bottom:calc(88px + env(safe-area-inset-bottom))!important}
 }
 
+/* Report-issue FAB and toast notifications: clear the bottom tab bar even
+   when its own safe-area inset grows on a real device (previously only
+   handled by the runtime IIFE below this file's own duplicate copy of
+   these overrides — the two had already drifted apart; kept in sync from
+   here on since a future desync would silently regress on-device layout
+   with no visible symptom until tested on a real phone). */
+.dv-report-fab{bottom:calc(96px + env(safe-area-inset-bottom))!important}
+.dv-toast-safe-bottom{bottom:calc(80px + env(safe-area-inset-bottom))!important}
+
 /* Keyboard open: prevent layout jump */
 body.keyboard-open .dv-bottom-tabs{display:none!important}
 body.keyboard-open .dv-main{padding-bottom:0!important}
@@ -110,6 +119,15 @@ a,button,.dv-sidebar-item,.dv-pill,.dv-bottom-tab,.dv-tool-btn{
 
 /* Status bar space (Android with overlay) */
 .dv-native-statusbar-pad{height:env(safe-area-inset-top);background:#070B14;position:fixed;top:0;left:0;right:0;z-index:9999}
+
+/* Disable desktop sidebar in native app — force mobile layout even on a
+   tablet-sized viewport, since the native app is always a phone-shaped
+   WebView regardless of reported viewport width */
+@media(min-width:769px){
+  .dv-sidebar{display:none!important}
+  .dv-main{margin-left:0!important;padding-left:0!important}
+  .dv-bottom-tabs{display:flex!important}
+}
 </style>
 </head>`
 );

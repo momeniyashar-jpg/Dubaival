@@ -674,6 +674,100 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-19 (session continuing 14, design/parity audit — site vs. native
+  Android app confirmed byte-for-byte in sync, plus a real toast
+  safe-area bug and a real dual-source native-CSS drift, both fixed)**:
+  User asked for the same review treatment on the site's/app's DESIGN, and
+  separately asked to confirm every update from "yesterday until now" has
+  actually landed in the native Android app too, with the site and the app
+  at an equal level — a direct check on whether this project's own shipping
+  pipeline (`scripts/build-www.js` → manual `cp` into
+  `android/app/src/main/assets/public/`) has actually been followed
+  consistently, not just trusted.
+  1. **Parity confirmed with real evidence, not assumption**: diffed every
+     `js/*.js` file between the source tree, `www/js/`, and
+     `android/app/src/main/assets/public/js/` — byte-identical across all
+     3 locations in both directions (no missing/extra files either way);
+     diffed `www/index.html` against the Android copy — exact match;
+     compared every `js/*.js?v=...` cache-busting version string between
+     the root `index.html` and `www/index.html` — all matched exactly; and
+     confirmed `android/app/version.properties`'s `VERSION_CODE` has been
+     incrementing on every single recent commit (traced via
+     `git log --oneline -5 -- android/app/version.properties` against
+     commits 59c8e3a/05044c0/a093b40/341380f/d29c93e) — concrete,
+     verifiable proof the app has genuinely been kept at the same level as
+     the site on every change this week, not just today's.
+  2. **Real bug found — 2 toast notifications could render partially/fully
+     hidden behind the bottom tab bar on any real device**: AI Chief of
+     Staff's automation-notification toast (`_chiefsToast()`, `js/chiefs.js`
+     — now firing constantly given today's automation toggles default to
+     on) and Social Media Manager's "Brand profile saved" toast
+     (`js/chat.js`) both used a hardcoded `bottom:80px` with zero
+     safe-area awareness — unlike the sibling Report Issue floating button
+     (`.dv-report-fab`), already correctly fixed in an earlier session to
+     respect `env(safe-area-inset-bottom)`. Confirmed with direct math
+     before fixing: the bottom tab bar's own top edge sits at
+     `8px + safe-area-inset-bottom + 64px` from the viewport bottom, while
+     the toast's bottom edge sat at a fixed 80px — on any device where the
+     real inset exceeds ~8px (the norm for modern Android gesture-nav
+     phones, and non-zero on iPhone Safari too, meaning this could affect
+     mobile website visitors, not just the native app), the toast would
+     render behind the tab bar. **Fix**: new shared `.dv-toast-safe-bottom`
+     class (mirrors the existing `.dv-report-fab` pattern exactly) applied
+     to both toast elements, with `bottom:calc(80px + env(safe-area-inset-
+     bottom))!important` added to the native CSS.
+  3. **Real architectural fragility found and partially remediated while
+     fixing #2**: the native-app-only CSS overrides exist in TWO
+     independently hand-maintained locations — a static injection block in
+     `scripts/build-www.js` (baked into every build) and a separate
+     runtime-detection IIFE embedded directly in `index.html` itself (only
+     activates when `window.Capacitor.isNativePlatform()` is true). These
+     had ALREADY drifted apart before this session touched them: the
+     `.dv-report-fab` safe-area rule and an entire
+     `@media(min-width:769px){...}` tablet-lockout block (forces mobile
+     layout even on a tablet-sized native WebView) existed ONLY in the
+     `index.html` runtime copy, missing entirely from the
+     `scripts/build-www.js` static copy — meaning every Android build
+     produced by that script was silently missing both rules. Added both
+     missing rules to `scripts/build-www.js` (bringing it back in sync with
+     `index.html`), then added the new `.dv-toast-safe-bottom` rule to BOTH
+     copies together so they don't drift further apart from this fix
+     itself, with an explanatory comment flagging the dual-maintenance
+     fragility for whichever future session next touches native-only CSS.
+  - **Screenshot review**: captured and reviewed 5 real-browser-rendered
+    views of the native (`www/`) build at a 393×852 mobile viewport (Home,
+    About, AI Chief of Staff Dashboard, AI Chief of Staff Inventory, Deal
+    Board Post Listing) — all 5 showed the onboarding tour's Welcome
+    overlay (expected first-visit behavior in a fresh browser profile with
+    no `dv_tour_done` flag set, confirmed consistent across every single
+    view rather than specific to one tab) and otherwise clean, consistent
+    layout with no further visible design defects; the Report Issue FAB
+    appearing mid-page in these captures is a known Playwright
+    full-page-screenshot artifact for `position:fixed` elements (the
+    button is genuinely fixed to the viewport bottom in real browsing —
+    full-page capture mode expands the viewport to the page's full height
+    before shooting, so a fixed-bottom element renders at its computed
+    position against that expanded height instead of the visible viewport),
+    not a real layout bug.
+  - Verified: `node -c` on `scripts/build-www.js`; a Playwright test against
+    the rebuilt `www/` confirming `_chiefsToast()` creates its container
+    with the new `dv-toast-safe-bottom` class, and that the actual shipped
+    `<style id="cap-native-css">` stylesheet (the literal CSS the Android
+    app ships with) contains both the class and the correct
+    `calc(80px + env(safe-area-inset-bottom))` rule; a direct `grep` diff
+    confirming all 3 previously-drifted rules (`.dv-report-fab`'s safe-area
+    rule, the tablet-lockout media query, and the new toast rule) now
+    appear identically in both `scripts/build-www.js` and `index.html`; and
+    a full `node scripts/build-www.js` rebuild + `diff -rq` sweep across
+    `js/` → `www/js/` → `android/.../public/js/` confirming zero drift
+    after shipping. **Not independently verified on a real physical device**
+    — this sandboxed Chromium environment cannot simulate a nonzero
+    `env(safe-area-inset-bottom)` value, so the fix was confirmed
+    structurally (the correct CSS rule reaches the correct element in the
+    correct shipped stylesheet) rather than visually on-device; a live
+    check on a real notched/gesture-nav Android phone is the one remaining
+    step.
+
 - **2026-07-19 (session continuing 14, RAG Knowledge Base audit — a
   confirmed-by-documented-PostgREST-behavior upsert bug undermining the
   "gets smarter over time" promise, plus a real 5x redundant-embedding
