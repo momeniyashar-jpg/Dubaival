@@ -101,8 +101,8 @@ function renderAbout(){
 
   // Stats row
   var stats=[
-    {n:"11,400+",l:"Properties Tracked"},
-    {n:"348",l:"Areas Covered"},
+    {n:"11,500+",l:"Properties Tracked"},
+    {n:"347",l:"Areas Covered"},
     {n:"3 Sectors",l:"Residential · Commercial · Land"},
     {n:"Cascade AVM",l:"AI Valuation Engine"}
   ];
@@ -138,7 +138,7 @@ function renderAbout(){
     {icon:"search",title:"AI Property Valuation",desc:"Cascade AVM engine with hedonic pricing model — building-level data, view premiums, floor adjustments, location intelligence, and confidence scoring."},
     {icon:"handshake",title:"Deal Network",desc:"Agent-to-agent marketplace with title deed verification, privacy-first media gallery, and buyer approval workflow."},
     {icon:"briefcase",title:"Portfolio Manager",desc:"Track your assets, monitor ROI, run what-if simulations, and get AI-powered portfolio health analysis."},
-    {icon:"map",title:"Interactive Map",desc:"Explore 347 areas with growth, yield, price, liquidity, and location intelligence metrics on a live map."},
+    {icon:"map",title:"Interactive Map",desc:"Explore 347 areas with a composite Investment Score plus growth, yield, price, liquidity, turnover, and location intelligence metrics on a live map."},
     {icon:"trending-up",title:"Market Intelligence",desc:"Real-time market data, comparable analysis, rental benchmarks, and investment signals for every area."},
     {icon:"map-pin",title:"Location Intelligence",desc:"Metro proximity, amenity scoring, and geographic premiums powered by 56 metro stations and 30+ key POIs."},
     {icon:"building-2",title:"Commercial Valuation",desc:"Office, retail, and warehouse valuation with commercial yield models, tenant analysis, and occupancy benchmarks across Dubai's business districts."},
@@ -304,9 +304,9 @@ function renderAbout(){
   roadmapContent.appendChild(roadmapIntro);
 
   var phases=[
-    {phase:"Phase 1",status:"Live",title:"Residential Valuation",color:"#00C896",items:["Residential buildings with DLD-verified data","Cascade AVM engine with hedonic pricing","348 area benchmarks with yield, growth & liquidity data","Portfolio Manager with health score & projections","Deal Network with agent marketplace","Interactive map, market index & live dashboard","PWA with offline support"]},
-    {phase:"Phase 2",status:"Live",title:"Commercial Property Valuation",color:"#3B82F6",items:["Commercial properties across Office, Retail, Warehouse & Shop types","49 commercial area benchmarks from DLD data","Commercial yield models (gross & net)","Sub-type specific valuation (retail premium, warehouse discount)","Area transaction volume & average pricing","Confidence scoring based on data depth","Commercial deal network for brokers"]},
-    {phase:"Phase 3",status:"Live",title:"Land & Plot Valuation",color:"#10B981",items:["Land plots with DLD transaction data","111 land area benchmarks","Zoning-based valuation (residential, commercial, mixed, industrial)","Development potential calculator","Plot price range analysis","Comparable land transaction database","Area average size & pricing benchmarks"]},
+    {phase:"Phase 1",status:"Live",title:"Residential Valuation",color:"#00C896",items:["Residential buildings with DLD-verified data","Cascade AVM engine with hedonic pricing","347 area benchmarks with yield, growth & liquidity data","Portfolio Manager with health score & projections","Deal Network with agent marketplace","Interactive map, market index & live dashboard","PWA with offline support"]},
+    {phase:"Phase 2",status:"Live",title:"Commercial Property Valuation",color:"#3B82F6",items:["Commercial properties across Office, Retail, Warehouse & Shop types","54 commercial area benchmarks from DLD data","Commercial yield models (gross & net)","Sub-type specific valuation (retail premium, warehouse discount)","Area transaction volume & average pricing","Confidence scoring based on data depth"]},
+    {phase:"Phase 3",status:"Live",title:"Land & Plot Valuation",color:"#10B981",items:["Land plots with DLD transaction data","112 land area benchmarks","Zoning-based valuation (residential, commercial, mixed, industrial)","Development potential calculator","Plot price range analysis","Comparable land transaction database","Area average size & pricing benchmarks"]},
     {phase:"Phase 4",status:"Planned",title:"Enterprise & Government Solutions",color:"#F0A030",items:["White-label valuation API for government platforms","Bulk AVM reports for institutional portfolios","Market transparency dashboards for DLD & RERA","Anti-money laundering (AML) property screening","Automated mortgage valuation for banks","Real-time market surveillance & anomaly detection"]}
   ];
 
@@ -383,7 +383,7 @@ function renderAbout(){
   landContent.appendChild(landGrid);
 
   var landBadge=div({display:"inline-flex",alignItems:"center",gap:"6px",marginTop:"16px",padding:"8px 16px",borderRadius:"8px",background:hexAlpha("#818CF8",0.1),border:"1px solid "+"#818CF840"});
-  landBadge.appendChild(span({color:"#10B981",fontSize:"11px",fontWeight:"700"},"Live — Full Land Coverage, 111 Areas"));
+  landBadge.appendChild(span({color:"#10B981",fontSize:"11px",fontWeight:"700"},"Live — Full Land Coverage, 112 Areas"));
   landContent.appendChild(landBadge);
 
   wrap.appendChild(section("","Land & Plot Valuation",landContent));
@@ -425,7 +425,11 @@ function renderApiDocs(cl){
   }
 
   // API Header
-  var apiHeader=div({textAlign:"center",marginBottom:"24px",paddingTop:"10px"});
+  var closeApiBtn=el("button",{style:{position:"absolute",top:"0",right:"0",background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"6px 12px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+  closeApiBtn.textContent="✕ Close";
+  closeApiBtn.addEventListener("click",function(){window._showApiDocs=false;render();});
+  var apiHeader=div({textAlign:"center",marginBottom:"24px",paddingTop:"10px",position:"relative"});
+  apiHeader.appendChild(closeApiBtn);
   apiHeader.appendChild(el("div",{style:{fontSize:"28px",marginBottom:"8px"}},""));
   apiHeader.appendChild(el("h2",{style:{color:cl.gold,fontSize:"18px",fontWeight:"800",margin:"0 0 4px",fontFamily:"'Space Grotesk',monospace"}},"DubAIVal API"));
   apiHeader.appendChild(el("div",{style:{color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif"}},"Real Estate Intelligence for Developers"));
@@ -451,7 +455,7 @@ function renderApiDocs(cl){
       method:"GET",path:"/api/market-index",
       desc:"Get market overview with area rankings, average metrics, and top performers.",
       params:[{n:"area",t:"string",r:false,d:"Filter by area (omit for city-wide)"}],
-      response:'{\n  "avg_psf": 1680,\n  "avg_yield": 6.2,\n  "avg_growth_1yr": 12.4,\n  "avg_dom": 52,\n  "total_areas": 348,\n  "top_yield": ["International City", ...],\n  "top_growth": ["Dubai Hills Estate", ...]\n}',
+      response:'{\n  "avg_psf": 1680,\n  "avg_yield": 6.2,\n  "avg_growth_1yr": 12.4,\n  "avg_dom": 52,\n  "total_areas": 347,\n  "top_yield": ["International City", ...],\n  "top_growth": ["Dubai Hills Estate", ...]\n}',
       curl:'curl "https://api.dubaival.com/v1/market-index" \\\n  -H "Authorization: Bearer YOUR_API_KEY"',
       js:'const res = await fetch(\n  "https://api.dubaival.com/v1/market-index",\n  { headers: { Authorization: "Bearer YOUR_API_KEY" } }\n);\nconst data = await res.json();'
     },
@@ -481,7 +485,7 @@ function renderApiDocs(cl){
     var epHead=div({display:"flex",alignItems:"center",flexWrap:"wrap",gap:"8px",marginBottom:"10px"});
     epHead.appendChild(span({color:"#10B981",fontSize:"10px",fontWeight:"800",fontFamily:"'SF Mono',monospace",padding:"3px 8px",borderRadius:"4px",background:hexAlpha("#10B981",0.12)},ep.method));
     epHead.appendChild(span({color:cl.text,fontSize:"13px",fontWeight:"700",fontFamily:"'SF Mono','Fira Code',monospace"},ep.path));
-    epHead.appendChild(badge("Coming Q3 2026","#818CF8"));
+    epHead.appendChild(badge("Coming Soon","#818CF8"));
     epCard.appendChild(epHead);
     epCard.appendChild(el("div",{style:{color:cl.sub,fontSize:"11.5px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6",marginBottom:"14px"}},ep.desc));
 

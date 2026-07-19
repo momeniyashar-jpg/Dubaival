@@ -674,6 +674,96 @@ features continue working exactly as before. Zero breakage.
 
 ## Recent work log (most recent first)
 
+- **2026-07-19 (session continuing 14, About page audit — 7 real stale-stat/
+  false-claim bugs found and fixed, same review methodology as every prior
+  tab audit this week)**: User asked for the identical treatment on About:
+  "همین مدل بررسی رو و طبق روش بررسی هایی که تا اینجا انجام دادیم برای about
+  انجام بده". Read the full `renderAbout()`/`renderApiDocs()` (`js/about.js`,
+  592 lines) and cross-checked every numeric claim against the REAL live
+  data (`DB`/`AREAS`/`AREAS_COM`/`AREAS_LAND`/`METRO_STATIONS`/
+  `TRAM_STATIONS`/`KEY_POIS`, loaded via a Node vm harness, not eyeballed)
+  rather than trusting the page's own copy. Found and fixed 7 real issues:
+  1. **"348 Areas Covered" / "348 area benchmarks" (2 places) — stale,
+     really 347.** Confirmed via `Object.keys(AREAS).length===347` — this is
+     the exact same "348 areas" stale-stat bug already found and fixed once
+     in the Workspace audit (2026-07-18, that session's own note explicitly
+     said it was "the last place in the entire codebase still saying '348
+     areas'" — that grep evidently missed this page). A 3rd, lower-severity
+     instance was found inside the API Docs' own fictional
+     `/api/market-index` example JSON response (`"total_areas": 348`) — also
+     corrected for consistency, since this same page now correctly says 347
+     everywhere else.
+  2. **"11,400+ Properties Tracked" — stale/understated, real total is
+     11,500+.** Confirmed via `9,226 residential + 1,914 commercial + 428
+     land = 11,568`, which is exactly the "11,500+" figure this project's
+     own `index.html` meta tags and `manifest.json` already use consistently
+     everywhere else — the About page was the one place still showing a
+     different, lower number.
+  3. **"49 commercial area benchmarks" — wrong, real count is 54.** Confirmed
+     via `Object.keys(AREAS_COM).length===54` (the actual object
+     `computeCommercialValuation()` reads from, `js/valuation.js`).
+  4. **"111 land area benchmarks" / "Live — Full Land Coverage, 111 Areas" —
+     off by one, real count is 112.** Confirmed via
+     `Object.keys(AREAS_LAND).length===112`.
+  5. **A false "Live" claim in the Platform Roadmap**: Phase 2 ("Commercial
+     Property Valuation") is marked `status:"Live"` with all 7 of its bullet
+     items presented as already-shipped — but one of them, "Commercial deal
+     network for brokers," is not real. Confirmed via a full grep of
+     `js/deals.js` (the OFM Deal Board system) for any
+     Office/Retail/Warehouse/Shop/commercial category — zero matches; the
+     Bedrooms/Property-Type vocabulary there only ever distinguishes
+     apartment vs. villa, never commercial. A broker reading this page would
+     reasonably believe they can already post/browse commercial deals on the
+     Deal Board — they cannot. Removed the false bullet from Phase 2's item
+     list rather than fabricating a new "Planned" promise elsewhere; the
+     other 6 items in that same phase were individually re-verified against
+     `computeCommercialValuation()` and are all real (sub-type-specific PSF
+     adjustment, tiered confidence scoring by data layer, area
+     transaction/avg-price fields) — so only this one bullet needed removing,
+     not the whole phase.
+  6. **A real, confirmed one-way-toggle bug**: `window._showApiDocs` is set
+     to `true` by the "API Documentation →" button (`apiBtn`'s click
+     handler) but was NEVER set back to `false` anywhere in the codebase
+     (confirmed via a full grep — only 2 references existed in the entire
+     app, both in this file, neither resetting it) — once a user clicked
+     through to the API docs, the entire lengthy section (endpoints,
+     pricing, request form) stayed permanently appended on every re-render
+     of the About page for the rest of the session, with literally no way
+     to collapse it short of a full page reload. Added a real "✕ Close"
+     button to the API docs header that flips the flag back and re-renders.
+  7. **A stale, about-to-be-embarrassing hardcoded date**: every API
+     endpoint card showed a "Coming Q3 2026" badge — but today's date is
+     2026-07-19, already inside Q3 2026, so "coming" no longer reads as a
+     future promise, it reads as a broken one. Same class of hardcoded-
+     future-date-becomes-past bug this project has fixed multiple times
+     elsewhere (AI prompt dates, market-narrative text) — changed to a
+     plain, non-date-specific "Coming Soon" badge across all 4 endpoints
+     (one shared string, one edit).
+  - **Also fixed, lower severity**: the "Interactive Map" feature card in
+    "What We Do" only described 5 of the map's real 7 metrics (growth,
+    yield, price, liquidity, location) — omitting "Investment Score" (the
+    map's actual DEFAULT metric since the 2026-07-13 redesign, confirmed via
+    `DV_MAP_METRICS` in `js/map.js`) and "Turnover" entirely. Updated the
+    description to lead with Investment Score and include all 7.
+  - **Checked and confirmed NOT stale** (verified with real numbers before
+    leaving alone): "56 metro stations, 11 tram stops, 30+ key POIs" (exact
+    matches: `METRO_STATIONS.length===56`, `TRAM_STATIONS.length===11`,
+    `KEY_POIS.length===30`); "Geographic premium from -3% to +8%" (exact
+    match against `computeGeoScore()`'s real `locationPremium` range,
+     `js/data-residential.js`).
+  - Verified: `node -c js/about.js`; a Node vm harness independently loading
+    `js/data-residential.js`/`js/data-commercial.js` and computing every
+    real count used above (not trusting the page's own copy for any of
+    them); a real-browser Playwright test confirming every corrected figure
+    now renders in the live DOM and every stale one is fully gone (348/
+    11,400+/49/111/"Q3 2026"/the false commercial-deal-network bullet all
+    absent), confirming the API Docs "✕ Close" button genuinely collapses
+    the section on click (previously stuck open permanently — the exact bug
+    being fixed) and correctly resets `window._showApiDocs` to `false`; and
+    a 10-tab regression sweep (Home, Market Dashboard/Analyzer, Portfolio
+    Assets, Deal Board, AI Agents, Social Media Studio, Workspace, Reports,
+    About) confirming zero collateral console errors.
+
 - **2026-07-18 (session continuing 14, Deal Board — villa bed-count
   granularity fixed, with backward compatibility for live matching data)**:
   Direct follow-up, same conversation — right after the Deal Board audit
