@@ -51,6 +51,18 @@ const VIDEO_GEN_CREDIT_CURRENCY = process.env.VIDEO_GEN_CREDIT_CURRENCY || "usd"
 // repeatedly in one day — fixed after the site owner caught it).
 const WHATSAPP_CREDIT_PRICE_CENTS = parseInt(process.env.WHATSAPP_CREDIT_PRICE_CENTS || "49", 10);
 const WHATSAPP_CREDIT_CURRENCY = process.env.WHATSAPP_CREDIT_CURRENCY || "usd";
+// AI Voice Concierge (see api/inbox.js action=voice-* and
+// supabase-voice-agent-schema.sql) — a bundle of real-time voice-agent
+// minutes, ONE-TIME payment like every other credit product above (never a
+// subscription). Default bundle: 60 minutes for $9.99 (~$0.166/min retail,
+// covering ElevenLabs' own ~$0.08-0.20/min wholesale rate plus Twilio's
+// per-minute telephony cost plus margin) — a starting estimate, not a
+// confirmed final price; tune via env vars once the operator has a live
+// ElevenLabs/Twilio account and can confirm the exact UAE per-minute
+// telephony rate (this session could not verify that exact figure live).
+const VOICE_MINUTES_BUNDLE_PRICE_CENTS = parseInt(process.env.VOICE_MINUTES_BUNDLE_PRICE_CENTS || "999", 10);
+const VOICE_MINUTES_BUNDLE_MINUTES = parseInt(process.env.VOICE_MINUTES_BUNDLE_MINUTES || "60", 10);
+const VOICE_MINUTES_BUNDLE_CURRENCY = process.env.VOICE_MINUTES_BUNDLE_CURRENCY || "usd";
 
 function readRawBody(req) {
   return new Promise(function (resolve, reject) {
@@ -261,6 +273,61 @@ async function handleWhatsAppCheckout(req, res) {
   }
 }
 
+// Same one-time-payment pattern as handleVideoCheckout/handleWhatsAppCheckout
+// above, for AI Voice Concierge minute bundles
+// (metadata.type="voice_credit" distinguishes it in the shared webhook
+// handler below; metadata.minutes carries the bundle size so the webhook
+// credits the exact right amount even if the bundle size env var changes
+// between purchase and webhook delivery).
+async function handleVoiceCheckout(req, res) {
+  if (rateLimitExceeded(req, res, 60000, 10)) return;
+  if (!STRIPE_SECRET_KEY) {
+    res.status(500).json({ ok: false, error: "Billing isn't configured yet — contact support@dubaival.com" });
+    return;
+  }
+  var raw = await readRawBody(req);
+  var body = {};
+  try { body = JSON.parse(raw.toString("utf8") || "{}"); } catch (e) {}
+  var userId = (body.user_id || "").trim();
+  var email = (body.email || "").trim().toLowerCase();
+  if (!userId || !email || !email.includes("@")) {
+    res.status(400).json({ ok: false, error: "Missing user_id or email" });
+    return;
+  }
+
+  var params = new URLSearchParams({
+    "mode": "payment",
+    "line_items[0][price_data][currency]": VOICE_MINUTES_BUNDLE_CURRENCY,
+    "line_items[0][price_data][unit_amount]": String(VOICE_MINUTES_BUNDLE_PRICE_CENTS),
+    "line_items[0][price_data][product_data][name]": "DubaiVal AI Voice Concierge — " + VOICE_MINUTES_BUNDLE_MINUTES + " Minutes",
+    "line_items[0][price_data][product_data][description]": "Real-time AI phone agent minutes for your AI Voice Concierge line",
+    "line_items[0][quantity]": "1",
+    "success_url": SITE_URL + "/?voice_credit=1",
+    "cancel_url": SITE_URL + "/",
+    "customer_email": email,
+    "client_reference_id": userId,
+    "metadata[type]": "voice_credit",
+    "metadata[user_id]": userId,
+    "metadata[minutes]": String(VOICE_MINUTES_BUNDLE_MINUTES),
+  });
+
+  try {
+    var r = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + STRIPE_SECRET_KEY, "Content-Type": "application/x-www-form-urlencoded" },
+      body: params.toString(),
+    });
+    var data = await r.json();
+    if (!r.ok) {
+      res.status(500).json({ ok: false, error: (data.error && data.error.message) || "Stripe error creating checkout session" });
+      return;
+    }
+    res.status(200).json({ ok: true, url: data.url });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: "Could not reach Stripe: " + e.message });
+  }
+}
+
 // Manual HMAC verification of Stripe's Stripe-Signature header — same
 // algorithm as the official SDK's constructEvent(), reimplemented with
 // Node's crypto to avoid adding the stripe npm package for one function.
@@ -344,6 +411,16 @@ async function handleWebhook(req, res) {
           method: "POST",
           body: JSON.stringify({ p_user_id: userId, p_amount: 1 }),
         });
+      } else if (userId && session.mode === "payment" && session.metadata && session.metadata.type === "voice_credit") {
+        // AI Voice Concierge minute bundle — a 4th, separate pool. Minutes
+        // amount comes from the session's own metadata (set at checkout
+        // time), not the current env var default, so a later bundle-size
+        // change can't misattribute an already-purchased bundle.
+        var voiceMinutes = parseInt((session.metadata && session.metadata.minutes) || "60", 10);
+        await supabaseRequest("/rpc/add_voice_credits", {
+          method: "POST",
+          body: JSON.stringify({ p_user_id: userId, p_minutes: voiceMinutes }),
+        });
       } else if (userId) {
         await supabaseRequest("/user_profiles?id=eq." + encodeURIComponent(userId), {
           method: "PATCH",
@@ -393,6 +470,7 @@ module.exports = async function handler(req, res) {
   if (req.method === "POST" && action === "video-checkout") return handleVideoCheckout(req, res);
   if (req.method === "POST" && action === "video-gen-checkout") return handleVideoGenCheckout(req, res);
   if (req.method === "POST" && action === "whatsapp-checkout") return handleWhatsAppCheckout(req, res);
+  if (req.method === "POST" && action === "voice-checkout") return handleVoiceCheckout(req, res);
 
   res.status(405).json({ ok: false, error: "Method not allowed" });
 };

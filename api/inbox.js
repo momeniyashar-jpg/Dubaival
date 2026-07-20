@@ -24,6 +24,16 @@
 var shared = require("./_lib/shared");
 var { rateLimitExceeded } = require("./_lib/ratelimit");
 var { fetchKnowledgeContextServer } = require("./_lib/rag");
+var crypto = require("crypto");
+
+function _readRawBody(req) {
+  return new Promise(function (resolve, reject) {
+    var chunks = [];
+    req.on("data", function (c) { chunks.push(c); });
+    req.on("end", function () { resolve(Buffer.concat(chunks)); });
+    req.on("error", reject);
+  });
+}
 
 var GRAPH_BASE = "https://graph.facebook.com/v25.0";
 var GROQ_KEY = process.env.GROQ_API_KEY;
@@ -797,6 +807,90 @@ var OTP_WHATSAPP_LANG = process.env.DV_OTP_WHATSAPP_TEMPLATE_LANG || "en_US";
 var OTP_WHATSAPP_TAP_TEMPLATE = process.env.DV_OTP_WHATSAPP_TAP_TEMPLATE_NAME;
 var DV_SITE_ORIGIN = process.env.DV_SITE_ORIGIN || "https://www.dubaival.com";
 
+// ── AI Voice Concierge (ElevenLabs Conversational AI) ─────────────────────
+// See supabase-voice-agent-schema.sql and CLAUDE.md for the full design.
+// ELEVENLABS_AGENT_LLM/ELEVENLABS_VOICE_ID are tunable once the operator has
+// a live account and can see which LLM/voice options their plan offers —
+// gemini-2.0-flash is a reasonable, fast default, not a confirmed final choice.
+var ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
+var ELEVENLABS_WEBHOOK_SECRET = process.env.ELEVENLABS_WEBHOOK_SECRET || "";
+var ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "";
+var ELEVENLABS_LLM = process.env.ELEVENLABS_AGENT_LLM || "gemini-2.0-flash";
+var ELEVENLABS_BASE = "https://api.elevenlabs.io/v1";
+
+// Real-time voice persona — same "genuine specialist, not a generic bot"
+// bar as REPLY_BASE_PERSONA above, adapted for a live phone call: short
+// spoken sentences, no markdown (everything is read aloud by TTS), and
+// explicit instructions on when to call each of the 2 webhook tools an
+// operator attaches to this agent in the ElevenLabs dashboard (see
+// handleVoiceAdminSetupAgent's returned nextSteps for the exact URLs).
+// {{agentName}}/{{agentId}}/{{creditsAvailable}} are dynamic variables this
+// agent receives per-call from action=voice-init below.
+var VOICE_AGENT_SYSTEM_PROMPT =
+  "You are DubaiVal's AI Voice Concierge — a real, knowledgeable Dubai real estate consultant speaking on the phone on behalf of {{agentName}}, a real estate agent. " +
+  "Speak naturally and conversationally, in short sentences — this is a live phone call, not a chat message. Never use markdown, asterisks, numbered lists, or bullet points; everything you say will be spoken aloud. " +
+  "You genuinely know Dubai real estate — areas, buildings, rental yields, price trends, off-plan projects, RERA/DLD basics — with the tone and confidence of an experienced consultant, never a flat customer-service script. " +
+  "When the caller asks a factual question about a specific area, building, price, or yield, call the lookup_market_knowledge tool to ground your answer in real, current data before answering — never guess a specific number you are not sure of. " +
+  "Your goal on every call: naturally understand what the caller is looking for (buy or rent, area, budget, bedrooms, timeline), and the moment you have their name plus a phone number or email, call the save_lead tool right away so " +
+  "{{agentName}} can follow up personally — do this naturally as part of the conversation, never interrogate the caller with a rigid list of questions. " +
+  "If {{creditsAvailable}} is false, politely explain this line is temporarily unavailable, offer to take a short message (name and number), and end the call warmly without further back-and-forth. " +
+  "If {{agentId}} is empty, you have no specific agent to route this call to — help the caller generally and suggest they call back or visit dubaival.com.";
+
+function _dig(obj, paths) {
+  for (var i = 0; i < paths.length; i++) {
+    var parts = paths[i].split(".");
+    var cur = obj;
+    for (var j = 0; j < parts.length && cur; j++) cur = cur[parts[j]];
+    if (cur !== undefined && cur !== null && cur !== "") return cur;
+  }
+  return null;
+}
+
+// ElevenLabs signs webhooks as "t={unix},v0={hmac-sha256 hex}" over the
+// string "{t}.{rawBody}" — same general scheme as Stripe's (see
+// api/billing.js verifyStripeSignature), confirmed against ElevenLabs' own
+// docs, just a different window (30 min) and field name (v0, not v1).
+// Degrades to "allow" (not "deny") when the secret isn't configured yet, so
+// this is usable the moment the operator has a live ElevenLabs account —
+// matching the same graceful-degradation convention used for
+// WHATSAPP_VERIFY_TOKEN/META_WEBHOOK_VERIFY_TOKEN above.
+function _verifyElevenLabsSignature(rawBody, sigHeader, secret) {
+  if (!secret) return true;
+  if (!sigHeader) return false;
+  var parts = {};
+  sigHeader.split(",").forEach(function (p) {
+    var kv = p.split("=");
+    if (kv.length === 2) parts[kv[0]] = kv[1];
+  });
+  if (!parts.t || !parts.v0) return false;
+  var ageSeconds = Math.abs(Date.now() / 1000 - Number(parts.t));
+  if (isNaN(ageSeconds) || ageSeconds > 1800) return false;
+  var signedPayload = parts.t + "." + (rawBody ? rawBody.toString("utf8") : "");
+  var expected = crypto.createHmac("sha256", secret).update(signedPayload).digest("hex");
+  var a = Buffer.from(expected, "utf8");
+  var b = Buffer.from(parts.v0, "utf8");
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+// Reverse of _authUidForEmail() above — resolves the real email a
+// social_credentials row is keyed by (that table's user_id column, per this
+// file's established convention) from a real Supabase auth UUID, needed
+// since voice_calls/chiefs_clients key agent identity by UUID text while
+// social_credentials (where the per-agent voice_auto_save_extracted toggle
+// lives) keys by email.
+async function _emailForAuthUid(uuid) {
+  if (!uuid) return null;
+  try {
+    var resp = await shared.supabaseRequest("/user_profiles?id=eq." + encodeURIComponent(uuid) + "&select=email,name", { method: "GET" });
+    if (!resp.ok) return null;
+    var rows = await resp.json();
+    return rows.length ? rows[0] : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 // Sends a WhatsApp "Authentication" category template message carrying a
 // one-time code. Unlike sendWhatsAppMessage() above (plain text, used for
 // agent<->client chat inside an already-open 24h conversation window), a
@@ -1307,6 +1401,378 @@ async function handleReply(req, res) {
   }
 }
 
+// ── AI Voice Concierge — agent self-service actions ───────────────────────
+// All 3 below require a real signed-in user (access_token in body, same
+// convention as handleWhatsAppSend above).
+async function handleVoiceActivate(req, res) {
+  if (rateLimitExceeded(req, res, 60000, 10)) return;
+  var body = req.body || {};
+  var authUid = await _resolveAuthUid(body.access_token);
+  if (!authUid) return res.status(401).json({ error: "Please sign in to activate AI Voice Concierge." });
+  var label = String(body.label || "").trim().slice(0, 100) || null;
+  try {
+    var r = await shared.supabaseRequest("/rpc/claim_voice_number", {
+      method: "POST",
+      body: JSON.stringify({ p_agent_uid: authUid, p_agent_label: label }),
+    });
+    if (!r.ok) {
+      var errText = await r.text().catch(function () { return ""; });
+      console.error("claim_voice_number failed:", r.status, errText);
+      return res.status(500).json({ error: "Could not activate — please try again." });
+    }
+    var rows = await r.json();
+    var phoneNumber = rows && rows[0] && rows[0].phone_number;
+    if (!phoneNumber) return res.status(409).json({ error: "No AI Voice Concierge numbers are available right now — please check back soon." });
+    return res.status(200).json({ ok: true, phoneNumber: phoneNumber });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+async function handleVoiceDeactivate(req, res) {
+  if (rateLimitExceeded(req, res, 60000, 10)) return;
+  var body = req.body || {};
+  var authUid = await _resolveAuthUid(body.access_token);
+  if (!authUid) return res.status(401).json({ error: "Please sign in first." });
+  try {
+    await shared.supabaseRequest("/rpc/release_voice_number", {
+      method: "POST",
+      body: JSON.stringify({ p_agent_uid: authUid }),
+    });
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+async function handleVoiceStatus(req, res) {
+  if (rateLimitExceeded(req, res, 60000, 30)) return;
+  var body = req.body || {};
+  var authUid = await _resolveAuthUid(body.access_token);
+  if (!authUid) return res.status(401).json({ error: "Please sign in first." });
+  try {
+    var r = await shared.supabaseRequest("/rpc/get_voice_status", {
+      method: "POST",
+      body: JSON.stringify({ p_agent_uid: authUid }),
+    });
+    var rows = r.ok ? await r.json() : [];
+    var row = rows[0] || { phone_number: null, voice_credits: 0 };
+    var callsResp = await shared.supabaseRequest(
+      "/voice_calls?agent_id=eq." + encodeURIComponent(authUid) +
+      "&select=caller_phone,duration_seconds,credits_charged,client_saved,ended_at&order=ended_at.desc&limit=10",
+      { method: "GET" }
+    );
+    var calls = callsResp.ok ? await callsResp.json() : [];
+    return res.status(200).json({ ok: true, phoneNumber: row.phone_number, voiceCredits: row.voice_credits, recentCalls: calls });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// ── AI Voice Concierge — ElevenLabs → us webhooks ─────────────────────────
+
+// Conversation-initiation webhook: ElevenLabs calls this the instant a call
+// connects, before the agent says anything, so we can tell it WHICH real
+// estate agent's number was dialed (one shared Agent definition serves
+// every agent's own number — see CLAUDE.md for why). Field names for the
+// called/caller number are defensive (checked against several plausible
+// paths) since this exact payload shape could not be confirmed against a
+// live ElevenLabs account in this session — safe to correct in one place
+// (the _dig() path lists below) once tested live.
+async function handleVoiceInit(req, res) {
+  var sig = req.headers["elevenlabs-signature"];
+  if (!_verifyElevenLabsSignature(req._rawBody, sig, ELEVENLABS_WEBHOOK_SECRET)) {
+    return res.status(401).json({ error: "invalid signature" });
+  }
+  var body = req.body || {};
+  var calledNumber = _dig(body, ["to_number", "called_number", "caller_id.to", "metadata.to_number", "to"]);
+  var fromNumber = _dig(body, ["from_number", "caller_number", "caller_id.from", "metadata.from_number", "from"]);
+
+  var agentId = null, agentName = "DubaiVal", creditsAvailable = true;
+  try {
+    if (calledNumber) {
+      var r = await shared.supabaseRequest(
+        "/voice_agent_numbers?phone_number=eq." + encodeURIComponent(calledNumber) +
+        "&status=eq.assigned&select=assigned_agent_id,assigned_agent_label",
+        { method: "GET" }
+      );
+      var rows = r.ok ? await r.json() : [];
+      if (rows.length) {
+        agentId = rows[0].assigned_agent_id;
+        agentName = rows[0].assigned_agent_label || "your DubaiVal agent";
+        var credResp = await shared.supabaseRequest(
+          "/user_profiles?id=eq." + encodeURIComponent(agentId) + "&select=voice_credits", { method: "GET" }
+        );
+        var credRows = credResp.ok ? await credResp.json() : [];
+        creditsAvailable = !credRows.length || Number(credRows[0].voice_credits || 0) > 0;
+      }
+    }
+  } catch (e) {
+    console.error("voice-init lookup error:", e.message);
+  }
+
+  var firstMessage = agentId
+    ? (creditsAvailable
+        ? "Thanks for calling " + agentName + "'s office, this is their AI assistant — how can I help you with a Dubai property today?"
+        : "Thanks for calling " + agentName + "'s office. I'm sorry, this line is temporarily unavailable — please try again shortly, or leave a message with your name and number after the tone.")
+    : "Thanks for calling DubaiVal — I'm an AI real estate assistant. How can I help you today?";
+
+  return res.status(200).json({
+    dynamic_variables: {
+      agentId: agentId || "",
+      agentName: agentName,
+      callerPhone: fromNumber || "",
+      creditsAvailable: creditsAvailable,
+    },
+    conversation_config_override: { agent: { first_message: firstMessage } },
+  });
+}
+
+// Post-call webhook: ElevenLabs calls this once a conversation ends, with
+// the real duration + full transcript. Deducts credits (post-paid, matching
+// how the call's real cost is only known after the fact) and logs the call.
+// If the mid-call save_lead tool was never triggered (e.g. the caller hung
+// up early), runs the SAME lightweight extraction the text AI Concierge/
+// Conversation Scanner already use on the full transcript, as a fallback
+// safety net — respecting the per-agent voice_auto_save_extracted toggle.
+async function handleVoiceWebhook(req, res) {
+  var sig = req.headers["elevenlabs-signature"];
+  if (!_verifyElevenLabsSignature(req._rawBody, sig, ELEVENLABS_WEBHOOK_SECRET)) {
+    return res.status(401).json({ error: "invalid signature" });
+  }
+  var body = req.body || {};
+  if (body.type && body.type !== "post_call_transcription") return res.status(200).json({ ok: true, ignored: true });
+  var data = body.data || body;
+
+  var conversationId = data.conversation_id || data.conversationId || null;
+  var durationSeconds = Number(_dig(data, ["metadata.call_duration_secs", "call_duration_secs", "duration", "duration_seconds"])) || 0;
+  var transcriptRaw = data.transcript;
+  var transcriptText = Array.isArray(transcriptRaw)
+    ? transcriptRaw.map(function (t) { return (t.role || t.speaker || "?") + ": " + (t.message || t.text || ""); }).join("\n")
+    : (typeof transcriptRaw === "string" ? transcriptRaw : "");
+  var dynVars = _dig(data, ["conversation_initiation_client_data.dynamic_variables", "dynamic_variables"]) || {};
+  var agentId = dynVars.agentId || null;
+  var callerPhone = dynVars.callerPhone || _dig(data, ["metadata.caller_id.from", "from_number"]) || null;
+
+  if (!agentId) {
+    // No real estate agent to bill/log against — acknowledge without
+    // erroring so ElevenLabs doesn't keep retrying a call we can't attribute.
+    return res.status(200).json({ ok: true, skipped: "no agentId" });
+  }
+
+  try {
+    if (conversationId) {
+      var existing = await shared.supabaseRequest(
+        "/voice_calls?elevenlabs_conversation_id=eq." + encodeURIComponent(conversationId) + "&select=id", { method: "GET" }
+      );
+      var existingRows = existing.ok ? await existing.json() : [];
+      if (existingRows.length) return res.status(200).json({ ok: true, deduped: true }); // ElevenLabs can redeliver
+    }
+
+    var minutes = Math.max(1, Math.ceil(durationSeconds / 60));
+    await shared.supabaseRequest("/rpc/consume_voice_credits", {
+      method: "POST", body: JSON.stringify({ p_user_id: agentId, p_minutes: minutes }),
+    });
+
+    var clientSaved = false;
+    try {
+      var alreadySaved = await shared.supabaseRequest(
+        "/chiefs_clients?agent_id=eq." + encodeURIComponent(agentId) + "&source=eq.voice_call" +
+        (callerPhone ? "&client_phone=eq." + encodeURIComponent(callerPhone) : "") +
+        "&select=id&limit=1", { method: "GET" }
+      );
+      var alreadyRows = alreadySaved.ok ? await alreadySaved.json() : [];
+      clientSaved = alreadyRows.length > 0;
+
+      if (!clientSaved && transcriptText && GROQ_KEY) {
+        var agentProfile = await _emailForAuthUid(agentId);
+        var toggleOn = true; // default-on, matches this project's automation-first convention
+        if (agentProfile && agentProfile.email) {
+          var toggleResp = await shared.supabaseRequest(
+            "/social_credentials?user_id=eq." + encodeURIComponent(agentProfile.email) + "&select=voice_auto_save_extracted", { method: "GET" }
+          );
+          var toggleRows = toggleResp.ok ? await toggleResp.json() : [];
+          if (toggleRows.length && toggleRows[0].voice_auto_save_extracted === false) toggleOn = false;
+        }
+
+        if (toggleOn) {
+          var extracted = await _extractLeadFromTranscript(transcriptText);
+          if (extracted && extracted.name && (extracted.phone || extracted.email || callerPhone)) {
+            var saveResp = await fetch(DV_SITE_ORIGIN + "/api/chiefs-embed?action=concierge-save", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                agentId: agentId, clientName: extracted.name,
+                clientPhone: extracted.phone || callerPhone || null, clientEmail: extracted.email || null,
+                purpose: extracted.purpose || "sale", propType: extracted.prop_type || "apartment",
+                bedsWanted: extracted.beds || null, areasWanted: Array.isArray(extracted.areas) ? extracted.areas.filter(Boolean) : null,
+                minPrice: extracted.min_price || null, maxPrice: extracted.max_price || null,
+                rawConversation: transcriptText.slice(0, 3000), notes: extracted.summary || null,
+                source: "voice_call",
+              }),
+            });
+            var saved = await saveResp.json().catch(function () { return {}; });
+            clientSaved = !!(saveResp.ok && saved && saved.ok);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("voice-webhook fallback extraction error:", e.message);
+    }
+
+    await shared.supabaseRequest("/voice_calls", {
+      method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({
+        agent_id: agentId, caller_phone: callerPhone,
+        elevenlabs_conversation_id: conversationId, duration_seconds: durationSeconds,
+        credits_charged: minutes, transcript: transcriptText.slice(0, 8000),
+        client_saved: clientSaved, ended_at: new Date().toISOString(),
+      }),
+    });
+
+    return res.status(200).json({ ok: true, minutesCharged: minutes, clientSaved: clientSaved });
+  } catch (e) {
+    console.error("voice-webhook error:", e.message);
+    return res.status(200).json({ ok: true }); // always 200 so ElevenLabs doesn't retry forever on our own bug
+  }
+}
+
+// Same JSON-extraction contract as js/chiefs.js's _conciergeTryExtractAndSave()
+// (name/phone/email/purpose/prop_type/beds/areas/min_price/max_price/summary)
+// — kept deliberately identical so a voice-call lead and a text-Concierge
+// lead save with exactly the same shape into chiefs_clients.
+async function _extractLeadFromTranscript(transcriptText) {
+  if (!GROQ_KEY) return null;
+  try {
+    var r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + GROQ_KEY },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        response_format: { type: "json_object" },
+        temperature: 0.1, max_tokens: 400,
+        messages: [
+          {
+            role: "system",
+            content: "Extract real estate lead details from this phone call transcript between an AI voice assistant and a caller. Return strict JSON: {name, phone, email, purpose (\"sale\" or \"rent\"), prop_type, beds, areas (array), min_price, max_price, summary}. Use null for anything not mentioned. Never invent a value.",
+          },
+          { role: "user", content: transcriptText.slice(0, 3000) },
+        ],
+      }),
+    });
+    var d = await r.json();
+    var raw = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// ── AI Voice Concierge — admin (operator-only) setup ──────────────────────
+
+async function handleVoiceAdminAddNumber(req, res) {
+  if (rateLimitExceeded(req, res, 60000, 10)) return;
+  var body = req.body || {};
+  var phoneNumber = String(body.phone_number || "").trim();
+  if (!phoneNumber) return res.status(400).json({ error: "phone_number required" });
+  try {
+    var r = await shared.supabaseRequest("/rpc/admin_add_voice_number", {
+      method: "POST",
+      body: JSON.stringify({
+        p_admin_password: body.admin_password, p_phone_number: phoneNumber,
+        p_twilio_account_sid: body.twilio_account_sid || null, p_twilio_auth_token: body.twilio_auth_token || null,
+      }),
+    });
+    if (!r.ok) return res.status(401).json({ error: "Invalid admin password, or a database error occurred." });
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+async function handleVoiceAdminListNumbers(req, res) {
+  if (rateLimitExceeded(req, res, 60000, 20)) return;
+  var body = req.body || {};
+  try {
+    var r = await shared.supabaseRequest("/rpc/admin_list_voice_numbers", {
+      method: "POST", body: JSON.stringify({ p_admin_password: body.admin_password }),
+    });
+    if (!r.ok) return res.status(401).json({ error: "Invalid admin password" });
+    var rows = await r.json();
+    return res.status(200).json({ ok: true, numbers: rows });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// Creates (first run) or updates (every run after) the ONE shared
+// ElevenLabs Agent every real estate agent's own phone number routes into.
+// The 2 webhook tools + conversation-init/post-call webhooks could not be
+// attached via this API call with full confidence (ElevenLabs' exact nested
+// tool-schema inside the create/update body wasn't verifiable live in this
+// session) — rather than guess at a schema that could silently fail to
+// attach, this returns the exact URLs the operator pastes into the
+// ElevenLabs dashboard once, the same "give the exact value, disclose the
+// manual step" pattern already used for WhatsApp/Meta setup in this project.
+async function handleVoiceAdminSetupAgent(req, res) {
+  if (rateLimitExceeded(req, res, 60000, 5)) return;
+  var body = req.body || {};
+  if (!ELEVENLABS_API_KEY) return res.status(500).json({ error: "ELEVENLABS_API_KEY not configured in Vercel env vars." });
+
+  var idResp = await shared.supabaseRequest("/rpc/admin_get_voice_agent_id", {
+    method: "POST", body: JSON.stringify({ p_admin_password: body.admin_password }),
+  });
+  if (!idResp.ok) return res.status(401).json({ error: "Invalid admin password" });
+  var existingId = await idResp.json();
+
+  var agentBody = {
+    name: "DubaiVal AI Voice Concierge",
+    conversation_config: {
+      agent: {
+        first_message: "Thanks for calling — how can I help you with a Dubai property today?",
+        language: "en",
+        prompt: { prompt: VOICE_AGENT_SYSTEM_PROMPT, llm: ELEVENLABS_LLM },
+      },
+    },
+  };
+  if (ELEVENLABS_VOICE_ID) agentBody.conversation_config.tts = { voice_id: ELEVENLABS_VOICE_ID };
+
+  try {
+    var method = existingId ? "PATCH" : "POST";
+    var url = existingId ? (ELEVENLABS_BASE + "/convai/agents/" + existingId) : (ELEVENLABS_BASE + "/convai/agents/create");
+    var elResp = await fetch(url, {
+      method: method,
+      headers: { "xi-api-key": ELEVENLABS_API_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify(agentBody),
+    });
+    var elData = await elResp.json().catch(function () { return {}; });
+    if (!elResp.ok) {
+      var msg = (elData.detail && (elData.detail.message || elData.detail)) || elData.message || JSON.stringify(elData);
+      return res.status(502).json({ error: "ElevenLabs API error: " + msg });
+    }
+    var agentId = existingId || elData.agent_id || elData.id;
+    if (!agentId) return res.status(502).json({ error: "ElevenLabs did not return an agent id — check the response shape once live." });
+
+    await shared.supabaseRequest("/voice_agent_config?id=eq.default", {
+      method: "PATCH", headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ elevenlabs_agent_id: agentId, updated_at: new Date().toISOString() }),
+    });
+
+    return res.status(200).json({
+      ok: true, agentId: agentId, mode: existingId ? "updated" : "created",
+      nextSteps: [
+        "In the ElevenLabs dashboard, open this Agent → Tools → Add Tool → Webhook, and add 2 tools:",
+        "1) lookup_market_knowledge → POST " + DV_SITE_ORIGIN + "/api/knowledge-query — body: {query, areas}",
+        "2) save_lead → POST " + DV_SITE_ORIGIN + "/api/chiefs-embed?action=concierge-save — body: {agentId, clientName, clientPhone, clientEmail, purpose, propType, bedsWanted, areasWanted, maxPrice, rawConversation, source:\"voice_call\"}",
+        "Then set the Conversation Initiation Webhook (Advanced settings) to: " + DV_SITE_ORIGIN + "/api/inbox?action=voice-init",
+        "And register the Post-Call Webhook (Workspace → Webhooks) pointing at: " + DV_SITE_ORIGIN + "/api/inbox?action=voice-webhook",
+        "Finally, link each Twilio number you've added in DubaiVal's Admin Dashboard to this Agent via ElevenLabs' own Twilio integration UI.",
+      ],
+    });
+  } catch (e) {
+    return res.status(500).json({ error: "Could not reach ElevenLabs: " + e.message });
+  }
+}
+
 // ── ROUTER ─────────────────────────────────────────────────────────────────────
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -1314,10 +1780,24 @@ module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(200).end();
 
+  // Body parsing is done manually here (bodyParser disabled below, see
+  // module.exports.config) so action=voice-init/voice-webhook can verify
+  // ElevenLabs' HMAC signature against the EXACT raw bytes sent — a
+  // re-serialized JSON.stringify(req.body) is not guaranteed byte-identical
+  // to what was actually POSTed, which would make signature verification
+  // silently unreliable. Every other action here just gets req.body
+  // assigned from the same parsed JSON Vercel's automatic parser would have
+  // produced, so none of their existing logic needed to change.
+  var _raw = await _readRawBody(req);
+  req._rawBody = _raw;
+  try { req.body = JSON.parse(_raw.toString("utf8") || "{}"); } catch (e) { req.body = {}; }
+
   var action = (req.query && req.query.action) || "";
 
   if (action === "meta-webhook") return handleMetaWebhook(req, res);
   if (action === "whatsapp-webhook") return handleWhatsAppWebhook(req, res);
+  if (action === "voice-init") return handleVoiceInit(req, res);
+  if (action === "voice-webhook") return handleVoiceWebhook(req, res);
   if (action === "config" && req.method === "GET") return handleConfig(req, res);
   if (action === "gmail-poll") return handleGmailPoll(req, res);
   if (action === "send-replies") return handleSendReplies(req, res);
@@ -1333,5 +1813,13 @@ module.exports = async function handler(req, res) {
   if (action === "meta-conversion") return handleMetaConversion(req, res);
   if (action === "send-otp") return handleSendOtp(req, res);
   if (action === "verify-otp") return handleVerifyOtp(req, res);
+  if (action === "voice-activate") return handleVoiceActivate(req, res);
+  if (action === "voice-deactivate") return handleVoiceDeactivate(req, res);
+  if (action === "voice-status") return handleVoiceStatus(req, res);
+  if (action === "voice-admin-add-number") return handleVoiceAdminAddNumber(req, res);
+  if (action === "voice-admin-list-numbers") return handleVoiceAdminListNumbers(req, res);
+  if (action === "voice-admin-setup-agent") return handleVoiceAdminSetupAgent(req, res);
   return handleReply(req, res); // default POST action
 };
+
+module.exports.config = { api: { bodyParser: false } };

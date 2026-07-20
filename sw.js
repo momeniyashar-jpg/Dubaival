@@ -1,4 +1,4 @@
-var CACHE_NAME='dubaival-v52';
+var CACHE_NAME='dubaival-v53';
 var PRECACHE=[
   '/logo.png',
   '/manifest.json',

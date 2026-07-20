@@ -815,6 +815,79 @@ Memory Bank, matching "your best sales agent doesn't sleep."
   only thing on the whole platform still allowed to write into another
   agent's Client Memory Bank on their behalf.
 
+### 📞 AI Voice Concierge — a live, real-time phone agent (added 2026-07-19)
+The voice counterpart to the AI Concierge above: a real phone number,
+answered in real time by an ElevenLabs Conversational AI agent grounded in
+the target agent's own listings, that qualifies the caller and saves real
+leads straight to Client Memory Bank. Built after the user shared an
+ElevenLabs "Voice Agents With Emotional Intelligence" ad and asked whether
+the idea fits DubaiVal — see the dated work-log entry below for the full
+research trail (real pricing, telephony feasibility, ElevenLabs' actual
+webhook-tool/conversation-initiation API).
+- **Architecture — reuse, not a parallel system**: ElevenLabs' own
+  Conversational AI platform handles the entire real-time speech pipeline
+  (speech-to-text/LLM/text-to-speech) — this project does NOT build a
+  custom audio-streaming pipeline. ONE shared ElevenLabs Agent definition
+  (`VOICE_AGENT_SYSTEM_PROMPT`, `api/inbox.js`) serves every real estate
+  agent's own phone number; a "conversation initiation" webhook
+  (`action=voice-init`) tells ElevenLabs, per call, WHICH agent's number was
+  dialed (via `{{agentId}}`/`{{agentName}}`/`{{creditsAvailable}}`/
+  `{{callerPhone}}` dynamic variables) so one agent definition can
+  personalize itself instead of needing N separate configs.
+- **The 2 in-call tools are the EXISTING, already-hardened endpoints, not
+  new code**: `lookup_market_knowledge` points directly at
+  `api/knowledge-query.js` (the same RAG retrieval endpoint already grounding
+  Chat Agents/Compare/Personal Advisor) and `save_lead` points directly at
+  `api/chiefs-embed.js?action=concierge-save` (the exact same validated,
+  server-side, rate-limited write path the text AI Concierge already uses,
+  extended with a `source` param — `"voice_call"` vs the pre-existing
+  default `"livechat"` — so both channels' leads land in `chiefs_clients`
+  identically). No parallel lead-saving logic was built.
+- **Telephony**: real UAE (or other) Twilio numbers, bought and linked to
+  the shared ElevenLabs Agent by the OPERATOR only (Admin Dashboard → "AI
+  Voice Concierge — Number Pool") — never per-agent, matching Directive #4's
+  zero-touch principle. An agent "activates" a number from this pool with
+  one click (`chiefsActivateVoice()` → `claim_voice_number` RPC) — they never
+  touch Twilio or ElevenLabs directly. Confirmed via live research: Twilio
+  DOES sell UAE geographic numbers, but INBOUND-ONLY (a good fit for this
+  MVP's "answer when the agent is unavailable" use case), gated behind a
+  Regulatory Bundle (KYC documents) — the same class of external, operator-
+  only setup step as Meta Business Verification.
+- **Billing — pay-per-minute, post-paid**: an agent buys a bundle of voice
+  minutes (`api/billing.js` `action=voice-checkout`, same one-time Stripe
+  Checkout pattern as the WhatsApp/video credits above — default $9.99/60
+  minutes, tunable via env vars, NOT a confirmed final price — the exact
+  Twilio UAE per-minute telephony rate could not be verified live in this
+  sandbox). Minutes are deducted AFTER each call from the real ElevenLabs
+  post-call webhook's own reported duration (`action=voice-webhook`,
+  `consume_voice_credits` RPC) — never estimated in advance, matching how a
+  real telephony/AI usage bill only reconciles after the fact. Zero credits
+  doesn't hang up an in-progress call; it's checked at `voice-init` time and
+  the agent politely ends any NEW call with a "temporarily unavailable"
+  message instead.
+- **Fallback lead extraction**: if the caller hangs up before the mid-call
+  `save_lead` tool ever fires, the post-call webhook runs the SAME
+  lightweight Groq extraction the text AI Concierge/Conversation Scanner
+  already use on the full transcript, gated by a new per-agent
+  `social_credentials.voice_auto_save_extracted` toggle (default `true`,
+  mirrors the `auto_reply_*` toggles' exact "only an explicit `false`
+  disables it" convention from the same day's Inbox-automation work).
+- **New internal Chiefs view**: "Voice" tab (`_renderChiefsVoiceView()`) —
+  activate/deactivate, live credit balance + Buy Minutes button, and real
+  call history (caller, duration, credits charged, whether a lead was
+  saved). A compact Dashboard summary card
+  (`_renderChiefsVoiceCard()`) deep-links into it, mirroring the AI
+  Concierge link card's exact visual pattern.
+- **Admin setup** (`renderAdmin()`, `js/app.js`): a "🎙️ AI Voice Concierge —
+  Number Pool" card to add Twilio numbers to the pool, and a "Create/Update
+  Shared Agent" button (`action=voice-admin-setup-agent`) that calls
+  ElevenLabs' real Agent-create/update API directly — but returns the exact
+  URLs to paste into ElevenLabs' OWN dashboard for the 2 webhook tools + the
+  conversation-initiation/post-call webhooks, rather than guessing at an
+  unverifiable nested tool-attachment JSON schema (disclosed explicitly,
+  same "give the exact value, disclose the manual step" pattern already
+  used for WhatsApp/Meta setup elsewhere in this project).
+
 ### Security & real per-agent ownership (hardened 2026-07-19)
 `chiefs_inventory`/`chiefs_clients`/`chiefs_matches`/`chiefs_pipeline` were
 originally built with `FOR ALL TO anon, authenticated USING (true)` so an
@@ -891,6 +964,148 @@ properly, not just documented:
   minutes-to-hours after the agent last actively touched the page).
 
 ## Recent work log (most recent first)
+
+- **2026-07-19/20 (session continuing 14, AI Voice Concierge — a real,
+  production-ready live phone agent, built end to end after the user shared
+  a competitor ad)**: User shared an ElevenLabs "Voice Agents With Emotional
+  Intelligence" Instagram ad and asked whether the idea fits DubaiVal.
+  Researched (live web search, since accurate current pricing/API shape
+  matters more here than a guess) before proposing anything: real
+  ElevenLabs Conversational AI pricing (Free 15min up to Business 12,375min/
+  month, $0.08/min overage), confirmed their platform supports webhook
+  "tools" mid-conversation (the exact mechanism needed to ground answers in
+  real DubaiVal data and save real leads), and confirmed Twilio sells UAE
+  geographic numbers (inbound-only, gated behind a Regulatory Bundle KYC
+  step). Presented a phased build recommendation; user's response was
+  direct: build it now, full production-ready (not a mockup), pricing isn't
+  a blocker since agents pay for their own usage, company-document/trade-
+  license work (needed for Meta too) comes later, and — explicitly — use
+  this project's own audit-then-fix methodology to verify it afterward.
+  1. **Architecture, chosen to reuse rather than duplicate**: ElevenLabs'
+     own Conversational AI platform owns the entire real-time speech
+     pipeline (STT/LLM/TTS) — no custom audio-streaming code was written.
+     ONE shared ElevenLabs Agent serves every real estate agent's own phone
+     number; a new conversation-initiation webhook
+     (`api/inbox.js action=voice-init`) resolves WHICH agent's number was
+     dialed and returns `dynamic_variables`
+     (`agentId`/`agentName`/`callerPhone`/`creditsAvailable`) plus a
+     personalized greeting via `conversation_config_override.agent
+     .first_message` — confirmed this exact request/response shape and the
+     `t={ts},v0={hmac}` webhook-signature format (30-min window, same
+     general scheme as Stripe's, just a different field name) against
+     ElevenLabs' own documentation before writing the verification code.
+  2. **The 2 in-call tools are the EXISTING endpoints, not new ones**:
+     `lookup_market_knowledge` is registered directly at the already-public
+     `api/knowledge-query.js` (zero new code); `save_lead` is registered at
+     `api/chiefs-embed.js?action=concierge-save`, extended with one new
+     `source` param (`"voice_call"`, allowlisted against the pre-existing
+     default `"livechat"` so an unrecognized value can never be injected
+     raw) — the exact same validated, rate-limited, service-role write path
+     the text AI Concierge already uses, so a voice lead and a text-chat
+     lead land in `chiefs_clients` through one single hardened mechanism,
+     not two.
+  3. **A real architectural constraint solved, not worked around**:
+     verifying ElevenLabs' post-call webhook signature needs the EXACT raw
+     request bytes (HMAC over `{timestamp}.{rawBody}`), but `api/inbox.js`
+     already has ~15 other actions that all assume Vercel's automatic JSON
+     body-parsing. Rather than leave the new webhook unverifiable or risk
+     rewriting every existing handler, the whole file's body-parser is now
+     disabled once, with a single raw-body read at the top of the exported
+     router that re-parses into `req.body` before dispatching — behaviorally
+     identical to Vercel's own parser for every pre-existing action (all 15+
+     of which needed zero changes), while giving the 2 new voice webhooks
+     access to the untouched raw bytes their signature check needs.
+  4. **Billing — pay-per-minute, post-paid, agent pays their own way** (per
+     the user's explicit framing): `api/billing.js action=voice-checkout` —
+     a one-time Stripe payment for a minute bundle (default $9.99/60min,
+     same tunable-via-env-var pattern as the WhatsApp/video credit products,
+     not a confirmed final price — this session could not verify Twilio's
+     exact UAE per-minute telephony rate live, flagged rather than guessed
+     at with false confidence). Minutes are deducted AFTER each call from
+     the real ElevenLabs post-call webhook's own reported duration
+     (`consume_voice_credits` RPC) — never pre-estimated, matching how a
+     real usage-based telephony bill actually reconciles. A `voice_credits
+     <= 0` check happens at call-START time (`voice-init`), never mid-call
+     (which the webhook response can't preempt anyway) — the agent politely
+     explains the line is "temporarily unavailable" for any NEW call instead.
+  5. **Fallback lead-extraction safety net**: if a caller hangs up before
+     the mid-call `save_lead` tool ever fires, the post-call webhook runs
+     the identical lightweight Groq JSON-extraction the text AI Concierge/
+     Conversation Scanner already use on the full transcript — gated by a
+     new per-agent `social_credentials.voice_auto_save_extracted` toggle
+     (default `true`, same "only an explicit `false` disables it" contract
+     already established for the `auto_reply_*` toggles built earlier this
+     session).
+  6. **Client UI**: a new internal "Voice" tab inside AI Chief of Staff
+     (`_renderChiefsVoiceView()` — activate/deactivate, live credit balance +
+     Buy Minutes button, real call history with caller/duration/credits/
+     lead-saved status) plus a compact Dashboard summary card
+     (`_renderChiefsVoiceCard()`), mirroring the AI Concierge link card's
+     exact visual language. Admin gets a "🎙️ AI Voice Concierge — Number
+     Pool" card (add Twilio numbers bought by the operator) plus a "Create/
+     Update Shared Agent" button that calls ElevenLabs' real Agent API
+     directly — but rather than guess at ElevenLabs' unverifiable nested
+     tool-attachment JSON schema (their exact shape for embedding webhook
+     tools inside the agent-create body couldn't be confirmed live), the
+     response returns the EXACT URLs to paste into ElevenLabs' own dashboard
+     for the 2 tools + the 2 webhooks — the same "give the exact value,
+     disclose the manual step" pattern already proven for WhatsApp/Meta
+     setup in this project, rather than shipping a plausible-looking API
+     call that could silently fail to attach anything.
+  - **Verified per this project's own audit-then-fix methodology, as the
+    user explicitly asked**: `node -c` on all 6 touched server/client files;
+    a 35-check mocked-fetch Node test harness against the real
+    `api/inbox.js`/`api/billing.js`/`api/chiefs-embed.js` handlers —
+    confirmed voice-activate/deactivate/status all require and correctly use
+    a real signed-in UUID (401 without one), an exhausted number pool
+    returns a clear 409 rather than a false success, voice-init correctly
+    resolves a real assigned agent + personalizes the greeting, correctly
+    flags `creditsAvailable:false` with a graceful message at zero balance,
+    correctly falls back to a generic persona for an unassigned number,
+    correctly rejects a bad HMAC signature and accepts a real one (with a
+    webhook secret configured) and degrades open (not the same as accepting
+    a forged one — this only applies before the operator has set up a
+    secret at all) when none is configured yet; voice-webhook correctly
+    rounds 95 seconds up to 2 billed minutes, logs the real call, runs the
+    fallback extraction only when no mid-call save happened AND the toggle
+    is on, correctly skips extraction when the toggle is off, deduplicates a
+    redelivered event without double-charging, and never processes a call
+    with no resolvable agentId; both voice-admin actions correctly reject a
+    wrong admin password before ever calling Supabase or ElevenLabs, and the
+    agent-setup call correctly branches CREATE vs UPDATE (POST vs PATCH)
+    based on whether an agent id is already stored; billing's voice-checkout
+    creates a real one-time (not subscription) Stripe session and its
+    webhook credits the EXACT bundle-size metadata from the purchase, not
+    whatever the live env-var default happens to be later; and
+    concierge-save's new `source` param is correctly persisted for
+    `"voice_call"`, defaults to `"livechat"` when omitted (zero regression
+    for the existing text Concierge), and falls back to `"livechat"` for any
+    unrecognized value rather than passing it through raw. Re-ran the
+    pre-existing OTP (9 cases) and Meta-conversion (5 cases) mocked-fetch
+    suites after the body-parser refactor — both needed their mock request
+    objects upgraded to real Node stream emitters (a mechanical, expected
+    consequence of the refactor, not a regression) and then passed
+    unchanged. A 6-check real-browser Playwright pass confirmed the
+    Dashboard card renders and auto-fetches status, clicking it opens the
+    real "Voice" tab with a working Activate button, activation calls the
+    real endpoint and updates the UI to show the claimed number + a
+    Deactivate button, the Buy Minutes button fires a real Stripe checkout
+    call for the correct signed-in user, real call history renders
+    correctly including the "Lead saved" badge, and the Admin Number Pool
+    card renders real pool data from the server — zero console errors. A
+    10-tab regression sweep (Home, Market Dashboard/Analyzer, Portfolio
+    Assets, Deal Board, AI Agents, AI Chief of Staff, Social Media Studio,
+    Workspace, About) confirmed zero collateral console errors from the
+    body-parser refactor or any of this feature's other changes.
+  - **Not built, deliberately, and disclosed rather than guessed at**: the
+    exact nested JSON schema ElevenLabs' Agent-create API expects for
+    attaching webhook tools inline (left as a one-time manual dashboard step
+    for the operator, with the exact URLs provided); the exact Twilio UAE
+    per-minute telephony rate (the $9.99/60min bundle price is a starting
+    estimate, not confirmed); any outbound-calling capability (Twilio's UAE
+    numbers are confirmed inbound-only, which matches this MVP's actual use
+    case — an agent's line answered when they're unavailable — so this
+    wasn't a gap, just a documented constraint).
 
 - **2026-07-19 (session continuing 14, Inbox auto-reply pipeline — RAG
   grounding, a real per-channel manual/automatic toggle, and Instagram
@@ -9073,6 +9288,49 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🟡 AI Voice Concierge — needs manual SQL + a real ElevenLabs/Twilio
+  account + operator dashboard setup** (added 2026-07-20): run
+  `supabase-voice-agent-schema.sql` in Supabase SQL Editor (requires
+  `supabase-admin-security-fix.sql` and `supabase-chiefs-schema.sql` already
+  applied, which they are). Then, when ready to actually go live (not yet,
+  per the user — company/trade-license work is deferred, needed for Meta
+  too):
+  1. Set `ELEVENLABS_API_KEY` in Vercel env vars, then click "Create/Update
+     Shared Agent" in Admin Dashboard → AI Voice Concierge — this creates
+     the real shared agent via ElevenLabs' API and returns the exact URLs
+     to paste into ElevenLabs' OWN dashboard for the 2 webhook tools
+     (`lookup_market_knowledge`/`save_lead`) and the 2 webhooks
+     (conversation-initiation/post-call) — see the work-log entry above for
+     why this one piece is a manual dashboard step rather than a second API
+     call (their nested tool-attachment JSON schema couldn't be verified
+     live in this sandbox).
+  2. Set `ELEVENLABS_WEBHOOK_SECRET` once ElevenLabs' dashboard shows it (the
+     2 webhook actions accept unsigned requests until this is set — a
+     deliberate degrade-open default so the feature isn't blocked before the
+     operator has a real secret to configure, matching the same pattern as
+     `WHATSAPP_VERIFY_TOKEN`/`META_WEBHOOK_VERIFY_TOKEN`).
+  3. Buy a real Twilio phone number (confirmed via live research: Twilio
+     sells UAE geographic numbers, but inbound-only, gated behind a
+     Regulatory Bundle KYC step — the same category of external, operator-
+     only process as Meta Business Verification), link it to the shared
+     ElevenLabs Agent via ElevenLabs' own Twilio integration UI, then add it
+     to the pool in Admin Dashboard → AI Voice Concierge — Number Pool.
+  4. Confirm `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` are set (already
+     required for every other credit product — `voice-checkout` reuses
+     them, no new Stripe setup needed).
+  5. Re-check the default $9.99/60-minute bundle price
+     (`VOICE_MINUTES_BUNDLE_PRICE_CENTS`/`VOICE_MINUTES_BUNDLE_MINUTES` env
+     vars) once the real Twilio UAE per-minute rate is confirmed — this
+     session's default is a reasonable starting estimate, not a verified
+     final number, same disclosed-uncertainty class as the WhatsApp
+     per-window price correction earlier in this project's history.
+  Until all of the above are done: the whole feature degrades gracefully —
+  Chiefs' "Voice" tab and Dashboard card show a clear "not set up yet"
+  error rather than crashing, and the Admin cards show the same. Server-
+  side code (all 3 touched files) is otherwise fully built and tested per
+  this project's own audit-then-fix methodology — see the work-log entry
+  above.
 
 - **🟡 Reply Automation toggles — need manual SQL** (added 2026-07-19): run
   `supabase-reply-automation-toggle-schema.sql` in Supabase SQL Editor. Adds

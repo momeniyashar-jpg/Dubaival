@@ -114,6 +114,11 @@ async function handleConciergeSave(req, res) {
   var maxPrice = Number(body.maxPrice) || null;
   var rawConversation = typeof body.rawConversation === "string" ? body.rawConversation.slice(0, 3000) : null;
   var notes = typeof body.notes === "string" ? body.notes.slice(0, 1000) : null;
+  // Default "livechat" preserves exact prior behavior for the text AI
+  // Concierge (which never sends this field) — "voice_call" is the new AI
+  // Voice Concierge's own fallback-save path (api/inbox.js handleVoiceWebhook),
+  // reusing this exact same validated write path rather than a second one.
+  var source = body.source === "voice_call" ? "voice_call" : "livechat";
 
   var row = {
     agent_id: agentId, client_name: clientName,
@@ -121,7 +126,7 @@ async function handleConciergeSave(req, res) {
     purpose: purpose, prop_type: propType,
     beds_wanted: bedsWanted, areas_wanted: areasWanted,
     min_price: minPrice, max_price: maxPrice,
-    timeline: "flexible", status: "active", source: "livechat",
+    timeline: "flexible", status: "active", source: source,
     raw_conversation: rawConversation, notes: notes,
     updated_at: new Date().toISOString(),
   };

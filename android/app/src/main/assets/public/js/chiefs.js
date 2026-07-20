@@ -1183,6 +1183,7 @@ function _renderChiefsDashboard() {
 
   wrap.appendChild(_renderChiefsAutomationSettings());
   wrap.appendChild(_renderChiefsConciergeCard());
+  wrap.appendChild(_renderChiefsVoiceCard());
 
   // Stats row
   var inv = CHIEFS_STATE.inventory; var cli = CHIEFS_STATE.clients;
@@ -2809,6 +2810,170 @@ function _renderChiefsConciergeCard() {
   return card;
 }
 
+// ── AI VOICE CONCIERGE — a live, real-time phone agent ──────────────────────
+// The voice counterpart to the text AI Concierge above: a real phone number
+// answered by a real-time ElevenLabs Conversational AI agent, grounded in
+// this agent's own listings (via the same lookup_market_knowledge/save_lead
+// webhook tools the server registers — see api/inbox.js action=voice-* and
+// supabase-voice-agent-schema.sql). Built after the user asked whether
+// ElevenLabs' "Voice Agents With Emotional Intelligence" product fits
+// DubaiVal — see CLAUDE.md for the full research/design trail.
+var CHIEFS_VOICE = {
+  loading: false, loaded: false, activating: false, error: null,
+  phoneNumber: null, voiceCredits: 0, recentCalls: []
+};
+
+async function _fetchChiefsVoiceStatus() {
+  if (CHIEFS_VOICE.loading) return;
+  CHIEFS_VOICE.loading = true; render();
+  try {
+    var accessToken = await _chiefsValidToken();
+    var r = await fetch("/api/inbox?action=voice-status", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ access_token: accessToken }),
+    });
+    var d = await r.json();
+    if (r.ok && d.ok) {
+      CHIEFS_VOICE.phoneNumber = d.phoneNumber || null;
+      CHIEFS_VOICE.voiceCredits = d.voiceCredits || 0;
+      CHIEFS_VOICE.recentCalls = d.recentCalls || [];
+    } else {
+      CHIEFS_VOICE.error = (d && d.error) || "AI Voice Concierge tables aren't set up yet.";
+    }
+  } catch (e) {
+    CHIEFS_VOICE.error = "Network error loading Voice Concierge status.";
+  }
+  CHIEFS_VOICE.loading = false; CHIEFS_VOICE.loaded = true; render();
+}
+
+async function chiefsActivateVoice() {
+  CHIEFS_VOICE.activating = true; CHIEFS_VOICE.error = null; render();
+  try {
+    var accessToken = await _chiefsValidToken();
+    var agentName = (typeof USER_PROFILE !== "undefined" && USER_PROFILE.name) || (typeof DV_AUTH !== "undefined" && DV_AUTH.user && DV_AUTH.user.email) || "Your Agent";
+    var r = await fetch("/api/inbox?action=voice-activate", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ access_token: accessToken, label: agentName }),
+    });
+    var d = await r.json();
+    if (r.ok && d.ok) {
+      CHIEFS_VOICE.phoneNumber = d.phoneNumber;
+      _chiefsToast("📞", "AI Voice Concierge activated", "Your line is live: " + d.phoneNumber);
+    } else {
+      CHIEFS_VOICE.error = (d && d.error) || "Could not activate — please try again.";
+    }
+  } catch (e) {
+    CHIEFS_VOICE.error = "Network error activating Voice Concierge.";
+  }
+  CHIEFS_VOICE.activating = false; render();
+}
+
+async function chiefsDeactivateVoice() {
+  if (!confirm("Release your AI Voice Concierge number? You can activate a new one later, but callers to this number will no longer reach your AI.")) return;
+  CHIEFS_VOICE.activating = true; render();
+  try {
+    var accessToken = await _chiefsValidToken();
+    await fetch("/api/inbox?action=voice-deactivate", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ access_token: accessToken }),
+    });
+    CHIEFS_VOICE.phoneNumber = null;
+  } catch (e) {}
+  CHIEFS_VOICE.activating = false; render();
+}
+
+async function _startVoiceCreditCheckout() {
+  if (typeof DV_AUTH === "undefined" || !DV_AUTH.user) {
+    if (typeof DV_AUTH !== "undefined") { DV_AUTH.showModal = true; DV_AUTH.modalTab = "signup"; DV_AUTH.error = "Please create a free account first, then buy voice minutes."; render(); }
+    return;
+  }
+  var resp = await fetch("/api/billing?action=voice-checkout", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id: DV_AUTH.user.id, email: DV_AUTH.user.email }),
+  });
+  var data = await resp.json();
+  if (!data.ok || !data.url) throw new Error(data.error || "Could not start checkout");
+  window.location.href = data.url;
+}
+
+// Compact Dashboard summary — mirrors _renderChiefsConciergeCard()'s card
+// style, deep-links into the full "Voice" tab for activation/call history.
+function _renderChiefsVoiceCard() {
+  var cl = C();
+  if (!CHIEFS_VOICE.loaded && !CHIEFS_VOICE.loading) _fetchChiefsVoiceStatus();
+  var card = el("div", { style: { background: cl.surface, border: "1px solid " + cl.border, borderRadius: "14px", padding: "14px 16px", marginBottom: "16px", cursor: "pointer" } });
+  card.addEventListener("click", function () { CHIEFS_STATE.view = "voice"; render(); });
+  var hdr = el("div", { style: { display: "flex", alignItems: "center", gap: "7px", marginBottom: "6px" } });
+  hdr.appendChild(span({ fontSize: "14px" }, "📞"));
+  hdr.appendChild(div({ color: cl.white, fontSize: "11px", fontWeight: "800", letterSpacing: "0.06em", fontFamily: "'Space Grotesk',monospace" }, "AI VOICE CONCIERGE"));
+  card.appendChild(hdr);
+  if (CHIEFS_VOICE.phoneNumber) {
+    card.appendChild(div({ color: "#10B981", fontSize: "13px", fontWeight: "700", fontFamily: "monospace", marginBottom: "4px" }, CHIEFS_VOICE.phoneNumber));
+    card.appendChild(div({ color: cl.muted, fontSize: "10.5px", fontFamily: "'Inter',sans-serif" }, CHIEFS_VOICE.voiceCredits + " minute" + (CHIEFS_VOICE.voiceCredits === 1 ? "" : "s") + " remaining · tap for call history"));
+  } else {
+    card.appendChild(div({ color: cl.muted, fontSize: "10.5px", fontFamily: "'Inter',sans-serif", lineHeight: "1.4" }, "A live phone line answered by an AI grounded in your own listings — your best sales agent, on call around the clock. Tap to activate."));
+  }
+  return card;
+}
+
+function _renderChiefsVoiceView() {
+  var cl = C();
+  if (!CHIEFS_VOICE.loaded && !CHIEFS_VOICE.loading) _fetchChiefsVoiceStatus();
+  var wrap = el("div", { style: { padding: "16px", maxWidth: "560px", margin: "0 auto" } });
+
+  wrap.appendChild(div({ color: cl.white, fontSize: "16px", fontWeight: "800", fontFamily: "'Space Grotesk',monospace", marginBottom: "6px" }, "📞 AI Voice Concierge"));
+  wrap.appendChild(div({ color: cl.muted, fontSize: "12px", fontFamily: "'Inter',sans-serif", marginBottom: "16px", lineHeight: "1.5" }, "A real phone number, answered in real time by an AI grounded in your own live listings. It qualifies the caller and saves real leads straight to your Client Memory Bank — the same promise as your AI Concierge link, but for people who'd rather call than type."));
+
+  if (CHIEFS_VOICE.error) wrap.appendChild(div({ color: "#F59E0B", fontSize: "11.5px", fontFamily: "'Inter',sans-serif", marginBottom: "14px", lineHeight: "1.5" }, CHIEFS_VOICE.error));
+
+  var statusCard = el("div", { style: { background: cl.surface, border: "1px solid " + cl.border, borderRadius: "14px", padding: "16px", marginBottom: "16px" } });
+  if (CHIEFS_VOICE.phoneNumber) {
+    statusCard.appendChild(div({ color: cl.sub, fontSize: "10px", letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'Space Grotesk',monospace", marginBottom: "6px" }, "Your Line"));
+    statusCard.appendChild(div({ color: "#10B981", fontSize: "20px", fontWeight: "800", fontFamily: "monospace", marginBottom: "12px" }, CHIEFS_VOICE.phoneNumber));
+    var deactBtn = el("button", { style: { background: "transparent", border: "1px solid rgba(239,68,68,0.3)", color: "#EF4444", borderRadius: "8px", padding: "8px 14px", fontSize: "11px", fontWeight: "700", cursor: "pointer", fontFamily: "'Space Grotesk',monospace" } });
+    deactBtn.textContent = CHIEFS_VOICE.activating ? "Working..." : "Deactivate Line";
+    deactBtn.disabled = CHIEFS_VOICE.activating;
+    deactBtn.onclick = function () { chiefsDeactivateVoice(); };
+    statusCard.appendChild(deactBtn);
+  } else {
+    statusCard.appendChild(div({ color: cl.sub, fontSize: "12px", fontFamily: "'Inter',sans-serif", marginBottom: "12px", lineHeight: "1.5" }, "Not activated yet. Activating claims a real phone number from DubaiVal's own pool — no Twilio or ElevenLabs setup on your end."));
+    var actBtn = el("button", { style: { width: "100%", padding: "11px", background: "linear-gradient(135deg,#D4AF37,#A07D1C)", border: "none", color: "#070B14", borderRadius: "10px", fontSize: "12px", fontWeight: "700", cursor: "pointer", fontFamily: "'Space Grotesk',monospace" } });
+    actBtn.textContent = CHIEFS_VOICE.activating ? "Activating..." : "Activate AI Voice Concierge";
+    actBtn.disabled = CHIEFS_VOICE.activating;
+    actBtn.onclick = function () { chiefsActivateVoice(); };
+    statusCard.appendChild(actBtn);
+  }
+  wrap.appendChild(statusCard);
+
+  // Credit balance + buy button
+  var credCard = el("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", background: "rgba(212,175,55,0.06)", border: "1px solid rgba(212,175,55,0.22)", borderRadius: "12px", padding: "12px 14px", marginBottom: "16px" } });
+  credCard.appendChild(div({ color: cl.white, fontSize: "12px", fontFamily: "'Inter',sans-serif" }, CHIEFS_VOICE.voiceCredits + " voice minute" + (CHIEFS_VOICE.voiceCredits === 1 ? "" : "s") + " remaining"));
+  var buyBtn = el("button", { style: { background: "transparent", border: "1px solid #D4AF37", color: "#D4AF37", borderRadius: "8px", padding: "7px 12px", fontSize: "11px", fontWeight: "700", cursor: "pointer", fontFamily: "'Space Grotesk',monospace", flexShrink: "0" } });
+  buyBtn.textContent = "+ Buy Minutes";
+  buyBtn.onclick = function () { _startVoiceCreditCheckout().catch(function (e) { alert(e.message); }); };
+  credCard.appendChild(buyBtn);
+  wrap.appendChild(credCard);
+
+  // Recent call history
+  wrap.appendChild(div({ color: cl.sub, fontSize: "10px", letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'Space Grotesk',monospace", marginBottom: "8px" }, "Recent Calls"));
+  if (!CHIEFS_VOICE.recentCalls.length) {
+    wrap.appendChild(div({ color: cl.muted, fontSize: "11.5px", fontFamily: "'Inter',sans-serif", fontStyle: "italic" }, "No calls yet."));
+  } else {
+    CHIEFS_VOICE.recentCalls.forEach(function (c) {
+      var row = el("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid " + cl.border } });
+      var left = el("div", {});
+      left.appendChild(div({ color: cl.white, fontSize: "12px", fontWeight: "600", fontFamily: "monospace" }, c.caller_phone || "Unknown caller"));
+      var mins = Math.round((c.duration_seconds || 0) / 60 * 10) / 10;
+      left.appendChild(div({ color: cl.muted, fontSize: "10.5px", fontFamily: "'Inter',sans-serif" }, _timeAgo(c.ended_at) + " · " + mins + " min · " + (c.credits_charged || 0) + " credit" + ((c.credits_charged || 0) === 1 ? "" : "s")));
+      row.appendChild(left);
+      if (c.client_saved) row.appendChild(span({ color: "#10B981", fontSize: "10px", fontWeight: "700", fontFamily: "'Space Grotesk',monospace" }, "✓ Lead saved"));
+      wrap.appendChild(row);
+    });
+  }
+
+  return wrap;
+}
+
 // ── BROADCAST — message a whole segment of clients at once ──────────────────
 // The 2nd idea: Auto-Matching already handles ONE listing <-> ONE client at
 // a time; there was no way to say "tell everyone looking for a villa in JVC
@@ -3088,6 +3253,7 @@ function renderChiefs() {
     {id:"pipeline",label:"Pipeline",icon:"clipboard-list"},
     {id:"commission",label:"Commission",icon:"trending-up"},
     {id:"broadcast",label:"Broadcast",icon:"megaphone"},
+    {id:"voice",label:"Voice",icon:"phone-call"},
     {id:"inbox",label:"Inbox",icon:"inbox"}
   ];
   var tabBar = el("div",{style:{display:"flex",gap:"0",borderBottom:"1px solid "+cl.border,overflowX:"auto",flexShrink:"0",WebkitOverflowScrolling:"touch"}});
@@ -3129,6 +3295,7 @@ function renderChiefs() {
   else if (CHIEFS_STATE.view==="pipeline") content.appendChild(_renderChiefsPipeline());
   else if (CHIEFS_STATE.view==="commission") content.appendChild(_renderChiefsCommission());
   else if (CHIEFS_STATE.view==="broadcast") content.appendChild(_renderChiefsBroadcast());
+  else if (CHIEFS_STATE.view==="voice") content.appendChild(_renderChiefsVoiceView());
   else if (CHIEFS_STATE.view==="inbox" && typeof renderInbox==="function") content.appendChild(renderInbox());
   wrap.appendChild(content);
   return wrap;

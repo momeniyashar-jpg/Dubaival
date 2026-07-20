@@ -231,10 +231,10 @@ async function setAuthSession(data){
 // until it resolves, never blocks sign-in itself.
 function _fetchProStatus(userId,token){
   if(!userId||!token)return;
-  fetch(SUPABASE_URL+"/rest/v1/user_profiles?id=eq."+encodeURIComponent(userId)+"&select=is_pro,video_credits,video_gen_credits,whatsapp_credits",{headers:sbHeaders(token)})
+  fetch(SUPABASE_URL+"/rest/v1/user_profiles?id=eq."+encodeURIComponent(userId)+"&select=is_pro,video_credits,video_gen_credits,whatsapp_credits,voice_credits",{headers:sbHeaders(token)})
     .then(function(r){return r.ok?r.json():[];})
     .then(function(rows){
-      if(rows&&rows[0]&&DV_AUTH.profile){DV_AUTH.profile.is_pro=!!rows[0].is_pro;DV_AUTH.profile.video_credits=rows[0].video_credits||0;DV_AUTH.profile.video_gen_credits=rows[0].video_gen_credits||0;DV_AUTH.profile.whatsapp_credits=rows[0].whatsapp_credits||0;render();}
+      if(rows&&rows[0]&&DV_AUTH.profile){DV_AUTH.profile.is_pro=!!rows[0].is_pro;DV_AUTH.profile.video_credits=rows[0].video_credits||0;DV_AUTH.profile.video_gen_credits=rows[0].video_gen_credits||0;DV_AUTH.profile.whatsapp_credits=rows[0].whatsapp_credits||0;DV_AUTH.profile.voice_credits=rows[0].voice_credits||0;render();}
     }).catch(function(){});
 }
 

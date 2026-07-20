@@ -1717,6 +1717,57 @@ async function _fetchAdminEventReports(){
   ADMIN_EVENTS_STATE.loading=false;ADMIN_EVENTS_STATE.loaded=true;render();
 }
 
+// ── AI Voice Concierge — Twilio number pool + ElevenLabs agent setup ────────
+// (added 2026-07-19) Operator-only admin surface: buy a real Twilio number,
+// paste its SID/token here once, and the number joins a pool real estate
+// agents self-serve "activate" from inside AI Chief of Staff (js/chiefs.js
+// _renderChiefsVoiceCard()) — zero manual Twilio/ElevenLabs console access
+// for the agent themselves, per CLAUDE.md Directive #4. See
+// api/inbox.js action=voice-admin-* and supabase-voice-agent-schema.sql.
+var ADMIN_VOICE_STATE={loading:false,loaded:false,numbers:[],error:null,
+  addForm:{phoneNumber:"",twilioSid:"",twilioToken:""},
+  setup:{loading:false,error:null,result:null}};
+
+async function _fetchAdminVoiceNumbers(){
+  ADMIN_VOICE_STATE.loading=true;ADMIN_VOICE_STATE.error=null;render();
+  try{
+    var r=await fetch("/api/inbox?action=voice-admin-list-numbers",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({admin_password:window._adminPw})});
+    var d=await r.json();
+    if(r.ok&&d.ok)ADMIN_VOICE_STATE.numbers=d.numbers||[];
+    else ADMIN_VOICE_STATE.error=(d&&d.error)||"Voice Agent tables unavailable yet — run supabase-voice-agent-schema.sql in Supabase.";
+  }catch(e){ADMIN_VOICE_STATE.error="Network error fetching the number pool.";}
+  ADMIN_VOICE_STATE.loading=false;ADMIN_VOICE_STATE.loaded=true;render();
+}
+
+async function _adminAddVoiceNumber(){
+  var f=ADMIN_VOICE_STATE.addForm;
+  if(!f.phoneNumber.trim()){ADMIN_VOICE_STATE.error="Enter a real phone number (e.g. +971...).";render();return;}
+  try{
+    var r=await fetch("/api/inbox?action=voice-admin-add-number",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({admin_password:window._adminPw,phone_number:f.phoneNumber.trim(),
+        twilio_account_sid:f.twilioSid.trim()||null,twilio_auth_token:f.twilioToken.trim()||null})});
+    var d=await r.json();
+    if(r.ok&&d.ok){
+      ADMIN_VOICE_STATE.addForm={phoneNumber:"",twilioSid:"",twilioToken:""};
+      ADMIN_VOICE_STATE.error=null;
+      _fetchAdminVoiceNumbers();
+    }else{ADMIN_VOICE_STATE.error=(d&&d.error)||"Could not add — check the admin password and try again.";render();}
+  }catch(e){ADMIN_VOICE_STATE.error="Network error adding the number.";render();}
+}
+
+async function _adminSetupVoiceAgent(){
+  ADMIN_VOICE_STATE.setup.loading=true;ADMIN_VOICE_STATE.setup.error=null;ADMIN_VOICE_STATE.setup.result=null;render();
+  try{
+    var r=await fetch("/api/inbox?action=voice-admin-setup-agent",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({admin_password:window._adminPw})});
+    var d=await r.json();
+    if(r.ok&&d.ok)ADMIN_VOICE_STATE.setup.result=d;
+    else ADMIN_VOICE_STATE.setup.error=(d&&d.error)||"Could not reach ElevenLabs.";
+  }catch(e){ADMIN_VOICE_STATE.setup.error="Network error contacting the server.";}
+  ADMIN_VOICE_STATE.setup.loading=false;render();
+}
+
 // ── Off-Plan Projects — admin review queue (added 2026-07-17) ───────────────
 // Same "queued, then admin-verified" pattern as OFM listing document
 // verification — pending submissions from js/offplan.js's public submit
@@ -2010,6 +2061,7 @@ function renderAdmin(){
           window.ADMIN_UNLOCKED=true;
           _fetchAdminEventReports();
           _fetchAdminOffplanPending();
+          _fetchAdminVoiceNumbers();
           render();
         } else {
           var att=parseInt(sessionStorage.getItem(attKey)||"0")+1;
@@ -2350,6 +2402,76 @@ function renderAdmin(){
     opCard.appendChild(dfBtn);
   }
   wrap.appendChild(opCard);
+
+  // -- AI VOICE CONCIERGE — NUMBER POOL + AGENT SETUP (added 2026-07-19) --
+  var vc=ADMIN_VOICE_STATE;
+  var vcCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginTop:"16px"}});
+  var vcHeader=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}});
+  vcHeader.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ AI Voice Concierge — Number Pool"));
+  var vcRefresh=el("button",{style:{background:cl.raised,border:"1px solid "+cl.border,color:cl.sub,borderRadius:"6px",padding:"4px 10px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+  vcRefresh.textContent=vc.loading?"Loading...":"↻ Refresh";
+  vcRefresh.disabled=vc.loading;
+  vcRefresh.onclick=function(){_fetchAdminVoiceNumbers();};
+  vcHeader.appendChild(vcRefresh);
+  vcCard.appendChild(vcHeader);
+  vcCard.appendChild(div({color:cl.sub,fontSize:"10.5px",fontFamily:"'Inter',sans-serif",marginBottom:"12px",lineHeight:"1.5"},"Buy a real Twilio number and link it to ElevenLabs' own Twilio integration UI first — then paste it here. Agents self-serve \"activate\" one from this pool inside AI Chief of Staff; they never touch Twilio/ElevenLabs directly."));
+
+  if(vc.error)vcCard.appendChild(div({color:"#F59E0B",fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"10px",lineHeight:"1.5"},vc.error));
+
+  // Add-number form
+  var vcGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:"8px",marginBottom:"8px"}});
+  function vcField(label,key,ph,type){
+    var inp=el("input",{type:type||"text",placeholder:ph,value:vc.addForm[key],style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"7px 9px",borderRadius:"6px",fontSize:"11px",fontFamily:"monospace",boxSizing:"border-box"}});
+    inp.addEventListener("input",function(){vc.addForm[key]=this.value;});
+    return inp;
+  }
+  vcGrid.appendChild(vcField("Phone","phoneNumber","+971 4 000 0000"));
+  vcGrid.appendChild(vcField("Twilio SID (optional)","twilioSid","ACxxxxxxxx...","password"));
+  vcGrid.appendChild(vcField("Twilio Token (optional)","twilioToken","auth token...","password"));
+  vcCard.appendChild(vcGrid);
+  var vcAddBtn=el("button",{style:{width:"100%",padding:"8px",background:cl.raised,border:"1px solid "+cl.border,color:cl.gold,borderRadius:"8px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"14px"}});
+  vcAddBtn.textContent="+ Add Number to Pool";
+  vcAddBtn.onclick=function(){_adminAddVoiceNumber();};
+  vcCard.appendChild(vcAddBtn);
+
+  if(!vc.loaded&&!vc.loading){
+    var vcLoadBtn=el("button",{style:{width:"100%",padding:"8px",background:"transparent",border:"1px dashed "+cl.border,color:cl.sub,borderRadius:"8px",fontSize:"10.5px",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"}});
+    vcLoadBtn.textContent="Load Number Pool";
+    vcLoadBtn.onclick=function(){_fetchAdminVoiceNumbers();};
+    vcCard.appendChild(vcLoadBtn);
+  }else if(vc.numbers.length===0&&vc.loaded){
+    vcCard.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",fontStyle:"italic",marginBottom:"12px"},"No numbers in the pool yet — add one above."));
+  }else{
+    vc.numbers.forEach(function(n){
+      var row=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid "+cl.border}});
+      var left=el("div",{});
+      left.appendChild(div({color:cl.white,fontSize:"11.5px",fontWeight:"600",fontFamily:"monospace"},n.phone_number));
+      left.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},n.assigned_agent_label?("Assigned: "+n.assigned_agent_label):"Available"+(n.elevenlabs_phone_id?"":" · not yet linked in ElevenLabs")));
+      row.appendChild(left);
+      var badgeColor=n.status==="assigned"?"#10B981":"#6B7A9E";
+      row.appendChild(span({color:badgeColor,fontSize:"9.5px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",textTransform:"uppercase"},n.status));
+      vcCard.appendChild(row);
+    });
+  }
+
+  // Shared ElevenLabs Agent create/update
+  vcCard.appendChild(div({color:cl.sub,fontSize:"10px",letterSpacing:"0.08em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginTop:"14px",marginBottom:"8px"},"Shared ElevenLabs Agent"));
+  vcCard.appendChild(div({color:cl.sub,fontSize:"10.5px",fontFamily:"'Inter',sans-serif",marginBottom:"8px",lineHeight:"1.5"},"Creates (first run) or updates (every run after) the ONE agent every real estate agent's own number routes through. Requires ELEVENLABS_API_KEY set in Vercel."));
+  var vcSetupBtn=el("button",{style:{width:"100%",padding:"9px",background:"linear-gradient(135deg,#D4AF37,#A07D1C)",border:"none",color:"#070B14",borderRadius:"8px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+  vcSetupBtn.textContent=vc.setup.loading?"Contacting ElevenLabs...":"Create / Update Shared Agent";
+  vcSetupBtn.disabled=vc.setup.loading;
+  vcSetupBtn.onclick=function(){_adminSetupVoiceAgent();};
+  vcCard.appendChild(vcSetupBtn);
+  if(vc.setup.error)vcCard.appendChild(div({color:"#F59E0B",fontSize:"10.5px",fontFamily:"'Inter',sans-serif",marginTop:"8px",lineHeight:"1.5"},vc.setup.error));
+  if(vc.setup.result){
+    var resWrap=el("div",{style:{marginTop:"10px",padding:"10px",background:cl.raised,borderRadius:"8px"}});
+    resWrap.appendChild(div({color:"#10B981",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"✓ Agent "+vc.setup.result.mode+" — ID: "+vc.setup.result.agentId));
+    (vc.setup.result.nextSteps||[]).forEach(function(step){
+      resWrap.appendChild(div({color:cl.sub,fontSize:"10.5px",fontFamily:"'Inter',sans-serif",marginBottom:"4px",lineHeight:"1.5"},"• "+step));
+    });
+    vcCard.appendChild(resWrap);
+  }
+  wrap.appendChild(vcCard);
 
   // -- AI KNOWLEDGE BASE — RESEARCH INJECTION (added 2026-07-17) --
   var rsCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginTop:"16px"}});
