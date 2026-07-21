@@ -1693,6 +1693,32 @@ function updateSearchSuggestions(query){
 
 
 // ── ADMIN PANEL ───────────────────────────────────────────────────────────────
+// ── Traffic & Funnel Stats (real, ad-blocker-immune, from analytics_events) ──
+// GA4 alone under-counts real traffic whenever a visitor runs an ad-blocker
+// or privacy browser — this app already writes a real session_id on every
+// render()/dvTrack() call, so these 2 admin-only RPCs
+// (supabase-visitor-stats-schema.sql — requires manual execution) read that
+// same first-party data back for a second, independent, precise view.
+var ADMIN_TRAFFIC_STATE={loading:false,loaded:false,stats:null,funnel:[],error:null};
+async function _fetchAdminTrafficStats(){
+  if(!window._adminPw)return;
+  ADMIN_TRAFFIC_STATE.loading=true;ADMIN_TRAFFIC_STATE.error=null;render();
+  try{
+    var sResp=await fetch(SUPABASE_URL+"/rest/v1/rpc/admin_get_traffic_stats",{
+      method:"POST",headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
+      body:JSON.stringify({p_admin_password:window._adminPw})
+    });
+    var fResp=await fetch(SUPABASE_URL+"/rest/v1/rpc/admin_get_funnel_breakdown",{
+      method:"POST",headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
+      body:JSON.stringify({p_admin_password:window._adminPw,p_days:30})
+    });
+    if(sResp.ok){var sRows=await sResp.json();ADMIN_TRAFFIC_STATE.stats=(sRows&&sRows[0])||null;}
+    else ADMIN_TRAFFIC_STATE.error="Traffic stats unavailable yet — run supabase-visitor-stats-schema.sql in Supabase.";
+    if(fResp.ok)ADMIN_TRAFFIC_STATE.funnel=await fResp.json();
+  }catch(e){ADMIN_TRAFFIC_STATE.error="Network error fetching traffic stats.";}
+  ADMIN_TRAFFIC_STATE.loading=false;ADMIN_TRAFFIC_STATE.loaded=true;render();
+}
+
 // ── Live Error & Issue Reports (cross-session, from analytics_events) ────────
 // Reads back automatic js_error captures + manual user_report submissions
 // (js/core.js dvTrackError()/renderReportIssueWidget()) via 2 admin-only RPCs
@@ -2059,6 +2085,7 @@ function renderAdmin(){
           sessionStorage.removeItem(lockKey);sessionStorage.removeItem(attKey);
           window._adminPw=pwVal;
           window.ADMIN_UNLOCKED=true;
+          _fetchAdminTrafficStats();
           _fetchAdminEventReports();
           _fetchAdminOffplanPending();
           _fetchAdminVoiceNumbers();
@@ -2179,6 +2206,80 @@ function renderAdmin(){
   clearBtn.onclick=function(){DV_ERROR_LOG.length=0;try{localStorage.removeItem("dv_error_log");}catch(e){}render();};
   logCard.appendChild(clearBtn);
   wrap.appendChild(logCard);
+
+  // -- TRAFFIC & FUNNEL STATS (real, ad-blocker-immune, cross-session) --
+  var trCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginTop:"16px"}});
+  var trHeader=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}});
+  trHeader.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ Traffic & Funnel Stats"));
+  var trRefresh=el("button",{style:{background:cl.raised,border:"1px solid "+cl.border,color:cl.sub,borderRadius:"6px",padding:"4px 10px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+  trRefresh.textContent=ADMIN_TRAFFIC_STATE.loading?"Loading...":"↻ Refresh";
+  trRefresh.disabled=ADMIN_TRAFFIC_STATE.loading;
+  trRefresh.onclick=function(){_fetchAdminTrafficStats();};
+  trHeader.appendChild(trRefresh);
+  trCard.appendChild(trHeader);
+  trCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginBottom:"12px"},
+    "Real unique visitors + funnel activity from this app's own first-party tracking — unaffected by ad-blockers, so a second, more precise view alongside Google Analytics."));
+
+  if(!ADMIN_TRAFFIC_STATE.loaded&&!ADMIN_TRAFFIC_STATE.loading){
+    var trLoadBtn=el("button",{style:{width:"100%",padding:"10px",background:cl.raised,border:"1px solid "+cl.border,color:cl.gold,borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+    trLoadBtn.textContent="Load Traffic Stats";
+    trLoadBtn.onclick=function(){_fetchAdminTrafficStats();};
+    trCard.appendChild(trLoadBtn);
+  }else if(ADMIN_TRAFFIC_STATE.error){
+    trCard.appendChild(div({color:"#F59E0B",fontSize:"11px",fontFamily:"'Inter',sans-serif"},ADMIN_TRAFFIC_STATE.error));
+  }else{
+    var ts=ADMIN_TRAFFIC_STATE.stats||{};
+    var trStats=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:"8px",marginBottom:"14px"}});
+    [
+      {l:"Today",v:ts.unique_sessions_today||0},
+      {l:"Last 7d",v:ts.unique_sessions_7d||0},
+      {l:"Last 30d",v:ts.unique_sessions_30d||0},
+      {l:"All-Time",v:ts.unique_sessions_all||0}
+    ].forEach(function(s){
+      trStats.appendChild(div({background:cl.raised,borderRadius:"8px",padding:"10px",textAlign:"center"},[
+        div({color:cl.white,fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},String(s.v)),
+        div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},s.l)
+      ]));
+    });
+    trCard.appendChild(trStats);
+
+    // Human-readable labels for the raw event_name values funneled through
+    // dvTrack() across js/app.js/auth.js/market.js/deals.js/core.js — an
+    // unrecognized future event still shows correctly via the raw-name
+    // fallback, so a new dvTrack() call site never needs a matching edit
+    // here to be visible.
+    var FUNNEL_LABELS={
+      signup_completed:"✓ Signups",
+      analyze_property:"Valuations Run (Sale)",
+      analyze_rental:"Valuations Run (Rent)",
+      pdf_generated:"PDF Reports Exported",
+      pdf_arabic_generated:"Arabic PDF Reports Exported",
+      price_alert_subscribed:"Price Alerts Subscribed",
+      deal_listing_posted:"Deal Board Listings Posted",
+      deal_request_posted:"Deal Board Requests Posted",
+      pro_upgrade_completed:"💰 Pro Upgrades",
+      video_credit_purchased:"💰 Video Subtitle Credits Bought",
+      video_gen_credit_purchased:"💰 Video Gen Credits Bought",
+      whatsapp_credit_purchased:"💰 WhatsApp Credits Bought",
+      voice_credit_purchased:"💰 Voice Minutes Bought",
+      tab_view:"Tab/Page Views"
+    };
+    trCard.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.08em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"Funnel — Last 30 Days"));
+    if(!ADMIN_TRAFFIC_STATE.funnel.length){
+      trCard.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",textAlign:"center",padding:"12px"},"No funnel activity in the last 30 days."));
+    }else{
+      var funnelList=el("div",{style:{maxHeight:"220px",overflowY:"auto"}});
+      ADMIN_TRAFFIC_STATE.funnel.forEach(function(f){
+        var isMoney=(FUNNEL_LABELS[f.event_name]||"").indexOf("💰")===0;
+        var frow=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid "+cl.border}});
+        frow.appendChild(span({color:cl.subHi||cl.white,fontSize:"11px",fontFamily:"'Inter',sans-serif"},FUNNEL_LABELS[f.event_name]||f.event_name));
+        frow.appendChild(span({color:isMoney?"#10B981":cl.gold,fontSize:"13px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},String(f.event_count)));
+        funnelList.appendChild(frow);
+      });
+      trCard.appendChild(funnelList);
+    }
+  }
+  wrap.appendChild(trCard);
 
   // -- LIVE ERROR & ISSUE REPORTS (cross-session, real users) --
   var evCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginTop:"16px"}});
@@ -3848,6 +3949,10 @@ function render(preserveScroll){
   if(typeof renderPwaInstallBanner==="function"){
     var pwaBanner=renderPwaInstallBanner();
     if(pwaBanner)app.appendChild(pwaBanner);
+  }
+  if(typeof renderPurchaseSuccessBanner==="function"){
+    var purchaseBanner=renderPurchaseSuccessBanner();
+    if(purchaseBanner)app.appendChild(purchaseBanner);
   }
 
   if(window._autoValuate&&analyzerState.f.area&&analyzerState.f.price){

@@ -965,6 +965,108 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-21 (same session, follow-up — real revenue events were never
+  tracked at all, plus a new ad-blocker-immune Admin traffic/funnel card)**:
+  User found the site's real GA4 property (`G-7J3H12JGPE`, live since
+  2026-07-15) and asked for help correctly setting up GA4 "Key Events"
+  (conversions) plus a more precise way to analyze visit stats overall.
+  Investigating what real funnel events already flow to GA4 via `dvTrack()`
+  (`js/core.js`, calls `gtag()` + writes to `analytics_events` — 12 real
+  call sites: `signup_completed`, `analyze_property`/`analyze_rental`,
+  `pdf_generated`/`pdf_arabic_generated`, `price_alert_subscribed`,
+  `deal_listing_posted`/`deal_request_posted`, `tab_view`, `js_error`)
+  surfaced a real, more important gap first: **not one of the 5 real Stripe
+  Checkout success redirects was ever tracked, and the paying user never
+  saw any confirmation at all.** `api/billing.js`'s 5 checkout flows (Pro
+  subscription + video/video-gen/WhatsApp/voice credits) all correctly
+  redirect back to `/?<flag>=1` on a genuinely completed payment — but a
+  full grep confirmed no client code anywhere ever read `location.search`
+  for these flags. A user who just paid real money landed back on Home with
+  zero acknowledgment their payment succeeded, and — for GA4's purposes —
+  the single most valuable business event (an actual paying customer) was
+  completely invisible, making it impossible to ever mark a real "purchase"
+  Key Event in GA4 at all.
+  - **Fix, `js/core.js`**: a small IIFE (runs once, at parse time, right
+    after `dvTrack()`'s own definition) checks all 5 flags
+    (`upgraded`/`video_credit`/`video_gen_credit`/`whatsapp_credit`/
+    `voice_credit`), fires the correct new `dvTrack()` event
+    (`pro_upgrade_completed`/`video_credit_purchased`/
+    `video_gen_credit_purchased`/`whatsapp_credit_purchased`/
+    `voice_credit_purchased`) the moment a real flag is found, stores a
+    time-boxed (8s) success message, and cleans the query string via
+    `history.replaceState` so a refresh can't re-fire it. New
+    `renderPurchaseSuccessBanner()` (wired into `render()`'s existing
+    overlay-append block in `js/app.js`, right alongside the Report Issue
+    widget/PWA banner) shows a real dismissible green confirmation banner
+    while inside that time window. Deliberately used a TIME WINDOW rather
+    than a one-shot "clear the flag on first render" flag — `render()` gets
+    called repeatedly right after load for unrelated reasons (background
+    momentum fetches, etc.), and since `render()` rebuilds `#app` from
+    scratch every time, a one-shot flag would have made the banner flicker
+    away almost immediately instead of staying visible for a meaningful
+    duration.
+  - **New — Admin Dashboard "◆ Traffic & Funnel Stats" card** (real,
+    ad-blocker-immune second view alongside GA4, directly answering the
+    user's "دقیق‌تر تحلیل کنیم" ask): new `supabase-visitor-stats-schema.sql`
+    (requires manual execution) adds 2 admin-only, password-gated,
+    `security definer` RPCs reusing the existing `_admin_password_ok()` —
+    same pattern as the error-reporting RPCs — since `analytics_events` RLS
+    is anon-insert-only with no SELECT policy: `admin_get_traffic_stats`
+    (real distinct-`session_id` counts for today/7d/30d/all-time, plus a
+    30-day total-event count for engagement depth) and
+    `admin_get_funnel_breakdown` (per-event-name counts over a caller-chosen
+    window, default 30 days). `js/app.js` gained `ADMIN_TRAFFIC_STATE` +
+    `_fetchAdminTrafficStats()` (auto-fetches on admin login, alongside the
+    other `_fetchAdmin*` calls) and a new card rendering 4 unique-visitor
+    stat tiles plus a friendly-labeled funnel breakdown (a `FUNNEL_LABELS`
+    map translates raw event names like `analyze_property` into
+    "Valuations Run (Sale)"; money-generating events get a 💰 prefix and
+    green highlight; an unrecognized future event still shows correctly via
+    the raw-name fallback, so a new `dvTrack()` call site never needs a
+    matching edit here to remain visible) — inserted right above the
+    existing "Live Error & Issue Reports" card, same visual/structural
+    pattern (load-once + refresh button, clear SQL-not-run error message on
+    a failed RPC call rather than a silent failure).
+  - Verified: `node -c` on both touched files; an isolated Node vm test (8
+    cases) confirming the purchase-tracking IIFE correctly fires the right
+    event + cleans the URL for each of the 5 real flags, is a complete
+    no-op for an unrelated query param or an empty query string (zero
+    `dvTrack`/`history.replaceState` calls), and that
+    `renderPurchaseSuccessBanner()` correctly renders while inside the
+    8-second window, correctly returns `null` once expired or when no
+    message was ever set, and correctly permanently dismisses on a close
+    click; a second isolated Node test (4 cases) against the real
+    `_fetchAdminTrafficStats()` — no admin password set is a complete
+    no-op, a successful pair of RPC calls populates real stats/funnel state
+    correctly, a not-yet-migrated RPC (404) shows the exact
+    `supabase-visitor-stats-schema.sql` guidance instead of a silent
+    failure, and a thrown network error degrades gracefully with no throw;
+    and a real-browser Playwright pass (3 test groups) — landing on
+    `?upgraded=1` shows the real banner, correctly tracks
+    `pro_upgrade_completed` to `analytics_events`, cleans the URL to a bare
+    `#Home` hash, and closing it removes it permanently even across a
+    forced re-render; a normal load with no query param shows no banner and
+    no bogus tracking; and the Admin Dashboard's new card (mocked RPC
+    responses) renders the real 30-day unique-visitor count, the
+    human-readable funnel label, the correct event count, and the 💰-tagged
+    money event — zero console errors across every pass.
+  - **Manual step required before the Admin card is usable**: run
+    `supabase-visitor-stats-schema.sql` in Supabase SQL Editor (requires
+    `supabase-analytics-events-schema.sql` and
+    `supabase-admin-security-fix.sql` already applied, which they are).
+    Until then, the card shows a clear "run supabase-visitor-stats-schema.sql"
+    message instead of data — purchase tracking/the success banner both work
+    immediately regardless, since they only depend on the already-existing
+    `analytics_events` table's anon-INSERT policy, not these new RPCs.
+  - **Next, not yet done — a manual step in GA4's own UI, cannot be done
+    from this session**: once this ships and a real purchase happens, the
+    user should mark `pro_upgrade_completed` (and, if desired,
+    `signup_completed`/`analyze_property`/`analyze_rental`) as Key Events in
+    GA4 Admin → Events → find the event name → toggle "Mark as key event" —
+    GA4 has no API this session can drive without OAuth credentials the user
+    would need to set up separately, so this is walked-through guidance, not
+    something built into the app.
+
 - **2026-07-21 (new session, real production crash found via Live Error &
   Issue Reports and fixed — "DB_LOADED is not defined")**: User asked to
   check the Admin Dashboard's "Live Error & Issue Reports" card (built
@@ -9346,6 +9448,22 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🟡 Traffic & Funnel Stats (Admin Dashboard) — needs manual SQL** (added
+  2026-07-21): run `supabase-visitor-stats-schema.sql` in Supabase SQL
+  Editor (requires `supabase-analytics-events-schema.sql` and
+  `supabase-admin-security-fix.sql` already applied, which they are). Until
+  it's run, the Admin Dashboard's new "◆ Traffic & Funnel Stats" card shows
+  a clear message pointing at this file instead of data — the purchase-
+  success tracking/banner (`js/core.js` `dvTrack`/`renderPurchaseSuccessBanner`)
+  work immediately regardless, since they only depend on the already-live
+  `analytics_events` table. **Also a standing manual step, walked through
+  with the user, not something this session can do**: once a real purchase
+  has happened and shown up in `analytics_events`, mark `pro_upgrade_completed`
+  (and optionally `signup_completed`/`analyze_property`/`analyze_rental`) as
+  **Key Events** in GA4 — Admin → Events → find the event name → toggle
+  "Mark as key event." No GA4 API access exists in this session to automate
+  this step.
 
 - **🟡 AI Voice Concierge — needs manual SQL + a real ElevenLabs/Twilio
   account + operator dashboard setup** (added 2026-07-20): run

@@ -622,6 +622,58 @@ function dvTrack(eventName,meta){
   }catch(e){}
 }
 
+// ── PURCHASE-SUCCESS TRACKING (real gap found 2026-07-21) ────────────────────
+// api/billing.js's 5 Stripe Checkout flows (Pro subscription, video/video-gen/
+// WhatsApp/voice credits) all redirect back to "/?<flag>=1" on a REAL
+// completed payment — but nothing client-side ever read that flag: no
+// dvTrack() event fired (so GA4/analytics_events never saw the single most
+// valuable business event, a real paying customer), and no confirmation was
+// ever shown to the user (they just landed back on Home with zero
+// indication their payment succeeded). Runs once at parse time (before
+// render() ever paints anything), fires the correct funnel event, and stores
+// a time-boxed message renderPurchaseSuccessBanner() (js/app.js wires this
+// into render()'s overlay block) picks up — a time WINDOW rather than a
+// one-shot flag, so the banner survives render() being called again for an
+// unrelated reason (background momentum fetches, etc.) moments later instead
+// of flickering away immediately.
+(function(){
+  try{
+    var qs=new URLSearchParams(window.location.search);
+    var flags=[
+      ["upgraded","pro_upgrade_completed","You're now a Pro member!"],
+      ["video_credit","video_credit_purchased","Video subtitle credit added!"],
+      ["video_gen_credit","video_gen_credit_purchased","Video generation credit added!"],
+      ["whatsapp_credit","whatsapp_credit_purchased","WhatsApp messaging credit added!"],
+      ["voice_credit","voice_credit_purchased","Voice minutes added!"]
+    ];
+    for(var i=0;i<flags.length;i++){
+      if(qs.get(flags[i][0])==="1"){
+        dvTrack(flags[i][1],{});
+        window._dvPurchaseSuccessMsg=flags[i][2];
+        window._dvPurchaseSuccessUntil=Date.now()+8000;
+        history.replaceState(null,"",window.location.pathname+window.location.hash);
+        break;
+      }
+    }
+  }catch(e){}
+})();
+function renderPurchaseSuccessBanner(){
+  if(!window._dvPurchaseSuccessMsg||!window._dvPurchaseSuccessUntil||Date.now()>window._dvPurchaseSuccessUntil)return null;
+  var wrap=el("div",{style:{position:"fixed",top:"0",left:"0",right:"0",zIndex:"9600",
+    background:"linear-gradient(135deg,#10B981,#059669)",color:"#fff",padding:"12px 20px",
+    display:"flex",alignItems:"center",justifyContent:"center",gap:"10px",
+    fontFamily:"'Space Grotesk',monospace",fontSize:"12.5px",fontWeight:"700",
+    boxShadow:"0 4px 20px rgba(0,0,0,0.35)"}});
+  wrap.appendChild(span({},"✓ "+window._dvPurchaseSuccessMsg));
+  var closeBtn=el("button",{style:{background:"rgba(255,255,255,0.2)",border:"none",color:"#fff",
+    borderRadius:"6px",width:"22px",height:"22px",cursor:"pointer",fontSize:"14px",lineHeight:"1",
+    display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"}});
+  closeBtn.textContent="×";
+  closeBtn.addEventListener("click",function(){window._dvPurchaseSuccessUntil=0;wrap.remove();});
+  wrap.appendChild(closeBtn);
+  return wrap;
+}
+
 // ── AUTOMATIC + MANUAL ERROR REPORTING (beta-launch readiness) ───────────────
 // Two halves of one system: (1) uncaught JS errors/promise rejections are
 // captured automatically and sent through the same analytics_events pipeline
