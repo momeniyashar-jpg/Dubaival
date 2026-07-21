@@ -10345,13 +10345,17 @@ These files contain critical business logic and data:
 
 - **Agent video analysis & upload**: not built yet, deferred to future.
 - **Deploy method**: User deploys from local folder `C:\Users\momen\dubaival\dubaival-deploy`
-  using the Vercel CLI. The deploy folder is a git repo. After each Claude session,
-  user runs these exact commands in that folder to deploy:
+  using the Vercel CLI. The deploy folder is a git repo.
+
+  **🔴 STANDING RULE (user's explicit instruction, 2026-07-21) — always give
+  the deploy command as ONE SINGLE LINE, chained with `&&`, that runs with
+  one Enter press — never a multi-line block the user has to run line by
+  line.** `&&` chaining works in both `cmd.exe` and modern PowerShell (7+),
+  matching the user's Windows environment. The one-line command to give at
+  the end of every session:
 
   ```
-  git fetch origin
-  git reset --hard origin/claude/dubaival-code-quality-k29ojs
-  vercel --prod --archive=tgz
+  git fetch origin && git reset --hard origin/claude/dubaival-code-quality-k29ojs && vercel --prod --archive=tgz
   ```
 
   **`--archive=tgz` is REQUIRED, not optional, since 2026-07-12** (the
@@ -10363,19 +10367,19 @@ These files contain critical business logic and data:
   entirely. Always include this flag in the deploy command from now on —
   do not give the user the plain `vercel --prod` form.
 
-  If a previous merge left conflicts (`unmerged files` error), run this first:
-  ```
-  git merge --abort
-  ```
+  If a previous merge left conflicts (`unmerged files` error), the user
+  needs to run `git merge --abort` first, separately, before the one-line
+  command above — flag this only if it's actually relevant that session,
+  don't prepend it by default.
 
   **NEVER tell the user to `git merge origin/...` without `git reset --hard` first.**
   `git reset --hard` is the correct and safe method — it avoids merge conflicts entirely.
 
-  **Always give the user BOTH commands at end of each task:**
-  1. The git reset + vercel command block above (now targeting
-     `claude/dubaival-code-quality-k29ojs`, not the old `dubaival-portfolio-manager-5bgbjk`
-     — that branch is now research-only and is never deployed directly)
-  2. Nothing else — no git checkout main, no git push origin main
+  **Always give the user the one-line command above at the end of each task**
+  (targeting `claude/dubaival-code-quality-k29ojs`, not the old
+  `dubaival-portfolio-manager-5bgbjk` — that branch is now research-only and
+  is never deployed directly) — nothing else, no git checkout main, no git
+  push origin main, and no splitting it back into separate lines.
 - **🟡 Analyzer enhancements (deferred to after redesign)**:
   1. **Price History Chart** — 1-5 year price trend graph per area/building
      (need DLD transaction history data or Bayut historical).
