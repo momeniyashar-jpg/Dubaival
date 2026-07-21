@@ -3483,10 +3483,33 @@ function renderProfilePanel(){
 }
 
 function render(preserveScroll){
-  if(!DB_LOADED){
+  // typeof-guarded, not a bare `!DB_LOADED` reference: if js/data-residential.js
+  // (1.2MB+) fails to actually download — a slow/dropped mobile connection,
+  // not just "hasn't parsed yet" — the global is never declared at all, and a
+  // bare reference throws ReferenceError before this very safety net can even
+  // show the loading screen (confirmed via a real captured "DB_LOADED is not
+  // defined" report from Live Error & Issue Reports). Also self-polls while
+  // waiting, since nothing else ever re-called render() once DB_LOADED did
+  // finish loading a moment late — previously that left the app stuck on the
+  // spinner forever even in the ordinary "still loading" case.
+  if(typeof DB_LOADED==="undefined"||!DB_LOADED){
     var app=document.getElementById('app');
-    if(app&&(!app.innerHTML||app.innerHTML.indexOf('loading')>-1)){
-      app.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#070B14;gap:16px"><div style="width:40px;height:40px;border-radius:50%;border:2px solid #1C2030;border-top-color:#C9A84C;animation:spin 0.8s linear infinite"></div><div style="color:#4B5563;font-size:12px;font-family:Space Grotesk,monospace;letter-spacing:0.1em">LOADING DATABASE...</div></div>';
+    if(app){
+      if(!window._dvDbWaitStart)window._dvDbWaitStart=Date.now();
+      if(Date.now()-window._dvDbWaitStart>6000){
+        app.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#070B14;gap:16px;padding:24px;text-align:center">'+
+          '<div style="color:#F59E0B;font-size:32px">⚠</div>'+
+          '<div style="color:#E8EDF5;font-size:13px;font-family:\'Space Grotesk\',monospace;max-width:300px;line-height:1.6">Couldn’t load property data. Please check your connection.</div>'+
+          '<button id="dv-db-retry-btn" style="background:linear-gradient(135deg,#D4AF37,#A07D1C);border:none;color:#070B14;font-weight:700;padding:10px 26px;border-radius:8px;font-family:\'Space Grotesk\',monospace;font-size:12px;letter-spacing:0.05em;cursor:pointer">↻ RETRY</button>'+
+        '</div>';
+        var rb=document.getElementById('dv-db-retry-btn');
+        if(rb)rb.onclick=function(){location.reload();};
+      }else{
+        if(!app.innerHTML||app.innerHTML.indexOf('LOADING DATABASE')>-1){
+          app.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#070B14;gap:16px"><div style="width:40px;height:40px;border-radius:50%;border:2px solid #1C2030;border-top-color:#C9A84C;animation:spin 0.8s linear infinite"></div><div style="color:#4B5563;font-size:12px;font-family:Space Grotesk,monospace;letter-spacing:0.1em">LOADING DATABASE...</div></div>';
+        }
+        setTimeout(function(){try{render();}catch(e){}},800);
+      }
     }
     return;
   }

@@ -965,6 +965,64 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-21 (new session, real production crash found via Live Error &
+  Issue Reports and fixed — "DB_LOADED is not defined")**: User asked to
+  check the Admin Dashboard's "Live Error & Issue Reports" card (built
+  2026-07-14, session 11z) for real captured errors — first, a full audit
+  confirming this feature's own coding (automatic `window.onerror`/
+  `unhandledrejection` capture, the manual "Report an Issue" FAB, the
+  anon-insert-only `analytics_events` table, and the two password-gated
+  `security definer` admin RPCs) was built correctly end-to-end with no
+  bugs, and both `supabase-analytics-events-schema.sql`/
+  `supabase-error-reporting-schema.sql` were re-delivered since their
+  execution status had never been confirmed. The user then pasted a real
+  captured error from that card: `DB_LOADED is not defined` at
+  `https://www.dubaival.com/#Home`.
+  - **Root cause, confirmed by reading the code, not guessed**:
+    `render()` (`js/app.js`, the app's single entry point, called once
+    from `index.html`'s `DOMContentLoaded` handler) opens with
+    `if(!DB_LOADED){...show a loading spinner...}` — a guard clearly
+    *intended* to handle "the 1.2MB+ `js/data-residential.js` hasn't
+    finished loading yet" gracefully. But a bare `!DB_LOADED` reference
+    throws a `ReferenceError` (not a falsy-check) if that script fails to
+    download AT ALL (a dropped/slow mobile connection, not just "hasn't
+    parsed yet") — since `var DB_LOADED=true;` inside that file is never
+    reached, the global is never declared, and referencing an undeclared
+    bare identifier throws before the very safety net meant to catch this
+    exact situation can even run. Confirmed via a real-browser Playwright
+    test that blocked `js/data-residential.js` from loading at all — before
+    the fix this reproduces the exact reported crash; the built-in
+    `window.onerror` handler then shows the raw "JS Crash — Copy this and
+    send to Claude" screen instead of anything graceful.
+  - **A second, related latent bug found while fixing this**: even in the
+    scenario the original guard WAS designed for (DB still loading, not
+    failed), nothing anywhere ever called `render()` again once
+    `DB_LOADED` did flip to `true` a moment later — so a genuinely slow
+    (not failed) load would leave the app stuck on the spinner forever with
+    no self-recovery.
+  - **Fix**: the guard is now `typeof DB_LOADED==="undefined"||!DB_LOADED`
+    (crash-safe regardless of whether the script ever loaded at all), self-
+    polls via `setTimeout(render,800)` while waiting (fixing the second bug
+    above — a late-but-successful load now resumes automatically with zero
+    extra intervention), and after 6 seconds with no success shows a clear
+    "Couldn't load property data — check your connection" message with a
+    real "↻ RETRY" button (`location.reload()`) — matching this app's own
+    established pattern for this class of failure (Map's "Map unavailable,"
+    News's error+Retry, Market Dashboard's AI-timeout+Retry, all cited
+    elsewhere in this file) rather than a silent, unrecoverable hang.
+  - Verified: a 5-case isolated Node unit test (DB_LOADED undeclared →
+    no throw, shows loading UI; DB_LOADED=false → same; waited >6s → shows
+    the Retry button; DB_LOADED=true → correctly proceeds past the guard
+    into the real render, not the early-return path; still-waiting state
+    correctly schedules the 800ms self-poll) — all 5 passed; and a real-
+    browser Playwright pass — one page with `js/data-residential.js`
+    entirely blocked (reproducing the real crash scenario) confirming zero
+    uncaught page errors and the graceful loading UI instead of the "JS
+    Crash" screen, one normal unblocked page confirming `DB_LOADED===true`,
+    the real app renders exactly as before, and zero console/page errors —
+    both passed, confirming the fix is fully backward-compatible with the
+    ordinary successful-load path. `node -c js/app.js` clean.
+
 - **2026-07-19/20 (session continuing 14, AI Voice Concierge — a real,
   production-ready live phone agent, built end to end after the user shared
   a competitor ad)**: User shared an ElevenLabs "Voice Agents With Emotional
