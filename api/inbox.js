@@ -195,6 +195,12 @@ async function handleConfig(req, res) {
   return res.status(200).json({
     meta_app_id: process.env.META_APP_ID || "",
     google_client_id: process.env.GOOGLE_CLIENT_ID || "",
+    linkedin_client_id: process.env.LINKEDIN_CLIENT_ID || "",
+    // Twitter/X uses OAuth 1.0a (3-legged), not a plain client_id the browser
+    // constructs a URL with directly — the client only needs to know whether
+    // OUR app-level keys are configured at all, to show/hide the Connect
+    // button correctly; the actual keys never leave the server.
+    twitter_configured: !!(process.env.TWITTER_CONSUMER_KEY && process.env.TWITTER_CONSUMER_SECRET),
   });
 }
 
@@ -226,15 +232,52 @@ async function handleOauthMeta(req, res) {
     var pages = d3.data || [];
     if (!pages.length) return res.status(400).json({ error: "No Facebook pages found. Make sure you have a Facebook Page." });
 
-    var page = pages[0];
-    var fbId = page.id, pageToken = page.access_token;
-
-    var r4 = await fetch(GRAPH_BASE + "/" + fbId + "?fields=instagram_business_account&access_token=" + pageToken);
-    var d4 = await r4.json();
-    var igId = (d4.instagram_business_account && d4.instagram_business_account.id) || null;
+    // An agent can manage more than one Facebook Page — picking pages[0]
+    // blindly could silently connect the wrong one. Check every page's
+    // linked Instagram Business Account (this app's primary posting
+    // target) and prefer the first one that actually has one; only fall
+    // back to the plain first page if none do. Not a full page-picker UI
+    // yet (flagged as a follow-up) — but this heuristic means the common
+    // single-Instagram-Page case always resolves correctly, and a
+    // multi-page agent at least gets the page most likely to be the
+    // right one instead of an arbitrary one.
+    var chosenPage = null, chosenIgId = null, allChecked = [];
+    for (var pi = 0; pi < pages.length; pi++) {
+      var pg = pages[pi];
+      try {
+        var pr = await fetch(GRAPH_BASE + "/" + pg.id + "?fields=instagram_business_account&access_token=" + pg.access_token);
+        var pd = await pr.json();
+        var pgIgId = (pd.instagram_business_account && pd.instagram_business_account.id) || null;
+        allChecked.push({ id: pg.id, name: pg.name, has_instagram: !!pgIgId });
+        if (pgIgId && !chosenPage) { chosenPage = pg; chosenIgId = pgIgId; }
+      } catch (e) { allChecked.push({ id: pg.id, name: pg.name, has_instagram: false }); }
+    }
+    if (!chosenPage) chosenPage = pages[0];
+    var page = chosenPage;
+    var fbId = page.id, pageToken = page.access_token, igId = chosenIgId;
 
     var creds = { ig_token: pageToken, fb_id: fbId, updated_at: new Date().toISOString() };
     if (igId) creds.ig_id = igId;
+
+    // Ads Pixel auto-discovery — closes another manual-paste field
+    // (Meta Ads Pixel ID, Profile → Meta Ads Pixel) the exact same way, using
+    // the SAME token/scopes rather than a second connect flow. Best-effort:
+    // an agent with no ad account yet simply doesn't get a pixel populated,
+    // no error surfaced (this is a bonus, not the primary purpose of this
+    // connect flow). The Conversions API access token itself is a distinct,
+    // separately-generated credential (Events Manager -> Conversions API)
+    // that Meta's API has no discovery endpoint for, so that one field stays
+    // a deliberate, disclosed manual step for now.
+    try {
+      var adAccResp = await fetch(GRAPH_BASE + "/me/adaccounts?fields=id&access_token=" + longToken + "&limit=5");
+      var adAccData = await adAccResp.json();
+      var adAccounts = adAccData.data || [];
+      for (var ai = 0; ai < adAccounts.length && !creds.meta_pixel_id; ai++) {
+        var pxResp = await fetch(GRAPH_BASE + "/" + adAccounts[ai].id + "/adspixels?fields=id&access_token=" + longToken + "&limit=1");
+        var pxData = await pxResp.json();
+        if (pxData.data && pxData.data[0]) creds.meta_pixel_id = pxData.data[0].id;
+      }
+    } catch (e) { /* pixel discovery is a bonus, never blocks the core connect */ }
 
     // A correctly configured app-level webhook (callback URL + verify token
     // in the Meta App Dashboard) is not enough — each individual Page must
@@ -256,7 +299,11 @@ async function handleOauthMeta(req, res) {
       });
     }
 
-    return res.status(200).json({ ok: true, fb_id: fbId, ig_id: igId, ig_token: pageToken, page_name: page.name });
+    return res.status(200).json({
+      ok: true, fb_id: fbId, ig_id: igId, ig_token: pageToken, page_name: page.name,
+      meta_pixel_id: creds.meta_pixel_id || null,
+      other_pages: allChecked.filter(function (p) { return p.id !== fbId; }),
+    });
   } catch (e) {
     console.error("oauth-meta error:", e.message);
     return res.status(500).json({ error: e.message });
@@ -306,6 +353,173 @@ async function handleOauthGoogle(req, res) {
     return res.status(200).json({ ok: true, gmail: gmailEmail });
   } catch (e) {
     console.error("oauth-google error:", e.message);
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// Shared upsert helper for the 2 new OAuth handlers below (LinkedIn/Twitter)
+// — the existing Meta/Google handlers above have their own inline copies of
+// this same GET-then-PATCH-or-POST pattern and are deliberately left
+// untouched here (already tested, working code; no reason to touch it for a
+// purely cosmetic dedup).
+async function _upsertSocialCreds(userId, creds) {
+  var existResp = await shared.supabaseRequest("/social_credentials?user_id=eq." + encodeURIComponent(userId), { method: "GET" });
+  var existing = existResp.ok ? await existResp.json() : [];
+  if (existing.length) {
+    await shared.supabaseRequest("/social_credentials?user_id=eq." + encodeURIComponent(userId), {
+      method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify(creds),
+    });
+  } else {
+    await shared.supabaseRequest("/social_credentials", {
+      method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify(Object.assign({ user_id: userId }, creds)),
+    });
+  }
+}
+
+// ── ACTION: oauth-linkedin ────────────────────────────────────────────────────
+// Standard OAuth 2.0 authorization-code flow (unlike Twitter below) — the
+// client constructs the LinkedIn authorization URL directly using
+// linkedin_client_id from ?action=config, same pattern as Meta/Google.
+// Requires our own LinkedIn Developer App (LINKEDIN_CLIENT_ID/
+// LINKEDIN_CLIENT_SECRET, operator-only one-time setup) with the "Sign In
+// with LinkedIn using OpenID Connect" + "Share on LinkedIn" products added.
+// api/auto-post.js's existing publishLI() already knows how to post using
+// exactly the linkedin_token/linkedin_urn columns this writes — this
+// handler is the only missing piece connecting a real OAuth grant to that
+// already-working posting pipeline.
+async function handleOauthLinkedin(req, res) {
+  var body = req.body || {};
+  var code = body.code, userId = body.userId;
+  var redirectUri = body.redirectUri || "https://www.dubaival.com/callback";
+  var clientId = process.env.LINKEDIN_CLIENT_ID, clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
+
+  if (!code || !userId) return res.status(400).json({ error: "Missing code or userId" });
+  if (!clientId || !clientSecret) return res.status(500).json({ error: "LINKEDIN_CLIENT_ID/LINKEDIN_CLIENT_SECRET not configured" });
+
+  try {
+    var tokenResp = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "grant_type=authorization_code&code=" + encodeURIComponent(code) +
+        "&redirect_uri=" + encodeURIComponent(redirectUri) +
+        "&client_id=" + encodeURIComponent(clientId) + "&client_secret=" + encodeURIComponent(clientSecret),
+    });
+    var tokenData = await tokenResp.json();
+    if (!tokenData.access_token) return res.status(400).json({ error: tokenData.error_description || "LinkedIn token exchange failed" });
+
+    // OpenID Connect userinfo endpoint returns the member's own URN suffix
+    // in `sub` — posting as the member themselves (urn:li:person:<sub>),
+    // matching how the user described this ("share posts... on their own
+    // account"), not a company Page (which needs a separate, higher-friction
+    // admin-verification scope this session deliberately doesn't add).
+    var uiResp = await fetch("https://api.linkedin.com/v2/userinfo", {
+      headers: { Authorization: "Bearer " + tokenData.access_token },
+    });
+    var userInfo = uiResp.ok ? await uiResp.json() : {};
+    if (!userInfo.sub) return res.status(400).json({ error: "Could not read LinkedIn member profile." });
+    var urn = "urn:li:person:" + userInfo.sub;
+
+    var creds = { linkedin_token: tokenData.access_token, linkedin_urn: urn, updated_at: new Date().toISOString() };
+    await _upsertSocialCreds(userId, creds);
+
+    return res.status(200).json({ ok: true, linkedin_urn: urn, name: userInfo.name || null });
+  } catch (e) {
+    console.error("oauth-linkedin error:", e.message);
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// ── ACTION: oauth-twitter-init / oauth-twitter-exchange ───────────────────────
+// X/Twitter's user-context posting API still requires classic OAuth 1.0a
+// (3-legged) — genuinely different from every other flow in this file (no
+// client_id the browser can build a URL with; needs a server round-trip
+// BEFORE the redirect to obtain a temporary request token). Reuses the same
+// HMAC-SHA1 signing math api/auto-post.js's publishTW() already has (kept as
+// an independent copy here rather than refactoring that already-working
+// cron file just to share it — OAuth 1.0a signing is a fixed, stable spec,
+// so this duplication carries negligible drift risk). Requires our own
+// Twitter Developer App with OAuth 1.0a enabled (TWITTER_CONSUMER_KEY/
+// TWITTER_CONSUMER_SECRET, operator-only) — once connected, api/auto-post.js
+// itself is updated (see below) to sign with these SAME app-level keys
+// instead of a per-user pasted consumer key/secret.
+function _twPercentEncode(s) { return encodeURIComponent(s).replace(/[!'()*]/g, function (c) { return "%" + c.charCodeAt(0).toString(16).toUpperCase(); }); }
+function _twOauthSign(method, url, params, consumerSecret, tokenSecret) {
+  var keys = Object.keys(params).sort();
+  var paramStr = keys.map(function (k) { return _twPercentEncode(k) + "=" + _twPercentEncode(params[k]); }).join("&");
+  var baseStr = method.toUpperCase() + "&" + _twPercentEncode(url) + "&" + _twPercentEncode(paramStr);
+  var signingKey = _twPercentEncode(consumerSecret) + "&" + _twPercentEncode(tokenSecret || "");
+  return crypto.createHmac("sha1", signingKey).update(baseStr).digest("base64");
+}
+function _twAuthHeader(oauthParams) {
+  return "OAuth " + Object.keys(oauthParams).sort().map(function (k) { return _twPercentEncode(k) + '="' + _twPercentEncode(oauthParams[k]) + '"'; }).join(", ");
+}
+function _twParseForm(text) {
+  var out = {};
+  text.split("&").forEach(function (pair) {
+    var idx = pair.indexOf("=");
+    if (idx === -1) return;
+    out[decodeURIComponent(pair.slice(0, idx))] = decodeURIComponent(pair.slice(idx + 1));
+  });
+  return out;
+}
+
+async function handleOauthTwitterInit(req, res) {
+  var body = req.body || {};
+  var redirectUri = body.redirectUri || "https://www.dubaival.com/callback";
+  var consumerKey = process.env.TWITTER_CONSUMER_KEY, consumerSecret = process.env.TWITTER_CONSUMER_SECRET;
+  if (!consumerKey || !consumerSecret) return res.status(500).json({ error: "TWITTER_CONSUMER_KEY/TWITTER_CONSUMER_SECRET not configured" });
+
+  try {
+    var url = "https://api.twitter.com/oauth/request_token";
+    var nonce = crypto.randomBytes(16).toString("hex");
+    var ts = Math.floor(Date.now() / 1000).toString();
+    var oauthParams = {
+      oauth_callback: redirectUri, oauth_consumer_key: consumerKey, oauth_nonce: nonce,
+      oauth_signature_method: "HMAC-SHA1", oauth_timestamp: ts, oauth_version: "1.0",
+    };
+    oauthParams.oauth_signature = _twOauthSign("POST", url, oauthParams, consumerSecret, "");
+    var r = await fetch(url, { method: "POST", headers: { Authorization: _twAuthHeader(oauthParams) } });
+    var text = await r.text();
+    var parsed = _twParseForm(text);
+    if (!parsed.oauth_token || parsed.oauth_callback_confirmed !== "true") {
+      return res.status(400).json({ error: "Twitter request_token failed: " + text.slice(0, 200) });
+    }
+    return res.status(200).json({ ok: true, oauth_token: parsed.oauth_token, oauth_token_secret: parsed.oauth_token_secret });
+  } catch (e) {
+    console.error("oauth-twitter-init error:", e.message);
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+async function handleOauthTwitterExchange(req, res) {
+  var body = req.body || {};
+  var oauthToken = body.oauth_token, oauthTokenSecret = body.oauth_token_secret, verifier = body.oauth_verifier, userId = body.userId;
+  var consumerKey = process.env.TWITTER_CONSUMER_KEY, consumerSecret = process.env.TWITTER_CONSUMER_SECRET;
+  if (!oauthToken || !oauthTokenSecret || !verifier || !userId) return res.status(400).json({ error: "Missing oauth_token/oauth_token_secret/oauth_verifier/userId" });
+  if (!consumerKey || !consumerSecret) return res.status(500).json({ error: "TWITTER_CONSUMER_KEY/TWITTER_CONSUMER_SECRET not configured" });
+
+  try {
+    var url = "https://api.twitter.com/oauth/access_token";
+    var nonce = crypto.randomBytes(16).toString("hex");
+    var ts = Math.floor(Date.now() / 1000).toString();
+    var oauthParams = {
+      oauth_consumer_key: consumerKey, oauth_nonce: nonce, oauth_signature_method: "HMAC-SHA1",
+      oauth_timestamp: ts, oauth_token: oauthToken, oauth_verifier: verifier, oauth_version: "1.0",
+    };
+    oauthParams.oauth_signature = _twOauthSign("POST", url, oauthParams, consumerSecret, oauthTokenSecret);
+    var r = await fetch(url, { method: "POST", headers: { Authorization: _twAuthHeader(oauthParams) } });
+    var text = await r.text();
+    var parsed = _twParseForm(text);
+    if (!parsed.oauth_token || !parsed.oauth_token_secret) {
+      return res.status(400).json({ error: "Twitter access_token exchange failed: " + text.slice(0, 200) });
+    }
+
+    var creds = { twitter_access_token: parsed.oauth_token, twitter_access_secret: parsed.oauth_token_secret, updated_at: new Date().toISOString() };
+    await _upsertSocialCreds(userId, creds);
+
+    return res.status(200).json({ ok: true, screen_name: parsed.screen_name || null });
+  } catch (e) {
+    console.error("oauth-twitter-exchange error:", e.message);
     return res.status(500).json({ error: e.message });
   }
 }
@@ -1808,6 +2022,9 @@ module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
   if (action === "oauth-meta") return handleOauthMeta(req, res);
   if (action === "oauth-google") return handleOauthGoogle(req, res);
+  if (action === "oauth-linkedin") return handleOauthLinkedin(req, res);
+  if (action === "oauth-twitter-init") return handleOauthTwitterInit(req, res);
+  if (action === "oauth-twitter-exchange") return handleOauthTwitterExchange(req, res);
   if (action === "email-inbound") return handleEmailInbound(req, res);
   if (action === "whatsapp-send") return handleWhatsAppSend(req, res);
   if (action === "meta-conversion") return handleMetaConversion(req, res);

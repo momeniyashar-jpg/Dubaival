@@ -965,6 +965,206 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-21 (same session, follow-up — real zero-touch OAuth "Connect"
+  flows for LinkedIn + X/Twitter built, and a real, silent bug fixed in the
+  ALREADY-EXISTING Instagram/Facebook one)**: Direct continuation of the
+  earlier WhatsApp-login-code confusion — user asked whether Social Media
+  Manager was built per Directive #4's zero-touch vision (admin adds ONE
+  token, users just enter their own social handles and connect
+  automatically). Investigating turned up a genuine surprise: a full,
+  correctly-structured OAuth "Connect" flow for **Instagram + Facebook and
+  Gmail already exists** (`handleOauthMeta`/`handleOauthGoogle` in
+  `api/inbox.js`, `callback.html`, the `oauthBtn()` helper in
+  `renderProfilePanel()`, `js/app.js`) — built in an earlier session not
+  fully reflected in this file's own "not yet built" framing under
+  Directive #4, which was accordingly stale. `showSocialSetup()`
+  (`js/chat.js`) — the OLDER, still-manual-paste modal I'd checked first
+  when answering the earlier WhatsApp-login question — is a second, legacy
+  UI that coexists with the real one; the Profile Panel is what's actually
+  live and current.
+  1. **Critical, silent bug found in the EXISTING Meta OAuth flow**: its
+     scope list (`js/app.js`) requested only messaging/read permissions
+     (`pages_show_list, pages_messaging, instagram_manage_messages,
+     instagram_basic, pages_read_engagement, read_page_mailboxes`) —
+     **missing `instagram_content_publish` and `pages_manage_posts`, the
+     actual PUBLISH permissions.** Even once Meta App Review passes, the
+     resulting token could read messages/engagement but could never
+     actually POST — silently defeating the entire stated purpose ("so
+     people can share the posts they create on their own Instagram").
+     Fixed by adding both, plus `ads_management`/`business_management` (see
+     item 3 below).
+  2. **Multi-Page handling fixed** (`handleOauthMeta`, `api/inbox.js`): an
+     agent managing more than one Facebook Page had `pages[0]` chosen
+     blindly, which could silently connect the wrong one. Now checks every
+     page's linked Instagram Business Account and prefers the first one
+     that has one (this app's primary posting target); the response
+     includes `other_pages` (name + has_instagram) so the callback page can
+     at least disclose "you manage N pages — this one was chosen
+     automatically" rather than silently guessing with zero visibility.
+  3. **Ads Pixel auto-discovery added to the same connection** — the added
+     `ads_management`/`business_management` scopes let the same OAuth grant
+     also auto-populate the Meta Ads Pixel ID (via `/me/adaccounts` →
+     `/act_.../adspixels`), closing another manual-paste field (Profile →
+     Meta Ads Pixel) for free. The Conversions API access token itself
+     stays a deliberate, disclosed manual field — Meta's API has no
+     discovery endpoint for it.
+  4. **LinkedIn — built from scratch, completes an already-working posting
+     pipeline**: `api/auto-post.js`'s `publishLI()` already correctly posts
+     using `linkedin_token`/`linkedin_urn` — the only missing piece was a
+     real OAuth grant. New `handleOauthLinkedin` (`api/inbox.js`, OAuth 2.0,
+     standard authorization-code flow): exchanges the code, reads the
+     member's own URN via LinkedIn's OpenID Connect `/v2/userinfo` endpoint
+     (posts as the member themselves — `urn:li:person:<sub>` — not a
+     company Page, which needs a separate, higher-friction admin-verified
+     scope this session deliberately didn't add), and upserts into the
+     exact same `linkedin_token`/`linkedin_urn` columns the manual-paste
+     flow already used. New `linkedin_client_id` field on `?action=config`;
+     a real "Connect LinkedIn" button replaces the old 2 manual-paste
+     fields in the Profile Panel (`oauthBtn(...,"linkedin")`); `callback.html`
+     gained a real LinkedIn branch (previously just displayed the raw OAuth
+     code for the user to copy-paste — a "legacy" placeholder that never
+     actually called anything).
+  5. **X / Twitter — built from scratch, also completes an already-working
+     posting pipeline**: `api/auto-post.js`'s `publishTW()` already posts
+     via classic OAuth 1.0a signing — but requires the FULL 3-legged OAuth
+     1.0a flow (a temporary request token obtained server-side BEFORE the
+     user is redirected, genuinely different in shape from every other flow
+     in this file — no `client_id` the browser can build a URL with
+     directly, and the callback comes back as `oauth_token`+`oauth_verifier`,
+     not `code`+`state`). New `handleOauthTwitterInit`
+     (`POST /api/inbox?action=oauth-twitter-init` — requests a temporary
+     token from `api.twitter.com/oauth/request_token`, signed with our own
+     app-level `TWITTER_CONSUMER_KEY`/`TWITTER_CONSUMER_SECRET`) and
+     `handleOauthTwitterExchange` (`action=oauth-twitter-exchange` —
+     completes the exchange once the user approves, upserts
+     `twitter_access_token`/`twitter_access_secret`). Client stashes the
+     request token's own secret in `sessionStorage` (keyed by the token
+     itself, so two concurrent connect attempts in different tabs can't
+     collide) before redirecting to `api.twitter.com/oauth/authorize`;
+     `callback.html` detects the `oauth_token`+`oauth_verifier` shape
+     (distinct from every other platform's `code`+`state`) and completes
+     the exchange. **A necessary consequence**: `publishTW()` in
+     `api/auto-post.js` now signs with our OWN shared
+     `TWITTER_CONSUMER_KEY`/`TWITTER_CONSUMER_SECRET` (env vars) instead of
+     a per-agent pasted consumer key/secret — matching the whole point of
+     this migration (one admin-level app, not one Twitter Developer App
+     per agent). A pre-migration row that only has an old manually-pasted
+     PERSONAL consumer key/secret now correctly fails closed ("Not
+     configured") rather than silently mis-signing with a mismatched
+     app/token pair — the agent needs to reconnect via the new button once
+     it's live. The Profile Panel's 4 old raw Twitter fields (Consumer
+     Key/Secret, Access Token/Secret) are gone entirely, replaced by one
+     "Connect X / Twitter" button + a status line.
+  6. **A real, separate credential-clobbering bug found and fixed while
+     wiring all this in**: `_syncCredsToServer()` (`js/chat.js`) built its
+     PATCH payload by reading every raw credential field straight from
+     `localStorage.getItem(key)||null` — meaning if an OAuth flow (correctly,
+     deliberately) never mirrors a sensitive value like `linkedin_token`
+     back into localStorage, the very next time the agent clicked "Save
+     Profile" for something unrelated (their phone number, say), this would
+     PATCH an explicit `null` over the real, just-connected token stored
+     server-side moments earlier — silently undoing a successful connection.
+     Confirmed this wasn't hypothetical for Twitter specifically: an early
+     version of this session's own code stored the connected account's
+     screen name into `dv_twitter_access_token` (as a "connected" UI flag)
+     — which would have then been faithfully PATCHed back as the literal
+     access token, overwriting the real one with a garbage string. Fixed at
+     the root: `_syncCredsToServer()` now only ever ADDS a field to the
+     payload when a real localStorage value exists (never sends an explicit
+     null for an absent one) via a new `_SOCIAL_CRED_FIELD_MAP`, and the
+     Twitter "connected" indicator now lives under its own dedicated key
+     (`dv_twitter_connected`), never colliding with the real sync-relevant
+     `dv_twitter_access_token`/`dv_twitter_access_secret` keys. This closes
+     the risk for ALL platforms this function touches, not just the 2 new
+     ones — a real, general hardening, not a narrow patch.
+  7. **Deliberately NOT built this session, and why**: YouTube and TikTok
+     OAuth connections were considered but explicitly skipped — a full grep
+     of `api/auto-post.js` confirmed NEITHER platform has any actual
+     posting/upload implementation at all yet (their credential columns/UI
+     fields exist, but nothing server-side does anything with them) —
+     building just the OAuth connection with no real posting pipeline behind
+     it would be a hollow, misleading "Connected!" state. This is real,
+     separate follow-up work (YouTube needs the Data API's resumable
+     video-upload flow; TikTok needs its own Developer App + Content Posting
+     API integration) that should be done together with, not instead of,
+     an OAuth "Connect" button. WhatsApp Embedded Signup (a specialized
+     JS-SDK-embed flow, not a plain redirect) remains blocked on the same
+     Meta Business Verification dependency already documented elsewhere in
+     this file, unrelated to this session's LinkedIn/Twitter work.
+  - Verified: `node -c` on all 4 touched server/client files; a mocked-fetch
+    Node test harness against the real `api/inbox.js` handlers (12 cases)
+    — `?action=config` returns the 3 new fields correctly; `oauth-meta`
+    correctly prefers the IG-linked page among 2 real candidate pages and
+    discovers a real pixel ID, correctly reports zero IG/pixel for a
+    single plain page, and correctly 400s on missing code/userId with zero
+    network calls; `oauth-linkedin` performs a real token exchange +
+    OpenID `userinfo` call and upserts the correct `linkedin_token`/
+    `linkedin_urn`, and correctly surfaces a real LinkedIn error on a bad
+    code; `oauth-twitter-init` correctly signs and parses a real (mocked)
+    Twitter request-token response and correctly rejects an unconfirmed
+    callback; `oauth-twitter-exchange` performs a real (mocked)
+    access-token exchange and upserts the correct access token/secret, and
+    correctly 500s with zero network calls when the app-level env vars
+    aren't set; a companion test against the real (newly-exported, test-
+    only) `api/auto-post.js` `publishTW()` confirming it now signs with the
+    shared env-level consumer key (not `creds.twitter_consumer_key`) while
+    still using the agent's own per-row access token/secret, and correctly
+    fails closed ("Not configured") for a pre-migration row that only has
+    an old personal consumer key/secret with no app-level env vars set; a
+    dedicated Node vm test (4 cases) against the real `_syncCredsToServer()`
+    confirming a LinkedIn-OAuth-only state sends `linkedin_urn` but never
+    sends (nulls) `linkedin_token`, confirming a fully-disconnected state
+    sends zero raw credential keys at all, confirming a fully-populated
+    Instagram state still sends its real values correctly (no regression),
+    and confirming the automation toggles/user_id/updated_at are always
+    present regardless; an isolated vm test (4 cases) of the exact X/Twitter
+    click-handler logic (sidesteps a real-browser limitation where
+    assigning `window.location.href` destroys the JS execution context
+    before Playwright can read back `sessionStorage` — confirmed via 2
+    separate failed real-browser attempts before settling on this
+    approach) confirming the request-token secret is correctly stashed
+    under the right key BEFORE the redirect fires, and confirming graceful
+    handling of "not configured," a failed init call, and a network error;
+    a real-browser Playwright pass confirming the Meta OAuth URL now
+    genuinely includes all 4 new scopes and the LinkedIn OAuth URL is
+    built correctly (both captured via request interception before the
+    real, unreachable-from-this-sandbox external navigation occurs), plus
+    graceful degradation (a real alert, zero navigation) when Meta isn't
+    configured; a second real-browser pass driving the real, static
+    `callback.html` end-to-end for all 4 branches — a real X/Twitter
+    exchange call with the correct stashed secret retrieved and cleaned up
+    after use, a missing/expired secret correctly short-circuiting with a
+    clear message and zero exchange call, a real LinkedIn exchange
+    correctly mirroring `linkedin_urn` to localStorage, a real Meta
+    exchange correctly surfacing the multi-page transparency note and
+    auto-filled pixel ID, and an unrecognized platform value now showing a
+    clean error instead of the old dead "copy this code" fallback; a full
+    Profile Panel render test with a realistic MIXED state (Instagram/
+    LinkedIn OAuth-connected, Twitter not yet connected, TikTok still on
+    the untouched legacy manual-paste path) confirming everything renders
+    correctly together with the old Twitter key fields genuinely gone; and
+    the existing 10-tab regression sweep — zero collateral console errors
+    anywhere.
+  - **Manual steps required before LinkedIn/Twitter go live** (Meta's
+    Instagram/Facebook connection was already live-eligible before this
+    session, pending only Meta's own App Review — see the existing
+    Directive #4 entry below): set `LINKEDIN_CLIENT_ID`/
+    `LINKEDIN_CLIENT_SECRET` (a LinkedIn Developer App with "Sign In with
+    LinkedIn using OpenID Connect" + "Share on LinkedIn" products added —
+    LinkedIn's own review process, generally lighter-weight than Meta's)
+    and `TWITTER_CONSUMER_KEY`/`TWITTER_CONSUMER_SECRET` (a Twitter/X
+    Developer App with OAuth 1.0a explicitly enabled in its User
+    authentication settings, plus the correct callback URL —
+    `https://www.dubaival.com/callback` — registered there) in Vercel env
+    vars. Until either is set, that platform's Connect button shows a
+    clear "not set up yet" message rather than a broken redirect — nothing
+    else in the app is affected either way. **Also note**: the Meta App's
+    already-submitted permission set now needs `instagram_content_publish`/
+    `pages_manage_posts`/`ads_management`/`business_management` added and
+    re-submitted for App Review if not already requested — check the
+    current review status before assuming these new scopes are already
+    approved.
+
 - **2026-07-21 (same session, follow-up — real revenue events were never
   tracked at all, plus a new ad-blocker-immune Admin traffic/funnel card)**:
   User found the site's real GA4 property (`G-7J3H12JGPE`, live since
@@ -9448,6 +9648,24 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🟡 LinkedIn + X/Twitter OAuth "Connect" — needs 2 new Developer Apps'
+  credentials** (added 2026-07-21): set `LINKEDIN_CLIENT_ID`/
+  `LINKEDIN_CLIENT_SECRET` (LinkedIn Developer App with "Sign In with
+  LinkedIn using OpenID Connect" + "Share on LinkedIn" products) and
+  `TWITTER_CONSUMER_KEY`/`TWITTER_CONSUMER_SECRET` (Twitter/X Developer App
+  with OAuth 1.0a explicitly enabled + `https://www.dubaival.com/callback`
+  registered as its callback URL) in Vercel env vars. Until either is set,
+  that platform's "Connect" button in Profile shows a clear "not set up
+  yet" message rather than a broken redirect. **Also**: the existing Meta
+  App's permission request needs `instagram_content_publish`/
+  `pages_manage_posts`/`ads_management`/`business_management` added (a real
+  bug fix this session — the previously-submitted scope list could never
+  actually publish anything) and re-submitted for App Review if not
+  already included — check current review status before assuming these
+  are approved. See the 2026-07-21 "real zero-touch OAuth 'Connect' flows"
+  work-log entry above for the full design (all 3 flows are otherwise
+  code-complete and tested).
 
 - **🟡 Traffic & Funnel Stats (Admin Dashboard) — needs manual SQL** (added
   2026-07-21): run `supabase-visitor-stats-schema.sql` in Supabase SQL

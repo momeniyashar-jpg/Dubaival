@@ -887,29 +887,30 @@ function _socialCredHeaders(extra){
   return Object.assign({"apikey":SUPABASE_KEY,"Authorization":"Bearer "+tok,"Content-Type":"application/json"},extra||{});
 }
 
+// Column -> localStorage key for every raw credential field this function
+// can push. Deliberately NOT unconditionally included in the payload (see
+// below) — a real bug, found 2026-07-21 while wiring up the LinkedIn/Twitter
+// "Connect" OAuth flows: those flows don't (and, for the token itself,
+// shouldn't) mirror every one of their real server-stored values back into
+// localStorage, so a blind `localStorage.getItem(k)||null` here would PATCH
+// an explicit `null` over a real, just-connected credential the moment the
+// agent next clicks "Save Profile" for something unrelated (their phone
+// number, say) — silently disconnecting a platform that was actually fine.
+var _SOCIAL_CRED_FIELD_MAP=[
+  ["ig_token","dv_ig_token"],["ig_id","dv_ig_id"],["fb_id","dv_fb_id"],
+  ["linkedin_token","dv_linkedin_token"],["linkedin_urn","dv_linkedin_urn"],
+  ["twitter_consumer_key","dv_twitter_consumer_key"],["twitter_consumer_secret","dv_twitter_consumer_secret"],
+  ["twitter_access_token","dv_twitter_access_token"],["twitter_access_secret","dv_twitter_access_secret"],
+  ["youtube_refresh","dv_youtube_refresh"],["youtube_client_id","dv_youtube_client_id"],["youtube_client_secret","dv_youtube_client_secret"],
+  ["tiktok_token","dv_tiktok_token"],
+  ["whatsapp_token","dv_whatsapp_token"],["whatsapp_phone_id","dv_whatsapp_phone_id"],["whatsapp_waba_id","dv_whatsapp_waba_id"],
+  ["meta_pixel_id","dv_meta_pixel_id"],["meta_capi_token","dv_meta_capi_token"]
+];
 function _syncCredsToServer(){
   try{
     var userId=_getPostUserId();
     var payload={
       user_id:userId,
-      ig_token:localStorage.getItem("dv_ig_token")||null,
-      ig_id:localStorage.getItem("dv_ig_id")||null,
-      fb_id:localStorage.getItem("dv_fb_id")||null,
-      linkedin_token:localStorage.getItem("dv_linkedin_token")||null,
-      linkedin_urn:localStorage.getItem("dv_linkedin_urn")||null,
-      twitter_consumer_key:localStorage.getItem("dv_twitter_consumer_key")||null,
-      twitter_consumer_secret:localStorage.getItem("dv_twitter_consumer_secret")||null,
-      twitter_access_token:localStorage.getItem("dv_twitter_access_token")||null,
-      twitter_access_secret:localStorage.getItem("dv_twitter_access_secret")||null,
-      youtube_refresh:localStorage.getItem("dv_youtube_refresh")||null,
-      youtube_client_id:localStorage.getItem("dv_youtube_client_id")||null,
-      youtube_client_secret:localStorage.getItem("dv_youtube_client_secret")||null,
-      tiktok_token:localStorage.getItem("dv_tiktok_token")||null,
-      whatsapp_token:localStorage.getItem("dv_whatsapp_token")||null,
-      whatsapp_phone_id:localStorage.getItem("dv_whatsapp_phone_id")||null,
-      whatsapp_waba_id:localStorage.getItem("dv_whatsapp_waba_id")||null,
-      meta_pixel_id:localStorage.getItem("dv_meta_pixel_id")||null,
-      meta_capi_token:localStorage.getItem("dv_meta_capi_token")||null,
       // Per-channel reply automation toggles (Profile → Reply Automation) —
       // stored as "0" in localStorage to mean explicitly OFF; anything else
       // (including unset) means ON, matching the server's own default-true
@@ -920,6 +921,10 @@ function _syncCredsToServer(){
       auto_reply_facebook:localStorage.getItem("dv_auto_reply_facebook")!=="0",
       updated_at:new Date().toISOString()
     };
+    _SOCIAL_CRED_FIELD_MAP.forEach(function(pair){
+      var v=localStorage.getItem(pair[1]);
+      if(v)payload[pair[0]]=v; // only ever SETS a real value here — never nulls one out
+    });
     fetch(SUPABASE_URL+"/rest/v1/social_credentials?user_id=eq."+encodeURIComponent(userId),{
       method:"GET",
       headers:_socialCredHeaders()
@@ -8780,7 +8785,7 @@ function renderMediaStudio(mode){
     "wrench","Social Setup","Platform accounts",
     function(){showSocialSetup();},
     function(){if(confirm("Disconnect all social accounts?")){
-      ["dv_ig_token","dv_ig_id","dv_fb_id","dv_linkedin_token","dv_linkedin_urn","dv_youtube_token","dv_youtube_refresh","dv_youtube_client_id","dv_youtube_client_secret","dv_twitter_consumer_key","dv_twitter_consumer_secret","dv_twitter_access_token","dv_twitter_access_secret","dv_tiktok_token","dv_whatsapp_number","dv_whatsapp_token","dv_whatsapp_phone_id","dv_whatsapp_waba_id","dv_meta_pixel_id","dv_meta_capi_token"].forEach(function(k){localStorage.removeItem(k);});
+      ["dv_ig_token","dv_ig_id","dv_fb_id","dv_linkedin_token","dv_linkedin_urn","dv_youtube_token","dv_youtube_refresh","dv_youtube_client_id","dv_youtube_client_secret","dv_twitter_consumer_key","dv_twitter_consumer_secret","dv_twitter_access_token","dv_twitter_access_secret","dv_twitter_connected","dv_tiktok_token","dv_whatsapp_number","dv_whatsapp_token","dv_whatsapp_phone_id","dv_whatsapp_waba_id","dv_meta_pixel_id","dv_meta_capi_token"].forEach(function(k){localStorage.removeItem(k);});
       render();
     }},
     function(){showSocialSetup();}

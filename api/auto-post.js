@@ -199,13 +199,23 @@ async function _xOauthSign(method, url, params, consumerSecret, tokenSecret) {
 }
 
 async function publishTW(text, creds) {
-  if (!creds.twitter_consumer_key || !creds.twitter_access_token) return { p: "twitter", ok: false, err: "Not configured" };
+  // Consumer key/secret are now OUR OWN shared app-level credentials
+  // (TWITTER_CONSUMER_KEY/TWITTER_CONSUMER_SECRET env vars, matching the new
+  // OAuth 1.0a "Connect X" flow in api/inbox.js) rather than a per-user
+  // pasted value — only the access token/secret (minted per-agent by that
+  // same OAuth flow) still come from their own social_credentials row. A
+  // pre-migration row that still only has an OLD manually-pasted personal
+  // consumer key/secret (and an access token minted under THAT app, not
+  // ours) will now fail here rather than silently mis-signing — the agent
+  // needs to reconnect via the new "Connect X" button once it ships.
+  var consumerKey = process.env.TWITTER_CONSUMER_KEY, consumerSecret = process.env.TWITTER_CONSUMER_SECRET;
+  if (!consumerKey || !consumerSecret || !creds.twitter_access_token) return { p: "twitter", ok: false, err: "Not configured" };
   try {
     var nonce = require("crypto").randomBytes(16).toString("hex");
     var ts = Math.floor(Date.now() / 1000).toString();
     var url = "https://api.twitter.com/2/tweets";
-    var oauthParams = { oauth_consumer_key: creds.twitter_consumer_key, oauth_nonce: nonce, oauth_signature_method: "HMAC-SHA1", oauth_timestamp: ts, oauth_token: creds.twitter_access_token, oauth_version: "1.0" };
-    oauthParams.oauth_signature = await _xOauthSign("POST", url, oauthParams, creds.twitter_consumer_secret, creds.twitter_access_secret);
+    var oauthParams = { oauth_consumer_key: consumerKey, oauth_nonce: nonce, oauth_signature_method: "HMAC-SHA1", oauth_timestamp: ts, oauth_token: creds.twitter_access_token, oauth_version: "1.0" };
+    oauthParams.oauth_signature = await _xOauthSign("POST", url, oauthParams, consumerSecret, creds.twitter_access_secret);
     var hdr = "OAuth " + Object.keys(oauthParams).sort().map(function (k) { return _xPercentEncode(k) + '="' + _xPercentEncode(oauthParams[k]) + '"'; }).join(", ");
     var tweetText = text.length > 280 ? text.substring(0, 277) + "..." : text;
     var r = await fetch(url, { method: "POST", headers: { "Authorization": hdr, "Content-Type": "application/json" }, body: JSON.stringify({ text: tweetText }) });
@@ -391,3 +401,8 @@ module.exports = async function handler(req, res) {
   if (action === "sync-engagement") return handleSyncEngagement(req, res);
   return handleAutoPost(req, res);
 };
+
+// Test-only named export — publishTW itself is unchanged, this just makes it
+// independently callable from a unit test without needing to run the full
+// cron handler (which also touches Supabase for scheduled_posts).
+module.exports._testPublishTW = publishTW;

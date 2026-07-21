@@ -34,8 +34,16 @@ p{color:#94A3B8;margin-bottom:16px;font-size:14px;line-height:1.6;}
 (function(){
   var params = new URLSearchParams(window.location.search);
   var code = params.get("code");
-  var error = params.get("error");
+  var error = params.get("error") || params.get("denied"); // Twitter uses ?denied=<token> on cancel
   var state = params.get("state") || ""; // e.g. "meta_userId123" or "google_userId123"
+  // Twitter/X's OAuth 1.0a redirect shape is genuinely different from every
+  // other flow here — no "code"/"state", just "oauth_token"+"oauth_verifier"
+  // (the same oauth_token value the init step returned, which is why the
+  // matching oauth_token_secret was stashed in sessionStorage before the
+  // redirect, keyed by that same token — never a fixed key, so two
+  // concurrent connect attempts in different tabs can't clobber each other).
+  var twOauthToken = params.get("oauth_token");
+  var twVerifier = params.get("oauth_verifier");
 
   var icon = document.getElementById("icon");
   var title = document.getElementById("title");
@@ -63,6 +71,42 @@ p{color:#94A3B8;margin-bottom:16px;font-size:14px;line-height:1.6;}
     setTimeout(function(){ window.location.href = "/#Network/Inbox"; }, 3000);
   }
 
+  function getUserId() {
+    return localStorage.getItem("dv_user_id") || localStorage.getItem("dv_user_email") || "default";
+  }
+
+  if (twOauthToken && twVerifier) {
+    icon.textContent = "𝕏";
+    title.textContent = "Connecting X / Twitter";
+    var twSecretKey = "dv_tw_req_secret_" + twOauthToken;
+    var twSecret = sessionStorage.getItem(twSecretKey);
+    if (!twSecret) { showError("This connection attempt expired or was started in a different tab. Please try Connect X again."); return; }
+    fetch("/api/inbox?action=oauth-twitter-exchange", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        oauth_token: twOauthToken, oauth_token_secret: twSecret, oauth_verifier: twVerifier, userId: getUserId()
+      })
+    }).then(function(r){ return r.json(); }).then(function(d){
+      sessionStorage.removeItem(twSecretKey);
+      if (d.ok) {
+        // Deliberately a SEPARATE key from dv_twitter_access_token — the
+        // real access token/secret are stored server-side only
+        // (social_credentials, via oauth-twitter-exchange) and never
+        // mirrored back into localStorage, so _syncCredsToServer() (which
+        // reads dv_twitter_access_token literally as the value to PATCH)
+        // can never accidentally overwrite the real server-stored token
+        // with this placeholder. This key exists purely so the Profile
+        // panel's button can show "✓ Connected".
+        localStorage.setItem("dv_twitter_connected", d.screen_name || "1");
+        showSuccess("X / Twitter connected!" + (d.screen_name ? " @" + d.screen_name : ""));
+      } else {
+        showError(d.error || "Connection failed");
+      }
+    }).catch(function(e){ showError(e.message); });
+    return;
+  }
+
   if (error) { showError("Authorization denied: " + error); return; }
   if (!code) { showError("No authorization code found."); return; }
 
@@ -71,10 +115,7 @@ p{color:#94A3B8;margin-bottom:16px;font-size:14px;line-height:1.6;}
   var platform = parts[0];
   var userId = parts.slice(1).join("_");
 
-  if (!userId) {
-    // Try to get userId from localStorage (fallback)
-    userId = localStorage.getItem("dv_user_id") || localStorage.getItem("dv_user_email") || "default";
-  }
+  if (!userId) userId = getUserId(); // fallback
 
   if (platform === "meta" || platform === "instagram" || platform === "facebook") {
     icon.textContent = "📱";
@@ -92,11 +133,33 @@ p{color:#94A3B8;margin-bottom:16px;font-size:14px;line-height:1.6;}
         if (d.fb_id) localStorage.setItem("dv_fb_id", d.fb_id);
         if (d.ig_id) localStorage.setItem("dv_ig_id", d.ig_id);
         if (d.ig_token) localStorage.setItem("dv_ig_token", d.ig_token);
+        if (d.meta_pixel_id) localStorage.setItem("dv_meta_pixel_id", d.meta_pixel_id);
         var msg = "Instagram" + (d.ig_id ? " & Facebook" : "") + " connected!";
         if (d.page_name) msg += " Page: " + d.page_name;
+        if (d.other_pages && d.other_pages.length) msg += " (you manage " + (d.other_pages.length + 1) + " pages — this one was chosen automatically)";
         showSuccess(msg);
       } else {
         showError(d.error || "Connection failed");
+      }
+    }).catch(function(e){ showError(e.message); });
+
+  } else if (platform === "linkedin") {
+    icon.textContent = "💼";
+    title.textContent = "Connecting LinkedIn";
+    fetch("/api/inbox?action=oauth-linkedin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code: code,
+        userId: userId,
+        redirectUri: window.location.origin + "/callback"
+      })
+    }).then(function(r){ return r.json(); }).then(function(d){
+      if (d.ok) {
+        if (d.linkedin_urn) localStorage.setItem("dv_linkedin_urn", d.linkedin_urn);
+        showSuccess("LinkedIn connected!" + (d.name ? " (" + d.name + ")" : ""));
+      } else {
+        showError(d.error || "LinkedIn connection failed");
       }
     }).catch(function(e){ showError(e.message); });
 
@@ -122,14 +185,7 @@ p{color:#94A3B8;margin-bottom:16px;font-size:14px;line-height:1.6;}
     }).catch(function(e){ showError(e.message); });
 
   } else {
-    // Legacy: LinkedIn code display
-    icon.textContent = "💼";
-    title.textContent = "Authorization Code";
-    desc.textContent = "Copy this code and paste it in the DubAIVal Social Setup.";
-    statusEl.className = "status success";
-    statusEl.textContent = code;
-    localStorage.setItem("dv_linkedin_code", code);
-    actions.style.display = "block";
+    showError("Unrecognized connection type (\"" + platform + "\"). Please try connecting again from your Profile.");
   }
 })();
 </script>

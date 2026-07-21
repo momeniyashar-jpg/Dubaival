@@ -3414,6 +3414,7 @@ function renderProfilePanel(){
     var connected=false;
     if(platform==="meta"){connected=!!localStorage.getItem("dv_ig_token")||!!localStorage.getItem("dv_fb_id");}
     else if(platform==="google"){connected=!!localStorage.getItem("dv_gmail_connected");}
+    else if(platform==="linkedin"){connected=!!localStorage.getItem("dv_linkedin_urn");}
     btn.innerHTML=(connected?"✓ Connected":"Connect")+" "+label;
     btn.style.background=connected?"#10B98122":color+"22";
     btn.style.borderColor=connected?"#10B981":color;
@@ -3421,22 +3422,44 @@ function renderProfilePanel(){
     btn.addEventListener("click",function(){
       if(platform==="meta"){
         fetch("/api/inbox?action=config").then(function(r){return r.json();}).then(function(d){
+          if(!d.meta_app_id){alert("Instagram/Facebook connection isn't set up yet — the operator still needs to add META_APP_ID/META_APP_SECRET (blocked on Meta App Review, see CLAUDE.md).");return;}
+          // instagram_content_publish/pages_manage_posts are the actual
+          // PUBLISH permissions — without them the resulting token can read
+          // messages/engagement but cannot post, which would silently
+          // defeat the entire point of this connection (found+fixed
+          // 2026-07-21, previously only messaging/read scopes were
+          // requested). ads_management/business_management additionally
+          // let the same connection auto-discover the agent's Meta Ads
+          // Pixel ID (Profile → Meta Ads Pixel) instead of a 5th manual field.
           var url="https://www.facebook.com/dialog/oauth?client_id="+d.meta_app_id+
             "&redirect_uri="+encodeURIComponent(window.location.origin+"/callback")+
-            "&scope=pages_show_list,pages_messaging,instagram_manage_messages,instagram_basic,pages_read_engagement,read_page_mailboxes"+
+            "&scope=pages_show_list,pages_messaging,instagram_manage_messages,instagram_basic,pages_read_engagement,read_page_mailboxes,instagram_content_publish,pages_manage_posts,ads_management,business_management"+
             "&response_type=code&state="+encodeURIComponent(state);
           window.location.href=url;
-        }).catch(function(){alert("Meta App ID not configured. Add META_APP_ID to Vercel env vars.");});
+        }).catch(function(){alert("Could not reach the connection service. Please try again.");});
       } else if(platform==="google"){
         fetch("/api/inbox?action=config").then(function(r){return r.json();}).then(function(d){
+          if(!d.google_client_id){alert("Gmail connection isn't set up yet — the operator still needs to add GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET.");return;}
           var url="https://accounts.google.com/o/oauth2/v2/auth?client_id="+d.google_client_id+
             "&redirect_uri="+encodeURIComponent(window.location.origin+"/callback")+
             "&scope="+encodeURIComponent("https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send")+
             "&response_type=code&access_type=offline&prompt=consent"+
             "&state="+encodeURIComponent(state);
           window.location.href=url;
-        }).catch(function(){alert("Google Client ID not configured. Add GOOGLE_CLIENT_ID to Vercel env vars.");});
+        }).catch(function(){alert("Could not reach the connection service. Please try again.");});
+      } else if(platform==="linkedin"){
+        fetch("/api/inbox?action=config").then(function(r){return r.json();}).then(function(d){
+          if(!d.linkedin_client_id){alert("LinkedIn connection isn't set up yet — the operator still needs to add LINKEDIN_CLIENT_ID/LINKEDIN_CLIENT_SECRET (needs a LinkedIn Developer App with \"Sign In with LinkedIn using OpenID Connect\" + \"Share on LinkedIn\" products).");return;}
+          var url="https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id="+d.linkedin_client_id+
+            "&redirect_uri="+encodeURIComponent(window.location.origin+"/callback")+
+            "&scope="+encodeURIComponent("openid profile w_member_social")+
+            "&state="+encodeURIComponent(state);
+          window.location.href=url;
+        }).catch(function(){alert("Could not reach the connection service. Please try again.");});
       }
+      // Twitter/X deliberately has its own standalone button below (a
+      // separate init->redirect round-trip, plus its own dedicated
+      // "connected" flag) rather than fitting the pattern here — see twBtn.
     });
     return btn;
   }
@@ -3505,24 +3528,51 @@ function renderProfilePanel(){
   gmailSection.appendChild(gmailStatus);
   maxW.appendChild(gmailSection);
 
-  // LinkedIn
+  // LinkedIn — one OAuth button, posts as the member themselves (not a
+  // company Page, which needs a separate higher-friction admin scope).
   var liSection=el("div",{style:{marginBottom:"14px"}});
-  liSection.appendChild(div({color:"#0A66C2",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"💼 LinkedIn"));
+  var liHeader=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"8px"}});
+  liHeader.appendChild(div({color:"#0A66C2",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"💼 LinkedIn"));
+  liHeader.appendChild(oauthBtn("LinkedIn","#0A66C2","linkedin"));
+  liSection.appendChild(liHeader);
   var liGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"10px"}});
-  liGrid.appendChild(socialInp("dv_linkedin_token","Access Token","AQX...","password"));
-  liGrid.appendChild(socialInp("dv_linkedin_urn","Organization URN","urn:li:organization:123"));
+  liGrid.appendChild(socialInp("dv_linkedin_urn","Member URN (auto-filled after connect)","urn:li:person:..."));
   liSection.appendChild(liGrid);
   maxW.appendChild(liSection);
 
-  // X / Twitter
+  // X / Twitter — OAuth 1.0a (3-legged): the Connect button itself talks to
+  // the server first (oauth-twitter-init) rather than building a URL
+  // directly like the others, so it's handled outside oauthBtn(). The old
+  // 4 raw-key fields are gone entirely — api/auto-post.js's publishTW() now
+  // signs with OUR OWN shared TWITTER_CONSUMER_KEY/SECRET (env vars), never
+  // a per-agent pasted app; only the access token/secret this flow mints
+  // are still per-agent, and those live server-side only (never mirrored to
+  // localStorage, so a later "Save Profile" click can never overwrite them
+  // with a stale/blank value).
   var twSection=el("div",{style:{marginBottom:"14px"}});
-  twSection.appendChild(div({color:cl.white,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"𝕏 X / Twitter"));
-  var twGrid=el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"10px"}});
-  twGrid.appendChild(socialInp("dv_twitter_consumer_key","Consumer Key","API key"));
-  twGrid.appendChild(socialInp("dv_twitter_consumer_secret","Consumer Secret","API secret","password"));
-  twGrid.appendChild(socialInp("dv_twitter_access_token","Access Token","token","password"));
-  twGrid.appendChild(socialInp("dv_twitter_access_secret","Access Secret","secret","password"));
-  twSection.appendChild(twGrid);
+  var twHeader=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"8px"}});
+  twHeader.appendChild(div({color:cl.white,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"𝕏 X / Twitter"));
+  var twConnected=!!localStorage.getItem("dv_twitter_connected");
+  var twBtn=el("button",{style:{display:"flex",alignItems:"center",gap:"6px",background:twConnected?"#10B98122":cl.white+"22",border:"1px solid "+(twConnected?"#10B981":cl.white),borderRadius:"8px",padding:"7px 14px",color:twConnected?"#10B981":cl.white,fontSize:"12px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace",whiteSpace:"nowrap"}});
+  twBtn.innerHTML=(twConnected?"✓ Connected":"Connect")+" X / Twitter";
+  twBtn.addEventListener("click",function(){
+    fetch("/api/inbox?action=config").then(function(r){return r.json();}).then(function(cfg){
+      if(!cfg.twitter_configured){alert("X / Twitter connection isn't set up yet — the operator still needs to add TWITTER_CONSUMER_KEY/TWITTER_CONSUMER_SECRET (needs a Twitter Developer App with OAuth 1.0a enabled).");return null;}
+      return fetch("/api/inbox?action=oauth-twitter-init",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({redirectUri:window.location.origin+"/callback"})}).then(function(r){return r.json();});
+    }).then(function(d){
+      if(!d)return;
+      if(!d.ok){alert(d.error||"Could not start X / Twitter connection.");return;}
+      sessionStorage.setItem("dv_tw_req_secret_"+d.oauth_token,d.oauth_token_secret);
+      window.location.href="https://api.twitter.com/oauth/authorize?oauth_token="+encodeURIComponent(d.oauth_token);
+    }).catch(function(){alert("Could not reach the connection service. Please try again.");});
+  });
+  twHeader.appendChild(twBtn);
+  twSection.appendChild(twHeader);
+  var twStatus=div({fontSize:"11px",color:"#8899AA",padding:"8px 12px",background:"#0D1220",borderRadius:"8px"},
+    twConnected?"Connected"+(localStorage.getItem("dv_twitter_connected")!=="1"?": @"+localStorage.getItem("dv_twitter_connected"):"")
+      :"Not connected — click Connect X / Twitter to link your account");
+  twSection.appendChild(twStatus);
   maxW.appendChild(twSection);
 
   // TikTok
