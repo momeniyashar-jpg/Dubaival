@@ -965,6 +965,85 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-22 (session continuing, follow-up — CRITICAL root-cause bug found
+  and fixed: ~38% of VALUATION_DB was a fabricated "DLD Verified" placeholder,
+  not real per-building calibration)**: Direct continuation of the entry
+  immediately below — after reporting the market-staleness findings, the user
+  gave the exact building from their "distress deal" screenshot: **DAMAC
+  Maison Majestine, Downtown Dubai, floor 10, Studio, 440 sqft, pool view,
+  furnished, asking AED 700,000**. Investigating this specific building (not
+  a guess — read `VALUATION_DB["damac maison majestine"]` directly) found the
+  real root cause, and it was NOT primarily the market-staleness theory:
+  `VALUATION_DB["damac maison majestine"]` = `{p:2882, lo:2450, hi:3314,
+  n:0}` — **`n:0` means zero real DLD transactions back this figure**, and
+  its PSF (2882) is EXACTLY `VALUATION_AREAS["Downtown Dubai"].psf` (2882) —
+  i.e., `tools/calibrate-db.js` had literally stamped the plain area-wide
+  average onto this building as a placeholder when it found no real sales for
+  it specifically, yet `computeAdjustedPSF()` (`js/valuation.js`) treated
+  ANY existing `VALUATION_DB` key as trustworthy "DLD Verified" per-building
+  data regardless of `n`, unconditionally overriding the more realistic
+  Legacy DB figure (`DB["damac maison majestine"].p=1720`, grade B+ — a
+  modest, budget-branded-residence PSF, nothing like an area-wide Downtown
+  average dominated by Ultra/A+ towers).
+  - **Confirmed this is systemic, not a one-off**: a direct scan of the live
+    `VALUATION_DB` found **3,500 of 9,227 entries (38%) have `n:0`**, and
+    99.5% of those have a PSF that matches their area's `VALUATION_AREAS`
+    average to within AED 1 — i.e., essentially the entire `n:0` set is this
+    same placeholder pattern, not real calibration. The single worst example
+    found in the scan: `"baccarat hotel and residences"` — a real Ultra-grade
+    tower with a Legacy DB PSF of 8,000 — had its `VALUATION_DB` entry
+    silently replaced by the plain Downtown Dubai average (2,882, `n:0`), a
+    ~64% understatement that would have gone completely undetected for
+    anyone actually analyzing that building, since it was labeled "DLD
+    Verified" exactly like a real, well-calibrated entry.
+  - **Fix, `js/valuation.js`**: both `computeAdjustedPSF()`'s `vdbEntry`
+    resolution and `findComparables()`'s internal `_ve`/`targetPSF`
+    resolution (used to score/select comparable buildings for the comps
+    blend) now only trust a `VALUATION_DB` entry when it has a real sample
+    size (`n>=3` — the same confidence floor this file already uses
+    elsewhere, see `getCalibrationFactor()`'s `sample_count>=3` gate) —
+    anything thinner falls back to the Legacy DB figure instead, and
+    `dataSource` correctly reads "Legacy DB" rather than the false "DLD
+    Verified" label in that case. `findComparables()` needed the identical
+    fix independently — without it, comps would still be scored/picked as
+    "similar" to the fabricated area-average anchor even after the primary
+    `basePSF` was corrected, partially undoing the fix through the comps
+    blend's 30% weight.
+  - Verified via a Node `vm`-sandbox harness loading the real `js/data-
+    residential.js`/`js/valuation-db.js`/`js/valuation.js` (plus `js/core.js`
+    for `MACRO_VARS`/`getAreaGeoAdj`/`getMomentumFactor`, stubbed DOM/
+    storage/fetch): the user's EXACT reported case (DAMAC Maison Majestine,
+    studio, 440 sqft, floor 10, pool view, furnished, AED 700,000) improved
+    from the originally-reported **Market PSF 3,143 / -51.6% / "DISTRESS
+    DEAL"** to a corrected **Market PSF 1,770 / -10.1% / "GOOD PRICE"** — a
+    completely ordinary, plausible result, no longer a wild anomaly; the
+    Baccarat Hotel case corrected from a fabricated 2,882 anchor to a real,
+    Legacy-DB-backed ~7,520 Market PSF (FAIR/+6.4%, consistent with its
+    actual Ultra-grade tier); and a regression check against Address
+    Fountain Views Tower 3 (a REAL, 228-transaction-backed `VALUATION_DB`
+    entry, `n>=3`) confirmed byte-identical output before and after — the
+    fix only changes behavior for the ~38% of buildings that were never
+    actually calibrated, never for a genuinely verified one. `node -c
+    js/valuation.js` clean.
+  - **What this means for the two originally-reported complaints**: the
+    DAMAC Maison Majestine "distress deal" is now understood to be primarily
+    THIS bug, not primarily market staleness — fixed, verified, high
+    confidence. The separate Fountain Views Tower 3 "Good Price" case is
+    unaffected by this specific fix (it already had `n=228`, real
+    calibration) — the market-staleness/momentum-factor findings from the
+    entry below still apply there and still need the user's input on how
+    (or whether) to adjust `MACRO_VARS`/`getMomentumFactor()`'s weighting;
+    this fix does not supersede that open question, it resolves a
+    completely separate, larger, and more clear-cut bug found while chasing
+    down the first one.
+  - **Not done this session, flagged as a natural follow-up**: whether the
+    3,500 `n:0` buildings should eventually get real calibration (i.e.,
+    whether more/different DLD transaction data exists that would give them
+    actual per-building samples) is a data-sourcing question for the
+    research branch (`claude/dubaival-portfolio-manager-5bgbjk`), not a code
+    fix — this session's fix makes the ENGINE stop pretending a placeholder
+    is real data, it doesn't create real data where none was collected.
+
 - **2026-07-22 (session continuing, real user-reported bad-analysis complaints
   — beta paywall disabled, verdict-badge overconfidence fixed, and a serious
   market-staleness finding reported to the user, not yet acted on pending

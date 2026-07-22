@@ -202,7 +202,13 @@ function findComparables(building,area,grade,beds,isVilla,limit){
   var targetPSF=0;
   var bData=DB[building?building.toLowerCase().trim():""];
   var _vk=building?building.toLowerCase().trim():"";
-  var _ve=typeof VALUATION_DB!=="undefined"&&VALUATION_DB[_vk]?VALUATION_DB[_vk]:null;
+  // Same fix as computeAdjustedPSF()'s vdbEntry (2026-07-22): don't trust a
+  // VALUATION_DB entry with no real transactions behind it (n<3, ~38% of
+  // the table — see the comment there) as this building's real PSF for
+  // scoring/selecting comparables, or comps get picked as "similar" to a
+  // fabricated area-average figure instead of this building's real anchor.
+  var _veRaw=typeof VALUATION_DB!=="undefined"&&VALUATION_DB[_vk]?VALUATION_DB[_vk]:null;
+  var _ve=(_veRaw&&_veRaw.n>=3)?_veRaw:null;
   if(_ve)targetPSF=_ve.p;
   else if(bData)targetPSF=bData.p;
   else if(AREAS[area])targetPSF=AREAS[area].psf;
@@ -495,9 +501,26 @@ function computeAdjustedPSF(f,buildingVal,liveData){
   const size=parseFloat((f.buaSize||f.size||"").toString().replace(/,/g,""))||0;
   const isVillaType=f.propCategory==="villa";
   let basePSF,psfLo,psfHi,dataSource,dataLayer,compData=null;
-  // DLD-calibrated PSF: VALUATION_DB (real transactions) overrides legacy DB
+  // DLD-calibrated PSF: VALUATION_DB (real transactions) overrides legacy DB —
+  // but ONLY when it's actually backed by real transactions. Confirmed
+  // 2026-07-22 (real user-reported bug — DAMAC Maison Majestine showing a
+  // wildly inflated "Market PSF"): tools/calibrate-db.js writes an entry for
+  // EVERY building it knows about even when it found zero real DLD sales for
+  // that specific building in the source CSV — for those, `n:0` and `p` is
+  // just the area-wide VALUATION_AREAS average copy-pasted in as a
+  // placeholder, not a real per-building figure. A direct scan of the live
+  // VALUATION_DB found this affects 3,500 of 9,227 entries (38%) — e.g.
+  // "Baccarat Hotel and Residences" (a real Ultra-grade tower, legacy PSF
+  // 8,000) had its VALUATION_DB entry silently replaced by the plain
+  // Downtown Dubai area average (2,882, n:0) — a ~64% understatement had
+  // this gone uncaught. Every one of these was previously labeled "DLD
+  // Verified" and used in place of the real, building-specific Legacy DB
+  // figure, which is a strictly worse outcome than just using Legacy DB
+  // directly (same 3-sample confidence floor already used elsewhere in this
+  // file, see getCalibrationFactor()'s sample_count>=3 gate).
   const bKey=(buildingVal||f.building||"").toLowerCase().trim();
-  const vdbEntry=typeof VALUATION_DB!=="undefined"&&VALUATION_DB[bKey]?VALUATION_DB[bKey]:null;
+  const vdbEntryRaw=typeof VALUATION_DB!=="undefined"&&VALUATION_DB[bKey]?VALUATION_DB[bKey]:null;
+  const vdbEntry=(vdbEntryRaw&&vdbEntryRaw.n>=3)?vdbEntryRaw:null;
   const liveSig=getLiveSignal(liveData);
   // Area market-drift correction (root-cause fix, 2026-07-12): VALUATION_DB and
   // VALUATION_AREAS are a flat median over a multi-year historical window (see
