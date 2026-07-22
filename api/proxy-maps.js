@@ -100,12 +100,24 @@ module.exports = async function handler(req, res) {
       var lat3 = req.query.lat;
       var lng3 = req.query.lng;
       if (!lat3 || !lng3) return res.status(400).json({ error: "Missing lat/lng" });
+      // Real-name, high-value Dubai landmarks (2026-07-22 — replaced the
+      // vague "Downtown Dubai" point and the low-relevance "Mall of
+      // Emirates" hub with Burj Khalifa and Dubai Mall specifically, named
+      // by the user directly: two of the single biggest value drivers in
+      // Dubai real estate, and — for a Downtown building — far more
+      // relevant than a mall 15km away in Al Barsha). Every coordinate here
+      // is a real, fixed, well-known point; only the ORIGIN (this building's
+      // own geocoded lat/lng, passed in via lat3/lng3 above) varies per
+      // building — so two different buildings always get two different
+      // Distance Matrix results unless Google's own geocoder resolved them
+      // to the same point (a real building not being uniquely indexed, not
+      // a bug in this fixed hub list).
       var hubs = [
-        { label: "Downtown Dubai", coords: "25.1972,55.2744" },
-        { label: "DIFC",           coords: "25.2115,55.2800" },
-        { label: "DXB Airport",    coords: "25.2532,55.3657" },
-        { label: "Mall of Emirates", coords: "25.1182,55.2003" },
-        { label: "JBR Beach",      coords: "25.0772,55.1320" }
+        { label: "Burj Khalifa",  coords: "25.197197,55.274376" },
+        { label: "Dubai Mall",    coords: "25.198766,55.279467" },
+        { label: "DIFC",          coords: "25.2115,55.2800" },
+        { label: "DXB Airport",   coords: "25.2532,55.3657" },
+        { label: "JBR Beach",     coords: "25.0772,55.1320" }
       ];
       var destStr = hubs.map(function(h) { return h.coords; }).join("|");
       var dmUrl =

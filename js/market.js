@@ -85,6 +85,36 @@ function buildReportTypeSelector(cl,formCard){
   formCard.appendChild(sec);
 }
 
+// --- AGENT/CLIENT AI ADVISORY PROMPTS (2026-07-22 rewrite) -------------------
+// Real, confirmed gap found via direct user complaint: all 6 prompt-builders
+// below (plus the 2 personal-mode prompts inlined at their call sites) fed a
+// single flat instruction string straight into callGroqRaw() — ZERO RAG
+// grounding (no fetchKnowledgeContext(), unlike every other askAI() call site
+// in this app — Chat Agents, Compare, Personal Advisor, Portfolio Analysis,
+// Area Comparison), and a fixed, one-size-fits-all technique list regardless
+// of whether the actual data supported it (e.g. always offering to cite
+// "prices up 18% in 3 years" even when this exact area's real growth figure
+// was flat or negative). Both are fixed here: every builder now returns
+// {system,user,groundQuery} instead of one concatenated string — the system
+// half carries the persona/instructions (where RAG context gets appended by
+// askAI()), the user half carries only this unit's own real numbers — and
+// each builder computes real SITUATION FLAGS (growth direction, Golden Visa
+// eligibility, confidence tier, area DOM pace) so the model is explicitly
+// told which technique the data actually supports, instead of listing every
+// technique and hoping it picks correctly. _dvRunAgentAI() (below) is the
+// single shared caller — replaces 16 nearly-identical callGroqRaw()...then()
+// ...then().catch() blocks previously duplicated across the villa/apartment
+// × sale/rental × buyer/seller/negotiation/personal report paths.
+async function _dvRunAgentAI(promptObj,area,stateKey){
+  try{
+    var text=await askAI([{role:"user",content:promptObj.user}],promptObj.system,promptObj.groundQuery,area?[area]:null);
+    analyzerState[stateKey]=text||"";
+  }catch(e){
+    analyzerState[stateKey]=analyzerState[stateKey]||"";
+  }
+  render();
+}
+
 function getAgentAIPrompt(propDesc,val,mode,area){
   var amenities=AREA_AMENITIES[area]?"Location amenities: "+AREA_AMENITIES[area]+".":"";
   var areaData=AREAS[area];var areaCtx=areaData?"Area benchmarks: avg PSF "+areaData.psf+", yield "+(areaData.y?areaData.y[0]+"-"+areaData.y[1]:"-")+"%, growth "+(areaData.g?areaData.g[0]:"-")+"%, DOM "+(areaData.dom||"-")+"d, SC "+(areaData.sc||"-")+"/sqft. ":"";
@@ -92,23 +122,29 @@ function getAgentAIPrompt(propDesc,val,mode,area){
   // js/valuation.js — already a good deal, so there's no lower offer to suggest).
   // Falls back to fairPrice so this doesn't throw for exactly the best deals.
   var suggestedOfferTxt=(val.suggestedOffer!=null?val.suggestedOffer:val.fairPrice).toLocaleString();
-  var base=propDesc+". EXACT NUMBERS FROM OUR DLD-VERIFIED ENGINE (use these, do NOT invent your own): Market PSF: AED "+val.adjPSF.toLocaleString()+" (range: "+val.psfLo.toLocaleString()+"-"+val.psfHi.toLocaleString()+"). Asking "+val.vsPct+"% vs market. Verdict: "+val.verdict+". Fair value: AED "+val.fairPrice.toLocaleString()+". Suggested offer: AED "+suggestedOfferTxt+". Est. rent: AED "+(val.rent||0).toLocaleString()+"/yr. Gross yield: "+val.grossYield+"%. Net yield: "+val.netYield+"%. Growth 3yr: "+val.g1+"%. Confidence: "+val.confScore+"% ("+val.confTier+"). Investment signal: "+val.investSignal+". "+areaCtx+amenities;
-  if(mode==="buyer"){
-    return base+" You are a top-performing RERA-certified Dubai broker (15 years experience, AED 2B+ in closed deals) writing a compelling buyer report. You understand investor psychology and luxury market positioning.\nTechniques: anchoring (compare to higher-priced neighbors), scarcity ('only X units in this building'), social proof ('87% cash buyers in this market'), loss aversion ('prices up 18% in 3 years — waiting costs AED X').\nHighlight: smart entry point vs area benchmark, rental income potential with specific AED/yr, capital appreciation with growth data, lifestyle/location benefits with specific amenities. If overpriced: reframe as negotiation opportunity with specific target price and savings. If Golden Visa eligible (≥AED 2M): mention 10-year residency.\nWrite 4-5 compelling, data-rich sentences. ONLY use the AED numbers and amenities provided above. Professional, confident, decisive. Do NOT mention you are AI.";
-  }else{
-    return base+" You are a top-performing RERA-certified Dubai broker (15 years experience, AED 2B+ in closed deals) writing a compelling seller report. You understand market timing and pricing psychology.\nTechniques: urgency ('market at peak cycle — ideal exit window'), demand data ('DOM in this area is Xd — fast-moving'), opportunity cost ('holding costs AED X/yr in SC + vacancy risk'), price anchoring ('similar units traded at AED X').\nHighlight: current buyer demand in the area, optimal pricing strategy backed by our PSF data, risk of holding too long (SC costs, market cycles), location desirability with amenities. If underpriced: show strong demand justifying quick sale at or above asking. If overpriced: show realistic market position and why correct pricing leads to faster sale.\nWrite 4-5 compelling, data-rich sentences. ONLY use the AED numbers and amenities provided above. Professional, confident, decisive. Do NOT mention you are AI.";
-  }
+  var growthPositive=(val.g1||0)>0;
+  var goldenVisaEligible=(val.fairPrice||0)>=2000000;
+  var confHigh=(val.confScore||0)>=80;
+  var user=propDesc+". EXACT NUMBERS FROM OUR DLD-VERIFIED ENGINE (use these, do NOT invent your own): Market PSF: AED "+val.adjPSF.toLocaleString()+" (range: "+val.psfLo.toLocaleString()+"-"+val.psfHi.toLocaleString()+"). Asking "+val.vsPct+"% vs market. Verdict: "+val.verdict+". Fair value: AED "+val.fairPrice.toLocaleString()+". Suggested offer: AED "+suggestedOfferTxt+". Est. rent: AED "+(val.rent||0).toLocaleString()+"/yr. Gross yield: "+val.grossYield+"%. Net yield: "+val.netYield+"%. Growth 3yr: "+val.g1+"%. Confidence: "+val.confScore+"% ("+val.confTier+"). Investment signal: "+val.investSignal+". "+areaCtx+amenities+"\nSITUATION FLAGS (only use a technique these actually support): 3yr growth is "+(growthPositive?"POSITIVE — safe to cite as momentum":"FLAT OR NEGATIVE — do NOT claim rising prices; use price stability or the real discount instead")+". Golden Visa (>=AED 2M) eligible: "+(goldenVisaEligible?"YES":"NO — do not mention Golden Visa")+". Confidence: "+(confHigh?"HIGH — state figures with full confidence":"MODERATE/LOW — hedge slightly, e.g. \"based on current data\"")+".";
+  var sys=(mode==="buyer"
+    ?"You are a top-performing RERA-certified Dubai real estate broker (15+ years, AED 2B+ in closed sales), a specialist in Dubai property investment analysis and buyer psychology. Write a compelling, factually-grounded BUYER report for THIS exact unit."
+    :"You are a top-performing RERA-certified Dubai real estate broker (15+ years, AED 2B+ in closed sales), a specialist in Dubai market timing and seller pricing psychology. Write a compelling, factually-grounded SELLER report for THIS exact unit.")
+    +"\nPick ONLY the persuasion techniques the SITUATION FLAGS above actually support — never force in one the data contradicts. Real techniques available: anchoring against the area benchmark PSF given; loss-aversion tied to the REAL growth figure (only if flagged positive); rental-yield framing using the exact AED/yr given; Golden Visa residency (only if flagged eligible); for a seller specifically — DOM-based urgency, holding-cost framing using the real service-charge figure, or (if OVERPRICED) an honest reframe toward the fair-value figure.\nGround every claim in the EXACT numbers in the user message — never invent a figure, unit count, or amenity not given. If real, current Dubai market knowledge is supplied below, weave in whichever fact is genuinely most relevant to this exact unit's own area/segment, in your own words — never restate it as a generic aside. Write 4-5 sentences, specific to THIS unit's own numbers, zero filler, zero generic real-estate cliché with no number attached. Do NOT mention you are AI.";
+  return {system:sys,user:user,groundQuery:"Dubai "+area+" real estate market conditions "+(val.verdict||"")+" pricing negotiation"};
 }
 
 function getRentalAgentAIPrompt(propDesc,rv,mode,area){
   var amenities=AREA_AMENITIES[area]?"Location amenities: "+AREA_AMENITIES[area]+".":"";
   var areaData=AREAS[area];var areaCtx=areaData?"Area rental benchmarks: 1BR "+(areaData.r1||"-")+", 2BR "+(areaData.r2||"-")+", 3BR "+(areaData.r3||"-")+" AED/yr. ":"";
-  var base=propDesc+". EXACT NUMBERS FROM OUR DLD-VERIFIED ENGINE (use these, do NOT invent your own): Market rent: AED "+rv.estRent.toLocaleString()+"/yr (AED "+rv.monthly.toLocaleString()+"/mo). Rent range: AED "+rv.rentLow.toLocaleString()+"-"+rv.rentHigh.toLocaleString()+"/yr. Asking "+rv.vsPct+"% vs market. Verdict: "+rv.verdict.replace(/_/g," ")+". Confidence: "+rv.confScore+"%. "+areaCtx+amenities;
-  if(mode==="buyer"){
-    return base+" You are a top-performing Dubai leasing consultant (10 years, 3,000+ leases) writing to convince a tenant this is the right property.\nHighlight: lifestyle value of the location (specific amenities, metro access, beach/mall proximity), how this rent compares to alternatives in the area, community feel and quality of life. If above market: frame as premium value (view, furnishing, newness) or negotiation opportunity with specific target rent. Mention: Ejari protection, RERA rent index stability, DEWA/chiller costs estimate.\nWrite 4-5 compelling sentences. ONLY use the AED numbers above. Professional, warm, informative. Do NOT mention you are AI.";
-  }else{
-    return base+" You are a top-performing Dubai leasing consultant (10 years, 3,000+ leases) advising a landlord on optimal rental strategy.\nCover: current tenant demand in the area (DOM data), how to price for fastest lease (vacancy costs AED X/month), RERA rent increase rules (can they raise?), tenant quality at different price points (corporate tenants at market rate vs. short-term at premium), maintenance and SC considerations. If overpriced: calculate vacancy cost vs. price reduction.\nWrite 4-5 compelling sentences. ONLY use the AED numbers above. Professional, analytical. Do NOT mention you are AI.";
-  }
+  var user=propDesc+". EXACT NUMBERS FROM OUR DLD-VERIFIED ENGINE (use these, do NOT invent your own): Market rent: AED "+rv.estRent.toLocaleString()+"/yr (AED "+rv.monthly.toLocaleString()+"/mo). Rent range: AED "+rv.rentLow.toLocaleString()+"-"+rv.rentHigh.toLocaleString()+"/yr. Asking "+rv.vsPct+"% vs market. Verdict: "+rv.verdict.replace(/_/g," ")+". Confidence: "+rv.confScore+"%. "+areaCtx+amenities;
+  var sys=(mode==="buyer"
+    ?"You are a top-performing Dubai leasing consultant (10+ years, 3,000+ leases closed), a specialist in tenant psychology and rental value positioning. Write a compelling report to convince a tenant THIS exact unit is the right home."
+    :"You are a top-performing Dubai leasing consultant (10+ years, 3,000+ leases closed), a specialist in landlord rental strategy. Advise a landlord on the optimal strategy for THIS exact unit.")
+    +(mode==="buyer"
+      ?"\nCover: the real lifestyle value of this specific location (the amenities given, metro/beach/mall proximity), how this rent compares to the real area benchmark given, Ejari protection and RERA rent-index stability. If the verdict shows above-market pricing, frame it honestly as premium value (view/furnishing/newness) or as a real negotiation opening with a specific target rent — never both at once."
+      :"\nCover: real tenant demand signals for this area/segment, the fastest-lease pricing strategy (cite the real vacancy-cost tradeoff), which RERA rent-increase rules apply, and the tenant-quality tradeoff between pricing at market vs. a premium. If the verdict shows overpricing, calculate the real vacancy cost of holding out vs. adjusting.")
+    +"\nGround every claim in the EXACT numbers in the user message — never invent a figure or amenity not given. If real, current Dubai rental-market knowledge is supplied below, weave in whichever fact is genuinely most relevant to this unit's own area/segment. Write 4-5 sentences, specific to this unit, zero generic filler. Do NOT mention you are AI.";
+  return {system:sys,user:user,groundQuery:"Dubai "+area+" rental market conditions "+rv.verdict+" tenant landlord"};
 }
 
 // Beta launch (2026-07-15): the AI reports above (getAgentAIPrompt/
@@ -126,8 +162,11 @@ function getRentalAgentAIPrompt(propDesc,rv,mode,area){
 // deterministic numbers are never at risk of AI drift.
 function getNegotiationStrategyPrompt(propDesc,val,area,neg){
   var amenities=AREA_AMENITIES[area]?"Location amenities: "+AREA_AMENITIES[area]+".":"";
-  var base=propDesc+". EXACT DEAL DATA FROM OUR DLD-VERIFIED ENGINE (use these, do NOT invent your own): Seller's floor: AED "+neg.sellerMin.toLocaleString()+". Sweet spot (win-win target): AED "+neg.sweetSpot.toLocaleString()+". Buyer's cap: AED "+neg.buyerMax.toLocaleString()+". Deal probability: "+neg.dealProb+". Verdict: "+val.verdict+". Gross yield at asking: "+val.grossYield+"%. Fair value: AED "+val.fairPrice.toLocaleString()+". "+amenities;
-  return base+" You are a senior Dubai real estate negotiation coach (15+ years, closed 500+ deals) advising the AGENT handling THIS specific deal — not the buyer, not the seller, the agent themselves. Address the agent directly as \"you\".\nWrite a concrete, step-by-step negotiation strategy covering exactly these 5 points, in order:\n1) Opening move with the SELLER — what anchor or frame to open with.\n2) Opening move with the BUYER — what anchor or frame to open with.\n3) How to bridge the gap between the two toward the sweet-spot price if their positions differ.\n4) The single most likely objection from each side, and how to defuse it.\n5) A concrete closing technique to get both sides to sign at or near the sweet spot.\nName real, specific negotiation techniques (e.g. anchoring, mirroring, calibrated questions, strategic silence, the flinch, deadline pressure, take-it-or-leave-it framing) rather than generic advice. ONLY use the AED numbers given above — do not invent new figures. 6-8 sentences. This is an internal strategy memo for the agent, NOT client-facing copy — do not write it as if addressed to the buyer or seller.";
+  var areaData=AREAS[area];
+  var domCtx=areaData&&areaData.dom?"Area avg days-on-market: "+areaData.dom+"d ("+(areaData.dom<45?"a FAST-moving market — deadline/urgency tactics land well":areaData.dom>75?"a SLOW-moving market — patience/low-pressure framing lands better than deadline pressure":"a MODERATE-pace market")+"). ":"";
+  var user=propDesc+". EXACT DEAL DATA FROM OUR DLD-VERIFIED ENGINE (use these, do NOT invent your own): Seller's floor: AED "+neg.sellerMin.toLocaleString()+". Sweet spot (win-win target): AED "+neg.sweetSpot.toLocaleString()+". Buyer's cap: AED "+neg.buyerMax.toLocaleString()+". Deal probability: "+neg.dealProb+". Verdict: "+val.verdict+". Gross yield at asking: "+val.grossYield+"%. Fair value: AED "+val.fairPrice.toLocaleString()+". "+domCtx+amenities;
+  var sys="You are a senior Dubai real estate negotiation coach (15+ years, closed 500+ deals) advising the AGENT handling THIS specific deal — not the buyer, not the seller, the agent themselves. Address the agent directly as \"you\".\nWrite a concrete, step-by-step negotiation strategy covering exactly these 5 points, in order:\n1) Opening move with the SELLER — what anchor or frame to open with.\n2) Opening move with the BUYER — what anchor or frame to open with.\n3) How to bridge the gap between the two toward the sweet-spot price if their positions differ.\n4) The single most likely objection from each side, and how to defuse it.\n5) A concrete closing technique to get both sides to sign at or near the sweet spot — CHOOSE a technique that fits the area's real DOM pace given above (deadline pressure only in a genuinely fast market; patience/low-pressure in a slow one).\nName real, specific negotiation techniques (e.g. anchoring, mirroring, calibrated questions, strategic silence, the flinch, deadline pressure, take-it-or-leave-it framing) rather than generic advice — and briefly justify why each fits THIS deal's own numbers/pace, not just naming it. ONLY use the AED numbers given above — do not invent new figures. If real, current Dubai market knowledge is supplied below, use it to sharpen your read of how much leverage each side actually has. 6-8 sentences. This is an internal strategy memo for the agent, NOT client-facing copy — do not write it as if addressed to the buyer or seller.";
+  return {system:sys,user:user,groundQuery:"Dubai "+area+" real estate negotiation tactics market pace "+val.verdict};
 }
 
 // Rental counterpart to getNegotiationStrategyPrompt() above (2026-07-15,
@@ -135,8 +174,28 @@ function getNegotiationStrategyPrompt(propDesc,val,area,neg){
 // instead of seller/buyer, closing a LEASE instead of a sale.
 function getRentalNegotiationStrategyPrompt(propDesc,rv,area,neg){
   var amenities=AREA_AMENITIES[area]?"Location amenities: "+AREA_AMENITIES[area]+".":"";
-  var base=propDesc+". EXACT DEAL DATA FROM OUR DLD-VERIFIED ENGINE (use these, do NOT invent your own): Landlord's floor: AED "+neg.landlordMin.toLocaleString()+"/yr. Sweet spot (win-win target): AED "+neg.sweetSpot.toLocaleString()+"/yr. Tenant's cap: AED "+neg.tenantMax.toLocaleString()+"/yr. Deal probability: "+neg.dealProb+". Verdict: "+rv.verdict.replace(/_/g," ")+". Market rent: AED "+rv.estRent.toLocaleString()+"/yr. "+amenities;
-  return base+" You are a senior Dubai leasing negotiation coach (15+ years, closed 3,000+ leases) advising the AGENT handling THIS specific lease — not the landlord, not the tenant, the agent themselves. Address the agent directly as \"you\".\nWrite a concrete, step-by-step negotiation strategy covering exactly these 5 points, in order:\n1) Opening move with the LANDLORD — what anchor or frame to open with.\n2) Opening move with the TENANT — what anchor or frame to open with.\n3) How to bridge the gap between the two toward the sweet-spot rent if their positions differ.\n4) The single most likely objection from each side, and how to defuse it.\n5) A concrete closing technique to get both sides to sign the lease at or near the sweet spot.\nName real, specific negotiation techniques (e.g. anchoring, mirroring, calibrated questions, strategic silence, the flinch, deadline pressure, take-it-or-leave-it framing) rather than generic advice. ONLY use the AED numbers given above — do not invent new figures. 6-8 sentences. This is an internal strategy memo for the agent, NOT client-facing copy — do not write it as if addressed to the landlord or tenant.";
+  var user=propDesc+". EXACT DEAL DATA FROM OUR DLD-VERIFIED ENGINE (use these, do NOT invent your own): Landlord's floor: AED "+neg.landlordMin.toLocaleString()+"/yr. Sweet spot (win-win target): AED "+neg.sweetSpot.toLocaleString()+"/yr. Tenant's cap: AED "+neg.tenantMax.toLocaleString()+"/yr. Deal probability: "+neg.dealProb+". Verdict: "+rv.verdict.replace(/_/g," ")+". Market rent: AED "+rv.estRent.toLocaleString()+"/yr. "+amenities;
+  var sys="You are a senior Dubai leasing negotiation coach (15+ years, closed 3,000+ leases) advising the AGENT handling THIS specific lease — not the landlord, not the tenant, the agent themselves. Address the agent directly as \"you\".\nWrite a concrete, step-by-step negotiation strategy covering exactly these 5 points, in order:\n1) Opening move with the LANDLORD — what anchor or frame to open with.\n2) Opening move with the TENANT — what anchor or frame to open with.\n3) How to bridge the gap between the two toward the sweet-spot rent if their positions differ.\n4) The single most likely objection from each side, and how to defuse it.\n5) A concrete closing technique to get both sides to sign the lease at or near the sweet spot.\nName real, specific negotiation techniques (e.g. anchoring, mirroring, calibrated questions, strategic silence, the flinch, deadline pressure, take-it-or-leave-it framing) rather than generic advice, and briefly justify why each fits THIS deal's own numbers. ONLY use the AED numbers given above — do not invent new figures. If real, current Dubai rental-market knowledge is supplied below, use it to sharpen your read of how much leverage each side has. 6-8 sentences. This is an internal strategy memo for the agent, NOT client-facing copy — do not write it as if addressed to the landlord or tenant.";
+  return {system:sys,user:user,groundQuery:"Dubai "+area+" rental negotiation tactics landlord tenant "+rv.verdict};
+}
+
+// Personal (non-agent) mode prompts — consolidates 4 near-identical inline
+// prompt strings previously duplicated at each of the 4 form-submit call
+// sites (villa/apartment x sale/rental), none of which were RAG-grounded
+// either. Tailors its 3-sentence structure to the investor's actual stated
+// priority (income/growth/flip/end-use) instead of one generic script.
+function getPersonalSaleAIPrompt(propDesc,vv,profileCtx,riskCtx,area){
+  var amenities=AREA_AMENITIES[area]?" Location amenities: "+AREA_AMENITIES[area]+".":"";
+  var suggOfferTxt=(vv.suggestedOffer!=null?vv.suggestedOffer:vv.fairPrice).toLocaleString();
+  var user=propDesc+". EXACT DATA: Market PSF AED "+vv.adjPSF.toLocaleString()+" (range "+vv.psfLo.toLocaleString()+"-"+vv.psfHi.toLocaleString()+"). Asking "+vv.vsPct+"% vs market. Verdict: "+vv.verdict+". Fair value: AED "+vv.fairPrice.toLocaleString()+". Suggested offer: AED "+suggOfferTxt+". Price range: AED "+(vv.priceLow||0).toLocaleString()+"-"+(vv.priceHigh||0).toLocaleString()+". Est. rent: AED "+(vv.rent||0).toLocaleString()+"/yr. Gross yield: "+vv.grossYield+"%. Net yield: "+vv.netYield+"%. Growth 3yr: "+vv.g1+"%. Confidence: "+vv.confScore+"% ("+vv.confTier+"). Signal: "+vv.investSignal+". Total return: "+(vv.totalReturnAnnual||0)+"%."+amenities+" Investor profile: "+profileCtx+"."+riskCtx;
+  var sys="You are a Dubai real estate investment analyst and RERA-certified valuation specialist advising a "+profileCtx+" directly. Use ONLY the numbers and amenities given — never calculate or invent your own. Tailor your read specifically to what a "+profileCtx+" actually prioritizes (a rental-income investor cares about yield/tenant demand first; a capital-growth investor cares about the growth figure and market cycle timing first; a flip investor cares about liquidity/days-on-market first; an end-use buyer cares about lifestyle fit and location first) — do not give the same generic 3 sentences regardless of investor type. If real, current Dubai market knowledge is supplied below, weave in whichever fact matters most for this exact unit's segment. Write exactly 3 sentences: (1) an assessment grounded in this unit's own numbers and location, tailored to what this investor type cares about most, (2) a concrete negotiation target in AED using the suggested-offer figure, (3) the single most relevant risk or opportunity for THIS investor type specifically.";
+  return {system:sys,user:user,groundQuery:"Dubai "+area+" real estate "+profileCtx+" investment "+vv.verdict};
+}
+function getPersonalRentalAIPrompt(propDesc,rv,area){
+  var amenities=AREA_AMENITIES[area]?" Location amenities: "+AREA_AMENITIES[area]+".":"";
+  var user=propDesc+". EXACT DATA: Market rent AED "+rv.estRent.toLocaleString()+"/yr (AED "+rv.monthly.toLocaleString()+"/mo). Range: AED "+rv.rentLow.toLocaleString()+"-"+rv.rentHigh.toLocaleString()+"/yr. Asking "+rv.vsPct+"% vs market. Verdict: "+rv.verdict.replace(/_/g," ")+". Confidence: "+rv.confScore+"%."+amenities;
+  var sys="You are a Dubai rental-market specialist advising a prospective tenant directly. Use ONLY the numbers and amenities given — never invent your own. If real, current Dubai rental-market knowledge is supplied below, weave in whichever fact is genuinely most relevant to this unit's own area/segment. Write exactly 3 sentences: (1) a rental assessment grounded in this unit's own numbers and real location benefits, (2) a concrete negotiation target in AED, (3) one practical tenant tip specific to this verdict (what to verify/ask for if overpriced; what to lock in quickly if below market).";
+  return {system:sys,user:user,groundQuery:"Dubai "+area+" rental market "+rv.verdict+" tenant advice"};
 }
 
 // --- MARKET TAB ---------------------------------------------------------------
@@ -1762,22 +1821,16 @@ function renderAnalyzer(){
             var rv=analyzerState.rentalVal;
             var propDesc=analyzerState.f.building+" villa in "+analyzerState.f.area+". "+f.beds+". BUA:"+f.size+"sqft. Asking rent AED "+parseInt(f.price).toLocaleString()+"/yr";
             if(rMode==="agent"){
-              var buyerP=getRentalAgentAIPrompt(propDesc,rv,"buyer",analyzerState.f.area);
-              var sellerP=getRentalAgentAIPrompt(propDesc,rv,"seller",analyzerState.f.area);
-              if(rFor==="both"||rFor==="buyer"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:buyerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
-              if(rFor==="both"||rFor==="seller"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:sellerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiTextSeller=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
-              if(rFor==="buyer")analyzerState.aiTextSeller="";
-              if(rFor==="seller")analyzerState.aiText="";
-              analyzerState.aiNegotiation="";
+              analyzerState.aiText="";analyzerState.aiTextSeller="";analyzerState.aiNegotiation="";
+              if(rFor==="both"||rFor==="buyer")_dvRunAgentAI(getRentalAgentAIPrompt(propDesc,rv,"buyer",analyzerState.f.area),analyzerState.f.area,"aiText");
+              if(rFor==="both"||rFor==="seller")_dvRunAgentAI(getRentalAgentAIPrompt(propDesc,rv,"seller",analyzerState.f.area),analyzerState.f.area,"aiTextSeller");
               var _tenantMaxN=Math.round(rv.estRent*1.05);
               var _landlordMinN=Math.round(rv.estRent*0.92);
               var _rNegV=rv.verdict;
               var _rNegP=getRentalNegotiationStrategyPrompt(propDesc,rv,analyzerState.f.area,{landlordMin:_landlordMinN,sweetSpot:Math.round((_tenantMaxN+_landlordMinN)/2),tenantMax:_tenantMaxN,dealProb:_rNegV==="BELOW_MARKET"?"Very High (90%+)":_rNegV==="COMPETITIVE"?"High (75-85%)":_rNegV==="MARKET_RATE"?"Moderate (55-70%)":"Low (30-45%)"});
-              callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:_rNegP}],max_tokens:450,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiNegotiation=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
+              _dvRunAgentAI(_rNegP,analyzerState.f.area,"aiNegotiation");
             }else{
-              var amenities=AREA_AMENITIES[analyzerState.f.area]?" Location amenities: "+AREA_AMENITIES[analyzerState.f.area]+".":"";
-              var aiPrompt=propDesc+". EXACT DATA: Market rent AED "+rv.estRent.toLocaleString()+"/yr (AED "+rv.monthly.toLocaleString()+"/mo). Range: AED "+rv.rentLow.toLocaleString()+"-"+rv.rentHigh.toLocaleString()+"/yr. Asking "+rv.vsPct+"% vs market. Verdict: "+rv.verdict.replace(/_/g," ")+". Confidence: "+rv.confScore+"%."+amenities+" Use ONLY these numbers and amenities. 3 sentences: rental assessment with location benefits, negotiation target, tenant tips.";
-              callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
+              _dvRunAgentAI(getPersonalRentalAIPrompt(propDesc,rv,analyzerState.f.area),analyzerState.f.area,"aiText");
             }
             render();
           }else{
@@ -1824,24 +1877,20 @@ function renderAnalyzer(){
             }).catch(function(){analyzerState.smartRent=computeSmartRent(analyzerState.f,null);});
             var propDesc=analyzerState.f.building+" villa/townhouse in "+analyzerState.f.area+". BUA:"+f.size+"sqft. Asking AED "+parseInt(f.price).toLocaleString();
             if(rMode==="agent"){
-              var buyerP=getAgentAIPrompt(propDesc,analyzerState.val,"buyer",analyzerState.f.area);
-              var sellerP=getAgentAIPrompt(propDesc,analyzerState.val,"seller",analyzerState.f.area);
-              if(rFor==="both"||rFor==="buyer"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:buyerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
-              if(rFor==="both"||rFor==="seller"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:sellerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiTextSeller=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
-              if(rFor==="buyer")analyzerState.aiTextSeller="";
-              if(rFor==="seller")analyzerState.aiText="";
-              analyzerState.aiNegotiation="";
+              analyzerState.aiText="";analyzerState.aiTextSeller="";analyzerState.aiNegotiation="";
+              if(rFor==="both"||rFor==="buyer")_dvRunAgentAI(getAgentAIPrompt(propDesc,analyzerState.val,"buyer",analyzerState.f.area),analyzerState.f.area,"aiText");
+              if(rFor==="both"||rFor==="seller")_dvRunAgentAI(getAgentAIPrompt(propDesc,analyzerState.val,"seller",analyzerState.f.area),analyzerState.f.area,"aiTextSeller");
               var _fairN=analyzerState.val.fairPrice||0;
               var _buyerMaxN=Math.round(_fairN*1.03);
               var _sellerMinN=Math.round(_fairN*0.95);
               var _negV=analyzerState.val.verdict;
               var _negP=getNegotiationStrategyPrompt(propDesc,analyzerState.val,analyzerState.f.area,{sellerMin:_sellerMinN,sweetSpot:Math.round((_buyerMaxN+_sellerMinN)/2),buyerMax:_buyerMaxN,dealProb:_negV==="DISTRESS"?"Very High (90%+)":_negV==="GOOD"?"High (75-85%)":_negV==="FAIR"?"Moderate (55-70%)":"Low (30-45%)"});
-              callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:_negP}],max_tokens:450,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiNegotiation=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
+              _dvRunAgentAI(_negP,analyzerState.f.area,"aiNegotiation");
             }else{
-              var vv=analyzerState.val;var amenities=AREA_AMENITIES[analyzerState.f.area]?" Location amenities: "+AREA_AMENITIES[analyzerState.f.area]+".":"";
-              var _suggOfferTxt=(vv.suggestedOffer!=null?vv.suggestedOffer:vv.fairPrice).toLocaleString();
-              var aiPrompt=propDesc+". EXACT DATA: Market PSF AED "+vv.adjPSF.toLocaleString()+" (range "+vv.psfLo.toLocaleString()+"-"+vv.psfHi.toLocaleString()+"). Asking "+vv.vsPct+"% vs market. Verdict: "+vv.verdict+". Fair value: AED "+vv.fairPrice.toLocaleString()+". Suggested offer: AED "+_suggOfferTxt+". Est. rent: AED "+(vv.rent||0).toLocaleString()+"/yr. Gross yield: "+vv.grossYield+"%. Net yield: "+vv.netYield+"%. Growth 3yr: "+vv.g1+"%. Confidence: "+vv.confScore+"% ("+vv.confTier+"). Signal: "+vv.investSignal+"."+amenities+" Investor:"+USER_PROFILE.investorType+". Use ONLY these numbers and amenities. 3 sentences: assessment with location benefits, negotiation target AED, key risk/opportunity.";
-              callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
+              var vv=analyzerState.val;
+              var profileCtx=(USER_PROFILE.investorType||"investor");
+              var riskCtx="";
+              _dvRunAgentAI(getPersonalSaleAIPrompt(propDesc,vv,profileCtx,riskCtx,analyzerState.f.area),analyzerState.f.area,"aiText");
             }
             render();
           }
@@ -1987,22 +2036,16 @@ function renderAnalyzer(){
             var rv=analyzerState.rentalVal;
             var propDesc=analyzerState.f.building+" "+analyzerState.f.area+" "+(f.aptSubtype||f.beds||"")+" floor"+(f.floor||"?")+" "+f.view+" "+(f.size||"?")+"sqft rent AED "+parseInt(f.price).toLocaleString()+"/yr";
             if(rMode==="agent"){
-              var buyerP=getRentalAgentAIPrompt(propDesc,rv,"buyer",analyzerState.f.area);
-              var sellerP=getRentalAgentAIPrompt(propDesc,rv,"seller",analyzerState.f.area);
-              if(rFor==="both"||rFor==="buyer"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:buyerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
-              if(rFor==="both"||rFor==="seller"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:sellerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiTextSeller=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
-              if(rFor==="buyer")analyzerState.aiTextSeller="";
-              if(rFor==="seller")analyzerState.aiText="";
-              analyzerState.aiNegotiation="";
+              analyzerState.aiText="";analyzerState.aiTextSeller="";analyzerState.aiNegotiation="";
+              if(rFor==="both"||rFor==="buyer")_dvRunAgentAI(getRentalAgentAIPrompt(propDesc,rv,"buyer",analyzerState.f.area),analyzerState.f.area,"aiText");
+              if(rFor==="both"||rFor==="seller")_dvRunAgentAI(getRentalAgentAIPrompt(propDesc,rv,"seller",analyzerState.f.area),analyzerState.f.area,"aiTextSeller");
               var _tenantMaxN2=Math.round(rv.estRent*1.05);
               var _landlordMinN2=Math.round(rv.estRent*0.92);
               var _rNegV2=rv.verdict;
               var _rNegP2=getRentalNegotiationStrategyPrompt(propDesc,rv,analyzerState.f.area,{landlordMin:_landlordMinN2,sweetSpot:Math.round((_tenantMaxN2+_landlordMinN2)/2),tenantMax:_tenantMaxN2,dealProb:_rNegV2==="BELOW_MARKET"?"Very High (90%+)":_rNegV2==="COMPETITIVE"?"High (75-85%)":_rNegV2==="MARKET_RATE"?"Moderate (55-70%)":"Low (30-45%)"});
-              callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:_rNegP2}],max_tokens:450,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiNegotiation=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
+              _dvRunAgentAI(_rNegP2,analyzerState.f.area,"aiNegotiation");
             }else{
-              var amenities=AREA_AMENITIES[analyzerState.f.area]?" Location amenities: "+AREA_AMENITIES[analyzerState.f.area]+".":"";
-              var aiPrompt=propDesc+". EXACT DATA: Market rent AED "+rv.estRent.toLocaleString()+"/yr (AED "+rv.monthly.toLocaleString()+"/mo). Range: AED "+rv.rentLow.toLocaleString()+"-"+rv.rentHigh.toLocaleString()+"/yr. Asking "+rv.vsPct+"% vs market. Verdict: "+rv.verdict.replace(/_/g," ")+". Confidence: "+rv.confScore+"%."+amenities+" Use ONLY these numbers and amenities. 3 sentences: rental assessment with location benefits, negotiation tip, tenant advice.";
-              callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
+              _dvRunAgentAI(getPersonalRentalAIPrompt(propDesc,rv,analyzerState.f.area),analyzerState.f.area,"aiText");
             }
             render();
           }else{
@@ -2046,27 +2089,21 @@ function renderAnalyzer(){
             });
             var propDesc=analyzerState.f.building+" "+analyzerState.f.area+" "+(f.aptSubtype||f.beds||"")+" floor"+f.floor+" "+f.view+" "+f.size+"sqft AED "+parseInt(f.price).toLocaleString();
             if(rMode==="agent"){
-              var buyerP=getAgentAIPrompt(propDesc,analyzerState.val,"buyer",analyzerState.f.area);
-              var sellerP=getAgentAIPrompt(propDesc,analyzerState.val,"seller",analyzerState.f.area);
-              if(rFor==="both"||rFor==="buyer"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:buyerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
-              if(rFor==="both"||rFor==="seller"){callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:sellerP}],max_tokens:400,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiTextSeller=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});}
-              if(rFor==="buyer")analyzerState.aiTextSeller="";
-              if(rFor==="seller")analyzerState.aiText="";
-              analyzerState.aiNegotiation="";
+              analyzerState.aiText="";analyzerState.aiTextSeller="";analyzerState.aiNegotiation="";
+              if(rFor==="both"||rFor==="buyer")_dvRunAgentAI(getAgentAIPrompt(propDesc,analyzerState.val,"buyer",analyzerState.f.area),analyzerState.f.area,"aiText");
+              if(rFor==="both"||rFor==="seller")_dvRunAgentAI(getAgentAIPrompt(propDesc,analyzerState.val,"seller",analyzerState.f.area),analyzerState.f.area,"aiTextSeller");
               var _fairN=analyzerState.val.fairPrice||0;
               var _buyerMaxN=Math.round(_fairN*1.03);
               var _sellerMinN=Math.round(_fairN*0.95);
               var _negV=analyzerState.val.verdict;
               var _negP=getNegotiationStrategyPrompt(propDesc,analyzerState.val,analyzerState.f.area,{sellerMin:_sellerMinN,sweetSpot:Math.round((_buyerMaxN+_sellerMinN)/2),buyerMax:_buyerMaxN,dealProb:_negV==="DISTRESS"?"Very High (90%+)":_negV==="GOOD"?"High (75-85%)":_negV==="FAIR"?"Moderate (55-70%)":"Low (30-45%)"});
-              callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"user",content:_negP}],max_tokens:450,temperature:0.5}).then(function(r){return r.json();}).then(function(d){analyzerState.aiNegotiation=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
+              _dvRunAgentAI(_negP,analyzerState.f.area,"aiNegotiation");
             }else{
               var profileLabels={income:"rental income investor",growth:"capital growth investor",flip:"flip investor",enduse:"end-use buyer"};
               var profileCtx=profileLabels[USER_PROFILE.investorType]||"investor";
               var riskCtx=USER_PROFILE.risk==="aggressive"?" Focus upside.":(USER_PROFILE.risk==="conservative"?" Prioritize safety.":"");
-              var vv=analyzerState.val;var amenities=AREA_AMENITIES[analyzerState.f.area]?" Location amenities: "+AREA_AMENITIES[analyzerState.f.area]+".":"";
-              var _suggOfferTxt2=(vv.suggestedOffer!=null?vv.suggestedOffer:vv.fairPrice).toLocaleString();
-              var aiPrompt=propDesc+". EXACT DATA: Market PSF AED "+vv.adjPSF.toLocaleString()+" (range "+vv.psfLo.toLocaleString()+"-"+vv.psfHi.toLocaleString()+"). Asking "+vv.vsPct+"% vs market. Verdict: "+vv.verdict+". Fair value: AED "+vv.fairPrice.toLocaleString()+". Suggested offer: AED "+_suggOfferTxt2+". Price range: AED "+vv.priceLow.toLocaleString()+"-"+vv.priceHigh.toLocaleString()+". Est. rent: AED "+(vv.rent||0).toLocaleString()+"/yr. Gross yield: "+vv.grossYield+"%. Net yield: "+vv.netYield+"%. Growth 3yr: "+vv.g1+"%. Confidence: "+vv.confScore+"% ("+vv.confTier+"). Signal: "+vv.investSignal+". Total return: "+(vv.totalReturnAnnual||0)+"%."+amenities+" Investor: "+profileCtx+"."+riskCtx+" Use ONLY these numbers and amenities — do NOT calculate or invent your own. 3 sentences: assessment with location benefits, negotiation target AED (use suggested offer), key risk/opportunity.";
-              callGroqRaw({model:"llama-3.3-70b-versatile",messages:[{role:"system",content:getChatSys()},{role:"user",content:aiPrompt}],max_tokens:300,temperature:0.4}).then(function(r){return r.json();}).then(function(d){analyzerState.aiText=d.choices&&d.choices[0]?d.choices[0].message.content:"";render();}).catch(function(){render();});
+              var vv=analyzerState.val;
+              _dvRunAgentAI(getPersonalSaleAIPrompt(propDesc,vv,profileCtx,riskCtx,analyzerState.f.area),analyzerState.f.area,"aiText");
             }
             render();
           }
@@ -3315,61 +3352,21 @@ function renderAnalyzerResult(wrap){
     var gaugeInner=el("div",{style:{width:(gs.locationScore*10)+"%",height:"100%",borderRadius:"8px",background:gs.locationScore>=7?"linear-gradient(90deg,#22C55E,#10B981)":gs.locationScore>=5?"linear-gradient(90deg,#EAB308,#F59E0B)":"linear-gradient(90deg,#EF4444,#F87171)",transition:"width 0.8s ease"}});
     gaugeOuter.appendChild(gaugeInner);locWrap.appendChild(gaugeOuter);
 
-    // Sub-scores grid
-    var grid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"14px"}});
-
-    // Metro card
-    var metroC=gs.metroScore>=7?cl.green:gs.metroScore>=5?cl.yellow:cl.red;
-    var mCard=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px"}});
-    mCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"},[
-      span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Metro"),
-      span({color:metroC,fontSize:"11px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},gs.metroScore+"/10")
-    ]));
-    mCard.appendChild(div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},gs.metroDist+" km"));
-    mCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},gs.metroName+" ("+gs.metroLine+")"));
-    if(gs.transitCount>1)mCard.appendChild(div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginTop:"4px",padding:"2px 6px",background:cl.surface,borderRadius:"4px",display:"inline-block"},gs.transitCount+" stations within 2km"));
-    grid.appendChild(mCard);
-
-    // Mall card
-    var mallC=gs.mallScore>=7?cl.green:gs.mallScore>=5?cl.yellow:cl.red;
-    var maCard=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px"}});
-    maCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"},[
-      span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Mall"),
-      span({color:mallC,fontSize:"11px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},gs.mallScore+"/10")
-    ]));
-    maCard.appendChild(div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},gs.mallDist+" km"));
-    maCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},gs.mallName));
-    grid.appendChild(maCard);
-
-    // Beach card
-    var beachC=gs.beachScore>=7?cl.green:gs.beachScore>=5?cl.yellow:cl.red;
-    var bCard=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px"}});
-    bCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"},[
-      span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Beach"),
-      span({color:beachC,fontSize:"11px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},gs.beachScore+"/10")
-    ]));
-    bCard.appendChild(div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},gs.beachDist+" km"));
-    bCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},gs.beachName));
-    grid.appendChild(bCard);
-
-    // Business hub card
-    var bizC=gs.bizScore>=7?cl.green:gs.bizScore>=5?cl.yellow:cl.red;
-    var biCard=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px"}});
-    biCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"},[
-      span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Business"),
-      span({color:bizC,fontSize:"11px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},gs.bizScore+"/10")
-    ]));
-    biCard.appendChild(div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},gs.bizDist+" km"));
-    biCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},gs.bizName));
-    grid.appendChild(biCard);
-
-    locWrap.appendChild(grid);
-
-    // Airport distance
-    locWrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",background:cl.raised,borderRadius:"8px",marginBottom:"12px"},[
-      span({color:cl.sub,fontSize:"11px",fontFamily:"'Space Grotesk',monospace"},gs.airportName),
-      span({color:cl.subHi,fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},gs.airportDist+" km · ~"+Math.round(gs.airportDist*1.5)+" min")
-    ]));
+    // Metro/Mall/Beach/Business/Airport sub-cards REMOVED (2026-07-22, real
+    // user-reported bug): these were a STATIC, area-wide table
+    // (computeGeoScore(), js/data-residential.js) — every building in the
+    // same area showed byte-identical km figures (e.g. Address Fountain
+    // Views Tower 3 and Blvd Heights, both Downtown Dubai, both showing
+    // "0.53 km" to the Mall AND to the Business hub) — and duplicated the
+    // Metro card the real, live, per-building "Nearby Amenities" section
+    // below already shows. The Location Score/Valuation Impact below are
+    // KEPT — those ARE real, area-level inputs the valuation engine itself
+    // uses (a structural "does this area's transit/amenity access support a
+    // location premium" input, same category as a school-district rating),
+    // not a claim about this specific building's exact distance to
+    // anything — the live Nearby Amenities/Drive Times cards below are now
+    // the ONLY place this report shows a distance figure, and they always
+    // geocode this exact building.
 
     // Valuation impact
     var impactC=gs.locationPremium>0?cl.green:gs.locationPremium<0?cl.red:cl.yellow;
@@ -3383,13 +3380,7 @@ function renderAnalyzerResult(wrap){
       ])
     ]));
 
-    // Clarifies why two different buildings in the same area (e.g. two
-    // Downtown Dubai towers) show byte-identical figures above — these are a
-    // real, deliberate AREA-WIDE baseline (used in the valuation engine's
-    // location premium), not a per-building measurement. Real building-
-    // specific distances are the live Nearby Amenities/Drive Times cards
-    // below, which do geocode this exact building.
-    locWrap.appendChild(div({color:cl.sub,fontSize:"9.5px",fontFamily:"'Inter',sans-serif",marginTop:"10px",fontStyle:"italic"},"These figures are an area-wide baseline for "+f.area+" — every building in this area shows the same numbers here. For this specific building's live distances, see Nearby Amenities & Drive Times below."));
+    locWrap.appendChild(div({color:cl.sub,fontSize:"9.5px",fontFamily:"'Inter',sans-serif",marginTop:"10px",fontStyle:"italic"},"This score reflects "+f.area+"'s overall transit/amenity access, one of the real inputs behind the Market PSF above — for this specific building's own live distances to Burj Khalifa, Dubai Mall, DIFC, the airport and more, see Nearby Amenities & Drive Times below."));
 
     wrap.appendChild(locWrap);
   })();}
@@ -3507,7 +3498,7 @@ function renderAnalyzerResult(wrap){
     dtCard.appendChild(dtLoader);
     wrap.appendChild(dtCard);
 
-    var dtColors={"Downtown Dubai":"#C9A84C","DIFC":"#10B981","DXB Airport":"#3B82F6","Mall of Emirates":"#F59E0B","JBR Beach":"#06B6D4"};
+    var dtColors={"Burj Khalifa":"#C9A84C","Dubai Mall":"#F59E0B","DIFC":"#10B981","DXB Airport":"#3B82F6","JBR Beach":"#06B6D4"};
 
     function renderDriveTimes(rows){
       if(!rows||!rows.length){dtCard.style.display="none";return;}

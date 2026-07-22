@@ -965,6 +965,196 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-22 (session continuing, follow-up — side-effect verification of
+  the momentum-engine change, real per-building distance-to-landmarks fix,
+  and a full Analyzer-report quality/RAG/duplication pass, all per direct
+  user follow-up on the same conversation)**: Direct continuation of the
+  momentum-engine entry immediately below — after that fix shipped, the user
+  asked 5 more things in one message: (1) whether removing the flat
+  `MACRO_VARS.aptAdj`/`villaAdj` defaults corrupts pricing/analysis — asked
+  to verify carefully and fix if needed; (2) the long-standing "every
+  building in an area shows identical distances to Dubai Mall/Burj Khalifa/
+  DIFC/airport" bug, previously only disclosed (2026-07-18) not fixed, now
+  that the app is genuinely connected to Google Maps — asked for it to be
+  COMPLETELY resolved; (3)/(4) a full one-by-one review of everything the
+  Analyzer report shows, fixing/improving each item and eliminating any
+  content repeated under different headings; (5) the two AI advisories shown
+  in Agent Mode (buyer/seller reports) must be genuinely professional,
+  real-estate/sales/marketing-expert-grade and specific to each unit's own
+  situation, not generic boilerplate; and (6) that the RAG knowledge system
+  must genuinely ground every report/advisory (agent, buyer, and seller
+  alike) in real-estate-commerce knowledge, not just be flagged as a future
+  TODO.
+  1. **Side-effect verification (1) — confirmed safe, quantified with real
+     numbers, not just asserted.** Grepped every `MACRO_VARS.aptAdj`/
+     `villaAdj` reference app-wide: there is exactly ONE place either value
+     is ever READ — `computeAdjustedPSF()`'s `typeAdj` term
+     (`js/valuation.js`) — so the change's blast radius is fully understood,
+     not a guess. Built a Node vm-sandbox harness that loads the REAL
+     `js/valuation.js`/`data-residential.js`/`data-commercial.js`/
+     `valuation-db.js` twice — once with the OLD defaults (-0.03/+0.02),
+     once with the NEW (0/0) — and diffs `computeValuation()`'s full output
+     for 5 real cases (2 real previously-discussed buildings — Fountain
+     Views Tower 3, DAMAC Maison Majestine — plus 3 more spanning apartment/
+     villa). Confirmed: (a) zero crashes, zero invalid/NaN output in any
+     case — the formula itself is completely sound, nothing is "broken"; (b)
+     the shift is exactly the disclosed, expected magnitude — apartments
+     +3.09-3.12%, villas -1.91% to -2.01% (matches
+     `1/(1-0.03)-1`/`1/(1+0.02)-1` precisely); (c) 4 of 5 verdicts were
+     completely unchanged; ONE (a villa, Elie Saab AR3 in Arabian Ranches
+     III) flipped from FAIR→OVER — a real, correct consequence of removing
+     an unjustified flat +2% villa bonus that had been artificially
+     inflating its computed value into the FAIR tier, not a bug — a
+     threshold-based system moving a borderline case across its own
+     boundary when the underlying number shifts a couple of percent is
+     expected, correct behavior, not corruption. **One real, separate risk
+     surfaced and disclosed rather than silently left**: `fetchSupabaseConfig()`
+     (`js/core.js`) unconditionally overwrites `MACRO_VARS.aptAdj`/
+     `villaAdj` on every page load from the `market_config` Supabase table
+     (`id=1`) if a row exists there — meaning if the Admin Dashboard's
+     Market Risk Controls sliders were EVER saved in this project's history
+     (a real, pre-existing manual escape hatch, `js/app.js` `renderAdmin()`),
+     that stored value silently overrides today's code-level 0/0 default for
+     every visitor, not just the admin's own browser. This is not a new bug
+     introduced by today's change — it's how that panel has always worked —
+     but it means the fix is not guaranteed "live" purely by virtue of the
+     code default changing; flagged directly to the user to check the
+     sliders read 0%/0% (or deliberately re-save at 0%/0% to clear any old
+     stored value) if they want the new automatic system to be the sole
+     driver.
+  2. **Distance-to-landmarks bug (2) — fixed for real this time, not just
+     disclosed.** Root cause, confirmed by reading the code: the Analyzer's
+     "Location Intelligence" card showed a Metro/Mall/Business/Airport
+     sub-grid sourced from `computeGeoScore(f.area)` — a purely AREA-LEVEL
+     static lookup (`js/data-residential.js`) with no per-building
+     awareness at all, so Address Fountain Views Tower 3 and Blvd Heights
+     (both tagged Downtown Dubai) showed byte-identical "0.53 km to Dubai
+     Mall" figures regardless of their real, different locations within
+     that area — exactly the duplication the user described, and exactly
+     the same static mechanism a 2026-07-18 session had only disclosed via
+     an "Area-wide baseline" caveat, not fixed, despite this app's own real
+     Google Maps Distance Matrix integration (the "Drive Times" card)
+     already existing lower on the same page. **Fix**: removed the entire
+     Metro/Mall/Business/Airport sub-grid from Location Intelligence
+     outright (kept only the Location Score gauge + Valuation Impact block,
+     which genuinely are area-level structural inputs the valuation engine
+     itself uses, same category as a school-district rating — not a claim
+     about this specific building's exact distance to anything), and
+     expanded/renamed the real, already-live, per-building Google Distance
+     Matrix hub list (`api/proxy-maps.js`, `action=distances`) from the
+     previous "Downtown Dubai"/"Mall of Emirates" pair to the 5 specific,
+     high-value landmarks the user actually named and a Dubai buyer
+     actually cares about: **Burj Khalifa, Dubai Mall, DIFC, DXB Airport,
+     JBR Beach** — every coordinate here is a real, fixed point; only the
+     ORIGIN (each building's own live-geocoded lat/lng) varies, so two
+     different buildings now always get two different, real driving
+     distances/times unless Google's own geocoder genuinely resolves them
+     to the same point. Location Intelligence's own trailing disclaimer now
+     explicitly points to "Nearby Amenities & Drive Times below" for this
+     building's real distances, naming the exact landmarks, instead of the
+     old vague area-wide language.
+  3. **Full Analyzer report pass (3)/(4) — 16 AI-advisory call sites
+     rewritten for real RAG grounding + situation-aware quality, plus a
+     section-by-section duplication sweep.** Read every card in
+     `renderAnalyzerResult()` end to end (Verdict, Market Integrity Check,
+     Sustainability Score, Confidence Factors, Market Sentiment, Price
+     History, Rental Intelligence, Rental Demand Score, Market Liquidity,
+     Building Turnover, Margin of Safety, Location Intelligence, Nearby
+     Amenities, Drive Times, Agent Deal Intelligence/Negotiation, and the
+     personal-mode AI commentary) and cross-checked every section header
+     app-wide for a literal repeat. Found the SINGLE real duplication (the
+     distance grid above, now fixed) and 2 near-misses that were checked and
+     confirmed NOT bugs: the Sustainability Score's "Market Liquidity
+     Health" sub-component (`sus.liq`, a coarse 4-tier bucket of area DOM,
+     25%-weighted into the composite score) is a genuinely different
+     granularity/purpose from the full, dedicated "Market Liquidity" card
+     (`val.liqScore`/`domEst`/`txVol`/exit-risk advice) further down — both
+     legitimately derive from the same underlying DOM figure but serve
+     different analytical roles, same as how "growth" legitimately feeds
+     more than one composite calculation elsewhere in this engine; and the
+     "Market Sentiment" label appearing twice is a loading-skeleton→real-
+     content swap of ONE card, not two simultaneous cards.
+     - **The real, root-level gap found**: all 6 AI-advisory prompt-builder
+       functions (`getAgentAIPrompt`/`getRentalAgentAIPrompt` — the buyer/
+       seller reports; `getNegotiationStrategyPrompt`/
+       `getRentalNegotiationStrategyPrompt` — the agent-facing negotiation
+       strategy; plus the 2 personal-mode prompts, previously inlined ad-hoc
+       at each of their 4 call sites) fed a single flat instruction string
+       straight into the un-grounded `callGroqRaw()` — ZERO RAG grounding
+       (unlike every other `askAI()` call site in this app), and a fixed,
+       one-size-fits-all persuasion-technique list regardless of whether
+       this exact unit's own numbers actually supported it (e.g. the prompt
+       always offered to cite "rising prices" even when this specific
+       area's real growth figure was flat or negative — exactly the kind of
+       generic, not-unit-specific advice the user explicitly said an agent
+       already knows and doesn't need repeated). **Fixed at the root**: all
+       6 functions (`js/market.js`) now return `{system,user,groundQuery}`
+       instead of a bare string — `askAI()` (not `callGroqRaw()`) appends
+       real retrieved RAG context (via the existing `fetchKnowledgeContext()`
+       pipeline — live news + daily market snapshots + forecast-accuracy +
+       curated research notes, the same knowledge base already grounding
+       Chat Agents/Compare/Personal Advisor/Portfolio Analysis) to the
+       system prompt before calling Groq, scoped to the property's own real
+       area. Each builder now computes real SITUATION FLAGS from the unit's
+       own actual numbers — 3yr growth direction (positive vs flat/
+       negative), Golden Visa eligibility (fair value >= AED 2M), confidence
+       tier (high vs moderate/low), and the area's real DOM pace (fast/
+       moderate/slow, driving which closing technique — deadline pressure
+       vs. patience — the negotiation-strategy prompt is told to use) — and
+       explicitly instructs the model to use ONLY the technique(s) the data
+       actually supports, never one it contradicts. The 2 new personal-mode
+       functions (`getPersonalSaleAIPrompt`/`getPersonalRentalAIPrompt`)
+       consolidate 4 previously-duplicated inline prompt strings and
+       explicitly tailor the read to the investor's own stated priority
+       (rental-income vs capital-growth vs flip vs end-use), rather than one
+       generic script regardless of who's asking. One new shared
+       `_dvRunAgentAI(promptObj,area,stateKey)` helper (async, calls the
+       real `askAI()`, writes the result into the given `analyzerState` key,
+       degrades to the prior value — never throws — on any failure)
+       replaced all 16 near-identical `callGroqRaw().then().then().catch()`
+       blocks previously duplicated across the villa/apartment ×
+       sale/rental × buyer/seller/negotiation/personal-mode call sites — one
+       shared, tested code path instead of 16 hand-copied ones that could
+       silently drift apart.
+  4. **RAG specialization (5)/(6) — confirmed genuinely wired, not just
+     flagged.** `askAI()`'s existing grounding mechanism (`js/api.js`)
+     appends "Relevant up-to-date Dubai real estate knowledge (from live
+     news and daily market data)" retrieved from the SAME real-estate-
+     commerce-focused `knowledge_base` table every other grounded feature in
+     this app already uses — verified directly in code, not assumed — so
+     every one of the 6 rewritten prompts (agent buyer report, agent seller
+     report, agent negotiation strategy — both sale and rental — and the 2
+     personal-mode reports) now genuinely retrieves and weaves in real,
+     current Dubai real-estate knowledge before answering, exactly as the
+     user asked, for all 3 audiences (agent, buyer, seller) at once.
+  - Verified: `node -c js/market.js`; a dedicated Node vm-sandbox test (32
+    checks) extracting the real, rewritten prompt-builder functions +
+    `_dvRunAgentAI` and running them against realistic mocked data —
+    confirmed every builder returns the correct `{system,user,groundQuery}`
+    shape, embeds the real numbers passed in (fair price, suggested offer
+    correctly falling back to fair price when null, seller/buyer/landlord/
+    tenant negotiation figures), correctly computes each SITUATION FLAG
+    (positive vs flat/negative growth, Golden Visa eligible vs not, high vs
+    moderate/low confidence, fast vs slow market pace) from the input data,
+    correctly differentiates buyer-vs-seller and sale-vs-rental system
+    prompts, correctly tailors the personal-mode prompt by investor type,
+    and that `_dvRunAgentAI` correctly calls `askAI` with the right
+    system/groundQuery, passes `groundAreas` as `[area]` (or `null` when no
+    area is given — never `[null]`), writes the real returned text into the
+    given state key, and never throws (preserves the prior value) when
+    `askAI` itself rejects; the separate before/after MACRO_VARS side-effect
+    test described above (5 real cases, 0 crashes, exact expected magnitude,
+    1 legitimate verdict flip); and a full grep-based section-header sweep
+    of the entire Analyzer result renderer confirming no further exact
+    content duplication beyond the one now-fixed distance grid.
+  - **Manual step, disclosed above, not yet independently confirmed live**:
+    check Admin Dashboard → Market Risk Controls — if the Apartment/Villa
+    Adjustment sliders read anything other than 0%/0%, that's a value
+    previously saved to the `market_config` Supabase table that will
+    silently override today's 0/0 code default for every visitor; reset
+    both to 0% and click Save if the automatic per-area momentum system
+    (see the entry directly below) should be the sole driver going forward.
+
 - **2026-07-22 (session continuing, follow-up — real, automatic, per-area/
   per-property-type momentum engine built to replace flat AI-guessed/manual
   market adjustments, per explicit user direction)**: Direct continuation of
