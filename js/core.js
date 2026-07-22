@@ -1419,8 +1419,19 @@ function renderFeedbackWidget(cl,mode,meta){
 // is a soft, good-faith gate, not a hard security boundary). is_pro (see
 // supabase-subscriptions-schema.sql) always reads false until item 5's
 // Stripe webhook starts setting it.
-var DV_FREE_ANALYZER_LIMIT=5;
+// DV_BETA_NO_PAYWALL (2026-07-22, explicit user instruction: still in beta,
+// not selling subscriptions yet — every Pro gate found hitting testers with
+// a dead "Subscribe Now" / "Billing isn't configured yet, contact support"
+// button, since Stripe was never actually wired up for this product). One
+// flag unlocks every isProUser() check across the whole app at once (PDF/
+// Arabic export, Price Alerts, Portfolio tracking/projections, the Analyzer's
+// own 5-valuations/month counter, etc.) rather than patching each gate
+// individually — flip to false the moment a real Pro tier is ready to sell;
+// nothing else about the paywall (usage tracking, the modal, Stripe
+// checkout) was removed, it's just bypassed while this is true.
+var DV_BETA_NO_PAYWALL=true;
 function isProUser(){
+  if(DV_BETA_NO_PAYWALL)return true;
   try{return !!(typeof DV_AUTH!=="undefined"&&DV_AUTH.profile&&DV_AUTH.profile.is_pro);}catch(e){return false;}
 }
 function _dvUsageTimestamps(){

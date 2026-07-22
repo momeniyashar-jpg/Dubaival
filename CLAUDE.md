@@ -965,6 +965,140 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-22 (session continuing, real user-reported bad-analysis complaints
+  — beta paywall disabled, verdict-badge overconfidence fixed, and a serious
+  market-staleness finding reported to the user, not yet acted on pending
+  their real-world input)**: User shared 5 screenshots of 3 real Analyzer
+  results and asked for all of it to be investigated: (1) a unit priced AED
+  700,000 in a "DAMAC Maison"-type building showing "DISTRESS DEAL" at -51.6%
+  vs market (Asking PSF 1,522 vs Market PSF 3,143), which the user doubted
+  given current market conditions; (2) Address Fountain Views Tower 3 (2BR,
+  Downtown Dubai) at AED 7,000,000 showing "GOOD PRICE" at -13.4% (Asking PSF
+  4,430 vs Market PSF 5,115), which the user also doubted; (3) attempting a
+  3rd analysis hit a dead "DubaiVal Pro — Free limit reached... Billing isn't
+  configured yet, contact support@dubaival.com" paywall, which the user asked
+  removed outright since the platform is still in beta and not selling
+  subscriptions; and (4) a standing theory: the DLD transaction data the
+  valuation engine was calibrated from reflects the region BEFORE the real
+  Iran/Israel/US conflict, when the market was "normal," and the several
+  months of real market decline since then aren't being captured.
+  1. **Beta paywall — fixed outright, no judgment call needed.** `isProUser()`
+     (`js/core.js`) now short-circuits to `true` behind a single new
+     `DV_BETA_NO_PAYWALL` flag (default `true`) — this one flag transparently
+     unlocks every Pro-gated feature across the whole app at once (the
+     Analyzer's 5-valuations/month counter, PDF/Arabic report export, Price
+     Alerts, Portfolio tracking/projections/PDF export), not just the
+     Analyzer limit specifically, since the user's stated policy ("no
+     subscription selling during beta") is general, not scoped to one
+     feature. Every other piece of the paywall (usage tracking, the modal,
+     the real Stripe checkout wiring) is left completely intact underneath
+     this flag — flipping it back to `false` once a real Pro tier is ready
+     to sell re-enables the whole gate exactly as it was, with zero other
+     code changes needed.
+  2. **Verdict-badge overconfidence — fixed.** `renderAnalyzerResult()`
+     (`js/market.js`) already had a separate, well-built "Market Integrity
+     Check" card (fires at ≥30% deviation, correctly lists distress-sale /
+     data-entry-error / property-condition-issue as EQUALLY possible
+     explanations — i.e., the app itself does not conclude a large gap is a
+     safe, real discount) — but it renders BELOW the main verdict card, which
+     showed a bold, unqualified "DISTRESS DEAL"/"GOOD PRICE" headline plus
+     specific gross/net yield figures with no visual indication the app was
+     itself uncertain about the underlying number. A user could reasonably
+     read the DAMAC-Maison-type -51.6% case as a screaming, actionable buy
+     opportunity, when the app's own anomaly detector was already flagging it
+     as likely a data problem or a single distressed listing, not a market-
+     wide signal. Fixed with a small inline caveat line under the verdict
+     label whenever the same ≥30% threshold used by the anomaly card fires
+     ("⚠ N% deviation flagged — see Market Integrity Check below before
+     acting on this") — a pure UI/honesty fix, the verdict computation itself
+     (`computeValuation()`) was not touched.
+  3. **Market-staleness theory — investigated thoroughly, confirmed
+     well-founded with concrete evidence, NOT yet acted on (reported to the
+     user, a decision on the actual macro-adjustment magnitude needs their
+     real, current, on-the-ground market knowledge, not a unilateral guess)**:
+     - `tools/calibrate-db.js`'s own header comment names the exact CSV this
+       calibration was run against — `transactions_2026-05-26_02-03-11_2.csv`
+       — meaning the static DLD-calibrated anchor (`VALUATION_DB`/
+       `VALUATION_AREAS`) is a real, ~8-week-stale snapshot as of today
+       (2026-07-22), with nothing captured since May 26.
+     - The one mechanism whose whole job is tracking exactly this kind of
+       ongoing macro/geopolitical shift — `fetchLiveMarket()`'s "Live
+       Geopolitical Adjustment" (`js/core.js`) — turned out to NOT be live at
+       all: its prompt hardcodes a frozen, hand-written "OFFICIAL DLD
+       CONTEXT" narrative ending at "June 2026: Cautious stabilization,"
+       fed to a plain, ungrounded `callGroqRaw()` call (no RAG, no real news
+       retrieval) — the LLM has no way to know anything that happened after
+       whatever date a past session last hand-edited that text block, and the
+       narrative itself becomes a false, un-updatable claim the longer it
+       goes untouched (the same "hardcoded-date-becomes-a-past-claim" bug
+       class already fixed multiple times elsewhere in this app — e.g. the
+       "Coming Q3 2026" badge, the Analyzer/Portfolio hardcoded "June 2026"
+       AI-prompt dates fixed 2026-07-12). Not fixed yet this session, since
+       rewriting a macro-risk prompt that indirectly affects every
+       valuation's PSF (via `MACRO_VARS.aptAdj`/`villaAdj`) needs the same
+       "report findings, get explicit approval before touching the engine"
+       treatment already established for every other core-formula change in
+       this file's history.
+     - By contrast, `runMarketIntelligence()` (also `js/core.js`, feeds
+       `MARKET_MOMENTUM`/`getMomentumFactor()`, which DOES directly multiply
+       into `computeAdjustedPSF()`'s `basePSF`) IS properly RAG-grounded
+       (`askAI(..., groundQuery, groundAreas)` — real, recently-ingested news
+       content, not a frozen narrative) — but for the exact Fountain Views
+       Tower 3 / Downtown Dubai case the user flagged, it had computed a
+       **+5.0% "AI Trend" adjustment (i.e., believes the area is currently
+       APPRECIATING)**, directly opposite the user's own real-world
+       observation of an ongoing decline — confirmed by reading the second
+       Fountain Views screenshot's own "AI Trend: +5.0% market adjustment"
+       line. This is plausibly explained by the RAG knowledge base's
+       ingested news simply not containing enough real, specific coverage of
+       the regional conflict's market impact for the LLM's estimate to
+       reflect it, rather than a code bug in the grounding mechanism itself.
+     - Cross-checked the two flagged buildings directly against real DB
+       entries: Address Fountain Views Tower 3 is a genuine `Ultra`-grade,
+       developer-furnished Downtown Dubai tower (`VALUATION_DB` PSF 4,050
+       from 228 real DLD transactions, `DB` legacy PSF 3,700) — its Market
+       PSF of 5,115 in the screenshot is the calibrated anchor further
+       pushed up by comps-blending, area-drift-indexing, and the +5% AI
+       Trend momentum factor above — a small (-13.4%), plausible-either-way
+       deviation, consistent with the user's staleness theory but not
+       provable as such from this sandbox alone (no live web/Bayut access to
+       independently confirm today's real comparable pricing).
+     - The DAMAC-Maison-type case's -51.6% gap, by contrast, is far too
+       extreme to be explained by ANY plausible market-wide correction (even
+       a severe regional shock) — this is almost certainly either a single
+       anomalous/distressed listing or a data-entry issue (matching what the
+       app's own Market Integrity Check already suspects), not evidence the
+       area-wide benchmark itself is off by half. The exact building name
+       wasn't legible in the screenshots provided (header cropped/scrolled
+       out of frame in both shots of this case) — flagged to the user as
+       something a future session can check specifically if they give the
+       exact building/area typed into the form.
+     - **Not changed this session**: `MACRO_VARS.aptAdj`/`villaAdj` defaults,
+       the `fetchLiveMarket()` prompt content, and `getMomentumFactor()`'s
+       weighting/cap — all directly affect every valuation site-wide, and
+       only the user has real, current knowledge of how large an actual
+       regional market correction has been; a unilateral guess here would
+       violate this file's own Directive #2 (max 3% deviation, cross-check
+       real data before any valuation-engine change). Flagged as the next
+       decision point for the user: whether to (a) set a real, manual
+       correction via the existing Admin → Market Risk Controls panel
+       (instant, reversible, already wired into every valuation via
+       `typeAdj` — see `js/app.js` `renderAdmin()`), (b) have a future
+       session zero out/disable the AI-guessed momentum factor until real
+       conditions can be independently confirmed, since it is currently
+       pointing the WRONG direction for at least the Downtown Dubai case
+       checked here, or (c) both.
+  - Verified: `node -c` on both touched files (`js/core.js`, `js/market.js`);
+    confirmed via direct reads of `VALUATION_DB`/`DB`/`AREAS` that the
+    Fountain Views Tower 3 figures used above are real, not approximated.
+    Not independently re-verified live in a browser this session (no network
+    access to a live Analyzer run from this sandbox) — the paywall bypass and
+    verdict-caveat changes are small, low-risk, and follow patterns already
+    proven elsewhere in this codebase, but a quick live click-through by the
+    user after deploy (try analyzing 6+ properties in one browser session,
+    and re-check a large-deviation case for the new caveat line) is still
+    worth doing.
+
 - **2026-07-22 (new session, real user-reported bug — white-on-white text in
   light mode across Personal Advisor/Compare/Portfolio, plus a Groq-key
   diagnosis)**: User shared a real screenshot of Personal Advisor's final

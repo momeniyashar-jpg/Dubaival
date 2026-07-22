@@ -2216,6 +2216,20 @@ function renderAnalyzerResult(wrap){
 
   const vcfg={DISTRESS:{bg:"linear-gradient(135deg,"+cl.greenBg+",transparent)",bo:cl.greenBo,tx:cl.green,icon:"●",label:"DISTRESS DEAL",sub:"Significantly below market"},GOOD:{bg:"linear-gradient(135deg,"+cl.greenBg+",transparent)",bo:cl.greenBo,tx:cl.green,icon:"●",label:"GOOD PRICE",sub:"Below market — strong entry"},FAIR:{bg:"linear-gradient(135deg,"+cl.yellowBg+",transparent)",bo:cl.yellowBo,tx:cl.yellow,icon:"●",label:"FAIR PRICE",sub:"At market — room to negotiate"},OVER:{bg:"linear-gradient(135deg,"+cl.redBg+",transparent)",bo:cl.redBo,tx:cl.red,icon:"●",label:"OVERPRICED",sub:"Above market — negotiate hard"}}[val.verdict];
   const confColor=val.confTier.c==="green"?cl.green:val.confTier.c==="yellow"?cl.yellow:cl.red;
+  // Verdict/anomaly tie-in (2026-07-22): a 30%+ deviation already triggers the
+  // separate "Market Integrity Check" card further down (unusual/significant/
+  // extreme — see anomalyPct below), which explicitly lists distress-sale,
+  // data-entry-error, and property-condition as EQUALLY possible explanations
+  // — it does not itself conclude this is a real, safe-to-act-on discount.
+  // But this headline card renders first, and previously stated "DISTRESS
+  // DEAL"/"GOOD PRICE" with confident yield figures with no indication the
+  // app itself is uncertain about the underlying number — a real user-
+  // reported trust issue (a >50% gap read as a screaming buy opportunity
+  // instead of a likely data problem). Computed here (not deferred to the
+  // anomaly card below) so it appears directly under the verdict, before a
+  // user ever gets as far as the fuller explanation.
+  var _anomPctForBadge=Math.abs(parseFloat(val.vsPct)||0);
+  var _anomCaveat=_anomPctForBadge>=30?"⚠ "+_anomPctForBadge.toFixed(1)+"% deviation flagged — see Market Integrity Check below before acting on this":null;
 
   wrap.appendChild(div({background:vcfg.bg,border:"2px solid "+vcfg.bo,borderRadius:"16px",overflow:"hidden",marginBottom:"14px",animation:"fadeUp 0.4s ease"},[
     div({padding:"20px 20px 16px",textAlign:"center",borderBottom:"1px solid "+cl.border},[
@@ -2223,6 +2237,7 @@ function renderAnalyzerResult(wrap){
       div({color:vcfg.tx,fontSize:"10px",fontFamily:"'Inter',sans-serif",opacity:"0.65",marginBottom:"10px"},"Asking Price"),
       div({color:vcfg.tx,fontSize:"22px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.04em"},vcfg.label),
       div({color:vcfg.tx,opacity:"0.75",fontSize:"12px",marginTop:"3px",fontFamily:"'Inter',sans-serif"},vcfg.sub),
+      _anomCaveat?div({color:"#F59E0B",opacity:"0.95",fontSize:"11px",fontWeight:"700",marginTop:"8px",fontFamily:"'Inter',sans-serif"},_anomCaveat):div({}),
     ]),
     div({padding:"16px 20px"},[
       div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"14px"},[
