@@ -273,6 +273,28 @@ function getRentalVelocity(area){
   return{activeCount:d.rentActiveCount||null,avgDaysListed:d.rentAvgDaysListed,sampleSize:d.rentVelocitySampleSize||0,ready:true};
 }
 
+// Real, per-area momentum — see supabase-real-momentum-schema.sql for the
+// full rationale. Computed weekly by api/refresh-market-data.js's
+// ?action=momentum-refresh from REAL, already-accumulating price_history
+// (a rolling comparison of the last ~14 real days of live-listing PSF
+// against the ~14 days before that) — zero AI/LLM involvement, genuinely
+// per-area (never a flat percentage applied to every neighborhood alike),
+// and naturally responsive to a real reversal within the same window since
+// it's recomputed weekly, not frozen at a single point-in-time guess.
+// Returns null (not 1.0) when no real momentum has been computed yet for
+// this area — callers fall back to the AI-estimated signal, they never see
+// a fabricated "neutral" reading mistaken for a real "nothing's moving" one.
+function getRealMomentumFactor(area){
+  var d=DYNAMIC_BENCHMARKS[area];
+  if(!d||d.momentumPct==null||!d.momentumUpdated)return null;
+  var age=(Date.now()-new Date(d.momentumUpdated).getTime())/(1000*60*60*24);
+  if(age>10)return null; // stale — the weekly cron should have refreshed this by now
+  var confWeight=d.momentumConfidence==="high"?1.0:d.momentumConfidence==="medium"?0.65:0.35;
+  var rawAdj=d.momentumPct/100*confWeight;
+  var capped=Math.max(-0.20,Math.min(0.20,rawAdj));
+  return 1.0+capped;
+}
+
 async function fetchDynamicBenchmarks(){
   try{
     var resp=await fetch(SUPABASE_URL+"/rest/v1/area_benchmarks?select=*",{
@@ -288,7 +310,10 @@ async function fetchDynamicBenchmarks(){
         dom:r.dom,txVol:r.tx_vol,sampleSize:r.sample_size,updated_at:r.updated_at,
         growth1yr:r.growth_1yr_realized,growthUpdated:r.growth_updated_at,
         rentActiveCount:r.rent_active_count,rentAvgDaysListed:r.rent_avg_days_listed,
-        rentVelocitySampleSize:r.rent_velocity_sample_size,rentVelocityUpdated:r.rent_velocity_updated_at
+        rentVelocitySampleSize:r.rent_velocity_sample_size,rentVelocityUpdated:r.rent_velocity_updated_at,
+        momentumPct:r.momentum_recent_pct,momentumConfidence:r.momentum_confidence,
+        momentumSampleRecent:r.momentum_sample_recent,momentumSamplePrior:r.momentum_sample_prior,
+        momentumUpdated:r.momentum_updated_at
       };
     });
   }catch(e){console.warn("Dynamic benchmarks fetch failed:",e.message);}
@@ -602,9 +627,15 @@ function computeAdjustedPSF(f,buildingVal,liveData){
   }
   if(calFactor!==1.0){basePSF=Math.round(basePSF*calFactor);psfLo=Math.round(psfLo*calFactor);psfHi=Math.round(psfHi*calFactor);}
   const momFactor=typeof getMomentumFactor==="function"?getMomentumFactor(f.area):1.0;
+  // Distinguishes the real, data-driven momentum signal (getRealMomentumFactor
+  // — see supabase-real-momentum-schema.sql) from the AI-guessed fallback
+  // getMomentumFactor() itself falls back to — purely for accurate labeling;
+  // getMomentumFactor() already picked whichever one actually produced
+  // momFactor above, this just asks the same question again for display text.
+  const momSource=(typeof getRealMomentumFactor==="function"&&getRealMomentumFactor(f.area)!==null)?"real":"ai";
   if(momFactor!==1.0){basePSF=Math.round(basePSF*momFactor);psfLo=Math.round(psfLo*momFactor);psfHi=Math.round(psfHi*momFactor);}
   if(dynBench&&dynBench.psf&&dynBench.sampleSize>=5)dataSource+=" · Live";
-  if(momFactor!==1.0)dataSource+=" · AI Trend";
+  if(momFactor!==1.0)dataSource+=momSource==="real"?" · Live Trend":" · AI Trend";
   // Admin Market Risk Controls (apartment/villa macro adjustment) — a market-
   // wide correction like calFactor/momFactor above, not a property-specific
   // premium, so it's applied to basePSF here rather than folded into the
@@ -693,7 +724,7 @@ function computeAdjustedPSF(f,buildingVal,liveData){
   const adjPSF=Math.round(basePSF*hedonicMult);
   psfLo=Math.round(psfLo*hedonicMult);psfHi=Math.round(psfHi*hedonicMult);
   return{adjPSF,psfLo,psfHi,basePSF,bData,vdbEntry,dataSource,dataLayer,compData,
-    calFactor,momFactor,typeAdj,dynBench,liveSig,aData,isVillaType,isVilla,isDevFurnished,
+    calFactor,momFactor,momSource,typeAdj,dynBench,liveSig,aData,isVillaType,isVilla,isDevFurnished,
     vP,fP,furnP,loftP,penthP,maidP,studyP,upgradeP,privatePoolP,singleRowP,cornerVillaP,
     geoAdj,geoScore,locP,hedonicMult,hedonicCap};
 }
@@ -703,7 +734,7 @@ function computeValuation(f,buildingVal,liveData){
   const adj=computeAdjustedPSF(f,buildingVal,liveData);
   const{adjPSF,psfLo,psfHi,bData,vdbEntry,dataSource,dataLayer,compData,aData,
     isVilla,isDevFurnished,vP,fP,furnP,loftP,penthP,maidP,privatePoolP,singleRowP,cornerVillaP,
-    geoAdj,geoScore,locP,calFactor,momFactor,dynBench,liveSig}=adj;
+    geoAdj,geoScore,locP,calFactor,momFactor,momSource,dynBench,liveSig}=adj;
   const size=parseFloat((f.buaSize||f.size||"").toString().replace(/,/g,""))||0;
   const price=parseFloat((f.price||"").toString().replace(/,/g,""))||0;
   const askPSF=size>0&&price>0?Math.round(price/size):0;
@@ -838,7 +869,7 @@ function computeValuation(f,buildingVal,liveData){
   const mosRaw=Math.round(priceGapScore*0.50+timeDecayScore*0.20+marketDepthScore*0.30);
   const mosScore=Math.min(95,Math.max(5,mosRaw));
   const mosTier=mosScore>=80?{label:"Deep Value",c:"green",desc:"Strong margin of safety — price significantly below intrinsic value with favorable market conditions"}:mosScore>=65?{label:"Value Buy",c:"green",desc:"Positive margin of safety — priced below fair value with room for appreciation"}:mosScore>=50?{label:"Fair Entry",c:"yellow",desc:"Neutral margin — price aligns with market value, moderate risk-reward balance"}:mosScore>=35?{label:"Thin Margin",c:"yellow",desc:"Limited safety buffer — priced at or slightly above value, returns depend on market growth"}:{label:"Speculative",c:"red",desc:"Negative margin of safety — price exceeds intrinsic value, high risk of capital loss in a downturn"};
-  return{askPSF,adjPSF,psfLo,psfHi,fairPrice,distressPrice,goodPrice,overpricedAt,verdict,vsPct:vsPct.toFixed(1),suggestedOffer,dataSource,dataLayer,confScore,confTier,priceLow,priceHigh,inDB:!!bData,bData,isDevFurnished,vP:Math.round(vP*100),fP:Math.round(fP*100),furnP:Math.round(furnP*100),loftP:Math.round(loftP*100),penthP:Math.round(penthP*100),maidP:Math.round(maidP*100),privatePoolP:Math.round(privatePoolP*100),singleRowP:Math.round(singleRowP*100),cornerVillaP:Math.round(cornerVillaP*100),locP:Math.round(locP*100),geo:Math.round(geoAdj*100),rent,sc,grossYield,netYield,g0:gr[0],g1:gr[1],g2:gr[2],prRatio:prRatio?prRatio.toFixed(1):null,investSignal,totalReturnAnnual,domEst,txVol,liqScore,liqTier,txLabel,turnoverRate,turnoverTier,bldgUnits,bldgAnnualTx,mosScore,mosTier,priceGapScore,timeDecayScore,marketDepthScore,demandScore,compData:compData,hasDynamic:!!dynBench,calFactor:calFactor,geoScore:geoScore,momFactor:momFactor,hasMomentum:!!(typeof MOMENTUM_LOADED!=="undefined"&&MOMENTUM_LOADED&&(MARKET_MOMENTUM[f.area]||MARKET_MOMENTUM["_overall"])),liveSig:liveSig};
+  return{askPSF,adjPSF,psfLo,psfHi,fairPrice,distressPrice,goodPrice,overpricedAt,verdict,vsPct:vsPct.toFixed(1),suggestedOffer,dataSource,dataLayer,confScore,confTier,priceLow,priceHigh,inDB:!!bData,bData,isDevFurnished,vP:Math.round(vP*100),fP:Math.round(fP*100),furnP:Math.round(furnP*100),loftP:Math.round(loftP*100),penthP:Math.round(penthP*100),maidP:Math.round(maidP*100),privatePoolP:Math.round(privatePoolP*100),singleRowP:Math.round(singleRowP*100),cornerVillaP:Math.round(cornerVillaP*100),locP:Math.round(locP*100),geo:Math.round(geoAdj*100),rent,sc,grossYield,netYield,g0:gr[0],g1:gr[1],g2:gr[2],prRatio:prRatio?prRatio.toFixed(1):null,investSignal,totalReturnAnnual,domEst,txVol,liqScore,liqTier,txLabel,turnoverRate,turnoverTier,bldgUnits,bldgAnnualTx,mosScore,mosTier,priceGapScore,timeDecayScore,marketDepthScore,demandScore,compData:compData,hasDynamic:!!dynBench,calFactor:calFactor,geoScore:geoScore,momFactor:momFactor,momSource:momSource,hasMomentum:momFactor!==1.0,liveSig:liveSig};
 }
 
 // --- SMART RENTAL INTELLIGENCE ENGINE ----------------------------------------

@@ -965,6 +965,146 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-22 (session continuing, follow-up — real, automatic, per-area/
+  per-property-type momentum engine built to replace flat AI-guessed/manual
+  market adjustments, per explicit user direction)**: Direct continuation of
+  the two entries below — after the VALUATION_DB fix resolved the DAMAC
+  Maison Majestine case, the user gave a clear, final instruction on the
+  remaining open question (how the geo/momentum mechanism should work): no
+  manual intervention where avoidable, and — critically — different areas
+  and different property types (apartment/villa/townhouse) did NOT decline
+  equally after the conflict started, and the market itself moved up then
+  down again within the same 6 months, so a single flat percentage applied
+  to "all apartments" or "all villas" city-wide can never be accurate
+  methodology. Asked for a real engineering fix, not another manual lever.
+  - **Found a 3rd, previously-uninvestigated unreliable mechanism while
+    tracing exactly what feeds `MACRO_VARS.aptAdj`/`villaAdj`** (the ONLY
+    two fields that actually reach `computeAdjustedPSF()`'s `typeAdj` and
+    thus every apartment/villa valuation city-wide) — NOT
+    `fetchLiveMarket()` as an earlier entry this session slightly
+    overstated (that one only ever feeds `getAreaGeoAdj()`/`LIVE_GEO.adj`,
+    confirmed via grep to be read ONLY inside a cosmetic Market Dashboard
+    commentary sentence, never inside the valuation engine at all — a real,
+    separate, lower-priority "stale claim" bug, but it has never actually
+    moved a single price). The real culprit was `fetchMarketIntelligence()`
+    (`js/core.js`, distinct from the similarly-named, RAG-grounded
+    `runMarketIntelligence()`) — auto-fired ~500ms after every page load via
+    `fetchSupabaseConfig()`, it asks a completely ungrounded `callGroqRaw()`
+    call (no RAG, no news retrieval, literally "from your own knowledge") to
+    guess `apt_adj`/`villa_adj`, then writes that guess DIRECTLY into
+    `MACRO_VARS.aptAdj`/`villaAdj` — one flat number for every apartment
+    area and one flat number for every villa area, nationwide, from an LLM
+    with zero live grounding. This is the exact mechanism the user was
+    describing and rejecting, more precisely identified than in the entry
+    below.
+  - **New real, zero-AI signal**: `supabase-real-momentum-schema.sql` (new
+    migration, requires manual execution) adds `momentum_recent_pct`/
+    `momentum_confidence`/`momentum_sample_recent`/`momentum_sample_prior`/
+    `momentum_updated_at` to `area_benchmarks`. New
+    `computeRecentMomentumForArea()`/`handleMomentumRefresh()`
+    (`api/refresh-market-data.js`, new weekly `?action=momentum-refresh`
+    cron, Sundays 07:20 UTC — added to `vercel.json`) compute a rolling
+    comparison of the real, already-accumulating `price_history`: the last
+    14 real days of an area's live-listing PSF vs. the 14 days before that.
+    Zero LLM involvement anywhere in this computation — purely arithmetic
+    over real Bayut/PropertyFinder listing data the daily cron already
+    fetches. Gated on a minimum sample size per window (4, confidence tiers
+    at 6/10) so a data-thin area returns `null` (not a fabricated number)
+    rather than a noisy guess, exactly matching this project's established
+    `growth_1yr_realized` precedent.
+  - **Why this satisfies every part of the user's ask, precisely**: (1)
+    fully automatic — no admin action, recomputed every week from data the
+    system already collects on its own; (2) genuinely per-AREA — Downtown
+    Dubai and JVC get their own independently-computed real trend, never one
+    number applied to both; (3) inherently responsive to a real reversal
+    within the same 6-month window — since it's a ROLLING recent-vs-prior
+    comparison recomputed weekly, a market that went up and then came back
+    down shows up as exactly that over successive weekly runs, not frozen at
+    a single point-in-time guess; (4) property-type awareness is inherited
+    from each area's own already-established villa/apartment classification
+    (`VILLA_AREAS`) rather than a new, unverifiable per-listing text
+    classifier — the ~30 single-type areas (Dubai Marina, Arabian Ranches,
+    etc.) get a fully correct, type-specific real trend for free; the
+    dozen already-documented genuinely-mixed areas (Palm Jumeirah, Dubai
+    Hills Estate, etc. — see the 2026-07-18 per-building villa/apartment
+    refinement entry) share the same known, disclosed limitation as
+    everywhere else in this codebase, not a new gap this change introduces.
+  - **Wired in, `js/valuation.js`**: `fetchDynamicBenchmarks()` maps the 5
+    new `area_benchmarks` fields into `DYNAMIC_BENCHMARKS` (already fetches
+    `select=*`, so no query change needed). New `getRealMomentumFactor(area)`
+    — reads the real momentum, confidence-weights it (0.35/0.65/1.0 for
+    low/medium/high), clamps to ±20%, and returns `null` (not a fabricated
+    neutral 1.0) when no real momentum has been computed yet or it's gone
+    stale (>10 days, i.e. the weekly cron should have refreshed it by then).
+  - **Wired in, `js/core.js`**: `getMomentumFactor(area)` — the function
+    `computeAdjustedPSF()` already called for its RAG-grounded AI-estimated
+    momentum — now calls `getRealMomentumFactor()` FIRST and only falls back
+    to the existing AI-estimated `MARKET_MOMENTUM` path when real data isn't
+    available yet for that area (a brand-new area, or one of the ~300 areas
+    outside the 41-area daily-refresh cron's coverage) — real data always
+    wins when it exists, the AI estimate is now purely a bridge, never
+    silently discarded. `computeAdjustedPSF()`/`computeValuation()`
+    (`js/valuation.js`) gained a new `momSource` field (`"real"`|`"ai"`)
+    threaded through the same return-object chain as `momFactor`, purely so
+    the UI can label accurately; `hasMomentum` simplified to
+    `momFactor!==1.0` (previously gated only on the AI-specific
+    `MARKET_MOMENTUM` object existing, which would have hidden the new
+    real-momentum info line entirely — a real bug caught and fixed before
+    shipping, not after). `js/market.js`'s two "AI Trend" labels (the
+    Analyzer result's momentum pill and its Confidence Factors row) now
+    correctly read "Live Trend" when `momSource==="real"`.
+  - **`MACRO_VARS.aptAdj`/`villaAdj` defaults changed from -0.03/+0.02 to
+    0/0** — these were themselves a flat, unexplained, one-time hand-picked
+    guess applied identically to literally every apartment/every villa
+    valuation regardless of area, i.e. exactly the "one flat percentage for
+    all areas" methodology the user explicitly rejected. `fetchMarketIntelligence()`'s
+    auto-fire (the ungrounded-LLM-guess mechanism found above) was removed
+    from `fetchSupabaseConfig()`'s call chain entirely — the function itself
+    is left defined but unreferenced (dead code, not deleted, same pattern
+    as this file's other intentionally-dormant functions) in case a
+    genuinely RAG-grounded version is worth building later. The Admin →
+    Market Risk Controls slider (`js/app.js`) is UNCHANGED and still works
+    exactly as before — kept deliberately as a manual escape hatch for a
+    genuine emergency the automatic system hasn't caught up to yet, matching
+    the user's "as much as possible" (not "literally zero ever") framing.
+  - **Disclosed, real, city-wide side effect of the aptAdj/villaAdj default
+    change**: every apartment valuation across the entire app will now show
+    a Market PSF a few percent HIGHER than before this change (the previous
+    blanket -3% "geo pressure" penalty is gone), and every villa valuation a
+    few percent LOWER (the previous blanket +2% bonus is gone), until either
+    the new automatic per-area momentum system supplies a real, area-specific
+    correction or an admin sets one manually — confirmed directly via a
+    regression test (Address Fountain Views Tower 3, no momentum data
+    seeded): Market PSF shifted from 3,917 to 4,038 purely from this default
+    change (+3.1%, matching the removed flat penalty almost exactly).
+    Flagging this plainly rather than treating it as incidental, per
+    Directive #2 — it's a deliberate, city-wide, real numeric change.
+  - Verified: `node -c` on all 4 touched/added files (`js/core.js`,
+    `js/valuation.js`, `js/market.js`, `api/refresh-market-data.js`) plus
+    `vercel.json` JSON validity; a Node `vm`-sandbox test (8 cases) — no
+    momentum data anywhere correctly returns neutral 1.0; real, fresh,
+    high-confidence momentum data is correctly preferred over the AI
+    fallback and produces the exact expected factor; real momentum older
+    than 10 days is correctly treated as stale and falls back; low-
+    confidence data is correctly dampened; an extreme real reading is
+    correctly clamped to ±20%; `MACRO_VARS.aptAdj`/`villaAdj` confirmed at
+    0/0 by default; a full end-to-end `computeValuation()` run for Address
+    Fountain Views Tower 3 with a seeded real -8.2% momentum reading
+    correctly reduced the Market PSF and correctly labeled the result
+    "Live Trend" (not "AI Trend") in both `dataSource` and the new
+    `momSource` field; and a regression case confirming the AI-estimated
+    `MARKET_MOMENTUM` fallback path still works correctly when no real
+    momentum data exists for an area. A broader sweep re-ran
+    `computeValuation()` across 24 sampled real buildings/areas (mixed
+    apartment/villa) with zero throws and zero invalid results.
+  - **Manual step required before this is live**: run
+    `supabase-real-momentum-schema.sql` in Supabase SQL Editor. Until then,
+    `getRealMomentumFactor()` always returns `null` (graceful — the existing
+    AI-estimated `getMomentumFactor()` fallback path handles every area
+    exactly as it already did before this change, zero breakage) and the
+    weekly `?action=momentum-refresh` cron simply has no real data yet to
+    compute against.
+
 - **2026-07-22 (session continuing, follow-up — CRITICAL root-cause bug found
   and fixed: ~38% of VALUATION_DB was a fabricated "DLD Verified" placeholder,
   not real per-building calibration)**: Direct continuation of the entry
@@ -9920,6 +10060,24 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🟡 Real per-area momentum engine — needs manual SQL** (added
+  2026-07-22): run `supabase-real-momentum-schema.sql` in Supabase SQL
+  Editor. Until it's run, `getRealMomentumFactor()` always returns `null`
+  and `getMomentumFactor()` gracefully falls back to the pre-existing
+  AI-estimated `MARKET_MOMENTUM` path (zero breakage, exactly the same
+  behavior as before this change) — the new weekly `?action=momentum-refresh`
+  cron (Sundays 07:20 UTC, already registered in `vercel.json`) will start
+  populating real data the first time it runs after the migration is
+  applied, but per-area confidence won't reach "high" until a few weeks of
+  `price_history` have accumulated in both the recent and prior comparison
+  windows (same bridging pattern as `growth_1yr_realized`). See the
+  "real, automatic, per-area/per-property-type momentum engine" work-log
+  entry above for the full design and the disclosed, deliberate side effect
+  on every apartment/villa valuation's default Market PSF (the old flat
+  -3%/+2% `MACRO_VARS.aptAdj`/`villaAdj` defaults were removed, since they
+  were themselves exactly the "one flat percentage for every area" the user
+  asked to have replaced).
 
 - **🟡 LinkedIn + X/Twitter OAuth "Connect" — needs 2 new Developer Apps'
   credentials** (added 2026-07-21): set `LINKEDIN_CLIENT_ID`/

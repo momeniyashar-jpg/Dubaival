@@ -406,6 +406,100 @@ async function handleGrowthRefresh(req, res) {
   }
 }
 
+// ── REAL, data-driven per-area momentum (see supabase-real-momentum-schema.sql
+// for the full rationale) ────────────────────────────────────────────────────
+// A rolling comparison of two REAL windows already accumulated in
+// price_history — zero AI/LLM involvement, unlike MARKET_MOMENTUM (js/core.js
+// runMarketIntelligence()) or the frozen-narrative "Live Geopolitical
+// Adjustment" (fetchLiveMarket()), both of which are ultimately just a
+// language model's opinion. Recomputed weekly, so it naturally tracks a real
+// reversal within the same 6-month window (market up, then down again)
+// instead of freezing at one point-in-time guess — and being computed per
+// AREA from that area's own real listings, it can never apply one flat
+// percentage to every neighborhood regardless of how much that specific area
+// actually moved.
+var MOMENTUM_RECENT_DAYS = 14;
+var MOMENTUM_PRIOR_DAYS = 14;
+var MOMENTUM_MIN_SAMPLES = 4; // per window — below this, too little real data to trust
+var MOMENTUM_TIME_BUDGET_MS = 45000;
+
+async function computeRecentMomentumForArea(area) {
+  var today = new Date();
+  var recentFloor = new Date(today.getTime() - MOMENTUM_RECENT_DAYS * 86400000).toISOString().slice(0, 10);
+  var priorFloor = new Date(today.getTime() - (MOMENTUM_RECENT_DAYS + MOMENTUM_PRIOR_DAYS) * 86400000).toISOString().slice(0, 10);
+  var priorCeil = recentFloor;
+
+  try {
+    var recentResp = await supabaseRequest(
+      "/price_history?area_key=eq." + encodeURIComponent(area) +
+      "&snapshot_date=gte." + recentFloor + "&select=psf&order=snapshot_date.asc"
+    );
+    if (!recentResp.ok) return null;
+    var recentRows = await recentResp.json();
+    var recentPsfs = recentRows.map(function (r) { return r.psf; }).filter(function (p) { return p > 0; });
+    if (recentPsfs.length < MOMENTUM_MIN_SAMPLES) return null;
+
+    var priorResp = await supabaseRequest(
+      "/price_history?area_key=eq." + encodeURIComponent(area) +
+      "&snapshot_date=gte." + priorFloor + "&snapshot_date=lt." + priorCeil + "&select=psf&order=snapshot_date.asc"
+    );
+    if (!priorResp.ok) return null;
+    var priorRows = await priorResp.json();
+    var priorPsfs = priorRows.map(function (r) { return r.psf; }).filter(function (p) { return p > 0; });
+    if (priorPsfs.length < MOMENTUM_MIN_SAMPLES) return null;
+
+    var recentAvg = recentPsfs.reduce(function (s, p) { return s + p; }, 0) / recentPsfs.length;
+    var priorAvg = priorPsfs.reduce(function (s, p) { return s + p; }, 0) / priorPsfs.length;
+    if (!priorAvg) return null;
+
+    var pct = Math.round(((recentAvg - priorAvg) / priorAvg) * 1000) / 10;
+    var minSamples = Math.min(recentPsfs.length, priorPsfs.length);
+    var confidence = minSamples >= 10 ? "high" : minSamples >= 6 ? "medium" : "low";
+
+    return { pct: pct, confidence: confidence, sampleRecent: recentPsfs.length, samplePrior: priorPsfs.length };
+  } catch (e) {
+    return null;
+  }
+}
+
+async function handleMomentumRefresh(req, res) {
+  var startedAt = Date.now();
+  var results = { areasChecked: 0, updated: 0, skipped: 0, timedOut: false };
+  var areas = Object.keys(AREA_LOCATION_MAP);
+  var CONCURRENCY = 5;
+
+  try {
+    for (var i = 0; i < areas.length; i += CONCURRENCY) {
+      if (Date.now() - startedAt > MOMENTUM_TIME_BUDGET_MS) { results.timedOut = true; break; }
+      var batch = areas.slice(i, i + CONCURRENCY);
+      await Promise.all(batch.map(async function (area) {
+        results.areasChecked++;
+        var m = await computeRecentMomentumForArea(area);
+        if (!m) { results.skipped++; return; }
+        var resp = await supabaseRequest(
+          "/area_benchmarks?area_key=eq." + encodeURIComponent(area),
+          {
+            method: "PATCH",
+            headers: { Prefer: "return=minimal" },
+            body: JSON.stringify({
+              momentum_recent_pct: m.pct,
+              momentum_confidence: m.confidence,
+              momentum_sample_recent: m.sampleRecent,
+              momentum_sample_prior: m.samplePrior,
+              momentum_updated_at: new Date().toISOString()
+            })
+          }
+        );
+        if (resp.ok) results.updated++; else results.skipped++;
+      }));
+      if (i + CONCURRENCY < areas.length) await new Promise(function (r) { setTimeout(r, 200); });
+    }
+    res.status(200).json({ ok: true, timestamp: new Date().toISOString(), results: results });
+  } catch (e) {
+    res.status(200).json({ ok: false, error: e.message, results: results });
+  }
+}
+
 // ── Rental velocity ("how fast does this area actually rent") ──────────────
 // trackRentalListingSightings() (above, runs daily) has been accumulating
 // first_seen/last_seen per rental listing since supabase-rental-liquidity-
@@ -592,6 +686,9 @@ module.exports = async function handler(req, res) {
   }
   if (req.query && req.query.action === "growth-refresh") {
     return handleGrowthRefresh(req, res);
+  }
+  if (req.query && req.query.action === "momentum-refresh") {
+    return handleMomentumRefresh(req, res);
   }
   if (req.query && req.query.action === "rental-velocity") {
     return handleRentalVelocity(req, res);

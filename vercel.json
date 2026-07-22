@@ -43,6 +43,7 @@
     { "path": "/api/refresh-market-data", "schedule": "0 6 * * *" },
     { "path": "/api/refresh-market-data?action=forecast-audit", "schedule": "30 6 * * 0" },
     { "path": "/api/refresh-market-data?action=growth-refresh", "schedule": "0 7 * * 0" },
+    { "path": "/api/refresh-market-data?action=momentum-refresh", "schedule": "20 7 * * 0" },
     { "path": "/api/refresh-market-data?action=rental-velocity", "schedule": "45 7 * * 0" },
     { "path": "/api/refresh-market-data?action=portfolio-digest", "schedule": "15 8 * * 0" },
     { "path": "/api/inbox?action=gmail-poll", "schedule": "0 7 * * *" },

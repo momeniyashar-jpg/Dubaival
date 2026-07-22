@@ -2275,7 +2275,7 @@ function renderAnalyzerResult(wrap){
         span({color:cl.sub,fontSize:"10.5px",fontFamily:"'Space Grotesk',monospace"},"Score "+val.confScore+"/100 · "+val.dataSource),
         val.hasMomentum?div({display:"flex",alignItems:"center",gap:"5px",marginTop:"6px"},[
           div({width:"5px",height:"5px",borderRadius:"50%",background:val.momFactor>1?"#10B981":val.momFactor<1?"#EF4444":"#EAB308",flexShrink:"0"}),
-          span({color:val.momFactor>1?"#10B981":val.momFactor<1?"#EF4444":"#EAB308",fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},"AI Trend: "+(val.momFactor>1?"+":"")+((val.momFactor-1)*100).toFixed(1)+"% market adjustment"),
+          span({color:val.momFactor>1?"#10B981":val.momFactor<1?"#EF4444":"#EAB308",fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},(val.momSource==="real"?"Live Trend":"AI Trend")+": "+(val.momFactor>1?"+":"")+((val.momFactor-1)*100).toFixed(1)+"% market adjustment"),
         ]):div({}),
       ]),
     ]),
@@ -2495,7 +2495,7 @@ function renderAnalyzerResult(wrap){
       {l:"Comparable Analysis",v:val.compData?val.compData.compCount+" properties":"No comps",ok:!!val.compData},
       {l:"Live Market Data",v:val.hasDynamic?"Active":"Static benchmarks",ok:val.hasDynamic},
       {l:"Auto-Calibration",v:val.calFactor!==1.0?"×"+val.calFactor.toFixed(2):"Pending",ok:val.calFactor!==1.0},
-      {l:"AI Market Trend",v:val.hasMomentum?(val.momFactor!==1.0?"Active ×"+val.momFactor.toFixed(2):"Active — Stable"):"No data",ok:val.hasMomentum},
+      {l:val.momSource==="real"?"Live Market Trend":"AI Market Trend",v:val.hasMomentum?"Active ×"+val.momFactor.toFixed(2):"No data",ok:val.hasMomentum},
       {l:"Developer Furnished",v:val.isDevFurnished?"Yes — "+furnLabel:"No — "+furnLabel,ok:true},
       {l:"View Specified",v:analyzerState.f.view!=="Not specified"?analyzerState.f.view:"Not specified",ok:analyzerState.f.view!=="Not specified"},
       {l:"Floor Specified",v:analyzerState.f.floor?"Floor "+analyzerState.f.floor:"Not provided",ok:!!analyzerState.f.floor||analyzerState.f.propCategory==="villa"},

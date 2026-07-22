@@ -510,10 +510,20 @@ var MARKET_CYCLE_INDEX={
 
 var AREA_SENSITIVITY={"Downtown Dubai":0.7,"Dubai Marina":0.75,"Palm Jumeirah":0.6,"Business Bay":0.65,"Jumeirah Village Circle":0.5,"Dubai Hills Estate":0.55,"DAMAC Hills":0.5,"DAMAC Lagoons":0.45,"Arabian Ranches 3":0.4,"Emaar Beachfront":0.7,"Dubai Creek Harbour":0.65,"MBR City":0.6,"Sobha Hartland":0.6,"Al Furjan":0.45,"Jumeirah Lake Towers":0.6,"Dubai South":0.35,"Tilal Al Ghaf":0.4,"DIFC":0.7,"City Walk":0.65,"Dubai Harbour":0.7};
 
+// aptAdj/villaAdj default to 0 (2026-07-22, real user complaint — the old
+// -3%/+2% defaults were a flat, ONE-TIME hand-picked guess applied identically
+// to every apartment/villa area regardless of how much that specific area
+// had actually moved, which is exactly the "manual, non-differentiated"
+// mechanism this session's real per-area momentum engine
+// (getRealMomentumFactor(), js/valuation.js) was built to replace. These
+// two fields are kept — and still applied in computeAdjustedPSF() via
+// typeAdj — purely as a manual escape hatch (Admin → Market Risk Controls)
+// for a genuine emergency the automatic per-area system hasn't caught up to
+// yet, not as the primary/default correction mechanism anymore.
 var MACRO_VARS={
   riskFactor:1.00,
-  aptAdj:-0.03,         // Apartments: -3% (geo pressure, supply pipeline)
-  villaAdj:0.02,        // Villas: +2% (outperforming, end-user demand)
+  aptAdj:0,
+  villaAdj:0,
   socialIndex:1.00,
   economicOutlook:1.00,
   lastUpdated:null,
@@ -809,8 +819,6 @@ async function fetchSupabaseConfig(){
       if(cfg.geo_label)MACRO_VARS.label=cfg.geo_label;
       MACRO_VARS.lastUpdated=cfg.updated_at;
       MACRO_VARS.source="Supabase · Live · DLD Data";
-      // Also fetch market intelligence from Groq with current DLD context
-      fetchMarketIntelligence();
       _dvSafeRender();
     }
   }catch(e){
@@ -818,6 +826,19 @@ async function fetchSupabaseConfig(){
   }
 }
 
+// No longer auto-invoked (2026-07-22, real user complaint about wrongly-
+// flat/manual market adjustments) — this asked an ungrounded LLM to guess
+// apt_adj/villa_adj "from its own knowledge," with zero live grounding at
+// all (worse than runMarketIntelligence(), which at least RAG-grounds
+// itself in real ingested news), and the result was ONE flat number applied
+// to every apartment area and ONE flat number applied to every villa area
+// city-wide — exactly the non-differentiated mechanism the user asked to
+// have replaced. getRealMomentumFactor() (js/valuation.js) — a real,
+// per-area, per-property-type, zero-AI signal computed weekly from
+// accumulating live price_history — now owns this responsibility instead.
+// Left defined (unreferenced) rather than deleted in case a genuinely
+// RAG-grounded version is worth building later, same as this file's other
+// intentionally-dormant functions.
 async function fetchMarketIntelligence(){
   if(MACRO_VARS.intelFetched)return;
   MACRO_VARS.intelFetched=true;
@@ -895,7 +916,21 @@ async function fetchMarketMomentum(){
   }catch(e){console.warn("Market momentum fetch failed:",e.message);}
 }
 
+// Real per-area momentum (getRealMomentumFactor(), js/valuation.js — a
+// rolling recent-vs-prior comparison of REAL accumulating price_history,
+// zero AI involvement) is always preferred over this function's own
+// AI-estimated fallback below whenever it's available, per the 2026-07-22
+// redesign: a genuinely automatic, per-area, per-property-type-aware signal
+// beats a single LLM opinion every time it exists. The AI estimate
+// (RAG-grounded via runMarketIntelligence(), still real news retrieval, just
+// still ultimately a language model's judgment call) only fires as a bridge
+// for areas/periods the real-data mechanism hasn't covered yet — never
+// silently discarded, since the daily-refresh cron's 41 tracked areas and
+// MI_TOP_AREAS' 20 tracked areas don't fully overlap, and either one can
+// still be too new/thin to trust yet for a given area.
 function getMomentumFactor(area){
+  var real=typeof getRealMomentumFactor==="function"?getRealMomentumFactor(area):null;
+  if(real!==null)return real;
   var m=MARKET_MOMENTUM[area];
   if(!m)m=MARKET_MOMENTUM["_overall"];
   if(!m||m.pct==null)return 1.0;
