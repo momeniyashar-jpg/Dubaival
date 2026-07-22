@@ -121,7 +121,7 @@ function renderCompare(){
   var _cmpH=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'20px',paddingBottom:'16px',borderBottom:'1px solid rgba(255,255,255,0.06)'}});
   var _cmpHL=el('div',{});
   _cmpHL.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'4px'},'Side-by-Side Analysis'));
-  _cmpHL.appendChild(div({fontSize:'22px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},'Compare'));
+  _cmpHL.appendChild(div({fontSize:'22px',fontWeight:'800',color:cl.white,fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},'Compare'));
   _cmpH.appendChild(_cmpHL);
   var _cmpBadge=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:'rgba(59,130,246,0.08)',border:'1px solid rgba(59,130,246,0.20)',borderRadius:'20px',padding:'5px 11px',flexShrink:'0'}});
   _cmpBadge.appendChild(span({fontSize:'10px',color:'#3B82F6',fontFamily:"'Space Grotesk',sans-serif",fontWeight:'700',letterSpacing:'0.08em'},'AI'));
@@ -465,7 +465,7 @@ function renderPersonal(){
   var _paHdrR=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'4px'}});
   var _paHdrL=el('div',{});
   _paHdrL.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'4px'},'AI Investment Advisor'));
-  _paHdrL.appendChild(div({fontSize:'22px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},'Personal Advisor'));
+  _paHdrL.appendChild(div({fontSize:'22px',fontWeight:'800',color:cl.white,fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},'Personal Advisor'));
   _paHdrR.appendChild(_paHdrL);
   var _paBadge=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:'rgba(212,168,67,0.08)',border:'1px solid rgba(212,168,67,0.20)',borderRadius:'20px',padding:'5px 11px',flexShrink:'0'}});
   var _paDot=el('div',{style:{width:'6px',height:'6px',borderRadius:'50%',background:'#D4A843',animation:'dvPulse 2s ease infinite'}});
@@ -490,7 +490,7 @@ function renderPersonal(){
   if(p.step===0){
     var hero=div({background:"linear-gradient(135deg,rgba(212,175,55,0.1) 0%,rgba(212,175,55,0.03) 100%)",border:"1px solid rgba(212,175,55,0.25)",borderRadius:"16px",padding:"28px 22px",textAlign:"center",marginBottom:"14px"});
     (function(){var e=div({width:"64px",height:"64px",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"16px",background:"rgba(212,175,55,0.12)",margin:"0 auto 14px"});e.innerHTML='<i data-lucide="building-2" style="width:32px;height:32px;color:#D4AF37"></i>';hero.appendChild(e);})();
-    hero.appendChild(div({color:"#FFFFFF",fontSize:"19px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",lineHeight:"1.3",marginBottom:"10px"},"Your Personalised Dubai Property Report"));
+    hero.appendChild(div({color:cl.white,fontSize:"19px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",lineHeight:"1.3",marginBottom:"10px"},"Your Personalised Dubai Property Report"));
     hero.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",lineHeight:"1.7",marginBottom:"22px"},"5 questions. One data-backed investment thesis tailored to you — areas, buildings, and your personal 3-year scenario."));
     var bWrap=div({textAlign:"left",marginBottom:"22px",display:"flex",flexDirection:"column",gap:"7px"});
     [["✓","9,227 buildings & 347 DLD-verified areas"],["✓","3-year scenario: conservative · base · optimistic"],["✓","Golden Visa eligibility check (≥ AED 2M)"],["✓","Investor DNA profile + one concrete next step"]].forEach(function(b){
@@ -526,7 +526,7 @@ function renderPersonal(){
     icoBox.innerHTML='<i data-lucide="'+icon+'" style="width:20px;height:20px;color:'+(isSel?"#D4AF37":"#8899AA")+'"></i>';
     c.appendChild(icoBox);
     var ct=div({flex:"1"});
-    ct.appendChild(div({color:"#FFFFFF",fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},title));
+    ct.appendChild(div({color:cl.white,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"2px"},title));
     ct.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif"},desc));
     c.appendChild(ct);
     if(isSel)c.appendChild(div({color:"#D4AF37",fontSize:"16px",flexShrink:"0"},"✓"));
@@ -535,7 +535,7 @@ function renderPersonal(){
 
   // ── Step 1: Goal ──────────────────────────────────────────────────────────
   if(p.step===1){
-    wrap.appendChild(div({color:"#FFFFFF",fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px",lineHeight:"1.3"},"What's your property goal?"));
+    wrap.appendChild(div({color:cl.white,fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px",lineHeight:"1.3"},"What's your property goal?"));
     wrap.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",marginBottom:"18px"},"This shapes everything — your areas, buildings, and 3-year plan."));
     [["home","Own a Home","I want to live in it — find my ideal community"],
      ["trending-up","Build Wealth","Investment — yield, capital growth, or off-plan flip"],
@@ -570,7 +570,7 @@ function renderPersonal(){
              ["users-2","Family with Kids","2-4BR — schools, parks, community feel matters most"],
              ["user-check","Retiree / Empty Nester","Quality of life, quiet, low maintenance, beach access"]];
     }
-    wrap.appendChild(div({color:"#FFFFFF",fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px",lineHeight:"1.3"},q2));
+    wrap.appendChild(div({color:cl.white,fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px",lineHeight:"1.3"},q2));
     wrap.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",marginBottom:"18px"},"Helps us weight yield, growth, and lifestyle in your report."));
     opts2.forEach(function(o){
       wrap.appendChild(mkOptCard(o[0],o[1],o[2],p.priority===o[1],function(){
@@ -582,7 +582,7 @@ function renderPersonal(){
   // ── Step 3: Budget & Beds ─────────────────────────────────────────────────
   else if(p.step===3){
     addBack(2);
-    wrap.appendChild(div({color:"#FFFFFF",fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"What's your budget?"));
+    wrap.appendChild(div({color:cl.white,fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"What's your budget?"));
     wrap.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",marginBottom:"18px"},"We'll find areas where your money unlocks the best opportunities."));
     var bCard=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px 20px",marginBottom:"12px"});
     bCard.appendChild(div({color:cl.subHi,fontSize:"10px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"BUDGET (AED) — tap to select"));
@@ -595,7 +595,7 @@ function renderPersonal(){
     });
     bCard.appendChild(pg);
     bCard.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginBottom:"6px"},"Or type a custom amount:"));
-    var ci=el("input",{style:{width:"100%",boxSizing:"border-box",background:"rgba(255,255,255,0.04)",border:"1px solid "+cl.border,borderRadius:"8px",padding:"10px 12px",color:"#FFFFFF",fontSize:"14px",fontFamily:"'Inter',sans-serif",outline:"none"},type:"number",placeholder:"e.g. 2500000"});
+    var ci=el("input",{style:{width:"100%",boxSizing:"border-box",background:"rgba(255,255,255,0.04)",border:"1px solid "+cl.border,borderRadius:"8px",padding:"10px 12px",color:cl.white,fontSize:"14px",fontFamily:"'Inter',sans-serif",outline:"none"},type:"number",placeholder:"e.g. 2500000"});
     ci.value=p.budget||"";
     ci.oninput=function(){var v=parseInt(this.value)||0;personalState.budget=v;};
     bCard.appendChild(ci);
@@ -665,7 +665,7 @@ function renderPersonal(){
   // ── Step 4: Area preferences ──────────────────────────────────────────────
   else if(p.step===4){
     addBack(3);
-    wrap.appendChild(div({color:"#FFFFFF",fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"Any areas on your radar?"));
+    wrap.appendChild(div({color:cl.white,fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"Any areas on your radar?"));
     wrap.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",marginBottom:"16px"},"Optional — select all that interest you, or let the data pick for you."));
     var prefArr=p.prefAreas||[];
     var topA=["Downtown Dubai","Dubai Marina","Business Bay","Palm Jumeirah","Dubai Hills Estate","Dubai Creek Harbour","Jumeirah Village Circle","JBR","DIFC","Emaar Beachfront","MBR City","Dubai Harbour","Arabian Ranches","Sobha Hartland","Meydan","District One","Tilal Al Ghaf","Jumeirah Lake Towers"];
@@ -695,10 +695,10 @@ function renderPersonal(){
   // ── Step 5: Work location ─────────────────────────────────────────────────
   else if(p.step===5){
     addBack(4);
-    wrap.appendChild(div({color:"#FFFFFF",fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"Where do you work?"));
+    wrap.appendChild(div({color:cl.white,fontSize:"18px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},"Where do you work?"));
     wrap.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",marginBottom:"18px"},"Optional — optimises commute time in your recommendations."));
     var wc=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"18px 20px",marginBottom:"16px"});
-    var wi=el("input",{style:{width:"100%",boxSizing:"border-box",background:"rgba(255,255,255,0.04)",border:"1px solid "+cl.border,borderRadius:"8px",padding:"12px 14px",color:"#FFFFFF",fontSize:"14px",fontFamily:"'Inter',sans-serif",outline:"none",marginBottom:"12px"},type:"text",placeholder:"e.g. DIFC, Downtown Dubai, Work from home…"});
+    var wi=el("input",{style:{width:"100%",boxSizing:"border-box",background:"rgba(255,255,255,0.04)",border:"1px solid "+cl.border,borderRadius:"8px",padding:"12px 14px",color:cl.white,fontSize:"14px",fontFamily:"'Inter',sans-serif",outline:"none",marginBottom:"12px"},type:"text",placeholder:"e.g. DIFC, Downtown Dubai, Work from home…"});
     wi.value=p.work||"";
     wi.oninput=function(){personalState.work=this.value;};
     wc.appendChild(wi);
@@ -725,7 +725,7 @@ function renderPersonal(){
   else if(p.step===6){
     var lc=div({background:cl.surface,border:"1px solid "+cl.border,borderRadius:"16px",padding:"40px 24px",textAlign:"center"});
     lc.appendChild(div({width:"52px",height:"52px",borderRadius:"50%",border:"3px solid rgba(212,175,55,0.2)",borderTopColor:"#D4AF37",animation:"spin 0.9s linear infinite",margin:"0 auto 20px"},null));
-    lc.appendChild(div({color:"#FFFFFF",fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Building your personalised report…"));
+    lc.appendChild(div({color:cl.white,fontSize:"16px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Building your personalised report…"));
     lc.appendChild(div({color:cl.sub,fontSize:"12px",fontFamily:"'Inter',sans-serif",lineHeight:"1.65",marginBottom:"20px"},"Analysing "+Object.keys(AREAS).length+" areas · Matching "+p.beds+" under AED "+(p.budget?(p.budget).toLocaleString():"—")+" · Running 3-year scenarios"));
     var lList=div({display:"flex",flexDirection:"column",gap:"8px",textAlign:"left"});
     ["Filtering areas by your budget & goal…","Scoring by "+(p.goal==="Build Wealth"&&p.priority==="Stable Income"?"rental yield":"growth & value")+"…","Profiling your investor DNA…","Crafting 3-year conservative / base / optimistic scenarios…","Finalising your personalised report…"].forEach(function(s,i){
@@ -764,7 +764,7 @@ function renderPersonal(){
     (function(){var e=div({width:"52px",height:"52px",flexShrink:"0",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"14px",background:"rgba(212,175,55,0.15)"});e.innerHTML='<i data-lucide="crosshair" style="width:26px;height:26px;color:#D4AF37"></i>';ph.appendChild(e);})();
     var pm=div({});
     pm.appendChild(div({color:"#D4AF37",fontSize:"9px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"YOUR INVESTOR PROFILE"));
-    pm.appendChild(div({color:"#FFFFFF",fontSize:"17px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},r.profile?(r.profile.type||"Property Buyer"):"Property Buyer"));
+    pm.appendChild(div({color:cl.white,fontSize:"17px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},r.profile?(r.profile.type||"Property Buyer"):"Property Buyer"));
     ph.appendChild(pm);
     pc.appendChild(ph);
     if(r.profile&&r.profile.dna)pc.appendChild(div({color:"#CCDDEE",fontSize:"13px",fontFamily:"'Inter',sans-serif",lineHeight:"1.75",marginBottom:"10px"},r.profile.dna));
@@ -784,7 +784,7 @@ function renderPersonal(){
       var ah=div({display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"12px"});
       var at=div({});
       at.appendChild(div({color:rankCls[i],fontSize:"8px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"4px"},rankLbl[i]));
-      at.appendChild(div({color:"#FFFFFF",fontSize:"17px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},area.name||"—"));
+      at.appendChild(div({color:cl.white,fontSize:"17px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},area.name||"—"));
       ah.appendChild(at);
       if(area.goldenVisa){var gvBadge=div({width:"32px",height:"32px",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"8px",background:"rgba(212,175,55,0.15)",flexShrink:"0"});gvBadge.innerHTML='<i data-lucide="star" style="width:16px;height:16px;color:#D4AF37"></i>';ah.appendChild(gvBadge);}
       ac.appendChild(ah);
@@ -807,7 +807,7 @@ function renderPersonal(){
       if(area.cashRequired){
         var crRow=div({background:"rgba(96,165,250,0.06)",border:"1px solid rgba(96,165,250,0.18)",borderRadius:"8px",padding:"10px 11px",marginBottom:"12px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"8px"});
         crRow.appendChild(span({color:"#60A5FA",fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",letterSpacing:"0.04em"},"CASH NEEDED TO CLOSE"));
-        crRow.appendChild(span({color:"#FFFFFF",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},area.cashRequired));
+        crRow.appendChild(span({color:cl.white,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},area.cashRequired));
         ac.appendChild(crRow);
       }
       // 3-year scenario
@@ -857,7 +857,7 @@ function renderPersonal(){
     if(r.nextStep){
       var ns=div({background:"linear-gradient(135deg,rgba(212,175,55,0.1),rgba(212,175,55,0.03))",border:"1px solid rgba(212,175,55,0.28)",borderRadius:"14px",padding:"16px 18px",marginBottom:"16px"});
       ns.appendChild(div({color:"#D4AF37",fontSize:"8px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"◆ YOUR NEXT STEP"));
-      ns.appendChild(div({color:"#FFFFFF",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},r.nextStep));
+      ns.appendChild(div({color:cl.white,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},r.nextStep));
       wrap.appendChild(ns);
     }
 
@@ -1246,7 +1246,7 @@ function renderPortfolio(mode){
   var _phdr=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'20px',paddingBottom:'16px',borderBottom:'1px solid rgba(255,255,255,0.06)'}});
   var _phdrL=el('div',{});
   _phdrL.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'4px'},'Investment Management'));
-  _phdrL.appendChild(div({fontSize:'22px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},titles[mode]||titles.assets));
+  _phdrL.appendChild(div({fontSize:'22px',fontWeight:'800',color:cl.white,fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},titles[mode]||titles.assets));
   _phdr.appendChild(_phdrL);
   // projections uses blue, not purple — #8B5CF6 is reserved app-wide for rental-mode UI
   var _pmodeColors={assets:'#D4A843',health:'#10B981',projections:'#3B82F6'};

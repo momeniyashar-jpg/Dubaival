@@ -965,6 +965,65 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-22 (new session, real user-reported bug — white-on-white text in
+  light mode across Personal Advisor/Compare/Portfolio, plus a Groq-key
+  diagnosis)**: User shared a real screenshot of Personal Advisor's final
+  wizard step showing "Unable to generate report: AI error: API 401", and
+  separately reported that on that same last step ("Where do you work?")
+  they couldn't read or select the area they typed — the font was
+  completely white and invisible.
+  - **Root cause, confirmed by reading the code, not guessed**: the
+    screenshot showed the app in LIGHT MODE (a real, working, previously-
+    shipped theme — `T.light` in `js/data-residential.js`, where the
+    correct text-color token `cl.white` resolves to `#1A2040`, a dark
+    navy — vs. dark mode's `#E8EDF5`). But `renderPersonal()` (Personal
+    Advisor), `renderCompare()`, and `renderPortfolio()` in `js/portfolio.js`
+    had **17 separate places** — every step heading, both real `<input>`
+    fields (budget amount, work location), the loading-screen label, and
+    several result labels — hardcoded literally as `color:"#FFFFFF"`
+    instead of the theme-aware `cl.white` token, even though `cl` was
+    already in scope in every one of these functions. In dark mode this
+    looked fine (pure white ≈ the dark-mode token's near-white value); in
+    light mode, pure white text on the light page background (and the
+    barely-tinted input backgrounds sitting on it) was effectively
+    invisible — exactly the "couldn't select/type, font was completely
+    white" symptom reported, and directly visible in the user's own
+    screenshot (the "Personal Advisor" header title is a barely-visible
+    ghost of itself right under the fully-legible "AI INVESTMENT ADVISOR"
+    label one line above it, which uses a real fixed mid-gray that reads
+    fine in either theme).
+  - **Fix**: all 17 occurrences in `js/portfolio.js` replaced with
+    `cl.white` via a scoped find-and-replace (verified `cl` was already
+    defined via `C()` at the top of all 3 affected functions before
+    changing anything) — one mechanical, low-risk fix closes every
+    instance at once rather than patching only the one input field the
+    user happened to hit.
+  - **Separately diagnosed, NOT a code bug — the "API 401" error**: traced
+    `askAI()`'s error path (`js/api.js` line 255: `if(!r.ok)throw new
+    Error("API "+r.status)`) through to `api/proxy-groq.js`, which
+    faithfully forwards whatever HTTP status Groq's own API returns
+    (`res.status(upstream.status).json(data)`) rather than ever
+    manufacturing a 401 itself (a missing `GROQ_API_KEY` env var there
+    correctly returns 500 instead, a different, confirmed-not-this-case
+    code path). A 401 specifically means Groq itself rejected the
+    configured `GROQ_API_KEY` as invalid/expired/revoked — a real
+    upstream authentication failure, not a bug in this app's code. Told
+    the user directly: this needs a fresh key generated at
+    console.groq.com and re-set as `GROQ_API_KEY` in Vercel → Settings →
+    Environment Variables, then a redeploy — not something fixable by
+    editing the repo.
+  - Verified: `node -c js/portfolio.js`; a real-browser Playwright test
+    switching the live app into light mode and driving Personal Advisor to
+    the exact reported step — confirmed the "Where do you work?" heading
+    and the input's own typed text both now compute to `rgb(26,32,64)`
+    (the correct light-mode dark-navy token, previously would have been
+    pure white/invisible), and confirmed dark mode is completely
+    unaffected (`rgb(232,237,245)`, unchanged) — zero regression to the
+    default theme; a visual screenshot of the fixed light-mode step
+    confirming the heading, description, and input placeholder are all
+    now clearly legible; and the existing 10-tab regression sweep — zero
+    collateral console errors.
+
 - **2026-07-21 (same session, follow-up — real zero-touch OAuth "Connect"
   flows for LinkedIn + X/Twitter built, and a real, silent bug fixed in the
   ALREADY-EXISTING Instagram/Facebook one)**: Direct continuation of the
