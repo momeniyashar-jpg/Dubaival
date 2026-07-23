@@ -965,6 +965,57 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-23 (session continuing, follow-up — Home page "Top Opportunities"
+  had a real, user-flagged misleading "LIVE" badge; now genuinely wired to
+  live data)**: User asked directly whether Top Opportunities was actually
+  live, pointing at the pulsing green "LIVE" dot in its header. Confirmed by
+  reading the code: `generateMarketMoments()` (`js/app.js`) computed every
+  ranking (Yield Champion, 1-Year Growth Leader, 5-Year Capital Story, Best
+  Combined Score, Fastest-Selling Market, Most Active Market, personalized
+  "For You") purely from the plain static `AREAS` database
+  (`js/data-residential.js`) — a number that only changes when the codebase
+  itself is recalibrated and redeployed, never in real time — while the
+  "LIVE" badge was shown unconditionally. The function's own top-of-file
+  comment even said so plainly: "TODO: When DLD live API is integrated...
+  upgrade to use real-time transaction data instead of static AREAS
+  database." Confirmed via `AskUserQuestion` the user wanted this wired to
+  real live data (not just a relabel).
+  - **Fix**: `generateMarketMoments()` now builds its area universe via
+    `getLiveAreaData(area)` (`js/valuation.js`) — the same real-data blend
+    already powering the Analyzer/Advanced Market Screener, which merges the
+    static benchmark with the daily-refreshed `area_benchmarks` Supabase
+    table (real PSF/DOM/tx-volume from Bayut/PropertyFinder + real weekly
+    momentum/growth) whenever a fresh (≤7 day, via the existing
+    `getDynamicBenchmark()` gate) row exists for that area, and gracefully
+    falls back to the untouched static figure otherwise — no area silently
+    loses data, areas without live coverage yet behave exactly as before.
+    Every one of the 7 moment-push sites (plus the personalized "For You"
+    card, previously reading `AREAS[personalArea]` directly) now carries a
+    real `live:true/false` flag from `getDynamicBenchmark(area)`.
+  - **UI made honest, not just the data**: the header's "LIVE" dot now only
+    pulses when at least one of the 6 displayed cards is genuinely
+    live-backed (`moments.some(m=>m.live)`) — otherwise it shows a neutral
+    "UPDATED DAILY" label instead, true either way. Each individual card
+    additionally shows its own small "● LIVE DATA" (green) or "MODEL EST."
+    (neutral gray) tag next to its category badge, since only some areas
+    have live coverage today — matching this codebase's established
+    "Live Trend"/"AI Trend", "DLD Verified"/"Estimated" honesty-labeling
+    convention used elsewhere rather than a single blanket claim covering
+    cards with genuinely different data provenance.
+  - Verified: `node -c js/app.js`; a Node vm-sandbox test (11 checks)
+    extracting the real `generateMarketMoments()` alongside the real
+    `getLiveAreaData()`/`getDynamicBenchmark()` from `js/valuation.js` — with
+    zero `DYNAMIC_BENCHMARKS` rows, every moment is correctly `live:false`
+    and uses the untouched static figures; seeding one area with fresh,
+    clearly-different live data (PSF ×1.5, artificially high tx-volume, low
+    DOM) confirmed that area wins a ranking category, is correctly flagged
+    `live:true`, and its blended PSF/DOM/tx-volume genuinely differ from the
+    raw static entry (not a no-op wiring); all other, non-seeded areas
+    correctly stayed `live:false`; and a stale (10-day-old) seeded row was
+    correctly rejected by `getDynamicBenchmark()`'s existing 7-day freshness
+    gate and never produced a `live:true` moment — confirming the fix
+    doesn't accidentally weaken that gate's accuracy guarantee.
+
 - **2026-07-22 (session continuing, follow-up — side-effect verification of
   the momentum-engine change, real per-building distance-to-landmarks fix,
   and a full Analyzer-report quality/RAG/duplication pass, all per direct

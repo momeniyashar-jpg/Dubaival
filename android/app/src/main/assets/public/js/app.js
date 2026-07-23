@@ -2670,10 +2670,24 @@ var TAB_TO_SECTION={
 };
 
 // ─── Top Opportunities Engine ─────────────────────────────────────────────────
-// TODO: When DLD live API is integrated, rename to "Market Moments" and upgrade
-// to use real-time transaction data instead of static AREAS database.
+// Fixed 2026-07-23 (real user-flagged bug): the header shows a pulsing "LIVE"
+// dot, but every ranking below it was computed from the plain static AREAS
+// database (js/data-residential.js) — a number that only changes when the
+// codebase itself is recalibrated/redeployed, never in real time. Now uses
+// getLiveAreaData() (js/valuation.js) — the same real-data blend already
+// powering the Analyzer/Screener — so an area with a fresh (<=7 day) row in
+// the daily-refreshed area_benchmarks table genuinely gets ranked on live
+// PSF/DOM/tx-volume/growth, blended with the static benchmark; an area with
+// no live coverage yet falls back to static-only, same as before. Each
+// moment now carries a real `live` flag (see getDynamicBenchmark()'s own
+// 7-day freshness gate) so the UI can label honestly per card instead of
+// implying every card is live.
 function generateMarketMoments(){
-  var entries=Object.entries(AREAS).filter(function(e){return e[1].psf>0;});
+  var entries=Object.keys(AREAS).filter(function(k){return AREAS[k].psf>0;}).map(function(k){
+    var live=typeof getDynamicBenchmark==="function"&&!!getDynamicBenchmark(k);
+    var data=typeof getLiveAreaData==="function"?getLiveAreaData(k):AREAS[k];
+    return [k,data,live];
+  });
   function aY(a){return a.y?((a.y[0]+a.y[1])/2):0;}
   function g1(a){return a.g?a.g[0]:0;}
   function g5(a){return a.g?a.g[2]:0;}
@@ -2685,7 +2699,7 @@ function generateMarketMoments(){
   var byTx=entries.filter(function(e){return e[1].txVol>0;}).sort(function(a,b){return b[1].txVol-a[1].txVol;});
   var byScore=entries.filter(function(e){return e[1].y&&e[1].g&&e[1].dom;}).map(function(e){
     var a=e[1];
-    return {name:e[0],data:a,score:aY(a)*3+g1(a)*1.5+g5(a)*0.4+(30-Math.min(a.dom,30))*0.6};
+    return {name:e[0],data:a,live:e[2],score:aY(a)*3+g1(a)*1.5+g5(a)*0.4+(30-Math.min(a.dom,30))*0.6};
   }).sort(function(a,b){return b.score-a.score;});
 
   var moments=[];
@@ -2697,20 +2711,20 @@ function generateMarketMoments(){
     moments.push({icon:"zap",timing:"YIELD CHAMPION",timingColor:"#F59E0B",
       text:"Highest gross rental yield in Dubai right now",
       statValue:aY(t[1]).toFixed(1)+"%",statLabel:"gross yield",
-      tag:"OPPORTUNITY",tagColor:"#10B981",area:t[0]});
+      tag:"OPPORTUNITY",tagColor:"#10B981",area:t[0],live:t[2]});
   }
   if(byG1.length&&!usedAreas[byG1[0][0]]){
     var t=byG1[0];usedAreas[t[0]]=1;
     moments.push({icon:"trending-up",timing:"1-YEAR GROWTH LEADER",timingColor:"#3B82F6",
       text:"Dubai's fastest-growing area this year",
       statValue:"+"+g1(t[1]).toFixed(1)+"%",statLabel:"YoY growth",
-      tag:"TRENDING",tagColor:"#3B82F6",area:t[0]});
+      tag:"TRENDING",tagColor:"#3B82F6",area:t[0],live:t[2]});
   }else if(byG1.length>1&&!usedAreas[byG1[1][0]]){
     var t=byG1[1];usedAreas[t[0]]=1;
     moments.push({icon:"trending-up",timing:"1-YEAR GROWTH LEADER",timingColor:"#3B82F6",
       text:"One of Dubai's fastest-growing areas this year",
       statValue:"+"+g1(t[1]).toFixed(1)+"%",statLabel:"YoY growth",
-      tag:"TRENDING",tagColor:"#3B82F6",area:t[0]});
+      tag:"TRENDING",tagColor:"#3B82F6",area:t[0],live:t[2]});
   }
   (function(){
     for(var gi=0;gi<byG5.length;gi++){
@@ -2720,7 +2734,7 @@ function generateMarketMoments(){
         moments.push({icon:"flame",timing:"5-YEAR CAPITAL STORY",timingColor:"#F97316",
           text:"Compounding at "+rate+"%/yr over the last 5 years",
           statValue:"+"+g5(t[1]).toFixed(0)+"%",statLabel:"5yr appreciation",
-          tag:"LONG-TERM",tagColor:"#8B5CF6",area:t[0]});
+          tag:"LONG-TERM",tagColor:"#8B5CF6",area:t[0],live:t[2]});
         break;
       }
     }
@@ -2732,7 +2746,7 @@ function generateMarketMoments(){
         moments.push({icon:"crosshair",timing:"BEST COMBINED SCORE TODAY",timingColor:"#D4AF37",
           text:aY(t.data).toFixed(1)+"% yield + "+g1(t.data).toFixed(1)+"% growth — highest opportunity score in Dubai",
           statValue:Math.round(t.score),statLabel:"opportunity score",
-          tag:"BEST VALUE",tagColor:"#D4AF37",area:t.name});
+          tag:"BEST VALUE",tagColor:"#D4AF37",area:t.name,live:t.live});
         break;
       }
     }
@@ -2744,7 +2758,7 @@ function generateMarketMoments(){
         moments.push({icon:"gem",timing:"FASTEST-SELLING MARKET",timingColor:"#10B981",
           text:"Most liquid sales market in Dubai right now",
           statValue:t[1].dom,statLabel:"avg. days on market",
-          tag:"LIQUID",tagColor:"#10B981",area:t[0]});
+          tag:"LIQUID",tagColor:"#10B981",area:t[0],live:t[2]});
         break;
       }
     }
@@ -2756,7 +2770,7 @@ function generateMarketMoments(){
         moments.push({icon:"activity",timing:"MOST ACTIVE MARKET",timingColor:"#EC4899",
           text:"Highest transaction volume — where buyers are actually closing deals",
           statValue:t[1].txVol.toLocaleString(),statLabel:"transactions tracked",
-          tag:"HIGH DEMAND",tagColor:"#EC4899",area:t[0]});
+          tag:"HIGH DEMAND",tagColor:"#EC4899",area:t[0],live:t[2]});
         break;
       }
     }
@@ -2769,11 +2783,12 @@ function generateMarketMoments(){
     else if(window.analyzerState&&analyzerState.f&&analyzerState.f.area&&AREAS[analyzerState.f.area])personalArea=analyzerState.f.area;
   }catch(ex){}
   if(personalArea){
-    var pd=AREAS[personalArea];
+    var pd=typeof getLiveAreaData==="function"?getLiveAreaData(personalArea):AREAS[personalArea];
+    var pdLive=typeof getDynamicBenchmark==="function"&&!!getDynamicBenchmark(personalArea);
     moments.unshift({icon:"star",timing:"FOR YOU",timingColor:"#8B5CF6",
       text:g1(pd).toFixed(1)+"% YoY growth · AED "+pd.psf.toLocaleString()+" PSF — last area you checked",
       statValue:aY(pd).toFixed(1)+"%",statLabel:"gross yield",
-      tag:"PERSONAL",tagColor:"#8B5CF6",area:personalArea,isPersonal:true});
+      tag:"PERSONAL",tagColor:"#8B5CF6",area:personalArea,isPersonal:true,live:pdLive});
   }
 
   return moments.slice(0,6);
@@ -2788,13 +2803,25 @@ function renderMarketMoments(cl){
   var moments=generateMarketMoments();
   var sec=el("div",{style:{marginBottom:"24px"}});
 
-  // Header
+  // Header — the pulsing "LIVE" dot only shows when at least one of the
+  // moments actually displayed is backed by real, fresh (<=7 day) live data
+  // (see generateMarketMoments()'s live flag) — previously this was shown
+  // unconditionally even though the whole ranking was always computed from
+  // the static area database, a real user-flagged accuracy issue. When
+  // nothing shown is live yet, a neutral "Updated Daily" label is shown
+  // instead — still true (the app recalibrates periodically), just not an
+  // overclaim of real-time data.
+  var anyLive=moments.some(function(m){return m.live;});
   var hdr=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"12px"}});
   hdr.appendChild(div({fontSize:"12px",color:cl.sub,fontWeight:"700",fontFamily:"'Inter',sans-serif",letterSpacing:"0.06em",textTransform:"uppercase"},"Top Opportunities"));
   var liveRow=el("div",{style:{display:"flex",alignItems:"center",gap:"5px"}});
-  var dot=el("div",{style:{width:"7px",height:"7px",borderRadius:"50%",background:"#10B981",animation:"dvPulseDot 2s ease-in-out infinite"}});
-  liveRow.appendChild(dot);
-  liveRow.appendChild(span({color:"#10B981",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",fontWeight:"700",letterSpacing:"0.08em"},"LIVE"));
+  if(anyLive){
+    var dot=el("div",{style:{width:"7px",height:"7px",borderRadius:"50%",background:"#10B981",animation:"dvPulseDot 2s ease-in-out infinite"}});
+    liveRow.appendChild(dot);
+    liveRow.appendChild(span({color:"#10B981",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",fontWeight:"700",letterSpacing:"0.08em"},"LIVE"));
+  }else{
+    liveRow.appendChild(span({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",fontWeight:"700",letterSpacing:"0.08em"},"UPDATED DAILY"));
+  }
   hdr.appendChild(liveRow);
   sec.appendChild(hdr);
 
@@ -2825,6 +2852,11 @@ function renderMarketMoments(cl){
     }});
     badge.textContent=m.tag;
     topRow.appendChild(badge);
+    // Per-card honesty label — this specific area's own ranking may or may
+    // not actually be backed by fresh live data (only areas covered by the
+    // daily refresh cron are), so the header's aggregate "LIVE" claim is
+    // broken down per card rather than implied for all 6 uniformly.
+    topRow.appendChild(span({color:m.live?"#10B981":cl.sub,fontSize:"8px",fontFamily:"'Space Grotesk',monospace",fontWeight:"700",letterSpacing:"0.05em",opacity:m.live?"1":"0.7"},m.live?"● LIVE DATA":"MODEL EST."));
     body.appendChild(topRow);
     var areaEl=el("div",{style:{fontSize:"15px",color:cl.white,fontFamily:"'Space Grotesk',sans-serif",fontWeight:"800",marginBottom:"3px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}});
     areaEl.textContent=m.area||"Dubai";
