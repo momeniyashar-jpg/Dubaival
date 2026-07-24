@@ -1190,7 +1190,7 @@ function getDubaiRealEstateBrain(){
     "You have 15+ years of Dubai property market experience. You know every building, every area, every developer, every regulation.\n"+
     "Date: "+_currentMonthYear()+". Platform: DubAIVal.com — AI-powered Dubai real estate intelligence.\n\n"+
     "═══ YOUR DATABASE (LIVE) ═══\n"+
-    "9,227 residential buildings | 1,914 commercial | 428 land plots | 347 areas | All DLD-verified\n"+
+    "9,309 residential buildings | 1,914 commercial | 428 land plots | 347 areas | All DLD-verified\n"+
     areaSummary+"\n\n"+
     "═══ DUBAI MARKET KNOWLEDGE (baseline reference, "+_currentMonthYear()+") ═══\n"+
     "MARKET CONDITIONS:\n"+
@@ -1876,10 +1876,10 @@ function createVoiceMic(stateKey,onResult,opts){
 var DV_TOUR={step:0,active:false,level:"quick",steps:[]};
 
 var TOUR_QUICK=[
-  {type:"center",title:"Welcome to DubAIVal!",text:"AI-Powered Dubai Real Estate Intelligence Platform — 11,500+ properties, 347 areas, real-time analytics.",icon:"logo"},
+  {type:"center",title:"Welcome to DubAIVal!",text:"AI-Powered Dubai Real Estate Intelligence Platform — 11,600+ properties, 347 areas, real-time analytics.",icon:"logo"},
   {needTab:"Analyzer",sel:function(){var es=document.querySelectorAll("div");for(var i=0;i<es.length;i++){if((es[i].textContent||"").indexOf("Search Building, Cluster or Community")!==-1)return es[i];}return null;},title:"AI Valuation Engine",text:"Search any building or area — get an instant AI-powered valuation with fair price, rental yield, and a confidence score.",arrow:"bottom"},
   {needTab:"QuickCheck",sel:function(){var es=document.querySelectorAll("div");for(var i=0;i<es.length;i++){if((es[i].textContent||"").indexOf("YOUR BUDGET")!==-1)return es[i];}return null;},title:"Quick Check",text:"Tell us your budget and bedroom count — instantly see which real buildings in Dubai you can afford to buy or rent.",arrow:"bottom"},
-  {needTab:"Index",title:"Market Index",text:"Live market dashboard — track 347 areas and 11,500+ properties with heatmaps, histograms, and rankings.",arrow:"top"},
+  {needTab:"Index",title:"Market Index",text:"Live market dashboard — track 347 areas and 11,600+ properties with heatmaps, histograms, and rankings.",arrow:"top"},
   {needTab:"Portfolio",title:"Portfolio Manager",text:"Track your investments with AI-powered analytics, health scores, projections, and opportunity alerts.",arrow:"top"},
   {needTab:"Deals",title:"Deal Network",text:"Anonymous, AI-matched deal exchange — post what you have or need, and get matched with the other side automatically.",arrow:"top"},
   {needTab:"Workspace",title:"My Workspace",text:"Customize your dashboard and build personalized reports with voice commands and smart templates.",arrow:"top",quickLast:true}

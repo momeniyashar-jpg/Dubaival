@@ -965,6 +965,111 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-24 (session continuing, follow-up — merged 83 newly-researched
+  buildings from the research branch, plus an app-wide sweep of stale
+  building/property-count references)**: Direct continuation of this
+  session's momentum-engine work — the user asked the research branch
+  (`claude/dubaival-portfolio-manager-5bgbjk`) to add coverage for DIFC,
+  Sobha Hartland, Jumeirah Beach Residence (Jbr), and DAMAC Islands (later
+  broadened to also include DAMAC Lagoons and Emirates Living), across 2
+  rounds of research instructions written this session. After both rounds
+  landed, the user asked (1) whether the totals were correct given the
+  research session's own self-reported counts, and (2) to bring every
+  building/property-count number written across the live site in line with
+  the real, current total.
+  1. **Self-reported counts independently verified against real git history
+     both times, not trusted at face value** — round 1: the research
+     session claimed "25 buildings added"; a direct
+     `Object.keys(DB).length` diff (before=9227, after=9250) showed the real
+     number was 23, reported to the user plainly as a discrepancy. Round 2:
+     the user said "83 more... with the previous 23" — a diff between the
+     pre-round-4 baseline commit (`9dda9ef`, 9227) and the latest research
+     commit (`5f9a0b6`, 9310) confirmed exactly 60 net-new keys landed in
+     round 2, which combined with round 1's 23 correctly totals 83
+     cumulative — confirming the user's phrasing was a correct cumulative
+     total, not a fresh overstatement.
+  2. **Safe cross-branch merge, not a `git cherry-pick`** — this branch has
+     diverged from the research branch's own history (an earlier Blvd
+     Heights T3 removal + Centrium area fix that the research branch never
+     picked up), and `var DB={...}`/`const BLDG_UNITS={...}` are each a
+     single giant line in `js/data-residential.js`, so a line-level git
+     merge would conflict. Instead, wrote a one-off Node script
+     (`vm.createContext`, loading both branches' files via `git show
+     <ref>:path`) that diffs the research branch's latest state against its
+     own pre-round-4 baseline to isolate exactly the NEW keys (83 in `DB`,
+     0 in `BLDG_UNITS`), then merges only those new keys into THIS branch's
+     in-memory `DB`/`BLDG_UNITS` objects (checked for zero key collisions —
+     none found), then splices the two specific lines back into the real
+     file via line-index replacement, leaving every other line (including
+     this branch's own Blvd Heights T3/Centrium fixes) completely
+     untouched. Verified: `node -c js/data-residential.js` clean; final
+     counts confirmed via a fresh vm-load: `DB=9309` (was 9226 on this
+     branch — one lower than the research branch's own 9310, exactly
+     accounting for this branch's prior Blvd Heights T3 removal),
+     `BLDG_UNITS=9255` (unchanged — see the persistent gap noted below),
+     `AREAS=347` (unchanged). Combined with the untouched commercial (1,914)
+     and land (428) databases, the real platform total is now **11,651
+     properties** (9,309 + 1,914 + 428), shown in marketing copy as
+     "11,600+".
+  3. **Persistent, twice-unaddressed data-completeness gap, flagged again**:
+     despite BOTH research instructions this session explicitly asking the
+     research session to also add a real `BLDG_UNITS` entry for every new
+     building (round 2's instruction added an explicit "do not skip this
+     step this time" after round 1 skipped it too), the research branch
+     added **zero** `BLDG_UNITS` entries across both rounds — confirmed via
+     the merge script's own diff (`New BLDG_UNITS keys found... 0`). All 83
+     newly-added buildings fall back to `estimateBldgUnits()`'s grade-based
+     generic estimate rather than a real unit count. Not fixed this
+     session — flagged to the user as still open, with an offer to write a
+     3rd, more emphatic instruction if they want it closed.
+  4. **App-wide stat-reference sweep** — grepped for every hardcoded
+     building/property-count reference (`9,226`/`9,227`/`9226`/`9227`/
+     `9,250`/`11,500+`) and classified each as either a live, user-facing
+     claim (updated) or a historical, dated work-log-style comment
+     describing a specific past fact (left unchanged, matching this
+     project's own established convention — see the "Bug fix log"/dated
+     work-log entries throughout this file for precedent). Updated to
+     9,309/11,600+ (occasionally rounding to a clean marketing figure):
+     `js/marketindex.js` (stat card + AI comparison prompt), `js/core.js`
+     (AI system-prompt database-summary line + 2 onboarding-tour text
+     strings), `js/portfolio.js` (7 locations — 2 Compare/AI-comparison
+     prompts, Personal Advisor's AI prompt, Personal Advisor's on-screen
+     benefit list, the PDF export footer disclaimer, the Portfolio AI
+     Analysis prompt, and the on-screen Portfolio disclaimer),
+     `js/about.js` (stat card + API-docs feature description), `js/market.js`
+     (a LinkedIn share caption), `index.html` (3 meta tags — description/
+     og:description/twitter:description), `manifest.json` (description),
+     `api/price-alerts.js` (the price-alert confirmation email body), and
+     `tools/generate-seo-pages.js` (a code comment, regenerated by the tool
+     itself anyway). **Deliberately left unchanged** (historical, dated
+     comments describing a specific past session's finding, not a live
+     claim): `js/valuation.js` lines 537 ("VALUATION_DB found this affects
+     3,500 of 9,227 entries") and 986 ("against the real 9,226-building
+     database before this one was chosen"), `js/chat.js` line 13 ("rigorous
+     8-step calculation against the real 9,227-building database"), and
+     `tools/calibration-output.json`'s static `existingDBSize:9227` field (a
+     historical calibration-tool output artifact, not live site text). Also
+     confirmed via direct inspection that a couple of other "9226"/"9227"-
+     looking grep hits (`js/market.js`'s PSF-trend chart data array,
+     `js/data-commercial.js`'s land-area PSF/avgP/avgSz data) were pure
+     numeric coincidences within unrelated data arrays, not real
+     building-count text — left untouched.
+  5. Verified: `node -c` on all 6 touched JS files (`js/data-residential.js`,
+     `js/core.js`, `js/portfolio.js`, `js/about.js`, `js/market.js`,
+     `js/marketindex.js`); `node -c sw.js`; `manifest.json` re-validated as
+     parseable JSON; a fresh vm-sandbox load confirming the final counts
+     above; re-ran `node tools/generate-seo-pages.js` per this file's
+     standing rule (347 area pages, 9,309 building pages, 1 hub page,
+     9,658-URL sitemap); rebuilt `www/` via `node scripts/build-www.js`
+     (`npx cap sync android` failed as always in this sandbox — no Android
+     SDK, same pre-existing limitation) and manually diffed every touched
+     file between `www/` and `android/app/src/main/assets/public/` to
+     confirm byte-identical sync.
+  - Cache versions bumped: `js/data-residential.js`, `js/core.js`,
+    `js/market.js`, `js/portfolio.js`, `js/about.js`, `js/marketindex.js` all
+    to `?v=20260724b` in both `index.html` and `sw.js`'s `PRECACHE` array;
+    `sw.js`'s `CACHE_NAME` bumped `dubaival-v62`→`dubaival-v63`.
+
 - **2026-07-24 (session continuing, follow-up — real user-confirmed case
   proves the AI-estimated momentum guess wrong; disabled it from pricing as
   the agreed interim safety measure)**: Direct continuation of the momentum-
