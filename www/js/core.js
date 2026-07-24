@@ -916,21 +916,43 @@ async function fetchMarketMomentum(){
   }catch(e){console.warn("Market momentum fetch failed:",e.message);}
 }
 
-// Real per-area momentum (getRealMomentumFactor(), js/valuation.js — a
-// rolling recent-vs-prior comparison of REAL accumulating price_history,
-// zero AI involvement) is always preferred over this function's own
-// AI-estimated fallback below whenever it's available, per the 2026-07-22
-// redesign: a genuinely automatic, per-area, per-property-type-aware signal
-// beats a single LLM opinion every time it exists. The AI estimate
-// (RAG-grounded via runMarketIntelligence(), still real news retrieval, just
-// still ultimately a language model's judgment call) only fires as a bridge
-// for areas/periods the real-data mechanism hasn't covered yet — never
-// silently discarded, since the daily-refresh cron's 41 tracked areas and
-// MI_TOP_AREAS' 20 tracked areas don't fully overlap, and either one can
-// still be too new/thin to trust yet for a given area.
+// AI-estimated momentum fallback — DISABLED FROM PRICING as of 2026-07-24,
+// real user-confirmed case, not a guess. Real DXBInteract transaction data
+// for Address Fountain Views Tower 3 (4 real 2026 sales, floors 33-59,
+// PSF 4,367-4,526, essentially flat across a 26-floor spread) proved the
+// AI's +5% "Downtown Dubai is appreciating" momentum guess was directly
+// wrong at the exact time it was live-affecting this building's computed
+// Market PSF — pushing it to ~13-17% above what real, current transactions
+// actually supported. This is the same "ungrounded/semi-grounded LLM
+// directional guess silently baked into pricing" risk this project's own
+// Directive #2 (max 3% deviation) exists to prevent, and it's no longer
+// hypothetical for at least this case.
+// MOMENTUM_AI_FALLBACK_ENABLED gates whether getMomentumFactor() may still
+// fall back to the AI-estimated MARKET_MOMENTUM (runMarketIntelligence())
+// when the REAL per-area momentum engine (getRealMomentumFactor(),
+// js/valuation.js — zero AI, rolling recent-vs-prior real price_history)
+// hasn't covered an area yet. Set to false: an uncovered area now correctly
+// gets NEUTRAL (1.0, no adjustment) instead of an unverified AI guess —
+// matching the exact same "no real data = no adjustment, never a fabricated
+// number" principle getRealMomentumFactor() itself already uses. This is a
+// deliberate, interim safety default while the real engine's coverage is
+// still thin (needs supabase-real-momentum-schema.sql run + weeks of
+// price_history accumulation) — the fallback logic itself is left intact
+// below (not deleted) so it can be flipped back on later if a genuinely
+// more validated grounding approach is built, without re-deriving this from
+// scratch. MARKET_MOMENTUM/runMarketIntelligence() themselves are UNCHANGED
+// and keep populating/refreshing normally — this flag only controls whether
+// PRICING (computeAdjustedPSF() via this function) trusts that estimate;
+// the Market Dashboard "Market Movers" panel and the Admin "AI Market
+// Intelligence" card (both read MARKET_MOMENTUM directly, not through this
+// function) are unaffected and keep showing the AI's estimate as a labeled,
+// informational trend read — never as a claim baked into a valuation.
+var MOMENTUM_AI_FALLBACK_ENABLED=false;
+
 function getMomentumFactor(area){
   var real=typeof getRealMomentumFactor==="function"?getRealMomentumFactor(area):null;
   if(real!==null)return real;
+  if(!MOMENTUM_AI_FALLBACK_ENABLED)return 1.0;
   var m=MARKET_MOMENTUM[area];
   if(!m)m=MARKET_MOMENTUM["_overall"];
   if(!m||m.pct==null)return 1.0;

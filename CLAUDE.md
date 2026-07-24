@@ -965,6 +965,90 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-24 (session continuing, follow-up — real user-confirmed case
+  proves the AI-estimated momentum guess wrong; disabled it from pricing as
+  the agreed interim safety measure)**: Direct continuation of the momentum-
+  engine work below. User shared 2 screenshots: an Analyzer result for
+  Address Fountain Views Tower 3, 2BR, floor 39, asking AED 7,000,000 —
+  verdict "GOOD PRICE," Market PSF AED 5,115, -13.4% vs market — and a real
+  dxbinteract.com transaction record showing the tower's actual last 4 real
+  2BR sales in 2026: floor 33 (AED 7,000,000, 4,370 psf, 24 Feb), floor 34
+  (AED 6,995,000, 4,427 psf, 9 Jan), floor 42 (AED 6,900,000, 4,367 psf, 13
+  Jan), and floor 59 — the highest floor and most recent — at AED 7,250,000,
+  4,526 psf, 1 Jul 2026. User asked directly whether the Analyzer's output
+  was correct given this real data, and if not, why.
+  - **Reproduced exactly, not guessed**: built a Node vm-sandbox loading the
+    real `js/valuation.js`/`data-residential.js` and ran `computeValuation()`
+    with the same inputs (2BR, floor 39, Furnished, best view, size backed
+    out from the shown Asking PSF). Result: a "before-momentum" base Market
+    PSF of **4,872** — itself already 7.6-11.6% above the real comps
+    (4,367-4,526) — multiplied by the AI-estimated momentum factor active
+    for Downtown Dubai at the time (+5%, i.e. `getMomentumFactor()` had
+    fallen back to `runMarketIntelligence()`'s LLM guess since no real
+    per-area momentum data exists yet): 4,872 × 1.05 = **5,115.6** — matching
+    the screenshot's figure almost exactly, confirming precisely how that
+    number was produced.
+  - **Directly confirms and closes an open question from the 2026-07-22 work
+    log below**, which had flagged (but couldn't independently verify) that
+    `runMarketIntelligence()`'s AI-estimated "AI Trend" for Downtown Dubai
+    showed +5.0% (appreciating) — "directly opposite the user's own
+    real-world observation of an ongoing decline." The user's real
+    transaction data now proves this conclusively: 4 real 2026 sales
+    spanning a 26-floor range (33 to 59) cluster within a ~3.6% PSF band
+    (4,367-4,526) — essentially flat, not the kind of momentum that would
+    justify an independent +5% city-wide adjustment layered on top of
+    floor/view premiums that already account for the real floor spread.
+  - **Fix, user-approved via direct discussion (not unilateral) — surgical,
+    reversible, exactly scoped**: added `MOMENTUM_AI_FALLBACK_ENABLED=false`
+    (`js/core.js`) gating the ONLY place `MARKET_MOMENTUM` (the AI/RAG-
+    grounded but still ultimately LLM-judgment-based estimate) is allowed to
+    become an actual PRICING adjustment — `getMomentumFactor()`'s fallback
+    branch, reached only when the real, zero-AI per-area momentum engine
+    (`getRealMomentumFactor()`, still first-priority and completely
+    unchanged) has no data yet for that area (true for every area today,
+    since `supabase-real-momentum-schema.sql` needs to be run and then
+    weeks of `price_history` accumulated). With the flag off, an uncovered
+    area now correctly returns neutral (1.0, no adjustment) instead of
+    trusting an unverified directional guess — the exact same "no real data
+    = no adjustment, never a fabricated number" principle
+    `getRealMomentumFactor()` itself already uses, just extended to the
+    interim bridge period. The original fallback logic is left fully intact
+    under the flag (not deleted) so it can be restored later if a more
+    validated grounding approach is built. **Deliberately does NOT touch**
+    `MARKET_MOMENTUM`/`runMarketIntelligence()` themselves (still populate
+    and refresh normally) or their 2 purely-informational, non-pricing
+    display consumers — the Market Dashboard's "Market Movers" panel
+    (`js/market.js`) and the Admin Dashboard's "AI Market Intelligence"
+    card (`js/deals.js`) — both read `MARKET_MOMENTUM` directly, not through
+    `getMomentumFactor()`, and keep showing the AI's trend read exactly as
+    before; only the ANALYZER'S actual computed valuation number stops
+    trusting it.
+  - Verified: `node -c js/core.js`; a dedicated Node vm-sandbox test (9
+    checks, correct file load order matching the real app's script
+    sequence) — confirmed `MOMENTUM_AI_FALLBACK_ENABLED` defaults to
+    `false`; confirmed a freshly-seeded, high-confidence AI-estimated +5%
+    entry for Downtown Dubai no longer moves `getMomentumFactor()`'s output
+    (returns neutral 1.0); re-ran the exact real Fountain Views Tower 3
+    case end-to-end and confirmed the Market PSF now lands at ~4,872 (not
+    the inflated 5,115), with `momFactor===1.0` and no false "AI Trend"
+    label appended to `dataSource`; confirmed real per-area momentum
+    (`getRealMomentumFactor()`) is completely unaffected and still
+    overrides the disabled AI fallback the instant real data exists for an
+    area; confirmed a totally untracked area still safely returns neutral
+    with zero crash; and a 3-case regression sweep (apartment, villa, a
+    2nd apartment with a real building match) confirmed `computeValuation()`
+    still computes cleanly everywhere else with the fallback disabled.
+  - **What this means concretely, right now**: every Analyzer valuation
+    today is computed with momentum-neutral pricing (no AI guess of any
+    kind baked in) unless the real per-area momentum engine already has
+    live data for that specific area — which, as of this fix, is zero areas
+    (pending the SQL migration + weeks of accumulation). This is a genuine,
+    disclosed, city-wide change in the interim: any area where the AI
+    estimate WAS previously nudging prices up or down (not just Downtown
+    Dubai) now computes with that nudge removed, until the real engine
+    takes over naturally per area. No other part of the valuation formula
+    was touched.
+
 - **2026-07-23 (session continuing, follow-up — Home page "Top Opportunities"
   had a real, user-flagged misleading "LIVE" badge; now genuinely wired to
   live data)**: User asked directly whether Top Opportunities was actually
