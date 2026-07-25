@@ -1255,16 +1255,11 @@ function renderAnalyzer(){
   // Premium header (stage 0 — form view only)
   if(analyzerState.stage===0){
     var _azIsRent=analyzerState.f&&analyzerState.f.txnType==='rent';
-    var _azH=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'20px',paddingBottom:'16px',borderBottom:'1px solid rgba(255,255,255,0.06)'}});
+    var _azH=el('div',{style:{marginBottom:'20px',paddingBottom:'16px',borderBottom:'1px solid rgba(255,255,255,0.06)'}});
     var _azHL=el('div',{});
     _azHL.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'4px'},_azIsRent?'Rental Analysis Engine':'Property Valuation Engine'));
     _azHL.appendChild(div({fontSize:'22px',fontWeight:'800',color:'#FFFFFF',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'-0.02em',lineHeight:'1'},_azIsRent?'Rent Analyzer':'DubAI Valuator'));
     _azH.appendChild(_azHL);
-    var _azBadge=el('div',{style:{display:'flex',alignItems:'center',gap:'5px',background:_azIsRent?'rgba(139,92,246,0.08)':'rgba(212,168,67,0.08)',border:'1px solid '+(_azIsRent?'rgba(139,92,246,0.20)':'rgba(212,168,67,0.20)'),borderRadius:'20px',padding:'5px 11px',flexShrink:'0'}});
-    var _azDot=el('div',{style:{width:'6px',height:'6px',borderRadius:'50%',background:_azIsRent?'#8B5CF6':'#D4A843',animation:'dvPulse 2s ease infinite'}});
-    _azBadge.appendChild(_azDot);
-    _azBadge.appendChild(span({fontSize:'10px',color:_azIsRent?'#8B5CF6':'#D4A843',fontFamily:"'Space Grotesk',sans-serif",fontWeight:'700',letterSpacing:'0.08em'},_azIsRent?'RENT':'AVM'));
-    _azH.appendChild(_azBadge);
     wrap.appendChild(_azH);
   }
 
@@ -1504,28 +1499,14 @@ function renderAnalyzer(){
 
   // Only show form fields after building selected
   if(!f.building||!f.propCategory){
-    // Show area quick-select chips
-    const quickAreas=["Downtown Dubai","Dubai Marina","Business Bay","Palm Jumeirah","Dubai Hills Estate","DAMAC Lagoons","JVC","Dubai Creek Harbour","MBR City","Emaar Beachfront"];
-    const chipWrap=el("div",{style:{marginBottom:"16px"}});
-    chipWrap.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Or browse by area"));
-    const chips=el("div",{style:{display:"flex",flexWrap:"wrap",gap:"6px"}});
-    quickAreas.forEach(function(area){
-      const chip=el("button",{style:{background:cl.raised,border:"1px solid "+cl.border,color:cl.sub,padding:"5px 12px",borderRadius:"20px",fontSize:"11px",cursor:"pointer",fontFamily:"'Inter',sans-serif"}});
-      chip.textContent=area;
-      chip.addEventListener("click",function(){
-        analyzerState.f.area=area;
-        analyzerState.f.building=area;
-        var isVillaArea=typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(area);
-        analyzerState.f.propCategory=isVillaArea?"villa":"apartment";
-        if(isVillaArea&&!analyzerState.f.beds)analyzerState.f.beds="4 BR";
-        render();
-      });
-      chip.addEventListener("mouseenter",function(){this.style.borderColor=cl.goldDim;this.style.color=cl.gold;});
-      chip.addEventListener("mouseleave",function(){this.style.borderColor=cl.border;this.style.color=cl.sub;});
-      chips.appendChild(chip);
-    });
-    chipWrap.appendChild(chips);
-    wrap.appendChild(chipWrap);
+    // Beta feedback (2026-07-25): the old "Or browse by area" quick-select
+    // chips (Downtown Dubai, Dubai Marina, etc.) confused users — clicking
+    // an area doesn't help analyze a SPECIFIC unit (it stood in for a real
+    // building selection, `analyzerState.f.building=area`), and this is a
+    // per-unit valuation tool, not an area browser (that's what Market
+    // Index/Map are for). Removed outright rather than fixed, since the
+    // real building/cluster/community search box above already covers this
+    // entry point correctly.
 
     // QUICK_CHECK_ACCORDION — collapsible secondary tool
     if(window._qcElement){

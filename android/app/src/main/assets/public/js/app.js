@@ -3006,36 +3006,36 @@ function renderHome(){
     lineHeight:'1.6',marginBottom:'24px',maxWidth:'380px',textShadow:'0 1px 8px rgba(0,0,0,0.7)'
   },'AI-powered valuations, market intelligence & portfolio management for the world\'s most dynamic real estate market.'));
 
-  // CTA buttons row
-  var ctaRow=el('div',{style:{display:'flex',gap:'10px',flexWrap:'wrap',marginBottom:'28px'}});
+  // CTA — the Analyzer is DubaiVal's core product/branding focus (see
+  // Directive #2 in CLAUDE.md), so it gets sole visual weight as a full-width
+  // primary CTA (2026-07-25) rather than sharing equal size with a secondary
+  // action — Market Index demoted to a small text link underneath instead.
+  var ctaRow=el('div',{style:{marginBottom:'28px'}});
 
   var ctaPrimary=el('button',{style:{
-    display:'flex',alignItems:'center',gap:'8px',
+    display:'flex',alignItems:'center',justifyContent:'center',gap:'10px',
+    width:'100%',boxSizing:'border-box',
     background:'linear-gradient(135deg,#D4A843,#A07D1C)',
-    color:'#070B14',border:'none',borderRadius:'12px',
-    padding:'13px 22px',fontSize:'13px',fontWeight:'800',
-    fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'0.04em',
-    cursor:'pointer',transition:'all 0.2s ease',whiteSpace:'nowrap',
-    boxShadow:'0 4px 20px rgba(212,168,67,0.35)'
+    color:'#070B14',border:'none',borderRadius:'14px',
+    padding:'18px 24px',fontSize:'16px',fontWeight:'800',
+    fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'0.02em',
+    cursor:'pointer',transition:'all 0.2s ease',
+    boxShadow:'0 6px 28px rgba(212,168,67,0.40)'
   }});
-  ctaPrimary.innerHTML='<i data-lucide="scan-search" style="width:16px;height:16px"></i>Analyze Property';
-  ctaPrimary.addEventListener('mouseenter',function(){ctaPrimary.style.boxShadow='0 6px 28px rgba(212,168,67,0.50)';ctaPrimary.style.transform='translateY(-1px)';});
-  ctaPrimary.addEventListener('mouseleave',function(){ctaPrimary.style.boxShadow='0 4px 20px rgba(212,168,67,0.35)';ctaPrimary.style.transform='';});
+  ctaPrimary.innerHTML='<i data-lucide="scan-search" style="width:20px;height:20px"></i>Analyze a Property';
+  ctaPrimary.addEventListener('mouseenter',function(){ctaPrimary.style.boxShadow='0 8px 34px rgba(212,168,67,0.55)';ctaPrimary.style.transform='translateY(-1px)';});
+  ctaPrimary.addEventListener('mouseleave',function(){ctaPrimary.style.boxShadow='0 6px 28px rgba(212,168,67,0.40)';ctaPrimary.style.transform='';});
   ctaPrimary.addEventListener('click',function(){setSection('Market','Analyzer');});
   ctaRow.appendChild(ctaPrimary);
 
-  var ctaSecondary=el('button',{style:{
-    display:'flex',alignItems:'center',gap:'8px',
-    background:'rgba(255,255,255,0.07)',
-    color:'#E8EDF5',border:'1px solid rgba(255,255,255,0.12)',borderRadius:'12px',
-    padding:'13px 22px',fontSize:'13px',fontWeight:'700',
-    fontFamily:"'Space Grotesk',sans-serif",
-    cursor:'pointer',transition:'all 0.2s ease',whiteSpace:'nowrap',
-    backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)'
+  var ctaSecondary=el('div',{style:{
+    display:'flex',alignItems:'center',justifyContent:'center',gap:'6px',
+    marginTop:'12px',color:'#8899AA',fontSize:'12px',fontWeight:'600',
+    fontFamily:"'Space Grotesk',sans-serif",cursor:'pointer',transition:'color 0.2s ease'
   }});
-  ctaSecondary.innerHTML='<i data-lucide="bar-chart-3" style="width:16px;height:16px;color:#8B5CF6"></i>Market Index';
-  ctaSecondary.addEventListener('mouseenter',function(){ctaSecondary.style.background='rgba(255,255,255,0.11)';ctaSecondary.style.borderColor='rgba(255,255,255,0.20)';});
-  ctaSecondary.addEventListener('mouseleave',function(){ctaSecondary.style.background='rgba(255,255,255,0.07)';ctaSecondary.style.borderColor='rgba(255,255,255,0.12)';});
+  ctaSecondary.innerHTML='<i data-lucide="bar-chart-3" style="width:13px;height:13px"></i>Or browse Market Index';
+  ctaSecondary.addEventListener('mouseenter',function(){ctaSecondary.style.color='#8B5CF6';});
+  ctaSecondary.addEventListener('mouseleave',function(){ctaSecondary.style.color='#8899AA';});
   ctaSecondary.addEventListener('click',function(){setSection('Market','Index');});
   ctaRow.appendChild(ctaSecondary);
   heroInner.appendChild(ctaRow);

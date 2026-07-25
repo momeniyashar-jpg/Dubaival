@@ -965,6 +965,64 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-25 (session continuing, follow-up — Analyzer redesign: removed
+  the AVM-methodology badge and a confusing area-browsing shortcut, plus
+  gave the Home page's Analyze CTA sole visual weight)**: User shared a
+  screenshot of the Analyzer form (stage 0) and flagged 3 things.
+  1. **"● AVM" badge removed** — a small pulsing-dot pill in the top-right
+     of the Analyzer header read "AVM" (Automated Valuation Model) in sale
+     mode / "RENT" in rent mode. User's explicit reasoning: don't reveal the
+     underlying methodology to visitors. Removed the badge entirely
+     (`_azBadge`/`_azDot` and their container) for both modes — the header
+     now shows only the plain title ("DubAI Valuator"/"Rent Analyzer");
+     kept the "Property Valuation Engine"/"Rental Analysis Engine" eyebrow
+     label above it, which is generic branding, not a methodology reveal.
+  2. **"Or browse by area" quick-select chips removed** — a real, confirmed
+     UX bug, not just a preference: clicking one of these 10 area chips
+     (Downtown Dubai, Dubai Marina, etc.) set
+     `analyzerState.f.building=area` — literally treating the AREA NAME as
+     if it were a specific BUILDING name, feeding a per-unit valuation
+     engine an area-wide aggregate instead of a real building. Since this
+     tool analyzes one specific unit (not a whole area — that's what
+     Market Index/Map already do), the chips added a confusing second path
+     that didn't actually serve the tool's purpose. Removed the whole
+     chip block outright rather than fixing the underlying behavior, since
+     the real building/cluster/community search box directly above it
+     already covers legitimate building-name entry. The Quick Check
+     accordion immediately below (a genuinely different, budget-based
+     building-recommender tool) was left completely untouched — same
+     `if(!f.building||!f.propCategory)` wrapper, just the chip section
+     spliced out.
+  3. **Home page Analyze CTA given sole visual weight** — user asked for
+     my opinion on making the "Analyze" card bigger on Home, framing it as
+     the site's main product/branding focus (matches this file's own
+     Directive #2, "the Analyzer page is the heart of DubaiVal"). Previously
+     it was one of two equal-size buttons side by side ("Analyze Property" +
+     "Market Index"). Redesigned: "Analyze a Property" is now a full-width,
+     larger (18px vertical padding, 16px font vs the old 13px/13px),
+     more prominent primary button with no competing element beside it;
+     "Market Index" demoted to a small, quiet text link centered directly
+     underneath (no border/background, hover-tints purple) — still one
+     click away, just no longer competing for the visitor's attention.
+  - Verified via a real-browser Playwright pass (local static server, tour
+    overlay force-skipped via `localStorage.dv_tour_done`): Home renders the
+    new full-width "Analyze a Property" button + the small "Or browse Market
+    Index" link beneath it, and both correctly navigate (`Market/Analyzer`
+    and `Market/Index` respectively) on click; Analyzer's header no longer
+    shows the "AVM" pill (confirmed via screenshot — only the plain title
+    remains) and the "Or browse by area" chip row is completely gone (the
+    "Quick Price Check" accordion now sits directly under the search box);
+    the building/cluster/community search box itself renders and is fully
+    intact. Zero non-network console errors. `node -c` on both touched
+    files (`js/app.js`, `js/market.js`).
+  - Cache versions bumped: `js/app.js`/`js/market.js` to `?v=20260725a` in
+    both `index.html` and `sw.js`'s `PRECACHE` array; `sw.js`'s
+    `CACHE_NAME` bumped `dubaival-v64`→`dubaival-v65`. Rebuilt `www/` and
+    manually synced both files + `index.html` into
+    `android/app/src/main/assets/public/` (confirmed byte-identical;
+    `npx cap sync android` failed as always in this sandbox — no Android
+    SDK).
+
 - **2026-07-25 (session continuing, follow-up — a real cross-object data
   corruption bug found and independently verified in the research branch's
   own work, then 96 more buildings + a 178-entry BLDG_UNITS backfill merged
