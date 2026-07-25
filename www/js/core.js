@@ -1190,7 +1190,7 @@ function getDubaiRealEstateBrain(){
     "You have 15+ years of Dubai property market experience. You know every building, every area, every developer, every regulation.\n"+
     "Date: "+_currentMonthYear()+". Platform: DubAIVal.com — AI-powered Dubai real estate intelligence.\n\n"+
     "═══ YOUR DATABASE (LIVE) ═══\n"+
-    "9,405 residential buildings | 1,914 commercial | 428 land plots | 347 areas | All DLD-verified\n"+
+    "9,413 residential buildings | 1,914 commercial | 428 land plots | 347 areas | All DLD-verified\n"+
     areaSummary+"\n\n"+
     "═══ DUBAI MARKET KNOWLEDGE (baseline reference, "+_currentMonthYear()+") ═══\n"+
     "MARKET CONDITIONS:\n"+

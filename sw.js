@@ -1,26 +1,26 @@
-var CACHE_NAME='dubaival-v66';
+var CACHE_NAME='dubaival-v67';
 var PRECACHE=[
   '/logo.png',
   '/manifest.json',
-  '/js/data-residential.js?v=20260724c',
+  '/js/data-residential.js?v=20260725c',
   '/js/data-commercial.js?v=20260629b',
   '/js/valuation-db.js?v=20260623',
   '/js/valuation.js?v=20260722b',
   '/js/api.js?v=20260706a',
-  '/js/core.js?v=20260724c',
+  '/js/core.js?v=20260725c',
   '/js/auth.js?v=20260703c',
   '/js/inbox.js?v=20260704b',
   '/js/app.js?v=20260725b',
   '/js/market.js?v=20260725a',
   '/js/mortgage.js?v=20260629b',
-  '/js/portfolio.js?v=20260724c',
+  '/js/portfolio.js?v=20260725c',
   '/js/map.js?v=20260706b',
   '/js/deals.js?v=20260708b',
   '/js/chat.js?v=20260721a',
   '/js/social.js?v=20260706b',
   '/js/about.js?v=20260724c',
   '/js/workspace.js?v=20260711b',
-  '/js/marketindex.js?v=20260724c',
+  '/js/marketindex.js?v=20260725c',
   '/js/news.js?v=20260709a',
   '/js/chiefs.js?v=20260711b'
 ];

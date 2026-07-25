@@ -965,6 +965,89 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-25 (session continuing, follow-up — user-requested coverage
+  audit of 5 named areas surfaced 2 real gaps, closed via a 3-part
+  research+backfill instruction, independently re-verified before
+  merging)**: User asked directly whether Jumeirah Bay Island, Dubai
+  Maritime City, Dubai Creek Harbour, Meydan, and City Walk have good data
+  coverage. Checked each against real `DB`/`AREAS`/`BLDG_UNITS` state:
+  Maritime City (21 buildings, txVol 200), Creek Harbour (198, txVol
+  3500), Meydan (249, txVol 1200), and City Walk (66, txVol 600) were all
+  reasonably covered relative to their transaction volume — left alone.
+  **Jumeirah Bay Island was genuinely thin**: only 2 buildings (Bulgari
+  Villas, Bulgari Mansions), both missing `BLDG_UNITS`. A related, separate
+  `AREAS` key, plain "Jumeirah Bay" (no "Island"), had zero buildings at
+  all — a real ambiguity (duplicate naming vs. a genuinely different area)
+  worth resolving, not guessing at. Separately, the user asked to also
+  check Dubai Hills Estate — its building COUNT was fine (310, a healthy
+  ratio for its 4800 txVol), but **14 of those 310 were missing
+  `BLDG_UNITS`**, a real, concrete gap. Combined all of this with 2 fresh
+  areas found via the same txVol-vs-building-count method (after excluding
+  every area already assigned across all prior rounds): **IMPZ** (Dubai
+  Production City, only 35 buildings for txVol 5000) and **DAMAC Hills 2**
+  (56 buildings, txVol 2400) — into one 3-part combined research
+  instruction (Part A: DHE backfill via a self-computing script, Part B:
+  more Jumeirah Bay Island buildings + resolve the Jumeirah Bay ambiguity
+  via real research not a guess, Part C: new IMPZ/DAMAC Hills 2 coverage),
+  each gated behind a mandatory "0 missing" verification script before
+  the next part could start.
+  - **Research session's findings, independently re-verified rather than
+    trusted at face value** (same discipline as every prior round): Part A
+    — all 14 Dubai Hills Estate buildings backfilled with real researched
+    unit counts (Sidra Villas I/II/III, Greenside Residence, Mulberry Park
+    Heights, The Highbury, Socio Hub 7-10, etc.), confirmed 0 missing
+    across the full 310. Part B — added 2 new real buildings (Bulgari
+    Residences, 173 units, Ultra; Bulgari Marina Lofts, 188 units, A+) plus
+    backfilled the original 2 (Bulgari Villas 20 units, Bulgari Mansions 15
+    units); **confirmed the "Jumeirah Bay" vs "Jumeirah Bay Island"
+    ambiguity resolves to the SAME physical location** (all Bulgari/Meraas
+    properties on the seahorse-shaped island off Jumeirah 2) — no separate
+    area exists, no buildings were added under the plain "Jumeirah Bay"
+    key, a real, useful finding closing a genuine data-model question
+    rather than silently padding a duplicate area. Part C — 3 new IMPZ
+    buildings (Mesk 3/4, Sema by Deyaar) and 3 new DAMAC Hills 2 buildings
+    (Hawthorn, Just Cavalli, Paloverde — all correctly keyed with the
+    "damac hills (2) - " prefix already used by every other building in
+    that area, confirmed by cross-checking the area's existing 60+ keys,
+    not assumed from the commit message's shorthand names).
+  - **Full independent verification before merging**: `node -c` on the
+    fetched research-branch file; a fresh vm-sandbox load confirming
+    `DB=9,414`/`BLDG_UNITS=9,458` (both match the commit's own claimed
+    totals); confirmed 0 buildings still missing `BLDG_UNITS` across all 5
+    target areas (411 buildings checked); confirmed 0 orphan area names
+    anywhere in the entire `DB`; confirmed all 8 new buildings (2
+    Jumeirah Bay Island + 6 Part C) have valid grade tiers, sane PSF values,
+    and consistent `lo≤p≤hi` ranges — including double-checking a
+    suspiciously small 2-unit "Paloverde" entry, which turned out to be a
+    real key-prefix mismatch in this session's own first lookup attempt
+    (the true key is `"damac hills (2) - paloverde"`, not bare
+    `"paloverde"`) rather than a data problem once looked up correctly.
+  - **Merge**: same safe JS-object-splice technique, diffing from the
+    LAST merge point (`ea88af8`) to the new HEAD (`5d86e25`) — picked up 8
+    new `DB` keys and 24 new/backfilled `BLDG_UNITS` keys (14 DHE + 4
+    Jumeirah Bay Island + 6 Part C — math checks out exactly). Final
+    counts on this branch: `DB=9,413`, `BLDG_UNITS=9,457` (both 1 lower
+    than the research branch's own totals, the same standing, already-
+    documented 1-off from this branch's earlier Blvd Heights T3 removal).
+    Grand total across residential+commercial+land: **11,755 properties**
+    — still rounds to the same "11,700+" marketing figure used since the
+    last round, so only the precise "9,413" residential count needed
+    sweeping across live references (`js/core.js`, `js/marketindex.js`,
+    `js/portfolio.js` — 5 locations, `tools/generate-seo-pages.js` comment,
+    and the `js/data-residential.js` top-of-file comment); the rounded
+    total in `index.html`/`manifest.json`/`js/about.js`/`js/market.js`/
+    `api/price-alerts.js` needed no change this round.
+  - Verified: `node -c` on all 4 touched JS files + `sw.js`; re-ran `node
+    tools/generate-seo-pages.js` (347 area pages, 9,413 building pages,
+    9,762-URL sitemap); rebuilt `www/` and manually synced every touched
+    file into `android/app/src/main/assets/public/`, confirmed
+    byte-identical (`npx cap sync android` failed as always in this
+    sandbox — no Android SDK).
+  - Cache versions bumped: `js/data-residential.js`, `js/core.js`,
+    `js/portfolio.js`, `js/marketindex.js` all to `?v=20260725c` in both
+    `index.html` and `sw.js`'s `PRECACHE` array; `sw.js`'s `CACHE_NAME`
+    bumped `dubaival-v66`→`dubaival-v67`.
+
 - **2026-07-25 (session continuing, follow-up — "Top Opportunities"
   removed from Home; underlying feature's future left open)**: Direct
   follow-up to the Analyzer redesign below — user pointed out this section
