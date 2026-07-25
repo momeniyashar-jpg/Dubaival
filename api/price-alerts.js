@@ -81,7 +81,7 @@ async function handleSubscribe(req, res) {
         <div style="background:#070B14;padding:24px;border-radius:12px">
           <h2 style="color:#D4AF37;margin:0 0 16px">Price Alert Set ✓</h2>
           <p style="color:#E8EDF5;font-size:15px">We'll email you when pricing for <b>${targetName}</b> moves 5% or more.</p>
-          <p style="color:#8899AA;font-size:13px">DubaiVal checks prices daily using live market data from 11,600+ properties.</p>
+          <p style="color:#8899AA;font-size:13px">DubaiVal checks prices daily using live market data from 11,700+ properties.</p>
           <hr style="border:none;border-top:1px solid #1A1F2E;margin:20px 0">
           <p style="color:#556677;font-size:12px"><a href="${unsubUrl}" style="color:#556677">Unsubscribe from this alert</a></p>
         </div>

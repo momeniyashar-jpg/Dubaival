@@ -965,6 +965,99 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-25 (session continuing, follow-up — a real cross-object data
+  corruption bug found and independently verified in the research branch's
+  own work, then 96 more buildings + a 178-entry BLDG_UNITS backfill merged
+  cleanly)**: Direct continuation of the round-5 merge below. User asked for
+  5 more under-covered high-transaction-volume areas; picked (via a live
+  txVol-vs-building-count query against the real database, same rigor as
+  before): Jumeirah Lake Towers (txVol 4500, only 157 buildings — dozens of
+  real towers across ~26 named clusters), Dubai Silicon Oasis (3200/52),
+  Arjan (2800/84), Jumeirah Village Triangle (2600/63), Al Furjan (2200/47).
+  Since the persistent BLDG_UNITS gap from the last 2 rounds was STILL
+  unresolved (flagged twice already), wrote a combined 2-part instruction:
+  Part A a mandatory backfill (a script the research session runs itself to
+  compute the exact list of buildings still missing BLDG_UNITS across the 6
+  previously-researched areas, then research a real unit count for each),
+  Part B the 5 new areas — both gated behind a verification script that
+  must print "0 missing" before the research session is allowed to commit.
+  - **The research session's own investigation surfaced a genuine, separate
+    root-cause bug, independently confirmed here rather than trusted at
+    face value**: its Part A commit (`e6d5bb2`) reported that ALL 83 of the
+    round-4/5 BLDG_UNITS entries had never actually been missing due to
+    being "skipped" (this file's own prior two work-log entries' working
+    theory) — they had been silently written into the WRONG JS object
+    entirely. The insertion script used across rounds 4-5 located its
+    insertion point via `lastIndexOf('};')` in the region between `const
+    BLDG_UNITS` and `const AREAS`, which actually targeted the closing
+    brace of a DIFFERENT, pre-existing object, `AREA_GRADE_PSF` (an
+    area+grade→PSF fallback lookup, keyed like `"Downtown Dubai|Ultra"` —
+    confirmed to already exist, unrelated to this research effort, on both
+    branches beforehand) — so all 83 entries were embedded inside that
+    object instead, fully invisible to any `BLDG_UNITS` lookup. The fix
+    relocated all 83 (identified via brace-counting) into the real
+    `BLDG_UNITS` object.
+  - **Verified this claim directly rather than accepting it, and found the
+    fix's own cleanup script had a small side effect worth flagging** (not
+    a regression, a genuine bonus correction): diffing `AREA_GRADE_PSF`
+    between this branch (532 entries, untouched) and the research branch's
+    post-fix state (530) surfaced exactly 2 removed keys —
+    `"hartland greens villas":60` and `"gardenia villas sobha hartland":75`
+    — which are themselves building-name-keyed (not `"Area|Grade"`-shaped)
+    entries that had ALSO been misplaced inside `AREA_GRADE_PSF`, but from
+    an EARLIER, unrelated commit (`2494a80`, "add 30 missing villa
+    sub-communities", 2026-07-18) — predating rounds 4/5 by weeks. Cross-
+    checked: both buildings have real, identical `DB` entries on both
+    branches (Sobha Hartland, grade A); on this branch they still have NO
+    `BLDG_UNITS` entry at all (same pre-existing gap); on the research
+    branch, both now correctly resolve real unit counts (60, 75) via
+    `BLDG_UNITS`. The fix's brace-counting cleanup incidentally also
+    corrected this second, older, previously-undetected instance of the
+    exact same misplacement bug — a genuine improvement, not data loss.
+  - **Full independent verification before merging, not just trusting the
+    commit messages**: `node -c` on the fetched research-branch file; a
+    fresh vm-sandbox load confirming `DB=9,406`/`BLDG_UNITS=9,434` (both
+    match the commit's own claimed totals exactly); confirmed all 5 Part B
+    areas use the exact canonical `AREAS` key spelling with zero orphan
+    area names anywhere in the whole `DB` (0 mismatched area strings across
+    9,406 entries); confirmed 0 buildings still missing `BLDG_UNITS` across
+    all 11 target areas (903 buildings checked); confirmed all 499 Part-B
+    buildings (spanning the 5 new areas) have valid grade tiers, sane PSF
+    values (all ≤15,000, none ≤0), and internally consistent `lo≤p≤hi`
+    ranges; confirmed the 130 BLDG_UNITS entries with no matching DB key
+    are pre-existing historical drift (this branch already independently
+    has 131 of the same class), not something newly introduced.
+  - **Merge**: same safe JS-object-splice technique as round 5, this time
+    diffing from the LAST merge point (`5f9a0b6`) to the new HEAD
+    (`ea88af8`) for both `DB` and `BLDG_UNITS` — picked up 96 new `DB` keys
+    (Part B) and 178 new/relocated `BLDG_UNITS` keys (95 genuinely new from
+    Part B + 83 relocated by the Part A fix — the math checks out exactly).
+    Final counts on this branch: `DB=9,405`, `BLDG_UNITS=9,433` (both
+    exactly 1 lower than the research branch's own totals, consistent with
+    this branch's still-standing, already-documented 1-building gap from
+    the earlier Blvd Heights T3 removal the research branch never picked
+    up). Grand total across residential+commercial+land: **11,747
+    properties**, shown in marketing copy as "11,700+".
+  - **Re-swept every live stat reference updated in the round-5 entry
+    below** (9,405/11,700+, replacing that round's 9,309/11,600+):
+    `js/core.js`, `js/portfolio.js` (7 locations), `js/about.js`,
+    `js/market.js`, `js/marketindex.js` (2 locations), `index.html` (3 meta
+    tags), `manifest.json`, `api/price-alerts.js`,
+    `tools/generate-seo-pages.js` (comment), and the stale top-of-file
+    comment in `js/data-residential.js` itself. Same historical/dated
+    comments as before (`js/valuation.js` lines 537/986, `js/chat.js` line
+    13, `tools/calibration-output.json`) deliberately left untouched.
+  - Verified: `node -c` on all 6 touched JS files + `sw.js`; `manifest.json`
+    re-validated as parseable JSON; re-ran `node
+    tools/generate-seo-pages.js` (347 area pages, 9,405 building pages, 1
+    hub page, 9,754-URL sitemap); rebuilt `www/` and manually synced every
+    touched file into `android/app/src/main/assets/public/`, confirmed
+    byte-identical (`npx cap sync android` failed as always in this
+    sandbox — no Android SDK).
+  - Cache versions bumped: all 6 touched files to `?v=20260724c` in both
+    `index.html` and `sw.js`'s `PRECACHE` array; `sw.js`'s `CACHE_NAME`
+    bumped `dubaival-v63`→`dubaival-v64`.
+
 - **2026-07-24 (session continuing, follow-up — merged 83 newly-researched
   buildings from the research branch, plus an app-wide sweep of stale
   building/property-count references)**: Direct continuation of this

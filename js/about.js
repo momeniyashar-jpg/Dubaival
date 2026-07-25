@@ -101,7 +101,7 @@ function renderAbout(){
 
   // Stats row
   var stats=[
-    {n:"11,600+",l:"Properties Tracked"},
+    {n:"11,700+",l:"Properties Tracked"},
     {n:"347",l:"Areas Covered"},
     {n:"3 Sectors",l:"Residential · Commercial · Land"},
     {n:"Cascade AVM",l:"AI Valuation Engine"}
@@ -461,7 +461,7 @@ function renderApiDocs(cl){
     },
     {
       method:"GET",path:"/api/building-lookup",
-      desc:"Look up building data from our 11,600+ property DLD-verified database.",
+      desc:"Look up building data from our 11,700+ property DLD-verified database.",
       params:[{n:"name",t:"string",r:true,d:"Building name (fuzzy matching)"}],
       response:'{\n  "name": "Marina Gate 1",\n  "area": "Dubai Marina",\n  "psf": 1850,\n  "low_psf": 1650,\n  "high_psf": 2100,\n  "grade": "A",\n  "service_charge": 18\n}',
       curl:'curl "https://api.dubaival.com/v1/building-lookup?name=marina+gate+1" \\\n  -H "Authorization: Bearer YOUR_API_KEY"',
