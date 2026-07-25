@@ -965,6 +965,45 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-25 (session continuing, follow-up — "Top Opportunities"
+  removed from Home; underlying feature's future left open)**: Direct
+  follow-up to the Analyzer redesign below — user pointed out this section
+  is still just wired to our own static/model-estimated data (not
+  meaningfully live day to day) and every card's only action is routing to
+  Market Index, which has no real function of its own on a page now
+  centered on the Analyzer CTA. Discussed directly (not implemented until
+  confirmed, per the exploratory-question norm): agreed the deeper issue
+  isn't "is the data live enough" — even fully live, this widget is a
+  shallower duplicate of ranking tables Market Index already does better
+  and with more depth, and the site's actual core strength (per Directive
+  #2) is precise per-unit analysis, not area-trend browsing. User's final
+  call: remove it from Home now; leave the question of whether the feature
+  should exist AT ALL for later, once the real live-momentum data pipeline
+  is actually populated.
+  - **Fix, `js/app.js`**: removed the "③ TOP OPPORTUNITIES" block
+    (`momWrap`/`renderMarketMoments(cl)` call) from `renderHome()` entirely.
+    `generateMarketMoments()`/`renderMarketMoments()` themselves were left
+    fully intact and still defined — just unreferenced from Home — since
+    whether they have standing value is the explicitly-deferred question
+    above, not something to resolve by deleting the code. Renumbered the
+    remaining Home sections to keep the file's own comments accurate:
+    Personal Advisor CTA ④→③ (and its `dv-fu-4`→`dv-fu-3` fade-in class),
+    Market Cycle ⑤→④ (`dv-fu-5`→`dv-fu-4`), Portfolio ⑥→⑤, Recent Activity
+    ⑦→⑥ (neither of the last two use a numbered fade class).
+  - Verified: `node -c js/app.js`; a real-browser Playwright pass (tour
+    overlay force-skipped) confirming "Top Opportunities" no longer appears
+    anywhere in the rendered Home page, with a clean, gap-free transition
+    straight from the AI Property Search section into the Personal Advisor
+    CTA, and that every other Home section (Market Cycle, Portfolio, stats
+    bar) still renders correctly with its real data (e.g. "9,405 Buildings"
+    picked up live from the just-merged database) — zero non-network
+    console errors.
+  - Cache version bumped: `js/app.js` to `?v=20260725b` in both
+    `index.html` and `sw.js`'s `PRECACHE` array; `sw.js`'s `CACHE_NAME`
+    bumped `dubaival-v65`→`dubaival-v66`. Rebuilt `www/` and manually
+    synced `js/app.js` + `index.html` into
+    `android/app/src/main/assets/public/` (confirmed byte-identical).
+
 - **2026-07-25 (session continuing, follow-up — Analyzer redesign: removed
   the AVM-methodology badge and a confusing area-browsing shortcut, plus
   gave the Home page's Analyze CTA sole visual weight)**: User shared a

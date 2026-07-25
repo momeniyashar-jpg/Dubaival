@@ -3116,20 +3116,16 @@ function renderHome(){
   srchWrap.appendChild(chips);
   wrap.appendChild(srchWrap);
 
-  // ── ③ TOP OPPORTUNITIES ──────────────────────────────────────────
-  // The old standalone "Market Pulse" banner (single "Top Performing Area"
-  // card) was removed entirely 2026-07-15: it surfaced the exact same fact
-  // as Top Opportunities' own "1-Year Growth Leader" card (both sorted by
-  // the same AREAS[].g[0] metric), so the two sections showed the same
-  // area twice in a row. Top Opportunities now covers that insight (plus 5
-  // more real metrics), so it's the single home for "what's hot right now."
-  // (renderMarketMoments() already renders its own "Top Opportunities" + LIVE
-  // header internally — the outer label here used to duplicate it.)
-  var momWrap=el('div',{className:'dv-fu dv-fu-3',style:{padding:'24px 16px 0'}});
-  momWrap.appendChild(renderMarketMoments(cl));
-  wrap.appendChild(momWrap);
-
-  // ── ④ PERSONAL ADVISOR CTA ───────────────────────────────────────
+  // ── ③ PERSONAL ADVISOR CTA ───────────────────────────────────────
+  // (Section renumbered 2026-07-25 — "Top Opportunities" removed from Home
+  // per the site owner's own review: it duplicated Market Index's own
+  // ranking tables with less depth, and had no action beyond routing there
+  // anyway, so it wasn't earning its place on a page now centered on the
+  // Analyzer CTA. generateMarketMoments()/renderMarketMoments() themselves
+  // are left intact and unreferenced from Home — not deleted — since
+  // whether this concept has standing value once the live-momentum data
+  // pipeline is actually populated is still an open question the site
+  // owner wants to revisit later, not settled here.)
   // Added 2026-07-18, per the site owner's direct question: "isn't this
   // tool's place missing on the home page?" Personal Advisor was previously
   // reachable only via Market → Advisor, a sub-tab a first-time or
@@ -3137,7 +3133,7 @@ function renderHome(){
   // even search for — exactly who Home's other sections don't serve, since
   // they all assume the visitor already has a specific property or area in
   // mind) had no reason to discover on their own.
-  var advWrap=el('div',{className:'dv-fu dv-fu-4',style:{padding:'24px 16px 0'}});
+  var advWrap=el('div',{className:'dv-fu dv-fu-3',style:{padding:'24px 16px 0'}});
   var advCard=el('div',{style:{background:'linear-gradient(135deg,rgba(212,175,55,0.10) 0%,rgba(139,92,246,0.05) 100%)',border:'1px solid rgba(212,175,55,0.22)',borderRadius:'18px',padding:'22px',cursor:'pointer',display:'flex',alignItems:'center',gap:'16px'}});
   var advIcon=el('div',{style:{width:'52px',height:'52px',flexShrink:'0',display:'flex',alignItems:'center',justifyContent:'center',borderRadius:'14px',background:'rgba(212,175,55,0.14)'}});
   advIcon.innerHTML='<i data-lucide="compass" style="width:26px;height:26px;color:#D4AF37"></i>';
@@ -3153,10 +3149,10 @@ function renderHome(){
   advWrap.appendChild(advCard);
   wrap.appendChild(advWrap);
 
-  // ── ⑤ MARKET CYCLE ───────────────────────────────────────────────
-  // (Section numbers renumbered 2026-07-18 to make room for ④ Personal
-  // Advisor CTA above — Market Cycle was ④, now ⑤; Portfolio was ⑤, now ⑥;
-  // Recent Activity was ⑥, now ⑦.)
+  // ── ④ MARKET CYCLE ───────────────────────────────────────────────
+  // (Section renumbered again 2026-07-25 — Top Opportunities removed above,
+  // see that section's own comment. Was ⑤; Portfolio was ⑥, now ⑤;
+  // Recent Activity was ⑦, now ⑥.)
   // Replaces the old "Explore Platform" shortcut-tile row (2026-07-17): those
   // 6 tiles just deep-linked to destinations already one tap away in the
   // persistent nav (sidebar/bottom tabs) — the lowest-unique-value section on
@@ -3166,7 +3162,7 @@ function renderHome(){
   // global in js/core.js — no duplicated dataset) gives Home real visual
   // life instead: a colored trend line showing Dubai's actual 2002-present
   // boom/bust history, exactly what was asked for ("جذابیت بصری").
-  var mcWrap=el('div',{className:'dv-fu dv-fu-5',style:{padding:'24px 16px 0'}});
+  var mcWrap=el('div',{className:'dv-fu dv-fu-4',style:{padding:'24px 16px 0'}});
   mcWrap.appendChild(div({fontSize:'10px',color:'#6B7A9E',fontWeight:'700',fontFamily:"'Inter',sans-serif",letterSpacing:'0.10em',textTransform:'uppercase',marginBottom:'14px'},'Dubai Market Cycle'));
 
   var mcYears=MARKET_CYCLE_INDEX.years,mcVals=MARKET_CYCLE_INDEX.index;
@@ -3225,7 +3221,7 @@ function renderHome(){
   mcWrap.appendChild(mcCard);
   wrap.appendChild(mcWrap);
 
-  // ── ⑥ PORTFOLIO ──────────────────────────────────────────────────
+  // ── ⑤ PORTFOLIO ──────────────────────────────────────────────────
   // Fixed 2026-07-18 (portfolio manager audit): this summary always read
   // a.price/a.rent, fields that never actually exist on a stored asset
   // (the real field is purchasePrice, and rent is only ever a computed
@@ -3290,7 +3286,7 @@ function renderHome(){
   }
   wrap.appendChild(pfWrap);
 
-  // ── ⑦ RECENT ACTIVITY ────────────────────────────────────────────
+  // ── ⑥ RECENT ACTIVITY ────────────────────────────────────────────
   var recent=[];
   try{recent=JSON.parse(localStorage.getItem('dubaival_recent')||'[]');}catch(e){}
   if(recent.length>0){
