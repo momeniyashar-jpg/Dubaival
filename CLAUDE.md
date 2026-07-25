@@ -965,6 +965,86 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-25 (session continuing, follow-up — round-8 research merge:
+  a real, serious data-quality problem found and correctly excluded rather
+  than merged, only the genuinely-researched buildings kept)**: Continuing
+  the same-day pattern of picking under-covered areas via the txVol-vs-
+  building-count method, this round targeted 5 more areas: Jumeirah Village
+  Circle (JVC), Town Square, Discovery Gardens, Emaar Beachfront, and
+  Arabian Ranches 3, plus a bonus request to backfill the 2 pre-existing
+  Arabian Ranches 3 buildings still missing `BLDG_UNITS` from an earlier
+  round. The research branch's commit (`fa62d73`, "Add 113 buildings across
+  5 areas + Majan") reported 113 new buildings + 115 new/patched
+  `BLDG_UNITS` entries.
+  - **Independent verification caught a real problem before merging, not
+    after**: diffing the research branch's claimed new keys against this
+    branch's own last-merged baseline (`5d86e25`) confirmed the raw counts
+    (113 DB / 115 BLDG_UNITS) were accurate — but inspecting the actual
+    VALUES, not just the counts, found that **92 of the 113 new buildings —
+    every single one tagged Discovery Gardens — shared byte-for-byte
+    identical PSF (780) and grade (C)**, with only 4 distinct unit-count
+    values spread across all 92 supposedly-independent buildings. This
+    directly violates this project's own no-fabrication standard (Directive
+    #2): 92 genuinely different, real buildings in Discovery Gardens do not
+    plausibly all carry the exact same PSF to the dollar — this pattern is
+    a strong signal of one area-average value copy-pasted across many
+    building-name keys, not real per-building research, unlike the
+    project's established legitimate pattern of true sister towers sharing
+    a PSF (e.g. two genuinely identical twin blocks in the same
+    development). The other 21 new buildings (JVC: Maison Elysee 1/2/3,
+    Tresora, 311 Boulevard; Town Square: Una Apartments A, Savannah Town
+    Square, Rawda Apartments 3/4; Emaar Beachfront: Marina Vista 1/2,
+    Palace Beach Residence 1/2, Seapoint; Arabian Ranches 3: June/June 2/
+    Anya/Anya 2/May/Raya; plus a bonus Majan entry, Samana Barari Twin
+    Towers) showed real, plausible per-building variance — sister towers
+    sharing a PSF where that's genuinely expected (Marina Vista 1/2, Palace
+    Beach Residence 1/2), but clearly different figures across differently-
+    named buildings elsewhere (Maison Elysee 1/2 at 1490 vs. Maison Elysee
+    3 at 1400; Tresora at 1450; 311 Boulevard at 1300) — passed every
+    structural check (valid grades, sane PSF, correct `lo≤p≤hi`) and were
+    judged genuine.
+  - **Merge, done with a modified version of the same safe JS-object-splice
+    technique used all session**: filtered the diff to explicitly EXCLUDE
+    every key tagged `Discovery Gardens`, keeping only the 21 legitimate
+    buildings + their 21 matching `BLDG_UNITS` entries + 2 more
+    `BLDG_UNITS`-only entries (`arabian ranches lll - afia`/`- caya
+    exclusive`) confirmed to be real, already-existing `DB` buildings that
+    were genuinely missing `BLDG_UNITS` — the exact 2-entry patch the
+    commit described, verified present in this branch's DB before merging
+    and absent from `BLDG_UNITS` before the patch. Final counts: `DB`
+    9,413→9,434 (+21, not +113), `BLDG_UNITS` 9,457→9,480 (+23, not +115).
+  - **Full independent verification of the merged result**: `node -c`; a
+    fresh vm-sandbox load confirming the new totals exactly; 0 buildings
+    still missing `BLDG_UNITS` across all 5 target areas; 0 orphan area
+    names anywhere in the full `DB`; all 21 kept buildings have valid grade
+    tiers, sane PSF (≤15,000, >0), and consistent `lo≤p≤hi` ranges; and
+    Discovery Gardens' own building count confirmed unchanged from before
+    this round (still 29 — none of the 92 suspect entries were added).
+  - Swept the precise "9,413"→"9,434" residential count across the same 5
+    live-reference locations as every prior round (`js/core.js`,
+    `js/portfolio.js` ×5, `js/marketindex.js`, `tools/generate-seo-pages.js`
+    comment, and the `js/data-residential.js` top-of-file comment) — the
+    rounded "11,700+" marketing figure elsewhere is unaffected (new grand
+    total 11,776, still rounds the same).
+  - Verified: `node -c` on all 4 touched JS files; re-ran `node
+    tools/generate-seo-pages.js` (347 area pages, 9,434 building pages,
+    9,783-URL sitemap); rebuilt `www/` and manually synced every touched
+    file into `android/app/src/main/assets/public/`, confirmed
+    byte-identical (`npx cap sync android` failed as always in this
+    sandbox — no Android SDK).
+  - Cache versions bumped: `js/data-residential.js`, `js/core.js`,
+    `js/portfolio.js`, `js/marketindex.js` all to `?v=20260725d` in both
+    `index.html` and `sw.js`'s `PRECACHE` array; `sw.js`'s `CACHE_NAME`
+    bumped `dubaival-v67`→`dubaival-v68`.
+  - **Follow-up needed, not yet sent**: a corrective research instruction
+    for Discovery Gardens specifically, requiring genuine per-building
+    research (real, sourced individually from Bayut/Property Finder/DLD —
+    not one area-average value applied to many building names) — should
+    include an explicit self-check the research session runs before
+    committing (e.g., asserting more than 1-2 distinct PSF values across
+    any batch of new entries in one area) so this exact problem is caught
+    before it reaches this branch again, not after.
+
 - **2026-07-25 (session continuing, follow-up — user-requested coverage
   audit of 5 named areas surfaced 2 real gaps, closed via a 3-part
   research+backfill instruction, independently re-verified before

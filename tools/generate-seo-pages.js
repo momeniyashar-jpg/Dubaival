@@ -5,7 +5,7 @@
  * The live app (index.html) is a pure client-side SPA with hash-based
  * routing and no server-rendered content, which search engines can crawl
  * poorly. This script pre-generates real, static, crawlable HTML pages —
- * one per area (347) and one per residential building (~9,413) — from the
+ * one per area (347) and one per residential building (~9,434) — from the
  * SAME public benchmark data already shown to any visitor inside the app
  * (AREAS / DB in js/data-residential.js). No proprietary/live data beyond
  * what's already public-facing in the product is exposed.
