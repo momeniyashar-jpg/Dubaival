@@ -680,13 +680,30 @@ function _dvRentalViewPremium(view){
   if(vl==="burj khalifa + fountain")return 0.18;
   if(vl.indexOf("fountain")>=0)return 0.15;
   if(vl.indexOf("full sea")>=0||vl.indexOf("burj khalifa")>=0)return 0.12;
+  // Recalibrated 2026-07-26 from the old 0.08 (grouped with marina/partial
+  // burj/opera) to 0.12, based on real, cited Dubai market evidence found
+  // via research: canal-facing units command a real 10-15% RENT premium
+  // over non-canal units at the same floor — 0.12 is the midpoint of that
+  // cited range. Checked as its own case, split out of the marina/partial-
+  // burj/opera group below (no equivalent citation found for those, and no
+  // matching sale-side citation was found either, so VIEW_P's sale-side
+  // "Full Canal View" was deliberately left at its prior 0.16 — this is a
+  // rental-only correction, not extrapolated onto the sale side without
+  // evidence). See the "view coefficient research audit" work-log entry.
+  if(vl.indexOf("full canal")>=0)return 0.12;
   if(vl.indexOf("beach access")>=0||vl.indexOf("palm")>=0||vl.indexOf("burj al arab")>=0)return 0.10;
   // Stage 2 additions (2026-07-26): checked BEFORE the generic "creek"/
   // "skyline" substring matches below, so a specific new view isn't
   // silently swallowed by a broader, less-accurate existing bucket.
   if(vl.indexOf("atlantis")>=0||vl.indexOf("creek skyline")>=0)return 0.08;
-  if(vl.indexOf("marina")>=0||vl.indexOf("full canal")>=0||vl.indexOf("partial burj")>=0||vl.indexOf("dubai opera")>=0)return 0.08;
+  if(vl.indexOf("marina")>=0||vl.indexOf("partial burj")>=0||vl.indexOf("dubai opera")>=0)return 0.08;
   if(vl.indexOf("partial sea")>=0)return 0.07;
+  // "Golf View" deliberately left at 0.06 here (rental side) — the real,
+  // cited 2026-07-26 research evidence (~18-22% premium over park/community
+  // view, properties selling ~40% faster) was specifically about the SALE
+  // market (VIEW_P["Golf View"] raised 0.13→0.20 accordingly, see
+  // js/data-residential.js); no matching rental-specific citation was found,
+  // so this side was NOT extrapolated without evidence.
   if(vl.indexOf("golf")>=0||vl.indexOf("boulevard")>=0)return 0.06;
   if(vl.indexOf("ras al khor")>=0)return 0.05;
   if(vl.indexOf("lagoon")>=0||vl.indexOf("creek")>=0||vl.indexOf("lake")>=0)return 0.05;

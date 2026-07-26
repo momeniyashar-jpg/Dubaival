@@ -162,7 +162,13 @@ const MARKET_STATS=[
 ];
 
 // --- VIEW PREMIUMS ------------------------------------------------------------
-const VIEW_P={"Burj Khalifa + Fountain":0.38,"Burj Khalifa and Fountain View":0.38,"Burj Khalifa and Fountain":0.38,"Fountain View":0.32,"Burj Khalifa View":0.28,"Full Sea View":0.25,"Beach Access View":0.22,"Burj Al Arab View":0.20,"Palm View":0.20,"Atlantis View":0.18,"Marina View":0.18,"Creek Skyline View":0.18,"Full Canal View":0.16,"Partial Burj View":0.15,"Dubai Opera View":0.15,"Partial Sea View":0.14,"Golf View":0.13,"Boulevard View":0.12,"Lagoon View":0.12,"Creek Harbour View":0.12,"Ras Al Khor Wildlife Sanctuary View":0.11,"Lake View":0.09,"Skyline View":0.08,"Coca-Cola Arena View":0.08,"Partial Canal View":0.07,"Sheikh Zayed Road View":0.06,"Garden/Park View":0.05,"Pool View":0.04,"Community View":0.02,"Not specified":0.00};
+// "Golf View" recalibrated 2026-07-26 from 0.13 to 0.20 based on real,
+// cited Dubai market evidence found via research (WebSearch): golf-facing
+// properties command a real ~18-22% premium over park/community view in
+// the same community, and sell ~40% faster — moved up to the Palm/Burj Al
+// Arab tier accordingly, not left at its old, now-disproven lower tier.
+// See the 2026-07-26 "view coefficient research audit" work-log entry.
+const VIEW_P={"Burj Khalifa + Fountain":0.38,"Burj Khalifa and Fountain View":0.38,"Burj Khalifa and Fountain":0.38,"Fountain View":0.32,"Burj Khalifa View":0.28,"Full Sea View":0.25,"Beach Access View":0.22,"Burj Al Arab View":0.20,"Palm View":0.20,"Golf View":0.20,"Atlantis View":0.18,"Marina View":0.18,"Creek Skyline View":0.18,"Full Canal View":0.16,"Partial Burj View":0.15,"Dubai Opera View":0.15,"Partial Sea View":0.14,"Boulevard View":0.12,"Lagoon View":0.12,"Creek Harbour View":0.12,"Ras Al Khor Wildlife Sanctuary View":0.11,"Lake View":0.09,"Skyline View":0.08,"Coca-Cola Arena View":0.08,"Partial Canal View":0.07,"Sheikh Zayed Road View":0.06,"Garden/Park View":0.05,"Pool View":0.04,"Community View":0.02,"Not specified":0.00};
 
 // --- AREA AMENITIES & LOCATION HIGHLIGHTS ------------------------------------
 var AREA_AMENITIES={

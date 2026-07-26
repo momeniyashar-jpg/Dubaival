@@ -965,6 +965,81 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-26 (session continuing, follow-up — view coefficient research
+  audit: real market/academic evidence gathered for every view premium,
+  2 real corrections applied, rest confirmed or left as honest estimates)**:
+  User pushed back hard on the Stage 2 additions, asking directly whether
+  the new coefficients (and the pre-existing ones) were "100% accurate
+  real numbers" — a fair challenge given Directive #2's own standard. Ran
+  an extensive WebSearch research pass (Dubai-specific real estate market
+  reports, academic hedonic-pricing literature, and direct evidence for
+  each view type) rather than defending the existing numbers on reasoning
+  alone.
+  - **Confirmed genuine, inherent limits on precision, not a cop-out**:
+    real academic hedonic studies for the SAME concept ("full ocean/harbour
+    view premium") disagree wildly by market — a Hong Kong high-rise study
+    found only ~2.97% for a full harbour view, while a US academic study
+    found ~58.8% for a full ocean view, with a general industry source
+    citing "10% to 80% depending on the market." Even Dubai Land
+    Department's own official price index explicitly uses a "hedonic
+    imputation" methodology specifically because housing amenity values are
+    inherently heterogeneous/estimated, never a fixed constant. This
+    confirms — with citations, not assertion — that "100% certain" isn't an
+    achievable bar for ANY view premium anywhere, only "best available,
+    evidence-anchored estimate."
+  - **Found real, Dubai-specific, cited evidence for 3 of our values**:
+    (1) Burj Khalifa View — a market source states the real premium "ranges
+    from 28-35%"; our existing 0.28 sits exactly at the (defensible, low)
+    end of that cited range — confirmed, no change. (2) Canal View rental —
+    a source states canal-facing units command "10-15% rent premium over
+    non-canal views at the same floor level"; our old flat 0.08 (grouped
+    with marina/partial burj/opera) was clearly below this cited range.
+    (3) Golf View — a Dubai-specific source states "the premium on
+    'Green-Facing' properties... has stabilized at roughly 18-22% over park
+    or community views" and that golf-view listings "stay on the market for
+    40% less time"; our old 0.13 was well below this cited range.
+  - **Fix, scoped precisely to what the evidence actually supports — no
+    unfounded extrapolation onto the untested side**: `VIEW_P["Golf
+    View"]` raised 0.13→0.20 (midpoint of the cited 18-22% SALE-market
+    range) in `js/data-residential.js`, repositioned in the object literal
+    to its new tier for readability. `_dvRentalViewPremium()`'s "Full Canal
+    View" split out of its old shared 0.08 bucket into its own check at
+    0.12 (midpoint of the cited 10-15% RENTAL range) in `js/valuation.js`.
+    Deliberately did NOT touch: Full Canal View's SALE-side value (still
+    0.16 — no sale-specific citation was found, so extrapolating the
+    rental correction onto it via the ladder's usual ~45-50% sale-to-rental
+    ratio would have been an unfounded guess, not evidence); Golf View's
+    RENTAL-side value (still 0.06, grouped with Boulevard — no rental-
+    specific citation was found either). Both deliberate omissions are
+    documented with an explicit code comment at each spot, so a future
+    session sees exactly why the two sides of the ladder are allowed to
+    diverge from the usual ratio pattern here, rather than assuming an
+    oversight.
+  - **The 6 new Stage-2 view types** (Opera/Coca-Cola Arena/Creek
+    Skyline/Ras Al Khor/Burj Al Arab/Atlantis): confirmed real as MARKETED
+    FEATURES (e.g. Opera Grand's own listing copy explicitly sells "Burj
+    Khalifa/Fountain/Boulevard" views), but no source publishes an isolated
+    % premium for any of them — left exactly as calibrated in the earlier
+    Stage 2 entry, honestly disclosed to the user as reasoned estimates,
+    not independently verified numbers.
+  - Verified: `node -c` on both touched files; a Node vm-sandbox test
+    confirming the new raw values (Golf View 0.20, Full Canal View rental
+    0.12) flow correctly through a real villa-sale case (Jumeirah Golf
+    Estates, Golf View) and a real apartment-rental case (Business Bay,
+    Full Canal View), and confirming Full Canal View's SALE-side raw
+    premium is untouched at 0.16; a 305-building sweep across the full `DB`
+    with Golf View selected (mixed villa/apartment/areas) — 0 errors,
+    0 NaN/invalid results; and a real-browser Playwright pass confirming
+    the villa form's Golf View selection reaches the computed valuation
+    with the correct new vP — zero non-network console errors.
+  - Cache versions bumped: `js/data-residential.js` to `?v=20260726d`,
+    `js/valuation.js` to `?v=20260726e`, in both `index.html` and `sw.js`'s
+    `PRECACHE` array; `sw.js`'s `CACHE_NAME` bumped `dubaival-v72`→
+    `dubaival-v73`. Rebuilt `www/` and manually synced both touched files
+    into `android/app/src/main/assets/public/`, confirmed byte-identical
+    (`npx cap sync android` failed as always in this sandbox — no Android
+    SDK).
+
 - **2026-07-26 (session continuing, follow-up — Stages 2+3 of the
   view-system expansion plan: 6 new confirmed view types + real distance
   dampening for the 3 new landmark ones, done together deliberately)**:
