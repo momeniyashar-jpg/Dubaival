@@ -965,6 +965,121 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-26 (session continuing, follow-up — Stages 2+3 of the
+  view-system expansion plan: 6 new confirmed view types + real distance
+  dampening for the 3 new landmark ones, done together deliberately)**:
+  Direct continuation of Stage 1 above. Rather than ship the 6 new views
+  first with no distance treatment and revisit the same functions again
+  later for Stage 3, both stages were done in one pass — a landmark-tied
+  view added WITHOUT distance dampening would need the exact same
+  functions touched again days later anyway, so doing it right the first
+  time avoided a genuinely half-built intermediate state.
+  - **View verification, not guesswork**: Dubai Opera View, Coca-Cola
+    Arena View (City Walk), Creek Harbour-specific views, Burj Al Arab
+    View, and Atlantis View were all confirmed real/marketed via WebSearch
+    before being added, matching this project's standing "verify with
+    real data, never fabricate" principle (Directive #2).
+  - **`js/data-residential.js`** — added `"Atlantis The Palm"` (lat
+    25.1305, lng 55.1173) and `"Dubai Opera"` (lat 25.1946, lng 55.2743) to
+    `KEY_POIS` (`"Burj Al Arab"` already existed there, reused as-is); new
+    `_dvNamedPoiKm()`/`_dvAtlantisKm()`/`_dvBurjAlArabKm()`/
+    `_dvDubaiOperaKm()` helpers, same one-fixed-point-haversine pattern as
+    the existing `_dvBurjKhalifaKm()`. 6 new `VIEW_P` entries, calibrated
+    against the existing ladder's real-world prestige ordering rather than
+    picked arbitrarily: Burj Al Arab View 20% (palm/beach-access tier — a
+    universally recognized 7-star icon, usually sea-adjacent), Atlantis
+    View 18% (marina tier — iconic but a narrower viewing corridor than
+    Burj Al Arab), Creek Skyline View 18% (marina tier — the genuine
+    Downtown-skyline-across-the-creek panorama Creek Harbour is marketed
+    on), Dubai Opera View 15% (matches Partial Burj View's existing tier —
+    a real Downtown/Opera District premium, distinctly below Burj Khalifa
+    itself), Ras Al Khor Wildlife Sanctuary View 11% (lagoon/lake nature-
+    view tier), Coca-Cola Arena View 8% (skyline tier — a real but modest
+    local-amenity premium, City Walk's appeal is the walkable village vibe
+    more than any one view). Rental-side `_dvRentalViewPremium()` (js/valuation.js)
+    got matching entries at the ladder's established ~45-50% sale-to-rental
+    ratio (Burj Al Arab 10%, Atlantis/Creek Skyline/Opera 8%, Ras Al Khor
+    5%, Coca-Cola Arena 4%), with the new checks placed BEFORE the existing
+    broader "creek"/"skyline" substring matches so a specific new view name
+    isn't silently swallowed by a less-accurate existing bucket.
+  - **`js/valuation.js` — distance dampening extended to 3 new kinds**:
+    `_dvIsDistanceSensitiveView()` now also recognizes `"burjalarab"`,
+    `"atlantis"`, `"opera"` — deliberately NOT extended to Coca-Cola Arena/
+    Creek Skyline/Ras Al Khor, since those describe a view genuinely
+    available throughout an area (not tied to one narrow fixed point the
+    way Burj Khalifa/Atlantis/Burj Al Arab/Opera specifically are).
+    `_dvViewDistCurve()` gained 2 new curve shapes reflecting each
+    landmark's real visibility profile rather than reusing one curve for
+    everything: Burj Al Arab reuses the existing "landmark" (Burj Khalifa)
+    curve since both are genuine supertalls visible for miles; Atlantis
+    gets a slightly tighter curve (tall but sited at a peninsula tip, so
+    real sightlines are shorter); Dubai Opera gets a MUCH tighter curve
+    (full premium ≤1km, floor by 5km) since it's a low/mid-rise building
+    with no far-visible silhouette, unlike a supertall tower — verified
+    against real distances computed from `AREA_COORDS` (Downtown Dubai
+    0.29km→mult 1.0, Business Bay 1.49km→mult 0.82, Dubai Creek Harbour
+    6.65km→mult 0.15 for Opera; Palm Jumeirah 2.97km→mult 0.89, Dubai
+    Marina 6.06km→mult 0.55, Downtown 17.46km→mult 0.11 for Atlantis).
+  - **Refactored the override-passing mechanism for extensibility** — the
+    original Stage 1 design used 2 positional params
+    (`bkDistKmOverride`/`seaDistKmOverride`); adding 3 more distance-
+    sensitive kinds this way would have meant 5 positional params on
+    `getViewDistanceInfo()`/`_dvCombineViewPremiums()`, an unmaintainable
+    pattern. Both functions now take one `distOverrides` object
+    (`{landmark,sea,burjalarab,atlantis,opera}` → distKm), with a new
+    shared `_dvViewDistOverridesFromF(f)` builder so
+    `computeAdjustedPSF()`/`computeRentalValuation()` can't drift into two
+    different field-name conventions when reading the live-geocoded
+    overrides off the form object.
+  - **Tier 2 (live building-level geocode) extended for free** —
+    `resolveViewDistance()` (`js/api.js`) already geocodes the exact
+    building for the existing Burj Khalifa/sea kinds; it now also computes
+    `burjAlArabDistKm`/`atlantisDistKm`/`operaDistKm` from that SAME
+    resolved coordinate (3 more haversine calls, zero extra network
+    requests). `_dvRefineViewDistance()` (`js/market.js`) now sets all 3
+    new override fields onto the form object alongside the existing 2 —
+    its `anyDistSensitive` guard already worked generically for any kind,
+    so no change needed there.
+  - **Form option lists**: apartment form gained all 6 new views (Dubai
+    Opera View, Burj Al Arab View, Atlantis View, Creek Skyline View, Ras
+    Al Khor Wildlife Sanctuary View, Coca-Cola Arena View) inserted at
+    sensible positions relative to their calibrated tier; villa form
+    deliberately gained only the 2 genuinely villa-relevant ones (Burj Al
+    Arab View, Atlantis View — real for Palm Jumeirah/Jumeirah Islands/
+    Emirates Living villas with real sightlines) — Downtown/City Walk/
+    Creek Harbour-specific views weren't added to the villa list, matching
+    the existing "don't pad an irrelevant option in either form" discipline
+    already established for the 2 forms' pre-existing, separately-curated
+    lists.
+  - Verified: `node -c` on all 4 touched files; a Node vm-sandbox test
+    confirming real, sensible haversine distances from `AREA_COORDS` to all
+    3 new landmarks across 8 areas (Downtown Dubai correctly nearest to
+    Opera at 0.29km, Palm Jumeirah correctly nearest to Atlantis at 2.97km);
+    a second Node test running full `computeValuation()`/
+    `computeRentalValuation()` cases — a solo Dubai Opera View in Downtown
+    Dubai gets full premium (mult 1.0, correctly at 0.29km), a combined
+    Atlantis View + Burj Al Arab View on Palm Jumeirah correctly ranks/
+    weights both with their own real distance-dampened multipliers (0.89/
+    0.51) and confirms `vP` only ever increases when the second view is
+    added (never decreases), Coca-Cola Arena View and the Creek-specific
+    views correctly return `kind:null` (confirmed NOT distance-sensitive,
+    by design) while still combining correctly with real weights; and a
+    real-browser Playwright pass confirming all 6 new options render in
+    the apartment dropdown and only the 2 villa-relevant ones render in the
+    villa dropdown, selecting Atlantis View + Burj Al Arab View on a real
+    Palm Jumeirah unit correctly reaches the computed valuation with the
+    right kinds/multipliers, the "View Premium Breakdown" card renders, and
+    the Confidence Factors row correctly joins both view names — zero
+    non-network console errors.
+  - Cache versions bumped: `js/data-residential.js` to `?v=20260726c`,
+    `js/valuation.js`/`js/market.js` to `?v=20260726d`, `js/api.js` to
+    `?v=20260726b`, in both `index.html` and `sw.js`'s `PRECACHE` array;
+    `sw.js`'s `CACHE_NAME` bumped `dubaival-v71`→`dubaival-v72`. Rebuilt
+    `www/` and manually synced every touched file into
+    `android/app/src/main/assets/public/`, confirmed byte-identical
+    (`npx cap sync android` failed as always in this sandbox — no Android
+    SDK).
+
 - **2026-07-26 (session continuing, follow-up — multi-view support, Stage 1
   of the view-system expansion plan: up to 3 simultaneous views combined
   correctly, never a naive average)**: Direct continuation of the
@@ -11167,30 +11282,10 @@ These files contain critical business logic and data:
 
 ## Outstanding / open items
 
-- **🟡 View-system expansion — Stage 1 shipped, Stages 2-4 not started**
-  (added 2026-07-26): direct follow-up to the multi-view combination work
-  above. The user's own numbered plan has 4 stages; only Stage 1 (multi-view
-  support + weighted combination formula) is done. Remaining:
-  - **Stage 2**: add new, real, confirmed view types to `VIEW_P`/
-    `_dvRentalViewPremium` and both Analyzer form option lists — Dubai
-    Opera View (Downtown Dubai), Coca-Cola Arena View (City Walk), Burj Al
-    Arab View, Atlantis View, Dubai Skyline View for villas at night
-    (currently only exists generically, not villa/night-specific),
-    Creek Harbour-specific views (Creek/Marina view with Downtown skyline
-    backdrop, Park/landscaped view, Ras Al Khor Wildlife Sanctuary view) —
-    all 5 confirmed real/marketed via WebSearch this session (not guessed),
-    but their specific premium MAGNITUDES still need calibration against
-    real market data per Directive #2, not just added at an arbitrary
-    percentage.
-  - **Stage 3**: extend the same Burj-Khalifa-style distance-dampening
-    mechanism (`getViewDistanceInfo()`/`_dvViewDistCurve()`) to the new
-    single-fixed-point landmark views from Stage 2 (Atlantis, Burj Al Arab,
-    Dubai Opera) — needs new reference coordinates in `KEY_POIS` (or a
-    similar structure) for each landmark, new `_dvXxxKm()` helper functions
-    (`js/data-residential.js`, alongside the existing `_dvBurjKhalifaKm()`/
-    `_dvNearestBeachKm()`), and `_dvIsDistanceSensitiveView()`/
-    `getViewDistanceInfo()` extended to recognize these as additional
-    "kind" categories beyond the current "landmark"/"sea".
+- **🟡 View-system expansion — Stages 1-3 shipped, Stage 4 not started**
+  (added 2026-07-26, updated same day once Stages 2-3 shipped): direct
+  follow-up to the multi-view combination work. The user's own numbered
+  plan has 4 stages. Remaining:
   - **Stage 4**: area-quality-tier multiplier for Canal View (and possibly
     Skyline View) — the user asked directly whether the SAME view type
     should get different premiums depending on which area's canal segment
@@ -11198,10 +11293,24 @@ These files contain critical business logic and data:
     real, unanswered product/calibration question flagged for a future
     session's judgment (mechanism and specific area-tier assignments not
     yet designed).
-  - See the "multi-view support, Stage 1" work-log entry directly above for
-    exactly what Stage 1 shipped (the `_dvCombineViewPremiums()` weighted
-    formula, `_dvRenderViewFields()` progressive-disclosure UI, and the new
-    "View Premium Breakdown" disclosure card).
+  - **Also noted, not yet handled**: the user separately asked about a
+    villa-specific "Dubai Skyline View at night" — investigated and found
+    the existing generic "Skyline View" (0.08 sale-side) is already a
+    selectable option in the villa form; no separate coefficient was added
+    for the "night" framing specifically, since real listing/transaction
+    data doesn't price a view differently based on time-of-day visibility
+    (that's marketing copy, not a separately-priced attribute) — flagged
+    here so a future session doesn't assume this was silently skipped by
+    accident, and can revisit if the user disagrees with that call.
+  - See the "Stages 2+3" work-log entry directly above for exactly what
+    shipped: 6 new confirmed view types (Dubai Opera, Burj Al Arab,
+    Atlantis, Creek Skyline, Ras Al Khor Wildlife Sanctuary, Coca-Cola
+    Arena) with calibrated premiums, plus real distance-dampening for the
+    3 that are genuine single-fixed-point landmarks (Burj Al Arab,
+    Atlantis, Dubai Opera) — using the same mechanism as the original
+    Burj Khalifa/sea-view dampening, refactored into an extensible
+    `distOverrides` object so future landmark kinds slot in without
+    growing the function signature further.
 
 - **🟡 Real per-area momentum engine — needs manual SQL** (added
   2026-07-22): run `supabase-real-momentum-schema.sql` in Supabase SQL

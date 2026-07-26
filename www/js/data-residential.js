@@ -162,7 +162,7 @@ const MARKET_STATS=[
 ];
 
 // --- VIEW PREMIUMS ------------------------------------------------------------
-const VIEW_P={"Burj Khalifa + Fountain":0.38,"Burj Khalifa and Fountain View":0.38,"Burj Khalifa and Fountain":0.38,"Fountain View":0.32,"Burj Khalifa View":0.28,"Full Sea View":0.25,"Beach Access View":0.22,"Palm View":0.20,"Marina View":0.18,"Full Canal View":0.16,"Partial Burj View":0.15,"Partial Sea View":0.14,"Golf View":0.13,"Boulevard View":0.12,"Lagoon View":0.12,"Creek Harbour View":0.12,"Lake View":0.09,"Skyline View":0.08,"Partial Canal View":0.07,"Sheikh Zayed Road View":0.06,"Garden/Park View":0.05,"Pool View":0.04,"Community View":0.02,"Not specified":0.00};
+const VIEW_P={"Burj Khalifa + Fountain":0.38,"Burj Khalifa and Fountain View":0.38,"Burj Khalifa and Fountain":0.38,"Fountain View":0.32,"Burj Khalifa View":0.28,"Full Sea View":0.25,"Beach Access View":0.22,"Burj Al Arab View":0.20,"Palm View":0.20,"Atlantis View":0.18,"Marina View":0.18,"Creek Skyline View":0.18,"Full Canal View":0.16,"Partial Burj View":0.15,"Dubai Opera View":0.15,"Partial Sea View":0.14,"Golf View":0.13,"Boulevard View":0.12,"Lagoon View":0.12,"Creek Harbour View":0.12,"Ras Al Khor Wildlife Sanctuary View":0.11,"Lake View":0.09,"Skyline View":0.08,"Coca-Cola Arena View":0.08,"Partial Canal View":0.07,"Sheikh Zayed Road View":0.06,"Garden/Park View":0.05,"Pool View":0.04,"Community View":0.02,"Not specified":0.00};
 
 // --- AREA AMENITIES & LOCATION HIGHLIGHTS ------------------------------------
 var AREA_AMENITIES={
@@ -909,7 +909,7 @@ const TRAM_STATIONS=[
 // Key POIs — Malls, Beaches, Landmarks (top 30)
 const KEY_POIS=[
 {n:"Dubai Mall",lat:25.1985,lng:55.2796,cat:"mall"},{n:"Mall of the Emirates",lat:25.1180,lng:55.2005,cat:"mall"},{n:"Dubai Marina Mall",lat:25.0770,lng:55.1400,cat:"mall"},{n:"Ibn Battuta Mall",lat:25.0440,lng:55.1190,cat:"mall"},{n:"City Centre Deira",lat:25.2530,lng:55.3310,cat:"mall"},{n:"City Centre Mirdif",lat:25.2150,lng:55.4100,cat:"mall"},{n:"Dubai Hills Mall",lat:25.1340,lng:55.2430,cat:"mall"},{n:"Nakheel Mall",lat:25.1170,lng:55.1380,cat:"mall"},{n:"Dragon Mart",lat:25.1720,lng:55.4150,cat:"mall"},{n:"Festival Plaza",lat:25.2200,lng:55.3500,cat:"mall"},
-{n:"Burj Khalifa",lat:25.1972,lng:55.2744,cat:"landmark"},{n:"Burj Al Arab",lat:25.1412,lng:55.1853,cat:"landmark"},{n:"Palm Jumeirah Crescent",lat:25.1180,lng:55.1380,cat:"landmark"},{n:"Dubai Frame",lat:25.2350,lng:55.3000,cat:"landmark"},{n:"Museum of the Future",lat:25.2200,lng:55.2800,cat:"landmark"},
+{n:"Burj Khalifa",lat:25.1972,lng:55.2744,cat:"landmark"},{n:"Burj Al Arab",lat:25.1412,lng:55.1853,cat:"landmark"},{n:"Palm Jumeirah Crescent",lat:25.1180,lng:55.1380,cat:"landmark"},{n:"Dubai Frame",lat:25.2350,lng:55.3000,cat:"landmark"},{n:"Museum of the Future",lat:25.2200,lng:55.2800,cat:"landmark"},{n:"Atlantis The Palm",lat:25.1305,lng:55.1173,cat:"landmark"},{n:"Dubai Opera",lat:25.1946,lng:55.2743,cat:"landmark"},
 {n:"JBR Beach",lat:25.0790,lng:55.1320,cat:"beach"},{n:"La Mer Beach",lat:25.2200,lng:55.2530,cat:"beach"},{n:"Kite Beach",lat:25.1650,lng:55.2050,cat:"beach"},{n:"Al Mamzar Beach",lat:25.2950,lng:55.3450,cat:"beach"},
 {n:"DIFC",lat:25.2100,lng:55.2800,cat:"business"},{n:"Media City",lat:25.0900,lng:55.1550,cat:"business"},{n:"Internet City",lat:25.0950,lng:55.1600,cat:"business"},{n:"Business Bay Hub",lat:25.1860,lng:55.2650,cat:"business"},{n:"Dubai Airport T3",lat:25.2530,lng:55.3640,cat:"airport"},{n:"DWC/Al Maktoum Airport",lat:24.8960,lng:55.1590,cat:"airport"},
 {n:"Dubai Creek Harbour",lat:25.2010,lng:55.3400,cat:"waterfront"},{n:"Dubai Marina Walk",lat:25.0800,lng:55.1410,cat:"waterfront"},{n:"Bluewaters Island",lat:25.0810,lng:55.1260,cat:"waterfront"},{n:"Madinat Jumeirah",lat:25.1340,lng:55.1850,cat:"waterfront"},{n:"Dubai Canal",lat:25.1900,lng:55.2550,cat:"waterfront"}
@@ -936,6 +936,16 @@ function _dvNearestBeachKm(lat,lng){
   KEY_POIS.forEach(function(p){if(p.cat==="beach"){var d=haversineKm(lat,lng,p.lat,p.lng);if(d<min)min=d;}});
   return isFinite(min)?min:null;
 }
+// Stage 3 (2026-07-26): real distance to 3 more popular landmark views —
+// same technique as _dvBurjKhalifaKm() above, one fixed KEY_POIS point each.
+function _dvNamedPoiKm(lat,lng,name){
+  var p=null;
+  for(var i=0;i<KEY_POIS.length;i++){if(KEY_POIS[i].n===name){p=KEY_POIS[i];break;}}
+  return p?haversineKm(lat,lng,p.lat,p.lng):null;
+}
+function _dvAtlantisKm(lat,lng){return _dvNamedPoiKm(lat,lng,"Atlantis The Palm");}
+function _dvBurjAlArabKm(lat,lng){return _dvNamedPoiKm(lat,lng,"Burj Al Arab");}
+function _dvDubaiOperaKm(lat,lng){return _dvNamedPoiKm(lat,lng,"Dubai Opera");}
 
 // Compute transit & amenity scores for an area
 function computeGeoScore(areaName){

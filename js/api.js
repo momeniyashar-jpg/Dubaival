@@ -137,7 +137,13 @@ async function resolveViewDistance(building,area){
     }
     var bkDistKm=typeof _dvBurjKhalifaKm==="function"?_dvBurjKhalifaKm(loc.lat,loc.lng):null;
     var seaDistKm=typeof _dvNearestBeachKm==="function"?_dvNearestBeachKm(loc.lat,loc.lng):null;
-    return{bkDistKm:bkDistKm,seaDistKm:seaDistKm};
+    // Stage 3 (2026-07-26): the same resolved building coordinate also gives
+    // a real building-level distance to the 3 new landmark views — no extra
+    // geocode call, just 3 more haversine calcs off the point already fetched.
+    var burjAlArabDistKm=typeof _dvBurjAlArabKm==="function"?_dvBurjAlArabKm(loc.lat,loc.lng):null;
+    var atlantisDistKm=typeof _dvAtlantisKm==="function"?_dvAtlantisKm(loc.lat,loc.lng):null;
+    var operaDistKm=typeof _dvDubaiOperaKm==="function"?_dvDubaiOperaKm(loc.lat,loc.lng):null;
+    return{bkDistKm:bkDistKm,seaDistKm:seaDistKm,burjAlArabDistKm:burjAlArabDistKm,atlantisDistKm:atlantisDistKm,operaDistKm:operaDistKm};
   }catch(e){return null;}
 }
 

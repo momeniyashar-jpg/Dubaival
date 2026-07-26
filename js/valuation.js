@@ -534,46 +534,81 @@ function getLiveAreaDataWithMomentum(area){
 // views like Marina/Golf/Canal/Lagoon/Creek View reference a feature that
 // exists at many different points across Dubai, so a single-point distance
 // calculation wouldn't make sense for those and they are left untouched.
+// Stage 3 (2026-07-26): extended from the original 2-kind (landmark/sea)
+// system to cover 3 more popular, genuinely single-fixed-point landmark
+// views — Burj Al Arab, Atlantis The Palm, Dubai Opera — using the exact
+// same real-distance-dampening technique, not a flat premium.
 function _dvIsDistanceSensitiveView(view){
   var vl=(view||"").toLowerCase();
+  if(vl.indexOf("burj al arab")>=0)return"burjalarab";
   if(vl.indexOf("burj khalifa")>=0||vl.indexOf("fountain")>=0||vl.indexOf("partial burj")>=0)return"landmark";
   if(vl.indexOf("full sea")>=0||vl.indexOf("partial sea")>=0||vl.indexOf("beach access")>=0)return"sea";
+  if(vl.indexOf("atlantis")>=0)return"atlantis";
+  if(vl.indexOf("dubai opera")>=0)return"opera";
   return null;
 }
+// Per-kind decay curve to the real fixed reference point. Full premium
+// radius and taper rate reflect each landmark's real visibility profile —
+// a supertall tower (Burj Khalifa, Burj Al Arab, ~300m+) stays a genuine
+// "view" from much farther away than a low/mid-rise building (Dubai
+// Opera, ~8 storeys) ever could, which is why Opera's curve is far
+// tighter than the others rather than reusing the landmark curve as-is.
 function _dvViewDistCurve(distKm,kind){
   if(distKm==null||isNaN(distKm))return 1.0;
-  if(kind==="landmark"){
+  if(kind==="landmark"||kind==="burjalarab"){
     if(distKm<=2)return 1.0;
     if(distKm<=5)return 1.0-(distKm-2)/3*0.45;
     if(distKm<=10)return 0.55-(distKm-5)/5*0.30;
     if(distKm<=20)return 0.25-(distKm-10)/10*0.15;
     return 0.10;
   }
-  // kind === "sea"
-  if(distKm<=1.5)return 1.0;
-  if(distKm<=5)return 1.0-(distKm-1.5)/3.5*0.5;
-  if(distKm<=10)return 0.5-(distKm-5)/5*0.30;
-  if(distKm<=20)return 0.2-(distKm-10)/10*0.12;
-  return 0.08;
+  if(kind==="sea"){
+    if(distKm<=1.5)return 1.0;
+    if(distKm<=5)return 1.0-(distKm-1.5)/3.5*0.5;
+    if(distKm<=10)return 0.5-(distKm-5)/5*0.30;
+    if(distKm<=20)return 0.2-(distKm-10)/10*0.12;
+    return 0.08;
+  }
+  if(kind==="atlantis"){
+    // Tall (211m) but sits at the tip of a peninsula — real sightlines are
+    // shorter than a mid-city supertall's, so the taper starts sooner.
+    if(distKm<=2)return 1.0;
+    if(distKm<=6)return 1.0-(distKm-2)/4*0.45;
+    if(distKm<=12)return 0.55-(distKm-6)/6*0.30;
+    if(distKm<=18)return 0.25-(distKm-12)/6*0.15;
+    return 0.10;
+  }
+  // kind === "opera" — a low/mid-rise building (~8 storeys), so a genuine
+  // "Opera View" is realistically only meaningful from within the same
+  // Downtown/Opera District precinct, unlike a supertall visible for miles.
+  if(distKm<=1)return 1.0;
+  if(distKm<=2.5)return 1.0-(distKm-1)/1.5*0.55;
+  if(distKm<=5)return 0.45-(distKm-2.5)/2.5*0.30;
+  return 0.15;
 }
 // Returns {mult, distKm, kind} — mult is the 0-1 dampening factor to apply to
 // the view's premium PORTION (not the whole valuation); distKm/kind are
-// exposed so the UI can disclose what was actually used. bkDistKmOverride/
-// seaDistKmOverride are the optional, more-precise building-level distances
-// (Tier 2); when absent, falls back to the area centroid (Tier 1, always
-// available). Returns mult:1.0 (no dampening) for any non-distance-sensitive
-// view, or when no area-coordinate data exists at all for this area.
-function getViewDistanceInfo(viewName,area,bkDistKmOverride,seaDistKmOverride){
+// exposed so the UI can disclose what was actually used. `distOverrides` is
+// an optional {kind: distKm} map of more-precise, building-level distances
+// (Tier 2, live-geocoded — see resolveViewDistance() in js/api.js); when a
+// given kind is absent from it, falls back to the area centroid (Tier 1,
+// always available, zero network dependency). Returns mult:1.0 (no
+// dampening) for any non-distance-sensitive view, or when no area-
+// coordinate data exists at all for this area.
+function getViewDistanceInfo(viewName,area,distOverrides){
   var kind=_dvIsDistanceSensitiveView(viewName);
   if(!kind)return{mult:1.0,distKm:null,kind:null};
-  var distKm=null;
-  if(kind==="landmark"&&bkDistKmOverride!=null)distKm=bkDistKmOverride;
-  else if(kind==="sea"&&seaDistKmOverride!=null)distKm=seaDistKmOverride;
-  else{
+  var ov=distOverrides||{};
+  var distKm=ov[kind]!=null?ov[kind]:null;
+  if(distKm==null){
     var c=(typeof AREA_COORDS!=="undefined")?AREA_COORDS[area]:null;
     if(c){
-      distKm=kind==="landmark"?(typeof _dvBurjKhalifaKm==="function"?_dvBurjKhalifaKm(c[0],c[1]):null)
-                               :(typeof _dvNearestBeachKm==="function"?_dvNearestBeachKm(c[0],c[1]):null);
+      var lat=c[0],lng=c[1];
+      if(kind==="landmark")distKm=typeof _dvBurjKhalifaKm==="function"?_dvBurjKhalifaKm(lat,lng):null;
+      else if(kind==="sea")distKm=typeof _dvNearestBeachKm==="function"?_dvNearestBeachKm(lat,lng):null;
+      else if(kind==="burjalarab")distKm=typeof _dvBurjAlArabKm==="function"?_dvBurjAlArabKm(lat,lng):null;
+      else if(kind==="atlantis")distKm=typeof _dvAtlantisKm==="function"?_dvAtlantisKm(lat,lng):null;
+      else if(kind==="opera")distKm=typeof _dvDubaiOperaKm==="function"?_dvDubaiOperaKm(lat,lng):null;
     }
   }
   if(distKm==null)return{mult:1.0,distKm:null,kind:kind};
@@ -600,8 +635,21 @@ function getViewDistanceInfo(viewName,area,bkDistKmOverride,seaDistKmOverride){
 // serves both the sale-side VIEW_P lookup (computeAdjustedPSF) and the
 // rent-side ladder (_dvRentalViewPremium, computeRentalValuation) without
 // duplicating the ranking/weighting logic in two places.
+// Builds the {kind: distKm} overrides map _dvCombineViewPremiums()/
+// getViewDistanceInfo() expect, from whatever building-level distances
+// resolveViewDistance() (js/api.js) has already resolved onto the form
+// object — one shared builder so computeAdjustedPSF()/computeRentalValuation()
+// can't drift into two different field-name conventions.
+function _dvViewDistOverridesFromF(f){
+  return{landmark:f._bkDistKm,sea:f._seaDistKm,burjalarab:f._burjAlArabDistKm,atlantis:f._atlantisDistKm,opera:f._operaDistKm};
+}
 var VIEW_WEIGHT_LADDER=[1.0,0.35,0.15];
-function _dvCombineViewPremiums(views,area,bkDistKmOverride,seaDistKmOverride,getRawPremium){
+// distOverrides: optional {kind: distKm} map of live-geocoded, building-
+// level distances (see getViewDistanceInfo() above) — generalized from the
+// original 2 positional params (bkDistKmOverride/seaDistKmOverride) so
+// Stage 3's 3 new landmark kinds (burjalarab/atlantis/opera) slot in
+// without a 3rd/4th/5th positional param each.
+function _dvCombineViewPremiums(views,area,distOverrides,getRawPremium){
   var seen={};
   var items=[];
   (views||[]).forEach(function(v){
@@ -610,7 +658,7 @@ function _dvCombineViewPremiums(views,area,bkDistKmOverride,seaDistKmOverride,ge
     if(seen[key])return; // same view accidentally selected twice — count once
     seen[key]=true;
     var raw=getRawPremium(v);
-    var distInfo=getViewDistanceInfo(v,area,bkDistKmOverride,seaDistKmOverride);
+    var distInfo=getViewDistanceInfo(v,area,distOverrides);
     items.push({view:v,rawPremium:raw,distInfo:distInfo,effectivePremium:raw*distInfo.mult});
   });
   items.sort(function(a,b){return b.effectivePremium-a.effectivePremium;});
@@ -632,12 +680,17 @@ function _dvRentalViewPremium(view){
   if(vl==="burj khalifa + fountain")return 0.18;
   if(vl.indexOf("fountain")>=0)return 0.15;
   if(vl.indexOf("full sea")>=0||vl.indexOf("burj khalifa")>=0)return 0.12;
-  if(vl.indexOf("beach access")>=0||vl.indexOf("palm")>=0)return 0.10;
-  if(vl.indexOf("marina")>=0||vl.indexOf("full canal")>=0||vl.indexOf("partial burj")>=0)return 0.08;
+  if(vl.indexOf("beach access")>=0||vl.indexOf("palm")>=0||vl.indexOf("burj al arab")>=0)return 0.10;
+  // Stage 2 additions (2026-07-26): checked BEFORE the generic "creek"/
+  // "skyline" substring matches below, so a specific new view isn't
+  // silently swallowed by a broader, less-accurate existing bucket.
+  if(vl.indexOf("atlantis")>=0||vl.indexOf("creek skyline")>=0)return 0.08;
+  if(vl.indexOf("marina")>=0||vl.indexOf("full canal")>=0||vl.indexOf("partial burj")>=0||vl.indexOf("dubai opera")>=0)return 0.08;
   if(vl.indexOf("partial sea")>=0)return 0.07;
   if(vl.indexOf("golf")>=0||vl.indexOf("boulevard")>=0)return 0.06;
+  if(vl.indexOf("ras al khor")>=0)return 0.05;
   if(vl.indexOf("lagoon")>=0||vl.indexOf("creek")>=0||vl.indexOf("lake")>=0)return 0.05;
-  if(vl.indexOf("skyline")>=0)return 0.04;
+  if(vl.indexOf("skyline")>=0||vl.indexOf("coca-cola")>=0||vl.indexOf("coca cola")>=0)return 0.04;
   if(vl.indexOf("partial canal")>=0||vl.indexOf("sheikh zayed")>=0)return 0.03;
   if(vl.indexOf("garden")>=0||vl.indexOf("park")>=0)return 0.02;
   if(vl.indexOf("pool")>=0||vl.indexOf("community")>=0)return 0.01;
@@ -787,7 +840,7 @@ function computeAdjustedPSF(f,buildingVal,liveData){
   // see _dvCombineViewPremiums's own comment for why a flat average is
   // wrong). A single selected view (the common case) reduces to exactly the
   // old single-view behavior — VIEW_WEIGHT_LADDER[0]===1.0.
-  const _viewCombo=_dvCombineViewPremiums([f.view,f.view2,f.view3],f.area,f._bkDistKm,f._seaDistKm,_viewGetRaw);
+  const _viewCombo=_dvCombineViewPremiums([f.view,f.view2,f.view3],f.area,_dvViewDistOverridesFromF(f),_viewGetRaw);
   const rawVP=_viewCombo.combinedRawVP;
   const viewDistInfo=_viewCombo.breakdown[0]?_viewCombo.breakdown[0].distInfo:{mult:1.0,distKm:null,kind:null};
   let vP;
@@ -1349,7 +1402,7 @@ function computeRentalValuation(f){
   // function's own comment (near computeAdjustedPSF above) for why a flat
   // average across multiple views is wrong. A single selected view (the
   // common case) reduces to exactly the old single-view ladder's value.
-  var _viewComboR=_dvCombineViewPremiums([f.view,f.view2,f.view3],f.area,f._bkDistKm,f._seaDistKm,_dvRentalViewPremium);
+  var _viewComboR=_dvCombineViewPremiums([f.view,f.view2,f.view3],f.area,_dvViewDistOverridesFromF(f),_dvRentalViewPremium);
   var viewAdj=1.0+_viewComboR.combinedRawVP;
   var viewDistInfo=_viewComboR.breakdown[0]?_viewComboR.breakdown[0].distInfo:{mult:1.0,distKm:null,kind:null};
   estRent=Math.round(estRent*viewAdj);

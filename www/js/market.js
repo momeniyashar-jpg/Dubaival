@@ -140,6 +140,7 @@ function _dvRefineViewDistance(f,stateKey,isRental,fnCompute){
   resolveViewDistance(f.building,f.area).then(function(dist){
     if(!dist||!analyzerState[stateKey])return;
     f._bkDistKm=dist.bkDistKm;f._seaDistKm=dist.seaDistKm;
+    f._burjAlArabDistKm=dist.burjAlArabDistKm;f._atlantisDistKm=dist.atlantisDistKm;f._operaDistKm=dist.operaDistKm;
     // Reuse whatever real live-Bayut data the sibling fetchLiveData()
     // refinement (below) may have already found for this exact building —
     // regardless of which of the two resolves first, this prevents either
@@ -1729,7 +1730,7 @@ function renderAnalyzer(){
     formCard.appendChild(floorRow);
 
     // View (multi-view: up to 3 simultaneous views, revealed progressively)
-    _dvRenderViewFields(formCard,cl,f,["Not specified","Full Sea View","Beach Access View","Palm View","Partial Sea View","Golf View","Lagoon View","Creek Harbour View","Lake View","Garden/Park View","Pool View","Skyline View","Boulevard View","Community View"]);
+    _dvRenderViewFields(formCard,cl,f,["Not specified","Full Sea View","Beach Access View","Burj Al Arab View","Palm View","Atlantis View","Partial Sea View","Golf View","Lagoon View","Creek Harbour View","Lake View","Garden/Park View","Pool View","Skyline View","Boulevard View","Community View"]);
 
         // Private Pool + Single Row + Parking
     var ppRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"}});
@@ -1988,7 +1989,7 @@ function renderAnalyzer(){
     const fvRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"}});
     const flBox=el("div",{}); flBox.appendChild(lbl("Floor Number")); flBox.appendChild(inp(I(),"e.g. 19","number",f.floor,function(v){analyzerState.f.floor=v;})); fvRow.appendChild(flBox);
     // Multi-view: up to 3 simultaneous views, revealed progressively
-    const vwBox=el("div",{}); _dvRenderViewFields(vwBox,cl,f,["Not specified","Burj Khalifa + Fountain","Fountain View","Burj Khalifa View","Full Sea View","Beach Access View","Palm View","Marina View","Full Canal View","Partial Burj View","Partial Sea View","Golf View","Boulevard View","Lagoon View","Creek Harbour View","Lake View","Skyline View","Partial Canal View","Sheikh Zayed Road View","Garden/Park View","Pool View","Community View"]); fvRow.appendChild(vwBox);
+    const vwBox=el("div",{}); _dvRenderViewFields(vwBox,cl,f,["Not specified","Burj Khalifa + Fountain","Fountain View","Burj Khalifa View","Dubai Opera View","Full Sea View","Beach Access View","Burj Al Arab View","Palm View","Atlantis View","Marina View","Full Canal View","Creek Skyline View","Ras Al Khor Wildlife Sanctuary View","Partial Burj View","Partial Sea View","Golf View","Boulevard View","Lagoon View","Creek Harbour View","Lake View","Skyline View","Coca-Cola Arena View","Partial Canal View","Sheikh Zayed Road View","Garden/Park View","Pool View","Community View"]); fvRow.appendChild(vwBox);
     formCard.appendChild(fvRow);
     // Bathrooms
     const bathRow=el("div",{style:{marginBottom:"12px"}});
