@@ -644,12 +644,54 @@ function _dvViewDistOverridesFromF(f){
   return{landmark:f._bkDistKm,sea:f._seaDistKm,burjalarab:f._burjAlArabDistKm,atlantis:f._atlantisDistKm,opera:f._operaDistKm};
 }
 var VIEW_WEIGHT_LADDER=[1.0,0.35,0.15];
+// Shared grade-relative "typical floor" baseline — Ultra/A+ towers run
+// 40-80 floors so a flat baseline understates them; also used below by
+// the view-floor-credibility curve so it stays consistent with the
+// pre-existing general floor premium (computeAdjustedPSF's own fP).
+var GRADE_FLOOR_BASE={"Ultra":35,"A+":25,"A":20,"A-":15,"B+":12,"B":10,"C":8};
+// View-floor credibility (2026-07-26, real-research-backed): a declared
+// view TYPE (e.g. "Full Sea View") isn't equally TRUE at every floor in
+// a tower — real market evidence found via research states a genuinely
+// blocked waterfront view can cost 15-40% of its view-premium value, and
+// a blocked skyline/landmark view 10-30% (cited sources: MILLION Luxury/
+// view-corridor reporting). Low floors in a tall building are
+// statistically more likely to have SOME obstruction (neighboring
+// low/mid-rise structures, trees, podium roofs) than high floors — so
+// this scales the view's OWN premium by how credible/complete the claim
+// is likely to be at this specific floor, using the SAME grade-relative
+// baseline as the general floor premium (fP) below, so the two stay
+// internally consistent. This is a SEPARATE effect from fP: fP rewards
+// height for its own sake (noise/privacy/prestige, applies with ANY view
+// or none); this only discounts the credibility of the SPECIFIC VIEW
+// CLAIM. Deliberately NOT applied to "immediate/local" view types (Pool/
+// Garden/Community) where floor height doesn't change whether the view
+// is visible at all, and NOT applied to villas (no floor number, ground-
+// level by definition). Genuine, disclosed limitation: floor is only a
+// statistical PROXY for obstruction risk — a very tall neighboring tower
+// can still block a "high floor" view, and we have no per-building
+// neighboring-structure data to know that for certain; this doesn't
+// pretend otherwise, it uses the best available proxy signal.
+var _DV_LOCAL_VIEW_KEYWORDS=["garden","park","pool","community"];
+var _DV_WATER_VIEW_KEYWORDS=["sea","beach","palm","marina","canal","lagoon","creek harbour","lake","atlantis","burj al arab"];
+function _dvViewFloorCredibility(view,floorN,grade,isVilla){
+  if(isVilla||!floorN||floorN<=0)return 1.0;
+  var vl=(view||"").toLowerCase();
+  if(_DV_LOCAL_VIEW_KEYWORDS.some(function(k){return vl.indexOf(k)>=0;}))return 1.0;
+  var isWater=_DV_WATER_VIEW_KEYWORDS.some(function(k){return vl.indexOf(k)>=0;});
+  var floorFloor=isWater?0.70:0.80; // worst-case (very low floor) multiplier
+  var base=GRADE_FLOOR_BASE[grade]||15;
+  var ratio=Math.max(0,floorN/base);
+  if(ratio>=1)return 1.0;
+  return floorFloor+(1.0-floorFloor)*ratio;
+}
 // distOverrides: optional {kind: distKm} map of live-geocoded, building-
 // level distances (see getViewDistanceInfo() above) — generalized from the
 // original 2 positional params (bkDistKmOverride/seaDistKmOverride) so
 // Stage 3's 3 new landmark kinds (burjalarab/atlantis/opera) slot in
-// without a 3rd/4th/5th positional param each.
-function _dvCombineViewPremiums(views,area,distOverrides,getRawPremium){
+// without a 3rd/4th/5th positional param each. floorInfo: optional
+// {floorN,grade,isVilla} for the floor-credibility multiplier above —
+// omitted entirely (undefined) is treated as "no floor data," i.e. 1.0.
+function _dvCombineViewPremiums(views,area,distOverrides,getRawPremium,floorInfo){
   var seen={};
   var items=[];
   (views||[]).forEach(function(v){
@@ -659,7 +701,8 @@ function _dvCombineViewPremiums(views,area,distOverrides,getRawPremium){
     seen[key]=true;
     var raw=getRawPremium(v);
     var distInfo=getViewDistanceInfo(v,area,distOverrides);
-    items.push({view:v,rawPremium:raw,distInfo:distInfo,effectivePremium:raw*distInfo.mult});
+    var floorMult=floorInfo?_dvViewFloorCredibility(v,floorInfo.floorN,floorInfo.grade,floorInfo.isVilla):1.0;
+    items.push({view:v,rawPremium:raw,distInfo:distInfo,floorMult:floorMult,effectivePremium:raw*distInfo.mult*floorMult});
   });
   items.sort(function(a,b){return b.effectivePremium-a.effectivePremium;});
   var combined=0;
@@ -849,15 +892,20 @@ function computeAdjustedPSF(f,buildingVal,liveData){
   // Above-baseline views get premium; below-baseline views get discount.
   // VIEW_P values are 0-38% (no negatives). Differential vs grade baseline creates spread. Asymmetric clamp: -15%/+25%.
   const GRADE_BASE_VIEW={"Ultra":0.25,"A+":0.14,"A":0.08,"A-":0.04,"B+":0.02,"B":0,"C":0};
+  const isVilla=f.propCategory==="villa";
+  const floorN=parseInt(f.floor)||0;
   var _viewGetRaw=function(v){return VIEW_P[v]||VIEW_P[v+" View"]||(v&&VIEW_P[v.replace(/ View$/,"")])||0;};
   // Combines up to 3 simultaneous views (f.view/f.view2/f.view3 — see the
   // Analyzer's "+ Add Another View" UI in js/market.js), each independently
-  // distance-dampened first (see getViewDistanceInfo above), then ranked and
-  // weighted (dominant view full weight, 2nd/3rd a smaller marginal bonus —
-  // see _dvCombineViewPremiums's own comment for why a flat average is
-  // wrong). A single selected view (the common case) reduces to exactly the
-  // old single-view behavior — VIEW_WEIGHT_LADDER[0]===1.0.
-  const _viewCombo=_dvCombineViewPremiums([f.view,f.view2,f.view3],f.area,_dvViewDistOverridesFromF(f),_viewGetRaw);
+  // distance-dampened first (see getViewDistanceInfo above) AND floor-
+  // credibility-dampened (see _dvViewFloorCredibility above — a claimed
+  // view isn't equally true at every floor), then ranked and weighted
+  // (dominant view full weight, 2nd/3rd a smaller marginal bonus — see
+  // _dvCombineViewPremiums's own comment for why a flat average is wrong).
+  // A single selected view at a floor at/above the grade baseline (the
+  // common case) reduces to exactly the old single-view behavior —
+  // VIEW_WEIGHT_LADDER[0]===1.0 and floorMult===1.0.
+  const _viewCombo=_dvCombineViewPremiums([f.view,f.view2,f.view3],f.area,_dvViewDistOverridesFromF(f),_viewGetRaw,{floorN:floorN,grade:bData&&bData.g,isVilla:isVilla});
   const rawVP=_viewCombo.combinedRawVP;
   const viewDistInfo=_viewCombo.breakdown[0]?_viewCombo.breakdown[0].distInfo:{mult:1.0,distKm:null,kind:null};
   let vP;
@@ -871,12 +919,9 @@ function computeAdjustedPSF(f,buildingVal,liveData){
   } else {
     vP=rawVP;
   }
-  const isVilla=f.propCategory==="villa";
-  const floorN=parseInt(f.floor)||0;
   // Villas: always fP=0 (ground-level, no floor premium)
   // Apartments in DB: differential vs grade-dependent baseline floor
   // Ultra/A+ towers are typically 40-80 floors; using floor 15 baseline overstates premium
-  const GRADE_FLOOR_BASE={"Ultra":35,"A+":25,"A":20,"A-":15,"B+":12,"B":10,"C":8};
   let fP=0;
   if(!isVilla){
     if(bData&&floorN>0){
@@ -1419,16 +1464,16 @@ function computeRentalValuation(f){
   // function's own comment (near computeAdjustedPSF above) for why a flat
   // average across multiple views is wrong. A single selected view (the
   // common case) reduces to exactly the old single-view ladder's value.
-  var _viewComboR=_dvCombineViewPremiums([f.view,f.view2,f.view3],f.area,_dvViewDistOverridesFromF(f),_dvRentalViewPremium);
+  var _rentFloorN=parseInt(f.floor)||0;
+  var _viewComboR=_dvCombineViewPremiums([f.view,f.view2,f.view3],f.area,_dvViewDistOverridesFromF(f),_dvRentalViewPremium,{floorN:_rentFloorN,grade:bData&&bData.g,isVilla:isVilla});
   var viewAdj=1.0+_viewComboR.combinedRawVP;
   var viewDistInfo=_viewComboR.breakdown[0]?_viewComboR.breakdown[0].distInfo:{mult:1.0,distKm:null,kind:null};
   estRent=Math.round(estRent*viewAdj);
   // Floor premium for apartments (higher floors get ~2-5% more rent)
-  if(!isVilla&&f.floor){
-    var fl=parseInt(f.floor)||0;
-    if(fl>=40)estRent=Math.round(estRent*1.05);
-    else if(fl>=25)estRent=Math.round(estRent*1.03);
-    else if(fl>=15)estRent=Math.round(estRent*1.02);
+  if(!isVilla&&_rentFloorN){
+    if(_rentFloorN>=40)estRent=Math.round(estRent*1.05);
+    else if(_rentFloorN>=25)estRent=Math.round(estRent*1.03);
+    else if(_rentFloorN>=15)estRent=Math.round(estRent*1.02);
   }
   // Grade/brand premium: branded residences (Address, Vida, Palace, Armani, etc.)
   // command higher rents due to hotel services, concierge, premium amenities

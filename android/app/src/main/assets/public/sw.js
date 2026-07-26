@@ -1,17 +1,17 @@
-var CACHE_NAME='dubaival-v73';
+var CACHE_NAME='dubaival-v74';
 var PRECACHE=[
   '/logo.png',
   '/manifest.json',
   '/js/data-residential.js?v=20260726d',
   '/js/data-commercial.js?v=20260629b',
   '/js/valuation-db.js?v=20260623',
-  '/js/valuation.js?v=20260726e',
+  '/js/valuation.js?v=20260726f',
   '/js/api.js?v=20260726b',
   '/js/core.js?v=20260726a',
   '/js/auth.js?v=20260703c',
   '/js/inbox.js?v=20260704b',
   '/js/app.js?v=20260725b',
-  '/js/market.js?v=20260726d',
+  '/js/market.js?v=20260726e',
   '/js/mortgage.js?v=20260629b',
   '/js/portfolio.js?v=20260726a',
   '/js/map.js?v=20260706b',

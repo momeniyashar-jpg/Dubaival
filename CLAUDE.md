@@ -965,6 +965,108 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-26 (session continuing, follow-up — real floor-based view
+  credibility multiplier: a claimed view isn't equally TRUE at every
+  floor, now dampened for low floors using real cited evidence)**: User
+  raised a sharp follow-up to the coefficient-accuracy audit: the real
+  cited "28-35%" range for Burj Khalifa View might genuinely be explained
+  by two DIFFERENT units on the same floor/building having different
+  actual view completeness (his own example: Fountain Views Tower 3,
+  floor 39, unit 01 has a fully clear Burj Khalifa+Fountain sightline from
+  the living room while unit 03 on the same floor has a partial/deviated
+  one) — and asked whether the formula could be designed to capture this
+  using real scientific/industry sources, while also asking whether this
+  was already covered by something else in the engine.
+  - **Answered directly before building anything**: confirmed the EXISTING
+    discrete Full/Partial view-tier system (e.g. "Burj Khalifa View" 28%
+    vs "Partial Burj View" 15%) already models exactly the user's own
+    example — it's the agent's job to self-select the tier that matches
+    their specific unit's real sightline, since no data source records
+    per-unit-line sightlines at scale (DLD doesn't track this, and
+    manually surveying 9,443 buildings' floor plates isn't feasible).
+    What was genuinely MISSING and buildable: a CONTINUOUS floor-based
+    multiplier WITHIN a single chosen view tier — today "Full Sea View"
+    gets the identical 25% whether the unit is on floor 5 or floor 60,
+    even though real industry evidence shows lower floors are
+    statistically more likely to have some obstruction (neighboring
+    structures/trees/podiums) than higher ones.
+  - **Real cited evidence found before designing the curve**: a genuinely
+    blocked WATERFRONT view costs 15-40% of its view-premium value, and a
+    blocked SKYLINE/landmark view 10-30% (industry sightline-quality
+    reporting, cited below) — used as the anchor for the curve's
+    worst-case (lowest-floor) multiplier: 0.70 for water-type views, 0.80
+    for skyline/landmark-type views, both reaching 1.0 (full credit) once
+    the floor reaches the SAME grade-relative baseline the pre-existing
+    general floor premium (`fP`) already uses (Ultra=35, A+=25, A=20,
+    A-=15, B+=12, B=10, C=8) — reused for internal consistency rather than
+    inventing a second baseline system.
+  - **`js/valuation.js`** — `GRADE_FLOOR_BASE` promoted from a per-call
+    local inside `computeAdjustedPSF()` to a shared module-level constant.
+    New `_dvViewFloorCredibility(view,floorN,grade,isVilla)`: returns 1.0
+    for villas (no floor number — ground-level by definition), for a
+    missing floor entry (matches the existing "if floor not entered,
+    assume baseline" convention), and for "immediate/local" view types
+    (Pool/Garden/Community — floor height doesn't change whether you see
+    your own building's pool) via `_DV_LOCAL_VIEW_KEYWORDS`; classifies
+    the rest as water-type (`_DV_WATER_VIEW_KEYWORDS` — sea/beach/palm/
+    marina/canal/lagoon/creek harbour/lake/atlantis/burj al arab) vs.
+    skyline/landmark-type (everything else — Burj Khalifa/Fountain/Opera/
+    golf/boulevard/skyline/etc.), then linearly interpolates from the
+    tier's worst-case floor value up to 1.0 at the grade baseline.
+    `_dvCombineViewPremiums()` gained an optional 5th `floorInfo`
+    (`{floorN,grade,isVilla}`) param, multiplying each view's effective
+    premium by its own floor credibility alongside the existing distance
+    dampening — a genuinely SEPARATE effect from `fP` (which rewards
+    height generally, view or no view) rather than double-counting the
+    same signal. Both call sites (`computeAdjustedPSF()`,
+    `computeRentalValuation()`) now pass real `floorN`/`bData.g`/`isVilla`
+    — `computeAdjustedPSF()` needed `isVilla`/`floorN` moved earlier in the
+    function (they were previously computed AFTER the view-combining
+    block) to be available at the right point.
+  - **`js/market.js`** — the existing "View Premium Breakdown" disclosure
+    card (built for the multi-view feature) extended to ALSO show for a
+    SINGLE selected view whenever its floor-credibility multiplier
+    meaningfully discounts it (`floorMult<0.97`) — previously gated to
+    only ever appear with 2+ views. Each row's subtitle now includes
+    "floor factor ×0.XX" alongside the existing distance-km info; the
+    card's title/closing line read "Floor-Adjusted" instead of "N Views
+    Combined" for the single-view case, so the two scenarios don't share
+    confusing copy.
+  - **Deliberately NOT extended to `computeSmartRent()`** — a separate,
+    simpler, single-view-only rent-estimate function (used by Quick Check
+    and cross-checks) with its own inline view-premium ladder that never
+    went through `_dvCombineViewPremiums` at all, even before today.
+    Extending floor-credibility there would need restructuring that
+    function's view logic first — flagged here as a disclosed, deliberate
+    omission rather than a silent gap, out of scope for this specific ask.
+  - Verified: `node -c` on both touched files; a Node vm-sandbox test (10
+    checks) confirming villas/no-floor/local-views all correctly return
+    1.0, a water view at floor 1 in an Ultra tower computes to ~0.709 (near
+    the 0.70 floor value) while the same view at/above the Ultra baseline
+    (35) returns exactly 1.0, a skyline view follows the same pattern with
+    its 0.80 floor value; a REGRESSION check confirming the exact Fountain
+    Views Tower 3/floor 39/Burj Khalifa View case from earlier today is
+    BYTE-IDENTICAL (vP still 3, floorMult exactly 1.0, since floor 39 sits
+    above the Ultra baseline of 35) — zero disruption to already-verified
+    results; a second case at floor 5 in the same building showing a real,
+    lower vP (monotonically below the floor-39 case); the rental engine
+    showing the identical monotonic pattern (floor 40 rent ≥ floor 3 rent
+    for the same Full Canal View unit); and a 411-building sweep across the
+    full `DB` with mixed floors/grades/views (0 errors, 0 NaN); plus 2
+    real-browser Playwright passes confirming the actual Analyzer submit
+    flow at floor 5 shows the new "Floor-Adjusted" breakdown card with
+    real floorMult/vP numbers matching the Node test, and the SAME
+    building/view at floor 39 correctly shows NO breakdown card (no
+    false-positive disclosure when nothing needs disclosing) — zero
+    non-network console errors in both passes.
+  - Cache versions bumped: `js/valuation.js` to `?v=20260726f`,
+    `js/market.js` to `?v=20260726e` in both `index.html` and `sw.js`'s
+    `PRECACHE` array; `sw.js`'s `CACHE_NAME` bumped `dubaival-v73`→
+    `dubaival-v74`. Rebuilt `www/` and manually synced both touched files
+    into `android/app/src/main/assets/public/`, confirmed byte-identical
+    (`npx cap sync android` failed as always in this sandbox — no Android
+    SDK).
+
 - **2026-07-26 (session continuing, follow-up — view coefficient research
   audit: real market/academic evidence gathered for every view premium,
   2 real corrections applied, rest confirmed or left as honest estimates)**:

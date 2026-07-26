@@ -2640,30 +2640,36 @@ function renderAnalyzerResult(wrap){
     wrap.appendChild(bWrap);
   })();
 
-  // -- MULTI-VIEW PREMIUM BREAKDOWN (2026-07-26) --
-  // Only shown when 2-3 simultaneous views were selected — makes the
-  // dominant+weighted-secondary+weighted-tertiary combination transparent
-  // (never a silent number) so the user can see exactly why, e.g., a Sea
-  // View + Sheikh Zayed Road View combination lands where it does, rather
-  // than assuming a flat average of the two (which this engine deliberately
-  // does NOT use, since that can under-value the combination below the
-  // single best view alone).
+  // -- MULTI-VIEW / VIEW-QUALITY PREMIUM BREAKDOWN (2026-07-26, extended
+  // same day with real-research-backed floor credibility) --
+  // Shown whenever there's something real to disclose beyond a single
+  // flat premium: 2-3 simultaneous views (dominant+weighted-secondary+
+  // weighted-tertiary combination — never a flat average, which can
+  // under-value the combination below the single best view alone), OR a
+  // single view whose floor-credibility multiplier meaningfully discounts
+  // it (a claimed view isn't equally true at every floor — see
+  // _dvViewFloorCredibility() in js/valuation.js) — so a lower floor's
+  // reduced view premium is a disclosed adjustment, never a silent number.
   (function(){
-    if(!val.viewBreakdown||val.viewBreakdown.length<2)return;
+    if(!val.viewBreakdown||val.viewBreakdown.length===0)return;
+    var _anyFloorDamp=val.viewBreakdown.some(function(it){return it.floorMult!=null&&it.floorMult<0.97;});
+    if(val.viewBreakdown.length<2&&!_anyFloorDamp)return;
     var vbWrap=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px 14px",marginTop:"10px"}});
-    vbWrap.appendChild(div({color:cl.gold,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"View Premium Breakdown · "+val.viewBreakdown.length+" Views Combined"));
+    var _vbTitle=val.viewBreakdown.length>1?"View Premium Breakdown · "+val.viewBreakdown.length+" Views Combined":"View Premium Breakdown · Floor-Adjusted";
+    vbWrap.appendChild(div({color:cl.gold,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},_vbTitle));
     val.viewBreakdown.forEach(function(it,i){
       var row=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:i<val.viewBreakdown.length-1?"1px solid "+cl.border:"none"}});
       var left=el("div",{});
       var tierLabel=i===0?"Dominant":i===1?"Secondary":"Tertiary";
+      var subParts=[val.viewBreakdown.length>1?(tierLabel+" · weight ×"+it.weight.toFixed(2)):null,it.distInfo&&it.distInfo.kind?it.distInfo.distKm.toFixed(1)+"km":null,it.floorMult!=null&&it.floorMult<0.995?"floor factor ×"+it.floorMult.toFixed(2):null].filter(Boolean);
       left.appendChild(div({color:cl.white,fontSize:"11.5px",fontFamily:"'Inter',sans-serif",fontWeight:"600"},it.view));
-      left.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},tierLabel+" · weight ×"+it.weight.toFixed(2)+(it.distInfo&&it.distInfo.kind?" · "+it.distInfo.distKm.toFixed(1)+"km":"")));
+      left.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},subParts.join(" · ")));
       row.appendChild(left);
       row.appendChild(span({color:cl.gold,fontSize:"12px",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"},"+"+(it.effectivePremium*100).toFixed(1)+"%"));
       vbWrap.appendChild(row);
     });
     var totalRow=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0 0",marginTop:"4px",borderTop:"1px solid "+cl.gold}});
-    totalRow.appendChild(span({color:cl.sub,fontSize:"10.5px",fontFamily:"'Inter',sans-serif"},"Combined View Premium (not a flat average)"));
+    totalRow.appendChild(span({color:cl.sub,fontSize:"10.5px",fontFamily:"'Inter',sans-serif"},val.viewBreakdown.length>1?"Combined View Premium (not a flat average)":"Floor-Adjusted View Premium"));
     var _totalPct=val.viewBreakdown.reduce(function(s,it){return s+it.effectivePremium*it.weight;},0);
     totalRow.appendChild(span({color:cl.green,fontSize:"13px",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"},"+"+(_totalPct*100).toFixed(1)+"%"));
     vbWrap.appendChild(totalRow);
