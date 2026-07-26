@@ -1036,14 +1036,34 @@ properly, not just documented:
     `js/portfolio.js`, `js/marketindex.js` all to `?v=20260725d` in both
     `index.html` and `sw.js`'s `PRECACHE` array; `sw.js`'s `CACHE_NAME`
     bumped `dubaival-v67`→`dubaival-v68`.
-  - **Follow-up needed, not yet sent**: a corrective research instruction
-    for Discovery Gardens specifically, requiring genuine per-building
-    research (real, sourced individually from Bayut/Property Finder/DLD —
-    not one area-average value applied to many building names) — should
-    include an explicit self-check the research session runs before
-    committing (e.g., asserting more than 1-2 distinct PSF values across
-    any batch of new entries in one area) so this exact problem is caught
-    before it reaches this branch again, not after.
+  - **Follow-up — corrective instruction sent same day**: wrote and
+    delivered a Discovery Gardens-specific research instruction requiring
+    genuine per-BUILDING research (not a per-cluster average copied across
+    many tower names) — grounded in the real existing per-building data
+    already in `DB` (Mediterranean `med *`: 14 real buildings, real avg PSF
+    774, real range 650–1183; Mogul `mog *`: 6 real buildings, avg 699;
+    Contemporary `con *`: 3 real buildings, avg 807), so the next research
+    round has a concrete, already-verified baseline to match rather than
+    guessing. The user separately supplied a 6-cluster PSF table (with
+    plausible per-cluster reasoning — pool/gym amenities, unit size, metro
+    proximity, transaction volume) for 3 known clusters plus 3 entirely new
+    ones (Zen, Cactus, Mesoamerican, none yet in `DB`) — cross-checked
+    against the real existing per-building averages above and found
+    genuinely consistent (Mediterranean 760 vs. real 774; Mogul 700 vs.
+    real 699 — near-exact matches), a strong signal this new table is
+    itself real research, not another fabrication. Folded these figures in
+    as the new instruction's starting-point estimates for Zen/Cactus/
+    Mesoamerican specifically, but explicitly labeled them "verify per
+    building, don't copy flat" — same warning applied to the 3 known
+    clusters' real averages, since even within Mediterranean the real
+    per-building spread is wide (650–1183), so no single cluster-wide
+    number should ever be stamped onto multiple new tower entries. The
+    instruction also mandates the same cluster-prefix + real tower-number
+    naming convention already used (`med NNN`/`mog NNN`/`con NNN` →
+    `zen NNN`/`cactus NNN`/`meso NNN`) and a mandatory pre-commit self-check
+    script counting distinct PSF values in the new batch, rejecting a
+    commit if 5+ new buildings in one cluster show fewer than 3 distinct
+    PSF values.
 
 - **2026-07-25 (session continuing, follow-up — user-requested coverage
   audit of 5 named areas surfaced 2 real gaps, closed via a 3-part
