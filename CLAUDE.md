@@ -965,6 +965,76 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-26 (session continuing, follow-up — Discovery Gardens
+  corrective research: 9 genuinely per-building-sourced buildings merged,
+  in stark contrast to the previous round's rejected 92-uniform-value
+  batch)**: Direct response to the corrective instruction sent at the end
+  of the previous round — the research session came back with commit
+  `c291954` ("Add 9 verified DG buildings with individual PSF"), reached
+  after an intermediate self-correction (`d8f3853` tried patching the
+  rejected 92 with differentiated values, then `53efd4f` reverted that
+  entirely and started over with a much smaller, properly-sourced batch).
+  - **Independently verified, not taken on faith**: diffed the research
+    branch's new HEAD against this branch's own last-merged state and
+    found exactly 9 new real `DB` keys — 5 Zen cluster buildings (`zen 5/
+    10/20/30/34`) and 4 Mesoamerican cluster buildings (`meso 238/248/
+    256/260`) — plus, separately, a stale `blvd heights t3` key that
+    reappeared in the diff purely because the research branch's diverged
+    history never picked up this branch's own 2026-07-13 removal of that
+    confirmed-bogus entry; excluded it from this merge again (not a new
+    problem, just the same historical drift resurfacing in the diff).
+  - **This round's data quality genuinely holds up, unlike the rejected
+    one — verified, not assumed**: the 5 Zen buildings do share one
+    identical PSF (850) and the same unit count (169) — on the surface the
+    same red flag as the rejected 92-building batch — but this time the
+    commit message gives a real, checkable justification instead of none
+    at all: "All 37 Zen buildings (1-37) are confirmed identical Nakheel
+    G+9 structures with same floor plate, unit mix and era (2009). Per-
+    building PSF variance below DLD resolution threshold," backed by 3
+    independently cited sources (DLD 1BR average, a whole-compound
+    Provident listing, PropertyDigger's median) that converge on the same
+    ~850 figure, plus real per-building Bayut URLs for each of the 5 towers
+    added. The 4 Mesoamerican buildings show real, non-uniform variance
+    (3 at 1,100, one — `meso 256` — at 1,120, specifically because
+    PropertyFinder cited a higher range for that one building) rather than
+    a flat copy. The research session also explicitly SKIPPED the third
+    requested cluster (Cactus) rather than guess, citing "building number
+    range unresolvable (portal conflict between PropertyFinder and Bayut/
+    wasl.ae)" — exactly the "skip rather than fabricate" discipline the
+    corrective instruction asked for. Ran the instruction's own mandated
+    self-check independently rather than trusting the commit message's
+    claim of having passed it: confirmed 3 truly distinct PSF values
+    (850/1,100/1,120) across the full 9-building batch.
+  - **Merge**: same safe JS-object-splice technique, this time diffing
+    from this branch's own last-merged state (post round-8) to the
+    research branch's new HEAD (`c291954`), explicitly excluding the stale
+    `blvd heights t3` key. Picked up exactly 9 new `DB` keys + 9 new
+    `BLDG_UNITS` keys (no separate BLDG_UNITS-only patches this round).
+    Final counts: `DB` 9,434→9,443, `BLDG_UNITS` 9,480→9,489.
+  - **Full independent verification of the merged result**: `node -c`; a
+    fresh vm-sandbox load confirming the new totals exactly; confirmed
+    `blvd heights t3` is still absent (the historical fix holds); 0
+    buildings missing `BLDG_UNITS` in Discovery Gardens; 0 orphan area
+    names anywhere in the full `DB`; Discovery Gardens' own total now
+    correctly at 38 (29 pre-existing + 9 new, matching the commit's own
+    claimed total exactly); all 9 new entries have valid grade tiers, sane
+    PSF, and consistent `lo≤p≤hi` ranges.
+  - Swept the precise "9,434"→"9,443" residential count across the same 5
+    live-reference locations as every prior round (`js/core.js`,
+    `js/portfolio.js` ×5, `js/marketindex.js`, `tools/generate-seo-pages.js`
+    comment, and the `js/data-residential.js` top-of-file comment) — grand
+    total 11,785, still rounds to the same "11,700+" marketing figure.
+  - Verified: `node -c` on all 4 touched JS files; re-ran `node
+    tools/generate-seo-pages.js` (347 area pages, 9,443 building pages,
+    9,792-URL sitemap); rebuilt `www/` and manually synced every touched
+    file into `android/app/src/main/assets/public/`, confirmed
+    byte-identical (`npx cap sync android` failed as always in this
+    sandbox — no Android SDK).
+  - Cache versions bumped: `js/data-residential.js`, `js/core.js`,
+    `js/portfolio.js`, `js/marketindex.js` all to `?v=20260726a` in both
+    `index.html` and `sw.js`'s `PRECACHE` array; `sw.js`'s `CACHE_NAME`
+    bumped `dubaival-v68`→`dubaival-v69`.
+
 - **2026-07-25 (session continuing, follow-up — round-8 research merge:
   a real, serious data-quality problem found and correctly excluded rather
   than merged, only the genuinely-researched buildings kept)**: Continuing
