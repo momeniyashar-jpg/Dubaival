@@ -128,8 +128,15 @@ async function _dvRunAgentAI(promptObj,area,stateKey){
 // above already own, so the three async upgrades can never race or clobber
 // each other.
 function _dvRefineViewDistance(f,stateKey,isRental,fnCompute){
-  var kind=typeof _dvIsDistanceSensitiveView==="function"?_dvIsDistanceSensitiveView(f.view):null;
-  if(!kind||typeof resolveViewDistance!=="function")return;
+  // Multi-view (2026-07-26): fire this Tier-2 refinement if ANY of the up
+  // to 3 selected views (view/view2/view3) is landmark/sea-tied — not just
+  // the primary one — since a secondary/tertiary distance-sensitive view
+  // still deserves a building-level (not area-level) distance figure once
+  // one is available.
+  var anyDistSensitive=typeof _dvIsDistanceSensitiveView==="function"&&(
+    _dvIsDistanceSensitiveView(f.view)||_dvIsDistanceSensitiveView(f.view2)||_dvIsDistanceSensitiveView(f.view3)
+  );
+  if(!anyDistSensitive||typeof resolveViewDistance!=="function")return;
   resolveViewDistance(f.building,f.area).then(function(dist){
     if(!dist||!analyzerState[stateKey])return;
     f._bkDistKm=dist.bkDistKm;f._seaDistKm=dist.seaDistKm;
@@ -141,12 +148,46 @@ function _dvRefineViewDistance(f,stateKey,isRental,fnCompute){
     var updated=fnCompute(f,f.building,analyzerState._liveData||null);
     if(!updated)return;
     if(isRental){
-      ["estRent","rentLow","rentHigh","vsPct","verdict","suggestedRent","confScore","confTier","estRentPSF","estMonthly","netRent","viewAdj","viewDistInfo"].forEach(function(k){analyzerState[stateKey][k]=updated[k];});
+      ["estRent","rentLow","rentHigh","vsPct","verdict","suggestedRent","confScore","confTier","estRentPSF","estMonthly","netRent","viewAdj","viewDistInfo","viewBreakdown"].forEach(function(k){analyzerState[stateKey][k]=updated[k];});
     }else{
-      ["adjPSF","psfLo","psfHi","fairPrice","distressPrice","goodPrice","overpricedAt","verdict","vsPct","suggestedOffer","confScore","confTier","priceLow","priceHigh","vP","viewDistInfo"].forEach(function(k){analyzerState[stateKey][k]=updated[k];});
+      ["adjPSF","psfLo","psfHi","fairPrice","distressPrice","goodPrice","overpricedAt","verdict","vsPct","suggestedOffer","confScore","confTier","priceLow","priceHigh","vP","viewDistInfo","viewBreakdown"].forEach(function(k){analyzerState[stateKey][k]=updated[k];});
     }
     render();
   }).catch(function(){});
+}
+
+// Multi-view support (2026-07-26): a real unit can have 2-3 simultaneous
+// views (e.g. a distant Sea View AND a Sheikh Zayed Road View on the same
+// facade) — combined via _dvCombineViewPremiums() in valuation.js using a
+// dominant+weighted-secondary+weighted-tertiary formula, never a naive
+// average (which can produce a LOWER combined premium than the single best
+// view alone). This progressive-disclosure UI keeps the common single-view
+// case uncluttered: View 2 only appears once View 1 has a real selection,
+// View 3 only once View 2 does — via a small "+ Add Another View" link
+// rather than always showing 3 empty dropdowns.
+function _dvRenderViewFields(container,cl,f,viewOptions,onChange){
+  var change=onChange||function(){render();};
+  container.appendChild(fld("View",mkSelect(S(),viewOptions,f.view||"Not specified",function(v){analyzerState.f.view=v;change();})));
+  var hasV1=f.view&&f.view!=="Not specified";
+  if(!hasV1)return;
+  var hasV2=f.view2&&f.view2!=="Not specified";
+  var _addLink=function(text,onClick){
+    var a=el("div",{style:{color:cl.gold,fontSize:"11px",fontFamily:"'Inter',sans-serif",fontWeight:"600",cursor:"pointer",marginTop:"-8px",marginBottom:"14px"}},text);
+    a.addEventListener("click",onClick);
+    return a;
+  };
+  if(f._showView2||hasV2){
+    container.appendChild(fld("2nd View (optional)",mkSelect(S(),viewOptions,f.view2||"Not specified",function(v){analyzerState.f.view2=v;change();})));
+    if(hasV2){
+      if(f._showView3||(f.view3&&f.view3!=="Not specified")){
+        container.appendChild(fld("3rd View (optional)",mkSelect(S(),viewOptions,f.view3||"Not specified",function(v){analyzerState.f.view3=v;change();})));
+      } else {
+        container.appendChild(_addLink("+ Add a Third View",function(){analyzerState.f._showView3=true;render();}));
+      }
+    }
+  } else {
+    container.appendChild(_addLink("+ Add Another View",function(){analyzerState.f._showView2=true;render();}));
+  }
 }
 
 function getAgentAIPrompt(propDesc,val,mode,area){
@@ -1687,8 +1728,8 @@ function renderAnalyzer(){
     });
     formCard.appendChild(floorRow);
 
-    // View
-    formCard.appendChild(fld("View",mkSelect(S(),["Not specified","Full Sea View","Beach Access View","Palm View","Partial Sea View","Golf View","Lagoon View","Creek Harbour View","Lake View","Garden/Park View","Pool View","Skyline View","Boulevard View","Community View"],f.view||"Not specified",function(v){analyzerState.f.view=v;})));
+    // View (multi-view: up to 3 simultaneous views, revealed progressively)
+    _dvRenderViewFields(formCard,cl,f,["Not specified","Full Sea View","Beach Access View","Palm View","Partial Sea View","Golf View","Lagoon View","Creek Harbour View","Lake View","Garden/Park View","Pool View","Skyline View","Boulevard View","Community View"]);
 
         // Private Pool + Single Row + Parking
     var ppRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"}});
@@ -1946,7 +1987,8 @@ function renderAnalyzer(){
     // Floor + View
     const fvRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"}});
     const flBox=el("div",{}); flBox.appendChild(lbl("Floor Number")); flBox.appendChild(inp(I(),"e.g. 19","number",f.floor,function(v){analyzerState.f.floor=v;})); fvRow.appendChild(flBox);
-    const vwBox=el("div",{}); vwBox.appendChild(lbl("View")); vwBox.appendChild(mkSelect(S(),["Not specified","Burj Khalifa + Fountain","Fountain View","Burj Khalifa View","Full Sea View","Beach Access View","Palm View","Marina View","Full Canal View","Partial Burj View","Partial Sea View","Golf View","Boulevard View","Lagoon View","Creek Harbour View","Lake View","Skyline View","Partial Canal View","Sheikh Zayed Road View","Garden/Park View","Pool View","Community View"],f.view||"Not specified",function(v){analyzerState.f.view=v;})); fvRow.appendChild(vwBox);
+    // Multi-view: up to 3 simultaneous views, revealed progressively
+    const vwBox=el("div",{}); _dvRenderViewFields(vwBox,cl,f,["Not specified","Burj Khalifa + Fountain","Fountain View","Burj Khalifa View","Full Sea View","Beach Access View","Palm View","Marina View","Full Canal View","Partial Burj View","Partial Sea View","Golf View","Boulevard View","Lagoon View","Creek Harbour View","Lake View","Skyline View","Partial Canal View","Sheikh Zayed Road View","Garden/Park View","Pool View","Community View"]); fvRow.appendChild(vwBox);
     formCard.appendChild(fvRow);
     // Bathrooms
     const bathRow=el("div",{style:{marginBottom:"12px"}});
@@ -2562,15 +2604,22 @@ function renderAnalyzerResult(wrap){
       {l:"Auto-Calibration",v:val.calFactor!==1.0?"×"+val.calFactor.toFixed(2):"Pending",ok:val.calFactor!==1.0},
       {l:val.momSource==="real"?"Live Market Trend":"AI Market Trend",v:val.hasMomentum?"Active ×"+val.momFactor.toFixed(2):"No data",ok:val.hasMomentum},
       {l:"Developer Furnished",v:val.isDevFurnished?"Yes — "+furnLabel:"No — "+furnLabel,ok:true},
-      {l:"View Specified",v:analyzerState.f.view!=="Not specified"?analyzerState.f.view:"Not specified",ok:analyzerState.f.view!=="Not specified"},
+      // Multi-view (2026-07-26): show every selected view, not just the
+      // primary one, when the unit has 2-3 simultaneous views.
+      (function(){
+        var _views=[analyzerState.f.view,analyzerState.f.view2,analyzerState.f.view3].filter(function(v){return v&&v!=="Not specified";});
+        return{l:"View Specified",v:_views.length?_views.join(" + "):"Not specified",ok:_views.length>0};
+      })(),
       // View-distance dampening (added 2026-07-26): a "Burj Khalifa View"/
       // "Full Sea View" claim used to get the same flat premium regardless
       // of how far the building actually is from that landmark/coastline —
       // this row makes the real, applied distance-based adjustment visible
       // rather than a silent change to the numbers. Building-level (real
       // Google-geocoded coordinate) is more precise than the always-on
-      // area-centroid default; shown once resolved.
-      val.viewDistInfo&&val.viewDistInfo.kind&&val.viewDistInfo.distKm!=null?{l:"View Distance Adjustment",v:(analyzerState.f._bkDistKm!=null||analyzerState.f._seaDistKm!=null?"Building-level · ":"Area-level · ")+val.viewDistInfo.distKm.toFixed(1)+"km · ×"+val.viewDistInfo.mult.toFixed(2)+" premium",ok:val.viewDistInfo.mult>=0.5}:null,
+      // area-centroid default; shown once resolved. With 2-3 simultaneous
+      // views (see viewBreakdown below for the full combination), this
+      // shows the DOMINANT (highest-effective-premium) view's own distance.
+      val.viewDistInfo&&val.viewDistInfo.kind&&val.viewDistInfo.distKm!=null?{l:(val.viewBreakdown&&val.viewBreakdown.length>1?"Dominant View Distance":"View Distance Adjustment"),v:(analyzerState.f._bkDistKm!=null||analyzerState.f._seaDistKm!=null?"Building-level · ":"Area-level · ")+val.viewDistInfo.distKm.toFixed(1)+"km · ×"+val.viewDistInfo.mult.toFixed(2)+" premium",ok:val.viewDistInfo.mult>=0.5}:null,
       {l:"Floor Specified",v:analyzerState.f.floor?"Floor "+analyzerState.f.floor:"Not provided",ok:!!analyzerState.f.floor||analyzerState.f.propCategory==="villa"},
       // Service charge is fully manual (2026-07-17) — per-building DB figures
       // had confirmed errors, so Net Yield no longer silently substitutes one;
@@ -2588,6 +2637,36 @@ function renderAnalyzerResult(wrap){
       bWrap.appendChild(row);
     });
     wrap.appendChild(bWrap);
+  })();
+
+  // -- MULTI-VIEW PREMIUM BREAKDOWN (2026-07-26) --
+  // Only shown when 2-3 simultaneous views were selected — makes the
+  // dominant+weighted-secondary+weighted-tertiary combination transparent
+  // (never a silent number) so the user can see exactly why, e.g., a Sea
+  // View + Sheikh Zayed Road View combination lands where it does, rather
+  // than assuming a flat average of the two (which this engine deliberately
+  // does NOT use, since that can under-value the combination below the
+  // single best view alone).
+  (function(){
+    if(!val.viewBreakdown||val.viewBreakdown.length<2)return;
+    var vbWrap=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px 14px",marginTop:"10px"}});
+    vbWrap.appendChild(div({color:cl.gold,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"View Premium Breakdown · "+val.viewBreakdown.length+" Views Combined"));
+    val.viewBreakdown.forEach(function(it,i){
+      var row=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:i<val.viewBreakdown.length-1?"1px solid "+cl.border:"none"}});
+      var left=el("div",{});
+      var tierLabel=i===0?"Dominant":i===1?"Secondary":"Tertiary";
+      left.appendChild(div({color:cl.white,fontSize:"11.5px",fontFamily:"'Inter',sans-serif",fontWeight:"600"},it.view));
+      left.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},tierLabel+" · weight ×"+it.weight.toFixed(2)+(it.distInfo&&it.distInfo.kind?" · "+it.distInfo.distKm.toFixed(1)+"km":"")));
+      row.appendChild(left);
+      row.appendChild(span({color:cl.gold,fontSize:"12px",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"},"+"+(it.effectivePremium*100).toFixed(1)+"%"));
+      vbWrap.appendChild(row);
+    });
+    var totalRow=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0 0",marginTop:"4px",borderTop:"1px solid "+cl.gold}});
+    totalRow.appendChild(span({color:cl.sub,fontSize:"10.5px",fontFamily:"'Inter',sans-serif"},"Combined View Premium (not a flat average)"));
+    var _totalPct=val.viewBreakdown.reduce(function(s,it){return s+it.effectivePremium*it.weight;},0);
+    totalRow.appendChild(span({color:cl.green,fontSize:"13px",fontFamily:"'Space Grotesk',monospace",fontWeight:"700"},"+"+(_totalPct*100).toFixed(1)+"%"));
+    vbWrap.appendChild(totalRow);
+    wrap.appendChild(vbWrap);
   })();
 
   // -- SMART GUIDANCE (Proactive Suggestions) --

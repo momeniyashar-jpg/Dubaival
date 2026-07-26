@@ -965,6 +965,127 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-26 (session continuing, follow-up — multi-view support, Stage 1
+  of the view-system expansion plan: up to 3 simultaneous views combined
+  correctly, never a naive average)**: Direct continuation of the
+  distance-dampening work above — user pointed out that real units often
+  have 2-3 simultaneous views (e.g. a Boulevard Heights unit with both a
+  distant Sea View AND a Sheikh Zayed Road View on the same facade) and
+  asked whether the engine could support selecting multiple views and
+  combining them into one correct coefficient, explicitly flagging that
+  giving each view full weight would overstate the number. Also asked
+  about area-specific Canal View quality tiers, and requested several new
+  view types (Dubai Opera, City Walk/Coca-Cola Arena, Creek Harbour
+  specifics, Skyline View for villas at night, Burj Al Arab, Atlantis) plus
+  distance-weighting for the new landmark views — all deliberately scoped
+  into a single numbered, prioritized multi-stage plan at the user's
+  request, worked one stage at a time. This entry covers **Stage 1 only**
+  (multi-view combination); Stages 2-4 (new view types, their distance
+  weighting, and area-tiered Canal View) are tracked in Outstanding items
+  below, not yet started.
+  - **Why not a flat average, confirmed with real numbers before writing
+    any formula**: averaging a 28% Burj Khalifa premium with a 4% Pool View
+    premium produces 16% — LOWER than having just the Burj Khalifa view
+    alone, which is directionally wrong (an additional view should never
+    decrease value). Using the real Boulevard Heights scenario the user
+    raised (Sea View dampened to ~18.5% by real distance + Sheikh Zayed
+    Road View's flat 6%): a naive average gives 12.2% (wrong — lower than
+    the sea view alone), while a dominant-view-plus-weighted-secondary
+    formula gives ~20.6% (correctly higher than either view alone).
+  - **`js/valuation.js`** — new `VIEW_WEIGHT_LADDER=[1.0,0.35,0.15]` and
+    `_dvCombineViewPremiums(views,area,bkDistKmOverride,seaDistKmOverride,
+    getRawPremium)`: dedupes identical view selections (picking the same
+    view twice in different slots counts once, not twice), computes each
+    selected view's own raw premium AND its own real distance-dampened
+    multiplier (via the existing `getViewDistanceInfo()` from the previous
+    entry — so a secondary Sea View gets its own real distance treatment,
+    not just the primary one), sorts by effective premium descending, then
+    applies the weight ladder — the highest-value view always gets full
+    weight, a genuine second view adds a real but reduced 35% marginal
+    bonus, a third adds 15%. New `_dvRentalViewPremium(view)` — a
+    stand-alone version of the rental engine's premium ladder (previously
+    an inline if/else chain only reachable for a single view), reused by
+    the same combiner function via dependency injection (`getRawPremium`)
+    so the sale-side (additive `VIEW_P` percentages) and rental-side
+    (multiplicative `viewAdj`) engines share one combination/ranking/
+    weighting implementation instead of two independently-drifting copies.
+    `computeAdjustedPSF()`'s view-premium block, `computeValuation()`, and
+    `computeRentalValuation()` all rewired to read `f.view`/`f.view2`/
+    `f.view3` through this combiner — every one of the 3 functions gained a
+    `viewBreakdown` field (the real per-view contribution array: view name,
+    raw premium, distance info, effective premium, weight) on their return
+    object, alongside the existing single-dominant-view `viewDistInfo`
+    (now always the highest-effective-premium view's own distance info,
+    correctly labeled "Dominant View Distance" in the UI once 2+ views are
+    selected). Backward compatibility confirmed byte-identical: a single
+    selected view (the overwhelmingly common case) produces the exact same
+    `vP`/`viewAdj` as before this change, since a 1-item breakdown at full
+    weight is mathematically identical to the old single-view formula.
+  - **`js/market.js`** — new `_dvRenderViewFields(container,cl,f,
+    viewOptions,onChange)`: a progressive-disclosure UI shared by both the
+    villa and apartment Analyzer forms — View 1 is always shown; a
+    "+ Add Another View" link (only once View 1 has a real selection)
+    reveals View 2; a "+ Add a Third View" link (only once View 2 has a
+    real selection) reveals View 3 — keeps the common single-view case
+    exactly as uncluttered as before, while genuinely supporting up to 3.
+    Both forms' existing view-option lists were kept completely separate
+    and untouched (villa's 14 options vs. apartment's 22, including
+    Sheikh Zayed Road View/Burj Khalifa + Fountain which only make sense
+    for apartments) — the shared helper takes whichever list each form
+    already had, so neither form's options changed. `_dvRefineViewDistance()`
+    (the Tier-2 live-geocode refinement) now fires if ANY of the up to 3
+    selected views is landmark/sea-tied (not just the primary one), and its
+    patched-field list on both the rental and sale paths now includes
+    `viewBreakdown` alongside the existing `viewDistInfo`, so a live-
+    geocoded building-level distance correctly updates the FULL multi-view
+    combination, not just the dominant view's own figure. The Confidence
+    Factors panel's "View Specified" row now joins every selected view
+    ("Burj Khalifa View + Sheikh Zayed Road View") instead of showing only
+    the primary one. New "View Premium Breakdown" card (shown only when
+    2-3 views are selected — a single view already has full information in
+    the existing Confidence Factors row, so this card doesn't clutter the
+    common case) lists each view's own tier (Dominant/Secondary/Tertiary),
+    its applied weight, its own resolved distance where relevant, and its
+    effective premium contribution, plus a combined-total line explicitly
+    labeled "not a flat average" — full disclosure of how the combination
+    was reached, matching this project's standing "never a silent change to
+    the numbers" principle.
+  - Verified: `node -c` on both touched files; a Node vm-sandbox test
+    confirming a real 3-view apartment case (Burj Khalifa View + Golf View
+    + Sheikh Zayed Road View) correctly ranks and weights all 3 (28%/100%,
+    13%/35%, 6%/15%), confirms `vP` correctly increases monotonically as
+    each additional view is added (3%→5%→8% for the 1/2/3-view case on the
+    same real building), and confirms a duplicate view selected in both the
+    primary and secondary slot correctly collapses to a single-item
+    breakdown; a second Node test confirming the identical monotonic-
+    increase behavior on the rental engine (`computeRentalValuation`,
+    estRent correctly rising from a 1-view to a 2-view case, never falling);
+    and 3 real-browser Playwright passes — one driving the apartment form
+    end-to-end (select Burj Khalifa View → confirm "+ Add Another View"
+    appears → click it → select Sheikh Zayed Road View → confirm
+    "+ Add a Third View" appears → submit → confirm the real 2-item
+    `viewBreakdown` reaches the computed valuation, the new "View Premium
+    Breakdown" card renders, and the Confidence Factors row correctly joins
+    both view names), one confirming full backward compatibility for the
+    ordinary single-view case (exactly 1 view-shaped `<select>` present, no
+    breakdown card, the pre-existing "View Distance Adjustment" label
+    unchanged — not the new "Dominant View Distance" label, which only
+    appears once 2+ views are selected), and one confirming the villa
+    form's identical progressive-disclosure behavior (Full Sea View →
+    "+ Add Another View" → Golf View, both views correctly persisted) —
+    zero non-network console errors across all 3 passes (the sandbox's
+    known no-live-API-access market-intelligence 501 is the only console
+    output, unrelated to this feature).
+  - Cache versions bumped: `js/valuation.js`/`js/market.js` to
+    `?v=20260726c` in both `index.html` and `sw.js`'s `PRECACHE` array
+    (`js/data-residential.js`/`js/api.js`/`js/core.js` stay at their
+    existing `20260726b`/`20260726a` versions from the prior entry — not
+    touched this pass); `sw.js`'s `CACHE_NAME` bumped `dubaival-v70`→
+    `dubaival-v71`. Rebuilt `www/` and manually synced both touched files
+    + `index.html` into `android/app/src/main/assets/public/` (confirmed
+    byte-identical; `npx cap sync android` failed as always in this
+    sandbox — no Android SDK).
+
 - **2026-07-26 (session continuing, follow-up — view-premium distance
   dampening: "Burj Khalifa View"/"Full Sea View" claims now scale with real
   distance, two-tier area-centroid + live Google-geocoded building
@@ -11045,6 +11166,42 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🟡 View-system expansion — Stage 1 shipped, Stages 2-4 not started**
+  (added 2026-07-26): direct follow-up to the multi-view combination work
+  above. The user's own numbered plan has 4 stages; only Stage 1 (multi-view
+  support + weighted combination formula) is done. Remaining:
+  - **Stage 2**: add new, real, confirmed view types to `VIEW_P`/
+    `_dvRentalViewPremium` and both Analyzer form option lists — Dubai
+    Opera View (Downtown Dubai), Coca-Cola Arena View (City Walk), Burj Al
+    Arab View, Atlantis View, Dubai Skyline View for villas at night
+    (currently only exists generically, not villa/night-specific),
+    Creek Harbour-specific views (Creek/Marina view with Downtown skyline
+    backdrop, Park/landscaped view, Ras Al Khor Wildlife Sanctuary view) —
+    all 5 confirmed real/marketed via WebSearch this session (not guessed),
+    but their specific premium MAGNITUDES still need calibration against
+    real market data per Directive #2, not just added at an arbitrary
+    percentage.
+  - **Stage 3**: extend the same Burj-Khalifa-style distance-dampening
+    mechanism (`getViewDistanceInfo()`/`_dvViewDistCurve()`) to the new
+    single-fixed-point landmark views from Stage 2 (Atlantis, Burj Al Arab,
+    Dubai Opera) — needs new reference coordinates in `KEY_POIS` (or a
+    similar structure) for each landmark, new `_dvXxxKm()` helper functions
+    (`js/data-residential.js`, alongside the existing `_dvBurjKhalifaKm()`/
+    `_dvNearestBeachKm()`), and `_dvIsDistanceSensitiveView()`/
+    `getViewDistanceInfo()` extended to recognize these as additional
+    "kind" categories beyond the current "landmark"/"sea".
+  - **Stage 4**: area-quality-tier multiplier for Canal View (and possibly
+    Skyline View) — the user asked directly whether the SAME view type
+    should get different premiums depending on which area's canal segment
+    it is (Business Bay canal vs. Al Jaddaf canal vs. Marina canal) — a
+    real, unanswered product/calibration question flagged for a future
+    session's judgment (mechanism and specific area-tier assignments not
+    yet designed).
+  - See the "multi-view support, Stage 1" work-log entry directly above for
+    exactly what Stage 1 shipped (the `_dvCombineViewPremiums()` weighted
+    formula, `_dvRenderViewFields()` progressive-disclosure UI, and the new
+    "View Premium Breakdown" disclosure card).
 
 - **🟡 Real per-area momentum engine — needs manual SQL** (added
   2026-07-22): run `supabase-real-momentum-schema.sql` in Supabase SQL

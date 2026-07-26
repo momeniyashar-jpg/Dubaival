@@ -580,6 +580,70 @@ function getViewDistanceInfo(viewName,area,bkDistKmOverride,seaDistKmOverride){
   return{mult:_dvViewDistCurve(distKm,kind),distKm:distKm,kind:kind};
 }
 
+// --- MULTI-VIEW COMBINATION (added 2026-07-26) --------------------------------
+// Real Dubai units often have more than one simultaneous view (e.g. a
+// Boulevard Heights corner unit with a distant Full Sea View AND a Sheikh
+// Zayed Road View) — previously the Analyzer could only capture ONE. A flat
+// average of several views is wrong (it can make the combined premium LOWER
+// than the single best view alone — e.g. averaging a 28% Burj Khalifa View
+// with a 4% Pool View gives 16%, less than having just the Burj Khalifa
+// View). Real hedonic pricing instead treats one view as dominant (full
+// weight) and additional views as a smaller incremental bonus — a second
+// view is a genuine plus, but never as valuable as if it were the ONLY/
+// primary view. Weight ladder: primary 100%, secondary 35%, tertiary 15%
+// (support for up to 3 simultaneous views, matching the Analyzer's "+ Add
+// Another View" UI in js/market.js). Each view's own raw premium is first
+// distance-dampened independently (getViewDistanceInfo above) BEFORE
+// ranking/weighting, so a close Burj Khalifa View + a far Full Sea View
+// still correctly ranks the (now-comparable) dampened values, not the raw
+// undampened ones. `getRawPremium(view)` is injected so this same combiner
+// serves both the sale-side VIEW_P lookup (computeAdjustedPSF) and the
+// rent-side ladder (_dvRentalViewPremium, computeRentalValuation) without
+// duplicating the ranking/weighting logic in two places.
+var VIEW_WEIGHT_LADDER=[1.0,0.35,0.15];
+function _dvCombineViewPremiums(views,area,bkDistKmOverride,seaDistKmOverride,getRawPremium){
+  var seen={};
+  var items=[];
+  (views||[]).forEach(function(v){
+    if(!v||v==="Not specified")return;
+    var key=v.toLowerCase();
+    if(seen[key])return; // same view accidentally selected twice — count once
+    seen[key]=true;
+    var raw=getRawPremium(v);
+    var distInfo=getViewDistanceInfo(v,area,bkDistKmOverride,seaDistKmOverride);
+    items.push({view:v,rawPremium:raw,distInfo:distInfo,effectivePremium:raw*distInfo.mult});
+  });
+  items.sort(function(a,b){return b.effectivePremium-a.effectivePremium;});
+  var combined=0;
+  items.forEach(function(it,i){
+    it.weight=VIEW_WEIGHT_LADDER[i]!==undefined?VIEW_WEIGHT_LADDER[i]:0;
+    combined+=it.effectivePremium*it.weight;
+  });
+  return{combinedRawVP:combined,breakdown:items};
+}
+// Rental engine's per-view premium PORTION (mirrors the sale-side VIEW_P
+// table's values at each tier, expressed as a raw fraction rather than a
+// multiplier — e.g. 0.12 for Full Sea View, matching the "×1.12" the old
+// single-view ladder used to produce). Returns 0 for "Not specified"/
+// unrecognized so an empty view2/view3 slot never contributes anything.
+function _dvRentalViewPremium(view){
+  if(!view||view==="Not specified")return 0;
+  var vl=view.toLowerCase();
+  if(vl==="burj khalifa + fountain")return 0.18;
+  if(vl.indexOf("fountain")>=0)return 0.15;
+  if(vl.indexOf("full sea")>=0||vl.indexOf("burj khalifa")>=0)return 0.12;
+  if(vl.indexOf("beach access")>=0||vl.indexOf("palm")>=0)return 0.10;
+  if(vl.indexOf("marina")>=0||vl.indexOf("full canal")>=0||vl.indexOf("partial burj")>=0)return 0.08;
+  if(vl.indexOf("partial sea")>=0)return 0.07;
+  if(vl.indexOf("golf")>=0||vl.indexOf("boulevard")>=0)return 0.06;
+  if(vl.indexOf("lagoon")>=0||vl.indexOf("creek")>=0||vl.indexOf("lake")>=0)return 0.05;
+  if(vl.indexOf("skyline")>=0)return 0.04;
+  if(vl.indexOf("partial canal")>=0||vl.indexOf("sheikh zayed")>=0)return 0.03;
+  if(vl.indexOf("garden")>=0||vl.indexOf("park")>=0)return 0.02;
+  if(vl.indexOf("pool")>=0||vl.indexOf("community")>=0)return 0.01;
+  return 0;
+}
+
 function computeAdjustedPSF(f,buildingVal,liveData){
   f.area=resolveDLDArea(f.area);
   const bData=lookupBuilding(buildingVal||f.building||"",f.area);
@@ -715,16 +779,20 @@ function computeAdjustedPSF(f,buildingVal,liveData){
   // Above-baseline views get premium; below-baseline views get discount.
   // VIEW_P values are 0-38% (no negatives). Differential vs grade baseline creates spread. Asymmetric clamp: -15%/+25%.
   const GRADE_BASE_VIEW={"Ultra":0.25,"A+":0.14,"A":0.08,"A-":0.04,"B+":0.02,"B":0,"C":0};
-  const rawVPBase=VIEW_P[f.view]||VIEW_P[f.view+" View"]||(f.view&&VIEW_P[f.view.replace(/ View$/,"")])||0;
-  // Distance-dampen the raw view premium BEFORE the grade-baseline subtraction
-  // below, so a far-away "Burj Khalifa View"/"Full Sea View" claim never gets
-  // treated as if it were as prominent as a close one — see
-  // getViewDistanceInfo() above for the real distance curve/reasoning.
-  const viewDistInfo=getViewDistanceInfo(f.view,f.area,f._bkDistKm,f._seaDistKm);
-  const rawVP=rawVPBase*viewDistInfo.mult;
+  var _viewGetRaw=function(v){return VIEW_P[v]||VIEW_P[v+" View"]||(v&&VIEW_P[v.replace(/ View$/,"")])||0;};
+  // Combines up to 3 simultaneous views (f.view/f.view2/f.view3 — see the
+  // Analyzer's "+ Add Another View" UI in js/market.js), each independently
+  // distance-dampened first (see getViewDistanceInfo above), then ranked and
+  // weighted (dominant view full weight, 2nd/3rd a smaller marginal bonus —
+  // see _dvCombineViewPremiums's own comment for why a flat average is
+  // wrong). A single selected view (the common case) reduces to exactly the
+  // old single-view behavior — VIEW_WEIGHT_LADDER[0]===1.0.
+  const _viewCombo=_dvCombineViewPremiums([f.view,f.view2,f.view3],f.area,f._bkDistKm,f._seaDistKm,_viewGetRaw);
+  const rawVP=_viewCombo.combinedRawVP;
+  const viewDistInfo=_viewCombo.breakdown[0]?_viewCombo.breakdown[0].distInfo:{mult:1.0,distKm:null,kind:null};
   let vP;
   if(bData&&bData.g&&GRADE_BASE_VIEW[bData.g]!==undefined){
-    if(f.view==="Not specified"){
+    if(_viewCombo.breakdown.length===0){
       vP=0;
     } else {
       vP=rawVP-GRADE_BASE_VIEW[bData.g];
@@ -797,7 +865,7 @@ function computeAdjustedPSF(f,buildingVal,liveData){
   return{adjPSF,psfLo,psfHi,basePSF,bData,vdbEntry,dataSource,dataLayer,compData,
     calFactor,momFactor,momSource,typeAdj,dynBench,liveSig,aData,isVillaType,isVilla,isDevFurnished,
     vP,fP,furnP,loftP,penthP,maidP,studyP,upgradeP,privatePoolP,singleRowP,cornerVillaP,
-    geoAdj,geoScore,locP,hedonicMult,hedonicCap,viewDistInfo};
+    geoAdj,geoScore,locP,hedonicMult,hedonicCap,viewDistInfo,viewBreakdown:_viewCombo.breakdown};
 }
 
 // --- VALUATION ENGINE ---------------------------------------------------------
@@ -805,7 +873,7 @@ function computeValuation(f,buildingVal,liveData){
   const adj=computeAdjustedPSF(f,buildingVal,liveData);
   const{adjPSF,psfLo,psfHi,bData,vdbEntry,dataSource,dataLayer,compData,aData,
     isVilla,isDevFurnished,vP,fP,furnP,loftP,penthP,maidP,privatePoolP,singleRowP,cornerVillaP,
-    geoAdj,geoScore,locP,calFactor,momFactor,momSource,dynBench,liveSig,viewDistInfo}=adj;
+    geoAdj,geoScore,locP,calFactor,momFactor,momSource,dynBench,liveSig,viewDistInfo,viewBreakdown}=adj;
   const size=parseFloat((f.buaSize||f.size||"").toString().replace(/,/g,""))||0;
   const price=parseFloat((f.price||"").toString().replace(/,/g,""))||0;
   const askPSF=size>0&&price>0?Math.round(price/size):0;
@@ -940,7 +1008,7 @@ function computeValuation(f,buildingVal,liveData){
   const mosRaw=Math.round(priceGapScore*0.50+timeDecayScore*0.20+marketDepthScore*0.30);
   const mosScore=Math.min(95,Math.max(5,mosRaw));
   const mosTier=mosScore>=80?{label:"Deep Value",c:"green",desc:"Strong margin of safety — price significantly below intrinsic value with favorable market conditions"}:mosScore>=65?{label:"Value Buy",c:"green",desc:"Positive margin of safety — priced below fair value with room for appreciation"}:mosScore>=50?{label:"Fair Entry",c:"yellow",desc:"Neutral margin — price aligns with market value, moderate risk-reward balance"}:mosScore>=35?{label:"Thin Margin",c:"yellow",desc:"Limited safety buffer — priced at or slightly above value, returns depend on market growth"}:{label:"Speculative",c:"red",desc:"Negative margin of safety — price exceeds intrinsic value, high risk of capital loss in a downturn"};
-  return{askPSF,adjPSF,psfLo,psfHi,fairPrice,distressPrice,goodPrice,overpricedAt,verdict,vsPct:vsPct.toFixed(1),suggestedOffer,dataSource,dataLayer,confScore,confTier,priceLow,priceHigh,inDB:!!bData,bData,isDevFurnished,vP:Math.round(vP*100),fP:Math.round(fP*100),furnP:Math.round(furnP*100),loftP:Math.round(loftP*100),penthP:Math.round(penthP*100),maidP:Math.round(maidP*100),privatePoolP:Math.round(privatePoolP*100),singleRowP:Math.round(singleRowP*100),cornerVillaP:Math.round(cornerVillaP*100),locP:Math.round(locP*100),geo:Math.round(geoAdj*100),rent,sc,grossYield,netYield,g0:gr[0],g1:gr[1],g2:gr[2],prRatio:prRatio?prRatio.toFixed(1):null,investSignal,totalReturnAnnual,domEst,txVol,liqScore,liqTier,txLabel,turnoverRate,turnoverTier,bldgUnits,bldgAnnualTx,mosScore,mosTier,priceGapScore,timeDecayScore,marketDepthScore,demandScore,compData:compData,hasDynamic:!!dynBench,calFactor:calFactor,geoScore:geoScore,momFactor:momFactor,momSource:momSource,hasMomentum:momFactor!==1.0,liveSig:liveSig,viewDistInfo:viewDistInfo};
+  return{askPSF,adjPSF,psfLo,psfHi,fairPrice,distressPrice,goodPrice,overpricedAt,verdict,vsPct:vsPct.toFixed(1),suggestedOffer,dataSource,dataLayer,confScore,confTier,priceLow,priceHigh,inDB:!!bData,bData,isDevFurnished,vP:Math.round(vP*100),fP:Math.round(fP*100),furnP:Math.round(furnP*100),loftP:Math.round(loftP*100),penthP:Math.round(penthP*100),maidP:Math.round(maidP*100),privatePoolP:Math.round(privatePoolP*100),singleRowP:Math.round(singleRowP*100),cornerVillaP:Math.round(cornerVillaP*100),locP:Math.round(locP*100),geo:Math.round(geoAdj*100),rent,sc,grossYield,netYield,g0:gr[0],g1:gr[1],g2:gr[2],prRatio:prRatio?prRatio.toFixed(1):null,investSignal,totalReturnAnnual,domEst,txVol,liqScore,liqTier,txLabel,turnoverRate,turnoverTier,bldgUnits,bldgAnnualTx,mosScore,mosTier,priceGapScore,timeDecayScore,marketDepthScore,demandScore,compData:compData,hasDynamic:!!dynBench,calFactor:calFactor,geoScore:geoScore,momFactor:momFactor,momSource:momSource,hasMomentum:momFactor!==1.0,liveSig:liveSig,viewDistInfo:viewDistInfo,viewBreakdown:viewBreakdown};
 }
 
 // --- SMART RENTAL INTELLIGENCE ENGINE ----------------------------------------
@@ -1274,28 +1342,16 @@ function computeRentalValuation(f){
   // Furnished premium on rent: furnished +15-20%, semi +8-10%
   var furnMult=f.furnished==="Furnished"?1.17:f.furnished==="Semi-Furnished"?1.09:1.0;
   estRent=Math.round(estRent*furnMult);
-  // View premium on rent
-  var viewAdj=1.0;
-  if(f.view&&f.view!=="Not specified"){
-    var vl=f.view.toLowerCase();
-    if(vl==="burj khalifa + fountain")viewAdj=1.18;
-    else if(vl.indexOf("fountain")>=0)viewAdj=1.15;
-    else if(vl.indexOf("full sea")>=0||vl.indexOf("burj khalifa")>=0)viewAdj=1.12;
-    else if(vl.indexOf("beach access")>=0||vl.indexOf("palm")>=0)viewAdj=1.10;
-    else if(vl.indexOf("marina")>=0||vl.indexOf("full canal")>=0||vl.indexOf("partial burj")>=0)viewAdj=1.08;
-    else if(vl.indexOf("partial sea")>=0)viewAdj=1.07;
-    else if(vl.indexOf("golf")>=0||vl.indexOf("boulevard")>=0)viewAdj=1.06;
-    else if(vl.indexOf("lagoon")>=0||vl.indexOf("creek")>=0||vl.indexOf("lake")>=0)viewAdj=1.05;
-    else if(vl.indexOf("skyline")>=0)viewAdj=1.04;
-    else if(vl.indexOf("partial canal")>=0||vl.indexOf("sheikh zayed")>=0)viewAdj=1.03;
-    else if(vl.indexOf("garden")>=0||vl.indexOf("park")>=0)viewAdj=1.02;
-    else if(vl.indexOf("pool")>=0||vl.indexOf("community")>=0)viewAdj=1.01;
-  }
-  // Distance-dampen the premium PORTION only (never the neutral 1.0 baseline)
-  // for landmark/sea-tied views — see getViewDistanceInfo() near
-  // computeAdjustedPSF() above for the shared curve/reasoning.
-  var viewDistInfo=getViewDistanceInfo(f.view,f.area,f._bkDistKm,f._seaDistKm);
-  viewAdj=1.0+(viewAdj-1.0)*viewDistInfo.mult;
+  // View premium on rent — combines up to 3 simultaneous views
+  // (f.view/f.view2/f.view3), each independently distance-dampened first,
+  // then ranked/weighted (dominant view full weight, 2nd/3rd a smaller
+  // marginal bonus) via the shared _dvCombineViewPremiums — see that
+  // function's own comment (near computeAdjustedPSF above) for why a flat
+  // average across multiple views is wrong. A single selected view (the
+  // common case) reduces to exactly the old single-view ladder's value.
+  var _viewComboR=_dvCombineViewPremiums([f.view,f.view2,f.view3],f.area,f._bkDistKm,f._seaDistKm,_dvRentalViewPremium);
+  var viewAdj=1.0+_viewComboR.combinedRawVP;
+  var viewDistInfo=_viewComboR.breakdown[0]?_viewComboR.breakdown[0].distInfo:{mult:1.0,distKm:null,kind:null};
   estRent=Math.round(estRent*viewAdj);
   // Floor premium for apartments (higher floors get ~2-5% more rent)
   if(!isVilla&&f.floor){
@@ -1358,6 +1414,6 @@ function computeRentalValuation(f){
   // Liquidity
   var domEst=aData.dom||60;
   var txVol=aData.txVol||100;
-  return{askRent:askRent,estRent:estRent,rentLow:rentLow,rentHigh:rentHigh,vsPct:vsPct.toFixed(1),verdict:verdict,suggestedRent:suggestedRent,confScore:confScore,confTier:confTier,askRentPSF:askRentPSF,estRentPSF:estRentPSF,monthly:Math.round(askRent/12),estMonthly:Math.round(estRent/12),sc:Math.round(sc),netRent:netRent,areaRents:areaRents,inDB:!!bData,bData:bData,dataSource:bData?"Building Database":"Area Benchmark",area:f.area,beds:f.beds||"2 BR",isVilla:isVilla,furnished:f.furnished||"Unfurnished",furnMult:furnMult,viewAdj:viewAdj,gr:gr,domEst:domEst,txVol:txVol,size:size,viewDistInfo:viewDistInfo};
+  return{askRent:askRent,estRent:estRent,rentLow:rentLow,rentHigh:rentHigh,vsPct:vsPct.toFixed(1),verdict:verdict,suggestedRent:suggestedRent,confScore:confScore,confTier:confTier,askRentPSF:askRentPSF,estRentPSF:estRentPSF,monthly:Math.round(askRent/12),estMonthly:Math.round(estRent/12),sc:Math.round(sc),netRent:netRent,areaRents:areaRents,inDB:!!bData,bData:bData,dataSource:bData?"Building Database":"Area Benchmark",area:f.area,beds:f.beds||"2 BR",isVilla:isVilla,furnished:f.furnished||"Unfurnished",furnMult:furnMult,viewAdj:viewAdj,gr:gr,domEst:domEst,txVol:txVol,size:size,viewDistInfo:viewDistInfo,viewBreakdown:_viewComboR.breakdown};
 }
 
