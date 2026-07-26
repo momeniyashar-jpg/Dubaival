@@ -515,6 +515,71 @@ function getLiveAreaDataWithMomentum(area){
   return aData;
 }
 
+// --- VIEW-DISTANCE DAMPENING --------------------------------------------------
+// A "Burj Khalifa View"/"Full Sea View" claim used to get the SAME flat
+// premium (VIEW_P / the rental viewAdj ladder below) regardless of how far
+// the building actually is from that landmark/the coastline — a unit in
+// Business Bay (~1.7km from Burj Khalifa) and one in Dubai Marina (~19km)
+// both got the identical "Burj Khalifa View" premium, which is not how real
+// buyers/agents perceive a distant, often-obstructed sliver of a landmark vs
+// a close, prominent one. Fixed 2026-07-26 (real user-flagged issue): the
+// premium PORTION now scales down with real distance, using either a live-
+// geocoded building coordinate (f._bkDistKm/f._seaDistKm, set by the async
+// refinement in js/market.js/js/api.js once Google Maps resolves the exact
+// building) or, always available with zero network dependency, the area's
+// own static centroid (AREA_COORDS + haversineKm + KEY_POIS "Burj Khalifa"/
+// "beach" entries — see _dvBurjKhalifaKm/_dvNearestBeachKm in
+// js/data-residential.js). Only applies to views tied to ONE fixed
+// geographic reference (a single landmark, or the open-sea coastline) —
+// views like Marina/Golf/Canal/Lagoon/Creek View reference a feature that
+// exists at many different points across Dubai, so a single-point distance
+// calculation wouldn't make sense for those and they are left untouched.
+function _dvIsDistanceSensitiveView(view){
+  var vl=(view||"").toLowerCase();
+  if(vl.indexOf("burj khalifa")>=0||vl.indexOf("fountain")>=0||vl.indexOf("partial burj")>=0)return"landmark";
+  if(vl.indexOf("full sea")>=0||vl.indexOf("partial sea")>=0||vl.indexOf("beach access")>=0)return"sea";
+  return null;
+}
+function _dvViewDistCurve(distKm,kind){
+  if(distKm==null||isNaN(distKm))return 1.0;
+  if(kind==="landmark"){
+    if(distKm<=2)return 1.0;
+    if(distKm<=5)return 1.0-(distKm-2)/3*0.45;
+    if(distKm<=10)return 0.55-(distKm-5)/5*0.30;
+    if(distKm<=20)return 0.25-(distKm-10)/10*0.15;
+    return 0.10;
+  }
+  // kind === "sea"
+  if(distKm<=1.5)return 1.0;
+  if(distKm<=5)return 1.0-(distKm-1.5)/3.5*0.5;
+  if(distKm<=10)return 0.5-(distKm-5)/5*0.30;
+  if(distKm<=20)return 0.2-(distKm-10)/10*0.12;
+  return 0.08;
+}
+// Returns {mult, distKm, kind} — mult is the 0-1 dampening factor to apply to
+// the view's premium PORTION (not the whole valuation); distKm/kind are
+// exposed so the UI can disclose what was actually used. bkDistKmOverride/
+// seaDistKmOverride are the optional, more-precise building-level distances
+// (Tier 2); when absent, falls back to the area centroid (Tier 1, always
+// available). Returns mult:1.0 (no dampening) for any non-distance-sensitive
+// view, or when no area-coordinate data exists at all for this area.
+function getViewDistanceInfo(viewName,area,bkDistKmOverride,seaDistKmOverride){
+  var kind=_dvIsDistanceSensitiveView(viewName);
+  if(!kind)return{mult:1.0,distKm:null,kind:null};
+  var distKm=null;
+  if(kind==="landmark"&&bkDistKmOverride!=null)distKm=bkDistKmOverride;
+  else if(kind==="sea"&&seaDistKmOverride!=null)distKm=seaDistKmOverride;
+  else{
+    var c=(typeof AREA_COORDS!=="undefined")?AREA_COORDS[area]:null;
+    if(c){
+      distKm=kind==="landmark"?(typeof _dvBurjKhalifaKm==="function"?_dvBurjKhalifaKm(c[0],c[1]):null)
+                               :(typeof _dvNearestBeachKm==="function"?_dvNearestBeachKm(c[0],c[1]):null);
+    }
+  }
+  if(distKm==null)return{mult:1.0,distKm:null,kind:kind};
+  return{mult:_dvViewDistCurve(distKm,kind),distKm:distKm,kind:kind};
+}
+
 function computeAdjustedPSF(f,buildingVal,liveData){
   f.area=resolveDLDArea(f.area);
   const bData=lookupBuilding(buildingVal||f.building||"",f.area);
@@ -650,7 +715,13 @@ function computeAdjustedPSF(f,buildingVal,liveData){
   // Above-baseline views get premium; below-baseline views get discount.
   // VIEW_P values are 0-38% (no negatives). Differential vs grade baseline creates spread. Asymmetric clamp: -15%/+25%.
   const GRADE_BASE_VIEW={"Ultra":0.25,"A+":0.14,"A":0.08,"A-":0.04,"B+":0.02,"B":0,"C":0};
-  const rawVP=VIEW_P[f.view]||VIEW_P[f.view+" View"]||(f.view&&VIEW_P[f.view.replace(/ View$/,"")])||0;
+  const rawVPBase=VIEW_P[f.view]||VIEW_P[f.view+" View"]||(f.view&&VIEW_P[f.view.replace(/ View$/,"")])||0;
+  // Distance-dampen the raw view premium BEFORE the grade-baseline subtraction
+  // below, so a far-away "Burj Khalifa View"/"Full Sea View" claim never gets
+  // treated as if it were as prominent as a close one — see
+  // getViewDistanceInfo() above for the real distance curve/reasoning.
+  const viewDistInfo=getViewDistanceInfo(f.view,f.area,f._bkDistKm,f._seaDistKm);
+  const rawVP=rawVPBase*viewDistInfo.mult;
   let vP;
   if(bData&&bData.g&&GRADE_BASE_VIEW[bData.g]!==undefined){
     if(f.view==="Not specified"){
@@ -726,7 +797,7 @@ function computeAdjustedPSF(f,buildingVal,liveData){
   return{adjPSF,psfLo,psfHi,basePSF,bData,vdbEntry,dataSource,dataLayer,compData,
     calFactor,momFactor,momSource,typeAdj,dynBench,liveSig,aData,isVillaType,isVilla,isDevFurnished,
     vP,fP,furnP,loftP,penthP,maidP,studyP,upgradeP,privatePoolP,singleRowP,cornerVillaP,
-    geoAdj,geoScore,locP,hedonicMult,hedonicCap};
+    geoAdj,geoScore,locP,hedonicMult,hedonicCap,viewDistInfo};
 }
 
 // --- VALUATION ENGINE ---------------------------------------------------------
@@ -734,7 +805,7 @@ function computeValuation(f,buildingVal,liveData){
   const adj=computeAdjustedPSF(f,buildingVal,liveData);
   const{adjPSF,psfLo,psfHi,bData,vdbEntry,dataSource,dataLayer,compData,aData,
     isVilla,isDevFurnished,vP,fP,furnP,loftP,penthP,maidP,privatePoolP,singleRowP,cornerVillaP,
-    geoAdj,geoScore,locP,calFactor,momFactor,momSource,dynBench,liveSig}=adj;
+    geoAdj,geoScore,locP,calFactor,momFactor,momSource,dynBench,liveSig,viewDistInfo}=adj;
   const size=parseFloat((f.buaSize||f.size||"").toString().replace(/,/g,""))||0;
   const price=parseFloat((f.price||"").toString().replace(/,/g,""))||0;
   const askPSF=size>0&&price>0?Math.round(price/size):0;
@@ -869,7 +940,7 @@ function computeValuation(f,buildingVal,liveData){
   const mosRaw=Math.round(priceGapScore*0.50+timeDecayScore*0.20+marketDepthScore*0.30);
   const mosScore=Math.min(95,Math.max(5,mosRaw));
   const mosTier=mosScore>=80?{label:"Deep Value",c:"green",desc:"Strong margin of safety — price significantly below intrinsic value with favorable market conditions"}:mosScore>=65?{label:"Value Buy",c:"green",desc:"Positive margin of safety — priced below fair value with room for appreciation"}:mosScore>=50?{label:"Fair Entry",c:"yellow",desc:"Neutral margin — price aligns with market value, moderate risk-reward balance"}:mosScore>=35?{label:"Thin Margin",c:"yellow",desc:"Limited safety buffer — priced at or slightly above value, returns depend on market growth"}:{label:"Speculative",c:"red",desc:"Negative margin of safety — price exceeds intrinsic value, high risk of capital loss in a downturn"};
-  return{askPSF,adjPSF,psfLo,psfHi,fairPrice,distressPrice,goodPrice,overpricedAt,verdict,vsPct:vsPct.toFixed(1),suggestedOffer,dataSource,dataLayer,confScore,confTier,priceLow,priceHigh,inDB:!!bData,bData,isDevFurnished,vP:Math.round(vP*100),fP:Math.round(fP*100),furnP:Math.round(furnP*100),loftP:Math.round(loftP*100),penthP:Math.round(penthP*100),maidP:Math.round(maidP*100),privatePoolP:Math.round(privatePoolP*100),singleRowP:Math.round(singleRowP*100),cornerVillaP:Math.round(cornerVillaP*100),locP:Math.round(locP*100),geo:Math.round(geoAdj*100),rent,sc,grossYield,netYield,g0:gr[0],g1:gr[1],g2:gr[2],prRatio:prRatio?prRatio.toFixed(1):null,investSignal,totalReturnAnnual,domEst,txVol,liqScore,liqTier,txLabel,turnoverRate,turnoverTier,bldgUnits,bldgAnnualTx,mosScore,mosTier,priceGapScore,timeDecayScore,marketDepthScore,demandScore,compData:compData,hasDynamic:!!dynBench,calFactor:calFactor,geoScore:geoScore,momFactor:momFactor,momSource:momSource,hasMomentum:momFactor!==1.0,liveSig:liveSig};
+  return{askPSF,adjPSF,psfLo,psfHi,fairPrice,distressPrice,goodPrice,overpricedAt,verdict,vsPct:vsPct.toFixed(1),suggestedOffer,dataSource,dataLayer,confScore,confTier,priceLow,priceHigh,inDB:!!bData,bData,isDevFurnished,vP:Math.round(vP*100),fP:Math.round(fP*100),furnP:Math.round(furnP*100),loftP:Math.round(loftP*100),penthP:Math.round(penthP*100),maidP:Math.round(maidP*100),privatePoolP:Math.round(privatePoolP*100),singleRowP:Math.round(singleRowP*100),cornerVillaP:Math.round(cornerVillaP*100),locP:Math.round(locP*100),geo:Math.round(geoAdj*100),rent,sc,grossYield,netYield,g0:gr[0],g1:gr[1],g2:gr[2],prRatio:prRatio?prRatio.toFixed(1):null,investSignal,totalReturnAnnual,domEst,txVol,liqScore,liqTier,txLabel,turnoverRate,turnoverTier,bldgUnits,bldgAnnualTx,mosScore,mosTier,priceGapScore,timeDecayScore,marketDepthScore,demandScore,compData:compData,hasDynamic:!!dynBench,calFactor:calFactor,geoScore:geoScore,momFactor:momFactor,momSource:momSource,hasMomentum:momFactor!==1.0,liveSig:liveSig,viewDistInfo:viewDistInfo};
 }
 
 // --- SMART RENTAL INTELLIGENCE ENGINE ----------------------------------------
@@ -1220,6 +1291,11 @@ function computeRentalValuation(f){
     else if(vl.indexOf("garden")>=0||vl.indexOf("park")>=0)viewAdj=1.02;
     else if(vl.indexOf("pool")>=0||vl.indexOf("community")>=0)viewAdj=1.01;
   }
+  // Distance-dampen the premium PORTION only (never the neutral 1.0 baseline)
+  // for landmark/sea-tied views — see getViewDistanceInfo() near
+  // computeAdjustedPSF() above for the shared curve/reasoning.
+  var viewDistInfo=getViewDistanceInfo(f.view,f.area,f._bkDistKm,f._seaDistKm);
+  viewAdj=1.0+(viewAdj-1.0)*viewDistInfo.mult;
   estRent=Math.round(estRent*viewAdj);
   // Floor premium for apartments (higher floors get ~2-5% more rent)
   if(!isVilla&&f.floor){
@@ -1282,6 +1358,6 @@ function computeRentalValuation(f){
   // Liquidity
   var domEst=aData.dom||60;
   var txVol=aData.txVol||100;
-  return{askRent:askRent,estRent:estRent,rentLow:rentLow,rentHigh:rentHigh,vsPct:vsPct.toFixed(1),verdict:verdict,suggestedRent:suggestedRent,confScore:confScore,confTier:confTier,askRentPSF:askRentPSF,estRentPSF:estRentPSF,monthly:Math.round(askRent/12),estMonthly:Math.round(estRent/12),sc:Math.round(sc),netRent:netRent,areaRents:areaRents,inDB:!!bData,bData:bData,dataSource:bData?"Building Database":"Area Benchmark",area:f.area,beds:f.beds||"2 BR",isVilla:isVilla,furnished:f.furnished||"Unfurnished",furnMult:furnMult,viewAdj:viewAdj,gr:gr,domEst:domEst,txVol:txVol,size:size};
+  return{askRent:askRent,estRent:estRent,rentLow:rentLow,rentHigh:rentHigh,vsPct:vsPct.toFixed(1),verdict:verdict,suggestedRent:suggestedRent,confScore:confScore,confTier:confTier,askRentPSF:askRentPSF,estRentPSF:estRentPSF,monthly:Math.round(askRent/12),estMonthly:Math.round(estRent/12),sc:Math.round(sc),netRent:netRent,areaRents:areaRents,inDB:!!bData,bData:bData,dataSource:bData?"Building Database":"Area Benchmark",area:f.area,beds:f.beds||"2 BR",isVilla:isVilla,furnished:f.furnished||"Unfurnished",furnMult:furnMult,viewAdj:viewAdj,gr:gr,domEst:domEst,txVol:txVol,size:size,viewDistInfo:viewDistInfo};
 }
 

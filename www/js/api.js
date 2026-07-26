@@ -108,6 +108,39 @@ async function fetchLiveData(building,area,beds){
   }catch(e){return{sales:[],txs:[]};}
 }
 
+// --- VIEW-DISTANCE REFINEMENT (Tier 2 — real building geocode) ---------------
+// Tier 1 (area-centroid distance, zero network dependency) already runs
+// automatically inside computeAdjustedPSF()/computeRentalValuation() via
+// getViewDistanceInfo() in js/valuation.js. This is the optional, more
+// precise refinement: geocode the EXACT building (not just its area) via the
+// same Google Geocoding proxy the Analyzer's own Drive Times/Nearby Amenities
+// cards already use, so a "Burj Khalifa View"/"Full Sea View" claim gets
+// dampened by the real distance FROM THAT BUILDING. Shares the same
+// window._dvGeoCache those cards read/write — whichever resolves first saves
+// the other a duplicate geocode call. Never throws; returns null on any
+// failure (missing area, no API key configured, network error, Google
+// finding no match) so the caller always has the solid Tier-1 area-level
+// result to fall back on — this is a pure best-effort upgrade, never a
+// requirement for the Analyzer to produce a result.
+async function resolveViewDistance(building,area){
+  if(!area)return null;
+  var query=(building&&building.length>2?building+", ":"")+area;
+  try{
+    if(!window._dvGeoCache)window._dvGeoCache={};
+    var loc=window._dvGeoCache[query];
+    if(!loc){
+      var r=await fetch("/api/proxy-maps?action=geocode&address="+encodeURIComponent(query));
+      var data=await r.json();
+      if(!data||data.lat==null)return null;
+      loc={lat:data.lat,lng:data.lng};
+      window._dvGeoCache[query]=loc;
+    }
+    var bkDistKm=typeof _dvBurjKhalifaKm==="function"?_dvBurjKhalifaKm(loc.lat,loc.lng):null;
+    var seaDistKm=typeof _dvNearestBeachKm==="function"?_dvNearestBeachKm(loc.lat,loc.lng):null;
+    return{bkDistKm:bkDistKm,seaDistKm:seaDistKm};
+  }catch(e){return null;}
+}
+
 // --- SMART RENTAL INTELLIGENCE ENGINE ----------------------------------------
 var _rentalCache={};
 async function fetchLiveRentals(building,area,beds){

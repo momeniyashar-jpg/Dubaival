@@ -922,6 +922,21 @@ function haversineKm(lat1,lng1,lat2,lng2){
   return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
+// Real distance (km) from a point to Burj Khalifa / the nearest open-sea
+// coastline point — feeds the view-premium distance dampening in
+// js/valuation.js (getViewDistanceMultiplier). Returns null only if
+// KEY_POIS itself is somehow unavailable (never happens in practice).
+function _dvBurjKhalifaKm(lat,lng){
+  var bk=null;
+  for(var i=0;i<KEY_POIS.length;i++){if(KEY_POIS[i].n==="Burj Khalifa"){bk=KEY_POIS[i];break;}}
+  return bk?haversineKm(lat,lng,bk.lat,bk.lng):null;
+}
+function _dvNearestBeachKm(lat,lng){
+  var min=Infinity;
+  KEY_POIS.forEach(function(p){if(p.cat==="beach"){var d=haversineKm(lat,lng,p.lat,p.lng);if(d<min)min=d;}});
+  return isFinite(min)?min:null;
+}
+
 // Compute transit & amenity scores for an area
 function computeGeoScore(areaName){
   var coords=AREA_COORDS[areaName];

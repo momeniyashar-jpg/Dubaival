@@ -115,6 +115,40 @@ async function _dvRunAgentAI(promptObj,area,stateKey){
   render();
 }
 
+// View-distance Tier 2 refinement (added 2026-07-26): the initial result
+// already renders instantly using the area-centroid distance (Tier 1, always
+// correct, zero network dependency — see getViewDistanceInfo() in
+// js/valuation.js). This quietly upgrades the view-premium fields in place
+// with the EXACT building's own geocoded distance once resolved — same
+// "instant static result, then live-refine" pattern already used above for
+// fetchLiveData()/fetchLiveRentals(). Only fires a geocode call at all when
+// the selected view is actually landmark/sea-tied (skips entirely for every
+// other view — no wasted API call), and only touches the view-premium-
+// dependent fields, never the ones the live-Bayut/live-rentals refinements
+// above already own, so the three async upgrades can never race or clobber
+// each other.
+function _dvRefineViewDistance(f,stateKey,isRental,fnCompute){
+  var kind=typeof _dvIsDistanceSensitiveView==="function"?_dvIsDistanceSensitiveView(f.view):null;
+  if(!kind||typeof resolveViewDistance!=="function")return;
+  resolveViewDistance(f.building,f.area).then(function(dist){
+    if(!dist||!analyzerState[stateKey])return;
+    f._bkDistKm=dist.bkDistKm;f._seaDistKm=dist.seaDistKm;
+    // Reuse whatever real live-Bayut data the sibling fetchLiveData()
+    // refinement (below) may have already found for this exact building —
+    // regardless of which of the two resolves first, this prevents either
+    // one from silently reverting the other's improvement (computeRentalValuation
+    // simply ignores the extra 2 args, so this is safe to pass unconditionally).
+    var updated=fnCompute(f,f.building,analyzerState._liveData||null);
+    if(!updated)return;
+    if(isRental){
+      ["estRent","rentLow","rentHigh","vsPct","verdict","suggestedRent","confScore","confTier","estRentPSF","estMonthly","netRent","viewAdj","viewDistInfo"].forEach(function(k){analyzerState[stateKey][k]=updated[k];});
+    }else{
+      ["adjPSF","psfLo","psfHi","fairPrice","distressPrice","goodPrice","overpricedAt","verdict","vsPct","suggestedOffer","confScore","confTier","priceLow","priceHigh","vP","viewDistInfo"].forEach(function(k){analyzerState[stateKey][k]=updated[k];});
+    }
+    render();
+  }).catch(function(){});
+}
+
 function getAgentAIPrompt(propDesc,val,mode,area){
   var amenities=AREA_AMENITIES[area]?"Location amenities: "+AREA_AMENITIES[area]+".":"";
   var areaData=AREAS[area];var areaCtx=areaData?"Area benchmarks: avg PSF "+areaData.psf+", yield "+(areaData.y?areaData.y[0]+"-"+areaData.y[1]:"-")+"%, growth "+(areaData.g?areaData.g[0]:"-")+"%, DOM "+(areaData.dom||"-")+"d, SC "+(areaData.sc||"-")+"/sqft. ":"";
@@ -1813,10 +1847,12 @@ function renderAnalyzer(){
             }else{
               _dvRunAgentAI(getPersonalRentalAIPrompt(propDesc,rv,analyzerState.f.area),analyzerState.f.area,"aiText");
             }
+            _dvRefineViewDistance(analyzerState.f,"rentalVal",true,computeRentalValuation);
             render();
           }else{
             try{
               analyzerState.val=computeValuation(analyzerState.f);
+              analyzerState._liveData=null;
             }catch(computeErr){
               console.error('computeValuation error:',computeErr);
               analyzerState.err='Valuation error: '+computeErr.message;
@@ -1835,9 +1871,13 @@ function renderAnalyzer(){
             // PSF-derived fields (not rent/yield/investSignal) so this can't
             // race with the independent live-rentals refinement below —
             // whichever of the two resolves second never clobbers the
-            // other's update.
+            // other's update. Stores liveData on analyzerState so the
+            // separate view-distance refinement (_dvRefineViewDistance,
+            // below) can reuse it too, regardless of which of the two
+            // resolves first — see that function's own comment.
             fetchLiveData(analyzerState.f.building,analyzerState.f.area,analyzerState.f.beds).then(function(liveData){
               if(!liveData||!((liveData.txs&&liveData.txs.length)||(liveData.sales&&liveData.sales.length)))return;
+              analyzerState._liveData=liveData;
               var updatedVal=computeValuation(analyzerState.f,analyzerState.f.building,liveData);
               if(!updatedVal||!analyzerState.val)return;
               ["adjPSF","psfLo","psfHi","fairPrice","distressPrice","goodPrice","overpricedAt","verdict","vsPct","suggestedOffer","dataSource","dataLayer","confScore","confTier","priceLow","priceHigh","liveSig"].forEach(function(k){analyzerState.val[k]=updatedVal[k];});
@@ -1873,6 +1913,7 @@ function renderAnalyzer(){
               var riskCtx="";
               _dvRunAgentAI(getPersonalSaleAIPrompt(propDesc,vv,profileCtx,riskCtx,analyzerState.f.area),analyzerState.f.area,"aiText");
             }
+            _dvRefineViewDistance(analyzerState.f,"val",false,computeValuation);
             render();
           }
         },50);
@@ -2028,10 +2069,12 @@ function renderAnalyzer(){
             }else{
               _dvRunAgentAI(getPersonalRentalAIPrompt(propDesc,rv,analyzerState.f.area),analyzerState.f.area,"aiText");
             }
+            _dvRefineViewDistance(analyzerState.f,"rentalVal",true,computeRentalValuation);
             render();
           }else{
             var fData=Object.assign({},analyzerState.f);
             analyzerState.val=computeValuation(fData);
+            analyzerState._liveData=null;
             if(!analyzerState.val){
               analyzerState.err="Please fill in Area, Size, and Asking Price to continue.";
               analyzerState.stage=0;render();return;
@@ -2043,8 +2086,11 @@ function renderAnalyzer(){
             // the matching villa-handler comment above for why this patches
             // only PSF/price-ladder fields (never rent/yield/investSignal),
             // so it can't race with the independent live-rentals refinement.
+            // Stores liveData on analyzerState so the view-distance
+            // refinement below can reuse it regardless of resolve order.
             fetchLiveData(analyzerState.f.building,analyzerState.f.area,analyzerState.f.beds).then(function(liveData){
               if(!liveData||!((liveData.txs&&liveData.txs.length)||(liveData.sales&&liveData.sales.length)))return;
+              analyzerState._liveData=liveData;
               var updatedVal=computeValuation(fData,analyzerState.f.building,liveData);
               if(!updatedVal||!analyzerState.val)return;
               ["adjPSF","psfLo","psfHi","fairPrice","distressPrice","goodPrice","overpricedAt","verdict","vsPct","suggestedOffer","dataSource","dataLayer","confScore","confTier","priceLow","priceHigh","liveSig"].forEach(function(k){analyzerState.val[k]=updatedVal[k];});
@@ -2086,6 +2132,7 @@ function renderAnalyzer(){
               var vv=analyzerState.val;
               _dvRunAgentAI(getPersonalSaleAIPrompt(propDesc,vv,profileCtx,riskCtx,analyzerState.f.area),analyzerState.f.area,"aiText");
             }
+            _dvRefineViewDistance(fData,"val",false,computeValuation);
             render();
           }
         },50);
@@ -2516,12 +2563,20 @@ function renderAnalyzerResult(wrap){
       {l:val.momSource==="real"?"Live Market Trend":"AI Market Trend",v:val.hasMomentum?"Active ×"+val.momFactor.toFixed(2):"No data",ok:val.hasMomentum},
       {l:"Developer Furnished",v:val.isDevFurnished?"Yes — "+furnLabel:"No — "+furnLabel,ok:true},
       {l:"View Specified",v:analyzerState.f.view!=="Not specified"?analyzerState.f.view:"Not specified",ok:analyzerState.f.view!=="Not specified"},
+      // View-distance dampening (added 2026-07-26): a "Burj Khalifa View"/
+      // "Full Sea View" claim used to get the same flat premium regardless
+      // of how far the building actually is from that landmark/coastline —
+      // this row makes the real, applied distance-based adjustment visible
+      // rather than a silent change to the numbers. Building-level (real
+      // Google-geocoded coordinate) is more precise than the always-on
+      // area-centroid default; shown once resolved.
+      val.viewDistInfo&&val.viewDistInfo.kind&&val.viewDistInfo.distKm!=null?{l:"View Distance Adjustment",v:(analyzerState.f._bkDistKm!=null||analyzerState.f._seaDistKm!=null?"Building-level · ":"Area-level · ")+val.viewDistInfo.distKm.toFixed(1)+"km · ×"+val.viewDistInfo.mult.toFixed(2)+" premium",ok:val.viewDistInfo.mult>=0.5}:null,
       {l:"Floor Specified",v:analyzerState.f.floor?"Floor "+analyzerState.f.floor:"Not provided",ok:!!analyzerState.f.floor||analyzerState.f.propCategory==="villa"},
       // Service charge is fully manual (2026-07-17) — per-building DB figures
       // had confirmed errors, so Net Yield no longer silently substitutes one;
       // surfacing this here makes the new "manual only" behavior visible.
       {l:"Service Charge",v:analyzerState.f.serviceCharge?"User-provided":"Not provided — generic estimate used",ok:!!analyzerState.f.serviceCharge},
-    ];
+    ].filter(Boolean);
     const bWrap=el("div",{style:{background:cl.raised,borderRadius:"10px",padding:"12px 14px",marginTop:"12px"}});
     bWrap.appendChild(div({color:cl.sub,fontSize:"9px",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px"},"Confidence Factors"));
     factors.forEach(function(fac){

@@ -965,6 +965,118 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-26 (session continuing, follow-up — view-premium distance
+  dampening: "Burj Khalifa View"/"Full Sea View" claims now scale with real
+  distance, two-tier area-centroid + live Google-geocoded building
+  precision)**: User flagged a real accuracy gap: `VIEW_P["Burj Khalifa
+  View"]` (and the rental engine's separate `viewAdj` ladder) applied the
+  identical flat premium regardless of how far the building actually is
+  from Burj Khalifa — a Business Bay unit (~1.7km, a real, prominent view)
+  and a Dubai Marina unit (~19km, essentially not a real "Burj Khalifa
+  view") got the same boost. User asked for this fixed using the site's
+  existing Google Maps connection, in two tiers if needed (area-to-area,
+  then building-to-building), and separately flagged the identical problem
+  for distant "Full Sea View" claims (e.g. Boulevard Heights/Burj Khalifa
+  itself/Address Sky View/Barsha Heights/JVC vs. a genuinely beachfront
+  building in Emaar Beachfront).
+  - **Real distances confirmed before building anything** — computed via
+    the already-existing `AREA_COORDS`/`haversineKm()`/`KEY_POIS` data (no
+    live call needed): Downtown Dubai 0.0km/Business Bay 1.7km/DIFC 1.5km
+    from Burj Khalifa vs. Dubai Creek Harbour 6.6km/Dubai Marina 18.8km/JVC
+    16.1km; Emaar Beachfront 0.7km/Dubai Marina 0.8km/JBR 0.2km from the
+    nearest real coastline (`KEY_POIS` "beach" category) vs. Barsha Heights
+    4.2km/Business Bay 4.0km/JVC 8.0km/Dubai Silicon Oasis 17.3km —
+    confirming the user's exact scenario in both directions with real
+    numbers before writing any formula.
+  - **Tier 1 (always-on, zero network dependency)**: new
+    `getViewDistanceInfo(view,area,bkDistKmOverride,seaDistKmOverride)` in
+    `js/valuation.js` — classifies a view as `"landmark"` (Burj Khalifa +
+    Fountain/Fountain View/Burj Khalifa View/Partial Burj View) or `"sea"`
+    (Full Sea View/Partial Sea View/Beach Access View) via
+    `_dvIsDistanceSensitiveView()`, or leaves every other view (Marina/Golf/
+    Canal/Lagoon/Creek Harbour/Lake/Palm/Skyline/Community/etc.) completely
+    untouched — those reference a feature that exists at many different
+    points across Dubai, so a single-point distance calculation doesn't
+    apply. Computes the real distance from the area's own `AREA_COORDS`
+    centroid to Burj Khalifa (`_dvBurjKhalifaKm()`, new helper in
+    `js/data-residential.js`) or the nearest real coastline point
+    (`_dvNearestBeachKm()`, same file) when no more-precise override is
+    given, then applies a piecewise-linear decay curve
+    (`_dvViewDistCurve()`): full premium ≤2km (landmark)/≤1.5km (sea),
+    tapering to ~10%/~8% floor by 20km+. Wired into `computeAdjustedPSF()`'s
+    `rawVP` (sale side, before the existing grade-baseline subtraction) and
+    `computeRentalValuation()`'s `viewAdj` ladder (rental side — dampens
+    only the premium PORTION, i.e. `viewAdj-1.0`, never the neutral 1.0
+    baseline). Verified against the real distances above: Business Bay gets
+    the full 28% Burj Khalifa premium, Dubai Creek Harbour ~13% (about
+    half), Dubai Marina ~3% (mostly stripped); Emaar Beachfront gets the
+    full 25% sea-view premium, JVC ~8% (about a third) — exactly the
+    differentiation the user asked for, while a non-distance-sensitive view
+    (Marina View, Golf View, etc.) is confirmed byte-for-byte unaffected.
+  - **Tier 2 (optional refinement, real Google-geocoded building
+    coordinate)**: new `resolveViewDistance(building,area)` in `js/api.js`
+    — only ever called when the selected view is actually landmark/sea-type
+    (skips entirely otherwise, no wasted API call); reuses the SAME
+    `window._dvGeoCache`/`/api/proxy-maps?action=geocode` call the
+    Analyzer's own Drive Times/Nearby Amenities cards already make for this
+    exact building, so whichever resolves first saves the other a duplicate
+    geocode; degrades to `null` (never throws) on any failure, always
+    falling back to the already-correct Tier-1 area-level result. New
+    `_dvRefineViewDistance()` in `js/market.js` — mirrors the EXISTING
+    "instant static result, then live-refine in place"
+    pattern already used for `fetchLiveData()`/`fetchLiveRentals()`; wired
+    into all 4 Analyzer submit handlers (villa/apartment × sale/rent).
+  - **Real composability bug found and fixed before shipping**: a naive
+    version of the Tier-2 refinement would silently REVERT whatever the
+    sibling `fetchLiveData()` refinement had already improved (real Bayut/
+    PropertyFinder transaction data blended into the PSF) if it resolved
+    AFTER that one, since both patch the same `adjPSF`/`fairPrice`/etc.
+    fields via a fresh `computeValuation()` call. Fixed by storing the
+    resolved `liveData` on `analyzerState._liveData` the moment
+    `fetchLiveData()` succeeds (reset to `null` on every new submission)
+    and having `_dvRefineViewDistance()` always reuse it in its own
+    recompute — confirmed via a dedicated composability test that BOTH
+    improvements now stack correctly regardless of which async refinement
+    resolves first, neither ever clobbering the other.
+  - **UI disclosure**: new "View Distance Adjustment" row in the Analyzer
+    result's existing "Confidence Factors" panel (sale side only — the
+    rental result page has no equivalent detailed panel to hook into
+    without a larger restructuring, left for a future pass) — shows
+    "Area-level"/"Building-level" precision, the real distance in km, and
+    the applied multiplier, so this is a disclosed adjustment, not a silent
+    change to the numbers.
+  - Verified: `node -c` on all 4 touched files; a Node vm-sandbox test
+    confirming the real curve values match the pre-computed area distances
+    above (Business Bay mult=1.000, Creek Harbour mult=0.453, Marina
+    mult=0.118 for the landmark view; Emaar Beachfront mult=1.000, JVC
+    mult=0.319, Silicon Oasis mult=0.112 for sea view), confirming every
+    non-distance-sensitive view returns mult=1.0 unchanged, and confirming
+    a full `computeValuation()`/`computeRentalValuation()` run shows the
+    expected differentiated premium (Business Bay 28% vs. Creek Harbour
+    13% vs. Marina 3% for the exact same Burj Khalifa View input) with zero
+    regression to a Marina-View-in-Dubai-Marina control case; a second Node
+    test confirming `resolveViewDistance()` correctly geocodes, caches
+    (second call for the same building makes zero additional fetch calls),
+    and degrades gracefully to `null` on a bad/empty geocode response; a
+    third dedicated composability test proving a live-transaction signal
+    and a building-level view-distance override correctly stack together
+    regardless of resolution order; and a real-browser Playwright pass
+    driving the actual Analyzer end-to-end (Business Bay/2BR/Burj Khalifa
+    View) confirming `computeValuation()` runs cleanly, the result renders,
+    and the new "View Distance Adjustment" row appears in the live DOM —
+    zero non-network console errors (same sandboxed no-live-API-access
+    limitation as every other test this session).
+  - Cache versions bumped: `js/data-residential.js` to `?v=20260726b`,
+    `js/valuation.js`/`js/api.js`/`js/market.js` to `?v=20260726a` in both
+    `index.html` and `sw.js`'s `PRECACHE` array (also corrected 2 stale,
+    already-out-of-sync entries found in `sw.js` — `js/api.js` was still
+    pinned at `?v=20260706a` there despite `index.html` already having moved
+    to `?v=20260719a` before this session's edit); `sw.js`'s `CACHE_NAME`
+    bumped `dubaival-v69`→`dubaival-v70`. Rebuilt `www/` and manually synced
+    every touched file into `android/app/src/main/assets/public/`, confirmed
+    byte-identical (`npx cap sync android` failed as always in this
+    sandbox — no Android SDK).
+
 - **2026-07-26 (session continuing, follow-up — Discovery Gardens
   corrective research: 9 genuinely per-building-sourced buildings merged,
   in stark contrast to the previous round's rejected 92-uniform-value
