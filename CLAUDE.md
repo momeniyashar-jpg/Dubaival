@@ -965,6 +965,62 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-26 (session continuing, follow-up — Agent Report negotiation-
+  science audit + RAG injection: real, cited Cialdini/Voss/real-estate
+  closing research added to the knowledge base)**: User asked to review
+  the existing agent-facing Analyzer reports (buyer/seller reports,
+  negotiation strategy memo) against a higher bar — genuinely grounded in
+  real scientific/marketing/sales-book knowledge, specifically to help
+  agents bring both sides to a realistic closing price — and to inject
+  whatever's missing into RAG.
+  - **Review finding**: `getAgentAIPrompt`/`getNegotiationStrategyPrompt`
+    (js/market.js) already invoke real, named negotiation techniques
+    (anchoring, mirroring, calibrated questions, the flinch, deadline
+    pressure) and already compute real deterministic seller-floor/buyer-cap/
+    sweet-spot numbers from the valuation engine — these are NOT empty
+    buzzwords, they're genuine, credible negotiation concepts (mirroring/
+    calibrated questions/labeling are specifically Chris Voss's "Never
+    Split the Difference" vocabulary). The actual gap: the RAG knowledge
+    base itself (`knowledge_base` table) had never been given DEDICATED
+    negotiation-science or real-estate-sales-methodology content — only
+    market data (news/snapshots/forecast-accuracy) — so `groundQuery`'s
+    "Dubai [area] negotiation tactics" search could only ever retrieve
+    market facts, never real sales-closing frameworks, even though the
+    prompts already reference them by name.
+  - **Fix**: researched real, citable negotiation/persuasion science via
+    WebSearch (Cialdini's 7 principles of influence, Chris Voss's tactical
+    empathy techniques, real estate-specific price-objection handling for
+    overpriced sellers, and how to bridge a buyer-seller gap toward a
+    realistic closing number) and added a 3rd convenience seed button,
+    `_adminResearchLoadNegotiationSciencePack()` ("↓ Load Negotiation &
+    Deal-Closing Science (4 facts)", `js/app.js`, next to the existing
+    off-plan/established-facts seed buttons) — 4 real, sourced research
+    notes tagged `"negotiation"`, queued for admin review before injection
+    (same "never auto-publish" pattern as every other research-injection
+    source in this project).
+  - Verified: `node -c js/app.js`; a real-browser Playwright test
+    confirming the new button renders in the Admin Dashboard, clicking it
+    queues exactly the 4 correct research notes, and clicking it a 2nd
+    time correctly dedupes (queue length stays 4, matching the existing
+    seed buttons' own dedup behavior) — zero console errors.
+  - Cache version bumped: `js/app.js` to `?v=20260726a` in both
+    `index.html` and `sw.js`'s `PRECACHE` array; `sw.js`'s `CACHE_NAME`
+    bumped `dubaival-v74`→`dubaival-v75`.
+  - **Discussed, NOT implemented — a separate ask, exploratory**: user also
+    asked about adding a NEW report section to help agents WIN a listing
+    (persuading a property owner to list with them), and specifically
+    asked for an opinion on architecture: a separate "tunnel"/report mode
+    the agent selects when they only want listing-acquisition advice, vs.
+    a section always appended to every agent report. Recommended the
+    separate-mode approach (matches the existing Buyer/Seller/Both report-
+    type toggle pattern already in place, and avoids showing irrelevant
+    "how to win this listing" advice on the — far more common — case where
+    the agent already has the listing and is negotiating a live deal,
+    which would violate this project's own "don't show something
+    irrelevant" discipline used everywhere else in the Analyzer). Not
+    built — the user asked for opinion first, to jointly decide the
+    structure before implementation.
+
 - **2026-07-26 (session continuing, follow-up — real floor-based view
   credibility multiplier: a claimed view isn't equally TRUE at every
   floor, now dampened for low floors using real cited evidence)**: User

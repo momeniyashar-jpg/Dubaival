@@ -1869,6 +1869,30 @@ function _adminResearchLoadEstablishedFactsPack(){
   pack.forEach(function(n){if(existingTitles2.indexOf(n.title)===-1)ADMIN_RESEARCH_STATE.queue.push(n);});
   render();
 }
+// Convenience seed #3 (added 2026-07-26, direct follow-up to the user's own
+// review of the Agent Report/Negotiation Strategy prompts in js/market.js —
+// getAgentAIPrompt/getNegotiationStrategyPrompt already invoke real named
+// techniques like anchoring/mirroring/calibrated questions/the flinch, but
+// the RAG knowledge base itself had never actually been given dedicated
+// negotiation-science or real-estate-sales-methodology content — meaning
+// groundQuery's "Dubai [area] negotiation tactics" search could only ever
+// retrieve MARKET data (news/snapshots), never real sales-closing science.
+// This pack is genuine, real, citable negotiation/persuasion research
+// (Cialdini's Influence, Voss's Never Split the Difference, real-estate-
+// specific price-objection handling) so the agent-facing reports can
+// genuinely cite and apply real frameworks, not just improvise technique
+// names from the model's own general training with no retrieval backing.
+function _adminResearchLoadNegotiationSciencePack(){
+  var pack=[
+    {title:"Cialdini's principles of influence applied to real estate closing",tag:"negotiation",area:null,content:"Robert Cialdini's research identifies 7 principles of persuasion relevant to closing a real estate deal: reciprocity (a small, genuine concession — e.g. offering to cover a minor closing cost — makes the other side more likely to reciprocate with movement of their own); commitment and consistency (getting a party to state a small commitment early, e.g. confirming their real timeline or budget, makes them more likely to stay consistent with it later in the negotiation); social proof (citing genuine comparable recent sales or real buyer interest, never fabricated, reduces a party's uncertainty); authority (citing real, verifiable data — DLD-verified pricing, real market benchmarks — builds credibility); liking (genuine rapport and understanding the other party's real motivation, not scripted flattery); scarcity (honestly citing real market conditions such as genuine competing interest or real days-on-market pace, never a fabricated deadline); and unity (framing the negotiation as both sides solving a shared problem together, not as adversaries). These principles are only ethical when used to clarify real value and reduce real risk — never to fabricate urgency or false claims, which risks the agent's professional reputation."},
+    {title:"Tactical empathy negotiation techniques (Chris Voss, Never Split the Difference)",tag:"negotiation",area:null,content:"Chris Voss's tactical empathy framework offers 3 concrete techniques useful in real estate deal negotiation: mirroring (repeating the last 1-3 words the other party said, which builds rapport and encourages them to keep talking and reveal more about their real position); labeling (naming the other party's likely emotion out loud with empathy, not judgment — e.g. \"It sounds like the price feels like a stretch right now\" — which defuses tension without conceding anything); and calibrated questions (open-ended \"how\" or \"what\" questions like \"How can we make this work for both of you?\" that get the other party to help solve the problem collaboratively, rather than a closed yes/no question that invites a flat refusal). These are genuine negotiation techniques, not manipulation — they work by making the other party feel heard and reducing defensiveness, which is what actually creates room to move toward a real, mutually workable price."},
+    {title:"Real estate price objection handling for an overpriced seller",tag:"negotiation",area:null,content:"When a seller believes their property is worth more than a real comparable market analysis supports, the most effective approach is not to argue the seller's own opinion directly, but to present a concrete comparative market analysis of genuinely similar recently-sold or listed properties, and explain that pricing competitively from the very start typically attracts serious buyers faster and can even generate stronger, faster offers than an inflated asking price that sits unsold and grows stale. If a seller mentions a competing agent promised a higher listing price, the direct, honest approach is to address it head-on: explain the real risk of overpricing (a property that sits too long on the market signals to buyers that something may be wrong with it, and typically requires a larger eventual price cut than pricing right the first time). Using \"we\" language (\"let's find the price that works\") rather than \"I\" framing creates a sense of the agent and seller solving the pricing problem together, rather than the agent pushing the seller toward a lower number."},
+    {title:"Bridging a buyer-seller price gap toward a realistic closing number",tag:"negotiation",area:null,content:"A common, effective real estate negotiation structure for bridging a price gap between a buyer's offer and a seller's asking price is: first anchor both sides against real, objective market data (a genuine comparable-sales benchmark, not either party's personal opinion of value) so neither side's position is treated as automatically correct; then identify a realistic \"sweet spot\" figure that both a seller's realistic floor (informed by real holding costs of continuing to market the property) and a buyer's realistic ceiling (informed by real financing/valuation constraints) can both accept; then close using a technique matched to the real market pace — a genuinely fast-moving market (low real days-on-market) supports honest urgency framing (real competing interest, real time pressure), while a genuinely slow-moving market rewards patience and a low-pressure, collaborative framing instead, since manufactured urgency in a market that isn't actually moving fast can damage trust and credibility once the buyer/seller realizes the pressure wasn't real."}
+  ];
+  var existingTitles3=ADMIN_RESEARCH_STATE.queue.map(function(n){return n.title;});
+  pack.forEach(function(n){if(existingTitles3.indexOf(n.title)===-1)ADMIN_RESEARCH_STATE.queue.push(n);});
+  render();
+}
 async function _adminResearchInject(){
   if(!window._adminPw)return;
   if(!ADMIN_RESEARCH_STATE.queue.length){ADMIN_RESEARCH_STATE.error="Queue is empty — add at least one note first.";render();return;}
@@ -2583,10 +2607,14 @@ function renderAdmin(){
   rsSeedBtn.textContent="↓ Load This Session's Off-Plan Research (5 facts)";
   rsSeedBtn.onclick=function(){_adminResearchLoadOffplanPack();};
   rsCard.appendChild(rsSeedBtn);
-  var rsSeedBtn2=el("button",{style:{width:"100%",padding:"8px",borderRadius:"8px",border:"1px dashed "+cl.border,background:"transparent",color:cl.sub,fontSize:"10.5px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",marginBottom:"10px"}});
+  var rsSeedBtn2=el("button",{style:{width:"100%",padding:"8px",borderRadius:"8px",border:"1px dashed "+cl.border,background:"transparent",color:cl.sub,fontSize:"10.5px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",marginBottom:"6px"}});
   rsSeedBtn2.textContent="↓ Load Established Market/Regulation Facts (3 more)";
   rsSeedBtn2.onclick=function(){_adminResearchLoadEstablishedFactsPack();};
   rsCard.appendChild(rsSeedBtn2);
+  var rsSeedBtn3=el("button",{style:{width:"100%",padding:"8px",borderRadius:"8px",border:"1px dashed "+cl.border,background:"transparent",color:cl.sub,fontSize:"10.5px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",marginBottom:"10px"}});
+  rsSeedBtn3.textContent="↓ Load Negotiation & Deal-Closing Science (4 facts)";
+  rsSeedBtn3.onclick=function(){_adminResearchLoadNegotiationSciencePack();};
+  rsCard.appendChild(rsSeedBtn3);
 
   var rsGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px"}});
   function rsField(placeholder,key,type){return inp(Object.assign({},I(),{fontSize:"11px",padding:"6px 8px"}),placeholder,type||"text",rs.draft[key],function(v){rs.draft[key]=v;});}
