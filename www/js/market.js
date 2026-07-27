@@ -70,17 +70,26 @@ function buildReportTypeSelector(cl,formCard){
     sec.appendChild(pRow);
   }else if(rm==="agent"){
     sec.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginBottom:"8px"},"Generate report for:"));
-    var aOpts=[{v:"buyer",l:"Buyer",d:"Convince buyer to purchase"},{v:"seller",l:"Seller",d:"Convince seller to list/accept"},{v:"both",l:"Both Reports",d:"Separate buyer & seller reports"}];
-    var aRow=el("div",{style:{display:"flex",gap:"6px"}});
+    // "Get Listing" (added 2026-07-26) is a 4th, architecturally-different
+    // option — winning the LISTING MANDATE from the owner, not persuading a
+    // counterparty on an active deal. Deliberately only ever reachable here,
+    // inside Agent Report mode (per the site owner's explicit instruction),
+    // so a non-agent visitor never sees this tunnel at all.
+    var aOpts=[{v:"buyer",l:"Buyer",d:"Convince buyer to purchase"},{v:"seller",l:"Seller",d:"Convince seller to list/accept"},{v:"both",l:"Both Reports",d:"Separate buyer & seller reports"},{v:"listing",l:"Get Listing",d:"Pitch to win the listing mandate from the owner"}];
+    var aRow=el("div",{style:{display:"flex",gap:"6px",flexWrap:"wrap"}});
     aOpts.forEach(function(o){
       var isA=rf===o.v;
-      var btn=el("button",{style:{flex:"1",padding:"8px 10px",borderRadius:"8px",border:"1px solid "+(isA?"#3B82F6":cl.border),background:isA?"rgba(59,130,246,0.1)":"transparent",color:isA?"#60A5FA":cl.sub,fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+      var isListingOpt=o.v==="listing";
+      var aColor=isListingOpt?cl.gold:"#3B82F6";
+      var aColorLight=isListingOpt?cl.gold:"#60A5FA";
+      var btn=el("button",{style:{flex:"1 1 80px",padding:"8px 10px",borderRadius:"8px",border:"1px solid "+(isA?aColor:cl.border),background:isA?hexAlpha(aColor,0.1):"transparent",color:isA?aColorLight:cl.sub,fontSize:"11px",fontWeight:"600",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
       btn.textContent=o.l;
       btn.title=o.d;
       btn.addEventListener("click",function(){analyzerState.reportFor=o.v;render();});
       aRow.appendChild(btn);
     });
     sec.appendChild(aRow);
+    if(rf==="listing")sec.appendChild(div({color:hexAlpha(cl.gold,0.7),fontSize:"9.5px",fontFamily:"'Inter',sans-serif",marginTop:"8px"},"Builds a pitch to win this listing from the owner — no active buyer/negotiation content."));
   }
   formCard.appendChild(sec);
 }
@@ -272,6 +281,44 @@ function getPersonalRentalAIPrompt(propDesc,rv,area){
   var user=propDesc+". EXACT DATA: Market rent AED "+rv.estRent.toLocaleString()+"/yr (AED "+rv.monthly.toLocaleString()+"/mo). Range: AED "+rv.rentLow.toLocaleString()+"-"+rv.rentHigh.toLocaleString()+"/yr. Asking "+rv.vsPct+"% vs market. Verdict: "+rv.verdict.replace(/_/g," ")+". Confidence: "+rv.confScore+"%."+amenities;
   var sys="You are a Dubai rental-market specialist advising a prospective tenant directly. Use ONLY the numbers and amenities given — never invent your own. If real, current Dubai rental-market knowledge is supplied below, weave in whichever fact is genuinely most relevant to this unit's own area/segment. Write exactly 3 sentences: (1) a rental assessment grounded in this unit's own numbers and real location benefits, (2) a concrete negotiation target in AED, (3) one practical tenant tip specific to this verdict (what to verify/ask for if overpriced; what to lock in quickly if below market).";
   return {system:sys,user:user,groundQuery:"Dubai "+area+" rental market "+rv.verdict+" tenant advice"};
+}
+
+// "Listing Pitch" — a 4th agent report-for option (added 2026-07-26, direct
+// follow-up to the user's own review of the Agent Report system). This is
+// architecturally different from Buyer/Seller/Both: those persuade a
+// COUNTERPARTY on an ACTIVE deal (a specific buyer or seller already at the
+// table, with real seller-floor/buyer-cap negotiation math to bridge). This
+// one helps the agent win the LISTING MANDATE ITSELF from a property owner
+// who hasn't committed to listing with anyone yet — there is no buyer, so
+// negotiation-range math doesn't apply here at all. Kept as its own separate
+// reportFor value (not folded into "seller") so it never mixes deal-
+// negotiation content into a pre-listing pitch, and vice versa. Only ever
+// selectable once "Agent Report" mode is already chosen (buildReportTypeSelector
+// only renders the reportFor row inside rm==="agent"), matching the site
+// owner's explicit instruction that a non-agent visitor should never see
+// this tunnel at all.
+function getListingPitchPrompt(propDesc,val,area){
+  var areaData=AREAS[area];
+  var areaCtx=areaData?"Area benchmarks: avg PSF "+areaData.psf+", 3yr growth "+(areaData.g?areaData.g[1]:"-")+"%, avg days-on-market "+(areaData.dom||"-")+"d, transaction volume "+(areaData.txVol||"-")+". ":"";
+  var domFast=areaData&&areaData.dom&&areaData.dom<45;
+  var domSlow=areaData&&areaData.dom&&areaData.dom>75;
+  var recommendedList=Math.round((val.fairPrice||0)*1.02);
+  var floorList=Math.round((val.fairPrice||0)*0.97);
+  var user=propDesc+". EXACT NUMBERS FROM OUR DLD-VERIFIED ENGINE (use these, do NOT invent your own): Fair value: AED "+val.fairPrice.toLocaleString()+". Recommended listing price (fair value + a competitive premium): AED "+recommendedList.toLocaleString()+". Realistic floor if it needs repricing later: AED "+floorList.toLocaleString()+". Market PSF: AED "+val.adjPSF.toLocaleString()+". Confidence: "+val.confScore+"% ("+val.confTier+"). Gross yield at fair value: "+val.grossYield+"%. "+areaCtx+"MARKET PACE: "+(domFast?"a FAST-moving area — emphasize genuine buyer competition and how correct day-one pricing captures the strongest early interest":domSlow?"a SLOWER-moving area — emphasize a strong marketing/pricing plan as the real differentiator, not manufactured urgency":"a MODERATE-pace area")+".";
+  var sys="You are a top-performing RERA-certified Dubai listing agent (15+ years, consistently wins competitive listing pitches) preparing a LISTING PRESENTATION for the property OWNER — this is NOT a report to a buyer, and NOT an active negotiation; the owner has not yet committed to listing with anyone.\n"+
+    "Your goal: win the mandate to list THIS exact property, using real data as your authority. Cover, in this order: (1) a confident, data-grounded case for the recommended listing price using the EXACT numbers given — never invent a figure — framed as your comparative market evidence, not a personal opinion; (2) directly and professionally address the classic objection of another agent promising a higher price, without disparaging any competitor by name — explain honestly why accurate, DLD-verified pricing tends to outperform an inflated quote over the full selling timeline; (3) if real, current knowledge on this exact point is supplied below, briefly note why proceeding with a professional listing tends to achieve a stronger outcome than trying to sell privately; (4) one confident closing line asking for the mandate.\n"+
+    "If real, current Dubai real-estate listing-acquisition or market knowledge is supplied below, weave in whichever fact is genuinely most relevant — never restate it as generic filler. Ground every number in the EXACT data given. Write 5-6 sentences, confident and professional, zero generic real-estate cliché with no number attached. Do NOT mention you are AI.";
+  return {system:sys,user:user,groundQuery:"Dubai real estate listing presentation win seller mandate FSBO pricing strategy "+area};
+}
+function getRentalListingPitchPrompt(propDesc,rv,area){
+  var areaData=AREAS[area];
+  var areaCtx=areaData?"Area rental benchmarks: 1BR "+(areaData.r1||"-")+", 2BR "+(areaData.r2||"-")+", 3BR "+(areaData.r3||"-")+" AED/yr. ":"";
+  var recommendedList=Math.round((rv.estRent||0)*1.03);
+  var user=propDesc+". EXACT NUMBERS FROM OUR DLD-VERIFIED ENGINE (use these, do NOT invent your own): Market rent: AED "+rv.estRent.toLocaleString()+"/yr. Recommended listing rent: AED "+recommendedList.toLocaleString()+"/yr. Rent range: AED "+rv.rentLow.toLocaleString()+"-"+rv.rentHigh.toLocaleString()+"/yr. Confidence: "+rv.confScore+"%. "+areaCtx;
+  var sys="You are a top-performing Dubai leasing agent (10+ years, 3,000+ leases closed) preparing a LISTING PRESENTATION for the property OWNER — this is NOT a report to a tenant, and NOT an active negotiation; the owner has not yet committed to leasing with any agent.\n"+
+    "Your goal: win the mandate to lease THIS exact property. Cover: (1) a confident, data-grounded recommended asking rent using the EXACT numbers given, framed as real market evidence rather than a guess; (2) address the classic objection of another agent promising a higher rent, explaining honestly why accurate, market-verified pricing tends to lease faster with less vacancy cost than an inflated ask; (3) one confident closing line asking for the mandate.\n"+
+    "If real, current Dubai rental-market or listing-acquisition knowledge is supplied below, weave in whichever fact is genuinely most relevant. Ground every number in the EXACT data given. Write 4-5 sentences, confident and professional. Do NOT mention you are AI.";
+  return {system:sys,user:user,groundQuery:"Dubai rental listing presentation win landlord mandate pricing strategy "+area};
 }
 
 // --- MARKET TAB ---------------------------------------------------------------
@@ -1878,14 +1925,18 @@ function renderAnalyzer(){
             var rv=analyzerState.rentalVal;
             var propDesc=analyzerState.f.building+" villa in "+analyzerState.f.area+". "+f.beds+". BUA:"+f.size+"sqft. Asking rent AED "+parseInt(f.price).toLocaleString()+"/yr";
             if(rMode==="agent"){
-              analyzerState.aiText="";analyzerState.aiTextSeller="";analyzerState.aiNegotiation="";
-              if(rFor==="both"||rFor==="buyer")_dvRunAgentAI(getRentalAgentAIPrompt(propDesc,rv,"buyer",analyzerState.f.area),analyzerState.f.area,"aiText");
-              if(rFor==="both"||rFor==="seller")_dvRunAgentAI(getRentalAgentAIPrompt(propDesc,rv,"seller",analyzerState.f.area),analyzerState.f.area,"aiTextSeller");
-              var _tenantMaxN=Math.round(rv.estRent*1.05);
-              var _landlordMinN=Math.round(rv.estRent*0.92);
-              var _rNegV=rv.verdict;
-              var _rNegP=getRentalNegotiationStrategyPrompt(propDesc,rv,analyzerState.f.area,{landlordMin:_landlordMinN,sweetSpot:Math.round((_tenantMaxN+_landlordMinN)/2),tenantMax:_tenantMaxN,dealProb:_rNegV==="BELOW_MARKET"?"Very High (90%+)":_rNegV==="COMPETITIVE"?"High (75-85%)":_rNegV==="MARKET_RATE"?"Moderate (55-70%)":"Low (30-45%)"});
-              _dvRunAgentAI(_rNegP,analyzerState.f.area,"aiNegotiation");
+              analyzerState.aiText="";analyzerState.aiTextSeller="";analyzerState.aiNegotiation="";analyzerState.aiListingPitch="";
+              if(rFor==="listing"){
+                _dvRunAgentAI(getRentalListingPitchPrompt(propDesc,rv,analyzerState.f.area),analyzerState.f.area,"aiListingPitch");
+              }else{
+                if(rFor==="both"||rFor==="buyer")_dvRunAgentAI(getRentalAgentAIPrompt(propDesc,rv,"buyer",analyzerState.f.area),analyzerState.f.area,"aiText");
+                if(rFor==="both"||rFor==="seller")_dvRunAgentAI(getRentalAgentAIPrompt(propDesc,rv,"seller",analyzerState.f.area),analyzerState.f.area,"aiTextSeller");
+                var _tenantMaxN=Math.round(rv.estRent*1.05);
+                var _landlordMinN=Math.round(rv.estRent*0.92);
+                var _rNegV=rv.verdict;
+                var _rNegP=getRentalNegotiationStrategyPrompt(propDesc,rv,analyzerState.f.area,{landlordMin:_landlordMinN,sweetSpot:Math.round((_tenantMaxN+_landlordMinN)/2),tenantMax:_tenantMaxN,dealProb:_rNegV==="BELOW_MARKET"?"Very High (90%+)":_rNegV==="COMPETITIVE"?"High (75-85%)":_rNegV==="MARKET_RATE"?"Moderate (55-70%)":"Low (30-45%)"});
+                _dvRunAgentAI(_rNegP,analyzerState.f.area,"aiNegotiation");
+              }
             }else{
               _dvRunAgentAI(getPersonalRentalAIPrompt(propDesc,rv,analyzerState.f.area),analyzerState.f.area,"aiText");
             }
@@ -1940,15 +1991,19 @@ function renderAnalyzer(){
             }).catch(function(){analyzerState.smartRent=computeSmartRent(analyzerState.f,null);});
             var propDesc=analyzerState.f.building+" villa/townhouse in "+analyzerState.f.area+". BUA:"+f.size+"sqft. Asking AED "+parseInt(f.price).toLocaleString();
             if(rMode==="agent"){
-              analyzerState.aiText="";analyzerState.aiTextSeller="";analyzerState.aiNegotiation="";
-              if(rFor==="both"||rFor==="buyer")_dvRunAgentAI(getAgentAIPrompt(propDesc,analyzerState.val,"buyer",analyzerState.f.area),analyzerState.f.area,"aiText");
-              if(rFor==="both"||rFor==="seller")_dvRunAgentAI(getAgentAIPrompt(propDesc,analyzerState.val,"seller",analyzerState.f.area),analyzerState.f.area,"aiTextSeller");
-              var _fairN=analyzerState.val.fairPrice||0;
-              var _buyerMaxN=Math.round(_fairN*1.03);
-              var _sellerMinN=Math.round(_fairN*0.95);
-              var _negV=analyzerState.val.verdict;
-              var _negP=getNegotiationStrategyPrompt(propDesc,analyzerState.val,analyzerState.f.area,{sellerMin:_sellerMinN,sweetSpot:Math.round((_buyerMaxN+_sellerMinN)/2),buyerMax:_buyerMaxN,dealProb:_negV==="DISTRESS"?"Very High (90%+)":_negV==="GOOD"?"High (75-85%)":_negV==="FAIR"?"Moderate (55-70%)":"Low (30-45%)"});
-              _dvRunAgentAI(_negP,analyzerState.f.area,"aiNegotiation");
+              analyzerState.aiText="";analyzerState.aiTextSeller="";analyzerState.aiNegotiation="";analyzerState.aiListingPitch="";
+              if(rFor==="listing"){
+                _dvRunAgentAI(getListingPitchPrompt(propDesc,analyzerState.val,analyzerState.f.area),analyzerState.f.area,"aiListingPitch");
+              }else{
+                if(rFor==="both"||rFor==="buyer")_dvRunAgentAI(getAgentAIPrompt(propDesc,analyzerState.val,"buyer",analyzerState.f.area),analyzerState.f.area,"aiText");
+                if(rFor==="both"||rFor==="seller")_dvRunAgentAI(getAgentAIPrompt(propDesc,analyzerState.val,"seller",analyzerState.f.area),analyzerState.f.area,"aiTextSeller");
+                var _fairN=analyzerState.val.fairPrice||0;
+                var _buyerMaxN=Math.round(_fairN*1.03);
+                var _sellerMinN=Math.round(_fairN*0.95);
+                var _negV=analyzerState.val.verdict;
+                var _negP=getNegotiationStrategyPrompt(propDesc,analyzerState.val,analyzerState.f.area,{sellerMin:_sellerMinN,sweetSpot:Math.round((_buyerMaxN+_sellerMinN)/2),buyerMax:_buyerMaxN,dealProb:_negV==="DISTRESS"?"Very High (90%+)":_negV==="GOOD"?"High (75-85%)":_negV==="FAIR"?"Moderate (55-70%)":"Low (30-45%)"});
+                _dvRunAgentAI(_negP,analyzerState.f.area,"aiNegotiation");
+              }
             }else{
               var vv=analyzerState.val;
               var profileCtx=(USER_PROFILE.investorType||"investor");
@@ -2101,14 +2156,18 @@ function renderAnalyzer(){
             var rv=analyzerState.rentalVal;
             var propDesc=analyzerState.f.building+" "+analyzerState.f.area+" "+(f.aptSubtype||f.beds||"")+" floor"+(f.floor||"?")+" "+f.view+" "+(f.size||"?")+"sqft rent AED "+parseInt(f.price).toLocaleString()+"/yr";
             if(rMode==="agent"){
-              analyzerState.aiText="";analyzerState.aiTextSeller="";analyzerState.aiNegotiation="";
-              if(rFor==="both"||rFor==="buyer")_dvRunAgentAI(getRentalAgentAIPrompt(propDesc,rv,"buyer",analyzerState.f.area),analyzerState.f.area,"aiText");
-              if(rFor==="both"||rFor==="seller")_dvRunAgentAI(getRentalAgentAIPrompt(propDesc,rv,"seller",analyzerState.f.area),analyzerState.f.area,"aiTextSeller");
-              var _tenantMaxN2=Math.round(rv.estRent*1.05);
-              var _landlordMinN2=Math.round(rv.estRent*0.92);
-              var _rNegV2=rv.verdict;
-              var _rNegP2=getRentalNegotiationStrategyPrompt(propDesc,rv,analyzerState.f.area,{landlordMin:_landlordMinN2,sweetSpot:Math.round((_tenantMaxN2+_landlordMinN2)/2),tenantMax:_tenantMaxN2,dealProb:_rNegV2==="BELOW_MARKET"?"Very High (90%+)":_rNegV2==="COMPETITIVE"?"High (75-85%)":_rNegV2==="MARKET_RATE"?"Moderate (55-70%)":"Low (30-45%)"});
-              _dvRunAgentAI(_rNegP2,analyzerState.f.area,"aiNegotiation");
+              analyzerState.aiText="";analyzerState.aiTextSeller="";analyzerState.aiNegotiation="";analyzerState.aiListingPitch="";
+              if(rFor==="listing"){
+                _dvRunAgentAI(getRentalListingPitchPrompt(propDesc,rv,analyzerState.f.area),analyzerState.f.area,"aiListingPitch");
+              }else{
+                if(rFor==="both"||rFor==="buyer")_dvRunAgentAI(getRentalAgentAIPrompt(propDesc,rv,"buyer",analyzerState.f.area),analyzerState.f.area,"aiText");
+                if(rFor==="both"||rFor==="seller")_dvRunAgentAI(getRentalAgentAIPrompt(propDesc,rv,"seller",analyzerState.f.area),analyzerState.f.area,"aiTextSeller");
+                var _tenantMaxN2=Math.round(rv.estRent*1.05);
+                var _landlordMinN2=Math.round(rv.estRent*0.92);
+                var _rNegV2=rv.verdict;
+                var _rNegP2=getRentalNegotiationStrategyPrompt(propDesc,rv,analyzerState.f.area,{landlordMin:_landlordMinN2,sweetSpot:Math.round((_tenantMaxN2+_landlordMinN2)/2),tenantMax:_tenantMaxN2,dealProb:_rNegV2==="BELOW_MARKET"?"Very High (90%+)":_rNegV2==="COMPETITIVE"?"High (75-85%)":_rNegV2==="MARKET_RATE"?"Moderate (55-70%)":"Low (30-45%)"});
+                _dvRunAgentAI(_rNegP2,analyzerState.f.area,"aiNegotiation");
+              }
             }else{
               _dvRunAgentAI(getPersonalRentalAIPrompt(propDesc,rv,analyzerState.f.area),analyzerState.f.area,"aiText");
             }
@@ -2159,15 +2218,19 @@ function renderAnalyzer(){
             });
             var propDesc=analyzerState.f.building+" "+analyzerState.f.area+" "+(f.aptSubtype||f.beds||"")+" floor"+f.floor+" "+f.view+" "+f.size+"sqft AED "+parseInt(f.price).toLocaleString();
             if(rMode==="agent"){
-              analyzerState.aiText="";analyzerState.aiTextSeller="";analyzerState.aiNegotiation="";
-              if(rFor==="both"||rFor==="buyer")_dvRunAgentAI(getAgentAIPrompt(propDesc,analyzerState.val,"buyer",analyzerState.f.area),analyzerState.f.area,"aiText");
-              if(rFor==="both"||rFor==="seller")_dvRunAgentAI(getAgentAIPrompt(propDesc,analyzerState.val,"seller",analyzerState.f.area),analyzerState.f.area,"aiTextSeller");
-              var _fairN=analyzerState.val.fairPrice||0;
-              var _buyerMaxN=Math.round(_fairN*1.03);
-              var _sellerMinN=Math.round(_fairN*0.95);
-              var _negV=analyzerState.val.verdict;
-              var _negP=getNegotiationStrategyPrompt(propDesc,analyzerState.val,analyzerState.f.area,{sellerMin:_sellerMinN,sweetSpot:Math.round((_buyerMaxN+_sellerMinN)/2),buyerMax:_buyerMaxN,dealProb:_negV==="DISTRESS"?"Very High (90%+)":_negV==="GOOD"?"High (75-85%)":_negV==="FAIR"?"Moderate (55-70%)":"Low (30-45%)"});
-              _dvRunAgentAI(_negP,analyzerState.f.area,"aiNegotiation");
+              analyzerState.aiText="";analyzerState.aiTextSeller="";analyzerState.aiNegotiation="";analyzerState.aiListingPitch="";
+              if(rFor==="listing"){
+                _dvRunAgentAI(getListingPitchPrompt(propDesc,analyzerState.val,analyzerState.f.area),analyzerState.f.area,"aiListingPitch");
+              }else{
+                if(rFor==="both"||rFor==="buyer")_dvRunAgentAI(getAgentAIPrompt(propDesc,analyzerState.val,"buyer",analyzerState.f.area),analyzerState.f.area,"aiText");
+                if(rFor==="both"||rFor==="seller")_dvRunAgentAI(getAgentAIPrompt(propDesc,analyzerState.val,"seller",analyzerState.f.area),analyzerState.f.area,"aiTextSeller");
+                var _fairN=analyzerState.val.fairPrice||0;
+                var _buyerMaxN=Math.round(_fairN*1.03);
+                var _sellerMinN=Math.round(_fairN*0.95);
+                var _negV=analyzerState.val.verdict;
+                var _negP=getNegotiationStrategyPrompt(propDesc,analyzerState.val,analyzerState.f.area,{sellerMin:_sellerMinN,sweetSpot:Math.round((_buyerMaxN+_sellerMinN)/2),buyerMax:_buyerMaxN,dealProb:_negV==="DISTRESS"?"Very High (90%+)":_negV==="GOOD"?"High (75-85%)":_negV==="FAIR"?"Moderate (55-70%)":"Low (30-45%)"});
+                _dvRunAgentAI(_negP,analyzerState.f.area,"aiNegotiation");
+              }
             }else{
               var profileLabels={income:"rental income investor",growth:"capital growth investor",flip:"flip investor",enduse:"end-use buyer"};
               var profileCtx=profileLabels[USER_PROFILE.investorType]||"investor";
@@ -2833,6 +2896,58 @@ function renderAnalyzerResult(wrap){
     wrap.appendChild(ecSCard);
   }
 
+  // --- LISTING PITCH (agent mode, reportFor==="listing") ---
+  // Added 2026-07-26, direct follow-up to the negotiation-report review.
+  // Deliberately kept as a completely separate card from the Buyer/Seller
+  // reports and the Agent Deal Intelligence block below (which stays gated
+  // OFF for this mode, see its own condition) — this pitch addresses the
+  // OWNER before any buyer exists at all, so showing active-deal negotiation
+  // content here would be irrelevant noise, exactly the failure mode a
+  // separate report type was chosen to avoid.
+  if(isAgentReport&&analyzerState.reportFor==="listing"&&f.txnType==="sale"){
+    var lpCard=div({background:cl.surface,border:"1px solid "+hexAlpha(cl.gold,0.35),borderRadius:"14px",padding:"18px",marginBottom:"14px"});
+    lpCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
+      span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Listing Pitch — Win the Mandate"),
+      span({color:hexAlpha(cl.gold,0.6),fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"For the property owner"),
+    ]));
+    var _lpFair=val.fairPrice||0;
+    var _lpRecommended=Math.round(_lpFair*1.02);
+    var _lpFloor=Math.round(_lpFair*0.97);
+    lpCard.appendChild(div({background:cl.raised,borderRadius:"10px",padding:"14px",marginBottom:"12px"},[
+      div({color:cl.sub,fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"Recommended Listing Price"),
+      div({display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px"},[
+        div({textAlign:"center"},[
+          div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"REALISTIC FLOOR"),
+          div({color:cl.subHi,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+_lpFloor.toLocaleString()),
+        ]),
+        div({textAlign:"center",background:hexAlpha(cl.gold,0.1),borderRadius:"8px",padding:"6px"},[
+          div({color:cl.gold,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"LIST AT"),
+          div({color:cl.gold,fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"AED "+_lpRecommended.toLocaleString()),
+        ]),
+        div({textAlign:"center"},[
+          div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"DLD FAIR VALUE"),
+          div({color:cl.subHi,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+_lpFair.toLocaleString()),
+        ]),
+      ]),
+      div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginTop:"10px"},"Backed by our DLD-calibrated market data — present this as your comparative market evidence, not a personal opinion of value."),
+    ]));
+    var _lpDom=val.domEst||(AREAS[f.area]&&AREAS[f.area].dom)||null;
+    lpCard.appendChild(div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"12px"},[
+      div({background:cl.raised,borderRadius:"10px",padding:"12px 14px"},[lbl("Area Avg. Days on Market"),div({color:cl.subHi,fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},_lpDom?_lpDom+"d":"—")]),
+      div({background:cl.raised,borderRadius:"10px",padding:"12px 14px"},[lbl("Liquidity Score"),div({color:val.liqTier&&val.liqTier.c==="green"?cl.green:val.liqTier&&val.liqTier.c==="yellow"?cl.yellow:"#EF4444",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},(val.liqScore||"—")+"/100 · "+(val.liqTier?val.liqTier.label:"—"))]),
+    ]));
+    var lpAISec=el("div",{style:{background:hexAlpha(cl.gold,0.06),border:"1px solid "+hexAlpha(cl.gold,0.2),borderRadius:"10px",padding:"14px"}});
+    lpAISec.appendChild(div({color:cl.gold,fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"Your Pitch to the Owner"));
+    if(analyzerState.aiListingPitch){
+      var lpFormatted=formatAIResponse(analyzerState.aiListingPitch,cl);
+      lpAISec.appendChild(lpFormatted||div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.85",fontFamily:"'Inter',sans-serif"},analyzerState.aiListingPitch));
+    }else{
+      lpAISec.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",fontStyle:"italic"},"Generating your listing pitch..."));
+    }
+    lpCard.appendChild(lpAISec);
+    wrap.appendChild(lpCard);
+  }
+
   // =====================================================
   // PERSONALIZED ADVISORY SYSTEM (Seller / Buyer / Agent)
   // =====================================================
@@ -3075,7 +3190,7 @@ function renderAnalyzerResult(wrap){
     // they're computed straight from val/fair. Gating them behind "Both
     // Reports" hid this from any agent who just wanted a Buyer or Seller
     // report, so it's now shown for every agent-mode sale report.
-    if(isAgent&&f.txnType==="sale"){
+    if(isAgent&&f.txnType==="sale"&&rFor!=="listing"){
       var agentCard=el("div",{style:{background:cl.surface,border:"1px solid rgba(59,130,246,0.25)",borderRadius:"14px",padding:"18px",marginBottom:"14px"}});
       agentCard.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
         span({color:"#3B82F6",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Agent Deal Intelligence"),
@@ -4277,11 +4392,51 @@ function renderRentalResult(wrap){
     wrap.appendChild(ecSCardR);
   }
 
+  // --- LISTING PITCH (agent mode, reportFor==="listing", rental flow) ---
+  // Rental counterpart to the sale flow's Listing Pitch card above — wins
+  // the LEASING mandate from the owner, no tenant/negotiation content.
+  if(isAgentRental&&analyzerState.reportFor==="listing"){
+    var lpCardR=div({background:cl.surface,border:"1px solid "+hexAlpha(cl.gold,0.35),borderRadius:"14px",padding:"18px",marginBottom:"14px"});
+    lpCardR.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
+      span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Listing Pitch — Win the Mandate"),
+      span({color:hexAlpha(cl.gold,0.6),fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"For the property owner"),
+    ]));
+    var _lpRentRecommended=Math.round((rv.estRent||0)*1.03);
+    lpCardR.appendChild(div({background:cl.raised,borderRadius:"10px",padding:"14px",marginBottom:"12px"},[
+      div({color:cl.sub,fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"Recommended Listing Rent"),
+      div({display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"},[
+        div({textAlign:"center"},[
+          div({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"MARKET RENT"),
+          div({color:cl.subHi,fontSize:"13px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},"AED "+(rv.estRent||0).toLocaleString()+"/yr"),
+        ]),
+        div({textAlign:"center",background:hexAlpha(cl.gold,0.1),borderRadius:"8px",padding:"6px"},[
+          div({color:cl.gold,fontSize:"9px",fontFamily:"'Space Grotesk',monospace",marginBottom:"3px"},"LIST AT"),
+          div({color:cl.gold,fontSize:"14px",fontWeight:"800",fontFamily:"'Space Grotesk',monospace"},"AED "+_lpRentRecommended.toLocaleString()+"/yr"),
+        ]),
+      ]),
+      div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginTop:"10px"},"Backed by our DLD-calibrated rental data — present this as real market evidence, not a personal opinion of value."),
+    ]));
+    var lpAISecR=el("div",{style:{background:hexAlpha(cl.gold,0.06),border:"1px solid "+hexAlpha(cl.gold,0.2),borderRadius:"10px",padding:"14px"}});
+    lpAISecR.appendChild(div({color:cl.gold,fontSize:"9.5px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"10px"},"Your Pitch to the Owner"));
+    if(analyzerState.aiListingPitch){
+      var lpFormattedR=typeof formatAIResponse==="function"?formatAIResponse(analyzerState.aiListingPitch,cl):null;
+      lpAISecR.appendChild(lpFormattedR||div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.85",fontFamily:"'Inter',sans-serif"},analyzerState.aiListingPitch));
+    }else{
+      lpAISecR.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",fontStyle:"italic"},"Generating your listing pitch..."));
+    }
+    lpCardR.appendChild(lpAISecR);
+    wrap.appendChild(lpCardR);
+  }
+
   // -- LANDLORD/TENANT DEAL INTELLIGENCE (agent mode) --
   // Rental counterpart to the sale flow's "Agent Deal Intelligence" card:
   // real negotiation-range numbers derived straight from rv (not AI), plus
   // a genuinely AI-authored negotiation strategy addressed to the agent.
-  if(isAgentRental){
+  // Skipped entirely for reportFor==="listing" (see js/market.js's sale-flow
+  // Agent Deal Intelligence gate for the same reasoning — no buyer/tenant
+  // exists yet at the listing-pitch stage, so negotiation-range math and
+  // "Talking Points" don't apply).
+  if(isAgentRental&&analyzerState.reportFor!=="listing"){
     var _tenantMax=Math.round(rv.estRent*1.05);
     var _landlordMin=Math.round(rv.estRent*0.92);
     var _sweetSpotR=Math.round((_tenantMax+_landlordMin)/2);

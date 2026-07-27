@@ -1893,6 +1893,29 @@ function _adminResearchLoadNegotiationSciencePack(){
   pack.forEach(function(n){if(existingTitles3.indexOf(n.title)===-1)ADMIN_RESEARCH_STATE.queue.push(n);});
   render();
 }
+// Convenience seed #4 (added 2026-07-26, direct follow-up to the new
+// "Get Listing" agent report type in js/market.js — getListingPitchPrompt/
+// getRentalListingPitchPrompt). This is a genuinely DIFFERENT sales skill
+// from seed #3's deal-negotiation content above: winning the LISTING
+// MANDATE from a property owner (before any buyer exists), not bridging a
+// price gap on an already-active deal. Real, cited content researched via
+// WebSearch (NAR's 2025 Profile of Home Buyers and Sellers FSBO statistics,
+// Inman/industry objection-handling guidance for the "another agent quoted
+// higher" scenario, and CMA-presentation consensus) so getListingPitchPrompt's
+// own "Dubai real estate listing presentation win seller mandate FSBO
+// pricing strategy" groundQuery has real, retrievable content to surface —
+// not just the deal-negotiation notes above, which don't cover this at all.
+function _adminResearchLoadListingAcquisitionPack(){
+  var pack=[
+    {title:"FSBO vs agent-assisted sale price gap (real industry data)",tag:"listing-acquisition",area:null,content:"NAR's 2025 Profile of Home Buyers and Sellers found a real, sourced gap between private (For Sale By Owner) sales and agent-assisted sales: a median FSBO sale price of roughly $380,000 versus roughly $435,000 for agent-assisted sales, a difference of about 12-18% depending on the exact year's data. FSBO transactions have fallen to about 5% of the market, with over 91% of sellers now using an agent. Even after subtracting typical commission savings, FSBO sellers on the open market commonly net $30,000-$40,000+ LESS than an agent-assisted seller, since the price gap outweighs the commission saved. A genuine caveat: many FSBO sales involve a buyer the seller already personally knew before listing, so those specific sales aren't always a fair open-market comparison — but the broader, sourced pattern still supports that professional representation tends to achieve a stronger realized price on the open market."},
+    {title:"Handling 'another agent quoted a higher price' when pitching for a listing",tag:"listing-acquisition",area:null,content:"A seller comparing agents on who quotes the highest listing price is one of the most common, highest-stakes objections when trying to win a listing mandate. The professional, honest response is never to simply out-quote a competitor (an industry practice sometimes called 'buying the listing,' which routinely leads to a painful price reduction later once the property sits unsold) — instead, acknowledge the seller genuinely wants the best outcome, then explain the real market mechanism plainly: buyers and their agents research pricing before ever requesting a viewing, and a property priced meaningfully above real market value is frequently skipped rather than negotiated on, since overpricing signals to the market that the seller may be unrealistic. The first roughly two weeks a property is listed (sometimes called the 'golden window') typically draw the strongest genuine buyer interest and best offers; a listing that starts overpriced and misses this window usually has to be repriced downward later, and commonly nets a WORSE final price than if it had been priced accurately from day one."},
+    {title:"The comparative market analysis (CMA) as the core trust-building tool in a listing pitch",tag:"listing-acquisition",area:null,content:"Industry consensus is that a data-driven Comparative Market Analysis, typically built from several genuinely comparable recent sales or listings, is the single most effective tool for winning a listing mandate — it replaces a seller's personal opinion of value, or a competing agent's plain higher quote, with verifiable third-party market evidence. An agent who arrives with a real CMA-backed number, rather than simply agreeing with whatever price the seller hoped for, is consistently the one who earns the seller's trust and, ultimately, the listing. This applies directly to a DubaiVal-analyzed property, since its DLD-calibrated valuation IS a real, defensible comparative-market figure — it should be presented explicitly as the evidence base behind the recommended listing price, not as a generic AI estimate."},
+    {title:"What sellers actually look for when choosing a listing agent",tag:"listing-acquisition",area:null,content:"Survey research on what property sellers most want from a listing agent consistently ranks strategic, accurate pricing and effective, professional marketing of the property among the top-requested services — both of which depend directly on having real, current market data rather than a generic sales pitch or personality alone. A listing pitch built around real, DLD-verified numbers (fair value, market PSF, area growth, and liquidity/days-on-market data) directly answers what a seller says they are looking for, and is a stronger differentiator than an inflated price quote with no data behind it."}
+  ];
+  var existingTitles4=ADMIN_RESEARCH_STATE.queue.map(function(n){return n.title;});
+  pack.forEach(function(n){if(existingTitles4.indexOf(n.title)===-1)ADMIN_RESEARCH_STATE.queue.push(n);});
+  render();
+}
 async function _adminResearchInject(){
   if(!window._adminPw)return;
   if(!ADMIN_RESEARCH_STATE.queue.length){ADMIN_RESEARCH_STATE.error="Queue is empty — add at least one note first.";render();return;}
@@ -2611,10 +2634,14 @@ function renderAdmin(){
   rsSeedBtn2.textContent="↓ Load Established Market/Regulation Facts (3 more)";
   rsSeedBtn2.onclick=function(){_adminResearchLoadEstablishedFactsPack();};
   rsCard.appendChild(rsSeedBtn2);
-  var rsSeedBtn3=el("button",{style:{width:"100%",padding:"8px",borderRadius:"8px",border:"1px dashed "+cl.border,background:"transparent",color:cl.sub,fontSize:"10.5px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",marginBottom:"10px"}});
+  var rsSeedBtn3=el("button",{style:{width:"100%",padding:"8px",borderRadius:"8px",border:"1px dashed "+cl.border,background:"transparent",color:cl.sub,fontSize:"10.5px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",marginBottom:"6px"}});
   rsSeedBtn3.textContent="↓ Load Negotiation & Deal-Closing Science (4 facts)";
   rsSeedBtn3.onclick=function(){_adminResearchLoadNegotiationSciencePack();};
   rsCard.appendChild(rsSeedBtn3);
+  var rsSeedBtn4=el("button",{style:{width:"100%",padding:"8px",borderRadius:"8px",border:"1px dashed "+cl.border,background:"transparent",color:cl.sub,fontSize:"10.5px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",marginBottom:"10px"}});
+  rsSeedBtn4.textContent="↓ Load Listing Acquisition & Pitch Science (4 facts)";
+  rsSeedBtn4.onclick=function(){_adminResearchLoadListingAcquisitionPack();};
+  rsCard.appendChild(rsSeedBtn4);
 
   var rsGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px"}});
   function rsField(placeholder,key,type){return inp(Object.assign({},I(),{fontSize:"11px",padding:"6px 8px"}),placeholder,type||"text",rs.draft[key],function(v){rs.draft[key]=v;});}

@@ -965,6 +965,122 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-26 (session continuing, follow-up — "Get Listing" tunnel shipped:
+  a 4th agent-report type for winning the listing MANDATE, gated inside
+  Agent Report mode; plus a dedicated real, cited listing-acquisition RAG
+  pack distinct from the deal-negotiation one above)**: Direct follow-up to
+  the negotiation-science RAG entry immediately below — after presenting my
+  recommendation (a separate "tunnel" report type over an always-included
+  section), the user approved building it, with 2 explicit refinements: (1)
+  it must live strictly inside Agent Report mode so a non-agent visitor
+  never sees it at all — architecturally already guaranteed, since
+  `buildReportTypeSelector()`'s reportFor row (`js/market.js`) only ever
+  renders once `rm==="agent"` is already selected, itself gated behind
+  `isRegisteredAgent()`; (2) the reports (buyer/seller/negotiation/listing)
+  must be genuinely precise and targeted, with each type's advisory pulling
+  from the RAG content actually relevant to IT specifically — meaning the
+  new Listing Pitch report needed its OWN dedicated, real research pack
+  (winning a listing mandate is a different sales skill from bridging an
+  active buyer-seller price gap; the negotiation-science pack added earlier
+  today has nothing about FSBO economics or "another agent quoted higher"
+  listing-pitch objection handling).
+  - **New reportFor value, `"listing"`** — a 4th button ("Get Listing")
+    added to the existing Buyer/Seller/Both Reports row in
+    `buildReportTypeSelector()`, with its own gold accent (vs. the other
+    3's blue) and a hint line ("Builds a pitch to win this listing from
+    the owner — no active buyer/negotiation content") shown once selected.
+  - **New prompt builders**: `getListingPitchPrompt(propDesc,val,area)` /
+    `getRentalListingPitchPrompt(propDesc,rv,area)` (`js/market.js`) —
+    architecturally distinct from `getAgentAIPrompt`/
+    `getNegotiationStrategyPrompt`: framed explicitly as a LISTING
+    PRESENTATION to the property OWNER, not a report to a buyer/tenant and
+    not an active negotiation (no buyer-cap/seller-floor sweet-spot math
+    applies — no buyer exists yet). Covers, in order: a confident
+    data-grounded recommended listing price using the engine's real
+    fair-value/PSF numbers as "comparative market evidence, not a personal
+    opinion"; a professional response to the classic "another agent quoted
+    a higher price" objection (never disparaging a competitor by name);
+    a brief FSBO-vs-agent note when real knowledge on this is retrieved;
+    and a confident close asking for the mandate. `groundQuery` is
+    deliberately scoped to "Dubai real estate listing presentation win
+    seller mandate FSBO pricing strategy" — a different retrieval target
+    from the deal-negotiation prompts' groundQuery, so it surfaces the NEW
+    listing-acquisition RAG pack below, not the negotiation-science one.
+  - **Wired into all 4 submit-handler branches** (villa/apartment ×
+    sale/rental, `js/market.js`) — `if(rFor==="listing")` now runs ONLY the
+    new listing-pitch prompt into a new `analyzerState.aiListingPitch`
+    field, explicitly skipping the buyer/seller AI reports and the
+    negotiation-strategy call entirely (the `else` branch untouched,
+    still the exact prior behavior for buyer/seller/both).
+  - **New render sections** (both `renderAnalyzerResult()` and
+    `renderRentalResult()`, `js/market.js`): a "Listing Pitch — Win the
+    Mandate" card — a deterministic "Recommended Listing Price" block
+    (realistic floor / list-at / DLD fair value, sale; market rent /
+    list-at, rental) plus area DOM/liquidity context, followed by the
+    AI-generated pitch text — shown ONLY when `reportFor==="listing"`.
+    The pre-existing Agent Deal Intelligence card (sale) and Landlord/
+    Tenant Deal Intelligence card (rental) — both full of buyer-cap/
+    seller-floor negotiation math that doesn't apply pre-listing — are now
+    explicitly gated OFF (`&&rFor!=="listing"` / `&&reportFor!=="listing"`)
+    for this report type; the existing Buyer/Seller AI report cards
+    already skip themselves for free, since `aiText`/`aiTextSeller` are
+    simply never populated when `rFor==="listing"`.
+  - **New RAG research pack — genuinely different content from the
+    negotiation-science pack, not a copy**: `_adminResearchLoadListingAcquisitionPack()`
+    (`js/app.js`, a 4th convenience seed button, "↓ Load Listing
+    Acquisition & Pitch Science (4 facts)", next to the existing off-plan/
+    established-facts/negotiation-science buttons) — 4 real, sourced facts
+    via WebSearch: NAR's 2025 Profile of Home Buyers and Sellers FSBO-vs-
+    agent-assisted sale price gap (real, sourced, with the honest caveat
+    that many FSBO sales involve a buyer the seller already knew, so not
+    always a fair open-market comparison); the professional response to
+    "another agent quoted a higher price" during a listing pitch (the
+    industry "buying the listing" pitfall, and the "golden window" first-
+    two-weeks pricing-accuracy argument); the comparative market analysis
+    (CMA) as the core trust-building tool in winning a listing mandate
+    (directly ties to DubaiVal's own DLD-calibrated valuation being real,
+    presentable CMA-equivalent evidence); and survey data on what sellers
+    actually want from a listing agent (strategic pricing + marketing,
+    both requiring real data). Same review-then-inject queue mechanism as
+    every other seed pack — nothing auto-publishes without an admin
+    reviewing and clicking Inject.
+  - Verified: `node -c` on both touched files; a standalone Node vm-sandbox
+    test (15 checks) extracting the 2 new prompt-builder functions directly
+    from `js/market.js` (loaded alongside the real `js/data-residential.js`
+    for `AREAS`) — confirmed both embed the real fair-value/recommended-
+    list/floor numbers correctly, frame themselves explicitly as a listing
+    presentation (not a buyer/negotiation report), address the "another
+    agent quoted higher" objection, target the correct listing-acquisition
+    groundQuery, and never throw on a completely unknown area; 4 real-
+    browser Playwright passes — (1) confirmed all 4 report-type buttons
+    render inside Agent Report mode, clicking "Get Listing" correctly sets
+    `reportFor` and shows the hint text, and switching to Personal mode
+    hides the entire row (including Get Listing) — confirming a non-agent
+    visitor can never reach this tunnel; (2) a full sale-mode render
+    (Downtown Dubai, Burj Khalifa View, 3BR, AED 5M) confirming the
+    Listing Pitch card renders with real deterministic pricing/liquidity
+    data and the mocked AI pitch text, while Agent Deal Intelligence and
+    the Buyer/Seller report cards are all correctly absent; (3) the rental
+    equivalent (Business Bay, 2BR) confirming the same pattern with
+    Landlord/Tenant Deal Intelligence correctly absent; (4) the Admin
+    Dashboard's new seed button correctly queuing exactly the 4 listing-
+    acquisition notes on first click and correctly deduping (queue stays
+    at 4) on a second click. A final 8-tab regression sweep (Home, Market
+    Dashboard/Analyzer/QuickCheck/Index, Portfolio Assets, Deal Board, AI
+    Agents) plus a fresh end-to-end Get-Listing render — zero collateral
+    console errors.
+  - Cache versions bumped: `js/app.js` to `?v=20260726b`, `js/market.js` to
+    `?v=20260726f` in both `index.html` and `sw.js`'s `PRECACHE` array;
+    `sw.js`'s `CACHE_NAME` bumped `dubaival-v75`→`dubaival-v76`.
+  - **Manual step, same as noted for the negotiation-science pack**: an
+    admin still needs to open the live Admin Dashboard and click both
+    "↓ Load Negotiation & Deal-Closing Science" and "↓ Load Listing
+    Acquisition & Pitch Science," review the queued notes, and click
+    "Inject" to actually push either pack into the live Supabase
+    `knowledge_base` table — this session cannot perform that live
+    injection itself (no live Supabase credentials/network access in this
+    sandbox).
+
 - **2026-07-26 (session continuing, follow-up — Agent Report negotiation-
   science audit + RAG injection: real, cited Cialdini/Voss/real-estate
   closing research added to the knowledge base)**: User asked to review
