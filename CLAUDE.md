@@ -965,6 +965,58 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-27 (new session — fixed the same class of silent-failure bug for
+  the Nearby Amenities / Drive Times cards that the Groq "Details: API xxx"
+  fix addressed for AI reports, after confirming git state was badly out of
+  sync)**: Two things this session, in order:
+  1. **Branch/deploy state repair (not a code bug, but blocked everything
+     until fixed)**: this session's designated branch
+     (`claude/dubaival-api-401-amenities-16snsk`) was freshly created from
+     `main` — but `main` is thousands of files behind the real active branch,
+     `claude/dubaival-code-quality-k29ojs` (missing the entire `android/`
+     project, `www/` build, and all July work including the Groq 401
+     diagnosis two entries below). Confirmed via `git diff main
+     origin/claude/dubaival-code-quality-k29ojs --stat` (9,971 files
+     different) before touching anything. Reset the session branch onto
+     `origin/claude/dubaival-code-quality-k29ojs` instead of building on
+     stale `main` — **future sessions: `main` is NOT kept in sync; treat
+     `claude/dubaival-code-quality-k29ojs` as the real trunk until told
+     otherwise.**
+  2. **Root-caused "distance to important places doesn't show in reports"**:
+     the user reported the Analyzer's Nearby Amenities / Drive Times cards
+     (`js/market.js`, `~line 3719` onward) were missing entirely. Reading
+     the code found the real bug: both cards called `/api/proxy-maps`
+     (`action=amenities` / `action=distances`), and on ANY failure —
+     including a missing/invalid `GOOGLE_MAPS_KEY`, exactly the same
+     failure class as the GROQ_API_KEY issue below — the client set
+     `card.style.display="none"`, silently erasing the section with zero
+     indication anything was wrong. Worse, `api/proxy-maps.js`'s geocode and
+     amenities handlers didn't even check Google's own `status` field
+     (`REQUEST_DENIED`/`OVER_QUERY_LIMIT` on a bad key), so an invalid key
+     was mislabeled as `{error:"Address not found"}` — actively hiding the
+     real cause. Fixed both layers: `api/proxy-maps.js` now surfaces
+     Google's real `status`/`error_message` for the geocode, amenities, and
+     distance-matrix actions instead of masking it as "not found"; `js/
+     market.js`'s `renderAmenities()`/`renderDriveTimes()` no longer hide
+     the card on failure — they show "Couldn't load..." + a "Details: ..."
+     line with the real error (missing key / Google API status / network
+     error), mirroring the exact pattern already proven for the Groq 401
+     diagnosis. **This does NOT fix a bad/missing `GOOGLE_MAPS_KEY` itself**
+     (can't be done from this repo) — but if that's the cause, the card will
+     now say so explicitly instead of vanishing, so the next report/session
+     has a real answer instead of another "can't find it" report. Verified
+     `node --check` on both changed files; this only touches map-amenities
+     UI/proxy code, not `js/valuation.js` or any pricing formula (Analyzer
+     Directive #2 — no calibration risk).
+  - **Still open, user action needed**: confirmed on a live screenshot that
+     the AI "Couldn't generate expert commentary — Details: API 401" failure
+     from the entry below is STILL reproducing as of this session (2026-07-27,
+     same day as the diagnosis) — meaning the Groq key/redeploy steps in
+     Outstanding items have not yet been completed successfully. Ask the
+     user directly whether they've done steps (1)-(3) there; do not
+     re-diagnose from scratch, and do not assume this is a new/different bug
+     without a fresh "Details: ..." line proving otherwise.
+
 - **2026-07-27 (session continuing, follow-up — the new diagnostic-detail
   line immediately revealed the REAL cause: `API 401`, an invalid/expired
   `GROQ_API_KEY` in Vercel — not a code bug at all)**: Direct payoff of the
@@ -12358,6 +12410,34 @@ These files contain critical business logic and data:
     a truncated paste); if a DIFFERENT status code appears instead (e.g.
     `API 429` — rate limited, `API 500` — key missing entirely), diagnose
     that specific code fresh rather than assuming it's the same issue.
+  - **STILL REPRODUCING as of 2026-07-27, same day**: a live screenshot from
+    the user (`#Market/Analyzer`, `Details: API 401` still showing) confirms
+    steps (1)-(3) above have not yet been completed successfully. Ask the
+    user directly whether they did the 3 steps — do not re-diagnose this
+    from scratch on the next report.
+
+- **🟡 GOOGLE_MAPS_KEY in Vercel — check same as GROQ_API_KEY above (added
+  2026-07-27)**: the user separately reported the Analyzer's Nearby
+  Amenities / Drive Times cards (`js/market.js`, live building distances to
+  Burj Khalifa/Dubai Mall/DIFC/airport/JBR Beach) don't appear in reports.
+  Code-level diagnosis (this session) found and fixed a real bug: both
+  cards used to silently `display:none` themselves on ANY `/api/proxy-maps`
+  failure — same failure class/blast radius as the Groq issue above, just
+  with zero diagnostic instead of a friendly error card. That's now fixed
+  (`api/proxy-maps.js` surfaces Google's real `status`/`error_message`
+  instead of masking it as "Address not found"; `js/market.js` shows
+  "Couldn't load..." + `Details: ...` instead of vanishing) — but this
+  only makes a real cause VISIBLE, it doesn't fix a bad credential. Given
+  `GROQ_API_KEY` was independently found invalid/expired in Vercel the same
+  day, **check whether `GOOGLE_MAPS_KEY` has the same problem** next time
+  this reproduces: reload the Analyzer, and whatever the new "Details: ..."
+  line says is the real, current cause (missing key → "GOOGLE_MAPS_KEY not
+  configured"; bad/restricted key → "Google Geocode API: REQUEST_DENIED..."
+  or similar) — no guessing needed, read the card. If it does say the key
+  is invalid, same fix pattern as Groq: Google Cloud Console → check/
+  regenerate the Maps API key (must have Geocoding API, Places API, and
+  Distance Matrix API all enabled) → Vercel env var → redeploy (env var
+  changes need a fresh deploy to take effect, same as Groq).
 
 - **🟡 View-system expansion — Stages 1-3 shipped, Stage 4 not started**
   (added 2026-07-26, updated same day once Stages 2-3 shipped): direct

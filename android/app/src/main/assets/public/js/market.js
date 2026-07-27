@@ -3738,8 +3738,19 @@ function renderAnalyzerResult(wrap){
     var cached=null;
     try{var s=sessionStorage.getItem(amCacheKey);if(s)cached=JSON.parse(s);}catch(e){}
 
-    function renderAmenities(data){
-      if(!data||data.error||!data.amenities){amCard.style.display="none";return;}
+    function renderAmenities(data,fetchFailMsg){
+      // 2026-07-27 fix: this used to set display:"none" on any failure —
+      // including a missing/invalid GOOGLE_MAPS_KEY — which made the
+      // entire card silently vanish with zero indication anything was
+      // wrong (the exact bug class the Groq "Details: API xxx" line fixed
+      // for AI reports). Now shows the real reason instead, same pattern.
+      if(!data||data.error||!data.amenities){
+        amLoader.textContent="Couldn't load nearby amenities.";
+        amLoader.style.color="#F87171";
+        var detail=(data&&data.error)?data.error:(fetchFailMsg||"Unknown error");
+        amCard.appendChild(span({color:hexAlpha("#F87171",0.55),fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace",display:"block",textAlign:"center",marginTop:"4px"},"Details: "+detail));
+        return;
+      }
       amLoader.style.display="none";
       var ams=data.amenities;
       function fmtD(m){return m<1000?m+"m":(m/1000).toFixed(1)+"km";}
@@ -3805,7 +3816,7 @@ function renderAnalyzerResult(wrap){
           try{sessionStorage.setItem(amCacheKey,JSON.stringify(data));}catch(e){}
           renderAmenities(data);
         })
-        .catch(function(){amCard.style.display="none";});
+        .catch(function(e){renderAmenities(null,(e&&e.message)?e.message:String(e));});
     }
   })();
 
@@ -3831,8 +3842,16 @@ function renderAnalyzerResult(wrap){
 
     var dtColors={"Burj Khalifa":"#C9A84C","Dubai Mall":"#F59E0B","DIFC":"#10B981","DXB Airport":"#3B82F6","JBR Beach":"#06B6D4"};
 
-    function renderDriveTimes(rows){
-      if(!rows||!rows.length){dtCard.style.display="none";return;}
+    function renderDriveTimes(rows,errMsg){
+      // 2026-07-27 fix: silently hid the whole card on any failure
+      // (including a missing/invalid GOOGLE_MAPS_KEY) — now shows the
+      // real reason, same pattern as the Nearby Amenities fix above.
+      if(!rows||!rows.length){
+        dtLoader.textContent="Couldn't load drive times.";
+        dtLoader.style.color="#F87171";
+        dtCard.appendChild(span({color:hexAlpha("#F87171",0.55),fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace",display:"block",textAlign:"center",marginTop:"4px"},"Details: "+(errMsg||"Unknown error")));
+        return;
+      }
       dtLoader.style.display="none";
       var grid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}});
       rows.forEach(function(r){
@@ -3854,9 +3873,9 @@ function renderAnalyzerResult(wrap){
         .then(function(r){return r.json();})
         .then(function(data){
           try{sessionStorage.setItem(dtCacheKey,JSON.stringify(data.rows));}catch(e){}
-          renderDriveTimes(data.rows);
+          renderDriveTimes(data.rows,data.error);
         })
-        .catch(function(){dtCard.style.display="none";});
+        .catch(function(e){renderDriveTimes(null,(e&&e.message)?e.message:String(e));});
     }
 
     if(window._dvGeoCache[query]){
@@ -3865,11 +3884,11 @@ function renderAnalyzerResult(wrap){
       fetch("/api/proxy-maps?action=geocode&address="+encodeURIComponent(query))
         .then(function(r){return r.json();})
         .then(function(data){
-          if(!data||!data.lat){dtCard.style.display="none";return;}
+          if(!data||!data.lat){renderDriveTimes(null,(data&&data.error)?data.error:"Address not found");return;}
           window._dvGeoCache[query]={lat:data.lat,lng:data.lng};
           fetchDriveTimesFor(data.lat,data.lng);
         })
-        .catch(function(){dtCard.style.display="none";});
+        .catch(function(e){renderDriveTimes(null,(e&&e.message)?e.message:String(e));});
     }
   })();
 

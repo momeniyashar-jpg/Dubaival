@@ -45,6 +45,15 @@ module.exports = async function handler(req, res) {
         encodeURIComponent(addr + ", Dubai, UAE") + "&key=" + key;
       var r = await fetch(url, { headers: headers });
       var data = await r.json();
+      // 2026-07-27 fix: an invalid/restricted key makes Google return
+      // status:"REQUEST_DENIED" (and similarly OVER_QUERY_LIMIT for
+      // exhausted billing) with an empty results[] — previously
+      // indistinguishable from a genuinely-unmatched address, so every
+      // caller silently treated a broken credential as "not found" with
+      // zero diagnostic (same class of bug the Groq 401 fix addressed).
+      if (data.status && data.status !== "OK" && data.status !== "ZERO_RESULTS") {
+        return res.json({ lat: null, lng: null, error: "Google Geocode API: " + data.status + (data.error_message ? " - " + data.error_message : "") });
+      }
       if (!data.results || !data.results[0]) return res.json({ lat: null, lng: null });
       var geoRes = data.results[0];
       var loc = geoRes.geometry.location;
@@ -127,6 +136,13 @@ module.exports = async function handler(req, res) {
         "&mode=driving&key=" + key;
       var dmR = await fetch(dmUrl, { headers: headers });
       var dmData = await dmR.json();
+      // 2026-07-27 fix: same REQUEST_DENIED/OVER_QUERY_LIMIT diagnostic gap
+      // as the geocode action above — an invalid key made this endpoint
+      // return {rows:[]} with zero explanation, which the client then
+      // treated identically to "no data" and silently hid the whole card.
+      if (dmData.status && dmData.status !== "OK") {
+        return res.json({ rows: [], error: "Google Distance Matrix API: " + dmData.status + (dmData.error_message ? " - " + dmData.error_message : "") });
+      }
       var rows = [];
       if (dmData.rows && dmData.rows[0] && dmData.rows[0].elements) {
         dmData.rows[0].elements.forEach(function(el, i) {
@@ -148,6 +164,12 @@ module.exports = async function handler(req, res) {
         encodeURIComponent(address + ", Dubai, UAE") + "&key=" + key;
       var geoR = await fetch(geoUrl, { headers: headers });
       var geoData = await geoR.json();
+      // Same REQUEST_DENIED/OVER_QUERY_LIMIT diagnostic as the geocode
+      // action above — was collapsing into the misleading "Address not
+      // found" for every caller, including a totally valid building.
+      if (geoData.status && geoData.status !== "OK" && geoData.status !== "ZERO_RESULTS") {
+        return res.json({ error: "Google Geocode API: " + geoData.status + (geoData.error_message ? " - " + geoData.error_message : "") });
+      }
       if (!geoData.results || !geoData.results[0]) return res.json({ error: "Address not found" });
       var loc2 = geoData.results[0].geometry.location;
       var alat = loc2.lat;
