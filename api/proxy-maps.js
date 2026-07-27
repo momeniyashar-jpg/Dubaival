@@ -22,6 +22,27 @@ module.exports = async function handler(req, res) {
   var key = process.env.GOOGLE_MAPS_KEY;
   if (!key) return res.status(500).json({ error: "GOOGLE_MAPS_KEY not configured" });
 
+  // 2026-07-27 fix, real root cause of the "REQUEST_DENIED - API keys with
+  // referer restrictions cannot be used with this API" error confirmed live
+  // on every geocode/amenities/distances call: GOOGLE_MAPS_KEY is (correctly,
+  // per Google's own security guidance — see the `config` action's comment
+  // below) an HTTP-referrer-restricted key, since it's also handed to the
+  // BROWSER for the client-side Maps JavaScript API (js/map.js). But Google
+  // explicitly does not support HTTP referrer restriction on any *server*-
+  // side API (Geocoding, Places, Distance Matrix, Static Maps, Street View
+  // Static) — only "IP addresses" or "None" restriction works there. Reusing
+  // one referrer-restricted key for both was therefore never going to work
+  // for anything server-side; it was previously masked entirely because the
+  // client silently hid the whole card on any failure (fixed earlier this
+  // same session) instead of surfacing the real Google status. A second,
+  // separate key — same Google Cloud project, Application restrictions set
+  // to "None" (or an IP allowlist), API restrictions limited to just
+  // Geocoding/Places/Distance Matrix/Maps Static/Street View Static — is
+  // required. Falls back to the client key if unset so this doesn't
+  // regress anything; will simply keep hitting the same REQUEST_DENIED
+  // (now clearly diagnosed) until GOOGLE_MAPS_SERVER_KEY is added.
+  var serverKey = process.env.GOOGLE_MAPS_SERVER_KEY || key;
+
   var action = req.query.action;
   var headers = { "Referer": "https://www.dubaival.com/" };
 
@@ -42,7 +63,7 @@ module.exports = async function handler(req, res) {
       var addr = req.query.address;
       if (!addr) return res.status(400).json({ error: "Missing address" });
       var url = "https://maps.googleapis.com/maps/api/geocode/json?address=" +
-        encodeURIComponent(addr + ", Dubai, UAE") + "&key=" + key;
+        encodeURIComponent(addr + ", Dubai, UAE") + "&key=" + serverKey;
       var r = await fetch(url, { headers: headers });
       var data = await r.json();
       // 2026-07-27 fix: an invalid/restricted key makes Google return
@@ -79,7 +100,7 @@ module.exports = async function handler(req, res) {
         "&scale=2" +
         "&maptype=satellite" +
         "&markers=color:0xC9A84C%7Csize:mid%7C" + lat + "," + lng +
-        "&key=" + key;
+        "&key=" + serverKey;
       var imgR = await fetch(mapUrl, { headers: headers });
       var buf = await imgR.arrayBuffer();
       res.setHeader("Content-Type", imgR.headers.get("content-type") || "image/png");
@@ -97,7 +118,7 @@ module.exports = async function handler(req, res) {
         "?size=600x300" +
         "&location=" + lat2 + "," + lng2 +
         "&fov=90&heading=" + heading + "&pitch=10&radius=200" +
-        "&key=" + key;
+        "&key=" + serverKey;
       var svR = await fetch(svUrl, { headers: headers });
       var svBuf = await svR.arrayBuffer();
       res.setHeader("Content-Type", svR.headers.get("content-type") || "image/jpeg");
@@ -161,7 +182,7 @@ module.exports = async function handler(req, res) {
       if (!address) return res.status(400).json({ error: "Missing address" });
 
       var geoUrl = "https://maps.googleapis.com/maps/api/geocode/json?address=" +
-        encodeURIComponent(address + ", Dubai, UAE") + "&key=" + key;
+        encodeURIComponent(address + ", Dubai, UAE") + "&key=" + serverKey;
       var geoR = await fetch(geoUrl, { headers: headers });
       var geoData = await geoR.json();
       // Same REQUEST_DENIED/OVER_QUERY_LIMIT diagnostic as the geocode
@@ -189,7 +210,7 @@ module.exports = async function handler(req, res) {
           "?location=" + alat + "," + alng +
           "&radius=" + t.radius + "&type=" + t.type +
           (t.keyword ? "&keyword=" + encodeURIComponent(t.keyword) : "") +
-          "&key=" + key;
+          "&key=" + serverKey;
         try {
           var rp = await fetch(u, { headers: headers });
           var dp = await rp.json();
@@ -219,7 +240,7 @@ module.exports = async function handler(req, res) {
         + "&components=country:ae"
         + "&location=25.2,55.27&radius=50000"
         + "&types=establishment"
-        + "&key=" + key;
+        + "&key=" + serverKey;
       var plR = await fetch(placesUrl, { headers: headers });
       var plData = await plR.json();
       var predictions = (plData.predictions || []).map(function(p) {

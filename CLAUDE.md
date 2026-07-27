@@ -965,6 +965,81 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-27 (same session, follow-up — the new diagnostic-detail line
+  immediately paid off: found the real, structural reason EVERY server-side
+  Google Maps call fails — GOOGLE_MAPS_KEY is referrer-restricted, which
+  Google does not support for server-side APIs at all)**: Direct payoff of
+  the amenities/drive-times diagnostic fix two entries below — the user
+  reproduced the Analyzer report again and shared a screenshot with both new
+  error cards visible. Drive Times showed the real Google error for the
+  first time: `Details: Google Geocode API: REQUEST_DENIED - API keys with
+  referer restrictions cannot be used with this API.` (Nearby Amenities
+  still showed a stale, pre-fix-deploy cached "Address not found" from
+  `sessionStorage` — a real, secondary bug caught and fixed in the same
+  pass, see below.)
+  - **Root cause, confirmed by reading `api/proxy-maps.js`'s own `config`
+    action comment**: `GOOGLE_MAPS_KEY` is a SINGLE key used for two
+    fundamentally different purposes — (1) handed directly to the browser
+    for the client-side Maps JavaScript API (`js/map.js`'s Interactive Map
+    tab, loaded via `<script src="https://maps.googleapis.com/maps/api/js?
+    key=...">`), which per Google's own security guidance SHOULD be (and
+    evidently is) HTTP-referrer-restricted to `dubaival.com`, since a key
+    embedded in browser-loaded JS is inherently visible to anyone who views
+    source; and (2) every *server*-side call this same file makes
+    (Geocoding, Places Nearby Search, Distance Matrix, Static Maps, Street
+    View Static) — but Google explicitly does not support HTTP referrer
+    restriction on ANY server-side API, only "IP addresses" or "None." A
+    referrer-restricted key can never work for #2, full stop, regardless of
+    how correctly it's typed into Vercel — this was never a "wrong/expired
+    key" the way the Groq issue was, it's a category mismatch between what
+    the key is configured to allow and how half of this file uses it. This
+    was invisible until the diagnostic-detail fix two entries below, since
+    the client used to just hide the whole card silently on any failure.
+  - **Fix, `api/proxy-maps.js`**: introduced a second, optional env var,
+    `GOOGLE_MAPS_SERVER_KEY`, used by all 6 server-side actions (geocode,
+    staticmap, streetview, distances, amenities, places) — falls back to
+    the original `GOOGLE_MAPS_KEY` if unset, so nothing regresses before
+    the user creates it, it just keeps hitting the same (now clearly
+    diagnosed) `REQUEST_DENIED`. The `config` action (returns the key for
+    the client-side Maps JS SDK) is untouched — still correctly serves the
+    referrer-restricted `GOOGLE_MAPS_KEY`. **Required Google Cloud Console
+    step, user-only** (see Outstanding items below for the full walkthrough):
+    create a second API key in the same project, Application restrictions
+    = "None" (server-side calls from Vercel have no stable outbound IP to
+    restrict to), API restrictions limited to just Geocoding API + Places
+    API + Distance Matrix API + Maps Static API + Street View Static API,
+    then set it as `GOOGLE_MAPS_SERVER_KEY` in Vercel and redeploy.
+  - **Second, independent bug found and fixed in the same pass — explains
+    why Nearby Amenities and Drive Times showed DIFFERENT error text on the
+    same screenshot**: `renderAmenities()`'s fetch handler
+    (`js/market.js`) cached ANY response — including a failed one — into
+    `sessionStorage` keyed by area+building, and the read path trusted
+    whatever was cached with no success check. Since `sessionStorage`
+    survives an ordinary page reload (only clears when the tab actually
+    closes), the very first (pre-this-session's-fix) `{error:"Address not
+    found"}` response for this exact building got permanently stuck for
+    the rest of that browser tab's life — completely independent of
+    whether the server-side bug above ever gets fixed. Drive Times uses a
+    different, coordinate-keyed cache that was naturally re-fetched fresh
+    (no stale entry existed for it yet), which is why it alone showed the
+    new, real diagnostic. **Fixed**: both `renderAmenities()`'s and
+    `fetchDriveTimesFor()`'s cache read/write paths now only trust/store a
+    GENUINE success (real `amenities`/non-empty `rows`, no `error` field) —
+    a failure is never cached, so once `GOOGLE_MAPS_SERVER_KEY` is set
+    correctly, every subsequent visit (even without closing the tab) will
+    retry live instead of replaying a stale error forever.
+  - Verified: `node --check` on both touched files (`api/proxy-maps.js`,
+    `js/market.js`); confirmed via grep that all 6 server-side `"&key="`
+    concatenations now use `serverKey` and only the `config` action's
+    `key: key` response is untouched. Not independently verified live
+    against a real `GOOGLE_MAPS_SERVER_KEY` (this session has no Vercel/
+    browser access) — the next Analyzer report after the required Google
+    Cloud Console + Vercel steps are done is the real test.
+  - Bumped `js/market.js` cache version (`sw.js` CACHE_NAME + index.html
+    script tag), rebuilt `www/`, synced `android/app/src/main/assets/
+    public/` manually (`npx cap sync` fails in this sandbox, same as
+    always).
+
 - **2026-07-27 (same session, follow-up — found the REAL reason regenerating
   GROQ_API_KEY + redeploying didn't fix the 401, after the user confirmed
   they'd done exactly that and were still blocked)**: When asked directly
@@ -12475,28 +12550,53 @@ These files contain critical business logic and data:
       bare status code — diagnose fresh from that, don't assume it's the
       same cause as before.
 
-- **🟡 GOOGLE_MAPS_KEY in Vercel — check same as GROQ_API_KEY above (added
-  2026-07-27)**: the user separately reported the Analyzer's Nearby
-  Amenities / Drive Times cards (`js/market.js`, live building distances to
-  Burj Khalifa/Dubai Mall/DIFC/airport/JBR Beach) don't appear in reports.
-  Code-level diagnosis (this session) found and fixed a real bug: both
-  cards used to silently `display:none` themselves on ANY `/api/proxy-maps`
-  failure — same failure class/blast radius as the Groq issue above, just
-  with zero diagnostic instead of a friendly error card. That's now fixed
-  (`api/proxy-maps.js` surfaces Google's real `status`/`error_message`
-  instead of masking it as "Address not found"; `js/market.js` shows
-  "Couldn't load..." + `Details: ...` instead of vanishing) — but this
-  only makes a real cause VISIBLE, it doesn't fix a bad credential. Given
-  `GROQ_API_KEY` was independently found invalid/expired in Vercel the same
-  day, **check whether `GOOGLE_MAPS_KEY` has the same problem** next time
-  this reproduces: reload the Analyzer, and whatever the new "Details: ..."
-  line says is the real, current cause (missing key → "GOOGLE_MAPS_KEY not
-  configured"; bad/restricted key → "Google Geocode API: REQUEST_DENIED..."
-  or similar) — no guessing needed, read the card. If it does say the key
-  is invalid, same fix pattern as Groq: Google Cloud Console → check/
-  regenerate the Maps API key (must have Geocoding API, Places API, and
-  Distance Matrix API all enabled) → Vercel env var → redeploy (env var
-  changes need a fresh deploy to take effect, same as Groq).
+- **🔴 CRITICAL, USER ACTION REQUIRED — create a second, unrestricted Google
+  Maps API key for server-side calls (`GOOGLE_MAPS_SERVER_KEY`) (confirmed
+  2026-07-27)**: the diagnostic-detail fix (see work log) immediately
+  surfaced the real, root cause: `GOOGLE_MAPS_KEY` is an HTTP-referrer-
+  restricted key (correct — it's also handed to the browser for the
+  client-side Maps JavaScript API, `js/map.js`), but Google does not
+  support HTTP referrer restriction on ANY server-side API at all — only
+  "IP addresses" or "None." Every server-side call `api/proxy-maps.js`
+  makes (Geocoding, Places Nearby Search, Distance Matrix, Static Maps,
+  Street View Static) was therefore guaranteed to fail with
+  `REQUEST_DENIED - API keys with referer restrictions cannot be used with
+  this API` — confirmed live on the user's own screenshot — regardless of
+  whether the key itself is otherwise valid. This is NOT the same class of
+  issue as the Groq 401 above (not an expired/wrong credential) — it's a
+  structural mismatch between what the ONE shared key is configured to
+  allow and how half of `api/proxy-maps.js` uses it. Code is already fixed
+  to use a second, separate env var for every server-side call (falls back
+  to the old single-key behavior — i.e. the same `REQUEST_DENIED` — until
+  the new key exists, so nothing regresses in the meantime).
+  - **Required, manual, user-only fix** (Google Cloud Console, same project
+    the existing `GOOGLE_MAPS_KEY` lives in): (1) APIs & Services →
+    Credentials → **Create Credentials → API key** — this makes a brand
+    NEW key, separate from the existing one (do not edit the existing key's
+    restrictions — it needs to stay referrer-restricted for the browser Map
+    tab to remain secure); (2) on the new key, set **Application
+    restrictions → None** (Vercel serverless functions have no stable
+    outbound IP to restrict to, so "IP addresses" isn't practical here);
+    (3) set **API restrictions → Restrict key**, and enable exactly:
+    Geocoding API, Places API, Distance Matrix API, Maps Static API, Street
+    View Static API (the 5 APIs `api/proxy-maps.js`'s server-side actions
+    actually call — do not enable Maps JavaScript API on this key, that's
+    what the OTHER, referrer-restricted key is for); (4) Vercel Dashboard →
+    the `dubaival` project → Settings → Environment Variables → add a NEW
+    variable named exactly `GOOGLE_MAPS_SERVER_KEY` with this new key's
+    value; (5) trigger a new deployment (env var changes need a fresh
+    deploy, same as every other key in this project).
+  - Also confirm each of those 5 APIs is actually **enabled** for the
+    project under APIs & Services → Library (a key can be correctly scoped
+    in "API restrictions" but still fail if the underlying API itself was
+    never enabled for the project — a different, also-possible cause of the
+    same `REQUEST_DENIED` family of errors).
+  - **Next step, still needs live confirmation**: after the steps above,
+    generate a new Analyzer report and check the Nearby Amenities/Drive
+    Times cards. If they now show real data, this is fully resolved. If a
+    "Details: ..." line still appears, it will now say exactly why (e.g. a
+    specific one of the 5 APIs not enabled) — diagnose that specific
+    message, don't assume it's the same referrer-restriction issue again.
 
 - **🟡 View-system expansion — Stages 1-3 shipped, Stage 4 not started**
   (added 2026-07-26, updated same day once Stages 2-3 shipped): direct

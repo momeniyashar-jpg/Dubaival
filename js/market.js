@@ -3808,12 +3808,19 @@ function renderAnalyzerResult(wrap){
       amCard.appendChild(wBox);
     }
 
-    if(cached){renderAmenities(cached);}
+    // 2026-07-27 fix: only trust a cached response when it was a genuine
+    // success — previously cached ANY response including a failed one
+    // (e.g. a REQUEST_DENIED error), so once a real cause like a bad
+    // GOOGLE_MAPS_KEY got fixed server-side, this exact building would keep
+    // showing the stale cached error for the rest of the browser tab's
+    // session (sessionStorage survives a normal reload, only clears on tab
+    // close) — a real, confusing "still broken after the fix" trap.
+    if(cached&&!cached.error&&cached.amenities){renderAmenities(cached);}
     else{
       fetch("/api/proxy-maps?action=amenities&address="+encodeURIComponent(query))
         .then(function(r){return r.json();})
         .then(function(data){
-          try{sessionStorage.setItem(amCacheKey,JSON.stringify(data));}catch(e){}
+          if(!data.error&&data.amenities){try{sessionStorage.setItem(amCacheKey,JSON.stringify(data));}catch(e){}}
           renderAmenities(data);
         })
         .catch(function(e){renderAmenities(null,(e&&e.message)?e.message:String(e));});
@@ -3868,11 +3875,14 @@ function renderAnalyzerResult(wrap){
 
     function fetchDriveTimesFor(lat,lng){
       var dtCacheKey="dv_dt_"+lat.toFixed(4)+"_"+lng.toFixed(4);
-      try{var cs=sessionStorage.getItem(dtCacheKey);if(cs){renderDriveTimes(JSON.parse(cs));return;}}catch(e){}
+      // 2026-07-27 fix: only trust a cached value with real rows — same
+      // "don't trap a stale error for the rest of the tab session" reasoning
+      // as the Nearby Amenities fix above.
+      try{var cs=sessionStorage.getItem(dtCacheKey);if(cs){var csRows=JSON.parse(cs);if(csRows&&csRows.length){renderDriveTimes(csRows);return;}}}catch(e){}
       fetch("/api/proxy-maps?action=distances&lat="+lat+"&lng="+lng)
         .then(function(r){return r.json();})
         .then(function(data){
-          try{sessionStorage.setItem(dtCacheKey,JSON.stringify(data.rows));}catch(e){}
+          if(data.rows&&data.rows.length){try{sessionStorage.setItem(dtCacheKey,JSON.stringify(data.rows));}catch(e){}}
           renderDriveTimes(data.rows,data.error);
         })
         .catch(function(e){renderDriveTimes(null,(e&&e.message)?e.message:String(e));});
