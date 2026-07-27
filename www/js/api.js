@@ -4,7 +4,20 @@ var API_BASE="/api";
 var UAE_RE_KEY="";
 const UAE_RE_HOST="uae-real-estate2.p.rapidapi.com";
 const PF_HOST="uae-real-estate-api-propertyfinder-ae-data.p.rapidapi.com";
-var GROQ_KEY="";try{GROQ_KEY=localStorage.getItem("dv_groq")||"";}catch(e){}
+// 2026-07-27 real bug fix: askAI()/callGroqRaw() used to read this and, if
+// non-empty, call Groq DIRECTLY from the browser with it — completely
+// bypassing /api/proxy-groq and the server-side GROQ_API_KEY. The "AI API
+// Keys" settings UI that used to write this was removed under the
+// zero-touch-onboarding directive (see js/app.js's now-stale comment near
+// "dv_groq" claiming these keys "simply stop being read by anything" — that
+// was true for the UI but NOT for this file, which still read and used it).
+// Net effect: anyone whose browser ever had a Groq key saved here (e.g. from
+// testing before the proxy migration) could update/rotate GROQ_API_KEY on
+// Vercel and redeploy forever and still get 401s, because their browser
+// never asked the server at all. Purging it here — silently, with no user
+// action needed — permanently closes that gap and makes the server-side
+// GROQ_API_KEY the single source of truth, matching the stated intent.
+try{localStorage.removeItem("dv_groq");}catch(e){}
 
 async function getUAELocationId(query){
   try{
@@ -291,26 +304,25 @@ async function askAI(messages,system,groundQuery,groundAreas){
   }
   if(sys)groqMessages.push({role:"system",content:sys});
   messages.forEach(function(m){groqMessages.push({role:m.role,content:m.content})});
-  var r;
-  if(GROQ_KEY){
-    r=await fetch("https://api.groq.com/openai/v1/chat/completions",{
-      method:"POST",
-      headers:{"Content-Type":"application/json","Authorization":"Bearer "+GROQ_KEY},
-      body:JSON.stringify({model:"llama-3.3-70b-versatile",max_tokens:1000,messages:groqMessages})
-    });
-  }else{
-    r=await fetch(API_BASE+"/proxy-groq",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({model:"llama-3.3-70b-versatile",max_tokens:1000,messages:groqMessages})
-    });
+  var r=await fetch(API_BASE+"/proxy-groq",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({model:"llama-3.3-70b-versatile",max_tokens:1000,messages:groqMessages})
+  });
+  if(!r.ok){
+    // 2026-07-27: capture the real upstream error body (e.g. Groq's own
+    // "Invalid API Key" message), not just the bare status code — a plain
+    // "API 401" doesn't distinguish a wrong/revoked key from other 401
+    // causes (org/billing issues, key scope) and gave no way to confirm a
+    // just-rotated key actually took effect without another round-trip.
+    var errBody=null;try{errBody=await r.json();}catch(e){}
+    var errDetail=errBody&&errBody.error?(typeof errBody.error==="string"?errBody.error:(errBody.error.message||JSON.stringify(errBody.error))):"";
+    throw new Error("API "+r.status+(errDetail?": "+errDetail:""));
   }
-  if(!r.ok)throw new Error("API "+r.status);
   const d=await r.json();
   return d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||"";
 }
 function callGroqRaw(groqBody){
-  if(GROQ_KEY){return fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+GROQ_KEY},body:JSON.stringify(groqBody)});}
   return fetch(API_BASE+"/proxy-groq",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(groqBody)});
 }
 

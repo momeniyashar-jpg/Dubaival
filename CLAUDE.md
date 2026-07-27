@@ -965,6 +965,56 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-27 (same session, follow-up — found the REAL reason regenerating
+  GROQ_API_KEY + redeploying didn't fix the 401, after the user confirmed
+  they'd done exactly that and were still blocked)**: When asked directly
+  whether they'd completed the 3 steps in the Outstanding item below
+  (regenerate key at console.groq.com → update Vercel env var → redeploy),
+  the user said yes, and still gets 401. That ruled out "steps not done yet"
+  and meant the prior diagnosis, while correctly reading the symptom, hadn't
+  found the actual mechanism. Reading `js/api.js` end-to-end (not
+  re-guessing) found it: line 7 read `localStorage.getItem("dv_groq")` into
+  a `GROQ_KEY` variable, and `askAI()`/`callGroqRaw()` — the exact functions
+  every Analyzer AI report, Chat Agent, Compare, Personal Advisor, and
+  Portfolio Analysis call — used it to call
+  `https://api.groq.com/openai/v1/chat/completions` **directly from the
+  browser** whenever it was non-empty, completely bypassing
+  `/api/proxy-groq` and therefore the server-side `GROQ_API_KEY` entirely.
+  A comment in `js/app.js` (~line 3450, where the old "AI API Keys" settings
+  UI was removed) explicitly claims "these keys simply stop being read by
+  anything now" — **that claim was false** for this file; the UI to *set*
+  `dv_groq` was removed, but the code to *read and prefer* it never was. Net
+  effect: if the browser being used to test ever had a Groq key saved to
+  `localStorage.dv_groq` (plausible — this exact troubleshooting saga
+  involved handling a real Groq key directly, see the security note below),
+  every single `GROQ_API_KEY` rotation + redeploy on Vercel would have been
+  completely inert, because the client never asked the server at all — a
+  full explanation for "I did it and I still get 401."
+  - **Fixed in `js/api.js`**: removed the `localStorage.dv_groq` read and
+    both direct-to-Groq branches entirely — `askAI()` and `callGroqRaw()`
+    now ALWAYS go through `/api/proxy-groq`, no client-side override path
+    exists anymore. Also now `localStorage.removeItem("dv_groq")` on every
+    load (silent, zero user action, per Directive #1) so any stale value
+    already sitting in a browser is purged automatically — the user does
+    NOT need to open DevTools or clear anything by hand.
+  - **Also fixed while in this code path**: `askAI()`'s error used to be the
+    bare `"API "+r.status` (e.g. just "API 401") — now captures and appends
+    the real upstream error body/message from `api/proxy-groq.js`'s
+    response (e.g. Groq's own `"Invalid API Key"` text), so IF a 401 still
+    reproduces after this fix, the next "Details: ..." line will say
+    *exactly* why, instead of requiring another guess-and-check round.
+  - **This changes what to expect next**: since the client can no longer
+    bypass the proxy, the very next AI report attempt is a clean test of
+    whether the current `GROQ_API_KEY` in Vercel is actually valid. If it
+    now works — this was the whole bug, no further action needed. If it
+    still 401s, THAT result is finally trustworthy (proxy was definitely
+    used), and the richer error detail from the fix above should say
+    precisely what Groq is rejecting.
+  - Bumped `js/api.js` cache version (`sw.js` CACHE_NAME + index.html
+    script tag), rebuilt `www/`, synced `android/app/src/main/assets/
+    public/` manually (`npx cap sync` fails in this sandbox, same as
+    always — copy `www/js/<file>.js` and `www/index.html` over by hand).
+
 - **2026-07-27 (new session — fixed the same class of silent-failure bug for
   the Nearby Amenities / Drive Times cards that the Groq "Details: API xxx"
   fix addressed for AI reports, after confirming git state was badly out of
@@ -12404,17 +12454,26 @@ These files contain critical business logic and data:
     (3) trigger a new deployment — an env var change alone does not
     retroactively apply to an already-built deployment, a fresh deploy is
     required for the new key to actually take effect.
-  - Not something a future session should try to "fix" in code — if this
-    exact `API 401` detail reappears after the steps above are followed,
-    the key itself is still bad (double-check for accidental whitespace/
-    a truncated paste); if a DIFFERENT status code appears instead (e.g.
-    `API 429` — rate limited, `API 500` — key missing entirely), diagnose
-    that specific code fresh rather than assuming it's the same issue.
-  - **STILL REPRODUCING as of 2026-07-27, same day**: a live screenshot from
-    the user (`#Market/Analyzer`, `Details: API 401` still showing) confirms
-    steps (1)-(3) above have not yet been completed successfully. Ask the
-    user directly whether they did the 3 steps — do not re-diagnose this
-    from scratch on the next report.
+  - **UPDATE, same day — this WAS partly a code bug after all**: the user
+    confirmed they'd done steps (1)-(3) above and STILL got 401. Root cause
+    found: `js/api.js` had a client-side `localStorage.dv_groq` override
+    that, if ever set in the testing browser, called Groq directly and
+    completely bypassed the server-side `GROQ_API_KEY` — so no Vercel-side
+    key rotation could ever have worked. **Fixed same day** — see the
+    work-log entry above for full detail; `askAI()`/`callGroqRaw()` now
+    ALWAYS go through `/api/proxy-groq`, and the stale localStorage value is
+    purged automatically on load.
+  - **Next step, still needs live confirmation**: this fix removes the
+    bypass, but this session has no way to test a live deploy itself (no
+    Vercel/browser access — code-only). Ask the user to try generating any
+    AI report again after this deploys:
+    - If it now works → this was the whole bug, close this item out.
+    - If it still shows `Details: API 401` (or any other status) → that
+      result is now trustworthy for the first time (the proxy is
+      definitely being used), and the improved error detail (also part of
+      this fix) will include Groq's own rejection message, not just the
+      bare status code — diagnose fresh from that, don't assume it's the
+      same cause as before.
 
 - **🟡 GOOGLE_MAPS_KEY in Vercel — check same as GROQ_API_KEY above (added
   2026-07-27)**: the user separately reported the Analyzer's Nearby
