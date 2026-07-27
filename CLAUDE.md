@@ -965,6 +965,104 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-27 (new session — real, user-reported + verified valuation bug:
+  the general floor premium and the view premium's own floor-credibility
+  scaling were double-counting the SAME real-world effect for landmark/
+  water-view units, fixed with a scoped, evidence-based dampening)**: User
+  shared a live Analyzer report for Address Fountain Views Tower 3 (2BR,
+  Downtown Dubai, floor 59, Burj Khalifa View, asking AED 7,000,000) showing
+  "GOOD PRICE — Below market — strong entry" at Market PSF AED 4,872/-9.1%,
+  alongside a real dxbinteract.com (Dubai Land Department's own public
+  transaction-data platform) screenshot of the same building/bed-count's 4
+  most recent real closed sales (Jan-Jul 2026, floors 33/34/42/59, PSF
+  4,367-4,526) — correctly pointing out that AED 7,000,000 sits almost
+  exactly in the middle of that real range, not meaningfully below it, so
+  "GOOD PRICE" was a false signal.
+  - **Reproduced exactly**: fed the identical inputs into the real engine
+    (floor 59, Burj Khalifa View, Furnished, AED 7,000,000) and got the
+    same AED 4,872-4,877 Market PSF, confirming precisely which inputs
+    produced the reported result before touching anything.
+  - **Real ground truth, not a guess**: the closest possible comp — the
+    SAME building, SAME floor (59, unit 5904), sold just weeks ago (1 Jul
+    2026) — closed at AED 4,526/sqft. The engine's own Market PSF (4,872)
+    sat ~7.8% ABOVE this single most-relevant real transaction, well
+    outside this project's own 3% accuracy target (Directive #2).
+  - **Root cause, found through architectural review, not curve-fitting**:
+    `computeAdjustedPSF()` (`js/valuation.js`) carries TWO separate,
+    additively-stacked premiums that both reward height for the SAME
+    underlying reason — the view premium's own `_dvViewFloorCredibility()`
+    scaling (built 2026-07-26, rewards height because a higher floor makes
+    a claimed landmark/water view more credible/complete) and the general
+    floor premium `fP` (rewards height for its own sake — noise/privacy/
+    prestige — regardless of view). For a unit whose entire premium comes
+    from a landmark/water view (like this one), stacking both double-counts
+    one real effect.
+  - **Verified this was NOT a blanket, city-wide problem before touching
+    anything** (per the user's explicit "avoid a general fix that breaks
+    other things, but the formula must be correct and match real market
+    norms" instruction): WebSearch found a real Dubai high-rise floor-
+    premium citation (~AED 50-200/sqft per 10 floors, i.e. ~0.46-0.69%/
+    floor for a typical tower) that closely matches the EXISTING 0.5%/
+    floor rate `fP` already uses — confirming `fP` is correct for a NO-VIEW
+    or local-view (Pool/Garden/Community) unit, where no such double-
+    counting exists. Separately found branded-residence market commentary
+    supporting that ultra-luxury/branded towers specifically show LESS
+    floor sensitivity than typical towers (brand + amenities dominate value
+    more than floor number alone) — consistent with the user's own real
+    data. Attempting to pull a second building's real per-unit transaction
+    history directly from dxbinteract.com (for an even harder independent
+    check) was blocked by the site's bot protection (403) — disclosed
+    rather than guessed around.
+  - **Fix, scoped precisely to the actual overlap, not a broad grade-wide
+    change**: new shared `_dvIsFloorScaledView(view)` (`js/valuation.js`,
+    extracted from `_dvViewFloorCredibility()`'s own existing local-view
+    check — "Not specified" or Pool/Garden/Community return false, every
+    other view type returns true) — `_dvViewFloorCredibility()` itself
+    refactored to call this (pure refactor, zero behavior change, since
+    "Not specified" views are already filtered out upstream by
+    `_dvCombineViewPremiums()` before this function is ever called with
+    one). `computeAdjustedPSF()`'s `fP` block now halves `fP` (only when
+    it's already nonzero) whenever the DOMINANT selected view
+    (`_viewCombo.breakdown[0]`) is a floor-scaled type — leaving every
+    no-view or local-view (Pool/Garden/Community) unit's `fP` completely
+    untouched, and leaving villas (`fP` always 0 anyway) and
+    `computeRentalValuation()`'s own, separate, much smaller flat-tier
+    floor bonus (max +5%, a materially smaller stake, out of scope for
+    this specific reported case) untouched.
+  - Verified: `node -c`; a targeted Node vm-sandbox test (9 checks) —
+    the exact reported case (floor 59, Burj Khalifa View) now computes
+    Market PSF AED 4,615 (fP correctly halved 12→6), within ~2% of the
+    real floor-59 comp (4,526) instead of the prior ~7.8% overstatement;
+    the SAME building/floor with no view, Pool View, and Community View
+    all correctly keep `fP` at its full, unchanged value; a water-type
+    view (Full Sea View) in a different area also dampens correctly; no
+    floor entered or a villa both correctly keep `fP` at 0 regardless of
+    view (dampening is a no-op); a real before/after regression sweep
+    across 79 real buildings (sampled broadly across the whole 9,443-
+    building DB) × 2 floor levels × 12 view combinations (1,896 total
+    cases, comparing the pre-fix committed `js/valuation.js` against the
+    fixed version) — zero crashes, zero NaN, ALL 632 no-view/local-view
+    cases byte-identical to before (zero regression for the vast majority
+    of real Analyzer usage), and all 1,264 landmark/water-view cases
+    correctly show `fP` halved (or correctly unchanged when it was already
+    0); a dedicated test confirming `computeRentalValuation()` is
+    completely unaffected (estRent and viewBreakdown byte-identical before/
+    after for 3 real rental cases, since the rental engine's floor bonus is
+    a separate code path this fix never touches); a real-browser Playwright
+    end-to-end test confirming the actual reported case now renders
+    verdict "FAIR" at -4.0% (not "GOOD PRICE" at -9.1%) in the live
+    Analyzer result, directly resolving the original complaint; and a
+    10-tab regression sweep (Home, Market Dashboard/Analyzer/QuickCheck/
+    Index/Compare/Find, Portfolio Assets, Deal Board, AI Agents) plus 2
+    unrelated sanity cases (a villa and an apartment, neither touching this
+    code path meaningfully) — zero collateral console errors.
+  - Cache version bumped: `js/valuation.js` to `?v=20260727a` in both
+    `index.html` and `sw.js`'s `PRECACHE` array; `sw.js`'s `CACHE_NAME`
+    bumped `dubaival-v76`→`dubaival-v77`. Rebuilt `www/` and manually synced
+    `js/valuation.js`/`index.html`/`sw.js` into
+    `android/app/src/main/assets/public/`, confirmed byte-identical (`npx
+    cap sync android` failed as always in this sandbox — no Android SDK).
+
 - **2026-07-26 (session continuing, follow-up — "Get Listing" tunnel shipped:
   a 4th agent-report type for winning the listing MANDATE, gated inside
   Agent Report mode; plus a dedicated real, cited listing-acquisition RAG

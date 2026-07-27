@@ -673,10 +673,22 @@ var GRADE_FLOOR_BASE={"Ultra":35,"A+":25,"A":20,"A-":15,"B+":12,"B":10,"C":8};
 // pretend otherwise, it uses the best available proxy signal.
 var _DV_LOCAL_VIEW_KEYWORDS=["garden","park","pool","community"];
 var _DV_WATER_VIEW_KEYWORDS=["sea","beach","palm","marina","canal","lagoon","creek harbour","lake","atlantis","burj al arab"];
+// Shared classification: is this view TYPE one _dvViewFloorCredibility()
+// ever floor-scales at all (true for landmark/water/skyline-type views),
+// as opposed to no-view/"Not specified" or an "immediate/local" view
+// (Pool/Garden/Community) whose visibility never depends on floor height?
+// Extracted (2026-07-27) so the fP overlap fix further below can ask the
+// exact same question the view-credibility system already answers,
+// instead of re-deriving a second, potentially-drifting view classifier.
+function _dvIsFloorScaledView(view){
+  var vl=(view||"").toLowerCase().trim();
+  if(!vl||vl==="not specified")return false;
+  return !_DV_LOCAL_VIEW_KEYWORDS.some(function(k){return vl.indexOf(k)>=0;});
+}
 function _dvViewFloorCredibility(view,floorN,grade,isVilla){
   if(isVilla||!floorN||floorN<=0)return 1.0;
+  if(!_dvIsFloorScaledView(view))return 1.0;
   var vl=(view||"").toLowerCase();
-  if(_DV_LOCAL_VIEW_KEYWORDS.some(function(k){return vl.indexOf(k)>=0;}))return 1.0;
   var isWater=_DV_WATER_VIEW_KEYWORDS.some(function(k){return vl.indexOf(k)>=0;});
   var floorFloor=isWater?0.70:0.80; // worst-case (very low floor) multiplier
   var base=GRADE_FLOOR_BASE[grade]||15;
@@ -932,6 +944,34 @@ function computeAdjustedPSF(f,buildingVal,liveData){
       fP=(floorN-10)*0.005;
     }
     // If floor not entered for DB building, fP=0 (assume baseline)
+    // Overlap fix (2026-07-27, real user-reported + independently verified
+    // case — see the dated work-log entry for the full evidence trail:
+    // Address Fountain Views Tower 3, floor 59, Burj Khalifa View, real
+    // asking AED 7,000,000, engine computed Market PSF AED 4,877 while the
+    // closest real comp — the SAME building, SAME floor, sold 1 Jul 2026 —
+    // closed at AED 4,526/sqft, a ~7.8% overstatement, well beyond this
+    // project's own 3% accuracy target). Root cause: fP above rewards
+    // height for its own sake (noise/privacy/prestige, applies with ANY
+    // view or none) — but the view premium's OWN _dvViewFloorCredibility()
+    // scaling (in vP, above) ALSO rewards height, for the SAME underlying
+    // reason, whenever the dominant selected view is a genuine floor-scaled
+    // type (landmark/water/skyline — anything except "Not specified" or a
+    // local view like Pool/Garden/Community, which _dvViewFloorCredibility
+    // never floor-scales either). Stacking both additively double-counts
+    // one real effect for exactly the units where this matters most.
+    // Deliberately scoped, not a blanket change: a real, cited Dubai
+    // high-rise floor-premium rate (~0.46-0.69%/floor) closely matches this
+    // exact 0.5%/floor rate for a NO-VIEW/local-view unit, where no such
+    // overlap exists (privacy/prestige/noise value there is genuinely
+    // independent of any view) — confirming fP itself is correct for that
+    // case, and this dampening must stay scoped to floor-scaled views only.
+    // Verified against a 411-building sweep across every grade/floor/view
+    // combination in the real DB: fP is BYTE-IDENTICAL to before this fix
+    // whenever no view, or only a local view (Pool/Garden/Community), is
+    // selected — this only ever changes a result when a landmark/water/
+    // skyline-type view is also chosen.
+    var _dominantView=_viewCombo.breakdown.length>0?_viewCombo.breakdown[0].view:null;
+    if(fP!==0&&_dvIsFloorScaledView(_dominantView))fP=fP*0.5;
   }
   // Loft premium (double height ceiling)
   const loftP=f.aptSubtype==="Loft"?0.08:0;
