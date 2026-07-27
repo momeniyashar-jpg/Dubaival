@@ -168,7 +168,28 @@ const MARKET_STATS=[
 // the same community, and sell ~40% faster — moved up to the Palm/Burj Al
 // Arab tier accordingly, not left at its old, now-disproven lower tier.
 // See the 2026-07-26 "view coefficient research audit" work-log entry.
-const VIEW_P={"Burj Khalifa + Fountain":0.38,"Burj Khalifa and Fountain View":0.38,"Burj Khalifa and Fountain":0.38,"Fountain View":0.32,"Burj Khalifa View":0.28,"Full Sea View":0.25,"Beach Access View":0.22,"Burj Al Arab View":0.20,"Palm View":0.20,"Golf View":0.20,"Atlantis View":0.18,"Marina View":0.18,"Creek Skyline View":0.18,"Full Canal View":0.16,"Partial Burj View":0.15,"Dubai Opera View":0.15,"Partial Sea View":0.14,"Boulevard View":0.12,"Lagoon View":0.12,"Creek Harbour View":0.12,"Ras Al Khor Wildlife Sanctuary View":0.11,"Lake View":0.09,"Skyline View":0.08,"Coca-Cola Arena View":0.08,"Partial Canal View":0.07,"Sheikh Zayed Road View":0.06,"Garden/Park View":0.05,"Pool View":0.04,"Community View":0.02,"Not specified":0.00};
+// "Burj Khalifa + Fountain" (+2 exact-duplicate string aliases) recalibrated
+// 2026-07-27 from 0.38 down to 0.32, per real, user-supplied evidence: 4
+// real closed dxbinteract.com/DLD transactions for the SAME building
+// (Address Fountain Views Tower 3, floors 33/34/42/59, all 2026) cluster in
+// an extremely tight 4,367-4,526 PSF band — near-zero measured spread
+// across a 26-floor range — directly contradicting the old +10-point
+// ADDITIVE bump this tier gave over "Fountain View" alone (0.32, itself
+// already the single highest standalone tier, above "Burj Khalifa View"
+// alone at 0.28). The old 0.38 assumed seeing BOTH landmarks earns a
+// stacked bonus on top of the better single element; the real transaction
+// data doesn't support that — standard hedonic-pricing diminishing-returns
+// principle (buyers pay for "the best view available," not linearly for
+// each additional visible landmark). New value exactly matches "Fountain
+// View" alone (no stacking bonus, not an arbitrary new number) and was
+// independently verified against the exact real-world case that surfaced
+// this: at the reported unit's real asking price (AED 7,000,000 / 1,580
+// sqft = PSF 4,430, itself squarely inside the real 4,367-4,526 comp
+// band), 0.32 makes the engine's own computed Market PSF land at 4,431 —
+// a ~0.0% deviation, vs. the old 0.38's 4,679 (+5.6% over the real band's
+// own midpoint). See the dated work-log entry for the full verification
+// (5-value sensitivity sweep, broad regression sweep, rental-side mirror).
+const VIEW_P={"Burj Khalifa + Fountain":0.32,"Burj Khalifa and Fountain View":0.32,"Burj Khalifa and Fountain":0.32,"Fountain View":0.32,"Burj Khalifa View":0.28,"Full Sea View":0.25,"Beach Access View":0.22,"Burj Al Arab View":0.20,"Palm View":0.20,"Golf View":0.20,"Atlantis View":0.18,"Marina View":0.18,"Creek Skyline View":0.18,"Full Canal View":0.16,"Partial Burj View":0.15,"Dubai Opera View":0.15,"Partial Sea View":0.14,"Boulevard View":0.12,"Lagoon View":0.12,"Creek Harbour View":0.12,"Ras Al Khor Wildlife Sanctuary View":0.11,"Lake View":0.09,"Skyline View":0.08,"Coca-Cola Arena View":0.08,"Partial Canal View":0.07,"Sheikh Zayed Road View":0.06,"Garden/Park View":0.05,"Pool View":0.04,"Community View":0.02,"Not specified":0.00};
 
 // --- AREA AMENITIES & LOCATION HIGHLIGHTS ------------------------------------
 var AREA_AMENITIES={

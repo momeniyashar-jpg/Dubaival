@@ -732,7 +732,12 @@ function _dvCombineViewPremiums(views,area,distOverrides,getRawPremium,floorInfo
 function _dvRentalViewPremium(view){
   if(!view||view==="Not specified")return 0;
   var vl=view.toLowerCase();
-  if(vl==="burj khalifa + fountain")return 0.18;
+  // Recalibrated 2026-07-27 from 0.18 to 0.15, mirroring the exact same
+  // no-additive-stacking fix applied to VIEW_P["Burj Khalifa + Fountain"]
+  // (js/data-residential.js) — now matches "fountain" alone (below) rather
+  // than adding an extra bump on top of it, for the same real-evidence
+  // reason (see that file's own comment for the full case).
+  if(vl==="burj khalifa + fountain")return 0.15;
   if(vl.indexOf("fountain")>=0)return 0.15;
   if(vl.indexOf("full sea")>=0||vl.indexOf("burj khalifa")>=0)return 0.12;
   // Recalibrated 2026-07-26 from the old 0.08 (grouped with marina/partial
@@ -1521,6 +1526,20 @@ function computeRentalValuation(f){
     var gradeRentP=GRADE_RENT_PREMIUM[bData.g]||1.0;
     if(gradeRentP!==1.0)estRent=Math.round(estRent*gradeRentP);
   }
+  // Seasonal adjustment (added 2026-07-27, per the user's explicit
+  // confirmation — closes a real inconsistency flagged the same day: the
+  // sale-flow's "Rental Intelligence Engine" cross-check panel
+  // (computeSmartRent(), above) already applies this same real Dubai
+  // leasing-seasonality pattern (Peak Season +3/+4% in Dec/Jan down to
+  // Off-Season -8% in Jul/Aug — summer is genuinely slower for tenant
+  // turnover), but this MAIN, dedicated rental-analysis engine — the one
+  // actually used when a user analyzes a property specifically FOR RENT —
+  // had no seasonal factor at all. Uses the same module-level
+  // SEASONAL_FACTORS/SEASON_LABELS tables so the two engines can never
+  // drift apart on this fact again.
+  var seasonalFactor=SEASONAL_FACTORS[new Date().getMonth()];
+  var seasonLabel=SEASON_LABELS[new Date().getMonth()];
+  estRent=Math.round(estRent*seasonalFactor);
   // Rent range: ±12% for market variability
   var rentLow=Math.round(estRent*0.88);
   var rentHigh=Math.round(estRent*1.12);
@@ -1569,6 +1588,6 @@ function computeRentalValuation(f){
   // Liquidity
   var domEst=aData.dom||60;
   var txVol=aData.txVol||100;
-  return{askRent:askRent,estRent:estRent,rentLow:rentLow,rentHigh:rentHigh,vsPct:vsPct.toFixed(1),verdict:verdict,suggestedRent:suggestedRent,confScore:confScore,confTier:confTier,askRentPSF:askRentPSF,estRentPSF:estRentPSF,monthly:Math.round(askRent/12),estMonthly:Math.round(estRent/12),sc:Math.round(sc),netRent:netRent,areaRents:areaRents,inDB:!!bData,bData:bData,dataSource:bData?"Building Database":"Area Benchmark",area:f.area,beds:f.beds||"2 BR",isVilla:isVilla,furnished:f.furnished||"Unfurnished",furnMult:furnMult,viewAdj:viewAdj,gr:gr,domEst:domEst,txVol:txVol,size:size,viewDistInfo:viewDistInfo,viewBreakdown:_viewComboR.breakdown};
+  return{askRent:askRent,estRent:estRent,rentLow:rentLow,rentHigh:rentHigh,vsPct:vsPct.toFixed(1),verdict:verdict,suggestedRent:suggestedRent,confScore:confScore,confTier:confTier,askRentPSF:askRentPSF,estRentPSF:estRentPSF,monthly:Math.round(askRent/12),estMonthly:Math.round(estRent/12),sc:Math.round(sc),netRent:netRent,areaRents:areaRents,inDB:!!bData,bData:bData,dataSource:bData?"Building Database":"Area Benchmark",area:f.area,beds:f.beds||"2 BR",isVilla:isVilla,furnished:f.furnished||"Unfurnished",furnMult:furnMult,viewAdj:viewAdj,gr:gr,domEst:domEst,txVol:txVol,size:size,viewDistInfo:viewDistInfo,viewBreakdown:_viewComboR.breakdown,seasonalFactor:seasonalFactor,seasonLabel:seasonLabel};
 }
 

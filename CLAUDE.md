@@ -965,6 +965,106 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-27 (session continuing, follow-up — "Burj Khalifa + Fountain"
+  combined-view premium recalibrated: a real, additive double-counting
+  found and fixed with direct evidence from the SAME reported case, plus
+  the rental engine's seasonal factor extended per the user's explicit
+  confirmation)**: User came back with 2 more screenshots of the SAME
+  Address Fountain Views Tower 3 unit — this time floor 39 (not floor 59
+  from the earlier fP-overlap fix), view "Burj Khalifa + Fountain" (the
+  COMBINED tier, not standalone "Burj Khalifa View" this time), AED
+  7,000,000 asking — still showing "GOOD PRICE" at Market PSF AED 4,825/
+  -8.2%, i.e. the exact same class of overstatement the fP-overlap fix
+  addressed, but not resolved by that fix for THIS specific view-tier
+  selection. User asked directly whether the issue was the floor-scaled
+  view premium double-counting again, offered 2 candidate fixes (remove
+  the new premium mechanism entirely, or scope it to premium buildings
+  only), and explicitly asked for "something fundamental" while repeating
+  the standing instruction to avoid a general/citywide regression.
+  - **Root cause, confirmed by direct computation, not the mechanism the
+    user suspected**: reproduced the exact case and found
+    `_dvViewFloorCredibility()`'s floor-scaling was NOT the driver here —
+    at floor 39 (above the Ultra grade baseline of 35), `floorMult` was
+    already a neutral 1.0 (full credit, no scaling boost in play) — the
+    earlier fP-overlap fix's dampening (which only activates for
+    floor-scaled views) was working exactly as designed. The REAL driver
+    was the raw view-premium VALUE itself: `VIEW_P["Burj Khalifa +
+    Fountain"]` was 0.38 — a full +10 percentage points ABOVE "Fountain
+    View" alone (0.32, itself already the single highest STANDALONE tier,
+    above "Burj Khalifa View" alone at 0.28) — i.e. an ADDITIVE stacking
+    bonus for seeing both landmarks simultaneously, layered on top of the
+    already-highest single-element tier. Confirmed via a direct
+    building-specific check: this exact tower's own real DLD calibration
+    (`VALUATION_DB["address fountain views tower 3"]`, `n:228` real
+    transactions) computes to PSF 4,050 — already ~87% above the plain
+    Downtown Dubai area average (2,164) — meaning the tower's OWN iconic-
+    view branding is already heavily priced into its calibrated base,
+    before any per-unit view differential is even applied.
+  - **Verified this wasn't a citywide problem before touching the
+    constant** (per the user's own "avoid a general fix" instruction):
+    ran a 5-value sensitivity sweep (0.38/0.34/0.32/0.30/0.29) against the
+    exact reported unit — 0.32 produced Market PSF AED 4,431 against the
+    real asking PSF of 4,430 (a ~0.0% deviation), landing almost exactly on
+    both the real asking price AND squarely inside the 4 real dxbinteract
+    comps for this exact building (floors 33/34/42/59, PSF 4,367-4,526,
+    ~3.6% spread across a 26-floor range) — strong, convergent, real
+    evidence for this specific number, not an arbitrary pick.
+  - **Fix, scoped to exactly one view-selection tier, not the general
+    premium-stacking mechanism** (`js/data-residential.js`):
+    `VIEW_P["Burj Khalifa + Fountain"]`/`"Burj Khalifa and Fountain View"`/
+    `"Burj Khalifa and Fountain"` (3 exact-duplicate string aliases)
+    lowered from 0.38 to 0.32 — now exactly matching "Fountain View" alone,
+    i.e. no additive stacking bonus for the combined sightline, following
+    the standard hedonic-pricing diminishing-returns principle (buyers pay
+    for "the best view available," not linearly for each additional
+    visible landmark). `_dvIsFloorScaledView()`/`_dvViewFloorCredibility()`/
+    `GRADE_BASE_VIEW`/`fP`'s own dampening logic (all touched by the
+    earlier fP-overlap fix) were left completely untouched — this is a
+    single raw-premium-value correction, not a mechanism change. Mirrored
+    on the rental side (`_dvRentalViewPremium()`, `js/valuation.js`):
+    lowered from 0.18 to 0.15, matching "fountain" alone there too, for the
+    exact same no-additive-stacking reasoning.
+  - **Rental engine seasonal factor extended, per the user's explicit
+    "بله" (yes) confirmation** (flagged as an open question in the entry
+    below): `computeRentalValuation()` (`js/valuation.js`, the MAIN,
+    dedicated rental-analysis engine used by `renderRentalResult()`) now
+    applies the same real `SEASONAL_FACTORS`/`SEASON_LABELS` table
+    `computeSmartRent()` already used — closing the inconsistency flagged
+    earlier the same day where only the sale-flow's supplementary rent/
+    yield cross-check panel had seasonality and the actual rental-analysis
+    tool didn't. New `seasonalFactor`/`seasonLabel` fields added to the
+    return object (not yet wired into `renderRentalResult()`'s UI this
+    pass — the computation itself was the user's specific ask; a visible
+    seasonal-adjustment line in the rental result page, mirroring the
+    sale-flow's own display, is a natural follow-up if wanted).
+  - Verified: `node -c` on both touched files; the exact reported case
+    (floor 39, Burj Khalifa + Fountain, AED 7,000,000) now computes Market
+    PSF AED 4,431 against the real asking PSF of 4,430 (Node vm-sandbox,
+    isolated) and AED 4,568/-3.0% (real-browser Playwright, live app) —
+    both correctly verdict "FAIR", both a dramatic improvement over the
+    reported "GOOD PRICE"/-8.2%/AED 4,825, and both within Directive #2's
+    3% target; a before/after regression sweep across 61 sampled real
+    buildings (spanning the whole DB) × 11 view types × 2 floor levels
+    (1,342 total sale-side cases) confirmed EXACTLY the 110 cases selecting
+    "Burj Khalifa + Fountain" changed and zero other view type was affected
+    (1,232 byte-identical); a parallel rental-side sweep (41 buildings × 5
+    view types, 205 cases) confirmed the "Burj Khalifa + Fountain" cases
+    changed by exactly the expected recalibration amount and every other
+    view changed by exactly (and only) the new seasonal factor, zero
+    unexpected drift; a direct villa-rental sanity case confirmed no crash;
+    and a real-browser Playwright end-to-end test of the exact reported
+    case confirmed the live app's "GENERATE AGENT REPORT" → Get Listing
+    flow renders verdict "FAIR" (not "GOOD PRICE"), with the AI advisory,
+    Nearby Amenities, Drive Times, Market Liquidity, and Location
+    Intelligence sections all present — zero non-network console errors.
+  - Cache versions bumped: `js/valuation.js` to `?v=20260727b`,
+    `js/data-residential.js` to `?v=20260727a` in both `index.html` and
+    `sw.js`'s `PRECACHE` array; `sw.js`'s `CACHE_NAME` bumped
+    `dubaival-v79`→`dubaival-v80`. Rebuilt `www/` and manually synced
+    `js/valuation.js`/`js/data-residential.js`/`index.html`/`sw.js` into
+    `android/app/src/main/assets/public/`, confirmed byte-identical (`npx
+    cap sync android` failed as always in this sandbox — no Android SDK).
+
 - **2026-07-27 (session continuing, follow-up — GeoAdj disabled by default,
   per the user's explicit confirmation)**: Direct follow-up to the entry
   immediately below, which reported (but did not act on) that
