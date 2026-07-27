@@ -114,14 +114,48 @@ function buildReportTypeSelector(cl,formCard){
 // single shared caller — replaces 16 nearly-identical callGroqRaw()...then()
 // ...then().catch() blocks previously duplicated across the villa/apartment
 // × sale/rental × buyer/seller/negotiation/personal report paths.
+// Remembers the exact {promptObj,area} used for the LAST call per stateKey,
+// so a failed report can be retried from the render layer (which has no
+// access to the submit handler's own closure variables — propDesc/val/rv/
+// rFor are all local to one of the 4 villa/apartment × sale/rental submit
+// blocks) without duplicating any prompt-building logic.
+var _dvLastAgentAICall={};
 async function _dvRunAgentAI(promptObj,area,stateKey){
+  _dvLastAgentAICall[stateKey]={promptObj:promptObj,area:area};
   try{
     var text=await askAI([{role:"user",content:promptObj.user}],promptObj.system,promptObj.groundQuery,area?[area]:null);
-    analyzerState[stateKey]=text||"";
+    analyzerState[stateKey]=text||null;
   }catch(e){
-    analyzerState[stateKey]=analyzerState[stateKey]||"";
+    // Real bug fixed 2026-07-27: this used to fall back to "" on failure,
+    // which every render-check site below treats identically to "still
+    // loading" (both are falsy) — so a genuine network/AI failure showed
+    // "Generating..." forever with zero indication anything went wrong.
+    // null is the dedicated "failed" state — distinct from "" (loading,
+    // set by the 4 reset sites right before this fires) and from real text
+    // (success) — every render site checks it explicitly and shows a
+    // retry-able error instead of an infinite spinner.
+    analyzerState[stateKey]=null;
   }
   render();
+}
+function _dvRetryAgentAI(stateKey){
+  var last=_dvLastAgentAICall[stateKey];
+  if(!last)return;
+  analyzerState[stateKey]="";
+  render();
+  _dvRunAgentAI(last.promptObj,last.area,stateKey);
+}
+// Shared "this AI report genuinely failed" note + retry button — used at
+// every one of the 8 render sites below (aiText/aiTextSeller/aiNegotiation/
+// aiListingPitch × sale/rental) so a real network/AI failure is always
+// visible and recoverable with one click, instead of an infinite spinner.
+function _dvAgentAIFailedNote(cl,stateKey,label){
+  var row=div({display:"flex",alignItems:"center",gap:"10px",flexWrap:"wrap"});
+  row.appendChild(span({color:"#F87171",fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Couldn't generate "+label+" — this may be a temporary connection issue."));
+  var btn=el("button",{style:{background:"transparent",border:"1px solid #F87171",color:"#F87171",borderRadius:"6px",padding:"4px 12px",fontSize:"10px",fontWeight:"700",letterSpacing:"0.05em",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",whiteSpace:"nowrap"}},"↻ RETRY");
+  btn.onclick=function(){_dvRetryAgentAI(stateKey);};
+  row.appendChild(btn);
+  return row;
 }
 
 // View-distance Tier 2 refinement (added 2026-07-26): the initial result
@@ -2886,6 +2920,16 @@ function renderAnalyzerResult(wrap){
     if(ecFormatted)ecCard.appendChild(ecFormatted);
     else ecCard.appendChild(div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.85",fontFamily:"'Inter',sans-serif"},analyzerState.aiText));
     wrap.appendChild(ecCard);
+  }else if(analyzerState.aiText===null){
+    // Real bug fixed 2026-07-27 — previously this whole card silently never
+    // appeared at all on a genuine AI/network failure (identical to "not yet
+    // requested"), leaving no visible sign a buyer/tenant report was ever
+    // supposed to be here. null is the dedicated failed state (see
+    // _dvRunAgentAI) — show it plainly with a one-click retry.
+    var ecFailCard=div({background:cl.surface,border:"1px solid rgba(239,68,68,0.3)",borderRadius:"14px",padding:"18px",marginBottom:"14px"});
+    ecFailCard.appendChild(span({color:"#F87171",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},isAgentReport?(analyzerState.reportFor==="seller"?"Agent Report — Seller":"Agent Report — Buyer / Tenant"):"Expert Commentary"));
+    ecFailCard.appendChild(_dvAgentAIFailedNote(cl,"aiText",isAgentReport?"the buyer/tenant report":"the expert commentary"));
+    wrap.appendChild(ecFailCard);
   }
   if(analyzerState.aiTextSeller){
     var ecSCard=div({background:cl.surface,border:"1px solid rgba(239,68,68,0.3)",borderRadius:"14px",padding:"18px",marginBottom:"14px"});
@@ -2894,6 +2938,11 @@ function renderAnalyzerResult(wrap){
     if(ecSFormatted)ecSCard.appendChild(ecSFormatted);
     else ecSCard.appendChild(div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.85",fontFamily:"'Inter',sans-serif"},analyzerState.aiTextSeller));
     wrap.appendChild(ecSCard);
+  }else if(analyzerState.aiTextSeller===null){
+    var ecSFailCard=div({background:cl.surface,border:"1px solid rgba(239,68,68,0.3)",borderRadius:"14px",padding:"18px",marginBottom:"14px"});
+    ecSFailCard.appendChild(span({color:"#F87171",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},"Agent Report — Seller / Landlord"));
+    ecSFailCard.appendChild(_dvAgentAIFailedNote(cl,"aiTextSeller","the seller/landlord report"));
+    wrap.appendChild(ecSFailCard);
   }
 
   // --- LISTING PITCH (agent mode, reportFor==="listing") ---
@@ -2941,6 +2990,14 @@ function renderAnalyzerResult(wrap){
     if(analyzerState.aiListingPitch){
       var lpFormatted=formatAIResponse(analyzerState.aiListingPitch,cl);
       lpAISec.appendChild(lpFormatted||div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.85",fontFamily:"'Inter',sans-serif"},analyzerState.aiListingPitch));
+    }else if(analyzerState.aiListingPitch===null){
+      // Real bug fixed 2026-07-27 (user-reported): this branch used to fire
+      // for BOTH "still loading" (state==="") and "genuinely failed forever"
+      // (a network/AI error) — so a real failure looked identical to
+      // "Generating your listing pitch..." with no way to tell them apart
+      // and no way to recover short of leaving and re-submitting the whole
+      // form. null (see _dvRunAgentAI) is now the dedicated failed state.
+      lpAISec.appendChild(_dvAgentAIFailedNote(cl,"aiListingPitch","your listing pitch"));
     }else{
       lpAISec.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",fontStyle:"italic"},"Generating your listing pitch..."));
     }
@@ -3270,6 +3327,8 @@ function renderAnalyzerResult(wrap){
       if(analyzerState.aiNegotiation){
         var negoFormatted=formatAIResponse(analyzerState.aiNegotiation,cl);
         negoSec.appendChild(negoFormatted||div({color:cl.subHi,fontSize:"12.5px",lineHeight:"1.75",fontFamily:"'Inter',sans-serif"},analyzerState.aiNegotiation));
+      }else if(analyzerState.aiNegotiation===null){
+        negoSec.appendChild(_dvAgentAIFailedNote(cl,"aiNegotiation","your negotiation strategy"));
       }else{
         negoSec.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",fontStyle:"italic"},"Generating your step-by-step negotiation strategy..."));
       }
@@ -4387,6 +4446,11 @@ function renderRentalResult(wrap){
     if(ecFormatted)ecCard.appendChild(ecFormatted);
     else ecCard.appendChild(div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.85",fontFamily:"'Inter',sans-serif"},analyzerState.aiText));
     wrap.appendChild(ecCard);
+  }else if(analyzerState.aiText===null){
+    var ecFailCardR=div({background:cl.surface,border:"1px solid rgba(239,68,68,0.3)",borderRadius:"14px",padding:"18px",marginBottom:"14px"});
+    ecFailCardR.appendChild(span({color:"#F87171",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},isAgentRental?(analyzerState.reportFor==="seller"?"Agent Report — Landlord":"Agent Report — Tenant"):"Rental Expert Commentary"));
+    ecFailCardR.appendChild(_dvAgentAIFailedNote(cl,"aiText",isAgentRental?"the tenant/landlord report":"the rental expert commentary"));
+    wrap.appendChild(ecFailCardR);
   }
   // Real bug fixed 2026-07-15: the landlord-facing agent report (aiTextSeller,
   // fetched by the rental submit handler whenever reportFor is "seller"/"both")
@@ -4399,6 +4463,11 @@ function renderRentalResult(wrap){
     if(ecSFormattedR)ecSCardR.appendChild(ecSFormattedR);
     else ecSCardR.appendChild(div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.85",fontFamily:"'Inter',sans-serif"},analyzerState.aiTextSeller));
     wrap.appendChild(ecSCardR);
+  }else if(analyzerState.aiTextSeller===null){
+    var ecSFailCardR=div({background:cl.surface,border:"1px solid rgba(239,68,68,0.3)",borderRadius:"14px",padding:"18px",marginBottom:"14px"});
+    ecSFailCardR.appendChild(span({color:"#F87171",fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"10px"},"Agent Report — Landlord"));
+    ecSFailCardR.appendChild(_dvAgentAIFailedNote(cl,"aiTextSeller","the landlord report"));
+    wrap.appendChild(ecSFailCardR);
   }
 
   // --- LISTING PITCH (agent mode, reportFor==="listing", rental flow) ---
@@ -4430,6 +4499,8 @@ function renderRentalResult(wrap){
     if(analyzerState.aiListingPitch){
       var lpFormattedR=typeof formatAIResponse==="function"?formatAIResponse(analyzerState.aiListingPitch,cl):null;
       lpAISecR.appendChild(lpFormattedR||div({color:cl.subHi,fontSize:"13.5px",lineHeight:"1.85",fontFamily:"'Inter',sans-serif"},analyzerState.aiListingPitch));
+    }else if(analyzerState.aiListingPitch===null){
+      lpAISecR.appendChild(_dvAgentAIFailedNote(cl,"aiListingPitch","your listing pitch"));
     }else{
       lpAISecR.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",fontStyle:"italic"},"Generating your listing pitch..."));
     }
@@ -4497,6 +4568,8 @@ function renderRentalResult(wrap){
     if(analyzerState.aiNegotiation){
       var negoFormattedR=formatAIResponse(analyzerState.aiNegotiation,cl);
       negoSecR.appendChild(negoFormattedR||div({color:cl.subHi,fontSize:"12.5px",lineHeight:"1.75",fontFamily:"'Inter',sans-serif"},analyzerState.aiNegotiation));
+    }else if(analyzerState.aiNegotiation===null){
+      negoSecR.appendChild(_dvAgentAIFailedNote(cl,"aiNegotiation","your negotiation strategy"));
     }else{
       negoSecR.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",fontStyle:"italic"},"Generating your step-by-step negotiation strategy..."));
     }

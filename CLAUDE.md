@@ -965,6 +965,117 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-27 (session continuing, follow-up — real bug fixed: "Generating
+  your listing pitch..." (and the sibling buyer/seller/negotiation AI
+  reports) could get stuck showing a loading message forever on a genuine
+  AI/network failure, with zero visible error and no way to recover)**:
+  Direct follow-up to the "Burj Khalifa + Fountain" recalibration below —
+  after that fix shipped, the user came back with 2 more screenshots
+  showing the SAME "Get Listing" report: the valuation number was now
+  correctly fixed (FAIR, -3.0%, Market PSF AED 4,568 — confirmed via a
+  direct live re-check), but "Your Pitch to the Owner" was still stuck on
+  the same "Generating your listing pitch..." placeholder, and the user
+  separately flagged that the report seemed to be missing the building's
+  distance to important places (airport/beach/DIFC/Dubai Mall) that used
+  to appear in the buyer/seller reports, despite the app being connected to
+  the Google Maps API.
+  - **Root cause, found via a dedicated test that lets the AI call
+    genuinely FAIL (not the usual mocked-success test every prior session
+    used)**: `_dvRunAgentAI()` (`js/market.js`, the single shared async
+    helper behind all 4 AI-generated report texts — `aiText`/
+    `aiTextSeller`/`aiNegotiation`/`aiListingPitch`) had a catch block that
+    fell back to `analyzerState[stateKey]=analyzerState[stateKey]||""` on
+    ANY failure — but the field was already `""` (the "loading" value, set
+    by the reset right before the call fires) the instant before this ran,
+    so a genuine failure silently resolved to the exact same empty string
+    as "still in progress." Every render-check site (`if(x){show
+    text}else{show "Generating..."}`) then had no way to distinguish a real
+    failure from a call still in flight — so a network hiccup, a Groq
+    error, or the RAG-grounding call failing all looked identical to the
+    user: an infinite "Generating..." spinner with no error, no retry, and
+    no way to recover short of re-submitting the entire form from scratch.
+    Confirmed conclusively via a Playwright test that genuinely aborts the
+    network calls (`route.abort('failed')`, not a mocked success) and waits
+    a full 6 seconds — the field stayed permanently `""` under the OLD
+    code, and the "Generating..." text never went away.
+  - **Fix, `js/market.js`**: `_dvRunAgentAI()`'s catch block now sets the
+    field to `null` on failure — a 3rd, dedicated "genuinely failed" state,
+    distinct from `""` (loading) and real text (success). A new
+    `_dvLastAgentAICall` module-level map remembers the exact
+    `{promptObj,area}` used for the LAST call per field (recorded at the
+    top of `_dvRunAgentAI` itself, before the `await`), and a new
+    `_dvRetryAgentAI(stateKey)` uses it to re-fire the identical original
+    call — this sidesteps needing to thread `propDesc`/`val`/`rv`/`rFor`
+    (all local to one of the 4 villa/apartment × sale/rental submit-handler
+    closures) through to the render layer, which has no access to them. A
+    new shared `_dvAgentAIFailedNote(cl,stateKey,label)` renders a plain
+    "Couldn't generate {label} — this may be a temporary connection issue."
+    message with a real "↻ RETRY" button wired to `_dvRetryAgentAI`. All 8
+    render-check sites (4 fields × sale-flow `renderAnalyzerResult()` +
+    rental-flow `renderRentalResult()`) now have 3 branches instead of 2:
+    real text (success, unchanged) / `null` (NEW — the failed note + retry
+    button) / else (unchanged "Generating..." placeholder, correctly still
+    shown while a call is genuinely still in flight). The two Type-A cards
+    (`aiText`/`aiTextSeller` — the buyer/seller/tenant/landlord reports,
+    which previously showed literally NOTHING at all while loading OR on
+    failure, since the whole card was gated behind a bare truthy check)
+    also gained a matching failed-state card, so a real failure there is
+    now visible too, not silently absent.
+  - **The "missing distances" complaint — investigated and found to be a
+    testing-methodology artifact, not a real bug in the app itself**: while
+    chasing the stuck-pitch bug, a battery of tests using
+    `document.body.innerText` kept reporting Nearby Amenities/Drive Times/
+    Location Intelligence/Rental Intelligence/Yield & Growth as "missing"
+    from the rendered report — but a dedicated side-by-side test comparing
+    `innerText` against `textContent` on the exact same rendered DOM proved
+    every one of these sections IS genuinely present and correctly
+    populated (`textContent` found them all; `innerText` did not). This is
+    consistent with `innerText`'s CSS-aware spec behavior: this codebase's
+    fade-in animation classes (`opacity:0` initial state) can still be
+    mid-transition in a background/headless browser tab, and `innerText`
+    (unlike `textContent`) correctly treats not-yet-visible content as
+    empty text. Confirmed via a direct end-to-end Playwright run of the
+    real "GENERATE AGENT REPORT" → Get Listing flow (mocked Groq/knowledge-
+    query, real DOM) that "Nearby Amenities"/"Drive Times"/"Market
+    Liquidity"/"Location Intelligence" are all present in the rendered
+    output alongside the Listing Pitch card — none of these sections are
+    gated by `reportFor`/`isAgentReport` in the code, so a Get Listing
+    report shows exactly the same distance/amenity content as any other
+    report type. This strongly suggests the user's own screenshots simply
+    hadn't scrolled far enough down the report to reach these sections
+    (they sit further down than the Listing Pitch card, per this file's
+    documented section order), not that the app fails to render them.
+  - Verified: `node -c js/market.js`; a dedicated Playwright test that lets
+    every Groq call fail 4 times then succeed on a 5th (simulating a real
+    transient outage) — confirmed the field is `null` (not `""`) after the
+    genuine failures, the failed-state note + "↻ RETRY" button render in
+    the live DOM with zero "Generating..." text left showing, and clicking
+    RETRY successfully re-fires the exact original call and replaces the
+    failed note with the real returned text; a second, more targeted
+    Playwright test (permanent failure, then flipping the mock to succeed
+    only after Retry is clicked) confirming the same end-to-end recovery
+    path cleanly, zero page errors in either run; a regression test
+    re-running the ORIGINAL mocked-success flow (unchanged since an earlier
+    session) confirming zero behavior change on the happy path — the
+    "Generating..." placeholder still shows correctly while genuinely
+    loading, and real AI text still renders identically to before; a direct
+    -call test on `renderRentalResult()` covering all 3 states (failed/
+    success/still-loading) across all 4 rental-side fields, confirming the
+    Listing Pitch/Tenant/Landlord failed-notes and retry buttons render
+    correctly and — correctly, matching this file's own documented
+    listing-mode gating — the Negotiation section stays fully absent in
+    "Get Listing" mode (its whole card, not just its AI text, is
+    deliberately gated off for that report type, unrelated to this fix);
+    and an 8-tab smoke sweep (Home, Market Dashboard/Analyzer/QuickCheck,
+    Portfolio Assets, Deal Board, AI Agents, AI Chief of Staff) with every
+    network call failing — zero non-network console errors.
+  - Cache version bumped: `js/market.js` to `?v=20260727b` in both
+    `index.html` and `sw.js`'s `PRECACHE` array; `sw.js`'s `CACHE_NAME`
+    bumped `dubaival-v80`→`dubaival-v81`. Rebuilt `www/` and manually synced
+    `index.html`/`js/market.js`/`sw.js` into
+    `android/app/src/main/assets/public/`, confirmed byte-identical (`npx
+    cap sync android` failed as always in this sandbox — no Android SDK).
+
 - **2026-07-27 (session continuing, follow-up — "Burj Khalifa + Fountain"
   combined-view premium recalibrated: a real, additive double-counting
   found and fixed with direct evidence from the SAME reported case, plus
