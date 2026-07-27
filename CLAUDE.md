@@ -965,6 +965,29 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-27 (session continuing, follow-up — the new diagnostic-detail
+  line immediately revealed the REAL cause: `API 401`, an invalid/expired
+  `GROQ_API_KEY` in Vercel — not a code bug at all)**: Direct payoff of the
+  diagnostic-detail fix immediately below — the user reproduced the exact
+  same "Couldn't generate" failure on a different report card ("Agent
+  Report — Buyer / Tenant" this time, not Listing Pitch, confirming the
+  problem is systemic across every AI-generated report, not one specific
+  prompt) and this time the card showed "Details: API 401". A 401 is
+  Groq's OWN upstream API rejecting the request as unauthorized — this can
+  only happen when `GROQ_API_KEY` resolves to a real but WRONG/expired/
+  revoked value (a genuinely missing key returns a distinct 500 from
+  `api/proxy-groq.js` itself, per its own `if (!key) return
+  res.status(500)...` guard — confirmed by reading the code, not guessed).
+  This retroactively explains BOTH prior "Couldn't generate" reports: the
+  message-length fix (2 entries below) was a real, independently-verified
+  bug worth fixing regardless, but was never the actual blocker for THIS
+  specific persistent failure — a bad Groq credential was. No code change
+  in this repo can fix an invalid API key; logged as a 🔴 CRITICAL,
+  user-action-required item in Outstanding items below with the exact
+  Groq Console → Vercel env var → redeploy steps needed, and told the user
+  directly this is a site-wide AI outage (every `askAI()` call across the
+  whole app), not a bug confined to one report type.
+
 - **2026-07-27 (session continuing, follow-up — the "Couldn't generate"
   card is still reproducing live even after the root-cause message-length
   fix shipped; added a real diagnostic detail line since the friendly
@@ -12304,6 +12327,37 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🔴 CRITICAL, USER ACTION REQUIRED — GROQ_API_KEY in Vercel is invalid/
+  expired, breaking EVERY AI feature site-wide (added 2026-07-27)**: the
+  diagnostic-detail line added the same day (see the work-log entry) caught
+  the real cause of the "Couldn't generate the buyer/tenant report"
+  failure the user kept reproducing: `Details: API 401`. A 401 is Groq's
+  OWN API rejecting the request as unauthorized — this only happens when
+  `GROQ_API_KEY` genuinely resolves to a non-empty, WRONG/expired/revoked
+  value (a completely missing key returns a different, 500, error from
+  `api/proxy-groq.js` itself, confirmed by reading the code — see
+  `if (!key) return res.status(500)...` vs. the 401 that's actually being
+  returned, which only Groq's own upstream API can produce). This is not a
+  bug in this codebase — no code change can fix an invalid credential —
+  and it affects every single `askAI()` call across the entire app (Chat
+  Agents, Compare, Personal Advisor, Portfolio AI Analysis, all 4 Analyzer
+  agent-report types, Area Comparison, etc.), not just the one report the
+  user happened to be testing.
+  - **Required, manual, user-only fix**: (1) go to
+    https://console.groq.com, sign in, generate a fresh API key (or
+    confirm the existing one hasn't been revoked/rate-limited into
+    rejection); (2) Vercel Dashboard → the `dubaival` project → Settings →
+    Environment Variables → update `GROQ_API_KEY` with the new value;
+    (3) trigger a new deployment — an env var change alone does not
+    retroactively apply to an already-built deployment, a fresh deploy is
+    required for the new key to actually take effect.
+  - Not something a future session should try to "fix" in code — if this
+    exact `API 401` detail reappears after the steps above are followed,
+    the key itself is still bad (double-check for accidental whitespace/
+    a truncated paste); if a DIFFERENT status code appears instead (e.g.
+    `API 429` — rate limited, `API 500` — key missing entirely), diagnose
+    that specific code fresh rather than assuming it's the same issue.
 
 - **🟡 View-system expansion — Stages 1-3 shipped, Stage 4 not started**
   (added 2026-07-26, updated same day once Stages 2-3 shipped): direct
