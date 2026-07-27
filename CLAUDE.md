@@ -965,6 +965,176 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-27 (session continuing, follow-up — 3 real Analyzer questions
+  investigated: a garbage-text bug in 3 AI prompts fixed, Market Liquidity's
+  area-level nature clarified, and a stale/ungrounded geo-risk mechanism
+  found to be silently live in the valuation engine, flagged for the user's
+  decision)**: Direct follow-up to the fP-overlap fix below — user shared 2
+  more screenshots of a live "Get Listing" report (Rental Intelligence
+  Engine showing "-8% seasonal adj." for July, and the Listing Pitch card
+  showing "Generating your listing pitch..." stuck with real deterministic
+  numbers already computed around it) and asked 4 direct questions: what the
+  -8% seasonal figure is and whether it has a real effect; whether "GeoAdj"
+  is active and reflects real current market conditions (noting this was
+  worked on and documented before); whether "Average Days on Market" is the
+  same thing as "Market Liquidity"; plus a separate multi-part complaint
+  (no AI advisory text shown in a Get Listing report; no distances to
+  airport/beach/DIFC/Dubai Mall visible; "Market Liquidity always shows 18
+  for every building"; a general ask to verify every Analyzer number is
+  genuinely input-sensitive, not static).
+  1. **Seasonal adjustment — real, confirmed, has a genuine effect, but only
+     on the SALE-side cross-check panel, not the dedicated Rental engine.**
+     "Rental Intelligence Engine" (the yield/rent cross-check panel shown
+     inside a SALE report, `js/market.js` line ~3312) is powered by
+     `computeSmartRent()` (`js/valuation.js`), which applies a real
+     `SEASONAL_FACTORS`/`SEASON_LABELS` table (Peak Season +3/+4% in Dec/Jan
+     down to Off-Season -8% in Jul/Aug — a real, well-known Dubai leasing-
+     market pattern: summer is genuinely slower for tenant turnover). It's
+     fully applied when NO live rental data exists, partially blended in
+     when SOME live data exists (2 buildingMatches or an area-level match),
+     and NOT applied at all once 3+ real building-level live listings are
+     found (since that's already today's real market rate, no model
+     adjustment needed). Confirmed, separately, that `computeRentalValuation()`
+     — the MAIN, dedicated rental-analysis engine used by `renderRentalResult()`
+     when a user analyzes a property specifically FOR RENT — has NO
+     seasonal factor applied at all, a real inconsistency between the two
+     engines for what is otherwise the same underlying real-world fact.
+     Flagged to the user rather than silently fixed, since extending this to
+     the main rental engine would be a real, disclosed, city-wide shift to
+     every rental valuation's estimate depending on the calendar month —
+     exactly the class of change this file's own Directive #2 requires
+     confirming before making.
+  2. **GeoAdj — confirmed ACTIVE in the real valuation engine (correcting a
+     factual error in an earlier session's own work-log entry), and its data
+     source is confirmed stale.** `getAreaGeoAdj(area)` (`js/core.js`) reads
+     `MACRO_VARS.riskFactor`/`socialIndex`/`economicOutlook` and is used
+     directly inside `computeAdjustedPSF()`'s `hedonicMult` (`js/valuation.js`
+     line ~1011/1015, `(1+geoAdj)` term, clamped to -8%/+3%) — i.e. it
+     genuinely shifts every single Analyzer PSF today, not just a cosmetic
+     Market Dashboard sentence. This directly contradicts a claim in this
+     file's own 2026-07-22 work-log entry ("`fetchLiveMarket()`... only ever
+     feeds `getAreaGeoAdj()`/`LIVE_GEO.adj`, confirmed via grep to be read
+     ONLY inside a cosmetic Market Dashboard commentary sentence, never
+     inside the valuation engine at all") — that claim was simply wrong (or
+     the code changed since without being logged); corrected here for any
+     future session reading that entry. The 3 MACRO_VARS fields feeding
+     `getAreaGeoAdj()` are set EXCLUSIVELY by `fetchLiveMarket()`
+     (`js/core.js`), which sends a plain, ungrounded `callGroqRaw()` call
+     (no RAG, no real news retrieval) built around a HARDCODED "OFFICIAL DLD
+     CONTEXT" narrative that stops at "June 2026: Cautious stabilization" —
+     now, as of today (2026-07-27), over a month stale, with no mechanism to
+     ever refresh its embedded facts. Reported to the user rather than
+     unilaterally fixed: the already-built, real, zero-LLM `getRealMomentumFactor()`
+     per-area momentum engine (built 2026-07-22 specifically to replace this
+     exact class of ungrounded-LLM-guess mechanism, see that date's own
+     entries) is a strictly superior, already-existing replacement for
+     what GeoAdj is trying to capture — recommended disabling GeoAdj by
+     default (return neutral 0), mirroring the exact same
+     `MOMENTUM_AI_FALLBACK_ENABLED=false` precedent already applied to the
+     analogous AI-estimated momentum fallback that same day — pending the
+     user's explicit confirmation before touching this core-formula input,
+     per this file's own standing Directive #2 protocol.
+  3. **"Is Average Days on Market the same as Market Liquidity?" — yes, by
+     design, and this is NOT a bug.** `domEst=aData.dom||60` (a real,
+     per-AREA figure from `AREAS[area].dom`) is the direct input driving
+     `liqScore`/`liqTier` (a coarse, tiered label derived from it). Verified
+     via a real Node harness running the actual `computeValuation()` engine
+     (not just inspecting raw data) across 6 different real areas/buildings
+     (Downtown Dubai/Address Fountain Views Tower 3, Dubai Marina/Marina
+     Gate 1, Business Bay/Bay Square Building 1, JVC, Palm Jumeirah, Arabian
+     Ranches) — `domEst` correctly varied (18/15/16/12/22/32 days) and
+     `liqScore`/`liqTier` correctly varied once crossing tier thresholds
+     (95·Very High down to 72·Moderate), while the SEPARATE "Building
+     Turnover Rate" card (`turnoverRate`/`bldgUnits`/`bldgAnnualTx`, from
+     `estimateBldgUnits()`/`estimateBldgTx()`) correctly varied per BUILDING
+     even within the same area (7.2%/250 units for Address Fountain Views
+     Tower 3 vs 3.8%/370 units for Marina Gate 1 vs 13%/100 units for Bay
+     Square Building 1). **Root cause of the user's "always shows 18"
+     perception, confirmed directly**: `AREAS["Downtown Dubai"].dom` is
+     genuinely, exactly 18 — and every test case in this extended debugging
+     session has been the same property (Address Fountain Views Tower 3, in
+     Downtown Dubai) run through different report modes — so seeing "18"
+     repeatedly is completely correct, expected behavior (same area → same
+     area-level figure), not a hardcoded value. Fixed the one real,
+     legitimate gap this surfaced: the "Market Liquidity" card's title and
+     "Avg. Days on Market" sub-label didn't make their AREA-level nature
+     explicit (unlike the sale-flow Listing Pitch card's own, already-correct
+     "Area Avg. Days on Market" label) — added a one-line disclaimer
+     ("Area-wide figures for {area} — see Building Turnover Rate below for
+     this specific building") plus relabeled the sub-metric to "Avg. Days on
+     Market (Area)", mirroring the exact disclosure pattern already
+     established for Location Intelligence (2026-07-22).
+  4. **A real, separate, confirmed garbage-text bug found while
+     investigating the stuck "Generating your listing pitch..." report**:
+     `getAgentAIPrompt()`, `getPersonalSaleAIPrompt()`, and
+     `getListingPitchPrompt()` (all `js/market.js`) each built their AI
+     prompt string via `"("+val.confTier+")"`/`"("+vv.confTier+")"` — but
+     `confTier` (from `computeValuation()`, `js/valuation.js`) is an OBJECT
+     (`{label,range,spread,c}`), not a string, so JS's implicit
+     string-coercion on concatenation always produced the literal text
+     `"[object Object]"` inside the prompt sent to the AI (e.g. "Confidence:
+     82% ([object Object])."). This has been present since these prompts
+     were first built, in all 3 sale-side prompts (not the rental-side
+     equivalents, which never reference `confTier`) — confirmed via a
+     targeted grep sweep of every `.confTier` reference in the file (the 5
+     display-only render call sites were already correct, using
+     `.label`/`.range`/`.c` — only these 3 AI-prompt-string builders had the
+     bug). Fixed all 3 to use `val.confTier.label`/`vv.confTier.label`.
+     **This does NOT explain the stuck "Generating..." symptom** (confirmed
+     via a real-browser Playwright test, mocked Groq/knowledge-query/maps
+     endpoints, driving the actual "GENERATE AGENT REPORT" → Get Listing
+     flow end-to-end for the exact real reported case — Address Fountain
+     Views Tower 3, 2BR, floor 59, Burj Khalifa View, AED 7,000,000): the
+     full async chain (`_dvRunAgentAI` → `askAI` → RAG-grounded
+     `fetchKnowledgeContext` → Groq → `render()`) resolved correctly within
+     ~3 seconds in the test and populated `analyzerState.aiListingPitch`
+     with the mocked text, which rendered correctly in the DOM alongside a
+     genuinely non-empty "Nearby Amenities"/"Drive Times"/"Market
+     Liquidity"/"Location Intelligence" (all 4 confirmed present in the
+     rendered output — none of these sections are gated by
+     `reportFor`/`isAgentReport`, confirmed via code read AND this live
+     test, so they render in a Get Listing report exactly as in any other
+     report type). The user's screenshot showing "Generating..." was almost
+     certainly taken mid-flight — real production latency (RAG grounding's
+     own embed+Postgres-RPC round-trip on top of the Groq call itself,
+     plus 2 other concurrent async refinements — live Bayut data and live
+     rentals — all firing at once) can genuinely take several real seconds
+     longer than this test's 300ms-mocked delay; no code defect found in
+     this specific path after the confTier fix above.
+  - Verified: `node -c js/market.js`; a Node harness running the real
+    `computeValuation()` engine across 6 areas/buildings confirming
+    `domEst`/`liqScore`/`liqTier` vary correctly by area and
+    `turnoverRate`/`bldgUnits`/`bldgAnnualTx` vary correctly by building
+    within the same area (all figures above); a direct grep sweep confirming
+    the confTier fix touched exactly the 3 buggy AI-prompt call sites and
+    left all 5 correct display call sites untouched; and a real-browser
+    Playwright test driving the actual apartment Analyzer form → agent mode
+    → "Get Listing" report type → mocked Groq (300ms delay)/knowledge-query/
+    proxy-maps endpoints — confirmed `aiListingPitch` resolves to real text
+    within 3s (not stuck), and the rendered DOM includes the Listing Pitch
+    card, Nearby Amenities, Drive Times, Market Liquidity (with the new
+    area-disclosure line), and Location Intelligence — zero non-network
+    console errors (the one benign artifact: the test's own blanket
+    `/api/proxy-groq` mock also intercepted the unrelated background
+    `fetchMarketIntelligence()` call, which expected a different JSON shape
+    — a test-harness limitation, not a product bug, consistent with prior
+    sessions' own note on this exact pattern).
+  - Cache version bumped: `js/market.js` to `?v=20260727a` in both
+    `index.html` and `sw.js`'s `PRECACHE` array; `sw.js`'s `CACHE_NAME`
+    bumped `dubaival-v77`→`dubaival-v78`. Rebuilt `www/` and manually synced
+    `index.html`/`js/market.js`/`sw.js` into
+    `android/app/src/main/assets/public/`, confirmed byte-identical
+    (`npx cap sync android` failed as always in this sandbox — no Android
+    SDK).
+  - **Pending the user's explicit decision, not yet implemented**: whether
+    to disable `getAreaGeoAdj()`/`fetchLiveMarket()`'s geo-risk adjustment
+    by default (mirroring the `MOMENTUM_AI_FALLBACK_ENABLED=false` pattern),
+    given its only real-world justification (the momentum-engine's real,
+    zero-LLM per-area signal) already exists as a superior replacement; and
+    whether to extend `computeRentalValuation()` with the same real seasonal
+    factor `computeSmartRent()` already applies, for consistency between the
+    two rental-adjacent engines.
+
 - **2026-07-27 (new session — real, user-reported + verified valuation bug:
   the general floor premium and the view premium's own floor-credibility
   scaling were double-counting the SAME real-world effect for landmark/
