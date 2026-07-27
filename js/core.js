@@ -533,8 +533,43 @@ var MACRO_VARS={
   log:[]               // History of changes with reasons
 };
 
+// GEOADJ_AI_ENABLED gates whether getAreaGeoAdj() may still shift a real
+// valuation's PSF from MACRO_VARS.riskFactor/socialIndex/economicOutlook —
+// the ONLY thing that ever sets those 3 fields is fetchLiveMarket() below,
+// which sends a plain, UNGROUNDED callGroqRaw() call (no RAG, no real news
+// retrieval) built around a hand-written "OFFICIAL DLD CONTEXT" narrative
+// that stops at "June 2026: Cautious stabilization" — a permanently-frozen
+// snapshot with no mechanism to ever refresh its embedded facts, confirmed
+// stale by 2026-07-27 (already over a month past its last real fact) and
+// only getting staler with time, exactly the class of "ungrounded/stale LLM
+// guess silently baked into pricing" risk this project's own Directive #2
+// (max 3% deviation) exists to prevent — the same root problem already
+// found and fixed for the momentum mechanism (see
+// MOMENTUM_AI_FALLBACK_ENABLED below), and fixed here the identical way, on
+// the user's explicit confirmation (2026-07-27) after they were shown the
+// exact contradiction with an earlier session's own (incorrect) claim that
+// this was "cosmetic only, never inside the valuation engine."
+// Set to false: every valuation now correctly gets NEUTRAL geoAdj (0, no
+// adjustment) instead of an unverified, permanently-stale AI guess — this
+// is not a loss of signal, since the REAL, zero-LLM, continuously-refreshing
+// per-area momentum engine (getRealMomentumFactor(), js/valuation.js,
+// rolling recent-vs-prior real price_history) already covers the same
+// underlying question ("how has this specific area's market actually
+// moved recently") far more precisely and without ever going stale. The
+// computation logic itself is left fully intact below (not deleted) so it
+// can be flipped back on later if a genuinely RAG-grounded, continuously-
+// refreshed replacement is built for fetchLiveMarket() — MACRO_VARS/
+// fetchLiveMarket()/the Market Dashboard's "Live Market Conditions" display
+// card are all UNCHANGED and keep populating/refreshing/showing the AI's
+// estimate exactly as before (informational only, same "display keeps
+// working, only PRICING stops trusting it" precedent as
+// MOMENTUM_AI_FALLBACK_ENABLED) — only the ANALYZER'S actual computed PSF
+// (via computeAdjustedPSF()'s hedonicMult) stops trusting it.
+var GEOADJ_AI_ENABLED=false;
+
 // Compute effective geoAdj for a specific area
 function getAreaGeoAdj(area){
+  if(!GEOADJ_AI_ENABLED)return 0;
   var sens=AREA_SENSITIVITY[area]||0.55;
   var risk=(MACRO_VARS.riskFactor-1)*sens;
   var social=(MACRO_VARS.socialIndex-1)*0.3;

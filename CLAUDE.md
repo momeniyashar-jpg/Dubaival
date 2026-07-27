@@ -965,6 +965,69 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-27 (session continuing, follow-up — GeoAdj disabled by default,
+  per the user's explicit confirmation)**: Direct follow-up to the entry
+  immediately below, which reported (but did not act on) that
+  `getAreaGeoAdj()`'s only data source, `fetchLiveMarket()`, is an
+  ungrounded, permanently-stale (frozen at "June 2026") LLM call, and
+  recommended disabling it the same way `MOMENTUM_AI_FALLBACK_ENABLED` was
+  disabled for the analogous momentum mechanism. User's explicit
+  instruction: "برای GeoAdj کاری که باید طبق فرمولاسیون درست رو انجام بدیم
+  انجام بده" (do whatever we need to do for GeoAdj, according to the
+  correct formulation).
+  - **Fix, `js/core.js`**: new `GEOADJ_AI_ENABLED=false` flag gates
+    `getAreaGeoAdj()` — returns neutral 0 immediately when off, before ever
+    reading `MACRO_VARS.riskFactor`/`socialIndex`/`economicOutlook`. The
+    original risk/social/economic computation is left fully intact below
+    the gate (not deleted), same "keep the logic, just stop trusting it by
+    default" pattern as `MOMENTUM_AI_FALLBACK_ENABLED`. Deliberately did
+    NOT touch `fetchLiveMarket()`, `MACRO_VARS`, or the Market Dashboard's
+    "Live Market Conditions" display card (Geopolitical/Demand/Economic
+    sub-indices) — these keep populating/refreshing/showing the AI's
+    estimate exactly as before, informational only, mirroring the exact
+    "display keeps working, only PRICING stops trusting it" precedent
+    already established for the momentum fix. The real, zero-LLM, per-area
+    momentum engine (`getRealMomentumFactor()`) already covers the
+    underlying "how has this area's market actually moved" question far
+    more precisely and without ever going stale, so this isn't a loss of
+    signal — it's replacing an ungrounded, frozen guess with an already-
+    built, superior mechanism, for the same underlying purpose.
+  - Verified: `node -c js/core.js`; an isolated Node vm test on the real
+    (unstubbed) `getAreaGeoAdj()` — confirmed it returns exactly 0 with the
+    flag off regardless of how hostile/stale `MACRO_VARS` is set (simulated
+    a deliberately negative scenario: riskFactor 0.90/socialIndex 0.93/
+    economicOutlook 0.93, which under the OLD code would have clamped to
+    the full -8% penalty), confirmed flipping the flag back on reaches the
+    exact original computation (correctly clamped to -0.08 for that same
+    hostile scenario), and confirmed flipping it off again correctly
+    reverts to neutral — proving the logic is gated, not lost; a second,
+    full end-to-end test loading the REAL `js/core.js` geoAdj code
+    alongside the REAL `js/valuation.js` (not the usual stubbed-geoAdj test
+    harness) with the same hostile `MACRO_VARS` injected — confirmed
+    `computeValuation()`'s own `val.geo` field is correctly 0 (previously
+    would have been -8, i.e. an 8% PSF haircut from a stale narrative) for
+    the exact Address Fountain Views Tower 3 case from the fP-overlap fix
+    below, with `adjPSF`/`verdict` otherwise unaffected; a 60-area sweep via
+    the standard regression harness (0 errors); and a real-browser
+    Playwright pass against the live app — confirmed `GEOADJ_AI_ENABLED`
+    reads `false` and `getAreaGeoAdj()` returns 0 by default, confirmed it
+    STAYS 0 even after forcing the same hostile `MACRO_VARS` values
+    directly in the live page, confirmed the Market Dashboard's "Live
+    Market Conditions" card still renders correctly (untouched), and
+    confirmed a direct `computeValuation()` call on the live app returns
+    `geo:0` with a sensible verdict — zero non-network console errors.
+  - Cache version bumped: `js/core.js` to `?v=20260727a` in both
+    `index.html` and `sw.js`'s `PRECACHE` array; `sw.js`'s `CACHE_NAME`
+    bumped `dubaival-v78`→`dubaival-v79`. Rebuilt `www/` and manually synced
+    `index.html`/`js/core.js`/`sw.js` into
+    `android/app/src/main/assets/public/`, confirmed byte-identical
+    (`npx cap sync android` failed as always in this sandbox — no Android
+    SDK).
+  - **Still open, not part of this specific instruction**: whether to also
+    extend `computeRentalValuation()` with the same real seasonal factor
+    `computeSmartRent()` already applies (flagged in the entry below,
+    separate from GeoAdj, not yet decided by the user).
+
 - **2026-07-27 (session continuing, follow-up — 3 real Analyzer questions
   investigated: a garbage-text bug in 3 AI prompts fixed, Market Liquidity's
   area-level nature clarified, and a stale/ungrounded geo-risk mechanism
