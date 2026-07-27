@@ -965,6 +965,61 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-27 (session continuing, follow-up — the "Couldn't generate"
+  card is still reproducing live even after the root-cause message-length
+  fix shipped; added a real diagnostic detail line since the friendly
+  error text is otherwise indistinguishable across every possible cause)**:
+  User re-tested after redeploying the message-length fix below and shared
+  a fresh screenshot — the exact same "Couldn't generate your listing
+  pitch — this may be a temporary connection issue." card, with the real
+  DLD-calibrated numbers around it confirmed correct (Realistic Floor AED
+  7,000,917, List At AED 7,361,789, Gross/Net Yield 6.0%/5.1%, matching the
+  earlier recalibration fix). This means the message-length theory, while
+  confirmed real and independently verified against the actual handler
+  code, is either not the ONLY cause still in play, or the fix hasn't
+  actually reached this specific call yet for some other reason (stale
+  deploy, a different failure mode e.g. a missing/invalid `GROQ_API_KEY`,
+  rate limiting, or a genuine third distinct cause) — and there was no way
+  to tell which from a screenshot alone, since `_dvRunAgentAI()`'s catch
+  block deliberately never surfaced the raw HTTP status/error to the agent
+  (a clean-UI choice), so "Couldn't generate..." renders byte-identical
+  regardless of the real underlying reason.
+  - **Fix — real, visible diagnostics, not another guess**: `_dvRunAgentAI()`
+    now captures the actual caught error's message into a new
+    `_dvLastAgentAIError[stateKey]` map (cleared on a later success) and
+    also reports it through the existing `dvTrackError()` pipeline
+    (`js/core.js`, already wired into the Admin Dashboard's "Live Error &
+    Issue Reports" card since the 2026-07-14 error-reporting build) tagged
+    `kind:"ai_report_failed"` — so a future occurrence is visible in the
+    Admin Dashboard too, not just in whatever screenshot happens to be
+    sent. `_dvAgentAIFailedNote()` now renders a small, muted "Details:
+    {the real error}" line directly under the friendly message (e.g.
+    "Details: API 400" or "Details: Failed to fetch") — the exact
+    information needed to distinguish a message-length rejection from a
+    missing API key, rate limiting, or a genuine outage, with zero extra
+    steps required from the user beyond sending the next screenshot.
+  - Verified: `node -c js/market.js`; a real-browser Playwright test
+    mocking a genuine `400 {"error":"Message too long..."}` response from
+    `/api/proxy-groq` and driving the actual "GENERATE AGENT REPORT" →
+    "Get Listing" flow end-to-end — confirmed `analyzerState.aiListingPitch`
+    is `null` and the rendered DOM shows both the friendly message AND a
+    "Details: API 400" line; re-ran the existing failed-state/retry-success
+    Playwright test and the 8-tab smoke sweep — zero regressions, zero
+    non-network console errors.
+  - Cache version bumped: `js/market.js` to `?v=20260727c` in both
+    `index.html` and `sw.js`'s `PRECACHE` array; `sw.js`'s `CACHE_NAME`
+    bumped `dubaival-v82`→`dubaival-v83`. Rebuilt `www/` and manually synced
+    `index.html`/`js/market.js`/`sw.js` into
+    `android/app/src/main/assets/public/`, confirmed byte-identical (`npx
+    cap sync android` failed as always in this sandbox — no Android SDK).
+  - **Next step, genuinely blocked on live diagnostic data this sandbox
+    cannot produce**: once the user reproduces this again post-deploy, the
+    "Details: ..." line on the card (or the Admin Dashboard's Live Error
+    viewer) will show the real cause for the first time — a future session
+    (or this one, on the next report) should act directly on whatever that
+    says rather than re-guessing between the message-length/missing-key/
+    rate-limit/outage candidates above.
+
 - **2026-07-27 (session continuing, follow-up — real bug fixed: "Generating
   your listing pitch..." (and the sibling buyer/seller/negotiation AI
   reports) could get stuck showing a loading message forever on a genuine

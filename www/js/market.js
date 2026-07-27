@@ -120,11 +120,24 @@ function buildReportTypeSelector(cl,formCard){
 // rFor are all local to one of the 4 villa/apartment × sale/rental submit
 // blocks) without duplicating any prompt-building logic.
 var _dvLastAgentAICall={};
+// Real diagnostic detail per field (added 2026-07-27, follow-up to the same
+// fix below) — the friendly "Couldn't generate..." card intentionally never
+// showed the raw HTTP status/error to the agent (a deliberate clean-UI
+// choice), but that also meant a persistent, still-reproducing failure
+// (confirmed live twice by the user, even after the message-length root
+// cause fix shipped) was completely undiagnosable from a screenshot alone —
+// "Couldn't generate" looks identical whether the cause is a message-length
+// rejection, a missing/invalid GROQ_API_KEY, rate limiting, or a genuine
+// outage. Capturing the real caught error message here and surfacing it as
+// a small technical line on the same card closes that gap without needing a
+// DevTools walkthrough or another round-trip.
+var _dvLastAgentAIError={};
 async function _dvRunAgentAI(promptObj,area,stateKey){
   _dvLastAgentAICall[stateKey]={promptObj:promptObj,area:area};
   try{
     var text=await askAI([{role:"user",content:promptObj.user}],promptObj.system,promptObj.groundQuery,area?[area]:null);
     analyzerState[stateKey]=text||null;
+    delete _dvLastAgentAIError[stateKey];
   }catch(e){
     // Real bug fixed 2026-07-27: this used to fall back to "" on failure,
     // which every render-check site below treats identically to "still
@@ -135,6 +148,9 @@ async function _dvRunAgentAI(promptObj,area,stateKey){
     // (success) — every render site checks it explicitly and shows a
     // retry-able error instead of an infinite spinner.
     analyzerState[stateKey]=null;
+    var errMsg=(e&&e.message)?e.message:String(e);
+    _dvLastAgentAIError[stateKey]=errMsg;
+    try{if(typeof dvTrackError==="function")dvTrackError({kind:"ai_report_failed",message:"["+stateKey+"] "+errMsg});}catch(e2){}
   }
   render();
 }
@@ -150,12 +166,22 @@ function _dvRetryAgentAI(stateKey){
 // aiListingPitch × sale/rental) so a real network/AI failure is always
 // visible and recoverable with one click, instead of an infinite spinner.
 function _dvAgentAIFailedNote(cl,stateKey,label){
+  var wrap=div({display:"flex",flexDirection:"column",gap:"6px"});
   var row=div({display:"flex",alignItems:"center",gap:"10px",flexWrap:"wrap"});
   row.appendChild(span({color:"#F87171",fontSize:"11px",fontFamily:"'Inter',sans-serif"},"Couldn't generate "+label+" — this may be a temporary connection issue."));
   var btn=el("button",{style:{background:"transparent",border:"1px solid #F87171",color:"#F87171",borderRadius:"6px",padding:"4px 12px",fontSize:"10px",fontWeight:"700",letterSpacing:"0.05em",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",whiteSpace:"nowrap"}},"↻ RETRY");
   btn.onclick=function(){_dvRetryAgentAI(stateKey);};
   row.appendChild(btn);
-  return row;
+  wrap.appendChild(row);
+  // Real technical detail (added 2026-07-27, see _dvLastAgentAIError above) —
+  // a persistent "Couldn't generate" is otherwise undiagnosable from a
+  // screenshot alone, since this same friendly text renders identically
+  // whether the real cause is a message-length rejection, a missing/invalid
+  // API key, rate limiting, or a genuine outage.
+  if(_dvLastAgentAIError[stateKey]){
+    wrap.appendChild(span({color:hexAlpha("#F87171",0.55),fontSize:"9.5px",fontFamily:"'Space Grotesk',monospace"},"Details: "+_dvLastAgentAIError[stateKey]));
+  }
+  return wrap;
 }
 
 // View-distance Tier 2 refinement (added 2026-07-26): the initial result
