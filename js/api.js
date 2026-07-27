@@ -243,7 +243,21 @@ async function fetchKnowledgeContext(query,area){
     merged=r.ok?((await r.json()).results||[]):[];
   }catch(e){merged=[];}
   if(!merged.length)return "";
-  return merged.slice(0,8).map(function(x){return "- "+(x.title?x.title+": ":"")+x.content;}).join("\n");
+  var joined=merged.slice(0,8).map(function(x){return "- "+(x.title?x.title+": ":"")+x.content;}).join("\n");
+  // Defensive cap, added 2026-07-27: a real, deterministic bug traced back
+  // to this — up to 8 retrieved knowledge_base facts (real research notes
+  // can easily run 300-600+ chars each) plus a prompt-builder's own persona
+  // instructions could together exceed api/proxy-groq.js's per-message
+  // validation cap, causing every attempt (including every Retry, since the
+  // same query retrieves roughly the same facts each time) to fail
+  // identically with a 400 — indistinguishable from a genuine outage.
+  // Truncating the CONTEXT here (not the persona/instructions, which the
+  // caller controls) protects every one of this app's ~8 grounded askAI()
+  // call sites uniformly, regardless of how much headroom any one of them
+  // happens to leave, and regardless of how long a future knowledge_base
+  // row turns out to be.
+  if(joined.length>4200)joined=joined.slice(0,4200)+"...";
+  return joined;
 }
 
 // Scans free text for mentions of known DubAIVal area names (case-insensitive

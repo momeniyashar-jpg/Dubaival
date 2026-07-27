@@ -142,7 +142,24 @@ module.exports = async function handler(req, res) {
   for (var mi = 0; mi < body.messages.length; mi++) {
     var msg = body.messages[mi];
     if (!msg || typeof msg.content !== "string") return res.status(400).json({ error: "Invalid message" });
-    if (msg.content.length > 6000) return res.status(400).json({ error: "Message too long (max 6000 chars)" });
+    // Real bug fixed 2026-07-27: this was 6000 — too tight for a RAG-grounded
+    // system message (persona instructions + up to 8 retrieved knowledge_base
+    // facts, appended by askAI()/fetchKnowledgeContext() in js/api.js). A
+    // user-reported "Couldn't generate your listing pitch" that never
+    // recovered even after Retry traced to exactly this: getListingPitchPrompt()'s
+    // persona (~1,600 chars) + a genuinely dense, real RAG context (the
+    // Listing Acquisition & Pitch Science research pack this exact groundQuery
+    // is designed to retrieve) regularly pushed the combined system message
+    // past 6000 chars, so every attempt — including every retry, since the
+    // same groundQuery retrieves roughly the same real facts each time — hit
+    // this exact 400 deterministically, not a flaky network issue. Raised to
+    // 14000 (still well under Groq's own ~128k-token context window for
+    // llama-3.3-70b-versatile, and comfortably under this function's own
+    // 50,000-char whole-body cap above) to give every RAG-grounded prompt
+    // real headroom; fetchKnowledgeContext() (js/api.js) also now defensively
+    // caps its own combined output length so a single unusually long
+    // knowledge_base row can never threaten this budget either.
+    if (msg.content.length > 14000) return res.status(400).json({ error: "Message too long (max 14000 chars)" });
   }
 
   var allowed = ["llama-3.3-70b-versatile", "llama3-70b-8192", "llama3-8b-8192", "mixtral-8x7b-32768"];

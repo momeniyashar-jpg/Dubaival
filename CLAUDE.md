@@ -1076,6 +1076,83 @@ properly, not just documented:
     `android/app/src/main/assets/public/`, confirmed byte-identical (`npx
     cap sync android` failed as always in this sandbox — no Android SDK).
 
+- **2026-07-27 (session continuing, follow-up — real ROOT CAUSE of the
+  "Couldn't generate" failure found: a RAG-grounded system prompt could
+  exceed the Groq proxy's own per-message validation cap, causing every
+  attempt — including every Retry — to fail identically)**: Direct
+  follow-up to the fix above — user reported the new "Couldn't generate
+  your listing pitch" error + RETRY button (confirmed live via a
+  screenshot, so the earlier fix was confirmed deployed and rendering
+  correctly) never actually recovers: clicking RETRY produces the exact
+  same failure every time. Correctly pointed out this shouldn't error at
+  all, since RAG grounding was specifically built into this exact prompt
+  (`getListingPitchPrompt()`, `groundQuery:"Dubai real estate listing
+  presentation win seller mandate FSBO pricing strategy "+area` — see the
+  2026-07-26 "Get Listing tunnel shipped" and negotiation-science RAG
+  entries elsewhere in this file) so it could cite the real, injected
+  Listing Acquisition & Pitch Science research pack.
+  - **Root cause, confirmed with the REAL exported handler code (not just
+    a math estimate)**: `api/proxy-groq.js` validates every message's
+    `content.length` against a flat cap — 6000 chars — before ever
+    forwarding the request to Groq. `askAI()` (`js/api.js`) appends the
+    RAG-retrieved context (`fetchKnowledgeContext()`, up to 8 results) to
+    the SYSTEM message, alongside the prompt-builder's own persona
+    instructions. `getListingPitchPrompt()`'s base persona alone is
+    ~1,630 chars once the RAG-framing prefix is added — leaving only
+    ~4,370 chars of headroom — but real research-note-length facts (the
+    exact kind this groundQuery is DESIGNED to retrieve) commonly run
+    300-600+ chars each; 8 of them can easily total 5,000+ chars alone.
+    Confirmed directly (not simulated) via a Node test that calls the real
+    exported `api/proxy-groq.js` handler with a realistic 7,200-char system
+    message — correctly reproduced a `400 "Message too long"` under the OLD
+    6000 cap. Since the RAG-grounded groundQuery retrieves roughly the SAME
+    real facts on every call, this is a **deterministic**, not flaky,
+    failure — explaining exactly why Retry (which re-fires the identical
+    original call, see the fix above) never recovers: the request is
+    rejected before Groq is ever even reached, every single time.
+  - **Fix, two layers, both defense-in-depth**: (1) `api/proxy-groq.js`'s
+    per-message cap raised 6000→14000 — still well under this same
+    function's own 50,000-char whole-body cap, and trivially small
+    relative to `llama-3.3-70b-versatile`'s real ~128k-token context
+    window, so this remains a real, meaningful abuse/cost ceiling, not a
+    removed one (verified: a genuinely oversized 15,000-char message is
+    still correctly rejected with the same error, just at the new
+    threshold). (2) `fetchKnowledgeContext()` (`js/api.js`) now also
+    defensively truncates its OWN combined output to 4,200 chars (+"...")
+    before returning — protects every one of this app's ~8 RAG-grounded
+    `askAI()` call sites uniformly (Chat Agents, Compare, Personal Advisor,
+    Portfolio Analysis, Area Comparison, and all 4 Analyzer agent-report
+    prompts), regardless of how much headroom any individual prompt-builder
+    happens to leave, and regardless of how long a future `knowledge_base`
+    row turns out to be — so this exact class of bug can't recur elsewhere
+    even as more research notes get injected over time.
+  - Verified: `node -c` on both touched files; a direct Node test calling
+    the REAL exported `api/proxy-groq.js` handler (not a mock/simulation)
+    with a realistic 7,200-char system message — confirmed it now passes
+    validation cleanly (previously would 400) and a genuinely oversized
+    15,000-char message is still correctly rejected at the new 14,000
+    threshold; a direct Node test extracting the REAL
+    `fetchKnowledgeContext()` function and feeding it 8 mocked, realistic
+    ~630-char research facts (matching the real research-pack density) —
+    confirmed the returned context is correctly truncated to 4,203 chars
+    (4,200 + ellipsis) rather than the raw ~5,000+ chars it would otherwise
+    total; a combined before/after simulation confirming the exact reported
+    scenario (base persona + prefix + 8 dense facts) moves from "would 400
+    under the old 6000 cap" (7,187 chars) to "passes cleanly under the new
+    14,000 cap with the new 4,200-char RAG truncation" (5,831 chars); and a
+    re-run of the full failed-state/retry-success Playwright test plus the
+    8-tab smoke sweep from the entry above — zero regressions, zero
+    non-network console errors.
+  - Cache version bumped: `js/api.js` to `?v=20260727a` in both
+    `index.html` and `sw.js`'s `PRECACHE` array; `sw.js`'s `CACHE_NAME`
+    bumped `dubaival-v81`→`dubaival-v82` (`api/proxy-groq.js` itself is a
+    server-side Vercel function, never cached by the service worker —
+    `sw.js` explicitly skips every `/api/` path — so it needed no cache-
+    version bump, only the redeploy itself). Rebuilt `www/` and manually
+    synced `index.html`/`js/api.js`/`sw.js` into
+    `android/app/src/main/assets/public/`, confirmed byte-identical (`npx
+    cap sync android` failed as always in this sandbox — no Android SDK).
+
 - **2026-07-27 (session continuing, follow-up — "Burj Khalifa + Fountain"
   combined-view premium recalibrated: a real, additive double-counting
   found and fixed with direct evidence from the SAME reported case, plus
