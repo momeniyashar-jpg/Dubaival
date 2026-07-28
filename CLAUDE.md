@@ -965,6 +965,39 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-28 (session continuing — the new GOOGLE_MAPS_SERVER_KEY worked
+  for 4 of 5 live-map features, but Drive Times was still hitting the OLD
+  referrer-restricted key — a real bug in the prior fix's own find/replace,
+  not a Google Cloud Console mistake)**: User created the new key correctly
+  (Application restrictions: None, confirmed via screenshot) and set
+  `GOOGLE_MAPS_SERVER_KEY` in Vercel. Nearby Amenities came back fully live
+  and correct (real Metro/School/Hospital/Supermarket/Worship names and
+  distances for the exact building) — but Drive Times still showed the
+  exact same `REQUEST_DENIED - API keys with referer restrictions cannot be
+  used with this API` error. Root cause: the prior session's fix swapped
+  `key` → `serverKey` via an exact-string match on the literal `"&key=" +
+  key;` — but the Distance Matrix action alone builds its URL as
+  `"&mode=driving&key=" + key;` (a differently-shaped literal containing
+  the same substring but not matching the search pattern), so it silently
+  kept using the old, referrer-restricted `GOOGLE_MAPS_KEY` while every
+  other action (geocode, amenities' own internal geocode + Places Nearby
+  Search, staticmap, streetview, places autocomplete) correctly switched
+  over — exactly explaining why 5 of 6 amenity types worked live but the 5
+  Drive Times hubs (Burj Khalifa/Dubai Mall/DIFC/DXB Airport/JBR Beach)
+  didn't. **Fixed**: `api/proxy-maps.js` line ~157, `"&mode=driving&key="
+  + key` → `+ serverKey`. Verified via a full `grep '\bkey\b'` sweep of the
+  whole file afterward — confirmed every real outbound `&key=` Google API
+  call now uses `serverKey`, the `config` action (client-side Maps JS SDK)
+  is the only one still correctly using the original referrer-restricted
+  `key`, and the remaining `key:`/`key` matches are unrelated object-
+  property names (the amenities `types` array's own `key` field, e.g.
+  `{key:"metro",...}` — nothing to do with the Google API credential).
+  `node --check` clean. No cache-version bump needed (server-only file, not
+  in the service-worker precache list). Not yet independently re-verified
+  live (no browser access this session) — the next Analyzer report is the
+  real test; if Drive Times still fails, share the new "Details: ..." line
+  verbatim rather than assuming it's the same cause.
+
 - **2026-07-27 (same session, follow-up — the new diagnostic-detail line
   immediately paid off: found the real, structural reason EVERY server-side
   Google Maps call fails — GOOGLE_MAPS_KEY is referrer-restricted, which

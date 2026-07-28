@@ -154,7 +154,7 @@ module.exports = async function handler(req, res) {
         "https://maps.googleapis.com/maps/api/distancematrix/json" +
         "?origins=" + lat3 + "," + lng3 +
         "&destinations=" + encodeURIComponent(destStr) +
-        "&mode=driving&key=" + key;
+        "&mode=driving&key=" + serverKey;
       var dmR = await fetch(dmUrl, { headers: headers });
       var dmData = await dmR.json();
       // 2026-07-27 fix: same REQUEST_DENIED/OVER_QUERY_LIMIT diagnostic gap
