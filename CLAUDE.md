@@ -965,6 +965,111 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-28 (session continuing — real, user-reported grade-miscalibration
+  bug fixed for Blvd Heights Tower 1/2, plus a full database-wide audit for
+  the same class of problem, per explicit user request; one narrow,
+  data-file exception applied under the established precedent, broader
+  findings reported rather than bulk-applied)**: User shared a live Analyzer
+  report for "blvd heights tower 1" (2BR, Downtown Dubai, AED 4,100,000
+  asking, verdict "GOOD PRICE" at -10.2%) and asked directly whether Blvd
+  Heights genuinely deserves its "A+" grade, asking for research before any
+  change.
+  1. **Confirmed the report's own Market PSF computation is sound** — Blvd
+     Heights Tower 1 has real, high-confidence DLD calibration
+     (`VALUATION_DB`, `n:280` real transactions, PSF 2497) which live
+     Bayut/Property Finder aggregate listings independently corroborate
+     (~2,394-2,444/sqft) — no bug in the number itself.
+  2. **But the "A+" grade label is not well-supported, confirmed 3 ways**:
+     (a) within the SAME complex, "blvd heights podium" is already correctly
+     graded "A" at an almost identical real price (2357) — a ~4-6% gap
+     between Podium (A) and the Towers (A+) doesn't plausibly justify a
+     full grade-tier jump; (b) real, transaction-backed A+ Downtown towers
+     in the immediate area price 22-34% HIGHER than Blvd Heights (Opera
+     Grand real PSF 3170/n=280, Boulevard Point real PSF 3041/n=564); (c) a
+     comparable non-branded Emaar Downtown tower of similar vintage, 29
+     Boulevard, is correctly graded "A" at real market ~2,110/sqft — Blvd
+     Heights sits only 12-18% above it, nowhere near the ~34% average gap
+     between Downtown's A and A+ tiers.
+  3. **Fixed** (`js/data-residential.js`): `"blvd heights tower 1"` and
+     `"blvd heights tower 2"` grade `"A+"` → `"A"` (Podium was already
+     correctly "A", untouched). This is the SAME class of exception to the
+     "this branch never edits js/data-residential.js" rule already
+     established 2026-07-13 for the Blvd Heights T3/Centrium fix — applied
+     here under the user's explicit, direct authorization after real-data
+     verification, not unilaterally.
+  4. **User then asked for a full database-wide check for the same problem
+     ("check the rest of the buildings and clusters too")**: built a
+     systematic audit cross-referencing every DB building's assigned grade
+     against its OWN real DLD-calibrated PSF (`VALUATION_DB`, `n>=3` only —
+     excludes the documented `n:0` fabricated-placeholder entries from the
+     2026-07-22 fix). Two methodologies run:
+     - A loose "closest-tier" test (compare a building's real PSF against
+       every grade tier's real median in its own area) flagged 2,145
+       buildings (439 likely overgraded, 694 likely undergraded) — but this
+       test alone proved too noisy to act on directly: several of the most
+       "severe" hits (e.g. `kappa acca` at PSF 322, `orra the embankment -
+       tower 2` at PSF 300) have real prices so far below ANY plausible
+       Dubai residential rate that they read as raw DATA ERRORS in the
+       underlying DLD calibration source, not grade-classification errors —
+       reassigning a grade wouldn't fix those, and doing so anyway would be
+       wrong.
+     - A stricter, self-referential outlier test (within tightly-clustered
+       area+grade peer groups of 5+ real buildings, MAD/median ≤25% i.e. a
+       genuinely homogeneous peer group, flag any member deviating ≥35%
+       from the group's own median) found 360 higher-confidence cases (121
+       overgraded, 239 undergraded) — a real, materially large residual
+       pattern, independently confirmed for at least one additional cluster:
+       **Centrium Towers 1-4 (IMPZ)** — real DLD PSF 771-820 across all 4
+       towers (84-196 transactions each, internally very consistent with
+       each other) sit 57-60% below IMPZ's real "B"-tier peer median
+       (1934), and live Bayut/Property Finder data independently confirms
+       Centrium's real average at ~824/sqft — cross-verified, NOT a data
+       error, a genuine second overgrading case (same complex already
+       area-corrected once before, 2026-07-13, for a different bug).
+  5. **Deliberately did NOT bulk-apply the broader findings** — reported to
+     the user instead, per this file's standing "report findings, get
+     explicit approval before broad data changes" protocol (Directive #2),
+     for 3 concrete reasons: (a) real, confirmed data-error risk mixed in
+     with real grade-error risk, indistinguishable without the same
+     individual real-data verification done for Blvd Heights/Centrium; (b)
+     several UNDERgraded top hits (Bulgari Lighthouse Dubai PSF 12,424,
+     Ocean Breeze PSF 11,199, Villa Amalfi PSF 6,602) are for genuinely
+     famous hyper-luxury branded properties where an extreme real price
+     could be entirely legitimate, not miscalibration — needs individual
+     confirmation, not a blind statistical flag; (c) the C grade is this
+     DB's lowest tier with nowhere further down to reassign to, so some
+     flagged "overgraded" cases are a structural floor artifact, not a
+     fixable label error. Scale (up to 360 high-confidence + thousands more
+     under the looser test) is far beyond safe same-session, one-by-one
+     verification — recommended as a formal audit for the dedicated
+     research branch (`claude/dubaival-portfolio-manager-5bgbjk`, the
+     established owner of building/area data work) rather than a rushed
+     bulk edit here, matching the exact precedent already set by the
+     2026-07-13 "tower-numbering-gap candidates flagged for the research
+     branch" entry.
+  - Verified: `node --check js/data-residential.js`; a vm-sandbox load
+    confirming `DB["blvd heights tower 1"/"tower 2"]` grade is now `"A"`,
+    Podium unchanged, and total `DB` key count unchanged at 9,443 (no
+    accidental duplication/loss); re-ran `node tools/generate-seo-pages.js`
+    per the standing rule — confirmed only the 2 expected building pages
+    (`blvd-heights-tower-1.html`/`tower-2.html`) changed, correctly showing
+    "grade A" in their meta description instead of "grade A+", nothing else
+    in the 9,792-URL sitemap affected.
+  - Cache version bumped: `js/data-residential.js` to `?v=20260728a` in both
+    `index.html` and `sw.js`'s `PRECACHE` array; `sw.js`'s `CACHE_NAME`
+    bumped `dubaival-v86`→`dubaival-v87`. Rebuilt `www/` and manually synced
+    `js/data-residential.js`/`index.html`/`sw.js` into
+    `android/app/src/main/assets/public/` (`npx cap sync android` failed as
+    always in this sandbox — no Android SDK).
+  - **Not yet done, pending the user's decision** (see Outstanding items
+    below): whether to (a) apply the Centrium (IMPZ) B→C regrade now that
+    it's independently cross-verified, (b) have this session do a slower,
+    individually-verified pass through more of the 360 high-confidence
+    outlier list, or (c) hand the full list off as a formal research-branch
+    audit instruction — the raw candidate list (with real PSF, peer-group
+    median, and deviation %) is preserved in this session's own working
+    notes and can be regenerated on request via the same methodology.
+
 - **2026-07-28 (session continuing — the new GOOGLE_MAPS_SERVER_KEY worked
   for 4 of 5 live-map features, but Drive Times was still hitting the OLD
   referrer-restricted key — a real bug in the prior fix's own find/replace,
@@ -12630,6 +12735,30 @@ These files contain critical business logic and data:
     "Details: ..." line still appears, it will now say exactly why (e.g. a
     specific one of the 5 APIs not enabled) — diagnose that specific
     message, don't assume it's the same referrer-restriction issue again.
+
+- **🟡 Building-grade miscalibration — Blvd Heights fixed, ~360 more
+  high-confidence candidates found, not yet acted on (added 2026-07-28)**:
+  see the same-dated work-log entry above for full methodology. Confirmed,
+  applied fixes: `blvd heights tower 1`/`tower 2` grade A+→A. Confirmed but
+  NOT YET applied (needs the user's decision): `centrium tower 1/2/3/4`
+  (IMPZ) real DLD data + independent live-listing research both put its
+  true price tier well below its current "B" grade — likely belongs at
+  "C" (this DB's lowest tier). Beyond these two, a stricter self-referential
+  outlier test found 360 total high-confidence candidates (121 likely
+  overgraded, 239 likely undergraded) that were deliberately NOT bulk-
+  applied — real risk of conflating genuine grade errors with raw data
+  errors in the underlying `VALUATION_DB` calibration (some flagged PSFs,
+  e.g. 300-322 AED/sqft, are implausible for any real Dubai property and are
+  more likely CSV/parsing errors than grade issues) and with genuinely
+  legitimate hyper-luxury outliers (e.g. Bulgari Lighthouse Dubai, Ocean
+  Breeze on Palm Jumeirah) that may not be errors at all. **Next step**: ask
+  the user how they want to proceed — (a) apply the Centrium fix now (it's
+  independently cross-verified via live Bayut/PropertyFinder listings,
+  same rigor as Blvd Heights), (b) have a future session do more individual
+  spot-verification passes through the 360-candidate list before touching
+  anything else, or (c) write this up as a formal audit instruction for the
+  research branch (`claude/dubaival-portfolio-manager-5bgbjk`), matching the
+  established precedent for large-scale `js/data-residential.js` work.
 
 - **🟡 View-system expansion — Stages 1-3 shipped, Stage 4 not started**
   (added 2026-07-26, updated same day once Stages 2-3 shipped): direct
