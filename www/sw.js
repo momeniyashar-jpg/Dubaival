@@ -1,8 +1,8 @@
-var CACHE_NAME='dubaival-v88';
+var CACHE_NAME='dubaival-v89';
 var PRECACHE=[
   '/logo.png',
   '/manifest.json',
-  '/js/data-residential.js?v=20260728b',
+  '/js/data-residential.js?v=20260728c',
   '/js/data-commercial.js?v=20260629b',
   '/js/valuation-db.js?v=20260623',
   '/js/valuation.js?v=20260727b',

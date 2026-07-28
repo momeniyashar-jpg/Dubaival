@@ -965,6 +965,96 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-28 (session continuing — user again authorized "خودت انجام بده"
+  for the remaining multi-tier and undergraded candidates; real evidence
+  found that multi-tier grade jumps are NOT safe to bulk-apply via this
+  statistical test, plus 2 more concrete non-grade bugs found and one
+  fixed; 46 more single-tier "undergraded" corrections applied after
+  spot-checks held up)**: Direct continuation, same session.
+  1. **Multi-tier overgraded list (74 candidates) — reviewed, mostly NOT
+     applied, with concrete proof the automated test breaks down at this
+     jump size**: excluded 34 upfront as high-risk (Palm Jumeirah/Dubai
+     Marina — both areas mix hyper-luxury standalone villas with ordinary
+     apartment towers under the same grade tag, corrupting the area-level
+     median; plus a few obviously-implausible branded-name targets). Of
+     the remaining 40, spot-checked 5 against live listings/developer
+     pricing before applying anything further — found a **50%+ error/
+     ambiguity rate**: `parkwood` (Dubai Hills Estate, flagged A+→B) turned
+     out to be a genuine **VALUATION_DB data error**, not a grade issue —
+     real developer/listing pricing (~2,400+/sqft, matching its OWN
+     already-correct legacy grade of A+) contradicts the flagged real-DLD
+     figure (1,134/sqft, `n:560`) by roughly 2x — left completely untouched
+     (grade AND price), flagged for the research branch alongside the
+     `tools/calibrate-db.js` matching pipeline, same class of issue as Orra
+     The Embankment below; `the pulse townhouses`/`urbana stacked house`
+     clusters (Dubai South, flagged C→B) — live research (450-602/sqft)
+     actually CONFIRMS these are genuinely priced that low, meaning C was
+     probably already correct and the flag was a false positive from Dubai
+     South's own C-tier reference median being unrepresentative — left
+     untouched; `capital bay a/b`/`azizi riviera beachfront - podium` and
+     the rest of the batch — genuinely ambiguous even after research, left
+     untouched pending individual review. Given a same-size sample
+     produced this many wrong/ambiguous results, concluded multi-tier
+     jumps via this test are not safe to bulk-apply at all, regardless of
+     further spot-checking — a fundamentally different risk profile from
+     the single-tier batch, which held up cleanly.
+  2. **A real, second area-mistag bug found and FIXED via the same
+     research**: WebSearch on `qasr sabah 2`/`qasr sabah 3` (flagged in the
+     multi-tier list, tagged `"a":"Jumeirah Village Circle"`) surfaced that
+     the real Qasr Sabah development is in Dubai Production City (IMPZ) —
+     confirmed by the DB's own sibling entry, `qasr sabah i` (roman
+     numeral), which is ALREADY correctly tagged `"Dubai Production City"`
+     — an internal inconsistency across differently-numbered variants of
+     the same real building family, same class of bug as the 2026-07-13
+     Centrium area fix. **Fixed** (`js/data-residential.js`): `qasr sabah
+     2`/`qasr sabah 3`/the bare `qasr sabah` entry's `"a"` field corrected
+     from `"Jumeirah Village Circle"` to `"Dubai Production City"` — grade
+     deliberately left untouched (the earlier multi-tier grade analysis for
+     these 3 was computed against the WRONG area's peer group and is now
+     invalid; a real re-analysis against IMPZ's own real grade tiers is a
+     separate follow-up, not done here).
+  3. **Undergraded list (239 candidates) — 46 single-tier-up corrections
+     applied after spot-checks held up**: filtered to single-tier-only
+     moves (188 multi-tier candidates left untouched, same reasoning as
+     above) and excluded 4 implausibly-high PSFs (>9,000/sqft, likely data
+     errors). Spot-checked 2 of the less-obvious clusters (Dubai Sports
+     City's `elan`, Dubailand's `la violeta 1/2`) — both corroborated or at
+     least not contradicted by live listing math. The remainder of the
+     46-candidate batch includes several genuinely famous, globally
+     recognized ultra-luxury hospitality-branded towers moving A+→Ultra
+     (Six Senses Residences The Palm, W Residences Dubai - The Palm,
+     Bluewaters Residences 8/9, Habtoor Grand Residences, Zabeel Saray
+     Residences, Five Luxe JBR, Address Residences Sky View 2, The One
+     JBR) — confidently correct on common-knowledge grounds alone, not just
+     the statistical test. Applied all 46 (full per-building list in this
+     session's own working notes) — International City (`modelux tower
+     1`/`al helal al zahaby`, C→B), Dubai Sports City cluster (5
+     buildings, B/C→B+/B), Dubailand cluster (6 buildings, B/A-→B+/A),
+     Meydan's Polo Residence cluster (3 buildings, B→B+), and 24 more
+     single buildings across 11 other areas.
+  - Verified: `node --check js/data-residential.js`; a vm-sandbox load
+    confirming all 46 undergraded targets landed correctly, the 3 qasr
+    sabah area corrections landed correctly, `DB` total key count
+    unchanged at 9,443, and every prior fix this session (Blvd Heights,
+    the 40-building batch, Centrium) remained untouched; re-ran `node
+    tools/generate-seo-pages.js` — confirmed exactly 49 building pages
+    changed (46 grade + 3 area), matching precisely.
+  - Cache version bumped: `js/data-residential.js` to `?v=20260728c` (3rd
+    bump today) in both `index.html` and `sw.js`'s `PRECACHE` array;
+    `sw.js`'s `CACHE_NAME` bumped `dubaival-v88`→`dubaival-v89`. Rebuilt
+    `www/` and manually synced into `android/app/src/main/assets/public/`
+    (`npx cap sync android` failed as always in this sandbox).
+  - **Still open, deliberately not forced through**: the ~40 remaining
+    multi-tier overgraded candidates (Capital Bay, Azizi Riviera
+    Beachfront, "the forum", and others — genuinely ambiguous even after
+    research); the ~188 remaining multi-tier undergraded candidates (not
+    reviewed at all this pass); the Palm Jumeirah/Dubai Marina exclusion
+    zone (needs a villa/apartment-aware re-analysis before this test can
+    say anything reliable there); the Parkwood `VALUATION_DB` data error;
+    a proper re-analysis of Qasr Sabah 2/3's grade now that its area is
+    fixed; and the ~2,100 candidates from the original looser "closest-
+    tier" test not covered by the stricter tight-cluster subset at all.
+
 - **2026-07-28 (session continuing — user authorized "خودت انجام بده" (do it
   yourself) for the broader grade-audit follow-up: applied Centrium + 39
   more high-confidence, spot-checked overgrade corrections; a real
@@ -12809,48 +12899,83 @@ These files contain critical business logic and data:
     specific one of the 5 APIs not enabled) — diagnose that specific
     message, don't assume it's the same referrer-restriction issue again.
 
-- **🟡 Building-grade miscalibration — 41 buildings fixed (Blvd Heights +
-  Centrium + 39 more, all spot-checked), ~320 more candidates still
-  unresolved (added 2026-07-28, updated same day)**: see the two same-dated
-  work-log entries above for full methodology. **Applied and verified**:
-  `blvd heights tower 1`/`tower 2` (A+→A), `centrium tower 1/2/3/4` (B→C),
-  plus 36 more single-tier overgrade corrections (10 International City
-  `emr-XX` buildings, 12 JVC buildings, `the views 1`/`2`, `pier 8`, `k g
-  tower`, `scala tower`, `collective`, `the matrix`, `qasr sabah i`, `the
-  polo residence - b2`, `creek rise`, `c17`, `tuscan residences1 -siena
-  1` — see the work-log entry for the exact per-building before→after list).
-  **Still open, not yet acted on**:
-  - **~74 multi-tier-jump candidates** (from the same high-confidence
-    tight-peer-cluster test, excluded from this batch specifically because
-    they'd need a 2+ tier move, which needs individual review, not a bulk
-    pass) — not yet reviewed.
-  - **239 "undergraded" candidates** (real PSF far ABOVE their peer group,
-    implying the grade might be too LOW) — deliberately untouched; several
-    top hits (Bulgari Lighthouse Dubai, Ocean Breeze, Villa Amalfi) are
-    genuinely famous hyper-luxury properties where an extreme real price
-    could be entirely legitimate, not miscalibration — needs individual
-    confirmation, not a blind statistical flag.
-  - **The looser "closest-tier" test's remaining ~2,100 flagged cases**
-    beyond the stricter tight-cluster subset already worked through — much
-    noisier, likely a high proportion of genuine data errors (like Orra The
-    Embankment, see below) mixed with real grade issues.
-  - **"Orra The Embankment" family (JLT)** — a NEW, separate finding: live
-    listing research (2,131-2,251/sqft) directly contradicts the
-    `VALUATION_DB` figure (800/sqft, backed by a large `n:1040`+`n:176`
-    real-transaction count) for the base entry + Tower 1. This reads as a
-    genuine data-source/name-matching error in the calibration pipeline
-    (`tools/calibrate-db.js`), not a grade problem — worth investigating
-    separately, likely by the research branch, before touching this
-    building's grade OR its PSF.
-  - **Recommended next step**: given the scale (hundreds of remaining
-    candidates) and the real, now-demonstrated risk of data errors hiding
-    inside statistically-flagged candidates (Orra The Embankment), further
-    work on this should move to a proper audit — either a future session
-    doing more individual spot-verification (slow, safe, matches this
-    session's own methodology), or a formal instruction handed to the
-    research branch (`claude/dubaival-portfolio-manager-5bgbjk`), matching
-    the established precedent for large-scale `js/data-residential.js`
-    work — rather than further ad-hoc bulk passes in this branch.
+- **🟡 Building-grade miscalibration — 90 buildings fixed across 3 rounds
+  (Blvd Heights + Centrium + 39 + 3 area fixes + 46 more, all spot-checked
+  where the risk warranted it), real evidence multi-tier jumps aren't safe
+  to bulk-apply, ~230+ candidates still genuinely unresolved (added
+  2026-07-28, updated same day across 3 rounds — see all 3 same-dated
+  work-log entries above for full methodology)**:
+  - **Applied and verified, all single-tier moves**: `blvd heights tower
+    1`/`tower 2` (A+→A), `centrium tower 1/2/3/4` (B→C), 36 more overgrade
+    corrections (10 International City `emr-XX`, 12 JVC buildings, `the
+    views 1`/`2`, `pier 8`, `k g tower`, `scala tower`, `collective`, `the
+    matrix`, `qasr sabah i`, `the polo residence - b2`, `creek rise`,
+    `c17`, `tuscan residences1 -siena 1`), 46 undergrade corrections
+    (International City, Dubai Sports City/Dubailand/Meydan clusters, and
+    24 more singles — including several famous branded Ultra-tier
+    corrections: Six Senses Residences The Palm, W Residences Dubai - The
+    Palm, Bluewaters Residences 8/9, Habtoor Grand Residences, Zabeel Saray
+    Residences, Five Luxe JBR, Address Residences Sky View 2, The One JBR).
+  - **Also fixed, a real AREA (not grade) bug**: `qasr sabah 2`/`qasr sabah
+    3`/bare `qasr sabah` were mistagged `"a":"Jumeirah Village Circle"` —
+    live research + the DB's own already-correct sibling entry (`qasr sabah
+    i`, roman numeral) confirmed the real area is `"Dubai Production
+    City"`. Fixed the area tag; their GRADE was deliberately left alone
+    since the earlier multi-tier analysis for these 3 was computed against
+    the wrong area and is now invalid — needs a fresh look against IMPZ's
+    own real grade tiers, not done yet.
+  - **Deliberately NOT applied, with concrete proof it would have been
+    wrong**: multi-tier (2+ rank) jumps. Spot-checking a representative
+    sample found roughly half were wrong or a different bug entirely —
+    `parkwood` (Dubai Hills Estate) looked like a clear overgrade candidate
+    (A+→B) but real developer pricing (~2,400+/sqft) actually MATCHES its
+    current A+ grade and CONTRADICTS the flagged `VALUATION_DB` figure
+    (1,134/sqft, `n:560`) — a genuine calibration data error, not a grade
+    problem, left completely untouched; `the pulse townhouses`/`urbana
+    stacked house` clusters (Dubai South) looked like C→B candidates but
+    live research (450-602/sqft) confirms C was probably already correct.
+    Concluded multi-tier jumps via this statistical test are not reliable
+    enough to bulk-apply, full stop — a genuinely different risk profile
+    from the single-tier batch, which held up cleanly across every
+    spot-check performed.
+  - **Still genuinely open** (not fixed, not further investigated this
+    session):
+    - ~40 remaining multi-tier OVERgraded candidates (Capital Bay, Azizi
+      Riviera Beachfront, "the forum," and others — ambiguous even after
+      research, or simply not yet checked).
+    - ~188 remaining multi-tier UNDERgraded candidates — not reviewed at
+      all this pass.
+    - Palm Jumeirah / Dubai Marina — excluded wholesale from the multi-tier
+      work since both areas mix hyper-luxury standalone villas with
+      ordinary apartment towers under the same grade tag, corrupting any
+      area-level median comparison; this test can't say anything reliable
+      there without a villa/apartment-aware re-analysis.
+    - **`Parkwood` (Dubai Hills Estate) — a confirmed `VALUATION_DB` data
+      error**, real transaction PSF (1,134, `n:560`) contradicted by real
+      developer/listing pricing (~2,400+) — needs the calibration pipeline
+      itself investigated, not a grade edit.
+    - **`Orra The Embankment` family (JLT)** — same class of confirmed data
+      error (real 800/sqft vs. live listings at 2,131-2,251/sqft for
+      the base entry + Tower 1, `n:1040`+`n:176`) — also needs the
+      calibration pipeline investigated, likely a name-matching issue in
+      `tools/calibrate-db.js`.
+    - `qasr sabah 2`/`3`'s grade, now that their area is corrected (see
+      above) — needs a fresh comparison against IMPZ's own real tiers.
+    - The original looser "closest-tier" test's full ~2,100-candidate list,
+      only a subset of which (the tight-cluster ~360) has been worked
+      through at all.
+  - **Recommended next step for whoever picks this up next**: the
+    single-tier work is genuinely exhausted for this pass (every
+    remaining single-tier-safe candidate from both the over- and
+    under-graded lists has been applied). Further progress needs either
+    (a) a per-building verification pass through the remaining multi-tier
+    candidates (slow, safe — this session's own proven method), (b) a
+    villa/apartment-aware re-run of the whole test for Palm Jumeirah/Dubai
+    Marina specifically, or (c) handing the `VALUATION_DB` data-error
+    investigation (Parkwood, Orra The Embankment, and likely more
+    undiscovered ones) to the research branch, since that's a
+    `tools/calibrate-db.js` pipeline problem, not a `js/data-residential.js`
+    grade-label problem.
 
 - **🟡 View-system expansion — Stages 1-3 shipped, Stage 4 not started**
   (added 2026-07-26, updated same day once Stages 2-3 shipped): direct
