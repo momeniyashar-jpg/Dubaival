@@ -20,6 +20,29 @@ const existDB = JSON.parse(dbMatch[1]);
 
 const dld = cal.residential.buildings;
 const dldAreas = cal.residential.areas;
+
+// Known-corrupted DLD building entries, excluded before any matching runs.
+// "Orra The Embankment - Tower 1/2" (JLT / Al Thanyah Fifth) both show a
+// physically implausible pattern in their own per-bedroom breakdown: Tower 2
+// prices Studio (n:168), 1BR (n:332), and 2BR (n:100) units at the EXACT
+// same 300 psf regardless of unit type, and Tower 1's 3BR/4BR/5BR buckets
+// (n:52/128/20) are all pinned at exactly 299 psf too, while its own
+// Studio/1BR/2BR buckets show real, differentiated prices (800-1150) --
+// real different-sized units never average to one identical psf across
+// unrelated bedroom counts. This points to a raw-data/transaction-labeling
+// defect upstream of this file (in whatever produced calibration-output.json
+// from the original DLD CSV, long before this script ever sees it) --
+// confirmed 2026-07-29 while investigating why the live Analyzer showed
+// this building's price at ~800/sqft against real 2026 listings of
+// 2,131-2,251/sqft. No raw CSV is available in this environment to fix the
+// defect at its true source, so both DLD keys are excluded here instead --
+// every DB key referencing this building (base "orra the embankment" +
+// both towers) now correctly falls through to the area-level fallback
+// (Al Thanyah Fifth, ~1969 psf from a real 39,337-transaction sample) rather
+// than propagating a demonstrably corrupted building-level figure.
+delete dld['orra the embankment - tower 1'];
+delete dld['orra the embankment - tower 2'];
+
 const dldKeys = Object.keys(dld);
 
 // ── Commercial/land: read-only, for building the VALUATION_DB_COM/LAND
@@ -224,11 +247,25 @@ function normalize(name) {
 }
 
 // ── Build fuzzy index from DLD ──
-const fuzzyIndex = {};
+// Keeps EVERY DLD key sharing a normalized form (not just the first seen) --
+// see the 2026-07-29 comment on findDLDMatch() below for why this matters:
+// the old first-wins version silently discarded real collisions like
+// "Parkwood Residences" (Al Barsha) vs "Parkwood Podium" (Dubai Hills
+// Estate) both normalizing to "parkwood", with zero way to tell a genuine
+// one-candidate match from an unresolved multi-candidate one downstream.
+const fuzzyIndexAll = {};
 dldKeys.forEach(k => {
   const norm = normalize(k);
-  if (!fuzzyIndex[norm]) fuzzyIndex[norm] = k;
+  if (!fuzzyIndexAll[norm]) fuzzyIndexAll[norm] = [];
+  fuzzyIndexAll[norm].push(k);
 });
+// Back-compat single-key view (first candidate per norm) -- still used by
+// the substring-match path below, which already has its own per-candidate
+// area check and isn't affected by the collision-ambiguity problem the
+// exact/trailing-number paths had (a broad substring scan already visits
+// every fuzzyIndex entry, not just one).
+const fuzzyIndex = {};
+Object.keys(fuzzyIndexAll).forEach(norm => { fuzzyIndex[norm] = fuzzyIndexAll[norm][0]; });
 
 // A DLD "building" record whose propType is Land or a generic Building shell
 // is not a real apartment/villa building — it's almost always a data
@@ -247,27 +284,70 @@ function isRealResidentialBuilding(dldBldg) {
   return dldBldg && dldBldg.propType !== 'Land' && dldBldg.propType !== 'Building';
 }
 
+// Resolves a normalized-name group (one or more DLD keys sharing that
+// normalized form) to a single DLD key, or null if it can't be resolved
+// safely. Real bug found 2026-07-29, fixed in two passes:
+//   Pass 1 (wrong): required area agreement UNCONDITIONALLY on every exact/
+//   trailing-number match. That broke dozens of real, previously-correct,
+//   UNIQUE (non-colliding) matches -- e.g. "Downtown Views II Tower 1/2/3"
+//   (DB area "Za'Abeel") vs their one real DLD match (actual DLD area
+//   "Zaabeel Second") -- AREA_MAP only maps "Za'Abeel"->"Zaabeel First",
+//   a genuinely different (more granular) DLD sub-area than where this
+//   specific building sits. AREA_MAP is a coarse, incomplete simplification
+//   of DLD's much more granular official area boundaries, confirmed via
+//   several more real cases (MR C Residences Downtown: DB area "Downtown
+//   Dubai" vs real DLD area "Al Wasl"; One Za'abeel: same Za'Abeel gap;
+//   Sobha One vs Sobha One - Podium's own area). Requiring area agreement
+//   unconditionally silently discarded these real, unambiguous matches
+//   (confirmed via fuzzyIndexAll: every one of them has exactly ONE real
+//   DLD candidate -- no other building name normalizes to the same string
+//   -- so there was never anything to disambiguate).
+//   Pass 2 (this one): only require area agreement when there's an ACTUAL
+//   collision -- 2+ different real DLD buildings sharing one normalized
+//   name, the exact shape of the original Parkwood bug (2 candidates,
+//   genuinely different buildings in genuinely different areas). A single
+//   candidate is always trusted regardless of AREA_MAP's own accuracy,
+//   since there's no competing candidate a wrong area label could steer
+//   the match toward.
+function resolveCandidates(norm, dldAreaName) {
+  const cands = (fuzzyIndexAll[norm] || []).filter(k => isRealResidentialBuilding(dld[k]));
+  if (cands.length === 0) return null;
+  if (cands.length === 1) return cands[0];
+  // Genuine collision: 2+ real candidates. Only trust one when the area is
+  // known AND exactly one candidate agrees with it -- otherwise it's not
+  // safe to guess, so return null (falls through to later match stages /
+  // area-level fallback, same as a building with no DLD data at all).
+  if (!dldAreaName) return null;
+  const sameArea = cands.filter(k => dld[k].a === dldAreaName);
+  return sameArea.length === 1 ? sameArea[0] : null;
+}
+
 // ── Match DB building → DLD building ──
 function findDLDMatch(dbKey, dbArea) {
   if (dld[dbKey] && isRealResidentialBuilding(dld[dbKey])) return dbKey;
   if (MANUAL_MAP.hasOwnProperty(dbKey)) return MANUAL_MAP[dbKey];
 
   const norm = normalize(dbKey);
-  if (fuzzyIndex[norm] && isRealResidentialBuilding(dld[fuzzyIndex[norm]])) return fuzzyIndex[norm];
+  const dldAreaName = AREA_MAP[dbArea];
+
+  const exact = resolveCandidates(norm, dldAreaName);
+  if (exact) return exact;
 
   // Try without trailing numbers (tower variations)
   const noNum = norm.replace(/\s*\d+\s*$/, '').trim();
   const dbNum = norm.match(/(\d+)\s*$/);
   if (dbNum) {
-    for (const fk of Object.keys(fuzzyIndex)) {
+    for (const fk of Object.keys(fuzzyIndexAll)) {
       const fkNoNum = fk.replace(/\s*\d+\s*$/, '').trim();
       const fkNum = fk.match(/(\d+)\s*$/);
-      if (fkNoNum === noNum && fkNum && fkNum[1] === dbNum[1] && isRealResidentialBuilding(dld[fuzzyIndex[fk]])) return fuzzyIndex[fk];
+      if (fkNoNum === noNum && fkNum && fkNum[1] === dbNum[1]) {
+        const match = resolveCandidates(fk, dldAreaName);
+        if (match) return match;
+      }
     }
   }
 
   // Substring match — must be same area AND long enough match
-  const dldAreaName = AREA_MAP[dbArea];
   if (dldAreaName && norm.length > 8) {
     for (const fk of Object.keys(fuzzyIndex)) {
       if (fk.length > 8) {

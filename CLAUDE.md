@@ -965,6 +965,181 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-07-29 (new session — Parkwood + Orra The Embankment root-caused and
+  fixed at the actual SOURCE — the `tools/build-valuation-db.js` matching
+  pipeline itself, not just individual building grades — per the user's
+  standing "fix it yourself, don't defer" instruction)**: Direct follow-up
+  to the 2026-07-28 audit sessions, which found (but explicitly did NOT
+  fix, flagging both for "the calibration pipeline") 2 real `VALUATION_DB`
+  data-quality bugs: Parkwood (Dubai Hills Estate, real developer pricing
+  ~2,400+/sqft contradicted by a flagged `VALUATION_DB` figure of
+  1,134/sqft) and Orra The Embankment (JLT, live listings far above the
+  flagged 800/sqft `VALUATION_DB` figure). User's exact instruction this
+  session: pasted back my own "still open" summary (including both of
+  these) and said "ro barresi kon" (investigate/continue this).
+  1. **Parkwood — genuine root cause found and fixed at the algorithm
+     level, no data guessing needed.** `tools/build-valuation-db.js`'s
+     `findDLDMatch()` normalizes building names before matching (stripping
+     filler words like "Residences"/"Podium") — our DB's bare `"parkwood"`
+     key (Dubai Hills Estate) and an entirely unrelated real DLD building,
+     `"Parkwood Residences"` (Al Barsha South Fourth, real PSF ~1,134),
+     BOTH normalize to `"parkwood"` — a genuine collision the exact-match
+     path had ZERO area-consistency check for (unlike the substring-match
+     path further down, which already had one). Confirmed via
+     `tools/calibration-output.json` that Dubai Hills Estate's REAL
+     Parkwood components already exist as 3 separate, correctly-tagged DLD
+     entries (`parkwood podium`/`tower a`/`tower b`, real PSF
+     2034/2399/2567) — and, importantly, that `js/data-residential.js`
+     ALREADY has matching separate legacy keys for all 3 (with correct
+     grades A/A/A+) — no DB restructuring was needed, only the auto-
+     generated `VALUATION_DB`'s matching logic was broken.
+  2. **First-pass fix was too blunt — caught via full before/after diff,
+     not shipped blind.** Requiring area agreement unconditionally on
+     every exact/trailing-number match (not just genuine collisions) broke
+     dozens of real, previously-correct, UNIQUE matches — e.g. "Downtown
+     Views II Tower 1/2/3" (DB area `"Za'Abeel"` → `AREA_MAP` maps this to
+     `"Zaabeel First"`, but the real DLD building is actually in
+     `"Zaabeel Second"`, a different, more granular official DLD sub-area);
+     "MR C Residences Downtown" (DB area "Downtown Dubai" vs real DLD area
+     "Al Wasl"); "One Za'abeel"; "Sobha One" — all genuinely UNIQUE matches
+     (confirmed zero other DLD building shares their normalized name) that
+     got wrongly rejected purely because `AREA_MAP` is a coarse
+     simplification of DLD's much more granular real area boundaries.
+     Caught this by diffing the full regenerated `VALUATION_DB` against a
+     saved "before" snapshot and manually investigating every changed
+     entry — not by assuming the first fix was correct.
+  3. **Real fix — collision-aware, not blanket.** Rewrote `findDLDMatch()`'s
+     fuzzy-index construction to keep EVERY DLD key sharing a normalized
+     form (was previously first-seen-wins, silently discarding real
+     alternate candidates) plus a new `resolveCandidates(norm,
+     dldAreaName)` helper: a SINGLE real candidate is always trusted
+     regardless of `AREA_MAP` accuracy (nothing to disambiguate); area
+     agreement is only required when there are 2+ real candidates sharing
+     one normalized name (the actual Parkwood/collision shape) — and even
+     then, only picks one when the area check narrows it to exactly one
+     match, otherwise returns no match (safer than guessing) rather than
+     defaulting to whichever candidate happened to be enumerated first.
+     This redesign also fixed a 3rd, independent bug as a side effect: "The
+     Wilds 1/2/3" had a real match (`"the wilds residences 1/2/3"`, real
+     PSF 1719/1841/1866) permanently SHADOWED by a bogus, non-residential
+     `propType:"Land"` record sharing the same raw name — the old
+     first-seen-wins fuzzy index picked the Land record first (which then
+     failed the `isRealResidentialBuilding` filter with no fallback to the
+     real, later-seen candidate); the new filter-candidates-before-picking
+     order fixes this for free.
+  4. **Orra The Embankment — the SAME area-collision fix does NOT apply
+     here (confirmed, not assumed)**: this building's `VALUATION_DB`
+     mismatch is genuinely SAME-area (JLT/Al Thanyah Fifth on both sides),
+     so it was never affected by the area-check bug — the real problem is
+     upstream, corrupted RAW data. Confirmed via
+     `tools/calibration-output.json`'s own per-bedroom breakdown: Tower 1's
+     3BR/4BR/5BR buckets (n=52/128/20) are ALL pinned at exactly 299 psf —
+     physically implausible for 3 different bedroom counts to average to
+     one identical figure — while its Studio/1BR/2BR buckets show real,
+     differentiated prices (800-1150); Tower 2 is even more clear-cut,
+     with Studio/1BR/2BR (n=168/332/100) ALL pinned at exactly 300 psf
+     regardless of unit type. This points to a raw-data/transaction-
+     labeling defect upstream of this repo (in whatever produced
+     `calibration-output.json` from the original DLD CSV, long before this
+     script or session ever sees it) — no raw CSV is available in this
+     sandbox to fix it at the true source. **Fix, two layers**: (a)
+     excluded both corrupted DLD keys (`orra the embankment - tower 1/2`)
+     from `build-valuation-db.js`'s matching entirely (`delete
+     dld[...]` right after load, before any index is built) — every
+     `js/data-residential.js` key referencing this building now correctly
+     falls through to the area-level fallback instead of propagating the
+     corrupted per-building figure, with a `n:0` confidence flag the
+     engine already knows not to trust as "DLD Verified" (same `n>=3`
+     threshold established 2026-07-22); (b) since a rejected `n<3`
+     `VALUATION_DB` entry falls back to Legacy DB's OWN `p`/`lo`/`hi`
+     fields — and those (`js/data-residential.js`) were themselves
+     independently seeded from this same corrupted calibration data in an
+     earlier run — excluding the bad DLD match alone wasn't enough; the
+     legacy `p`/`lo`/`hi` fields needed correcting too. Did a fresh,
+     independent live-market check (WebSearch, not relying on an earlier,
+     now-unverifiable in-session claim of "2,131-2,251/sqft" which turned
+     out to be measuring the wrong thing — see below) via propsearch.ae's
+     own aggregated "50 sale transaction records, avg AED 1,041/sqft" —
+     closely corroborating an independent estimate computed directly from
+     the SAME calibration source (~934/sqft, Tower 1's Studio/1BR/2BR
+     buckets only, excluding the confirmed-corrupted 299-psf buckets).
+     Recognized this ~934-1,041 range is the CORRECT kind of figure to
+     use — `js/valuation.js`'s own `areaDrift`/`currentAreaPSF` mechanism
+     is explicitly designed to blend a historical TRANSACTED anchor
+     (exactly what `p` represents) with today's live market, so writing in
+     a current ASKING price (the earlier, now-disowned "2,131-2,251"
+     claim, likely measuring the wrong thing — asking, not transacted)
+     would have double-counted appreciation the engine already applies
+     separately. Corrected `js/data-residential.js`'s 4 real Orra The
+     Embankment keys (base/Tower 1: B-grade, p 1021/800 → 1000; Tower 2/
+     Podium: C-grade, p 300/300 → 850, a ~15% B→C discount consistent with
+     this DB's own established grade-price convention) — every other field
+     (lo/hi spread ratio, sc, area, grade) left untouched.
+  5. Verified end-to-end, not just at the data-diff level: re-ran
+     `node tools/build-valuation-db.js` after each fix pass; a full
+     before/after `VALUATION_DB` diff (9,443 entries) confirmed the FINAL
+     pass touched only 10 pre-existing entries (all explained above) + 217
+     new entries (buildings added across the 2026-07-25–28 grade-audit
+     sessions that had genuinely never had `VALUATION_DB` regenerated for
+     them until now — a real, independent staleness gap this fix also
+     closed as a side effect) + 1 removal (the already-deleted "blvd
+     heights t3" key, expected); loaded the REAL engine
+     (`data-residential.js`+`data-commercial.js`+`valuation-db.js`+
+     `valuation.js`+`api.js`+`core.js`, correct script order per
+     `index.html`) in a Node vm sandbox and ran `computeValuation()` for
+     Orra The Embankment Tower 1 (now `adjPSF:1146`, verdict FAIR, honestly
+     labeled "Legacy DB + 8 comps" — a dramatic, correct improvement over
+     what the corrupted 800/300 figures would have produced), Parkwood (now
+     correctly uses its real, area-correct `parkwood podium` DLD match),
+     South Residence (a 3rd real collision the fix caught: "South
+     Residence," Dubai South near the airport, was previously falsely
+     matched to an unrelated Al Barsha South Fourth building purely via
+     the bare-word "south" collision — now correctly falls back to area
+     data instead of a false cross-area match), and Blvd Heights Tower 1
+     (confirmed its real, already-correct `n:280`-backed DLD match is
+     completely unaffected — no regression to prior, already-verified
+     fixes); ran a 1,349-building broad regression sweep across the whole
+     DB (every 7th key, mixed villa/apartment) through the real engine — 0
+     errors, 0 NaN/invalid results. `node --check` on all 3 touched JS
+     files. Re-ran `node tools/generate-seo-pages.js` — confirmed exactly
+     the 4 expected building pages changed (the 4 Orra keys; Parkwood's own
+     grade/price in `data-residential.js` was untouched, only its
+     `VALUATION_DB` matching behavior changed, which SEO pages don't
+     reflect).
+  - Cache versions bumped: `js/data-residential.js` and `js/valuation-db.js`
+    both to `?v=20260729a` in `index.html` and `sw.js`'s `PRECACHE` array
+    (also corrected a stale, already-out-of-sync `sw.js` entry for
+    `js/valuation-db.js`, found pinned at `?v=20260623` while `index.html`
+    had already moved to `?v=20260712b` — same class of drift documented
+    and fixed once before for a different file, 2026-07-26); `sw.js`'s
+    `CACHE_NAME` bumped `dubaival-v89`→`dubaival-v90`. Rebuilt `www/` and
+    manually synced `index.html`/`js/data-residential.js`/
+    `js/valuation-db.js`/`sw.js` into `android/app/src/main/assets/public/`
+    (`npx cap sync android` failed as always in this sandbox — no Android
+    SDK).
+  - **`tools/build-valuation-db.js` itself is a code-quality-branch file**
+    (not `js/data-residential.js`/`js/data-commercial.js`), so this matching-
+    logic fix needed no special two-branch-workflow exception — only the 4
+    Orra price corrections in `js/data-residential.js` did, under the same
+    explicit per-instance authorization already established 2026-07-13/
+    2026-07-28 for confirmed, well-evidenced data-quality bugs.
+  - **Not done this session, and why**: no attempt was made to recover the
+    TRUE, uncorrupted per-bedroom breakdown for Orra The Embankment's
+    3BR/4BR/5BR units specifically (the corrected `p:1000`/`p:850` figures
+    are building-level averages, not bedroom-differentiated) — the raw
+    DLD CSV that would be needed to re-derive this correctly isn't
+    available in this sandbox, and inventing bedroom-level differentiation
+    without real data would violate the same accuracy principle this fix
+    was meant to uphold. Also not investigated: whether OTHER buildings in
+    the DB share the same "one bedroom-count bucket suspiciously pinned to
+    an identical low PSF" corruption pattern found here — this was found
+    while investigating a SPECIFIC, already-flagged building, not via a
+    systematic scan; a future session could build one (the exact signature
+    to search for: 2+ different bedroom buckets within one building
+    sharing an identical `psf` value, especially when it's also far below
+    that building's OTHER bedroom buckets) if this class of bug is
+    suspected to be more widespread.
+
 - **2026-07-28 (session continuing — user again authorized "خودت انجام بده"
   for the remaining multi-tier and undergraded candidates; real evidence
   found that multi-tier grade jumps are NOT safe to bulk-apply via this
@@ -12950,32 +13125,43 @@ These files contain critical business logic and data:
       ordinary apartment towers under the same grade tag, corrupting any
       area-level median comparison; this test can't say anything reliable
       there without a villa/apartment-aware re-analysis.
-    - **`Parkwood` (Dubai Hills Estate) — a confirmed `VALUATION_DB` data
-      error**, real transaction PSF (1,134, `n:560`) contradicted by real
-      developer/listing pricing (~2,400+) — needs the calibration pipeline
-      itself investigated, not a grade edit.
-    - **`Orra The Embankment` family (JLT)** — same class of confirmed data
-      error (real 800/sqft vs. live listings at 2,131-2,251/sqft for
-      the base entry + Tower 1, `n:1040`+`n:176`) — also needs the
-      calibration pipeline investigated, likely a name-matching issue in
-      `tools/calibrate-db.js`.
+    - ~~`Parkwood`/`Orra The Embankment` `VALUATION_DB` data errors~~ —
+      **FIXED 2026-07-29**, see that date's work-log entry. Root-caused at
+      the actual `tools/build-valuation-db.js` matching-pipeline level
+      (Parkwood: a genuine cross-area normalized-name collision, fixed via
+      a collision-aware candidate resolver; Orra: confirmed-corrupted raw
+      per-bedroom DLD data, excluded from matching + the legacy
+      `js/data-residential.js` price fields corrected against a fresh,
+      cross-validated live-market check) — not deferred to the research
+      branch after all, since the root cause turned out to be a
+      code-quality-branch file (`tools/build-valuation-db.js`), not a
+      `js/data-residential.js` structural issue. The same fix also caught
+      and corrected a 3rd, independent instance of the identical collision
+      bug ("South Residence," Dubai South, falsely matched to an unrelated
+      Al Barsha South Fourth building) and a `VALUATION_DB` staleness gap
+      affecting 217 buildings added across the 2026-07-25–28 grade-audit
+      sessions that had never had `VALUATION_DB` regenerated for them.
     - `qasr sabah 2`/`3`'s grade, now that their area is corrected (see
       above) — needs a fresh comparison against IMPZ's own real tiers.
     - The original looser "closest-tier" test's full ~2,100-candidate list,
       only a subset of which (the tight-cluster ~360) has been worked
       through at all.
+    - Given the exact same class of bug just found in Parkwood/Orra/South
+      Residence (a real DLD building's per-bedroom or building-level PSF
+      pinned at one suspiciously-identical value across unrelated bedroom
+      counts, or a normalized-name collision across unrelated areas), a
+      future session may want to build a systematic scan across the WHOLE
+      `VALUATION_DB`/`calibration-output.json` for the same signature —
+      this was only found by chance while investigating 2 specifically
+      pre-flagged buildings, not via a deliberate sweep.
   - **Recommended next step for whoever picks this up next**: the
     single-tier work is genuinely exhausted for this pass (every
     remaining single-tier-safe candidate from both the over- and
     under-graded lists has been applied). Further progress needs either
     (a) a per-building verification pass through the remaining multi-tier
-    candidates (slow, safe — this session's own proven method), (b) a
+    candidates (slow, safe — this session's own proven method), or (b) a
     villa/apartment-aware re-run of the whole test for Palm Jumeirah/Dubai
-    Marina specifically, or (c) handing the `VALUATION_DB` data-error
-    investigation (Parkwood, Orra The Embankment, and likely more
-    undiscovered ones) to the research branch, since that's a
-    `tools/calibrate-db.js` pipeline problem, not a `js/data-residential.js`
-    grade-label problem.
+    Marina specifically.
 
 - **🟡 View-system expansion — Stages 1-3 shipped, Stage 4 not started**
   (added 2026-07-26, updated same day once Stages 2-3 shipped): direct
