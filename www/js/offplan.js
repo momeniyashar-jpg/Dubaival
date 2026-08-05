@@ -50,6 +50,16 @@ var OFFPLAN_STATE = {
   devRecords: {}, // keyed by developer name
   filterArea: "",
   filterDeveloper: "",
+  // Added 2026-08-05 (Phase 1 of the GenieMap gap-closing plan) — 3 more
+  // filters matching GenieMap's own real filter set (stage, price band,
+  // handover range), on top of the pre-existing area/developer/sort. Shared
+  // by both the list AND the new map view via _offplanFilteredItems() below,
+  // so the two views can never show a different set of projects for the
+  // same filter selection.
+  filterStage: "",
+  filterPriceBand: "", // '' | 'under1500' | '1500-2000' | '2000-2500' | '2500+'
+  filterHandoverRange: "", // '' | '1y' | '1-2y' | '2-3y' | '3y+'
+  view: "list", // 'list' | 'map'
   sort: "handover", // 'handover' | 'growth' | 'newest'
   showSubmitForm: false,
   submitting: false,
@@ -58,6 +68,13 @@ var OFFPLAN_STATE = {
   form: { name:"", developer:"", area:"", projectStage:"prelaunch", eoiOpenDate:"", launchDate:"", expectedHandover:"", paymentPlan:"", unitPricing:"", source:"", sourceUrl:"", notes:"" },
   aiExtract: { open:false, text:"", loading:false, error:null }
 };
+
+// Off-plan project map — dedicated state, deliberately NOT sharing
+// _dvMapState (js/map.js's own Interactive Map tab state) even though both
+// use the same Google Maps loader/light theme — keeps this map's lifecycle
+// fully independent so switching tabs/views can never leave the other one's
+// gmap instance dangling.
+var _offplanMapState = { gmap: null, markers: [], panelEl: null };
 
 function _offplanH(){
   var token=localStorage.getItem("dv_access_token")||SUPABASE_KEY;
@@ -267,6 +284,175 @@ async function offplanSubmit(){
   OFFPLAN_STATE.submitting=false;render();
 }
 
+// ── FILTERING (shared by list + map view) — added 2026-08-05 ───────────────
+// A project's own "entry price" for filtering purposes is its CHEAPEST unit
+// type's launch_psf — matches how a real buyer thinks about a masterplan
+// ("starting from X/sqft"), not an average across wildly different unit
+// types (a studio and a villa in the same project shouldn't be blended).
+function _offplanMinPSF(p){
+  var psfs=(p.unit_types||[]).map(function(u){return u.launch_psf;}).filter(function(v){return v>0;});
+  return psfs.length?Math.min.apply(null,psfs):null;
+}
+function _offplanYearsToHandover(p){
+  var h=new Date(p.expected_handover);
+  if(isNaN(h.getTime()))return null;
+  return (h.getTime()-Date.now())/(365.25*24*3600*1000);
+}
+function _offplanFilteredItems(){
+  return OFFPLAN_STATE.projects.filter(function(p){
+    if(OFFPLAN_STATE.filterArea&&p.area!==OFFPLAN_STATE.filterArea)return false;
+    if(OFFPLAN_STATE.filterDeveloper&&p.developer!==OFFPLAN_STATE.filterDeveloper)return false;
+    if(OFFPLAN_STATE.filterStage&&p.project_stage!==OFFPLAN_STATE.filterStage)return false;
+    if(OFFPLAN_STATE.filterPriceBand){
+      var minPsf=_offplanMinPSF(p);
+      if(minPsf==null)return false;
+      var band=OFFPLAN_STATE.filterPriceBand;
+      if(band==="under1500"&&!(minPsf<1500))return false;
+      if(band==="1500-2000"&&!(minPsf>=1500&&minPsf<2000))return false;
+      if(band==="2000-2500"&&!(minPsf>=2000&&minPsf<2500))return false;
+      if(band==="2500+"&&!(minPsf>=2500))return false;
+    }
+    if(OFFPLAN_STATE.filterHandoverRange){
+      var yrs=_offplanYearsToHandover(p);
+      if(yrs==null)return false;
+      var hr=OFFPLAN_STATE.filterHandoverRange;
+      if(hr==="1y"&&!(yrs<=1))return false;
+      if(hr==="1-2y"&&!(yrs>1&&yrs<=2))return false;
+      if(hr==="2-3y"&&!(yrs>2&&yrs<=3))return false;
+      if(hr==="3y+"&&!(yrs>3))return false;
+    }
+    return true;
+  }).map(function(p){
+    var dev=OFFPLAN_STATE.devRecords[p.developer]||null;
+    var fcs=_offplanProjectForecasts(p,dev);
+    return{p:p,fcs:fcs,avgGrowth:_offplanAvgGrowth(fcs)};
+  });
+}
+function _offplanSortItems(items){
+  var sorted=items.slice();
+  if(OFFPLAN_STATE.sort==="handover")sorted.sort(function(a,b){return new Date(a.p.expected_handover)-new Date(b.p.expected_handover);});
+  else if(OFFPLAN_STATE.sort==="growth")sorted.sort(function(a,b){return b.avgGrowth-a.avgGrowth;});
+  else sorted.sort(function(a,b){return new Date(b.p.created_at)-new Date(a.p.created_at);});
+  return sorted;
+}
+
+// ── MAP VIEW (Phase 1 of the GenieMap gap-closing plan, added 2026-08-05) ──
+// One colored pin per FILTERED project (color = project_stage, reusing
+// OFFPLAN_STAGE_COLORS — no new color scale invented). Reuses the exact
+// Google Maps loading/light-theme/cleanup machinery already proven in
+// js/map.js's own Interactive Map tab (_dvGmapLoad/_GMAP_LIGHT_STYLES/
+// _dvGeocodeBuilding/_dvBatchPromises) rather than duplicating any of it —
+// safe to reference here despite js/offplan.js loading earlier in
+// index.html's script order, since these are all deferred scripts and this
+// function only ever runs after every module has finished loading (same
+// established cross-file-call pattern used elsewhere in this app, e.g.
+// js/app.js calling js/portfolio.js's computeAssetMetrics()).
+function _offplanMapCleanup(){
+  _offplanMapState.markers.forEach(function(m){
+    google.maps.event.clearInstanceListeners(m);
+    m.setMap(null);
+  });
+  _offplanMapState.markers=[];
+  if(_offplanMapState.gmap){
+    google.maps.event.clearInstanceListeners(_offplanMapState.gmap);
+    _offplanMapState.gmap=null;
+  }
+}
+// Resolves a project's map coordinate: the free, instant AREA_COORDS
+// centroid first (covers most areas); only falls back to a live, cached
+// geocode call (via the same helper the Interactive Map tab's own Building
+// Tier already uses) for the areas AREA_COORDS doesn't have — confirmed a
+// real, non-hypothetical gap: "DAMAC Islands" itself (one of this session's
+// own seeded projects) has no AREA_COORDS entry despite being a real,
+// long-tracked AREAS key.
+function _offplanResolveCoords(project){
+  var coords=(typeof AREA_COORDS!=="undefined")?AREA_COORDS[project.area]:null;
+  if(coords)return Promise.resolve({lat:coords[0],lng:coords[1]});
+  if(typeof _dvGeocodeBuilding==="function"){
+    return _dvGeocodeBuilding(project.name,project.area).then(function(r){
+      return(r&&r.lat)?{lat:r.lat,lng:r.lng}:null;
+    });
+  }
+  return Promise.resolve(null);
+}
+function _offplanShowPanel(cl,item){
+  var panel=_offplanMapState.panelEl;
+  if(!panel)return;
+  panel.innerHTML="";
+  var closeBtn=el("button",{style:{position:"absolute",top:"8px",right:"8px",width:"26px",height:"26px",borderRadius:"8px",border:"1px solid "+cl.border,background:cl.raised,color:cl.sub,fontSize:"14px",cursor:"pointer",zIndex:"2"}});
+  closeBtn.textContent="✕";
+  closeBtn.addEventListener("click",function(){panel.style.display="none";});
+  panel.appendChild(closeBtn);
+  var inner=el("div",{style:{padding:"14px"}});
+  inner.appendChild(_renderOffplanCard(cl,item.p,item.fcs));
+  panel.appendChild(inner);
+  panel.style.display="block";
+}
+function _renderOffplanMap(cl,items){
+  var mapWrap=el("div",{style:{position:"relative",width:"100%",height:"480px",borderRadius:"14px",overflow:"hidden",border:"1px solid "+cl.border,marginBottom:"16px"}});
+  var mapTs=new Date().getTime();
+  var mapId="dv-offplan-gmap-"+mapTs;
+  var mapEl=el("div",{style:{width:"100%",height:"100%"},id:mapId});
+  mapWrap.appendChild(mapEl);
+  var panelEl=el("div",{id:mapId+"-panel",style:{
+    position:"absolute",top:"10px",right:"10px",bottom:"10px",width:"320px",maxWidth:"88vw",
+    overflowY:"auto",background:cl.surfaceSolid||cl.surface,border:"1px solid "+cl.border,
+    borderRadius:"14px",boxShadow:"0 8px 30px rgba(0,0,0,0.35)",display:"none",zIndex:"5"
+  }});
+  mapWrap.appendChild(panelEl);
+
+  if(!items.length){
+    var emptyOverlay=el("div",{style:{position:"absolute",top:"0",left:"0",right:"0",bottom:"0",display:"flex",alignItems:"center",justifyContent:"center",background:cl.raised,zIndex:"1"}});
+    emptyOverlay.appendChild(div({color:cl.sub,fontSize:"12px"},"No projects match these filters."));
+    mapWrap.appendChild(emptyOverlay);
+    return mapWrap;
+  }
+
+  setTimeout(function(){
+    var container=document.getElementById(mapId);
+    if(!container)return;
+    _dvGmapLoad(function(){
+      var c2=document.getElementById(mapId);
+      if(!c2)return;
+      _offplanMapCleanup();
+      var gmap=new google.maps.Map(c2,{
+        center:{lat:25.15,lng:55.22},zoom:11,
+        styles:(typeof _GMAP_LIGHT_STYLES!=="undefined")?_GMAP_LIGHT_STYLES:[],
+        zoomControl:true,mapTypeControl:false,streetViewControl:false,fullscreenControl:false,
+        gestureHandling:"greedy"
+      });
+      _offplanMapState.gmap=gmap;
+      _offplanMapState.panelEl=document.getElementById(mapId+"-panel");
+      var bounds=new google.maps.LatLngBounds();
+      var batcher=(typeof _dvBatchPromises==="function")?_dvBatchPromises:function(arr,size,fn){return Promise.all(arr.map(fn));};
+      batcher(items,4,function(item){
+        return _offplanResolveCoords(item.p).then(function(pos){
+          if(!pos)return;
+          var stageColor=OFFPLAN_STAGE_COLORS[item.p.project_stage]||cl.sub;
+          var mk=new google.maps.Marker({
+            position:pos,map:gmap,title:item.p.name,
+            icon:{path:google.maps.SymbolPath.CIRCLE,scale:9,fillColor:stageColor,fillOpacity:0.9,strokeColor:"#FFFFFF",strokeWeight:2}
+          });
+          mk.addListener("click",function(){_offplanShowPanel(cl,item);});
+          _offplanMapState.markers.push(mk);
+          bounds.extend(pos);
+        });
+      }).then(function(){
+        if(!bounds.isEmpty()){
+          gmap.fitBounds(bounds);
+          google.maps.event.addListenerOnce(gmap,"bounds_changed",function(){
+            if(gmap.getZoom()>15)gmap.setZoom(15);
+          });
+        }
+      });
+    },function(){
+      mapEl.appendChild(div({position:"absolute",top:"0",left:"0",right:"0",bottom:"0",display:"flex",alignItems:"center",justifyContent:"center",color:cl.sub,fontSize:"12px"},"Map unavailable right now."));
+    });
+  },0);
+
+  return mapWrap;
+}
+
 function renderOffPlan(){
   var cl=C();
   if(!OFFPLAN_STATE.loaded&&!OFFPLAN_STATE.loading)offplanLoad();
@@ -277,14 +463,53 @@ function renderOffPlan(){
   hero.appendChild(div({color:cl.sub,fontSize:"13px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6"},"Track off-plan launches across developers with a price forecast from launch → handover → 5 years after, per unit type, based on real area growth data and each developer's own track record."));
   wrap.appendChild(hero);
 
-  // Filters
-  var filterRow=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"16px"}});
+  // Filters — Row 1: Area/Developer/Stage. Row 2: Price Band/Handover
+  // Range/Sort. Shared identically by both List and Map view via
+  // _offplanFilteredItems() below, so switching views never changes which
+  // projects are showing. Extended 2026-08-05 (Phase 1 of the GenieMap
+  // gap-closing plan) from the original area/developer/sort-only row —
+  // matches GenieMap's own real filter set (area, developer, price, handover
+  // date, stage/availability).
+  var filterRow1=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"8px"}});
   var areaNames=(typeof AREAS!=="undefined")?Object.keys(AREAS).sort():[];
-  filterRow.appendChild(mkSelect(Object.assign({},I(),{fontSize:"12px",padding:"8px"}),[""].concat(areaNames),OFFPLAN_STATE.filterArea,function(v){OFFPLAN_STATE.filterArea=v;render();}));
+  filterRow1.appendChild(mkSelect(Object.assign({},I(),{fontSize:"12px",padding:"8px"}),[""].concat(areaNames),OFFPLAN_STATE.filterArea,function(v){OFFPLAN_STATE.filterArea=v;render();}));
   var devNames=Array.from(new Set(OFFPLAN_STATE.projects.map(function(p){return p.developer;}))).sort();
-  filterRow.appendChild(mkSelect(Object.assign({},I(),{fontSize:"12px",padding:"8px"}),[""].concat(devNames),OFFPLAN_STATE.filterDeveloper,function(v){OFFPLAN_STATE.filterDeveloper=v;render();}));
-  filterRow.appendChild(mkSelect(Object.assign({},I(),{fontSize:"12px",padding:"8px"}),["Handover Date","Highest Growth","Newest"],{handover:"Handover Date",growth:"Highest Growth",newest:"Newest"}[OFFPLAN_STATE.sort]||"Handover Date",function(v){OFFPLAN_STATE.sort={"Handover Date":"handover","Highest Growth":"growth","Newest":"newest"}[v]||"handover";render();}));
-  wrap.appendChild(filterRow);
+  filterRow1.appendChild(mkSelect(Object.assign({},I(),{fontSize:"12px",padding:"8px"}),[""].concat(devNames),OFFPLAN_STATE.filterDeveloper,function(v){OFFPLAN_STATE.filterDeveloper=v;render();}));
+  var stageOptLabels=["Any Stage"].concat(Object.keys(OFFPLAN_STAGE_LABELS).map(function(k){return OFFPLAN_STAGE_LABELS[k];}));
+  var stageKeysForFilter=[""].concat(Object.keys(OFFPLAN_STAGE_LABELS));
+  var curStageLabel=OFFPLAN_STATE.filterStage?OFFPLAN_STAGE_LABELS[OFFPLAN_STATE.filterStage]:"Any Stage";
+  filterRow1.appendChild(mkSelect(Object.assign({},I(),{fontSize:"12px",padding:"8px"}),stageOptLabels,curStageLabel,function(v){
+    var idx=stageOptLabels.indexOf(v);
+    OFFPLAN_STATE.filterStage=idx>=0?stageKeysForFilter[idx]:"";render();
+  }));
+  wrap.appendChild(filterRow1);
+
+  var filterRow2=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"12px"}});
+  var priceBandLabels={"":"Any Price","under1500":"Under 1,500/sqft","1500-2000":"1,500–2,000/sqft","2000-2500":"2,000–2,500/sqft","2500+":"2,500+/sqft"};
+  var priceBandKeys=Object.keys(priceBandLabels);
+  filterRow2.appendChild(mkSelect(Object.assign({},I(),{fontSize:"12px",padding:"8px"}),priceBandKeys.map(function(k){return priceBandLabels[k];}),priceBandLabels[OFFPLAN_STATE.filterPriceBand],function(v){
+    var found=priceBandKeys.find(function(k){return priceBandLabels[k]===v;});
+    OFFPLAN_STATE.filterPriceBand=found||"";render();
+  }));
+  var handoverLabels={"":"Any Handover","1y":"Within 1 Year","1-2y":"1–2 Years","2-3y":"2–3 Years","3y+":"3+ Years"};
+  var handoverKeys=Object.keys(handoverLabels);
+  filterRow2.appendChild(mkSelect(Object.assign({},I(),{fontSize:"12px",padding:"8px"}),handoverKeys.map(function(k){return handoverLabels[k];}),handoverLabels[OFFPLAN_STATE.filterHandoverRange],function(v){
+    var found=handoverKeys.find(function(k){return handoverLabels[k]===v;});
+    OFFPLAN_STATE.filterHandoverRange=found||"";render();
+  }));
+  filterRow2.appendChild(mkSelect(Object.assign({},I(),{fontSize:"12px",padding:"8px"}),["Handover Date","Highest Growth","Newest"],{handover:"Handover Date",growth:"Highest Growth",newest:"Newest"}[OFFPLAN_STATE.sort]||"Handover Date",function(v){OFFPLAN_STATE.sort={"Handover Date":"handover","Highest Growth":"growth","Newest":"newest"}[v]||"handover";render();}));
+  wrap.appendChild(filterRow2);
+
+  // List / Map toggle
+  var viewToggle=el("div",{style:{display:"flex",gap:"6px",marginBottom:"16px"}});
+  [["list","☰ List"],["map","📍 Map"]].forEach(function(pair){
+    var active=OFFPLAN_STATE.view===pair[0];
+    var b=el("button",{style:{flex:"1",padding:"9px",borderRadius:"9px",border:"1px solid "+(active?cl.goldDim||cl.gold:cl.border),background:active?(cl.goldFaint||"rgba(212,175,55,0.1)"):"transparent",color:active?cl.gold:cl.sub,fontSize:"12px",fontWeight:active?"700":"500",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+    b.textContent=pair[1];
+    b.addEventListener("click",function(){OFFPLAN_STATE.view=pair[0];render();});
+    viewToggle.appendChild(b);
+  });
+  wrap.appendChild(viewToggle);
 
   // Submit CTA
   var submitBtn=el("button",{style:{width:"100%",padding:"11px",borderRadius:"10px",border:"1px solid rgba(212,175,55,0.3)",background:"rgba(212,175,55,0.08)",color:cl.gold,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",marginBottom:"16px"}});
@@ -307,25 +532,19 @@ function renderOffPlan(){
     return wrap;
   }
 
-  var filtered=OFFPLAN_STATE.projects.filter(function(p){
-    if(OFFPLAN_STATE.filterArea&&p.area!==OFFPLAN_STATE.filterArea)return false;
-    if(OFFPLAN_STATE.filterDeveloper&&p.developer!==OFFPLAN_STATE.filterDeveloper)return false;
-    return true;
-  }).map(function(p){
-    var dev=OFFPLAN_STATE.devRecords[p.developer]||null;
-    var fcs=_offplanProjectForecasts(p,dev);
-    return{p:p,fcs:fcs,avgGrowth:_offplanAvgGrowth(fcs)};
-  });
-  if(OFFPLAN_STATE.sort==="handover")filtered.sort(function(a,b){return new Date(a.p.expected_handover)-new Date(b.p.expected_handover);});
-  else if(OFFPLAN_STATE.sort==="growth")filtered.sort(function(a,b){return b.avgGrowth-a.avgGrowth;});
-  else filtered.sort(function(a,b){return new Date(b.p.created_at)-new Date(a.p.created_at);});
+  var filtered=_offplanSortItems(_offplanFilteredItems());
 
   if(filtered.length===0){
     var emptyCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"32px 20px",textAlign:"center"}});
     emptyCard.appendChild(div({fontSize:"28px",marginBottom:"10px"},"🏗"));
     emptyCard.appendChild(div({color:"#E8EDF5",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},OFFPLAN_STATE.projects.length===0?"No off-plan projects tracked yet":"No projects match these filters"));
-    emptyCard.appendChild(div({color:cl.sub,fontSize:"12px",lineHeight:"1.6"},OFFPLAN_STATE.projects.length===0?"Be the first to submit a project you know about — it'll be reviewed and published once verified.":"Try clearing the area/developer filter above."));
+    emptyCard.appendChild(div({color:cl.sub,fontSize:"12px",lineHeight:"1.6"},OFFPLAN_STATE.projects.length===0?"Be the first to submit a project you know about — it'll be reviewed and published once verified.":"Try clearing a filter above."));
     wrap.appendChild(emptyCard);
+    return wrap;
+  }
+
+  if(OFFPLAN_STATE.view==="map"){
+    wrap.appendChild(_renderOffplanMap(cl,filtered));
     return wrap;
   }
 

@@ -965,6 +965,124 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-08-05 (session continuing — Phase 1 of the GenieMap gap-closing
+  plan: off-plan project map with pins, plus 3 new filters matching
+  GenieMap's own real filter set)**: Direct continuation of the same
+  session — user confirmed the Phase 0 seed SQL had been run
+  ("اجرا کردم ، برو سراغ فاز ۱" — I ran it, go to Phase 1) and asked to move
+  straight to the off-plan map, the single highest-value remaining gap per
+  the GenieMap comparison.
+  - **`js/offplan.js`** — `OFFPLAN_STATE` extended with 3 new filters
+    (`filterStage`, `filterPriceBand` — under1500/1500-2000/2000-2500/2500+,
+    `filterHandoverRange` — within 1y/1-2y/2-3y/3y+) and `view` ('list'|'map'),
+    on top of the pre-existing area/developer/sort. New
+    `_offplanFilteredItems()`/`_offplanSortItems()` extract the filter/sort
+    logic into 2 shared functions so BOTH the List and the new Map view
+    always show the exact same project set for a given filter selection —
+    they can never silently diverge. New `_offplanMinPSF(p)` — a project's
+    filterable "entry price" is its CHEAPEST unit type's `launch_psf`
+    (matches how a real buyer reads "starting from X/sqft" on a masterplan
+    with multiple wildly different unit types, not a blended average across
+    them). New `_offplanYearsToHandover(p)` — plain date-math helper reused
+    by both the handover filter and the map panel's own "AT HANDOVER (N.NY)"
+    label.
+  - **Map view, built by deliberately reusing js/map.js's own already-proven
+    machinery rather than inventing a second implementation**: new
+    `_offplanMapState` (kept fully separate from js/map.js's `_dvMapState`,
+    so the two tabs' Google Maps lifecycles can never leak into each other),
+    `_offplanMapCleanup()` (mirrors `_dvMapCleanup()`'s exact
+    `clearInstanceListeners`-then-null-out pattern), and
+    `_renderOffplanMap()` (mirrors `renderMap()`'s exact "unique timestamped
+    element id → `setTimeout(fn,0)` deferred instantiation via the shared
+    `_dvGmapLoad()` loader → full tear-down-and-rebuild every render, never
+    an incremental update" architecture — a deliberate consistency-over-
+    novelty choice, not a new pattern). Markers are colored by
+    `project_stage` using the ALREADY-EXISTING `OFFPLAN_STAGE_COLORS` map
+    (prelaunch amber/launched blue/under_construction purple/handed_over
+    green — the same palette the list-view card badges already use, no new
+    color scale invented). Clicking a marker opens a docked side panel
+    (not a Google InfoWindow bubble, since the panel needs to hold the
+    same rich card content — full forecast breakdown, unit-type pricing,
+    payment plan — the list view already renders via the existing,
+    untouched `_renderOffplanCard()`) reusing the SAME shared theme (`C()`,
+    `cl.surfaceSolid`) established elsewhere in this codebase.
+  - **New `_offplanResolveCoords(project)` — a real, confirmed gap closed
+    with a real fallback, not papered over**: tries the free, instant
+    `AREA_COORDS` centroid first; only falls back to a live, cached
+    geocode call (`_dvGeocodeBuilding()`, the exact same rate-limit-safe/
+    429-retry-once/sessionStorage-cached helper the Interactive Map tab's
+    own Building Tier already uses) for areas `AREA_COORDS` doesn't cover.
+    Confirmed via direct extraction against the real file — not assumed —
+    that `"DAMAC Islands"` genuinely has no `AREA_COORDS` entry despite
+    being a real, long-tracked `AREAS` key, and it's also one of this
+    session's own 4 seeded projects (DAMAC Islands 2) — meaning this
+    fallback path isn't hypothetical, it's exercised by real, live seed
+    data from the first render.
+  - **Filter UI** (`renderOffPlan()`): the original single filter row
+    (Area/Developer/Sort) split into 2 rows — Row 1: Area/Developer/Stage,
+    Row 2: Price Band/Handover Range/Sort — plus a List/Map toggle button
+    pair right above the results. The empty-filtered-results state (shown
+    identically for both views, checked before the view branch) and the
+    loading/db-error states were all left completely untouched.
+  - **Verified with a real-browser Playwright test** (mocked Supabase REST
+    responses seeded with the 4 real Phase-0 projects, a fake minimal
+    `google.maps` implementation tracking every `Marker`/`Map` call, and a
+    mocked geocode endpoint specifically covering the DAMAC Islands gap
+    above) — caught and fixed a real bug in the TEST ITSELF before trusting
+    any result: a catch-all network-blocking route registered after the
+    specific mocked routes ran FIRST under Playwright's LIFO route-matching
+    order and swallowed every mocked URL via `route.continue()` before the
+    specific `fulfill()` handlers ever got a chance — consolidated into one
+    single ordered handler to fix. Once corrected: the stage filter narrows
+    to exactly the one real prelaunch project (The Oasis by Emaar); the
+    price-band filter correctly excludes a project whose CHEAPEST unit type
+    falls below the selected band even though a pricier unit type in the
+    same project would qualify (confirms `_offplanMinPSF`'s "starting from"
+    semantics are actually being applied, not a naive per-unit-type OR
+    check); the handover-range helper returns structurally correct
+    year-counts for all 4 real seeded handover dates; the map correctly
+    renders exactly 4 markers (3 via `AREA_COORDS`, 1 — DAMAC Islands 2 —
+    via the mocked geocode fallback, directly proving that code path); each
+    marker's color matches its real `project_stage`; clicking a marker
+    populates the docked panel with the correct project's real forecast
+    card; switching back to List view works; and — critically — re-opening
+    the Map view a SECOND time confirmed `_offplanMapCleanup()` genuinely
+    ran before the fresh instantiation (`clearInstanceListeners` fired
+    exactly 4+1 times — one per stale marker plus the stale map instance —
+    and the fresh marker count was exactly 4, not 8, proving no leaked/
+    duplicated markers across repeated view toggles, the same class of bug
+    already found and fixed once before for the Interactive Map tab itself,
+    2026-07-11). Zero unexpected console errors (the only output was the
+    same pre-existing, well-documented sandboxed "Market intelligence
+    failed: API 501" artifact seen throughout this project's history,
+    unrelated to this feature).
+  - **A real, pre-existing, independent bug found and fixed while touching
+    `sw.js` for the cache bump below, unrelated to this feature's own
+    code**: `js/offplan.js` was missing from `sw.js`'s `PRECACHE` array
+    entirely — an omission dating back to when the file was first added
+    (2026-07-17), never caught since it doesn't break anything at runtime
+    (the fetch handler's cache-first-with-network-fallback-and-put logic
+    still works for a URL that was never precached, it just isn't eagerly
+    warmed at install time). While adding it, also found — and fixed —
+    9 MORE files whose `PRECACHE` version strings had silently drifted out
+    of sync with `index.html`'s actual current `?v=` values (auth.js,
+    inbox.js, mortgage.js, map.js, deals.js, social.js, workspace.js,
+    news.js, chiefs.js) — the exact same drift-bug CLASS this project's own
+    work log has already caught and fixed individually at least twice before
+    (2026-07-13, 2026-07-26), just never as a full sweep. Corrected all 9 to
+    match `index.html` exactly in the same edit, since the file was already
+    open for the `offplan.js` addition.
+  - Cache version bumped: `js/offplan.js` to `?v=20260805a` in both
+    `index.html` and `sw.js`'s `PRECACHE` array (newly added, alongside the
+    9-file drift correction above); `sw.js`'s `CACHE_NAME` bumped
+    `dubaival-v91`→`dubaival-v92`. Rebuilt `www/` and manually synced
+    `index.html`/`js/offplan.js`/`sw.js` into
+    `android/app/src/main/assets/public/` (`npx cap sync android` failed
+    as always in this sandbox — no Android SDK).
+  - **Next**: Phase 2 (multi-project branded catalog generator, extending
+    the existing Report Builder) is the natural next session's starting
+    point — see the updated Outstanding item below.
+
 - **2026-08-05 (new session — GenieMap competitive gap analysis + Phase 0 of
   the resulting off-plan-parity plan: Bayut import diagnostics hardened +
   4 real, individually-verified off-plan projects seeded)**: User asked for
@@ -13119,29 +13237,30 @@ These files contain critical business logic and data:
 
 ## Outstanding / open items
 
-- **🟡 GenieMap gap-closing plan, Phase 0 — off-plan seed data needs manual
-  SQL; Phases 1-4 not started** (added 2026-08-05): run
-  `supabase-offplan-seed-data.sql` in Supabase SQL Editor (requires
-  `supabase-offplan-schema.sql` already applied, which it is) to get the 4
-  real, individually-verified off-plan projects (DAMAC Islands 2, Sobha
-  Hartland 2 - Skyscape Collection, Binghatti Skyrise, The Oasis by Emaar —
-  see the same-dated work-log entry for full sourcing detail) live in the
-  Off-Plan tab. No env vars needed for this specific file. Separately, the
-  Bayut `new-projects` import (`js/app.js` `_adminFetchBayutOffplan()`) now
-  has real error-detail surfacing but is STILL genuinely untested against a
+- **🟡 GenieMap gap-closing plan — Phase 0 (data) + Phase 1 (map) shipped
+  same session; Phase 0's seed SQL confirmed run by the user; Phases 2-4
+  not started** (added 2026-08-05, updated same session once Phase 1
+  shipped): Phase 0's `supabase-offplan-seed-data.sql` has been confirmed
+  run by the user — the 4 real, individually-verified off-plan projects
+  (DAMAC Islands 2, Sobha Hartland 2 - Skyscape Collection, Binghatti
+  Skyrise, The Oasis by Emaar — see the Phase 0 work-log entry for full
+  sourcing detail) are live in the Off-Plan tab. Phase 1 (the off-plan map
+  with real project pins + stage/price-band/handover-range filters) is
+  code-complete and verified via a real-browser Playwright pass — see the
+  same-dated Phase 1 work-log entry above for the full test breakdown. The
+  Bayut `new-projects` import (`js/app.js` `_adminFetchBayutOffplan()`) has
+  real error-detail surfacing but is STILL genuinely untested against a
   live `RAPIDAPI_KEY` — the next attempt against the real key (in the
   actual deployed Admin Dashboard) is what will validate or reveal a needed
-  fix, not another guess from this sandbox. **Not started at all**: Phase 1
-  (an off-plan map with real project pins/filters — the single highest-
-  value remaining piece, per the GenieMap comparison, and the natural next
-  session's starting point once the seed data above is confirmed live),
-  Phase 2 (multi-project branded catalog generator, extending the existing
-  Report Builder), Phase 3 (developer sales-contact directory, a genuinely
-  new feature/table), Phase 4 (pay-per-use video call/screen-share with
-  clients — user confirmed pay-per-use pricing, matching the established
-  WhatsApp/video-credit pattern, but no vendor/SDK has been chosen yet —
-  Daily.co and Whereby Embedded were named as realistic serverless-friendly
-  candidates, not yet evaluated in depth).
+  fix, not another guess from this sandbox. **Not started at all**: Phase 2
+  (multi-project branded catalog generator, extending the existing Report
+  Builder — the natural next session's starting point), Phase 3 (developer
+  sales-contact directory, a genuinely new feature/table), Phase 4
+  (pay-per-use video call/screen-share with clients — user confirmed
+  pay-per-use pricing, matching the established WhatsApp/video-credit
+  pattern, but no vendor/SDK has been chosen yet — Daily.co and Whereby
+  Embedded were named as realistic serverless-friendly candidates, not yet
+  evaluated in depth).
 
 - **🔴 CRITICAL, USER ACTION REQUIRED — GROQ_API_KEY in Vercel is invalid/
   expired, breaking EVERY AI feature site-wide (added 2026-07-27)**: the

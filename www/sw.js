@@ -1,4 +1,4 @@
-var CACHE_NAME='dubaival-v91';
+var CACHE_NAME='dubaival-v92';
 var PRECACHE=[
   '/logo.png',
   '/manifest.json',
@@ -8,21 +8,22 @@ var PRECACHE=[
   '/js/valuation.js?v=20260727b',
   '/js/api.js?v=20260727b',
   '/js/core.js?v=20260727a',
-  '/js/auth.js?v=20260703c',
-  '/js/inbox.js?v=20260704b',
+  '/js/auth.js?v=20260719f',
+  '/js/inbox.js?v=20260717b',
   '/js/app.js?v=20260805a',
   '/js/market.js?v=20260727e',
-  '/js/mortgage.js?v=20260629b',
+  '/js/offplan.js?v=20260805a',
+  '/js/mortgage.js?v=20260715a',
   '/js/portfolio.js?v=20260726a',
-  '/js/map.js?v=20260706b',
-  '/js/deals.js?v=20260708b',
+  '/js/map.js?v=20260718a',
+  '/js/deals.js?v=20260718b',
   '/js/chat.js?v=20260721a',
-  '/js/social.js?v=20260706b',
+  '/js/social.js?v=20260718a',
   '/js/about.js?v=20260724c',
-  '/js/workspace.js?v=20260711b',
+  '/js/workspace.js?v=20260718c',
   '/js/marketindex.js?v=20260726a',
-  '/js/news.js?v=20260709a',
-  '/js/chiefs.js?v=20260711b'
+  '/js/news.js?v=20260718a',
+  '/js/chiefs.js?v=20260719f'
 ];
 
 self.addEventListener('install',function(e){
