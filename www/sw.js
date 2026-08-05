@@ -1,4 +1,4 @@
-var CACHE_NAME='dubaival-v93';
+var CACHE_NAME='dubaival-v94';
 var PRECACHE=[
   '/logo.png',
   '/manifest.json',
@@ -10,9 +10,9 @@ var PRECACHE=[
   '/js/core.js?v=20260727a',
   '/js/auth.js?v=20260719f',
   '/js/inbox.js?v=20260717b',
-  '/js/app.js?v=20260805a',
+  '/js/app.js?v=20260805b',
   '/js/market.js?v=20260727e',
-  '/js/offplan.js?v=20260805a',
+  '/js/offplan.js?v=20260805b',
   '/js/mortgage.js?v=20260715a',
   '/js/portfolio.js?v=20260726a',
   '/js/map.js?v=20260718a',

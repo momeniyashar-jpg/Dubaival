@@ -1805,6 +1805,15 @@ var ADMIN_OFFPLAN_STATE={loading:false,loaded:false,pending:[],error:null,
   bayutImport:{area:"",loading:false,error:null,results:[]},
   aiExtract:{open:false,text:"",loading:false,error:null}};
 
+// ── Developer Sales-Contact Directory — admin review queue (added
+// 2026-08-05, Phase 3 of the GenieMap gap-closing plan) ─────────────────────
+// Same "queued, then admin-verified" pattern as Off-Plan Projects above —
+// pending submissions from js/offplan.js's contactSubmit() are invisible
+// until approved/rejected here.
+var ADMIN_DEVCONTACT_STATE={loading:false,loaded:false,pending:[],error:null,
+  quickAdd:{developer:"",contactName:"",role:"",phone:"",whatsapp:"",email:"",officeArea:"",source:"admin",sourceUrl:"",notes:""},
+  rejectingId:null,rejectReason:""};
+
 // ── AI Knowledge Base — Research Injection (added 2026-07-17) ───────────────
 // Standing instruction from the user: any real-estate domain knowledge
 // gathered via research (e.g. a web search Claude runs while building a
@@ -2112,6 +2121,64 @@ async function _adminSaveDeveloperTrackRecord(){
   render();
 }
 
+async function _fetchAdminDevContactsPending(){
+  if(!window._adminPw)return;
+  ADMIN_DEVCONTACT_STATE.loading=true;ADMIN_DEVCONTACT_STATE.error=null;render();
+  try{
+    var r=await fetch(SUPABASE_URL+"/rest/v1/rpc/admin_pending_developer_contacts",{
+      method:"POST",headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
+      body:JSON.stringify({p_admin_password:window._adminPw})
+    });
+    if(r.ok)ADMIN_DEVCONTACT_STATE.pending=await r.json();
+    else ADMIN_DEVCONTACT_STATE.error="Developer Contacts table unavailable yet — run supabase-developer-contacts-schema.sql in Supabase.";
+  }catch(e){ADMIN_DEVCONTACT_STATE.error="Network error fetching pending submissions.";}
+  ADMIN_DEVCONTACT_STATE.loading=false;ADMIN_DEVCONTACT_STATE.loaded=true;render();
+}
+async function _adminReviewDevContact(id,approve,reason){
+  if(!window._adminPw)return;
+  // Same "only refetch on a CONFIRMED success" fix already applied to
+  // _adminReviewOffplanProject() above — _fetchAdminDevContactsPending()
+  // resets .error=null the instant it starts, so calling it unconditionally
+  // would wipe this function's own error message before the admin sees it.
+  var ok=false;
+  try{
+    var r=await fetch(SUPABASE_URL+"/rest/v1/rpc/admin_review_developer_contact",{
+      method:"POST",headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
+      body:JSON.stringify({p_admin_password:window._adminPw,p_contact_id:id,p_approve:approve,p_rejection_reason:reason||null})
+    });
+    ok=r.ok;
+    if(!ok){ADMIN_DEVCONTACT_STATE.error="Could not "+(approve?"approve":"reject")+" — check the admin password and try again.";render();}
+  }catch(e){ADMIN_DEVCONTACT_STATE.error="Network error "+(approve?"approving":"rejecting")+" the contact.";render();}
+  ADMIN_DEVCONTACT_STATE.rejectingId=null;ADMIN_DEVCONTACT_STATE.rejectReason="";
+  if(ok)_fetchAdminDevContactsPending();
+  else render();
+}
+async function _adminQuickAddDevContact(){
+  if(!window._adminPw)return;
+  var f=ADMIN_DEVCONTACT_STATE.quickAdd;
+  if(!f.developer||!f.contactName){
+    ADMIN_DEVCONTACT_STATE.error="Fill in developer and contact name at minimum.";render();return;
+  }
+  if(!f.phone&&!f.whatsapp&&!f.email){
+    ADMIN_DEVCONTACT_STATE.error="Add at least one way to reach this contact — phone, WhatsApp, or email.";render();return;
+  }
+  try{
+    var r=await fetch(SUPABASE_URL+"/rest/v1/rpc/admin_add_developer_contact",{
+      method:"POST",headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},
+      body:JSON.stringify({
+        p_admin_password:window._adminPw,p_developer:f.developer,p_contact_name:f.contactName,
+        p_role:f.role||null,p_phone:f.phone||null,p_whatsapp:f.whatsapp||null,p_email:f.email||null,
+        p_office_area:f.officeArea||null,p_source:f.source||"admin",p_source_url:f.sourceUrl||null,p_notes:f.notes||null
+      })
+    });
+    if(r.ok){
+      ADMIN_DEVCONTACT_STATE.quickAdd={developer:"",contactName:"",role:"",phone:"",whatsapp:"",email:"",officeArea:"",source:"admin",sourceUrl:"",notes:""};
+      ADMIN_DEVCONTACT_STATE.error=null;
+    }else{ADMIN_DEVCONTACT_STATE.error="Could not add contact — check the fields and try again.";}
+  }catch(e){ADMIN_DEVCONTACT_STATE.error="Network error adding contact.";}
+  render();
+}
+
 function renderAdmin(){
   var cl=C();
   var wrap=el("div",{style:{padding:"20px",maxWidth:"500px",margin:"0 auto"}});
@@ -2146,6 +2213,7 @@ function renderAdmin(){
           _fetchAdminTrafficStats();
           _fetchAdminEventReports();
           _fetchAdminOffplanPending();
+          _fetchAdminDevContactsPending();
           _fetchAdminVoiceNumbers();
           render();
         } else {
@@ -2561,6 +2629,84 @@ function renderAdmin(){
     opCard.appendChild(dfBtn);
   }
   wrap.appendChild(opCard);
+
+  // -- DEVELOPER SALES-CONTACT DIRECTORY REVIEW (added 2026-08-05, Phase 3
+  // of the GenieMap gap-closing plan) — mirrors the Off-Plan Projects card
+  // above (same review-workflow shape), just without the Bayut-import/
+  // Paste-and-Extract/track-record sections, which don't apply here.
+  var dcCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginTop:"16px"}});
+  var dcHeader=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}});
+  dcHeader.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ Developer Contacts"));
+  var dcRefresh=el("button",{style:{background:cl.raised,border:"1px solid "+cl.border,color:cl.sub,borderRadius:"6px",padding:"4px 10px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+  dcRefresh.textContent=ADMIN_DEVCONTACT_STATE.loading?"Loading...":"↻ Refresh";
+  dcRefresh.disabled=ADMIN_DEVCONTACT_STATE.loading;
+  dcRefresh.onclick=function(){_fetchAdminDevContactsPending();};
+  dcHeader.appendChild(dcRefresh);
+  dcCard.appendChild(dcHeader);
+
+  if(ADMIN_DEVCONTACT_STATE.error)dcCard.appendChild(div({color:"#F59E0B",fontSize:"11px",fontFamily:"'Inter',sans-serif",marginBottom:"10px"},ADMIN_DEVCONTACT_STATE.error));
+
+  if(!ADMIN_DEVCONTACT_STATE.loaded&&!ADMIN_DEVCONTACT_STATE.loading){
+    var dcLoadBtn=el("button",{style:{width:"100%",padding:"10px",background:cl.raised,border:"1px solid "+cl.border,color:cl.gold,borderRadius:"8px",fontSize:"12px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+    dcLoadBtn.textContent="Load Pending Submissions";
+    dcLoadBtn.onclick=function(){_fetchAdminDevContactsPending();};
+    dcCard.appendChild(dcLoadBtn);
+  }else{
+    dcCard.appendChild(div({color:cl.sub,fontSize:"10px",letterSpacing:"0.08em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",marginTop:"8px"},"Pending Submissions ("+ADMIN_DEVCONTACT_STATE.pending.length+")"));
+    if(!ADMIN_DEVCONTACT_STATE.pending.length){
+      dcCard.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",padding:"8px 0"},"No pending submissions."));
+    }
+    ADMIN_DEVCONTACT_STATE.pending.forEach(function(c){
+      var row=el("div",{style:{padding:"10px 0",borderBottom:"1px solid "+cl.border}});
+      row.appendChild(div({color:cl.white,fontSize:"12.5px",fontWeight:"600",fontFamily:"'Inter',sans-serif"},c.contact_name+" — "+c.developer));
+      row.appendChild(div({color:cl.sub,fontSize:"10.5px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},(c.role||"—")+(c.office_area?(" · "+c.office_area):"")+" · submitted by "+(c.submitted_by||"—")));
+      var contactBits=[c.phone,c.whatsapp?("WA "+c.whatsapp):"",c.email].filter(Boolean).join(" · ");
+      if(contactBits)row.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",marginTop:"2px"},contactBits));
+      var btnRow=el("div",{style:{display:"flex",gap:"6px",marginTop:"8px"}});
+      var apBtn=el("button",{style:{background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.3)",color:"#10B981",borderRadius:"6px",padding:"5px 12px",fontSize:"10.5px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+      apBtn.textContent="✓ Approve";
+      apBtn.onclick=function(){_adminReviewDevContact(c.id,true,null);};
+      btnRow.appendChild(apBtn);
+      if(ADMIN_DEVCONTACT_STATE.rejectingId===c.id){
+        var reasonInp=inp(Object.assign({},I(),{fontSize:"11px",padding:"5px 8px",flex:"1"}),"Reason (optional)","text",ADMIN_DEVCONTACT_STATE.rejectReason,function(v){ADMIN_DEVCONTACT_STATE.rejectReason=v;});
+        btnRow.appendChild(reasonInp);
+        var confirmRejBtn=el("button",{style:{background:"rgba(239,68,68,0.15)",border:"1px solid rgba(239,68,68,0.4)",color:"#EF4444",borderRadius:"6px",padding:"5px 12px",fontSize:"10.5px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+        confirmRejBtn.textContent="Confirm Reject";
+        confirmRejBtn.onclick=function(){_adminReviewDevContact(c.id,false,ADMIN_DEVCONTACT_STATE.rejectReason);};
+        btnRow.appendChild(confirmRejBtn);
+      }else{
+        var rjBtn=el("button",{style:{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.25)",color:"#EF4444",borderRadius:"6px",padding:"5px 12px",fontSize:"10.5px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+        rjBtn.textContent="✕ Reject";
+        rjBtn.onclick=function(){ADMIN_DEVCONTACT_STATE.rejectingId=c.id;ADMIN_DEVCONTACT_STATE.rejectReason="";render();};
+        btnRow.appendChild(rjBtn);
+      }
+      row.appendChild(btnRow);
+      dcCard.appendChild(row);
+    });
+
+    // Quick-add: publish a contact directly (admin is the trusted curator).
+    dcCard.appendChild(div({color:cl.sub,fontSize:"10px",letterSpacing:"0.08em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"8px",marginTop:"16px"},"Quick Add (Published Immediately)"));
+    var dcqa=ADMIN_DEVCONTACT_STATE.quickAdd;
+    var dcqaGrid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px"}});
+    function dcqaField(placeholder,key,type){return inp(Object.assign({},I(),{fontSize:"11px",padding:"6px 8px"}),placeholder,type||"text",dcqa[key],function(v){dcqa[key]=v;});}
+    dcqaGrid.appendChild(dcqaField("Developer","developer"));
+    dcqaGrid.appendChild(dcqaField("Contact name","contactName"));
+    dcqaGrid.appendChild(dcqaField("Role","role"));
+    dcqaGrid.appendChild(dcqaField("Office / area","officeArea"));
+    dcqaGrid.appendChild(dcqaField("Phone","phone"));
+    dcqaGrid.appendChild(dcqaField("WhatsApp (if different)","whatsapp"));
+    dcqaGrid.appendChild(dcqaField("Email","email"));
+    dcqaGrid.appendChild(dcqaField("Source URL","sourceUrl"));
+    dcCard.appendChild(dcqaGrid);
+    var dcqaNotesW=el("div",{style:{marginTop:"6px"}});
+    dcqaNotesW.appendChild(dcqaField("Notes (optional)","notes"));
+    dcCard.appendChild(dcqaNotesW);
+    var dcqaBtn=el("button",{style:{width:"100%",marginTop:"8px",padding:"9px",background:"linear-gradient(135deg,#C9A84C,#D4A843)",border:"none",color:"#070B14",borderRadius:"8px",fontSize:"11px",fontWeight:"700",cursor:"pointer",fontFamily:"'Space Grotesk',monospace"}});
+    dcqaBtn.textContent="+ Add & Publish";
+    dcqaBtn.onclick=_adminQuickAddDevContact;
+    dcCard.appendChild(dcqaBtn);
+  }
+  wrap.appendChild(dcCard);
 
   // -- AI VOICE CONCIERGE — NUMBER POOL + AGENT SETUP (added 2026-07-19) --
   var vc=ADMIN_VOICE_STATE;

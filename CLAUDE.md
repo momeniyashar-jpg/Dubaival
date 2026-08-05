@@ -965,6 +965,136 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-08-05 (session continuing — Phase 3 of the GenieMap gap-closing
+  plan: Developer Sales-Contact Directory, a genuinely new feature/table)**:
+  Direct continuation of the same session — user said "برو سراغ فاز ۳" (go
+  to Phase 3). Unlike Phases 1-2 (both extended an existing feature), this
+  is genuinely new: GenieMap's own comparison named "a developer sales-
+  contact directory" as one of its 3 core feature gaps, alongside the
+  off-plan map (Phase 1) and branded catalog (Phase 2, both already shipped
+  this session).
+  - **New `supabase-developer-contacts-schema.sql`** (requires manual
+    execution): a `developer_contacts` table + 4 RPCs, deliberately
+    mirroring `supabase-offplan-schema.sql`'s own proven review-workflow
+    shape byte-for-byte (public read only `review_status='published'`; any
+    signed-in user can `submit_developer_contact()` → lands `pending`;
+    admin can `admin_add_developer_contact()` directly-published or
+    `admin_review_developer_contact()` approve/reject a pending one;
+    `admin_pending_developer_contacts()` for the review queue) rather than
+    inventing a second review mechanism — the same "queued, then admin-
+    verified" pattern already established and battle-tested via OFM listing
+    document verification and Off-Plan Projects. `developer` is
+    deliberately free text, not a hard FK into `developer_track_record`
+    (whose own `developer` column is `unique`) — that table's `developer`
+    field is already free text with no FK enforcement elsewhere in this
+    schema, so a hard FK here would risk silently orphaning a real
+    submission over a spelling mismatch nothing else in the schema guards
+    against either.
+  - **`js/offplan.js` — Developer Directory, a 3rd view alongside the
+    existing List/Map** (not a new top-level nav entry — the frozen-nav
+    rule requires explicit user approval for that; this is an internal view
+    toggle within the already-approved Market → Off-Plan tab, the same
+    pattern already established for AI Chief of Staff's own internal views
+    per this file's rule #7): `OFFPLAN_STATE` gained
+    `contacts`/`contactsLoaded`/`contactsLoading`/`contactsDbError`/
+    `contactSearch`/`showContactForm`/`contactForm` alongside the existing
+    project-related fields (kept in the same object per this file's own
+    established "one state object per tab" convention). New
+    `contactsLoad()`/`contactSubmit()` mirror `offplanLoad()`/
+    `offplanSubmit()` exactly, including the same "must be signed in to
+    submit" gate (`DV_AUTH.user` check) and the same graceful pre-migration
+    degrade (a clear "not available yet" message, not a crash, until the
+    SQL runs). New `_renderDeveloperDirectory()`/`_renderContactCard()`/
+    `_renderContactSubmitForm()` — the directory shows a client-side search
+    (developer or contact name substring) over real, published contacts,
+    each rendered as a card with real `tel:`/`wa.me`/`mailto:` action
+    links (WhatsApp falls back to the phone number when no dedicated
+    WhatsApp number was given, matching the same digits-only-normalization
+    convention every other `wa.me` link in this codebase already uses,
+    inlined rather than a new shared helper since no such helper existed
+    to reuse). The 3-way List/Map/Directory toggle button row is now shared;
+    the project-specific filter rows (area/developer/stage/price/handover/
+    sort) are gated to List/Map only, since Directory shows a completely
+    different dataset (developer contacts, not projects) with its own
+    search box.
+  - **A real bug caught and fixed mid-edit, before it ever reached a
+    test**: the first version of this change left an old, now-orphaned
+    unconditional `wrap.appendChild(filterRow1);` sitting right after
+    `filterRow1` was built (from BEFORE this session's edit), while the new
+    view-gated append block further down ALSO appended `filterRow1` a 2nd
+    time — meaning the Area/Developer/Stage filter row would have rendered
+    TWICE in List/Map view, and once (incorrectly) even in Directory view
+    where it doesn't belong at all. Caught by directly grepping for every
+    `wrap.appendChild(filterRow1)` call site before trusting the edit,
+    not by running the test first — fixed by removing the old, now-
+    redundant standalone append line, leaving exactly one, correctly
+    gated, append site for both filter rows.
+  - **Project-card integration**: `_renderOffplanCard()` (used by both List
+    and Map views) now shows a "📞 N Developer Contact(s) →" link at the
+    bottom whenever `OFFPLAN_STATE.contacts` (loaded unconditionally at the
+    top of `renderOffPlan()`, not only when Directory is opened, so this
+    link works from the very first render) has at least one published
+    contact for that project's own `developer` field — clicking it jumps
+    straight to Directory with `contactSearch` pre-filled to that
+    developer, reusing the existing search mechanism rather than building
+    a second inline contact-display component.
+  - **`js/app.js` — Admin Dashboard "◆ Developer Contacts" review card**,
+    inserted directly after the existing "◆ Off-Plan Projects" card: new
+    `ADMIN_DEVCONTACT_STATE` + `_fetchAdminDevContactsPending()`/
+    `_adminReviewDevContact()`/`_adminQuickAddDevContact()`, mirroring the
+    equivalent Off-Plan Projects admin functions exactly — including the
+    same "only refetch the pending list on a CONFIRMED success" fix already
+    applied to `_adminReviewOffplanProject()` in an earlier session (since
+    `_fetchAdminDevContactsPending()` itself resets `.error=null` the
+    instant it starts, calling it unconditionally on a FAILED review would
+    silently wipe the error message before the admin ever saw it). Wired
+    `_fetchAdminDevContactsPending()` into the admin login success handler
+    alongside the other `_fetchAdmin*` calls.
+  - **Verified two ways**: (1) a Node vm-sandbox test (12 checks) loading
+    the REAL `js/offplan.js` with a small faithful `el()`/`div()`/`span()`
+    DOM-stand-in — confirmed `_renderContactCard()` builds correct real
+    `tel:`/`wa.me`/`mailto:` links (including the WhatsApp-falls-back-to-
+    phone case and the real-different-WhatsApp-number case), `contactSubmit()`
+    correctly rejects an empty form and a form with no contact method,
+    correctly posts the exact expected RPC body (including
+    `p_submitted_by` from the real signed-in user) on a valid submission,
+    the project-card "Developer Contact" link correctly shows only for a
+    developer with a real matching published contact and stays hidden
+    otherwise, and Directory's search correctly narrows to the matching
+    developer only; (2) a real-browser Playwright pass (mocked Supabase
+    REST/RPC responses) driving the actual rendered UI end-to-end — a
+    seeded project's card shows the real contact link, clicking it jumps to
+    Directory with the search correctly pre-filled and the real contact
+    card visible with working `tel:`/`wa.me`/`mailto:` links, the Submit
+    form correctly triggers the sign-in gate when logged out (confirmed
+    zero RPC call fires) and correctly submits for real once signed in, and
+    the Admin Dashboard's new card renders a real mocked pending
+    submission whose "✓ Approve" button correctly fires
+    `admin_review_developer_contact` with the exact right `contact_id`/
+    `approve:true` — zero unexpected console errors (only the same
+    pre-existing, well-documented sandboxed "Market intelligence failed:
+    API 501" artifact seen throughout this project's history).
+  - Cache version bumped: `js/app.js` and `js/offplan.js` to `?v=20260805b`
+    (2nd same-day bump for both — `20260805a` was already used earlier
+    today for Phase 0/Phase 1 respectively) in both `index.html` and
+    `sw.js`'s `PRECACHE` array; `sw.js`'s `CACHE_NAME` bumped
+    `dubaival-v93`→`dubaival-v94`. Rebuilt `www/` and manually synced
+    `index.html`/`js/app.js`/`js/offplan.js`/`sw.js` into
+    `android/app/src/main/assets/public/` (`npx cap sync android` failed
+    as always in this sandbox — no Android SDK).
+  - **Manual step required before this is live**: run
+    `supabase-developer-contacts-schema.sql` in Supabase SQL Editor
+    (requires `supabase-admin-security-fix.sql` already applied, which it
+    is — reuses `_admin_password_ok()`). Until then, Directory shows its
+    existing graceful "not available yet" empty state, matching the same
+    pattern already proven for the Off-Plan Projects tab itself before its
+    own migration was run.
+  - **Next**: Phase 4 (pay-per-use video call/screen-share with clients) is
+    the natural next session's starting point — see the updated Outstanding
+    item below; no vendor/SDK has been chosen yet (Daily.co and Whereby
+    Embedded were named as realistic serverless-friendly candidates, not
+    yet evaluated in depth).
+
 - **2026-08-05 (session continuing — Phase 2 of the GenieMap gap-closing
   plan: multi-project branded off-plan catalog, built by extending the
   existing Custom Report Builder rather than a parallel system)**: Direct
@@ -13350,30 +13480,34 @@ These files contain critical business logic and data:
 
 ## Outstanding / open items
 
-- **🟡 GenieMap gap-closing plan — Phases 0-2 shipped same session; Phases
-  3-4 not started** (added 2026-08-05, updated twice same session as
-  Phases 1 and 2 shipped): Phase 0's `supabase-offplan-seed-data.sql` has
-  been confirmed run by the user — the 4 real, individually-verified
-  off-plan projects (DAMAC Islands 2, Sobha Hartland 2 - Skyscape
-  Collection, Binghatti Skyrise, The Oasis by Emaar — see the Phase 0
-  work-log entry for full sourcing detail) are live in the Off-Plan tab.
-  Phase 1 (the off-plan map with real project pins + stage/price-band/
-  handover-range filters) and Phase 2 (a multi-project branded catalog
-  generator, built by extending the existing Custom Report Builder) are
-  both code-complete and independently verified via real-browser Playwright
-  passes — see the same-dated work-log entries above for the full test
-  breakdown of each. The Bayut `new-projects` import (`js/app.js`
+- **🟡 GenieMap gap-closing plan — Phases 0-3 shipped same session; Phase 4
+  not started** (added 2026-08-05, updated 3 times same session as Phases
+  1-3 shipped): Phase 0's `supabase-offplan-seed-data.sql` has been
+  confirmed run by the user — the 4 real, individually-verified off-plan
+  projects (DAMAC Islands 2, Sobha Hartland 2 - Skyscape Collection,
+  Binghatti Skyrise, The Oasis by Emaar — see the Phase 0 work-log entry
+  for full sourcing detail) are live in the Off-Plan tab. Phase 1 (the
+  off-plan map with real project pins + stage/price-band/handover-range
+  filters), Phase 2 (a multi-project branded catalog generator extending
+  the existing Report Builder), and Phase 3 (the Developer Sales-Contact
+  Directory, a genuinely new feature/table) are all code-complete and
+  independently verified via real-browser Playwright passes — see the
+  same-dated work-log entries above for the full test breakdown of each.
+  Phase 3's own `supabase-developer-contacts-schema.sql` still needs
+  manual execution (requires `supabase-admin-security-fix.sql` already
+  applied, which it is) — until then, Directory shows the same graceful
+  "not available yet" message the Off-Plan tab itself used before its own
+  migration ran. The Bayut `new-projects` import (`js/app.js`
   `_adminFetchBayutOffplan()`) has real error-detail surfacing but is
   STILL genuinely untested against a live `RAPIDAPI_KEY` — the next
   attempt against the real key (in the actual deployed Admin Dashboard) is
   what will validate or reveal a needed fix, not another guess from this
-  sandbox. **Not started at all**: Phase 3 (developer sales-contact
-  directory, a genuinely new feature/table — the natural next session's
-  starting point), Phase 4 (pay-per-use video call/screen-share with
-  clients — user confirmed pay-per-use pricing, matching the established
-  WhatsApp/video-credit pattern, but no vendor/SDK has been chosen yet —
-  Daily.co and Whereby Embedded were named as realistic serverless-friendly
-  candidates, not yet evaluated in depth).
+  sandbox. **Not started at all**: Phase 4 (pay-per-use video call/
+  screen-share with clients — user confirmed pay-per-use pricing, matching
+  the established WhatsApp/video-credit pattern, but no vendor/SDK has
+  been chosen yet — Daily.co and Whereby Embedded were named as realistic
+  serverless-friendly candidates, not yet evaluated in depth — the natural
+  next session's starting point).
 
 - **🔴 CRITICAL, USER ACTION REQUIRED — GROQ_API_KEY in Vercel is invalid/
   expired, breaking EVERY AI feature site-wide (added 2026-07-27)**: the

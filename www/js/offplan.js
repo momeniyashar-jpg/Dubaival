@@ -59,14 +59,29 @@ var OFFPLAN_STATE = {
   filterStage: "",
   filterPriceBand: "", // '' | 'under1500' | '1500-2000' | '2000-2500' | '2500+'
   filterHandoverRange: "", // '' | '1y' | '1-2y' | '2-3y' | '3y+'
-  view: "list", // 'list' | 'map'
+  view: "list", // 'list' | 'map' | 'directory'
   sort: "handover", // 'handover' | 'growth' | 'newest'
   showSubmitForm: false,
   submitting: false,
   submitError: "",
   submitOk: false,
   form: { name:"", developer:"", area:"", projectStage:"prelaunch", eoiOpenDate:"", launchDate:"", expectedHandover:"", paymentPlan:"", unitPricing:"", source:"", sourceUrl:"", notes:"" },
-  aiExtract: { open:false, text:"", loading:false, error:null }
+  aiExtract: { open:false, text:"", loading:false, error:null },
+  // Developer Sales-Contact Directory — added 2026-08-05 (Phase 3 of the
+  // GenieMap gap-closing plan). A genuinely separate dataset from
+  // `projects` (developer_contacts is its own table), but kept inside this
+  // same OFFPLAN_STATE object per this file's own established convention
+  // (projects/devRecords/form/aiExtract already live here together).
+  contacts: [],
+  contactsLoaded: false,
+  contactsLoading: false,
+  contactsDbError: false,
+  contactSearch: "",
+  showContactForm: false,
+  contactSubmitting: false,
+  contactSubmitError: "",
+  contactSubmitOk: false,
+  contactForm: { developer:"", contactName:"", role:"", phone:"", whatsapp:"", email:"", officeArea:"", source:"", sourceUrl:"", notes:"" }
 };
 
 // Off-plan project map — dedicated state, deliberately NOT sharing
@@ -174,6 +189,58 @@ async function offplanLoad(){
   OFFPLAN_STATE.loading=false;
   OFFPLAN_STATE.loaded=true;
   render();
+}
+
+// ── DEVELOPER SALES-CONTACT DIRECTORY ───────────────────────────────────────
+// Added 2026-08-05 (Phase 3 of the GenieMap gap-closing plan). Same
+// review-workflow shape as offplanLoad()/offplanSubmit() above (public
+// submission -> pending -> admin approves/rejects), reusing the exact
+// pattern rather than inventing a second one — see
+// supabase-developer-contacts-schema.sql for the real table/RPCs.
+async function contactsLoad(){
+  if(OFFPLAN_STATE.contactsLoading||OFFPLAN_STATE.contactsLoaded)return;
+  OFFPLAN_STATE.contactsLoading=true;
+  try{
+    var r=await fetch(SUPABASE_URL+"/rest/v1/developer_contacts?select=*&review_status=eq.published&order=developer.asc&limit=500",{headers:_offplanH()});
+    if(r.ok)OFFPLAN_STATE.contacts=await r.json();
+    else OFFPLAN_STATE.contactsDbError=true;
+  }catch(e){OFFPLAN_STATE.contactsDbError=true;}
+  OFFPLAN_STATE.contactsLoading=false;
+  OFFPLAN_STATE.contactsLoaded=true;
+  render();
+}
+async function contactSubmit(){
+  var f=OFFPLAN_STATE.contactForm;
+  if(!f.developer||!f.contactName){
+    OFFPLAN_STATE.contactSubmitError="Please fill in developer and contact name at minimum.";
+    render();return;
+  }
+  if(!f.phone&&!f.whatsapp&&!f.email){
+    OFFPLAN_STATE.contactSubmitError="Add at least one way to reach this contact — phone, WhatsApp, or email.";
+    render();return;
+  }
+  if(typeof DV_AUTH==="undefined"||!DV_AUTH.user){
+    DV_AUTH.showModal=true;DV_AUTH.modalTab="signin";render();return;
+  }
+  OFFPLAN_STATE.contactSubmitting=true;OFFPLAN_STATE.contactSubmitError="";render();
+  try{
+    var r=await fetch(SUPABASE_URL+"/rest/v1/rpc/submit_developer_contact",{
+      method:"POST",headers:_offplanH(),
+      body:JSON.stringify({
+        p_developer:f.developer,p_contact_name:f.contactName,p_role:f.role||null,
+        p_phone:f.phone||null,p_whatsapp:f.whatsapp||null,p_email:f.email||null,
+        p_office_area:f.officeArea||null,p_source:f.source||"agent-submission",
+        p_source_url:f.sourceUrl||null,p_notes:f.notes||null,p_submitted_by:DV_AUTH.user.email
+      })
+    });
+    if(r.ok){
+      OFFPLAN_STATE.contactSubmitOk=true;
+      OFFPLAN_STATE.contactForm={developer:"",contactName:"",role:"",phone:"",whatsapp:"",email:"",officeArea:"",source:"",sourceUrl:"",notes:""};
+    }else{
+      OFFPLAN_STATE.contactSubmitError="Could not submit — please try again.";
+    }
+  }catch(e){OFFPLAN_STATE.contactSubmitError="Network error — please try again.";}
+  OFFPLAN_STATE.contactSubmitting=false;render();
 }
 
 // ── PREDICTION ENGINE ─────────────────────────────────────────────────────
@@ -456,6 +523,10 @@ function _renderOffplanMap(cl,items){
 function renderOffPlan(){
   var cl=C();
   if(!OFFPLAN_STATE.loaded&&!OFFPLAN_STATE.loading)offplanLoad();
+  // Triggered here (not only inside the Directory view itself) so the
+  // "Contact developer" link on each project card (List/Map views) has
+  // real data to check against without requiring a Directory visit first.
+  if(!OFFPLAN_STATE.contactsLoaded&&!OFFPLAN_STATE.contactsLoading&&typeof contactsLoad==="function")contactsLoad();
   var wrap=el("div",{style:{padding:"20px",maxWidth:"900px",margin:"0 auto",paddingBottom:"80px"}});
 
   var hero=el("div",{style:{marginBottom:"20px"}});
@@ -482,7 +553,6 @@ function renderOffPlan(){
     var idx=stageOptLabels.indexOf(v);
     OFFPLAN_STATE.filterStage=idx>=0?stageKeysForFilter[idx]:"";render();
   }));
-  wrap.appendChild(filterRow1);
 
   var filterRow2=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"12px"}});
   var priceBandLabels={"":"Any Price","under1500":"Under 1,500/sqft","1500-2000":"1,500–2,000/sqft","2000-2500":"2,000–2,500/sqft","2500+":"2,500+/sqft"};
@@ -498,11 +568,17 @@ function renderOffPlan(){
     OFFPLAN_STATE.filterHandoverRange=found||"";render();
   }));
   filterRow2.appendChild(mkSelect(Object.assign({},I(),{fontSize:"12px",padding:"8px"}),["Handover Date","Highest Growth","Newest"],{handover:"Handover Date",growth:"Highest Growth",newest:"Newest"}[OFFPLAN_STATE.sort]||"Handover Date",function(v){OFFPLAN_STATE.sort={"Handover Date":"handover","Highest Growth":"growth","Newest":"newest"}[v]||"handover";render();}));
-  wrap.appendChild(filterRow2);
+  // Filter rows only apply to the project List/Map views — Directory shows
+  // developer contacts, a completely different dataset with its own search.
+  if(OFFPLAN_STATE.view!=="directory"){
+    wrap.appendChild(filterRow1);
+    wrap.appendChild(filterRow2);
+  }
 
-  // List / Map toggle
+  // List / Map / Directory toggle — Directory added 2026-08-05 (Phase 3 of
+  // the GenieMap gap-closing plan).
   var viewToggle=el("div",{style:{display:"flex",gap:"6px",marginBottom:"16px"}});
-  [["list","☰ List"],["map","📍 Map"]].forEach(function(pair){
+  [["list","☰ List"],["map","📍 Map"],["directory","👥 Directory"]].forEach(function(pair){
     var active=OFFPLAN_STATE.view===pair[0];
     var b=el("button",{style:{flex:"1",padding:"9px",borderRadius:"9px",border:"1px solid "+(active?cl.goldDim||cl.gold:cl.border),background:active?(cl.goldFaint||"rgba(212,175,55,0.1)"):"transparent",color:active?cl.gold:cl.sub,fontSize:"12px",fontWeight:active?"700":"500",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
     b.textContent=pair[1];
@@ -510,6 +586,14 @@ function renderOffPlan(){
     viewToggle.appendChild(b);
   });
   wrap.appendChild(viewToggle);
+
+  // Directory is a fully separate dataset (developer contacts, not
+  // projects) — branches out here before any project-specific loading/
+  // error/empty-state/filter logic below, none of which applies to it.
+  if(OFFPLAN_STATE.view==="directory"){
+    wrap.appendChild(_renderDeveloperDirectory(cl));
+    return wrap;
+  }
 
   // Submit CTA
   var submitBtn=el("button",{style:{width:"100%",padding:"11px",borderRadius:"10px",border:"1px solid rgba(212,175,55,0.3)",background:"rgba(212,175,55,0.08)",color:cl.gold,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",marginBottom:"16px"}});
@@ -688,10 +772,143 @@ function _renderOffplanCard(cl,p,fcs){
     card.appendChild(div({color:fcs[0].hasDevData?"#10B981":cl.sub,fontSize:"9.5px",fontFamily:"'Inter',sans-serif",fontStyle:"italic",marginBottom:"4px"},fcs[0].confidence));
   }
 
+  var bottomRow=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:"4px",gap:"8px"}});
   if(p.source_url){
-    var srcLink=el("a",{href:p.source_url,target:"_blank",rel:"noopener",style:{display:"inline-block",marginTop:"4px",color:cl.gold,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",textDecoration:"none"}});
+    var srcLink=el("a",{href:p.source_url,target:"_blank",rel:"noopener",style:{display:"inline-block",color:cl.gold,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",textDecoration:"none"}});
+    srcLink.textContent="Source →";
+    bottomRow.appendChild(srcLink);
+  }
+  // Developer Sales-Contact Directory link (Phase 3, added 2026-08-05) —
+  // only shown once contacts are loaded AND this project's developer has at
+  // least one real published contact on file. Jumps straight to the
+  // Directory view pre-filtered to this developer, rather than duplicating
+  // a second inline contact-display component here.
+  if(OFFPLAN_STATE.contactsLoaded&&!OFFPLAN_STATE.contactsDbError){
+    var devContacts=OFFPLAN_STATE.contacts.filter(function(c){return c.developer===p.developer;});
+    if(devContacts.length){
+      var contactLink=el("button",{style:{background:"transparent",border:"none",color:"#3B82F6",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",padding:"0",marginLeft:"auto"}});
+      contactLink.textContent="📞 "+devContacts.length+" Developer Contact"+(devContacts.length===1?"":"s")+" →";
+      contactLink.addEventListener("click",function(){OFFPLAN_STATE.view="directory";OFFPLAN_STATE.contactSearch=p.developer;render();});
+      bottomRow.appendChild(contactLink);
+    }
+  }
+  if(bottomRow.children&&bottomRow.children.length)card.appendChild(bottomRow);
+  return card;
+}
+
+function _renderContactCard(cl,c){
+  var card=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"14px",marginBottom:"10px"}});
+  var topRow=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"6px",gap:"8px"}});
+  var left=el("div",{});
+  left.appendChild(div({color:"#E8EDF5",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},c.contact_name));
+  left.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},c.developer+(c.role?" · "+c.role:"")));
+  if(c.office_area)left.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif",marginTop:"2px"},c.office_area));
+  topRow.appendChild(left);
+  card.appendChild(topRow);
+
+  var actRow=el("div",{style:{display:"flex",flexWrap:"wrap",gap:"6px",marginTop:"8px"}});
+  function actBtn(label,color,href){
+    var b=el("a",{href:href,target:"_blank",rel:"noopener",style:{display:"inline-flex",alignItems:"center",gap:"4px",background:hexAlpha(color,0.1),border:"1px solid "+hexAlpha(color,0.3),borderRadius:"8px",padding:"6px 11px",fontSize:"10.5px",fontWeight:"700",color:color,fontFamily:"'Space Grotesk',monospace",textDecoration:"none"}});
+    b.textContent=label;
+    return b;
+  }
+  if(c.phone)actRow.appendChild(actBtn("📞 Call","#3B82F6","tel:"+c.phone.replace(/[^0-9+]/g,"")));
+  var waNum=(c.whatsapp||c.phone||"").replace(/[^0-9+]/g,"");
+  if(waNum)actRow.appendChild(actBtn("WhatsApp","#25D366","https://wa.me/"+waNum.replace(/^\+/,"")));
+  if(c.email)actRow.appendChild(actBtn("✉ Email","#F59E0B","mailto:"+c.email));
+  card.appendChild(actRow);
+
+  if(c.notes)card.appendChild(div({color:cl.sub,fontSize:"10.5px",fontFamily:"'Inter',sans-serif",marginTop:"8px",lineHeight:"1.5"},c.notes));
+  if(c.source_url){
+    var srcLink=el("a",{href:c.source_url,target:"_blank",rel:"noopener",style:{display:"inline-block",marginTop:"6px",color:cl.gold,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",textDecoration:"none"}});
     srcLink.textContent="Source →";
     card.appendChild(srcLink);
   }
   return card;
+}
+
+function _renderContactSubmitForm(cl){
+  var card=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"16px",marginBottom:"16px"}});
+  var f=OFFPLAN_STATE.contactForm;
+  card.appendChild(div({color:cl.gold,fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",marginBottom:"12px"},"Submit a Developer Contact"));
+  if(OFFPLAN_STATE.contactSubmitOk){
+    card.appendChild(div({color:"#10B981",fontSize:"12px",fontWeight:"600",padding:"10px 0"},"✓ Submitted — it'll appear once an admin reviews and publishes it."));
+    return card;
+  }
+  var grid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}});
+  function field(label,key,placeholder,type){
+    var w=el("div",{});
+    w.appendChild(lbl(label));
+    w.appendChild(inp(I(),placeholder||"",type||"text",f[key],function(v){f[key]=v;}));
+    return w;
+  }
+  grid.appendChild(field("Developer","developer","e.g. Emaar"));
+  grid.appendChild(field("Contact Name","contactName","e.g. Sara Al Mansoori"));
+  grid.appendChild(field("Role (optional)","role","e.g. Off-Plan Sales Manager"));
+  grid.appendChild(field("Office / Area (optional)","officeArea","e.g. Business Bay HQ"));
+  grid.appendChild(field("Phone","phone","+971 5..."));
+  grid.appendChild(field("WhatsApp (optional, if different)","whatsapp","+971 5..."));
+  grid.appendChild(field("Email (optional)","email","name@developer.com"));
+  grid.appendChild(field("Source","source","linkedin / developer-site / met in person"));
+  card.appendChild(grid);
+  card.appendChild(el("div",{style:{marginTop:"8px"}},[field("Source URL (optional)","sourceUrl","https://...")]));
+  card.appendChild(el("div",{style:{marginTop:"8px"}},[field("Notes (optional)","notes","Anything else worth noting")]));
+  if(OFFPLAN_STATE.contactSubmitError)card.appendChild(div({color:"#EF4444",fontSize:"11px",marginTop:"8px"},OFFPLAN_STATE.contactSubmitError));
+  var btn=el("button",{style:{width:"100%",marginTop:"12px",padding:"11px",borderRadius:"10px",border:"none",background:"linear-gradient(135deg,#C9A84C,#D4A843)",color:"#070B14",fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+  btn.textContent=OFFPLAN_STATE.contactSubmitting?"Submitting…":"Submit for Review";
+  btn.addEventListener("click",contactSubmit);
+  card.appendChild(btn);
+  return card;
+}
+
+function _renderDeveloperDirectory(cl){
+  var wrap=el("div",{});
+  var hdr=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"}});
+  hdr.appendChild(span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Developer Sales-Contact Directory"));
+  wrap.appendChild(hdr);
+  wrap.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6",marginBottom:"12px"},
+    "Real sales contacts at the developers behind these off-plan launches — reach out directly instead of going through a generic inquiry form."));
+
+  var submitBtn=el("button",{style:{width:"100%",padding:"10px",borderRadius:"10px",border:"1px solid rgba(212,175,55,0.3)",background:"rgba(212,175,55,0.08)",color:cl.gold,fontSize:"12px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",marginBottom:"12px"}});
+  submitBtn.textContent=OFFPLAN_STATE.showContactForm?"− Hide Submit Form":"+ Submit a Developer Contact";
+  submitBtn.addEventListener("click",function(){OFFPLAN_STATE.showContactForm=!OFFPLAN_STATE.showContactForm;OFFPLAN_STATE.contactSubmitOk=false;render();});
+  wrap.appendChild(submitBtn);
+  if(OFFPLAN_STATE.showContactForm)wrap.appendChild(_renderContactSubmitForm(cl));
+
+  if(!OFFPLAN_STATE.contactsLoaded&&!OFFPLAN_STATE.contactsLoading&&typeof contactsLoad==="function")contactsLoad();
+
+  if(OFFPLAN_STATE.contactsLoading||!OFFPLAN_STATE.contactsLoaded){
+    wrap.appendChild(div({color:cl.sub,fontSize:"12px",textAlign:"center",padding:"30px 0"},"Loading developer contacts…"));
+    return wrap;
+  }
+  if(OFFPLAN_STATE.contactsDbError){
+    var errCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"12px",padding:"20px",textAlign:"center"}});
+    errCard.appendChild(div({color:cl.sub,fontSize:"12px"},"Developer contacts aren't available yet — this feature is still being set up."));
+    wrap.appendChild(errCard);
+    return wrap;
+  }
+
+  var searchInp=el("input",{type:"text",placeholder:"Filter by developer or contact name…",
+    style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"9px 12px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"}});
+  searchInp.value=OFFPLAN_STATE.contactSearch||"";
+  searchInp.addEventListener("input",function(){OFFPLAN_STATE.contactSearch=this.value;render();});
+  wrap.appendChild(searchInp);
+
+  var q=(OFFPLAN_STATE.contactSearch||"").toLowerCase();
+  var matches=OFFPLAN_STATE.contacts.filter(function(c){
+    if(!q)return true;
+    return (c.developer||"").toLowerCase().indexOf(q)!==-1||(c.contact_name||"").toLowerCase().indexOf(q)!==-1;
+  });
+
+  if(!matches.length){
+    var emptyCard=el("div",{style:{background:cl.surface,border:"1px solid "+cl.border,borderRadius:"14px",padding:"32px 20px",textAlign:"center"}});
+    emptyCard.appendChild(div({fontSize:"28px",marginBottom:"10px"},"👥"));
+    emptyCard.appendChild(div({color:"#E8EDF5",fontSize:"14px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",marginBottom:"6px"},OFFPLAN_STATE.contacts.length===0?"No developer contacts on file yet":"No contacts match this filter"));
+    emptyCard.appendChild(div({color:cl.sub,fontSize:"12px",lineHeight:"1.6"},OFFPLAN_STATE.contacts.length===0?"Be the first to submit a real contact you know — it'll be reviewed and published once verified.":"Try clearing the filter above."));
+    wrap.appendChild(emptyCard);
+    return wrap;
+  }
+
+  matches.forEach(function(c){wrap.appendChild(_renderContactCard(cl,c));});
+  return wrap;
 }
