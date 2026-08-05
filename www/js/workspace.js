@@ -2,7 +2,14 @@
 // --- MY WORKSPACE TAB ---------------------------------------------------------
 var WS_STATE={widgets:[],mode:"dashboard",reportMode:"visual",reportSections:[],reportLang:"en",reportColor:"gold",reportTitle:"",reportLogo:null,templates:[],voiceActive:false,voiceText:"",parsed:false,
   reportArea:"",reportClientName:"",reportPrice:"",reportNationality:"expat",reportBuilding:"",
-  agent:{name:"",phone:"",company:"",rera:""}};
+  agent:{name:"",phone:"",company:"",rera:""},
+  // Added 2026-08-05 (Phase 2 of the GenieMap gap-closing plan) — a 2nd
+  // report shape alongside the existing single-property valuation report:
+  // a branded, multi-project off-plan catalog (GenieMap's own "branded
+  // catalog generator" feature). reportType gates which UI/generator runs;
+  // everything else in WS_STATE (agent branding, language/color/title/logo,
+  // reportClientName) is genuinely report-type-agnostic and stays shared.
+  reportType:"valuation",offplanSelected:[],offplanSearch:""};
 // The generated report is written via window.document.write(rawHtml) — any
 // free-text field (client name, agent name/company/RERA, custom title,
 // building name) interpolated in unescaped would execute as real HTML/JS in
@@ -10,6 +17,41 @@ var WS_STATE={widgets:[],mode:"dashboard",reportMode:"visual",reportSections:[],
 // before it goes into generateReport()'s HTML string.
 function _wsEsc(s){
   return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+var WS_REPORT_COLORS={gold:"#C9A84C",blue:"#3B82F6",green:"#22C55E",red:"#EF4444",purple:"#A78BFA"};
+// Shared print-window head+style block — extracted 2026-08-05 (Phase 2) from
+// generateReport() verbatim (byte-for-byte, verified via a before/after
+// output diff before shipping) so the new Off-Plan Catalog generator below
+// reuses the exact same look instead of a second, driftable CSS copy.
+function _wsReportStyleBlock(title,isAr,accent){
+  var h='<!DOCTYPE html><html dir="'+(isAr?"rtl":"ltr")+'" lang="'+(isAr?"ar":"en")+'"><head><meta charset="UTF-8"><title>'+_wsEsc(title)+'</title>';
+  h+='<style>*{box-sizing:border-box}body{font-family:'+(isAr?"'Cairo',":"")+"Arial,sans-serif;max-width:800px;margin:0 auto;padding:30px;color:#333;background:#fff}";
+  h+="h1{color:"+accent+";font-size:24px;margin-bottom:4px}";
+  h+="h2{color:"+accent+";font-size:18px;margin-top:24px;border-bottom:2px solid "+accent+";padding-bottom:6px}";
+  h+="table{width:100%;border-collapse:collapse;margin:10px 0}td,th{padding:8px 12px;border:1px solid #ddd;font-size:12px}th{background:#f5f5f5}";
+  h+=".card{background:#f9f9f9;border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin:10px 0}";
+  h+=".metric{display:inline-block;padding:8px 16px;margin:4px;border-radius:6px;background:#f0f0f0;font-size:13px}";
+  h+=".hdr{border-bottom:3px solid "+accent+";padding-bottom:14px;margin-bottom:14px}";
+  h+=".accent{color:"+accent+"}.hi{background:"+accent+"18}@media print{body{padding:10px}}</style></head><body>";
+  return h;
+}
+// Shared agent-branding header — same extraction, same verbatim guarantee.
+// extraLines is an array of already-built (already-escaped) <p> HTML
+// strings appended right after "Prepared for", for report-type-specific
+// context (e.g. generateReport()'s "Property: ..." line).
+function _wsReportHeaderHtml(title,isAr,agent,extraLines){
+  var h='<div class="hdr">';
+  if(WS_STATE.reportLogo)h+='<img src="'+WS_STATE.reportLogo+'" style="max-height:50px;margin-bottom:10px;display:block" />';
+  h+="<h1>"+_wsEsc(title)+"</h1>";
+  var agentLine=[agent.name,agent.company].filter(Boolean).map(_wsEsc).join(" · ");
+  var agentLine2=[agent.phone,agent.rera?"RERA "+agent.rera:""].filter(Boolean).map(_wsEsc).join(" · ");
+  if(agentLine)h+='<p style="font-size:13px;font-weight:bold;margin:4px 0">'+agentLine+"</p>";
+  if(agentLine2)h+='<p style="font-size:12px;color:#555;margin:2px 0">'+agentLine2+"</p>";
+  if(WS_STATE.reportClientName)h+='<p style="font-size:12px;color:#555;margin:8px 0 0">Prepared for: <strong>'+_wsEsc(WS_STATE.reportClientName)+"</strong></p>";
+  (extraLines||[]).forEach(function(line){h+=line;});
+  h+='<p style="color:#999;font-size:10px;margin-top:4px">'+new Date().toLocaleDateString()+"</p>";
+  h+="</div>";
+  return h;
 }
 try{var _ws=localStorage.getItem("dv_workspace");if(_ws){var d=JSON.parse(_ws);WS_STATE.widgets=d.widgets||[];}}catch(e){}
 try{var _rt=localStorage.getItem("dv_report_templates");if(_rt)WS_STATE.templates=JSON.parse(_rt);}catch(e){}
@@ -280,6 +322,23 @@ function renderReportBuilder(wrap,cl){
     span({color:cl.gold,fontSize:"10px",letterSpacing:"0.14em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"◆ Custom Report Builder"),
     span({color:cl.sub,fontSize:"9px",fontFamily:"'Space Grotesk',monospace"},"Visual · Text · Voice")]));
 
+  // Report Type — added 2026-08-05 (Phase 2 of the GenieMap gap-closing
+  // plan): a 2nd report shape, a branded multi-project off-plan catalog,
+  // alongside the original single-property valuation report. Everything
+  // below this toggle branches on it; "Your Details"/"Report Settings"
+  // (agent branding, language/color/title/logo) stay unconditional further
+  // down since they're genuinely report-type-agnostic.
+  var rtBar=div({display:"flex",gap:"6px",marginBottom:"14px"});
+  [{l:"Property Report",v:"valuation"},{l:"Off-Plan Catalog",v:"offplan"}].forEach(function(rt){
+    var active=WS_STATE.reportType===rt.v;
+    rtBar.appendChild(el("button",{style:{flex:"1",padding:"9px",borderRadius:"9px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",
+      background:active?"linear-gradient(135deg,"+cl.gold+",#7A5E28)":"transparent",color:active?"#08090C":cl.sub,border:"1px solid "+(active?cl.gold:cl.border)},
+      onclick:function(){WS_STATE.reportType=rt.v;render();}},rt.l));
+  });
+  card.appendChild(rtBar);
+
+  if(WS_STATE.reportType==="valuation"){
+
   // Mode tabs
   var rmBar=div({display:"flex",gap:"6px",marginBottom:"14px"});
   [{l:"Visual Builder",v:"visual"},{l:"Smart Text",v:"text"},{l:"Voice",v:"voice"}].forEach(function(m){
@@ -490,6 +549,103 @@ function renderReportBuilder(wrap,cl){
   });
   card.appendChild(secCard);
 
+  }else{
+    // Off-Plan Catalog picker — pick real, tracked off-plan projects (the
+    // same data + forecast engine Phase 1's Off-Plan Projects tab/map
+    // already uses) to build one branded, client-facing document combining
+    // several launches, matching GenieMap's own "branded catalog generator"
+    // feature. Deliberately reuses OFFPLAN_STATE directly rather than a
+    // separate fetch — safe cross-file reference despite js/offplan.js
+    // loading earlier in index.html's script order, since this only ever
+    // runs after every deferred module has finished loading (same pattern
+    // already established elsewhere, e.g. this file's own Sustainability
+    // Score section calling lookupBuilding()/computeSustainabilityScore()).
+    if(typeof OFFPLAN_STATE!=="undefined"&&!OFFPLAN_STATE.loaded&&!OFFPLAN_STATE.loading&&typeof offplanLoad==="function")offplanLoad();
+
+    var opCard=div({marginBottom:"14px"});
+    var opHdr=div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"});
+    opHdr.appendChild(span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace"},"Select Off-Plan Projects"));
+    var opClearBtn=el("button",{style:{background:"transparent",border:"1px solid "+cl.border,color:cl.sub,padding:"3px 10px",borderRadius:"6px",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+    opClearBtn.textContent="↺ Clear Selection";
+    opClearBtn.addEventListener("click",function(){WS_STATE.offplanSelected=[];WS_STATE.offplanSearch="";render();});
+    opHdr.appendChild(opClearBtn);
+    opCard.appendChild(opHdr);
+
+    var opDesc=div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6",marginBottom:"10px"},
+      "Pick real, tracked off-plan projects to combine into one branded catalog for a client — each shows its full launch → handover → +5yr forecast.");
+    opCard.appendChild(opDesc);
+
+    // Client name — the one Report Subject field genuinely relevant to a
+    // catalog too ("Prepared for: ..."); area/building/price/nationality
+    // (valuation-only) are intentionally NOT shown here.
+    var opClientInp=el("input",{type:"text",placeholder:"Client name (optional)",
+      style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"9px 12px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"}});
+    opClientInp.value=WS_STATE.reportClientName||"";
+    opClientInp.addEventListener("input",function(){WS_STATE.reportClientName=this.value;});
+    opCard.appendChild(opClientInp);
+
+    if(typeof OFFPLAN_STATE==="undefined"||OFFPLAN_STATE.loading){
+      opCard.appendChild(div({color:cl.sub,fontSize:"11px",textAlign:"center",padding:"20px 0"},"Loading tracked projects…"));
+    }else if(OFFPLAN_STATE.dbError){
+      opCard.appendChild(div({background:hexAlpha("#F59E0B",0.08),border:"1px solid "+hexAlpha("#F59E0B",0.25),borderRadius:"8px",padding:"10px",color:"#F59E0B",fontSize:"11px",fontFamily:"'Inter',sans-serif"},
+        "Off-Plan data isn't available yet — this feature is still being set up."));
+    }else if(!OFFPLAN_STATE.projects.length){
+      opCard.appendChild(div({background:hexAlpha("#F59E0B",0.08),border:"1px solid "+hexAlpha("#F59E0B",0.25),borderRadius:"8px",padding:"10px",color:"#F59E0B",fontSize:"11px",fontFamily:"'Inter',sans-serif"},
+        "No off-plan projects tracked yet — add or submit some in Market → Off-Plan first."));
+    }else{
+      var opSearchInp=el("input",{type:"text",placeholder:"Filter by name, developer, or area…",
+        style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"8px 12px",borderRadius:"8px",fontSize:"11px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"8px"}});
+      opSearchInp.value=WS_STATE.offplanSearch||"";
+      opSearchInp.addEventListener("input",function(){WS_STATE.offplanSearch=this.value;render();});
+      opCard.appendChild(opSearchInp);
+
+      var q=(WS_STATE.offplanSearch||"").toLowerCase();
+      var opMatches=OFFPLAN_STATE.projects.filter(function(p){
+        if(!q)return true;
+        return (p.name||"").toLowerCase().indexOf(q)!==-1||(p.developer||"").toLowerCase().indexOf(q)!==-1||(p.area||"").toLowerCase().indexOf(q)!==-1;
+      });
+
+      var opSelBar=div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"});
+      opSelBar.appendChild(span({color:cl.gold,fontSize:"10px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},WS_STATE.offplanSelected.length+" of "+OFFPLAN_STATE.projects.length+" project(s) selected"));
+      var opSelAllBtn=el("button",{style:{background:"transparent",border:"1px solid "+cl.goldDim,color:cl.gold,padding:"3px 10px",borderRadius:"6px",fontSize:"9px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+      opSelAllBtn.textContent="Select All ("+opMatches.length+" visible)";
+      opSelAllBtn.addEventListener("click",function(){
+        opMatches.forEach(function(p){if(WS_STATE.offplanSelected.indexOf(p.id)===-1)WS_STATE.offplanSelected.push(p.id);});
+        render();
+      });
+      opSelBar.appendChild(opSelAllBtn);
+      opCard.appendChild(opSelBar);
+
+      var opList=div({maxHeight:"340px",overflowY:"auto",border:"1px solid "+cl.border,borderRadius:"10px",padding:"6px"});
+      if(!opMatches.length){
+        opList.appendChild(div({color:cl.sub,fontSize:"11px",textAlign:"center",padding:"14px 0"},"No projects match this filter."));
+      }
+      opMatches.forEach(function(p){
+        var checked=WS_STATE.offplanSelected.indexOf(p.id)!==-1;
+        var minPsf=(typeof _offplanMinPSF==="function")?_offplanMinPSF(p):null;
+        var stageColor=(typeof OFFPLAN_STAGE_COLORS!=="undefined"&&OFFPLAN_STAGE_COLORS[p.project_stage])||cl.sub;
+        var stageLabel=(typeof OFFPLAN_STAGE_LABELS!=="undefined"&&OFFPLAN_STAGE_LABELS[p.project_stage])||p.project_stage||"";
+        var row=div({display:"flex",alignItems:"center",gap:"8px",padding:"8px 10px",background:checked?hexAlpha(cl.gold,0.06):"transparent",border:"1px solid "+(checked?cl.goldDim:cl.border),borderRadius:"8px",marginBottom:"4px",cursor:"pointer"});
+        var cb=el("input",{type:"checkbox",style:{accentColor:cl.gold,flexShrink:"0"}});cb.checked=checked;
+        cb.addEventListener("change",function(){
+          if(this.checked){if(WS_STATE.offplanSelected.indexOf(p.id)===-1)WS_STATE.offplanSelected.push(p.id);}
+          else WS_STATE.offplanSelected=WS_STATE.offplanSelected.filter(function(id){return id!==p.id;});
+          render();
+        });
+        row.appendChild(cb);
+        var info=div({flex:"1",minWidth:"0"});
+        info.appendChild(div({color:checked?cl.gold:cl.subHi,fontSize:"11.5px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace"},p.name));
+        info.appendChild(div({color:cl.sub,fontSize:"10px",fontFamily:"'Inter',sans-serif"},p.developer+" · "+p.area+(minPsf?" · from AED "+Math.round(minPsf).toLocaleString()+"/sqft":"")));
+        row.appendChild(info);
+        row.appendChild(div({background:hexAlpha(stageColor,0.12),border:"1px solid "+hexAlpha(stageColor,0.3),borderRadius:"8px",padding:"3px 8px",fontSize:"9px",fontWeight:"700",color:stageColor,fontFamily:"'Space Grotesk',monospace",whiteSpace:"nowrap",flexShrink:"0"},stageLabel));
+        row.addEventListener("click",function(e){if(e.target.tagName!=="INPUT")cb.click();});
+        opList.appendChild(row);
+      });
+      opCard.appendChild(opList);
+    }
+    card.appendChild(opCard);
+  }
+
   // Settings
   var setCard=div({marginBottom:"14px"});
   setCard.appendChild(span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"8px"},"Report Settings"));
@@ -539,23 +695,32 @@ function renderReportBuilder(wrap,cl){
   setCard.appendChild(logoRow);
   card.appendChild(setCard);
 
-  // Save template + Generate buttons
+  // Save template + Generate buttons — "Save Template" only applies to the
+  // valuation report (templates store reportSections, which have no
+  // equivalent in a catalog's per-generation project selection).
   var btnRow=div({display:"flex",gap:"8px",marginBottom:"10px"});
-  var saveTPL=el("button",{style:{flex:"1",padding:"10px",background:"transparent",border:"1px solid "+cl.goldDim,color:cl.gold,borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
-  saveTPL.textContent="Save Template";
-  saveTPL.addEventListener("click",function(){
-    if(!WS_STATE.reportSections.length){alert("Select at least one section");return;}
-    var name=prompt("Template name:");if(!name)return;
-    WS_STATE.templates.unshift({name:name,sections:WS_STATE.reportSections.slice(),lang:WS_STATE.reportLang,color:WS_STATE.reportColor,title:WS_STATE.reportTitle});
-    if(WS_STATE.templates.length>10)WS_STATE.templates=WS_STATE.templates.slice(0,10);
-    saveTemplates();render();
-  });
-  btnRow.appendChild(saveTPL);
+  if(WS_STATE.reportType==="valuation"){
+    var saveTPL=el("button",{style:{flex:"1",padding:"10px",background:"transparent",border:"1px solid "+cl.goldDim,color:cl.gold,borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
+    saveTPL.textContent="Save Template";
+    saveTPL.addEventListener("click",function(){
+      if(!WS_STATE.reportSections.length){alert("Select at least one section");return;}
+      var name=prompt("Template name:");if(!name)return;
+      WS_STATE.templates.unshift({name:name,sections:WS_STATE.reportSections.slice(),lang:WS_STATE.reportLang,color:WS_STATE.reportColor,title:WS_STATE.reportTitle});
+      if(WS_STATE.templates.length>10)WS_STATE.templates=WS_STATE.templates.slice(0,10);
+      saveTemplates();render();
+    });
+    btnRow.appendChild(saveTPL);
+  }
   var genBtn=el("button",{style:{flex:"1",padding:"10px",background:"linear-gradient(135deg,"+cl.gold+",#7A5E28)",color:"#08090C",border:"none",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
-  genBtn.textContent="Generate Report";
+  genBtn.textContent=WS_STATE.reportType==="offplan"?"Generate Catalog":"Generate Report";
   genBtn.addEventListener("click",function(){
-    if(!WS_STATE.reportSections.length){alert("Select at least one section");return;}
-    generateReport();
+    if(WS_STATE.reportType==="offplan"){
+      if(!WS_STATE.offplanSelected.length){alert("Select at least one project");return;}
+      generateOffplanCatalog();
+    }else{
+      if(!WS_STATE.reportSections.length){alert("Select at least one section");return;}
+      generateReport();
+    }
   });
   btnRow.appendChild(genBtn);
   card.appendChild(btnRow);
@@ -575,8 +740,7 @@ function _wsSimilarAreas(area,n){
 }
 
 function generateReport(){
-  var colors={gold:"#C9A84C",blue:"#3B82F6",green:"#22C55E",red:"#EF4444",purple:"#A78BFA"};
-  var accent=colors[WS_STATE.reportColor]||colors.gold;
+  var accent=WS_REPORT_COLORS[WS_STATE.reportColor]||WS_REPORT_COLORS.gold;
   var isAr=WS_STATE.reportLang==="ar";
   var title=WS_STATE.reportTitle||(isAr?"تقرير DubAIVal":"DubAIVal Property Report");
   var agent=WS_STATE.agent||{};
@@ -584,29 +748,13 @@ function generateReport(){
 
   var w=window.open("","_blank");
   if(!w){alert("Please allow pop-ups for this site to generate the report.");return;}
-  var h='<!DOCTYPE html><html dir="'+(isAr?"rtl":"ltr")+'" lang="'+(isAr?"ar":"en")+'"><head><meta charset="UTF-8"><title>'+_wsEsc(title)+'</title>';
-  h+='<style>*{box-sizing:border-box}body{font-family:'+(isAr?"'Cairo',":"")+"Arial,sans-serif;max-width:800px;margin:0 auto;padding:30px;color:#333;background:#fff}";
-  h+="h1{color:"+accent+";font-size:24px;margin-bottom:4px}";
-  h+="h2{color:"+accent+";font-size:18px;margin-top:24px;border-bottom:2px solid "+accent+";padding-bottom:6px}";
-  h+="table{width:100%;border-collapse:collapse;margin:10px 0}td,th{padding:8px 12px;border:1px solid #ddd;font-size:12px}th{background:#f5f5f5}";
-  h+=".card{background:#f9f9f9;border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin:10px 0}";
-  h+=".metric{display:inline-block;padding:8px 16px;margin:4px;border-radius:6px;background:#f0f0f0;font-size:13px}";
-  h+=".hdr{border-bottom:3px solid "+accent+";padding-bottom:14px;margin-bottom:14px}";
-  h+=".accent{color:"+accent+"}.hi{background:"+accent+"18}@media print{body{padding:10px}}</style></head><body>";
+  var h=_wsReportStyleBlock(title,isAr,accent);
 
   // Header — agent's own branding leads, DubAIVal is a footer credit only
-  h+='<div class="hdr">';
-  if(WS_STATE.reportLogo)h+='<img src="'+WS_STATE.reportLogo+'" style="max-height:50px;margin-bottom:10px;display:block" />';
-  h+="<h1>"+_wsEsc(title)+"</h1>";
-  var agentLine=[agent.name,agent.company].filter(Boolean).map(_wsEsc).join(" · ");
-  var agentLine2=[agent.phone,agent.rera?"RERA "+agent.rera:""].filter(Boolean).map(_wsEsc).join(" · ");
-  if(agentLine)h+='<p style="font-size:13px;font-weight:bold;margin:4px 0">'+agentLine+"</p>";
-  if(agentLine2)h+='<p style="font-size:12px;color:#555;margin:2px 0">'+agentLine2+"</p>";
-  if(WS_STATE.reportClientName)h+='<p style="font-size:12px;color:#555;margin:8px 0 0">Prepared for: <strong>'+_wsEsc(WS_STATE.reportClientName)+"</strong></p>";
   var effReportBuildingHdr=WS_STATE.reportBuilding||(analyzerState&&analyzerState.f&&analyzerState.f.building)||"";
-  if(effReportBuildingHdr)h+='<p style="font-size:12px;color:#555;margin:2px 0">Property: <strong>'+_wsEsc(effReportBuildingHdr)+(WS_STATE.reportArea?", "+_wsEsc(WS_STATE.reportArea):"")+"</strong></p>";
-  h+='<p style="color:#999;font-size:10px;margin-top:4px">'+new Date().toLocaleDateString()+"</p>";
-  h+="</div>";
+  var extraLines=[];
+  if(effReportBuildingHdr)extraLines.push('<p style="font-size:12px;color:#555;margin:2px 0">Property: <strong>'+_wsEsc(effReportBuildingHdr)+(WS_STATE.reportArea?", "+_wsEsc(WS_STATE.reportArea):"")+"</strong></p>");
+  h+=_wsReportHeaderHtml(title,isAr,agent,extraLines);
 
   WS_STATE.reportSections.forEach(function(sid){
     var sec=WS_REPORT_SECTIONS.find(function(s){return s.id===sid;});
@@ -740,6 +888,74 @@ function generateReport(){
   });
 
   h+='<hr style="margin-top:30px;border-color:#eee"><p style="color:#999;font-size:10px;text-align:center">Powered by DubAIVal.com — AI-powered Dubai property valuation · '+new Date().toLocaleDateString()+"</p>";
+  h+="</body></html>";
+  w.document.write(h);w.document.close();
+  setTimeout(function(){w.print();},500);
+}
+
+// Off-Plan Project Catalog — added 2026-08-05 (Phase 2 of the GenieMap
+// gap-closing plan). Reuses the same print-window mechanism, escaping
+// helper, agent-branding header, and CSS as generateReport() (via the
+// shared _wsReportStyleBlock/_wsReportHeaderHtml helpers extracted above),
+// but builds a genuinely different report SHAPE: one section per SELECTED
+// off-plan project instead of one property's valuation sections. Every
+// number shown is computed by the exact same _offplanProjectForecasts()/
+// computeOffPlanForecast() the Off-Plan Projects tab and its map (Phase 1)
+// already use — no separate, driftable forecast math.
+function generateOffplanCatalog(){
+  if(typeof OFFPLAN_STATE==="undefined"||!OFFPLAN_STATE.projects){alert("Off-plan data isn't loaded yet — please try again in a moment.");return;}
+  var selected=OFFPLAN_STATE.projects.filter(function(p){return WS_STATE.offplanSelected.indexOf(p.id)!==-1;});
+  if(!selected.length){alert("Select at least one project");return;}
+  // Sort by handover date (nearest first) for a sensible client-facing
+  // document flow, regardless of the order projects were checked in.
+  selected.sort(function(a,b){return new Date(a.expected_handover)-new Date(b.expected_handover);});
+
+  var accent=WS_REPORT_COLORS[WS_STATE.reportColor]||WS_REPORT_COLORS.gold;
+  var isAr=WS_STATE.reportLang==="ar";
+  var title=WS_STATE.reportTitle||(isAr?"كتالوج المشاريع على الخارطة — DubAIVal":"DubAIVal Off-Plan Project Catalog");
+  var agent=WS_STATE.agent||{};
+
+  var w=window.open("","_blank");
+  if(!w){alert("Please allow pop-ups for this site to generate the catalog.");return;}
+  var h=_wsReportStyleBlock(title,isAr,accent);
+
+  var extraLines=[];
+  extraLines.push('<p style="font-size:12px;color:#555;margin:2px 0">'+selected.length+" project"+(selected.length===1?"":"s")+" curated for review</p>");
+  h+=_wsReportHeaderHtml(title,isAr,agent,extraLines);
+
+  selected.forEach(function(p){
+    var devRecord=(OFFPLAN_STATE.devRecords&&OFFPLAN_STATE.devRecords[p.developer])||null;
+    var fcs=(typeof _offplanProjectForecasts==="function")?_offplanProjectForecasts(p,devRecord):[];
+    var stageLabel=(typeof OFFPLAN_STAGE_LABELS!=="undefined"&&OFFPLAN_STAGE_LABELS[p.project_stage])||p.project_stage||"";
+    var fmtDate=(typeof _offplanFmtDate==="function")?_offplanFmtDate:function(d){return d||"—";};
+
+    h+="<h2>"+_wsEsc(p.name)+"</h2>";
+    h+='<p style="font-size:12px;color:#555;margin:2px 0">'+_wsEsc(p.developer)+" · "+_wsEsc(p.area)+" · <strong>"+_wsEsc(stageLabel)+"</strong></p>";
+    var metaBits=["Launched "+fmtDate(p.launch_date),"Handover "+fmtDate(p.expected_handover)];
+    if(p.payment_plan)metaBits.push("Payment Plan: "+_wsEsc(p.payment_plan));
+    h+='<p style="font-size:11px;color:#777;margin:2px 0 10px">'+metaBits.join(" · ")+"</p>";
+
+    if(!fcs.length){
+      h+='<p style="color:#999;font-size:11px">No unit pricing on file yet for this project.</p>';
+    }else{
+      h+='<table><tr><th>Unit Type</th><th>Size (sqft)</th><th>Launch PSF</th><th>At Handover</th><th>+5yr Post-Handover</th></tr>';
+      fcs.forEach(function(fc){
+        var sizeStr=(fc.sizeMin&&fc.sizeMax)?(fc.sizeMin+"–"+fc.sizeMax):"—";
+        h+="<tr><td>"+_wsEsc(fc.unitType)+"</td><td>"+sizeStr+"</td>";
+        h+='<td class="hi">AED '+Math.round(fc.launchPSF).toLocaleString()+"</td>";
+        h+='<td class="accent"><strong>AED '+fc.projectedHandoverPSF.toLocaleString()+"</strong><br><span style='font-size:10px'>("+(fc.growthToHandoverPct>=0?"+":"")+fc.growthToHandoverPct+"%, "+fc.yearsToHandover+"y)</span></td>";
+        h+='<td class="accent"><strong>AED '+fc.projected5yrPSF.toLocaleString()+"</strong><br><span style='font-size:10px'>("+(fc.growth5yrPct>=0?"+":"")+fc.growth5yrPct+"%)</span></td>";
+        h+="</tr>";
+      });
+      h+="</table>";
+      h+='<p style="color:'+(fcs[0].hasDevData?"#22C55E":"#999")+';font-size:10px;font-style:italic;margin-top:4px">'+_wsEsc(fcs[0].confidence)+"</p>";
+    }
+    if(p.notes)h+='<p style="color:#999;font-size:10px;margin-top:4px">Notes: '+_wsEsc(p.notes)+"</p>";
+  });
+
+  h+='<hr style="margin-top:30px;border-color:#eee">';
+  h+='<p style="color:#999;font-size:10px;text-align:center">Forecasts are illustrative projections based on historical area growth data and, where available, developer track record — not a guarantee of future performance. Off-plan investments carry construction, market, and completion-timeline risk. Verify all figures with the developer before purchase.</p>';
+  h+='<p style="color:#999;font-size:10px;text-align:center">Powered by DubAIVal.com — AI-powered Dubai property valuation · '+new Date().toLocaleDateString()+"</p>";
   h+="</body></html>";
   w.document.write(h);w.document.close();
   setTimeout(function(){w.print();},500);

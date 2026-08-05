@@ -965,6 +965,119 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-08-05 (session continuing — Phase 2 of the GenieMap gap-closing
+  plan: multi-project branded off-plan catalog, built by extending the
+  existing Custom Report Builder rather than a parallel system)**: Direct
+  continuation of the same session — user said "برو سراغ فاز ۲" (go to
+  Phase 2). Read the full existing Report Builder
+  (`renderReportBuilder()`/`generateReport()`, `js/workspace.js`) before
+  writing anything, since Phase 2's own plan explicitly says "extending the
+  existing Report Builder," not building a second report system.
+  - **New `WS_STATE.reportType`** ('valuation'|'offplan', default
+    'valuation' — zero behavior change for existing users) gates a new
+    "Property Report / Off-Plan Catalog" toggle at the top of
+    `renderReportBuilder()`. Everything genuinely report-type-agnostic
+    (agent branding, language/color/title/logo, `reportClientName`) stays
+    shared between both modes; everything valuation-specific (Report
+    Subject's area/building/price/nationality fields, the Visual/Text/Voice
+    sub-mode tabs, the Report Sections checklist, Save Template) is now
+    gated to `reportType==="valuation"` only.
+  - **New off-plan project picker** (the `else` branch): triggers
+    `offplanLoad()` (Phase 1's own loader) if not already loaded/loading —
+    same "don't require the user to have visited another tab first"
+    principle already established for the Analyzer-building fallback in
+    this exact function. Shows the same loading/db-error/empty states the
+    Off-Plan tab itself uses, then a client-side search box (name/developer/
+    area substring) plus a checkbox list of real tracked projects — each
+    row shows the project's own stage badge and "from AED X/sqft" (via
+    Phase 1's `_offplanMinPSF()`) — with a live "N of M selected" counter
+    and a "Select All (N visible)" convenience button. New
+    `WS_STATE.offplanSelected` (array of project ids) and
+    `WS_STATE.offplanSearch` track the picker's own state.
+  - **Shared header/style extraction — refactored `generateReport()`
+    itself, verified byte-identical before shipping**: rather than let the
+    new catalog generator duplicate `generateReport()`'s CSS/agent-branding-
+    header HTML a second time (a real drift risk down the line), extracted
+    `_wsReportStyleBlock(title,isAr,accent)` and
+    `_wsReportHeaderHtml(title,isAr,agent,extraLines)` — both built by
+    copying the original code VERBATIM, not rewritten from memory.
+    `generateReport()` itself was touched to call these instead of its old
+    inline HTML-building — since this function is the exact one a prior
+    session found and fixed a real, exploitable XSS bug in (unescaped
+    agent/client/title fields interpolated into a `document.write()`'d
+    print window), this refactor needed real verification, not just visual
+    inspection: a Node vm-sandbox test seeded 6 different XSS payloads
+    across title/client-name/building/agent-name/agent-company/agent-rera,
+    ran the real (refactored) `generateReport()`, and confirmed zero raw
+    payloads survived, all 6 escaped forms were present, header-line
+    ordering (agent → Prepared-for → Property → date) was unchanged, and
+    the accent color still applied correctly — all before touching the new
+    catalog function at all.
+  - **New `generateOffplanCatalog()`**: same print-window mechanism
+    (`window.open`→`document.write`→`window.print()`), same shared style/
+    header helpers, same `_wsEsc()` escaping discipline — but a genuinely
+    different report SHAPE: one section per SELECTED project (sorted by
+    handover date ascending regardless of the order they were checked),
+    each rendering developer/area/stage, launch/handover/payment-plan meta,
+    and a real per-unit-type forecast table (Launch PSF / At Handover /
+    +5yr Post-Handover) computed via Phase 1's own
+    `_offplanProjectForecasts()`/`computeOffPlanForecast()` — no separate,
+    driftable forecast math. Reuses the exact same confidence-disclosure
+    wording the in-app card already shows ("Indicative — area growth only"
+    vs "Medium — area growth + developer track record"), and discloses a
+    project's real `notes` field (e.g. "PSF figures are real DLD-transacted
+    averages, not developer marketing price") in small print rather than
+    silently dropping it for a cleaner-looking document — matches this
+    project's standing accuracy-disclosure principle. Closes with a new,
+    off-plan-specific risk disclaimer ("Off-plan investments carry
+    construction, market, and completion-timeline risk. Verify all figures
+    with the developer before purchase.") in addition to the existing
+    "Powered by DubAIVal.com" footer.
+  - **Generate button** now branches by `reportType` — relabels itself
+    "Generate Catalog" in off-plan mode, validates at least one project is
+    selected (vs. at least one section in valuation mode), and calls the
+    correct generator.
+  - **Verified two ways**: (1) a Node vm-sandbox test loading the REAL
+    `js/offplan.js` + `js/workspace.js` together (matching the real script
+    load order) with 3 realistic seeded projects (one with an XSS payload
+    in its name/notes, one with a real developer-track-record blend, one
+    deliberately NOT selected) — confirmed correct handover-date sorting
+    regardless of selection order, the unselected project never appears,
+    both real forecast numbers match a directly-computed reference value,
+    the correct confidence wording appears for both the
+    with-dev-data and without-dev-data cases, the "no unit pricing yet"
+    fallback renders for a project with zero unit types, and all XSS
+    payloads (including inside the `notes` field, a genuinely new
+    interpolation point this function adds) are correctly escaped with
+    zero raw payloads surviving; (2) a real-browser Playwright pass driving
+    the actual rendered UI end-to-end (mocked Supabase REST responses) —
+    confirmed the default view is still the valuation report UI unchanged,
+    clicking "Off-Plan Catalog" correctly hides every valuation-only
+    control and shows the real project picker with all 3 seeded projects,
+    the search box correctly narrows to matching projects only, checking 2
+    real checkboxes correctly updates `WS_STATE.offplanSelected` and the
+    live counter (this run caught and fixed a real bug in the TEST
+    ITSELF — reusing a checkbox array captured before the first click's own
+    `render()`-triggered DOM rebuild meant the second click targeted a
+    stale, detached node; fixed by re-querying checkboxes fresh between
+    clicks), clicking "Generate Catalog" produces real output containing
+    both selected projects' names, a real forecast table, and the new
+    disclaimer, "Save Template" is correctly absent in off-plan mode, and
+    switching back to "Property Report" fully restores the original
+    valuation UI with zero residue. Zero unexpected console errors in
+    either pass (only the same pre-existing, well-documented sandboxed
+    "Market intelligence failed: API 501" artifact seen throughout this
+    project's history).
+  - Cache version bumped: `js/workspace.js` to `?v=20260805a` in both
+    `index.html` and `sw.js`'s `PRECACHE` array; `sw.js`'s `CACHE_NAME`
+    bumped `dubaival-v92`→`dubaival-v93`. Rebuilt `www/` and manually
+    synced `index.html`/`js/workspace.js`/`sw.js` into
+    `android/app/src/main/assets/public/` (`npx cap sync android` failed
+    as always in this sandbox — no Android SDK).
+  - **Next**: Phase 3 (developer sales-contact directory, a genuinely new
+    feature/table) is the natural next session's starting point — see the
+    updated Outstanding item below.
+
 - **2026-08-05 (session continuing — Phase 1 of the GenieMap gap-closing
   plan: off-plan project map with pins, plus 3 new filters matching
   GenieMap's own real filter set)**: Direct continuation of the same
@@ -13237,30 +13350,30 @@ These files contain critical business logic and data:
 
 ## Outstanding / open items
 
-- **🟡 GenieMap gap-closing plan — Phase 0 (data) + Phase 1 (map) shipped
-  same session; Phase 0's seed SQL confirmed run by the user; Phases 2-4
-  not started** (added 2026-08-05, updated same session once Phase 1
-  shipped): Phase 0's `supabase-offplan-seed-data.sql` has been confirmed
-  run by the user — the 4 real, individually-verified off-plan projects
-  (DAMAC Islands 2, Sobha Hartland 2 - Skyscape Collection, Binghatti
-  Skyrise, The Oasis by Emaar — see the Phase 0 work-log entry for full
-  sourcing detail) are live in the Off-Plan tab. Phase 1 (the off-plan map
-  with real project pins + stage/price-band/handover-range filters) is
-  code-complete and verified via a real-browser Playwright pass — see the
-  same-dated Phase 1 work-log entry above for the full test breakdown. The
-  Bayut `new-projects` import (`js/app.js` `_adminFetchBayutOffplan()`) has
-  real error-detail surfacing but is STILL genuinely untested against a
-  live `RAPIDAPI_KEY` — the next attempt against the real key (in the
-  actual deployed Admin Dashboard) is what will validate or reveal a needed
-  fix, not another guess from this sandbox. **Not started at all**: Phase 2
-  (multi-project branded catalog generator, extending the existing Report
-  Builder — the natural next session's starting point), Phase 3 (developer
-  sales-contact directory, a genuinely new feature/table), Phase 4
-  (pay-per-use video call/screen-share with clients — user confirmed
-  pay-per-use pricing, matching the established WhatsApp/video-credit
-  pattern, but no vendor/SDK has been chosen yet — Daily.co and Whereby
-  Embedded were named as realistic serverless-friendly candidates, not yet
-  evaluated in depth).
+- **🟡 GenieMap gap-closing plan — Phases 0-2 shipped same session; Phases
+  3-4 not started** (added 2026-08-05, updated twice same session as
+  Phases 1 and 2 shipped): Phase 0's `supabase-offplan-seed-data.sql` has
+  been confirmed run by the user — the 4 real, individually-verified
+  off-plan projects (DAMAC Islands 2, Sobha Hartland 2 - Skyscape
+  Collection, Binghatti Skyrise, The Oasis by Emaar — see the Phase 0
+  work-log entry for full sourcing detail) are live in the Off-Plan tab.
+  Phase 1 (the off-plan map with real project pins + stage/price-band/
+  handover-range filters) and Phase 2 (a multi-project branded catalog
+  generator, built by extending the existing Custom Report Builder) are
+  both code-complete and independently verified via real-browser Playwright
+  passes — see the same-dated work-log entries above for the full test
+  breakdown of each. The Bayut `new-projects` import (`js/app.js`
+  `_adminFetchBayutOffplan()`) has real error-detail surfacing but is
+  STILL genuinely untested against a live `RAPIDAPI_KEY` — the next
+  attempt against the real key (in the actual deployed Admin Dashboard) is
+  what will validate or reveal a needed fix, not another guess from this
+  sandbox. **Not started at all**: Phase 3 (developer sales-contact
+  directory, a genuinely new feature/table — the natural next session's
+  starting point), Phase 4 (pay-per-use video call/screen-share with
+  clients — user confirmed pay-per-use pricing, matching the established
+  WhatsApp/video-credit pattern, but no vendor/SDK has been chosen yet —
+  Daily.co and Whereby Embedded were named as realistic serverless-friendly
+  candidates, not yet evaluated in depth).
 
 - **🔴 CRITICAL, USER ACTION REQUIRED — GROQ_API_KEY in Vercel is invalid/
   expired, breaking EVERY AI feature site-wide (added 2026-07-27)**: the
