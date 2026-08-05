@@ -1987,13 +1987,24 @@ async function _adminFetchBayutOffplan(){
     var locId=(typeof getUAELocationId==="function")?await getUAELocationId(st.area):null;
     var qs="locationExternalIDs="+encodeURIComponent(locId||"")+"&hitsPerPage=25&page=0";
     var r=await fetch(API_BASE+"/proxy-rapidapi?endpoint=new-projects&"+qs);
+    var data=null;try{data=await r.json();}catch(e){}
     if(!r.ok){
-      st.error="Bayut request failed (HTTP "+r.status+"). The New Projects endpoint name/params may need a quick adjustment once tested against the real key — share the exact response and it can be fixed in one edit.";
+      // Surface the real upstream error body (not just the HTTP status) —
+      // same "Details: ..." diagnostic pattern already proven decisive for
+      // the 2026-07-27 Groq/Google-Maps fixes: a bare status code alone
+      // (e.g. "HTTP 404") isn't enough to tell "wrong endpoint name" apart
+      // from "wrong query param" apart from "key not subscribed to this
+      // product" — the actual response body usually says which.
+      var detail=data&&(data.error||data.message)?(": "+(data.error||data.message)):"";
+      st.error="Bayut request failed (HTTP "+r.status+detail+"). The New Projects endpoint name/params may need a quick adjustment once tested against the real key — share this exact message and it can be fixed in one edit.";
     }else{
-      var data=await r.json();
-      var raw=data.hits||data.results||data.data||data.projects||(Array.isArray(data)?data:[]);
+      data=data||{};
+      var raw=data.hits||data.results||data.data||data.projects||data.items||data.list||data.newProjects||(Array.isArray(data)?data:[]);
       st.results=(raw||[]).map(_parseBayutOffplanCandidate).filter(Boolean);
-      if(!st.results.length)st.error="No projects came back for this area — try a broader/different area name, or the response shape may need adjusting.";
+      if(!st.results.length){
+        var keysStr=Object.keys(data).length?Object.keys(data).join(", "):"(empty)";
+        st.error="No projects came back for this area — try a broader/different area name, or the response shape may need adjusting. Raw response shape: "+keysStr;
+      }
     }
   }catch(e){st.error="Network error: "+e.message;}
   st.loading=false;render();

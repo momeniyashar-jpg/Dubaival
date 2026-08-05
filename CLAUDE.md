@@ -965,6 +965,144 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-08-05 (new session — GenieMap competitive gap analysis + Phase 0 of
+  the resulting off-plan-parity plan: Bayut import diagnostics hardened +
+  4 real, individually-verified off-plan projects seeded)**: User asked for
+  a feature comparison against GenieMap (a real UAE off-plan-focused
+  broker tool — interactive map with project pins, 260+ developers/1,250+
+  projects, branded catalog generator, developer-contact directory, video
+  call/screen-share, broker training angle). Researched it via WebSearch
+  (its own site returned 403 to WebFetch, consistent with this project's
+  established RapidAPI/Bayut-docs blocking pattern — relied on independently
+  converging App Store/Instagram/case-study summaries instead) and reported
+  a full gap analysis: DubaiVal is a far broader platform overall, but is
+  genuinely behind on exactly GenieMap's own niche — an off-plan project
+  map with pins, a real developer/project database (Off-Plan tab exists,
+  structurally complete, but was deliberately seeded with ZERO data per
+  Directive #2 — see the 2026-07-17 entries below), a developer-sales-
+  contact directory, and live video/screen-share with clients. User asked
+  for and approved a 5-phase plan (Phase 0 data source → Phase 1 off-plan
+  map → Phase 2 multi-project catalog → Phase 3 developer directory →
+  Phase 4 pay-per-use video calls), then explicitly authorized starting
+  Phase 0 via both of its 2 sub-paths at once (test/harden the existing
+  never-live-tested Bayut import, AND start seeding real data via research
+  right away) rather than picking one.
+  1. **Bayut `new-projects` import — hardened, not blindly re-guessed.**
+     `js/app.js`'s `_adminFetchBayutOffplan()` previously showed only the
+     bare HTTP status on a failed request and a generic message on an empty
+     result — no way to actually diagnose WHY without a live key to test
+     against (unavailable in this sandbox, same as every prior session that
+     touched this code). Rather than pad `_parseBayutOffplanCandidate()`'s
+     field-name fallbacks with more blind guesses (diminishing value with
+     zero real signal — RapidAPI/Bayut's own docs pages returned 403 to
+     WebFetch again, confirming this remains genuinely inaccessible from
+     here), added the one change that's unambiguously useful regardless of
+     what the real response shape turns out to be: surfaces the actual
+     upstream error body (`data.error`/`data.message`) instead of just the
+     HTTP status, and on an empty-but-successful response now shows the
+     real top-level response keys it received — matching the exact
+     "Details: ..." diagnostic pattern already proven decisive for the
+     2026-07-27 Groq/Google-Maps fixes (a bare status code couldn't tell
+     "wrong endpoint name" apart from "key not subscribed to this product"
+     apart from "wrong param" — the real body usually can). Also widened
+     the response-array-shape fallback (`data.items`/`data.list`/
+     `data.newProjects` added alongside the existing `hits`/`results`/
+     `data`/`projects`). A real bug was caught and fixed while writing
+     this: the first draft of the empty-result message used `"..." +
+     Object.keys(data).join(", ") || "(empty)"` — `+` binds tighter than
+     `||` in JS, so the right-hand `||` fallback was unreachable dead code
+     (the concatenated string is never falsy once it has a literal prefix)
+     — fixed by computing the empty-case string separately before
+     concatenating. Still genuinely untestable from this sandbox (no
+     `RAPIDAPI_KEY` here) — the next live attempt against the real key is
+     what will actually validate this, not this session.
+  2. **4 real, individually-verified off-plan projects seeded** — new
+     `supabase-offplan-seed-data.sql` (requires manual execution, additive
+     to `supabase-offplan-schema.sql`). Every project's launch date/
+     handover/payment plan traces to a live WebSearch citation (recorded as
+     each row's `source_url`); every unit-type `launch_psf` preferentially
+     uses REAL DLD-transacted averages already sitting in this repo's own
+     `tools/calibration-output.json` (the same ground-truth source that
+     powers `VALUATION_DB`) rather than a developer's marketed "starting
+     from" price, with the distinction disclosed explicitly in each
+     project's `notes` field. **2 strong-looking candidates were
+     research-and-rejected before being added, not silently skipped**:
+     Trillionaire Residences by Binghatti (Business Bay) and The Crest by
+     Sobha (Sobha Hartland) both had large, clean real transaction counts
+     in the calibration data that INITIALLY looked like solid off-plan
+     seed material — but a direct handover-date check found both are
+     ALREADY delivered (Q4 2024 and June 2025 respectively, both before
+     this session's 2026-08-05 date) — i.e. already ordinary resale-market
+     buildings, not off-plan at all. This is a real, general lesson worth
+     keeping in mind for any future seeding pass: a large real transaction
+     count in calibration data is NOT a safe signal that a project is
+     still off-plan — it's often the opposite (a delivered building
+     actively trading in the secondary market) — always independently
+     confirm the handover date is genuinely still in the future before
+     including anything. The 4 that passed this check:
+     - **DAMAC Islands 2** (Dubailand) — launched 12 Nov 2025 (confirmed
+       exact date), 8 tropical-themed villa clusters, handover Q4 2028,
+       75/25 payment plan. 3 unit types (Cuba/Bahamas/Tahiti clusters,
+       real PSF 1772-1822, `n:824-1476` real transactions each).
+     - **Sobha Hartland 2 - Skyscape Collection** (Bukadra) — 3 towers
+       (Altius/Avenue/Aura), launch date is an explicit ESTIMATE (only
+       "construction started in 2025" could be confirmed, not an exact
+       launch day — disclosed as such in `notes`, not presented as fact),
+       handover Q4 2028-2029 depending on tower, 60/40 payment plan. Real
+       PSF 2395-2530 (`n:1440-2364` each) — independently cross-validated:
+       this session's own calibration-derived Skyscape Avenue figure
+       (2,425/sqft) closely matches a separately-cited live DLD data point
+       from a different source (Feb 2026, 2,400-2,520/sqft) for the same
+       building, real convergent evidence rather than a single source.
+     - **Binghatti Skyrise** (Business Bay) — launched 30 Oct 2024
+       (confirmed exact date), handover Q4 2026 (the nearest-term project
+       in this batch, still genuinely future as of the seed date), 70/30
+       payment plan. 1 unit type (Tower C, real PSF 2577, `n:4696` — the
+       only one of its 3 towers with individually clean calibration data
+       at seeding time, disclosed as such rather than assuming Towers A/B
+       share the same figure).
+     - **The Oasis by Emaar** (its own real `AREAS` key) — launched 13 Jun
+       2023 (confirmed exact date, real press-release citation), Palmiera
+       (the earliest-delivered collection) handover Q4 2027 used as the
+       row's one representative date since the schema holds one date per
+       project; the masterplan's other named collections' own real
+       starting prices and handover dates (Tierra 13.2M, Mirage 15.8M/Q2
+       2028, Mareva/Q1 2030, Lavita 40M+/Q1 2029) are disclosed in `notes`
+       rather than converted to a per-collection PSF this session couldn't
+       defensibly compute (no confirmed per-collection unit sizes). 1 unit
+       type using the one confirmed community-wide average PSF (1,840).
+  - **Deliberately NOT done this session, and why**: no live INSERT was
+    actually run against the production Supabase database — this sandbox
+    has no network access to it, same standing limitation as every other
+    "requires manual execution" migration in this project; the seed file
+    is the mechanism, running it is the user's own next step. Structural
+    SQL correctness was verified as thoroughly as possible without a live
+    Postgres instance: a custom comment-and-string-literal-aware Python
+    checker confirmed every apostrophe in every `notes` field is correctly
+    doubled (`''`) and no string literal is left unterminated; a paren-
+    balance checker (same comment/string-aware logic) confirmed 0 net
+    depth; column-count cross-checks confirmed every `INSERT` column list
+    matches its `SELECT`/`VALUES` list exactly (12 columns for
+    `offplan_projects`, 5 for `offplan_unit_types`); confirmed the
+    `WITH ... AS (INSERT ... RETURNING id) INSERT INTO ... SELECT ... FROM
+    that_cte` data-modifying-CTE pattern has no stray semicolon splitting
+    it into two statements (verified by direct inspection, since a naive
+    semicolon grep is misleading — several `notes` fields use semicolons
+    as ordinary English punctuation mid-sentence). Also not done: Phase 1
+    (the off-plan map with project pins) — this session's remaining time
+    went entirely into Phase 0; Phase 1 is the natural next session's
+    starting point once this seed data is confirmed live.
+  - Cache version bumped: `js/app.js` to `?v=20260805a` in both
+    `index.html` and `sw.js`'s `PRECACHE` array; `sw.js`'s `CACHE_NAME`
+    bumped `dubaival-v90`→`dubaival-v91`. Rebuilt
+    `www/` and manually synced `index.html`/`js/app.js`/`sw.js` into
+    `android/app/src/main/assets/public/` (`npx cap sync android` failed
+    as always in this sandbox — no Android SDK).
+  - **Manual step required before Phase 0's data half is live**: run
+    `supabase-offplan-seed-data.sql` in Supabase SQL Editor (requires
+    `supabase-offplan-schema.sql` already applied). Until then, the Off-Plan
+    tab still shows its existing graceful "not available yet" empty state.
+
 - **2026-07-29 (new session — Parkwood + Orra The Embankment root-caused and
   fixed at the actual SOURCE — the `tools/build-valuation-db.js` matching
   pipeline itself, not just individual building grades — per the user's
@@ -12980,6 +13118,30 @@ These files contain critical business logic and data:
 - `index.html` — Shell, meta tags, script loading
 
 ## Outstanding / open items
+
+- **🟡 GenieMap gap-closing plan, Phase 0 — off-plan seed data needs manual
+  SQL; Phases 1-4 not started** (added 2026-08-05): run
+  `supabase-offplan-seed-data.sql` in Supabase SQL Editor (requires
+  `supabase-offplan-schema.sql` already applied, which it is) to get the 4
+  real, individually-verified off-plan projects (DAMAC Islands 2, Sobha
+  Hartland 2 - Skyscape Collection, Binghatti Skyrise, The Oasis by Emaar —
+  see the same-dated work-log entry for full sourcing detail) live in the
+  Off-Plan tab. No env vars needed for this specific file. Separately, the
+  Bayut `new-projects` import (`js/app.js` `_adminFetchBayutOffplan()`) now
+  has real error-detail surfacing but is STILL genuinely untested against a
+  live `RAPIDAPI_KEY` — the next attempt against the real key (in the
+  actual deployed Admin Dashboard) is what will validate or reveal a needed
+  fix, not another guess from this sandbox. **Not started at all**: Phase 1
+  (an off-plan map with real project pins/filters — the single highest-
+  value remaining piece, per the GenieMap comparison, and the natural next
+  session's starting point once the seed data above is confirmed live),
+  Phase 2 (multi-project branded catalog generator, extending the existing
+  Report Builder), Phase 3 (developer sales-contact directory, a genuinely
+  new feature/table), Phase 4 (pay-per-use video call/screen-share with
+  clients — user confirmed pay-per-use pricing, matching the established
+  WhatsApp/video-credit pattern, but no vendor/SDK has been chosen yet —
+  Daily.co and Whereby Embedded were named as realistic serverless-friendly
+  candidates, not yet evaluated in depth).
 
 - **🔴 CRITICAL, USER ACTION REQUIRED — GROQ_API_KEY in Vercel is invalid/
   expired, breaking EVERY AI feature site-wide (added 2026-07-27)**: the
