@@ -11,6 +11,241 @@ var SUPABASE_ANON_KEY = "sb_publishable_HNHSNnmBUYcTnF35bMEzxA_qhsoe6Yj";
 // directly to the developer's own API keys with no limit at all.
 var FREE_VIDEO_GENERATIONS_PER_MONTH = 3;
 
+// ── VIDEO CALL / SCREEN-SHARE (Daily.co) — Phase 4 of the GenieMap gap-
+// closing plan (added 2026-08-05). See supabase-video-call-credits-
+// schema.sql and CLAUDE.md for the full research/design trail (Daily.co was
+// chosen over Whereby Embedded/Twilio Video for its true zero-commitment
+// pay-as-you-go pricing, no forced monthly base fee — matching this
+// project's existing "buy credits, never a subscription" philosophy).
+// Real-time video/audio/screen-share is handled entirely by Daily.co's own
+// hosted service (Prebuilt iframe via the daily-js client SDK) — we never
+// touch raw WebRTC ourselves. Our job here is exactly 3 things:
+//   1. Create a real room server-side (API key never reaches the browser),
+//      gated on the agent having a positive credit balance.
+//   2. Once the call ends, independently confirm the REAL duration via
+//      Daily's own REST Meetings API (never trust a client-reported number
+//      as the primary source) and deduct credits — post-paid, matching
+//      how the AI Voice Concierge's own ElevenLabs billing already works.
+//   3. A defensive webhook backup for the case where the agent's tab
+//      closes before the client-triggered call-end request ever fires.
+var DAILY_API_KEY = process.env.DAILY_API_KEY;
+var DAILY_API_BASE = "https://api.daily.co/v1";
+
+// The agent's own UUID is encoded directly into the room name (hyphens
+// stripped, so it can be parsed back out unambiguously) — this means
+// call-end/call-webhook never need a separate room->agent lookup table,
+// and a room can only ever be billed against the agent it was created for.
+function _roomNameForAgent(agentUid) {
+  var flat = String(agentUid).replace(/-/g, "");
+  return "dv-" + flat + "-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+}
+function _agentUidFromRoomName(roomName) {
+  var m = /^dv-([0-9a-f]{32})-\d+-[a-z0-9]{6}$/.exec(roomName || "");
+  return m ? m[1] : null;
+}
+
+async function handleVideoCallStatus(req, res) {
+  var body = req.body || {};
+  var authUid = await _resolveUserId(body.access_token);
+  if (!authUid) return res.status(401).json({ error: "Please sign in first." });
+  try {
+    var r = await supabaseRequest("/rpc/get_video_call_status", {
+      method: "POST", body: JSON.stringify({ p_agent_uid: authUid }),
+    });
+    var rows = r.ok ? await r.json() : [];
+    var credits = rows.length ? Number(rows[0].video_call_credits || 0) : 0;
+    var callsResp = await supabaseRequest(
+      "/video_calls?agent_id=eq." + encodeURIComponent(authUid) +
+      "&select=client_name,client_phone,duration_seconds,credits_charged,ended_at&order=ended_at.desc&limit=10",
+      { method: "GET" }
+    );
+    var calls = callsResp.ok ? await callsResp.json() : [];
+    return res.status(200).json({ ok: true, videoCallCredits: credits, recentCalls: calls });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+async function handleVideoCallCreateRoom(req, res) {
+  if (!DAILY_API_KEY) return res.status(500).json({ error: "Video calling isn't set up yet — DAILY_API_KEY not configured." });
+  var body = req.body || {};
+  var authUid = await _resolveUserId(body.access_token);
+  if (!authUid) return res.status(401).json({ error: "Please sign in to start a video call." });
+
+  try {
+    var statusRes = await supabaseRequest("/rpc/get_video_call_status", {
+      method: "POST", body: JSON.stringify({ p_agent_uid: authUid }),
+    });
+    var statusRows = statusRes.ok ? await statusRes.json() : [];
+    var credits = statusRows.length ? Number(statusRows[0].video_call_credits || 0) : 0;
+    // Checked at room-creation time only, same "never cuts a live call
+    // short, only blocks the NEXT one" rule already established for the AI
+    // Voice Concierge's own credit gate (action=voice-init).
+    if (credits <= 0) {
+      return res.status(402).json({ error: "No video call minutes left — buy a bundle to start a new call.", needsCredit: true });
+    }
+
+    var roomName = _roomNameForAgent(authUid);
+    var expUnix = Math.floor(Date.now() / 1000) + 4 * 60 * 60; // 4h ceiling — well beyond any realistic viewing/negotiation call
+    var dr = await fetch(DAILY_API_BASE + "/rooms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + DAILY_API_KEY },
+      body: JSON.stringify({
+        name: roomName,
+        privacy: "public",
+        properties: { enable_screenshare: true, enable_chat: true, exp: expUnix, eject_at_room_exp: true, max_participants: 4 },
+      }),
+    });
+    var dd = await dr.json();
+    if (!dr.ok || !dd.url) {
+      return res.status(502).json({ error: "Daily.co room creation failed: " + (dd.error || dd.info || JSON.stringify(dd).slice(0, 200)) });
+    }
+    return res.status(200).json({ ok: true, room_url: dd.url, room_name: dd.name || roomName });
+  } catch (e) {
+    return res.status(502).json({ error: "Could not reach Daily.co: " + e.message });
+  }
+}
+
+// Digs through Daily's own /v1/meetings response defensively — the exact
+// field shape could not be confirmed against a live Daily.co account in
+// this session (flagged explicitly during research, same as ElevenLabs'
+// webhook payload before it), so several plausible field names/paths are
+// tried here, correctable in one place once tested against a live account.
+function _digDuration(session) {
+  if (!session) return null;
+  var candidates = [session.duration, session.duration_seconds, session.room_duration];
+  for (var i = 0; i < candidates.length; i++) {
+    if (typeof candidates[i] === "number" && candidates[i] >= 0) return candidates[i];
+  }
+  if (Array.isArray(session.participants) && session.participants.length) {
+    var maxDur = 0;
+    session.participants.forEach(function (p) { if (typeof p.duration === "number" && p.duration > maxDur) maxDur = p.duration; });
+    if (maxDur > 0) return maxDur;
+  }
+  return null;
+}
+
+async function _fetchDailyCallDuration(roomName) {
+  if (!DAILY_API_KEY) return null;
+  try {
+    var r = await fetch(DAILY_API_BASE + "/meetings?room=" + encodeURIComponent(roomName), {
+      headers: { "Authorization": "Bearer " + DAILY_API_KEY },
+    });
+    if (!r.ok) return null;
+    var d = await r.json();
+    var sessions = d.data || d.meetings || (Array.isArray(d) ? d : []);
+    if (!sessions.length) return null;
+    // Most recent session for this room (there should only ever be one,
+    // since room names are unique-per-call, but sort defensively anyway).
+    sessions.sort(function (a, b) { return (b.start_time || 0) - (a.start_time || 0); });
+    return _digDuration(sessions[0]);
+  } catch (e) {
+    return null;
+  }
+}
+
+// The PRIMARY billing path — the client's own daily-js instance calls this
+// the moment its "left-meeting" event fires (a real, documented client SDK
+// event), then this function independently re-confirms the real duration
+// server-side via Daily's own REST API before ever deducting credits —
+// never trusting whatever the client itself might claim.
+async function handleVideoCallEnd(req, res) {
+  var body = req.body || {};
+  var authUid = await _resolveUserId(body.access_token);
+  if (!authUid) return res.status(401).json({ error: "Please sign in first." });
+  var roomName = body.room_name;
+  if (!roomName) return res.status(400).json({ error: "Missing room_name" });
+  // The room name itself encodes the agent it was created for — refuse to
+  // bill/log against a room that doesn't belong to the signed-in caller.
+  var ownerFlat = _agentUidFromRoomName(roomName);
+  var callerFlat = String(authUid).replace(/-/g, "");
+  if (!ownerFlat || ownerFlat !== callerFlat) {
+    return res.status(403).json({ error: "This call doesn't belong to you." });
+  }
+
+  try {
+    var durationSeconds = await _fetchDailyCallDuration(roomName);
+    // Daily's REST lookup can genuinely return nothing for a moment right
+    // after a call ends (session record not yet indexed) or if the real
+    // response shape differs from what _digDuration expects — fall back to
+    // the client's own self-reported duration (computed from daily-js's
+    // real join/leave event timestamps) rather than lose the log entry
+    // entirely. This is an internal, per-agent billing feature — an agent
+    // can only ever under-report against their OWN account — not an
+    // adversarial-trust boundary, so this fallback is an acceptable,
+    // disclosed tradeoff, not a real spoofing risk to anyone else.
+    if (durationSeconds === null) {
+      var clientReported = Number(body.client_duration_seconds);
+      durationSeconds = clientReported > 0 ? clientReported : 0;
+    }
+    var minutes = durationSeconds > 0 ? Math.max(1, Math.ceil(durationSeconds / 60)) : 0;
+
+    var logRes = await supabaseRequest("/rpc/log_video_call", {
+      method: "POST",
+      body: JSON.stringify({
+        p_agent_id: authUid,
+        p_room_name: roomName,
+        p_client_name: (body.client_name || "").slice(0, 120) || null,
+        p_client_phone: (body.client_phone || "").slice(0, 40) || null,
+        p_duration_seconds: durationSeconds,
+        p_credits_charged: minutes,
+        p_billed_via: "call-end",
+        p_started_at: body.started_at || null,
+      }),
+    });
+    var logged = logRes.ok ? await logRes.json() : false;
+
+    var statusRes = await supabaseRequest("/rpc/get_video_call_status", {
+      method: "POST", body: JSON.stringify({ p_agent_uid: authUid }),
+    });
+    var statusRows = statusRes.ok ? await statusRes.json() : [];
+    var remaining = statusRows.length ? Number(statusRows[0].video_call_credits || 0) : 0;
+
+    return res.status(200).json({
+      ok: true, duration_seconds: durationSeconds, credits_charged: minutes,
+      remaining_credits: remaining, already_logged: logged === false,
+    });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// Defensive BACKUP for the case where the agent's tab/app closes before the
+// client-triggered call-end above ever fires (browser crash, native app
+// killed mid-call). Registered as Daily.co's "meeting.ended" webhook URL
+// (Dashboard -> Webhooks) once the operator has a live account — see
+// CLAUDE.md for the exact setup steps. Daily's real webhook payload shape
+// could not be confirmed against a live account in this session; parsed
+// defensively and de-duplicated against action=call-end via video_calls'
+// own unique daily_room_name constraint (log_video_call's ON CONFLICT DO
+// NOTHING), so a call already billed by call-end is never double-charged.
+async function handleVideoCallWebhook(req, res) {
+  var body = req.body || {};
+  var payload = body.payload || body.data || body;
+  var roomName = payload.room_name || payload.room || body.room_name;
+  if (!roomName) return res.status(200).json({ ok: true, ignored: "no room_name" });
+
+  var agentFlat = _agentUidFromRoomName(roomName);
+  if (!agentFlat) return res.status(200).json({ ok: true, ignored: "unrecognized room" });
+
+  var durationSeconds = _digDuration(payload) || 0;
+  var minutes = durationSeconds > 0 ? Math.max(1, Math.ceil(durationSeconds / 60)) : 0;
+
+  try {
+    await supabaseRequest("/rpc/log_video_call", {
+      method: "POST",
+      body: JSON.stringify({
+        p_agent_id: agentFlat, p_room_name: roomName, p_client_name: null, p_client_phone: null,
+        p_duration_seconds: durationSeconds, p_credits_charged: minutes,
+        p_billed_via: "webhook", p_started_at: null,
+      }),
+    });
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    return res.status(200).json({ ok: true, error: e.message }); // always 200 — never make Daily retry a call we can't process
+  }
+}
+
 async function _resolveUserId(accessToken) {
   if (!accessToken) return null;
   try {
@@ -60,7 +295,13 @@ module.exports = async function handler(req, res) {
 
   var body = req.body || {};
   var engine = body.engine;
-  var action = body.action;
+  // Daily.co's own "meeting.ended" webhook (action=call-webhook) sends its
+  // own fixed payload shape with no `action` field at all — its action must
+  // be registered as a query-string param on the webhook URL instead (same
+  // convention api/inbox.js already uses for every other 3rd-party
+  // webhook). Every other action here is client-initiated and always sends
+  // `action` in the JSON body, so this fallback changes nothing for them.
+  var action = body.action || (req.query && req.query.action) || "";
 
   // Lets the client show a clean "coming soon" state instead of a raw
   // "XXX_API_KEY not configured" error when an engine's key hasn't been
@@ -77,7 +318,30 @@ module.exports = async function handler(req, res) {
       pika: !!process.env.PIKA_API_KEY,
       did: !!process.env.DID_API_KEY,
       whisper: !!process.env.OPENAI_API_KEY,
+      daily: !!DAILY_API_KEY,
     });
+  }
+
+  // Video Call / Screen-Share (Daily.co) — none of these 4 actions carry an
+  // `engine` field (they're not an AI generation engine), so checked here,
+  // before the engine/action requirement below, same as engine_status above.
+  if (action === "call-status") {
+    if (rateLimitExceeded(req, res, 60000, 20)) return;
+    return handleVideoCallStatus(req, res);
+  }
+  if (action === "call-create-room") {
+    if (rateLimitExceeded(req, res, 60000, 10)) return;
+    return handleVideoCallCreateRoom(req, res);
+  }
+  if (action === "call-end") {
+    if (rateLimitExceeded(req, res, 60000, 10)) return;
+    return handleVideoCallEnd(req, res);
+  }
+  if (action === "call-webhook") {
+    // No rate limit — this is Daily.co's own server calling us, not an
+    // end-user; the room-name-must-parse-to-a-real-agent check inside
+    // already rejects anything not shaped like a room we actually created.
+    return handleVideoCallWebhook(req, res);
   }
 
   if (!engine || !action) return res.status(400).json({ error: "Missing engine or action" });

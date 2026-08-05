@@ -1,4 +1,4 @@
-var CACHE_NAME='dubaival-v94';
+var CACHE_NAME='dubaival-v95';
 var PRECACHE=[
   '/logo.png',
   '/manifest.json',
@@ -23,7 +23,7 @@ var PRECACHE=[
   '/js/workspace.js?v=20260805a',
   '/js/marketindex.js?v=20260726a',
   '/js/news.js?v=20260718a',
-  '/js/chiefs.js?v=20260719f'
+  '/js/chiefs.js?v=20260805a'
 ];
 
 self.addEventListener('install',function(e){

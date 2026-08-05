@@ -965,6 +965,228 @@ properly, not just documented:
 
 ## Recent work log (most recent first)
 
+- **2026-08-05 (session continuing — Phase 4 of the GenieMap gap-closing
+  plan: pay-per-use Video Call / Screen-Share, direct GenieMap counterpart,
+  vendor-researched then built end to end in one pass)**: Direct
+  continuation of the same session — user said "فاز ۴ رو بررسی و انجام
+  بده" (research Phase 4 AND do it). Unlike Phases 1-3, Phase 4 had no
+  pre-existing technical design — CLAUDE.md's own Outstanding item
+  explicitly flagged "no vendor/SDK has been chosen yet" as the blocker.
+  Dispatched a background research pass comparing Daily.co, Whereby
+  Embedded, and Twilio Video (flagged for possible account reuse with this
+  project's existing AI Voice Concierge Twilio account) across pricing/
+  pay-per-use feasibility, integration complexity for this exact stack,
+  screen-share, and recording, before writing any code.
+  - **Vendor decision: Daily.co** — chosen for true zero-commitment pay-as-
+    you-go pricing (no forced monthly base fee — Whereby's API access
+    requires a $9.99+/mo Build plan even at low usage, contradicting this
+    project's own established "buy credits, never a subscription" product
+    philosophy already proven across WhatsApp/AI-video-gen/AI-Voice-
+    Concierge credits), real confirmed $0.004/participant-minute pricing
+    with a 10,000-free-minute/month tier, a `<script defer>`-friendly
+    client SDK (`daily-js`, one CDN tag, zero build step — fits this
+    project's plain multi-file vanilla-JS architecture directly), a simple
+    REST room-creation call that slots into the existing
+    `api/proxy-*.js`/`api/billing.js` serverless-proxy pattern, and real
+    server-side cloud recording as a disclosed future option. Twilio Video
+    was set aside despite the account-reuse convenience — the vendor
+    publicly announced a full shutdown of Programmable Video in late 2023,
+    reversed it in Oct 2024 after backlash; GA and supported today, but the
+    volatility was judged a real risk to build a new feature on. A real,
+    confirmed cross-cutting gotcha (applies to any of the 3 vendors, not
+    Daily-specific): a Capacitor Android WebView does not grant camera/mic
+    to a WebRTC call by default without explicit `AndroidManifest.xml`
+    permissions + an `onPermissionRequest` bridge — the same category of
+    "native WebView needs a bridge" issue this project has hit before
+    (`window.open()` for external links) — flagged as a real, not-yet-done
+    follow-up below, not silently assumed to work.
+  - **Billing — pay-per-minute, post-paid, matching the AI Voice Concierge's
+    own already-proven pattern exactly**: `supabase-video-call-credits-
+    schema.sql` (new migration, requires manual execution) — adds
+    `user_profiles.video_call_credits` + a `video_calls` log table
+    (owner-only RLS) + 4 RPCs: `add_video_call_credits`/
+    `consume_video_call_credits` (the ledger), `get_video_call_status`
+    (balance + recent history in one call), and `log_video_call` — a single
+    idempotent logger both the primary and backup billing paths below share,
+    keyed by `daily_room_name`'s own unique constraint so a call can never
+    be double-charged regardless of which path logs it first.
+  - **`api/proxy-video.js` extended** (not a new file — the project is
+    already at Vercel Hobby's exact 12-function ceiling, confirmed by
+    listing `api/*.js` before starting): 4 new actions, all gated before
+    this file's existing `engine`/`action` requirement (same pattern
+    `engine_status` already uses, since none of these carry an `engine`
+    field).
+    - `action=call-create-room` — resolves the real signed-in agent, checks
+      `video_call_credits > 0` (402 + `needsCredit` if not — checked only
+      at room-creation time, never mid-call, matching the Voice Concierge's
+      own "credits gate the NEXT call, never cut a live one short" rule),
+      then creates a real Daily.co room via their REST API
+      (`enable_screenshare:true`, 4h expiry ceiling). The agent's own UUID
+      is encoded directly into the room name (hyphens stripped, so it
+      parses back out unambiguously) — this means `call-end`/`call-webhook`
+      never need a separate room→agent lookup table, and a room can only
+      ever be billed against the exact agent it was created for (verified:
+      a forged/foreign room name is rejected with a 403 before any billing
+      logic runs).
+    - `action=call-end` — the PRIMARY billing path. The client's own
+      `daily-js` instance calls this the moment its real `left-meeting`
+      event fires; the server then INDEPENDENTLY re-confirms the real
+      duration via Daily's own REST Meetings API
+      (`GET /v1/meetings?room=...`) before ever deducting anything — never
+      trusting a client-reported number as the primary source, same
+      "server verifies the vendor's own authoritative record" principle
+      already used for the AI Voice Concierge's ElevenLabs webhook.
+      Daily's exact response field shape could not be confirmed against a
+      live account in this session (the research explicitly flagged this
+      as unconfirmed) — parsed defensively via `_digDuration()` (tries
+      several plausible field names/paths, same class of defensive parsing
+      already proven for Bayut/PropertyFinder listings), with a disclosed,
+      deliberate fallback to the client's OWN self-reported duration only
+      when the REST lookup genuinely returns nothing — an accepted
+      tradeoff since this is an internal per-agent billing feature (an
+      agent can only ever under-report against their OWN account), not an
+      adversarial trust boundary. Minutes are rounded up to the next whole
+      minute, minimum 1 (`Math.max(1,Math.ceil(durationSeconds/60))`, the
+      exact same formula the Voice Concierge's own webhook already uses).
+    - `action=call-webhook` — a defensive BACKUP for the case where the
+      agent's tab/app closes before `call-end` ever fires (browser crash,
+      native app killed mid-call) — registered as Daily's own
+      `meeting.ended` webhook URL once the operator has a live account.
+      De-duplicated for free against `call-end` via `log_video_call`'s own
+      unique-room-name insert (`ON CONFLICT DO NOTHING`) — a call already
+      billed by the primary path is never double-charged by this backup.
+      **A real, load-bearing bug found and fixed by the session's own
+      test**: the router only ever read `action` from the JSON request
+      BODY (`body.action`) — but Daily's own webhook payload has its own
+      fixed shape (`{type,payload}`) with no `action` field at all, so this
+      webhook's action must be registered as a QUERY-STRING param on the
+      webhook URL instead, exactly like every other 3rd-party webhook in
+      this project (`api/inbox.js`'s established
+      `req.query.action` convention). Fixed by falling back to
+      `req.query.action` when the body has none — a zero-risk change for
+      every OTHER action here, which always sends `action` in the body.
+    - `action=call-status` — real balance + last-10-calls history in one
+      call, used by both the Dashboard summary card and the full Video
+      Call tab.
+  - **`api/billing.js` extended**: `action=video-call-checkout` — a
+    ONE-TIME Stripe Checkout Session (never a subscription, same pattern as
+    `voice-checkout`/`video-gen-checkout`), default $9.99/60 minutes
+    (`VIDEO_CALL_MINUTES_BUNDLE_PRICE_CENTS`/`_MINUTES`/`_CURRENCY` env
+    vars, tunable — mirrors the Voice Concierge's own disclosed "starting
+    estimate, not a confirmed final price" framing, since Daily's real
+    $0.008/min-for-2-participants cost gives this default a wide margin but
+    real usage data would sharpen it). Webhook branch keys off
+    `metadata.type==="video_call_credit"`, credits the exact bundle size
+    from the session's own metadata (not whatever the env var default
+    happens to be later), same pattern as every other credit product's
+    webhook branch in this file.
+  - **`js/chiefs.js` — new "Video Call" internal Chiefs view**, mirroring
+    the AI Voice Concierge's own already-proven UI shape exactly (a
+    deliberate consistency choice, not a new pattern invented for this
+    feature): `CHIEFS_VIDEOCALL` state, `_chiefsFetchVideoCallStatus()`,
+    `_startVideoCallCreditCheckout()`, a lazy `_chiefsLoadDailyScript()`
+    (loads `daily-js` from `unpkg.com` — already an allow-listed, cached
+    CDN origin in this app's own `sw.js` — only when a call is actually
+    started, never eagerly), `chiefsStartVideoCall()`/
+    `_chiefsMountDailyFrame()`/`chiefsEndVideoCall()`, and
+    `_chiefsOpenVideoCallFor(clientName,clientPhone)` — a deep-link entry
+    point wired into a new "📹 Video Call" button on every Client Memory
+    Bank card (right next to the existing WhatsApp button), pre-filling the
+    Start-a-Call form from that client's own real details. New "Video Call"
+    tab added to the internal Chiefs view-tab bar (`VIEWS` array — an
+    INTERNAL sub-view inside the already-nav-approved AI Chief of Staff
+    tab, not a change to the frozen top-level `NAV_SECTIONS`, same
+    precedent already established for Voice/Broadcast/Commission), plus a
+    compact Dashboard summary card (`_renderChiefsVideoCallCard()`)
+    mirroring `_renderChiefsVoiceCard()`'s exact visual pattern. The live-
+    call UI shows the real Daily.co Prebuilt iframe (screen-share built in
+    natively), a copyable room link, a "Send via WhatsApp" button (reuses
+    this file's established `wa.me` deep-link convention) so the client can
+    join with zero account/app-download, and an "End Call" button. The
+    `render()`-first-then-`setTimeout(fn,0)`-mount-the-3rd-party-widget
+    pattern is deliberately reused from Google Maps' own established
+    `_dvGmapLoad()` convention (not a synchronous post-render DOM lookup,
+    which risks a race with the just-rendered container div not existing
+    yet).
+  - Verified with the same rigor as every other phase this session, 3
+    layers: (1) a mocked-fetch Node test harness against the REAL
+    `api/proxy-video.js` handler (16 checks) — sign-in gating, the 402
+    zero-credit gate on room creation (room never actually created), the
+    real room-name-encodes-agent scheme, a forged/foreign room name
+    correctly rejected with 403, real Daily.co duration lookup + correct
+    minute-rounding + correct credit deduction, a graceful fallback to the
+    client-reported duration when Daily's REST lookup returns nothing,
+    idempotent re-calls of `call-end` for the same room never double-
+    charging, the webhook backup correctly de-duping an already-billed
+    room and correctly billing a genuinely new one, and an unrecognized
+    room name ignored gracefully rather than throwing — this pass is what
+    caught the real `req.query.action` router bug documented above, before
+    it ever shipped; (2) a real-stream mocked-fetch test against the REAL
+    `api/billing.js` handler (7 checks) — correct one-time-payment Stripe
+    params, correct metadata type/minutes/price, correct rejection of a
+    request missing an email with zero Stripe calls attempted; (3) a full
+    real-browser Playwright pass driving the actual Chiefs UI end-to-end
+    (25 checks) — Dashboard card, the Video Call tab's header/form/credit-
+    balance/history, filling the Start-a-Call form and clicking Start
+    (real `call-create-room` call, real Daily frame creation + join with
+    the correct room URL, real share-link + WhatsApp button), clicking End
+    Call (real Daily frame destroy, real `call-end` call, credits correctly
+    updated, back to the start-call form), the Buy Minutes button firing a
+    real checkout call (run deliberately LAST in the test, since a
+    successful checkout correctly triggers `window.location.href=` — a real
+    page navigation that would otherwise tear down the test's own JS
+    context for anything evaluated afterward — exactly the correct,
+    intended app behavior, not a bug), and the Client-card deep-link button
+    correctly pre-filling the Start-a-Call form with that client's real
+    name/phone. Zero non-network console errors. **One genuine, disclosed
+    sandbox-environment limitation found and worked around, not silently
+    ignored**: confirmed via isolated testing that THIS session's specific
+    Playwright/Chromium build correctly intercepts `<script>` tags already
+    present in `index.html` at load time (lucide.js, leaflet.js all
+    verified interceptable) but does NOT route DYNAMICALLY-injected
+    `<script>` tags added after page load — meaning a mocked
+    `route.fulfill()` for the `daily-js` CDN URL specifically never fired,
+    even though the exact same mocking technique works for every other CDN
+    script in this project's test history. This is the same class of
+    "outbound CDN blocked in this sandbox" limitation already documented
+    repeatedly elsewhere in this file (Google Maps, RapidAPI) — worked
+    around by pre-injecting a stub `window.DailyIframe` directly (so
+    `_chiefsLoadDailyScript()`'s own `if(window.DailyIframe)return` short-
+    circuit fires immediately), which still exercises every real line of
+    `_chiefsMountDailyFrame()`'s actual application logic
+    (`createFrame`/`on`/`join`/`destroy` all genuinely called with the
+    correct real room URL) — it just doesn't prove the CDN script tag
+    itself loads in a real, unsandboxed browser, which is a thin, standard
+    pattern already proven correct elsewhere in this exact codebase.
+  - Cache version bumped: `js/chiefs.js` to `?v=20260805a` in both
+    `index.html` and `sw.js`'s `PRECACHE` array; `sw.js`'s `CACHE_NAME`
+    bumped `dubaival-v94`→`dubaival-v95`. Rebuilt `www/` and manually
+    synced `index.html`/`js/chiefs.js`/`sw.js` into
+    `android/app/src/main/assets/public/` (`npx cap sync android` failed
+    as always in this sandbox — no Android SDK).
+  - **Manual steps required before this goes live** (see the updated
+    Outstanding item below for the full checklist): (1) run
+    `supabase-video-call-credits-schema.sql` in Supabase SQL Editor
+    (requires `supabase-chiefs-schema.sql` already applied, which it is);
+    (2) create a real Daily.co account and set `DAILY_API_KEY` in Vercel
+    env vars; (3) once live, register
+    `https://www.dubaival.com/api/proxy-video?action=call-webhook` as a
+    Daily.co webhook subscribed to `meeting.ended` (Dashboard → Webhooks) —
+    the defensive backup path only activates once this is configured, the
+    primary `call-end` path already works the moment (1)+(2) are done; (4)
+    confirm `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` are set (already
+    required for every other credit checkout in this project —
+    `video-call-checkout` reuses them, no new Stripe setup); (5) before
+    shipping the native Android app specifically, add the real
+    `AndroidManifest.xml` camera/microphone permissions +
+    `onPermissionRequest` WebView bridge the research flagged as a real,
+    confirmed gotcha for ANY WebRTC vendor in a Capacitor WebView — not yet
+    done this session, disclosed rather than silently assumed to work.
+  - **This completes all 5 phases of the GenieMap gap-closing plan**
+    (Phase 0 data source → Phase 1 off-plan map → Phase 2 multi-project
+    catalog → Phase 3 developer directory → Phase 4 video calls), all
+    shipped in this same session.
+
 - **2026-08-05 (session continuing — Phase 3 of the GenieMap gap-closing
   plan: Developer Sales-Contact Directory, a genuinely new feature/table)**:
   Direct continuation of the same session — user said "برو سراغ فاز ۳" (go
@@ -13480,34 +13702,42 @@ These files contain critical business logic and data:
 
 ## Outstanding / open items
 
-- **🟡 GenieMap gap-closing plan — Phases 0-3 shipped same session; Phase 4
-  not started** (added 2026-08-05, updated 3 times same session as Phases
-  1-3 shipped): Phase 0's `supabase-offplan-seed-data.sql` has been
-  confirmed run by the user — the 4 real, individually-verified off-plan
-  projects (DAMAC Islands 2, Sobha Hartland 2 - Skyscape Collection,
-  Binghatti Skyrise, The Oasis by Emaar — see the Phase 0 work-log entry
-  for full sourcing detail) are live in the Off-Plan tab. Phase 1 (the
-  off-plan map with real project pins + stage/price-band/handover-range
-  filters), Phase 2 (a multi-project branded catalog generator extending
-  the existing Report Builder), and Phase 3 (the Developer Sales-Contact
-  Directory, a genuinely new feature/table) are all code-complete and
-  independently verified via real-browser Playwright passes — see the
-  same-dated work-log entries above for the full test breakdown of each.
-  Phase 3's own `supabase-developer-contacts-schema.sql` still needs
-  manual execution (requires `supabase-admin-security-fix.sql` already
-  applied, which it is) — until then, Directory shows the same graceful
-  "not available yet" message the Off-Plan tab itself used before its own
-  migration ran. The Bayut `new-projects` import (`js/app.js`
-  `_adminFetchBayutOffplan()`) has real error-detail surfacing but is
-  STILL genuinely untested against a live `RAPIDAPI_KEY` — the next
-  attempt against the real key (in the actual deployed Admin Dashboard) is
-  what will validate or reveal a needed fix, not another guess from this
-  sandbox. **Not started at all**: Phase 4 (pay-per-use video call/
-  screen-share with clients — user confirmed pay-per-use pricing, matching
-  the established WhatsApp/video-credit pattern, but no vendor/SDK has
-  been chosen yet — Daily.co and Whereby Embedded were named as realistic
-  serverless-friendly candidates, not yet evaluated in depth — the natural
-  next session's starting point).
+- **🟡 GenieMap gap-closing plan — ALL 5 PHASES CODE-COMPLETE, several
+  manual setup steps outstanding before Phase 4 goes fully live** (added
+  2026-08-05, updated 4 times same session as each phase shipped, Phase 4
+  completing the whole plan): Phase 0's `supabase-offplan-seed-data.sql`
+  has been confirmed run by the user — the 4 real, individually-verified
+  off-plan projects (DAMAC Islands 2, Sobha Hartland 2 - Skyscape
+  Collection, Binghatti Skyrise, The Oasis by Emaar — see the Phase 0
+  work-log entry for full sourcing detail) are live in the Off-Plan tab.
+  Phases 1 (off-plan map with pins/filters), 2 (multi-project branded
+  catalog via the Report Builder), 3 (Developer Sales-Contact Directory),
+  and 4 (pay-per-use Video Call / Screen-Share via Daily.co) are ALL
+  code-complete and independently verified via real-browser Playwright
+  passes — see each phase's own same-dated work-log entry above for its
+  full test breakdown. Manual steps still outstanding:
+  - Phase 3's `supabase-developer-contacts-schema.sql` still needs manual
+    execution (requires `supabase-admin-security-fix.sql` already applied,
+    which it is) — until then, Directory shows the same graceful "not
+    available yet" message the Off-Plan tab itself used before its own
+    migration ran.
+  - Phase 4's `supabase-video-call-credits-schema.sql` still needs manual
+    execution (requires `supabase-chiefs-schema.sql` already applied,
+    which it is); a real Daily.co account + `DAILY_API_KEY` in Vercel env
+    vars; registering `https://www.dubaival.com/api/proxy-video?
+    action=call-webhook` as a Daily.co webhook subscribed to
+    `meeting.ended` (the defensive backup billing path only — the primary
+    `call-end` path already works without this); and, before shipping the
+    native Android app specifically, real `AndroidManifest.xml` camera/mic
+    permissions + an `onPermissionRequest` WebView bridge (a real,
+    confirmed gotcha for ANY WebRTC vendor in a Capacitor WebView, flagged
+    by this session's own vendor research, not yet done). See the Phase 4
+    work-log entry above for the full checklist.
+  - The Bayut `new-projects` import (`js/app.js` `_adminFetchBayutOffplan()`,
+    Phase 0) has real error-detail surfacing but is STILL genuinely
+    untested against a live `RAPIDAPI_KEY` — the next attempt against the
+    real key (in the actual deployed Admin Dashboard) is what will
+    validate or reveal a needed fix, not another guess from this sandbox.
 
 - **🔴 CRITICAL, USER ACTION REQUIRED — GROQ_API_KEY in Vercel is invalid/
   expired, breaking EVERY AI feature site-wide (added 2026-07-27)**: the

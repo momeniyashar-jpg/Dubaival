@@ -64,6 +64,20 @@ const VOICE_MINUTES_BUNDLE_PRICE_CENTS = parseInt(process.env.VOICE_MINUTES_BUND
 const VOICE_MINUTES_BUNDLE_MINUTES = parseInt(process.env.VOICE_MINUTES_BUNDLE_MINUTES || "60", 10);
 const VOICE_MINUTES_BUNDLE_CURRENCY = process.env.VOICE_MINUTES_BUNDLE_CURRENCY || "usd";
 
+// AI Chief of Staff — pay-per-use Video Call / Screen-Share (added
+// 2026-08-05, Phase 4 of the GenieMap gap-closing plan — see
+// supabase-video-call-credits-schema.sql). A bundle of real Daily.co video-
+// call minutes, ONE-TIME payment like every other credit product above.
+// Default bundle mirrors the AI Voice Concierge's own starting estimate
+// (60 minutes for $9.99) since real-time video is a comparable per-minute
+// cost category to real-time voice — Daily.co's own confirmed rate is
+// $0.004/participant-minute (2 participants per call = $0.008/min), so this
+// default carries a wide margin; tune via env vars once real usage data
+// exists.
+const VIDEO_CALL_MINUTES_BUNDLE_PRICE_CENTS = parseInt(process.env.VIDEO_CALL_MINUTES_BUNDLE_PRICE_CENTS || "999", 10);
+const VIDEO_CALL_MINUTES_BUNDLE_MINUTES = parseInt(process.env.VIDEO_CALL_MINUTES_BUNDLE_MINUTES || "60", 10);
+const VIDEO_CALL_MINUTES_BUNDLE_CURRENCY = process.env.VIDEO_CALL_MINUTES_BUNDLE_CURRENCY || "usd";
+
 function readRawBody(req) {
   return new Promise(function (resolve, reject) {
     var chunks = [];
@@ -328,6 +342,59 @@ async function handleVoiceCheckout(req, res) {
   }
 }
 
+// Same one-time-payment pattern as handleVoiceCheckout above, for AI Chief
+// of Staff video-call minute bundles (metadata.type="video_call_credit"
+// distinguishes it in the shared webhook handler below; metadata.minutes
+// carries the bundle size, same reasoning as voice's own metadata.minutes).
+async function handleVideoCallCheckout(req, res) {
+  if (rateLimitExceeded(req, res, 60000, 10)) return;
+  if (!STRIPE_SECRET_KEY) {
+    res.status(500).json({ ok: false, error: "Billing isn't configured yet — contact support@dubaival.com" });
+    return;
+  }
+  var raw = await readRawBody(req);
+  var body = {};
+  try { body = JSON.parse(raw.toString("utf8") || "{}"); } catch (e) {}
+  var userId = (body.user_id || "").trim();
+  var email = (body.email || "").trim().toLowerCase();
+  if (!userId || !email || !email.includes("@")) {
+    res.status(400).json({ ok: false, error: "Missing user_id or email" });
+    return;
+  }
+
+  var params = new URLSearchParams({
+    "mode": "payment",
+    "line_items[0][price_data][currency]": VIDEO_CALL_MINUTES_BUNDLE_CURRENCY,
+    "line_items[0][price_data][unit_amount]": String(VIDEO_CALL_MINUTES_BUNDLE_PRICE_CENTS),
+    "line_items[0][price_data][product_data][name]": "DubaiVal Video Call — " + VIDEO_CALL_MINUTES_BUNDLE_MINUTES + " Minutes",
+    "line_items[0][price_data][product_data][description]": "Live video call minutes with your clients, directly inside DubaiVal",
+    "line_items[0][quantity]": "1",
+    "success_url": SITE_URL + "/?video_call_credit=1",
+    "cancel_url": SITE_URL + "/",
+    "customer_email": email,
+    "client_reference_id": userId,
+    "metadata[type]": "video_call_credit",
+    "metadata[user_id]": userId,
+    "metadata[minutes]": String(VIDEO_CALL_MINUTES_BUNDLE_MINUTES),
+  });
+
+  try {
+    var r = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + STRIPE_SECRET_KEY, "Content-Type": "application/x-www-form-urlencoded" },
+      body: params.toString(),
+    });
+    var data = await r.json();
+    if (!r.ok) {
+      res.status(500).json({ ok: false, error: (data.error && data.error.message) || "Stripe error creating checkout session" });
+      return;
+    }
+    res.status(200).json({ ok: true, url: data.url });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: "Could not reach Stripe: " + e.message });
+  }
+}
+
 // Manual HMAC verification of Stripe's Stripe-Signature header — same
 // algorithm as the official SDK's constructEvent(), reimplemented with
 // Node's crypto to avoid adding the stripe npm package for one function.
@@ -421,6 +488,13 @@ async function handleWebhook(req, res) {
           method: "POST",
           body: JSON.stringify({ p_user_id: userId, p_minutes: voiceMinutes }),
         });
+      } else if (userId && session.mode === "payment" && session.metadata && session.metadata.type === "video_call_credit") {
+        // Video Call / Screen-Share minute bundle — a 5th, separate pool.
+        var videoCallMinutes = parseInt((session.metadata && session.metadata.minutes) || "60", 10);
+        await supabaseRequest("/rpc/add_video_call_credits", {
+          method: "POST",
+          body: JSON.stringify({ p_user_id: userId, p_minutes: videoCallMinutes }),
+        });
       } else if (userId) {
         await supabaseRequest("/user_profiles?id=eq." + encodeURIComponent(userId), {
           method: "PATCH",
@@ -471,6 +545,7 @@ module.exports = async function handler(req, res) {
   if (req.method === "POST" && action === "video-gen-checkout") return handleVideoGenCheckout(req, res);
   if (req.method === "POST" && action === "whatsapp-checkout") return handleWhatsAppCheckout(req, res);
   if (req.method === "POST" && action === "voice-checkout") return handleVoiceCheckout(req, res);
+  if (req.method === "POST" && action === "video-call-checkout") return handleVideoCallCheckout(req, res);
 
   res.status(405).json({ ok: false, error: "Method not allowed" });
 };

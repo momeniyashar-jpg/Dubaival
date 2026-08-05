@@ -1184,6 +1184,7 @@ function _renderChiefsDashboard() {
   wrap.appendChild(_renderChiefsAutomationSettings());
   wrap.appendChild(_renderChiefsConciergeCard());
   wrap.appendChild(_renderChiefsVoiceCard());
+  wrap.appendChild(_renderChiefsVideoCallCard());
 
   // Stats row
   var inv = CHIEFS_STATE.inventory; var cli = CHIEFS_STATE.clients;
@@ -1648,6 +1649,7 @@ function _renderChiefsClients() {
       abtn.appendChild(_chBtn('<i data-lucide="pencil" style="width:11px;height:11px"></i>Edit',"rgba(255,255,255,0.06)","#8899AA",function(){chiefsEditClient(item);},{border:"1px solid rgba(255,255,255,0.1)",fontSize:"11px",padding:"6px 10px"}));
       abtn.appendChild(_chBtn('<i data-lucide="link-2" style="width:11px;height:11px"></i>Find Matches',"rgba(16,185,129,0.1)","#10B981",function(){_chiefsAutoMatch();CHIEFS_STATE.view="matches";render();},{border:"1px solid rgba(16,185,129,0.2)",fontSize:"11px",padding:"6px 10px"}));
       if (item.client_phone) abtn.appendChild(_chBtn('<i data-lucide="message-circle" style="width:11px;height:11px"></i>WhatsApp',"rgba(37,211,102,0.1)","#25D366",function(){var p=item.client_phone.replace(/[^0-9+]/g,"");window.open("https://wa.me/"+p,"_blank","noopener,noreferrer");},{border:"1px solid rgba(37,211,102,0.2)",fontSize:"11px",padding:"6px 10px"}));
+      abtn.appendChild(_chBtn('<i data-lucide="video" style="width:11px;height:11px"></i>Video Call',"rgba(212,175,55,0.1)","#D4AF37",function(){_chiefsOpenVideoCallFor(item.client_name,item.client_phone);},{border:"1px solid rgba(212,175,55,0.2)",fontSize:"11px",padding:"6px 10px"}));
       abtn.appendChild(_chBtn('<i data-lucide="trash-2" style="width:11px;height:11px"></i>',"rgba(239,68,68,0.1)","#EF4444",function(){chiefsDeleteClient(item.id);},{border:"1px solid rgba(239,68,68,0.2)",fontSize:"11px",padding:"6px 10px"}));
       det.appendChild(abtn); card.appendChild(det);
     }
@@ -2974,6 +2976,261 @@ function _renderChiefsVoiceView() {
   return wrap;
 }
 
+// ── VIDEO CALL / SCREEN-SHARE (Daily.co) — Phase 4 of the GenieMap gap-
+// closing plan (added 2026-08-05). A real, live video call between an agent
+// and their client, directly inside DubaiVal, for a virtual viewing or
+// closing a negotiation face to face — the counterpart to GenieMap's own
+// broker-client call feature. Pay-per-use, post-paid-minutes model (same
+// shape as the AI Voice Concierge above): a room can only be CREATED while
+// the agent has a positive balance; minutes are deducted AFTER the call
+// from the REAL duration our server independently confirms via Daily.co's
+// own REST API, never estimated or trusted from the client in advance. See
+// api/proxy-video.js (action=call-status/call-create-room/call-end/
+// call-webhook) and supabase-video-call-credits-schema.sql for the full
+// server-side design.
+var CHIEFS_VIDEOCALL = {
+  loading: false, loaded: false, error: null, credits: 0, recentCalls: [],
+  creatingRoom: false, activeCall: null, // {roomName,roomUrl,clientName,clientPhone,startedAt}
+  callFrame: null, formClientName: "", formClientPhone: ""
+};
+
+async function _chiefsFetchVideoCallStatus() {
+  if (CHIEFS_VIDEOCALL.loading) return;
+  CHIEFS_VIDEOCALL.loading = true; render();
+  try {
+    var accessToken = await _chiefsValidToken();
+    var r = await fetch("/api/proxy-video", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "call-status", access_token: accessToken }),
+    });
+    var d = await r.json();
+    if (r.ok && d.ok) {
+      CHIEFS_VIDEOCALL.credits = d.videoCallCredits || 0;
+      CHIEFS_VIDEOCALL.recentCalls = d.recentCalls || [];
+    } else {
+      CHIEFS_VIDEOCALL.error = (d && d.error) || "Could not load video call status.";
+    }
+  } catch (e) {
+    CHIEFS_VIDEOCALL.error = "Network error loading video call status.";
+  }
+  CHIEFS_VIDEOCALL.loading = false; CHIEFS_VIDEOCALL.loaded = true; render();
+}
+
+async function _startVideoCallCreditCheckout() {
+  if (typeof DV_AUTH === "undefined" || !DV_AUTH.user) {
+    if (typeof DV_AUTH !== "undefined") { DV_AUTH.showModal = true; DV_AUTH.modalTab = "signup"; DV_AUTH.error = "Please create a free account first, then buy video call minutes."; render(); }
+    return;
+  }
+  var resp = await fetch("/api/billing?action=video-call-checkout", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id: DV_AUTH.user.id, email: DV_AUTH.user.email }),
+  });
+  var data = await resp.json();
+  if (!data.ok || !data.url) throw new Error(data.error || "Could not start checkout");
+  window.location.href = data.url;
+}
+
+// Lazy-loads the Daily.co client SDK only when a call is actually started —
+// unpkg.com is already an allow-listed, cached CDN origin in this app's own
+// service worker (sw.js), same as every other CDN script this project loads.
+function _chiefsLoadDailyScript() {
+  if (window.DailyIframe) return Promise.resolve();
+  if (window._dvDailyScriptPromise) return window._dvDailyScriptPromise;
+  window._dvDailyScriptPromise = new Promise(function (resolve, reject) {
+    var s = document.createElement("script");
+    s.src = "https://unpkg.com/@daily-co/daily-js";
+    s.onload = function () { resolve(); };
+    s.onerror = function () { reject(new Error("Could not load the video call component — check your connection and try again.")); };
+    document.head.appendChild(s);
+  });
+  return window._dvDailyScriptPromise;
+}
+
+async function chiefsStartVideoCall(clientName, clientPhone) {
+  if (CHIEFS_VIDEOCALL.creatingRoom) return;
+  CHIEFS_VIDEOCALL.creatingRoom = true; CHIEFS_VIDEOCALL.error = null; render();
+  try {
+    var accessToken = await _chiefsValidToken();
+    var r = await fetch("/api/proxy-video", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "call-create-room", access_token: accessToken }),
+    });
+    var d = await r.json();
+    if (!r.ok || !d.ok) {
+      CHIEFS_VIDEOCALL.error = (d && d.error) || "Could not start the call.";
+      CHIEFS_VIDEOCALL.creatingRoom = false; render();
+      return;
+    }
+    await _chiefsLoadDailyScript();
+    CHIEFS_VIDEOCALL.activeCall = {
+      roomName: d.room_name, roomUrl: d.room_url,
+      clientName: clientName || "", clientPhone: clientPhone || "",
+      startedAt: new Date().toISOString(),
+    };
+    CHIEFS_VIDEOCALL.creatingRoom = false; render();
+    // Same "render() first, then instantiate the 3rd-party widget into the
+    // just-rendered container via setTimeout(fn,0)" deferred-instantiation
+    // pattern already established for Google Maps elsewhere in this project
+    // — avoids a race between the DOM update and the widget mount.
+    setTimeout(_chiefsMountDailyFrame, 0);
+  } catch (e) {
+    CHIEFS_VIDEOCALL.error = "Could not start the call: " + e.message;
+    CHIEFS_VIDEOCALL.creatingRoom = false; render();
+  }
+}
+
+function _chiefsMountDailyFrame() {
+  var container = document.getElementById("dv-daily-call-frame");
+  if (!container || !window.DailyIframe || CHIEFS_VIDEOCALL.callFrame || !CHIEFS_VIDEOCALL.activeCall) return;
+  var frame = window.DailyIframe.createFrame(container, {
+    url: CHIEFS_VIDEOCALL.activeCall.roomUrl,
+    showLeaveButton: true,
+    iframeStyle: { width: "100%", height: "100%", border: "0" },
+  });
+  frame.on("left-meeting", function () { chiefsEndVideoCall(); });
+  frame.join();
+  CHIEFS_VIDEOCALL.callFrame = frame;
+}
+
+async function chiefsEndVideoCall() {
+  var call = CHIEFS_VIDEOCALL.activeCall;
+  if (!call) return;
+  var startedMs = new Date(call.startedAt).getTime();
+  var clientDurationSeconds = Math.max(0, Math.round((Date.now() - startedMs) / 1000));
+
+  if (CHIEFS_VIDEOCALL.callFrame) {
+    try { CHIEFS_VIDEOCALL.callFrame.destroy(); } catch (e) {}
+    CHIEFS_VIDEOCALL.callFrame = null;
+  }
+  CHIEFS_VIDEOCALL.activeCall = null; render();
+
+  try {
+    var accessToken = await _chiefsValidToken();
+    var r = await fetch("/api/proxy-video", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "call-end", access_token: accessToken, room_name: call.roomName,
+        client_name: call.clientName, client_phone: call.clientPhone,
+        started_at: call.startedAt, client_duration_seconds: clientDurationSeconds,
+      }),
+    });
+    var d = await r.json();
+    if (r.ok && d.ok) {
+      CHIEFS_VIDEOCALL.credits = d.remaining_credits;
+      var mins = Math.round((d.duration_seconds || 0) / 60 * 10) / 10;
+      _chiefsToast("📹", "Call ended", mins + " min · " + (d.credits_charged || 0) + " credit" + ((d.credits_charged || 0) === 1 ? "" : "s") + " used", function () { CHIEFS_STATE.view = "videocall"; render(); }, "View History");
+    }
+    _chiefsFetchVideoCallStatus();
+  } catch (e) {}
+}
+
+// Deep-link entry point from a Client Memory Bank card's own "Video Call"
+// button — pre-fills the Start-a-Call form with that client's real details.
+function _chiefsOpenVideoCallFor(clientName, clientPhone) {
+  CHIEFS_VIDEOCALL.formClientName = clientName || "";
+  CHIEFS_VIDEOCALL.formClientPhone = clientPhone || "";
+  CHIEFS_STATE.view = "videocall";
+  render();
+}
+
+// Compact Dashboard summary card, mirrors _renderChiefsVoiceCard()'s shape.
+function _renderChiefsVideoCallCard() {
+  var cl = C();
+  if (!CHIEFS_VIDEOCALL.loaded && !CHIEFS_VIDEOCALL.loading) _chiefsFetchVideoCallStatus();
+  var card = el("div", { style: { background: cl.surface, border: "1px solid " + cl.border, borderRadius: "14px", padding: "14px 16px", marginBottom: "16px", cursor: "pointer" } });
+  card.addEventListener("click", function () { CHIEFS_STATE.view = "videocall"; render(); });
+  var hdr = el("div", { style: { display: "flex", alignItems: "center", gap: "7px", marginBottom: "6px" } });
+  hdr.appendChild(span({ fontSize: "14px" }, "📹"));
+  hdr.appendChild(div({ color: cl.white, fontSize: "11px", fontWeight: "800", letterSpacing: "0.06em", fontFamily: "'Space Grotesk',monospace" }, "VIDEO CALLS"));
+  card.appendChild(hdr);
+  card.appendChild(div({ color: cl.muted, fontSize: "10.5px", fontFamily: "'Inter',sans-serif", lineHeight: "1.4" }, CHIEFS_VIDEOCALL.credits + " minute" + (CHIEFS_VIDEOCALL.credits === 1 ? "" : "s") + " remaining · call a client for a viewing or negotiation, right from here"));
+  return card;
+}
+
+function _renderChiefsVideoCallView() {
+  var cl = C();
+  if (!CHIEFS_VIDEOCALL.loaded && !CHIEFS_VIDEOCALL.loading) _chiefsFetchVideoCallStatus();
+  var wrap = el("div", { style: { padding: "16px", maxWidth: "560px", margin: "0 auto" } });
+
+  // Live call in progress — the real Daily.co Prebuilt iframe mounts into
+  // #dv-daily-call-frame right below (see _chiefsMountDailyFrame). Hides
+  // the Start-a-Call form/history entirely while a call is live.
+  if (CHIEFS_VIDEOCALL.activeCall) {
+    var callWrap = el("div", { style: { marginBottom: "16px" } });
+    callWrap.appendChild(div({ color: cl.white, fontSize: "14px", fontWeight: "700", fontFamily: "'Space Grotesk',monospace", marginBottom: "8px" }, "📹 Live call" + (CHIEFS_VIDEOCALL.activeCall.clientName ? " with " + CHIEFS_VIDEOCALL.activeCall.clientName : "")));
+    var frameHolder = el("div", { id: "dv-daily-call-frame", style: { width: "100%", height: "420px", background: "#000", borderRadius: "12px", overflow: "hidden", marginBottom: "10px" } });
+    callWrap.appendChild(frameHolder);
+
+    var shareRow = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "10px" } });
+    var linkBox = el("input", { style: { flex: "1", minWidth: "160px", background: "#070B14", border: "1px solid " + cl.border, borderRadius: "8px", padding: "8px 10px", color: cl.sub, fontSize: "10.5px", fontFamily: "monospace", boxSizing: "border-box" } });
+    linkBox.type = "text"; linkBox.value = CHIEFS_VIDEOCALL.activeCall.roomUrl; linkBox.readOnly = true;
+    linkBox.addEventListener("click", function () { this.select(); });
+    shareRow.appendChild(linkBox);
+    shareRow.appendChild(_chBtn("Copy Link", "rgba(212,175,55,0.12)", "#D4AF37", function (ev) {
+      var roomUrl = CHIEFS_VIDEOCALL.activeCall ? CHIEFS_VIDEOCALL.activeCall.roomUrl : "";
+      navigator.clipboard.writeText(roomUrl).then(function () {
+        var b = ev.currentTarget; if (b) { var orig = b.innerHTML; b.textContent = "Copied!"; setTimeout(function () { b.innerHTML = orig; }, 2000); }
+      }).catch(function () {});
+    }, { border: "1px solid rgba(212,175,55,0.3)", fontSize: "11px" }));
+    if (CHIEFS_VIDEOCALL.activeCall.clientPhone) {
+      shareRow.appendChild(_chBtn('<i data-lucide="message-circle" style="width:11px;height:11px"></i>Send via WhatsApp', "rgba(37,211,102,0.12)", "#25D366", function () {
+        var p = CHIEFS_VIDEOCALL.activeCall.clientPhone.replace(/[^0-9+]/g, "");
+        var msg = encodeURIComponent("Join our video call here: " + CHIEFS_VIDEOCALL.activeCall.roomUrl);
+        window.open("https://wa.me/" + p + "?text=" + msg, "_blank", "noopener,noreferrer");
+      }, { border: "1px solid rgba(37,211,102,0.2)", fontSize: "11px" }));
+    }
+    callWrap.appendChild(shareRow);
+    callWrap.appendChild(_chBtn("End Call", "rgba(239,68,68,0.12)", "#EF4444", function () { chiefsEndVideoCall(); }, { border: "1px solid rgba(239,68,68,0.3)", width: "100%", justifyContent: "center" }));
+    wrap.appendChild(callWrap);
+    return wrap;
+  }
+
+  wrap.appendChild(div({ color: cl.white, fontSize: "16px", fontWeight: "800", fontFamily: "'Space Grotesk',monospace", marginBottom: "6px" }, "📹 Video Calls"));
+  wrap.appendChild(div({ color: cl.muted, fontSize: "12px", fontFamily: "'Inter',sans-serif", marginBottom: "16px", lineHeight: "1.5" }, "A real, live video call with your client — a virtual viewing, walking a floor plan together, or closing a negotiation face to face — right inside DubaiVal. Your client joins with one tap, no account or app download needed."));
+
+  if (CHIEFS_VIDEOCALL.error) wrap.appendChild(div({ color: "#F59E0B", fontSize: "11.5px", fontFamily: "'Inter',sans-serif", marginBottom: "14px", lineHeight: "1.5" }, CHIEFS_VIDEOCALL.error));
+
+  var startCard = _chCard(null, { background: "rgba(212,175,55,0.05)", border: "1px solid rgba(212,175,55,0.2)" });
+  startCard.appendChild(div({ color: "#D4AF37", fontSize: "11px", fontWeight: "700", fontFamily: "'Space Grotesk',monospace", marginBottom: "10px", letterSpacing: "0.08em" }, "START A CALL"));
+  var g = el("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "10px" } });
+  g.appendChild(inp(I(), "Client name", "text", CHIEFS_VIDEOCALL.formClientName, function (v) { CHIEFS_VIDEOCALL.formClientName = v; }));
+  g.appendChild(inp(I(), "Phone (optional)", "tel", CHIEFS_VIDEOCALL.formClientPhone, function (v) { CHIEFS_VIDEOCALL.formClientPhone = v; }));
+  startCard.appendChild(g);
+  var startBtn = _chBtn(
+    CHIEFS_VIDEOCALL.creatingRoom ? "Starting..." : '<i data-lucide="video" style="width:13px;height:13px"></i>Start Call',
+    "linear-gradient(135deg,#D4AF37,#A07D1C)", "#070B14",
+    function () { if (!CHIEFS_VIDEOCALL.creatingRoom) chiefsStartVideoCall(CHIEFS_VIDEOCALL.formClientName, CHIEFS_VIDEOCALL.formClientPhone); },
+    { width: "100%", justifyContent: "center", padding: "10px", fontSize: "12px" }
+  );
+  startCard.appendChild(startBtn);
+  wrap.appendChild(startCard);
+
+  var credCard = el("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", background: "rgba(212,175,55,0.06)", border: "1px solid rgba(212,175,55,0.22)", borderRadius: "12px", padding: "12px 14px", marginBottom: "16px" } });
+  credCard.appendChild(div({ color: cl.white, fontSize: "12px", fontFamily: "'Inter',sans-serif" }, CHIEFS_VIDEOCALL.credits + " call minute" + (CHIEFS_VIDEOCALL.credits === 1 ? "" : "s") + " remaining"));
+  var buyBtn = el("button", { style: { background: "transparent", border: "1px solid #D4AF37", color: "#D4AF37", borderRadius: "8px", padding: "7px 12px", fontSize: "11px", fontWeight: "700", cursor: "pointer", fontFamily: "'Space Grotesk',monospace", flexShrink: "0" } });
+  buyBtn.textContent = "+ Buy Minutes";
+  buyBtn.onclick = function () { _startVideoCallCreditCheckout().catch(function (e) { alert(e.message); }); };
+  credCard.appendChild(buyBtn);
+  wrap.appendChild(credCard);
+
+  wrap.appendChild(div({ color: cl.sub, fontSize: "10px", letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'Space Grotesk',monospace", marginBottom: "8px" }, "Recent Calls"));
+  if (!CHIEFS_VIDEOCALL.recentCalls.length) {
+    wrap.appendChild(div({ color: cl.muted, fontSize: "11.5px", fontFamily: "'Inter',sans-serif", fontStyle: "italic" }, "No calls yet."));
+  } else {
+    CHIEFS_VIDEOCALL.recentCalls.forEach(function (c) {
+      var row = el("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid " + cl.border } });
+      var left = el("div", {});
+      left.appendChild(div({ color: cl.white, fontSize: "12px", fontWeight: "600", fontFamily: "'Inter',sans-serif" }, c.client_name || "Unknown client"));
+      var mins = Math.round((c.duration_seconds || 0) / 60 * 10) / 10;
+      left.appendChild(div({ color: cl.muted, fontSize: "10.5px", fontFamily: "'Inter',sans-serif" }, _timeAgo(c.ended_at) + " · " + mins + " min · " + (c.credits_charged || 0) + " credit" + ((c.credits_charged || 0) === 1 ? "" : "s")));
+      row.appendChild(left);
+      wrap.appendChild(row);
+    });
+  }
+
+  return wrap;
+}
+
 // ── BROADCAST — message a whole segment of clients at once ──────────────────
 // The 2nd idea: Auto-Matching already handles ONE listing <-> ONE client at
 // a time; there was no way to say "tell everyone looking for a villa in JVC
@@ -3254,6 +3511,7 @@ function renderChiefs() {
     {id:"commission",label:"Commission",icon:"trending-up"},
     {id:"broadcast",label:"Broadcast",icon:"megaphone"},
     {id:"voice",label:"Voice",icon:"phone-call"},
+    {id:"videocall",label:"Video Call",icon:"video"},
     {id:"inbox",label:"Inbox",icon:"inbox"}
   ];
   var tabBar = el("div",{style:{display:"flex",gap:"0",borderBottom:"1px solid "+cl.border,overflowX:"auto",flexShrink:"0",WebkitOverflowScrolling:"touch"}});
@@ -3296,6 +3554,7 @@ function renderChiefs() {
   else if (CHIEFS_STATE.view==="commission") content.appendChild(_renderChiefsCommission());
   else if (CHIEFS_STATE.view==="broadcast") content.appendChild(_renderChiefsBroadcast());
   else if (CHIEFS_STATE.view==="voice") content.appendChild(_renderChiefsVoiceView());
+  else if (CHIEFS_STATE.view==="videocall") content.appendChild(_renderChiefsVideoCallView());
   else if (CHIEFS_STATE.view==="inbox" && typeof renderInbox==="function") content.appendChild(renderInbox());
   wrap.appendChild(content);
   return wrap;
