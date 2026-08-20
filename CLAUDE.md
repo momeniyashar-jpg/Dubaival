@@ -386,6 +386,12 @@ The app was split from a single 1.1MB `index-6.html` into modular files:
   "Programmatic SEO" in the 2026-07-12 work log below): `/areas/<slug>.html`,
   `/buildings/<slug>.html`, `/areas.html` hub, `/sitemap.xml`, `/robots.txt`,
   `/seo.css`. Re-run after any meaningful `js/data-residential.js` change.
+- **`tools/generate-area-reports.js`** — Generates the 30 static Area
+  Executive Market Intelligence Report pages (see the 2026-08-20 work log
+  below): `/reports/<slug>.html` (one per `AREA_REPORT_FEATURED` area,
+  `js/workspace.js`) + `/reports/index.html` hub. Re-run after any
+  meaningful `js/data-residential.js` change or any edit to
+  `computeAreaExecutiveReportData()`/`_areaReportHtml()` (`js/workspace.js`).
 - **`android/`** — Capacitor Android project. DO NOT edit generated files.
   Key files: `app/build.gradle`, `app/src/main/AndroidManifest.xml`,
   `app/src/main/res/values/styles.xml`, `app/src/main/res/values/colors.xml`.
@@ -964,6 +970,145 @@ properly, not just documented:
   minutes-to-hours after the agent last actively touched the page).
 
 ## Recent work log (most recent first)
+
+- **2026-08-20 (new session — Area Executive Market Intelligence Report,
+  real end-user-downloadable feature for 30 major areas, per a shared
+  sample PDF and 3 clarifying questions the user answered)**: User uploaded
+  a real, branded, 30-page sample report ("Eivan Properties"/DubaiVal-
+  themed "Downtown Dubai Executive Market Intelligence Report 2026") and
+  asked for something similar covering the 30 most important areas (mixed
+  villa + apartment) that exist fully in DubaiVal's own database. Read the
+  full sample first and found several of its flagship sections — buyer-
+  nationality composition percentages, named record transactions with exact
+  AED figures, per-building Airbnb occupancy/ADR, subjective 1-10 building
+  scores, precise multi-year point forecasts — are NOT anything this app's
+  real database tracks; refused to fabricate 30 areas' worth of equivalent
+  numbers per this file's own Directive #2 (never fabricate data), and
+  raised 3 clarifying questions (unverifiable-section handling / delivery
+  method / area-selection method) via `AskUserQuestion`, re-asked in Farsi
+  per the user's explicit request. Answers: (1) "بعداً واقعی‌شون کن" — leave
+  those sections out of the report FOR NOW rather than guessing, disclosed
+  plainly as pending real data sources, not silently omitted; (2) "هر دو" —
+  both a real in-app, any-signed-in-user-downloadable feature AND the 30
+  actual documents generated right now; (3) "خودم بر اساس داده انتخاب کنم" —
+  Claude picks the 30 areas from real data.
+  - **Area selection, computed from real data, not guessed**: ranked all
+    347 `AREAS` by real `txVol`, filtered to areas with meaningful `DB`
+    building coverage (≥20 tracked buildings — excludes thin/placeholder
+    cadastral sub-parcels, several of which share one suspicious flat
+    `txVol:5000` default rather than a genuinely measured figure), then
+    hand-curated to exactly 30 (`AREA_REPORT_FEATURED`, `js/workspace.js`):
+    Downtown Dubai, Dubai Marina, Business Bay, Jumeirah Village Circle,
+    Jumeirah Lake Towers, Dubai Creek Harbour, Palm Jumeirah, DIFC, JBR,
+    International City, Discovery Gardens, Dubai Silicon Oasis, Arjan,
+    Jumeirah Village Triangle, Dubai Sports City, Emaar Beachfront, City
+    Walk, IMPZ, Dubai Hills Estate, MBR City, DAMAC Hills, DAMAC Hills 2, Al
+    Furjan, Town Square, Sobha Hartland, DAMAC Lagoons, Arabian Ranches,
+    Tilal Al Ghaf, Meydan, Dubai South — a real, deliberate mix of prime/
+    mid-market/budget tiers and apartment/villa/mixed-use areas, not just
+    the raw top-30-by-volume (which would have skewed almost entirely
+    toward a handful of high-rise districts).
+  - **`js/workspace.js` — new report-data + HTML-generator functions**,
+    reusing the exact same already-verified-XSS-safe `_wsReportStyleBlock()`/
+    `_wsReportHeaderHtml()` helpers every other report in this app already
+    uses (no new print-window mechanism invented): `computeAreaExecutiveReportData(area)`
+    (pure data function, no DOM — real PSF/yield/growth/DOM/txVol/service-
+    charge via `getLiveAreaData()` — the same static+live blend
+    `computeAdjustedPSF()`/Find's Advanced Market Screener already use, so
+    this report is live-current when daily benchmark data exists and
+    gracefully static otherwise; real per-building grade distribution + top
+    15 buildings by grade then PSF from `DB`; real price/rent-by-unit-type
+    ranges via the already-established `computeAreaPriceRange()`,
+    js/market.js — never a second, locally-duplicated formula; real
+    Location Intelligence via `computeGeoScore()`; real Sustainability score
+    via `computeSustainabilityScore()`) and `_areaReportHtml(area,data,agent,
+    opts)` (pure HTML-string builder — real sections only, closing with an
+    explicit, plainly-worded "Coming Soon to This Report" disclosure listing
+    exactly the categories this database doesn't yet track — buyer-
+    nationality composition, named recorded transactions, short-term-rental
+    occupancy/ADR, per-building numeric scoring — and stating they'll be
+    added once real, verifiable sources exist for each, directly
+    implementing the user's "بعداً واقعی‌شون کن" instruction). New
+    `generateAreaExecutiveReport()` is the in-app entry point (reads
+    `WS_STATE`, wraps the HTML in the same `window.open→document.write→
+    print()` mechanism `generateReport()`/`generateOffplanCatalog()` already
+    use).
+  - **UI — a real, 3rd `reportType` in the existing Custom Report Builder**
+    (My Workspace → Reports, `renderReportBuilder()`): the `{l:"Property
+    Report",...}/{l:"Off-Plan Catalog",...}` toggle row gained a 3rd option,
+    `{l:"Area Executive Report",v:"area"}`; a new picker branch shows the 30
+    `AREA_REPORT_FEATURED` areas as quick-pick chips plus a full searchable
+    dropdown of all 347 tracked areas (the generator itself works for ANY
+    area, not just the 30 — the featured set is a curated starting point,
+    not a technical limit), a live real-data preview card once an area is
+    picked, and a "Browse all 30 pre-built reports (instant download) →"
+    link to `/reports` (see below). Reachable by ANY signed-in site user —
+    not gated to agents — since Workspace/Reports already sits in the
+    ungated "More" nav section, directly satisfying the user's mid-turn
+    clarification ("baraaye site dubaival mazoorame ke karbarha betoonan az
+    dakhele site download konna" — site USERS, not just the agent, must be
+    able to download from inside the site).
+  - **`tools/generate-area-reports.js`** (new, mirrors the existing
+    `tools/generate-seo-pages.js` programmatic-SEO convention exactly): a
+    Node script that loads the real app (same `vm.createContext` technique)
+    and pre-renders all 30 featured areas' reports as real static files —
+    `reports/<slug>.html` (each wrapped with a small non-print on-page
+    toolbar carrying a real "Print / Save as PDF" button, since these are
+    meant to be opened directly by a browser, not only generated via the
+    in-app flow) plus `reports/index.html`, a real linkable hub listing all
+    30 with area/type/PSF/building-count summaries. Ships with plain
+    DubaiVal branding (no agent info) by default — an agent who wants their
+    own branding on a report for one of these 30 areas (or any of the other
+    317) still uses the in-app generator, which picks up their saved
+    Workspace agent profile automatically. `vercel.json`'s SPA-fallback
+    rewrite regex extended to exclude `reports` (alongside the existing
+    `areas`/`buildings`/`sitemap.xml`/`robots.txt`/`seo.css` exclusions) so
+    `/reports` and `/reports/<slug>` resolve as real static files, not the
+    SPA shell.
+  - Verified: `node -c` on both touched/new JS files; a Node vm-sandbox test
+    confirming all 30 `AREA_REPORT_FEATURED` names resolve to real `AREAS`
+    entries (zero typos), `computeAreaExecutiveReportData()` returns
+    correct, real, sensible figures for a real apartment area (Downtown
+    Dubai — 409 tracked buildings, real AED 650K–20M price-by-unit-type
+    range, real geo distances, real 65/100 sustainability score) and a real
+    villa area (Arabian Ranches — real 1.3M–11.4M villa price range, correct
+    `isVilla:true`), and correctly returns `null` (not fabricated defaults)
+    for an unknown area name; a dedicated XSS test confirming a malicious
+    agent-name/company payload fed into `_areaReportHtml()` is correctly
+    escaped (zero raw `<script>` tags survive) while every real section
+    (Market Snapshot/Price by Unit Type/Building Landscape/Location
+    Intelligence/Coming Soon/footer disclaimer) renders correctly; running
+    `node tools/generate-area-reports.js` — generated all 30 real HTML files
+    with zero failures plus a correct 30-card hub page; a real-browser
+    Playwright pass driving the actual in-app Report Builder UI end-to-end
+    (switch to Area Executive Report → click a featured chip → confirm the
+    live preview and correct "Generate Area Report" button label → click
+    Generate with a mocked `window.open` capturing the real generated HTML →
+    confirmed the captured HTML contains real Market Snapshot/Coming-Soon
+    content for the correct area and `window.print()` was actually called →
+    confirmed switching back to "Property Report" mode still works,
+    zero regression) — zero console errors; and a second Playwright pass
+    loading the real generated static files directly (`reports/downtown-
+    dubai.html` and `reports/index.html`) confirming the print toolbar,
+    real content sections, and all 30 hub cards (including a correct link
+    to `/reports/arabian-ranches`) render correctly with zero console
+    errors.
+  - Cache version bumped: `js/workspace.js` to `?v=20260820a` in both
+    `index.html` and `sw.js`'s `PRECACHE` array; `sw.js`'s `CACHE_NAME`
+    bumped `dubaival-v95`→`dubaival-v96`. Rebuilt `www/` and manually synced
+    `index.html`/`js/workspace.js`/`sw.js` into
+    `android/app/src/main/assets/public/` (`npx cap sync android` failed as
+    always in this sandbox — no Android SDK).
+  - **Not done this session, deliberately deferred per the user's own
+    "بعداً واقعی‌شون کن" answer**: buyer-nationality composition, named
+    recorded transactions, short-term-rental occupancy/ADR, and building-
+    level numeric scoring remain genuinely unbuilt — no real DubaiVal data
+    source exists for any of these yet. A future session should only add
+    them once a real, verifiable source is actually connected (e.g. a real
+    DLD/Bayut/PropertyFinder transactions feed for named deals, a real STR
+    analytics provider for Airbnb-style metrics) — never by estimating or
+    inferring these from adjacent data, per this file's own standing
+    accuracy directive.
 
 - **2026-08-05 (session continuing — Phase 4 of the GenieMap gap-closing
   plan: pay-per-use Video Call / Screen-Share, direct GenieMap counterpart,

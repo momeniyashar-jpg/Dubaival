@@ -329,7 +329,7 @@ function renderReportBuilder(wrap,cl){
   // (agent branding, language/color/title/logo) stay unconditional further
   // down since they're genuinely report-type-agnostic.
   var rtBar=div({display:"flex",gap:"6px",marginBottom:"14px"});
-  [{l:"Property Report",v:"valuation"},{l:"Off-Plan Catalog",v:"offplan"}].forEach(function(rt){
+  [{l:"Property Report",v:"valuation"},{l:"Off-Plan Catalog",v:"offplan"},{l:"Area Executive Report",v:"area"}].forEach(function(rt){
     var active=WS_STATE.reportType===rt.v;
     rtBar.appendChild(el("button",{style:{flex:"1",padding:"9px",borderRadius:"9px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",
       background:active?"linear-gradient(135deg,"+cl.gold+",#7A5E28)":"transparent",color:active?"#08090C":cl.sub,border:"1px solid "+(active?cl.gold:cl.border)},
@@ -549,7 +549,7 @@ function renderReportBuilder(wrap,cl){
   });
   card.appendChild(secCard);
 
-  }else{
+  }else if(WS_STATE.reportType==="offplan"){
     // Off-Plan Catalog picker — pick real, tracked off-plan projects (the
     // same data + forecast engine Phase 1's Off-Plan Projects tab/map
     // already uses) to build one branded, client-facing document combining
@@ -644,6 +644,60 @@ function renderReportBuilder(wrap,cl){
       opCard.appendChild(opList);
     }
     card.appendChild(opCard);
+  }else{
+    // Area Executive Report picker — pick ONE real, tracked area (any of
+    // the 347 in AREAS, with the 30 curated AREA_REPORT_FEATURED areas
+    // surfaced as quick-pick chips) to generate a real market-intelligence
+    // report from computeAreaExecutiveReportData()/_areaReportHtml() above.
+    var arCard=div({marginBottom:"14px"});
+    arCard.appendChild(span({color:cl.sub,fontSize:"9px",letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"8px"},"Select an Area"));
+    arCard.appendChild(div({color:cl.sub,fontSize:"11px",fontFamily:"'Inter',sans-serif",lineHeight:"1.6",marginBottom:"10px"},
+      "Generates a real, branded market-intelligence report for one area — market snapshot, price & rent by unit type, top buildings, and location intelligence, all from DubaiVal's own tracked data."));
+
+    var arClientInp=el("input",{type:"text",placeholder:"Client name (optional)",
+      style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"9px 12px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"}});
+    arClientInp.value=WS_STATE.reportClientName||"";
+    arClientInp.addEventListener("input",function(){WS_STATE.reportClientName=this.value;});
+    arCard.appendChild(arClientInp);
+
+    var chipsLabel=span({color:cl.sub,fontSize:"9px",letterSpacing:"0.08em",textTransform:"uppercase",fontFamily:"'Space Grotesk',monospace",display:"block",marginBottom:"6px"},"Featured Areas (by real market weight)");
+    arCard.appendChild(chipsLabel);
+    var chipsWrap=div({display:"flex",flexWrap:"wrap",gap:"6px",marginBottom:"12px"});
+    AREA_REPORT_FEATURED.forEach(function(a){
+      var active=WS_STATE.reportArea===a;
+      var chip=el("button",{style:{padding:"6px 10px",borderRadius:"999px",fontSize:"10px",fontFamily:"'Space Grotesk',monospace",cursor:"pointer",
+        border:"1px solid "+(active?cl.gold:cl.border),background:active?hexAlpha(cl.gold,0.14):"transparent",color:active?cl.gold:cl.subHi,fontWeight:active?"700":"400"},
+        onclick:function(){WS_STATE.reportArea=a;render();}},a);
+      chipsWrap.appendChild(chip);
+    });
+    arCard.appendChild(chipsWrap);
+
+    var arSel=el("select",{style:{width:"100%",background:cl.raised,border:"1px solid "+cl.border,color:cl.white,padding:"9px 12px",borderRadius:"8px",fontSize:"12px",fontFamily:"'Inter',sans-serif",outline:"none",boxSizing:"border-box",marginBottom:"10px"}});
+    arSel.appendChild(el("option",{value:""},"Or search all 347 tracked areas…"));
+    Object.keys(AREAS).sort().forEach(function(a){
+      var opt=el("option",{value:a},a);
+      if(a===WS_STATE.reportArea)opt.selected=true;
+      arSel.appendChild(opt);
+    });
+    arSel.addEventListener("change",function(){WS_STATE.reportArea=this.value;render();});
+    arCard.appendChild(arSel);
+
+    if(WS_STATE.reportArea){
+      var preview=computeAreaExecutiveReportData(WS_STATE.reportArea);
+      if(preview){
+        var pv=div({background:hexAlpha(cl.gold,0.06),border:"1px solid "+cl.goldDim,borderRadius:"8px",padding:"10px 12px",fontSize:"11px",fontFamily:"'Space Grotesk',monospace",color:cl.subHi});
+        pv.appendChild(div({color:cl.gold,fontWeight:"700",marginBottom:"4px"},preview.area+(preview.isVilla?" · Villa/Townhouse":" · Apartment/Tower")));
+        pv.appendChild(div({},"AED "+Math.round(preview.psf).toLocaleString()+"/sqft · Yield "+(preview.yield?preview.yield[0]+"–"+preview.yield[1]+"%":"—")+" · "+preview.totalBuildings+" buildings tracked"));
+        arCard.appendChild(pv);
+      }
+    }
+    // Pre-built static versions of the 30 featured reports (no sign-in, no
+    // generate step) — instant-download alternative to picking an area and
+    // clicking Generate above, useful for a visitor who just wants one of
+    // the 30 featured areas right now.
+    var arHubLink=el("a",{href:"/reports",target:"_blank",style:{display:"block",marginTop:"10px",color:cl.gold,fontSize:"10px",fontFamily:"'Space Grotesk',monospace",textDecoration:"none"}},"Browse all 30 pre-built reports (instant download) →");
+    arCard.appendChild(arHubLink);
+    card.appendChild(arCard);
   }
 
   // Settings
@@ -712,11 +766,14 @@ function renderReportBuilder(wrap,cl){
     btnRow.appendChild(saveTPL);
   }
   var genBtn=el("button",{style:{flex:"1",padding:"10px",background:"linear-gradient(135deg,"+cl.gold+",#7A5E28)",color:"#08090C",border:"none",borderRadius:"8px",fontSize:"11px",fontWeight:"700",fontFamily:"'Space Grotesk',monospace",cursor:"pointer"}});
-  genBtn.textContent=WS_STATE.reportType==="offplan"?"Generate Catalog":"Generate Report";
+  genBtn.textContent=WS_STATE.reportType==="offplan"?"Generate Catalog":WS_STATE.reportType==="area"?"Generate Area Report":"Generate Report";
   genBtn.addEventListener("click",function(){
     if(WS_STATE.reportType==="offplan"){
       if(!WS_STATE.offplanSelected.length){alert("Select at least one project");return;}
       generateOffplanCatalog();
+    }else if(WS_STATE.reportType==="area"){
+      if(!WS_STATE.reportArea){alert("Select an area first");return;}
+      generateAreaExecutiveReport();
     }else{
       if(!WS_STATE.reportSections.length){alert("Select at least one section");return;}
       generateReport();
@@ -737,6 +794,217 @@ function _wsSimilarAreas(area,n){
     .map(function(k){return{k:k,d:Math.abs((AREAS[k].psf||0)-(base.psf||0))};})
     .sort(function(a,b){return a.d-b.d;})
     .slice(0,n).map(function(x){return x.k;});
+}
+
+// --- AREA EXECUTIVE REPORT ---
+// Added per direct user request: a real, downloadable, in-app "Area
+// Executive Market Intelligence Report" — modeled after a real third-party
+// agent-branded sample the user shared, but built strictly from DubaiVal's
+// own verified database. Several of the sample's flagship sections — buyer-
+// nationality composition, named record transactions, per-building short-
+// term-rental occupancy/ADR, subjective 1-10 building scores, precise
+// multi-year point forecasts — are NOT tracked anywhere in this app's real
+// data and are deliberately OMITTED here, not approximated; the generated
+// report discloses this plainly (see the "Coming Soon" section in
+// _areaReportHtml() below) rather than silently leaving an unexplained gap,
+// matching this file's own established honesty conventions (e.g. the
+// Off-Plan Catalog's confidence-disclosure wording).
+//
+// Reachable by ANY signed-in site user (not just agents) via My Workspace →
+// Reports → "Area Executive Report" — a real, end-user-facing feature per
+// the user's explicit instruction that ordinary DubaiVal visitors must be
+// able to generate and download these from inside the site itself, not
+// just the agent who requested the original sample.
+
+// 30 areas selected by real market weight — a genuinely mixed villa +
+// apartment set spanning every major Dubai price tier, shown as "Featured"
+// quick-pick chips in the picker UI below. The underlying report generator
+// itself works for ANY of the 347 tracked areas, not just these 30 — this
+// list is a curated starting point, not a technical limit.
+//
+// Selection method (computed directly against the live database, not
+// guessed): ranked all 347 AREAS by real txVol, filtered to areas with
+// meaningful DB building coverage (>=20 tracked buildings — excludes thin/
+// placeholder cadastral sub-parcels with no real per-building data behind
+// them, several of which also share one suspicious flat txVol=5000 default
+// value rather than a genuinely measured figure), then hand-curated down to
+// exactly 30 — keeping every major, publicly recognizable community,
+// balancing prime/mid-market/budget price tiers, and ensuring a real mix of
+// apartment-dominant, villa-dominant, and mixed-use areas rather than just
+// the raw top-30-by-volume (which would have skewed almost entirely toward
+// a handful of high-rise districts).
+var AREA_REPORT_FEATURED=[
+  "Downtown Dubai","Dubai Marina","Business Bay","Jumeirah Village Circle",
+  "Jumeirah Lake Towers","Dubai Creek Harbour","Palm Jumeirah","DIFC",
+  "Jumeirah Beach Residence (Jbr)","International City","Discovery Gardens",
+  "Dubai Silicon Oasis","Arjan","Jumeirah Village Triangle","Dubai Sports City",
+  "Emaar Beachfront","City Walk","IMPZ","Dubai Hills Estate","MBR City",
+  "DAMAC Hills","DAMAC Hills 2","Al Furjan","Town Square","Sobha Hartland",
+  "DAMAC Lagoons","Arabian Ranches","Tilal Al Ghaf","Meydan","Dubai South"
+];
+
+function _wsTitleCase(s){
+  return String(s||"").replace(/\w\S*/g,function(t){return t.charAt(0).toUpperCase()+t.slice(1);});
+}
+
+// Pure data function — no DOM, no WS_STATE — safe to call from an in-app
+// render OR the standalone Node build script
+// (tools/generate-area-reports.js) alike. Returns null for an unknown area
+// rather than fabricating defaults, since this report claims to represent a
+// real, specific tracked area.
+function computeAreaExecutiveReportData(area){
+  var aData=AREAS[area];
+  if(!aData)return null;
+  var isVilla=typeof VILLA_AREAS!=="undefined"&&VILLA_AREAS.has(area);
+  // getLiveAreaData() blends today's live daily-refreshed benchmark on top
+  // of the static database when one exists (js/valuation.js — the same
+  // function computeAdjustedPSF()/Find's Advanced Market Screener already
+  // use), and gracefully falls back to the plain static figures when it
+  // doesn't — so this report is always real data either way, just more
+  // current when live data happens to be available.
+  var live=(typeof getLiveAreaData==="function")?getLiveAreaData(area):aData;
+
+  // Real per-building roll-up (grade distribution + top buildings by grade
+  // then PSF) — reads the same DB object every other feature in this app
+  // (Analyzer, Find, Map) is calibrated against.
+  var buildings=[];
+  Object.keys(DB).forEach(function(k){
+    var b=DB[k];
+    if(b.a!==area)return;
+    buildings.push({key:k,name:_wsTitleCase(k),grade:b.g,psf:b.p,sc:b.sc});
+  });
+  var gradeRank={Ultra:7,"A+":6,A:5,"A-":4,"B+":3,B:2,C:1};
+  buildings.sort(function(x,y){
+    var gr=(gradeRank[y.grade]||0)-(gradeRank[x.grade]||0);
+    return gr!==0?gr:(y.psf||0)-(x.psf||0);
+  });
+  var gradeCounts={};
+  buildings.forEach(function(b){gradeCounts[b.grade]=(gradeCounts[b.grade]||0)+1;});
+
+  // Price/rent by unit type — real, area-wide 10th-90th percentile ranges
+  // from the already-established computeAreaPriceRange() (js/market.js —
+  // the exact same engine the Analyzer/Quick Check already use), never a
+  // second, locally-duplicated formula.
+  var bedList=isVilla?["2 BR","3 BR","4 BR","5+ BR"]:["Studio","1 BR","2 BR","3 BR","4 BR"];
+  var priceByBeds=[],rentByBeds=[];
+  if(typeof computeAreaPriceRange==="function"){
+    bedList.forEach(function(bd){
+      var pr=computeAreaPriceRange(area,bd,"sale");
+      if(pr&&pr.lo)priceByBeds.push({beds:bd,lo:pr.lo,hi:pr.hi});
+      var rr=computeAreaPriceRange(area,bd,"rent");
+      if(rr&&rr.lo)rentByBeds.push({beds:bd,lo:rr.lo,hi:rr.hi});
+    });
+  }
+
+  var geo=(typeof computeGeoScore==="function")?computeGeoScore(area):null;
+  var sus=(typeof computeSustainabilityScore==="function")?computeSustainabilityScore(null,area,null,aData,null):null;
+
+  return{
+    area:area,isVilla:isVilla,
+    psf:live.psf,sc:aData.sc,
+    yield:aData.y,growth:live.g||aData.g,dom:live.dom,txVol:live.txVol,
+    liveBlended:live.psf!==aData.psf||live.dom!==aData.dom,
+    buildings:buildings,topBuildings:buildings.slice(0,15),
+    gradeCounts:gradeCounts,totalBuildings:buildings.length,
+    priceByBeds:priceByBeds,rentByBeds:rentByBeds,
+    geo:geo,sustainability:sus
+  };
+}
+
+// Pure HTML-string builder — no DOM, no window.open — so it's reusable by
+// both the in-app generator below (which wraps it in the standard print-
+// window mechanism) and the standalone static-file generator
+// (tools/generate-area-reports.js). Reuses the same verified-XSS-safe
+// _wsReportStyleBlock()/_wsReportHeaderHtml() helpers every other report in
+// this app already uses — every user-controlled string still goes through
+// _wsEsc() before interpolation.
+function _areaReportHtml(area,data,agent,opts){
+  opts=opts||{};
+  var isAr=opts.lang==="ar";
+  var accent=WS_REPORT_COLORS[opts.color]||WS_REPORT_COLORS.gold;
+  var title=opts.title||(area+" — Area Executive Market Intelligence Report");
+  var h=_wsReportStyleBlock(title,isAr,accent);
+  var extraLines=[];
+  extraLines.push('<p style="font-size:12px;color:#555;margin:2px 0">Area: <strong>'+_wsEsc(area)+"</strong> · "+(data.isVilla?"Villa/Townhouse Community":"Apartment/Tower Community")+"</p>");
+  h+=_wsReportHeaderHtml(title,isAr,agent,extraLines);
+
+  h+="<h2>Market Snapshot</h2>";
+  h+='<div class="card"><table>';
+  h+="<tr><td>Average PSF</td><td>AED "+Math.round(data.psf||0).toLocaleString()+"/sqft</td></tr>";
+  h+="<tr><td>Gross Rental Yield</td><td>"+(data.yield?data.yield[0]+"% – "+data.yield[1]+"%":"—")+"</td></tr>";
+  if(data.growth)h+="<tr><td>Price Growth (0-1yr / 1-3yr / 2-5yr)</td><td>"+data.growth[0]+"% / "+data.growth[1]+"% / "+data.growth[2]+"%</td></tr>";
+  h+="<tr><td>Avg. Days on Market</td><td>"+(data.dom||"—")+" days</td></tr>";
+  h+="<tr><td>Annual Transaction Volume (est.)</td><td>"+(data.txVol||"—")+"</td></tr>";
+  h+="<tr><td>Avg. Service Charge</td><td>AED "+(data.sc||"—")+"/sqft/yr</td></tr>";
+  h+="<tr><td>Buildings Tracked in This Area</td><td>"+data.totalBuildings+"</td></tr>";
+  h+="</table></div>";
+  if(data.liveBlended)h+='<p style="color:#22C55E;font-size:10px;font-style:italic">Blended with today\'s live market data where available.</p>';
+
+  if(data.priceByBeds.length){
+    h+="<h2>Price by Unit Type (Sale)</h2><table><tr><th>Unit Type</th><th>Estimated Price Range</th></tr>";
+    data.priceByBeds.forEach(function(p){
+      h+="<tr><td>"+_wsEsc(p.beds)+"</td><td>AED "+p.lo.toLocaleString()+" – "+p.hi.toLocaleString()+"</td></tr>";
+    });
+    h+="</table>";
+  }
+  if(data.rentByBeds.length){
+    h+="<h2>Rental Market</h2><table><tr><th>Unit Type</th><th>Estimated Annual Rent</th></tr>";
+    data.rentByBeds.forEach(function(r){
+      h+="<tr><td>"+_wsEsc(r.beds)+"</td><td>AED "+r.lo.toLocaleString()+" – "+r.hi.toLocaleString()+"</td></tr>";
+    });
+    h+="</table>";
+  }
+
+  if(data.totalBuildings){
+    h+="<h2>Building Landscape</h2>";
+    var gradeOrder=["Ultra","A+","A","A-","B+","B","C"];
+    h+='<p style="font-size:12px;color:#555">'+gradeOrder.filter(function(g){return data.gradeCounts[g];}).map(function(g){return _wsEsc(g)+": "+data.gradeCounts[g];}).join(" · ")+"</p>";
+    h+="<table><tr><th>Building</th><th>Grade</th><th>PSF</th><th>Service Charge</th></tr>";
+    data.topBuildings.forEach(function(b){
+      h+="<tr><td>"+_wsEsc(b.name)+"</td><td>"+_wsEsc(b.grade)+"</td><td>AED "+Math.round(b.psf||0).toLocaleString()+"</td><td>AED "+(b.sc||"—")+"/sqft/yr</td></tr>";
+    });
+    h+="</table>";
+    if(data.totalBuildings>data.topBuildings.length)h+='<p style="color:#999;font-size:10px">Showing top '+data.topBuildings.length+" of "+data.totalBuildings+" tracked buildings, ranked by grade then price.</p>";
+  }
+
+  if(data.geo){
+    h+="<h2>Location Intelligence</h2><table>";
+    h+="<tr><td>Nearest Metro/Tram</td><td>"+_wsEsc(data.geo.transitName||"—")+" ("+data.geo.transitDist+" km)</td></tr>";
+    h+="<tr><td>Nearest Mall</td><td>"+_wsEsc(data.geo.mallName||"—")+" ("+data.geo.mallDist+" km)</td></tr>";
+    h+="<tr><td>Nearest Beach</td><td>"+_wsEsc(data.geo.beachName||"—")+" ("+data.geo.beachDist+" km)</td></tr>";
+    h+="<tr><td>Nearest Business Hub</td><td>"+_wsEsc(data.geo.bizName||"—")+" ("+data.geo.bizDist+" km)</td></tr>";
+    h+="<tr><td>Nearest Airport</td><td>"+_wsEsc(data.geo.airportName||"—")+" ("+data.geo.airportDist+" km)</td></tr>";
+    h+="<tr><td>Location Score</td><td>"+data.geo.locationScore+"/10</td></tr>";
+    h+="</table>";
+  }
+
+  if(data.sustainability){
+    h+="<h2>Sustainability &amp; Efficiency</h2>";
+    h+='<div class="card">Score: <strong class="accent">'+data.sustainability.score+"/100 ("+_wsEsc(data.sustainability.tier)+")</strong></div>";
+  }
+
+  h+="<h2>Coming Soon to This Report</h2>";
+  h+='<p style="font-size:11px;color:#666;line-height:1.7">The following analytics require additional, independently verified data sources DubaiVal is actively working to integrate, and are deliberately not shown here yet rather than estimated: buyer-nationality composition, notable individually recorded transactions, short-term rental (Airbnb-style) occupancy &amp; daily-rate performance, and building-by-building numeric scoring. They will be added to this report once real, verifiable data exists for each.</p>';
+
+  h+='<p style="color:#999;font-size:10px;margin-top:20px;border-top:1px solid #eee;padding-top:10px">All figures are estimates derived from DubaiVal\'s own tracked building &amp; area benchmark database'+(data.liveBlended?" and current live market data":"")+'. Verify current listings and pricing with a licensed agent before making a decision. Powered by DubaiVal.com.</p>';
+
+  h+="</body></html>";
+  return h;
+}
+
+// In-app entry point — reads WS_STATE (agent branding + the area picked in
+// the UI), wraps _areaReportHtml() in the same window.open→document.write→
+// print() mechanism every other report in this app already uses.
+function generateAreaExecutiveReport(){
+  var area=WS_STATE.reportArea;
+  var data=computeAreaExecutiveReportData(area);
+  if(!data){alert("Select a real, tracked area first.");return;}
+  var h=_areaReportHtml(area,data,WS_STATE.agent,{lang:WS_STATE.reportLang,color:WS_STATE.reportColor,title:WS_STATE.reportTitle});
+  var w=window.open("","_blank");
+  if(!w){alert("Please allow pop-ups for this site to generate the report.");return;}
+  w.document.write(h);
+  w.document.close();
+  w.print();
 }
 
 function generateReport(){
