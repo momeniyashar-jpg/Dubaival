@@ -228,6 +228,11 @@ def render_artwork_page(c, art, image_dir):
         c.setDash()
         y = y - box_h - 8 * mm
 
+    # Figures / iconography caption
+    y = draw_rtl_paragraph(c, art["figures_fa"], cx, y, SERIF, 8.6, 12.6,
+                            CONTENT_W * 0.86, CHARCOAL_SOFT, align="center")
+    y -= 6 * mm
+
     # Title / metadata
     centered_text(c, art["title"], cx, y, SERIF_B, 17, CHARCOAL)
     y -= 6.2 * mm
