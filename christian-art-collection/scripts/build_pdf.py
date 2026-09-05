@@ -35,6 +35,8 @@ SERIF_B = fs.SERIF_BOLD
 SERIF_I = fs.SERIF_ITALIC
 SERIF_BI = fs.SERIF_BOLD_ITALIC
 
+GALLERY_URL = "https://claude.ai/code/artifact/67cb34f8-a6d2-4505-8b0d-e4c896f51be3"
+
 
 def new_canvas(path):
     c = canvas.Canvas(path, pagesize=A4)
@@ -106,7 +108,7 @@ def fit_image(path, max_w, max_h):
     return w * scale, h * scale
 
 
-def draw_image_framed(c, path, cx, top_y, max_w, max_h):
+def draw_image_framed(c, path, cx, top_y, max_w, max_h, link_url=None):
     dw, dh = fit_image(path, max_w, max_h)
     x = cx - dw / 2
     y = top_y - dh
@@ -114,7 +116,20 @@ def draw_image_framed(c, path, cx, top_y, max_w, max_h):
     c.setStrokeColor(HAIRLINE)
     c.setLineWidth(0.75)
     c.rect(x, y, dw, dh, stroke=1, fill=0)
+    if link_url:
+        c.linkURL(link_url, (x, y, x + dw, y + dh), relative=0, thickness=0)
     return y  # bottom of image
+
+
+def draw_link_line(c, text, cx, y, font, size, url, color):
+    c.setFont(font, size)
+    c.setFillColor(color)
+    c.drawCentredString(cx, y, text)
+    w = c.stringWidth(text, font, size)
+    c.setStrokeColor(color)
+    c.setLineWidth(0.5)
+    c.line(cx - w / 2, y - 1.6, cx + w / 2, y - 1.6)
+    c.linkURL(url, (cx - w / 2 - 2, y - 4, cx + w / 2 + 2, y + size * 0.9), relative=0, thickness=0)
 
 
 # ---------------------------------------------------------------- COVER ----
@@ -210,11 +225,12 @@ def render_artwork_page(c, art, image_dir):
 
     # Image
     image_path = os.path.join(image_dir, f"{art['no']}.jpg")
-    max_img_h = 102 * mm
+    max_img_h = 98 * mm
     max_img_w = CONTENT_W * 0.80
+    art_url = f"{GALLERY_URL}#art-{art['no']}"
     if os.path.exists(image_path):
-        img_bottom = draw_image_framed(c, image_path, cx, y, max_img_w, max_img_h)
-        y = img_bottom - 8 * mm
+        img_bottom = draw_image_framed(c, image_path, cx, y, max_img_w, max_img_h, link_url=art_url)
+        y = img_bottom - 5.5 * mm
     else:
         # visible placeholder box so a missing image is never silently invisible
         box_h = max_img_h
@@ -226,7 +242,11 @@ def render_artwork_page(c, art, image_dir):
         c.setFillColor(colors.red)
         c.drawCentredString(cx, y - box_h / 2, "MISSING IMAGE: " + art["title"])
         c.setDash()
-        y = y - box_h - 8 * mm
+        y = y - box_h - 5.5 * mm
+
+    link_label = fs.shape_rtl("مشاهده و بزرگ‌نمایی تصویر با کیفیت کامل") + "  ↗"
+    draw_link_line(c, link_label, cx, y, SERIF, 8.6, art_url, GOLD)
+    y -= 7 * mm
 
     # Figures / iconography caption
     y = draw_rtl_paragraph(c, art["figures_fa"], cx, y, SERIF, 8.6, 12.6,
